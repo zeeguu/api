@@ -67,3 +67,9 @@ from api import api
 app.register_blueprint(instance)
 app.register_blueprint(api)
 
+# TODO: Look at this, but this should not be needed!
+from zeeguu.model import RankedWord
+with zeeguu.app.app_context():
+    RankedWord.cache_ranked_words()
+
+

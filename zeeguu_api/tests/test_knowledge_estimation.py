@@ -1,9 +1,8 @@
 # -*- coding: utf8 -*-
 import json
 from unittest import TestCase
-
-import zeeguu
 from api_test_mixin import APITestMixin
+import zeeguu
 
 example1_word = 'Freund'
 example1_post_url = '/bookmark_with_context/de/{0}/en/friend'.format(example1_word)

@@ -7,6 +7,11 @@ from api_test_mixin import APITestMixin
 
 class UserDataTests(APITestMixin, TestCase):
 
+    def test_get_language(self):
+        rv = self.api_get('/learned_language')
+        print rv.data
+        assert rv.data == "de"
+
     def test_set_language(self):
         rv = self.api_post('/learned_language/en')
         rv = self.api_post('/native_language/de')
@@ -29,6 +34,7 @@ class UserDataTests(APITestMixin, TestCase):
 
     def test_get_language(self):
         rv = self.api_get('/learned_language')
+        print rv
         assert rv.data == "de"
 
     def test_get_user_details(self):

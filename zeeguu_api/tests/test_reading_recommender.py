@@ -1,6 +1,5 @@
 import json
 from unittest import TestCase
-
 from api_test_mixin import APITestMixin
 
 
@@ -20,10 +19,6 @@ class ReadingRecommenderTests(APITestMixin, TestCase):
             "difficulty_computer": "default"
             }
         """
-
-        # TODO: Look at this, but this should not be needed!
-        # with zeeguu.app.app_context():
-        #     RankedWord.cache_ranked_words()
 
         rv = self.api_post('/get_difficulty_for_text/de', data, 'application/json')
         print rv.data

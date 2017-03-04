@@ -5,6 +5,8 @@ import flask
 from flask import request
 
 import zeeguu
+from zeeguu_api.api.utils import translation_service
+
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -33,7 +35,8 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
 
     # Call the translate API
-    translation_str, alternative_translations = zeeguu.api.translation_service.translate_from_to(word_str, from_lang_code, to_lang_code)
+
+    translation_str, alternative_translations = translation_service.translate_from_to(word_str, from_lang_code, to_lang_code)
     translation_str = unquote_plus(translation_str)
 
     id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
@@ -212,7 +215,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     url = request.form.get('url', '')
     word = request.form['word']
 
-    main_translation, alternatives = zeeguu.api.translation_service.translate_from_to(word, from_lang_code, to_lang_code)
+    main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
 
     lan = Language.find(from_lang_code)
     likelihood = 1.0
@@ -252,6 +255,6 @@ def translate(from_lang_code, to_lang_code):
     # context = request.form.get('context', '')
     # url = request.form.get('url', '')
     word = request.form['word']
-    main_translation, alternatives = zeeguu.api.translation_service.translate_from_to(word, from_lang_code, to_lang_code)
+    main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
 
     return main_translation
