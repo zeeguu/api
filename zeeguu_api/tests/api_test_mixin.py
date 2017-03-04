@@ -1,9 +1,14 @@
 from unittest import TestCase
+import os
+os.environ["CONFIG_FILE"] = "testing.cfg"
 
 import json
 from zeeguu_api.app import app
 from zeeguu.populate import TEST_EMAIL
 from zeeguu.populate import TEST_PASS
+from zeeguu.populate import create_minimal_test_db
+
+import zeeguu
 
 
 class APITestMixin(TestCase):
@@ -11,6 +16,8 @@ class APITestMixin(TestCase):
     def setUp(self):
         self.app = app.test_client()
         self.session = self.get_session()
+        create_minimal_test_db(zeeguu.db)
+
 
     def tearDown(self):
         self.app = None

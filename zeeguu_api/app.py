@@ -29,10 +29,15 @@ def instance_path(app):
 # *** Starting the App *** #
 app = CrossDomainApp(__name__, instance_relative_config=True)
 
+# Loading the configuration
 app.config.from_object("zeeguu_api.default_config")
-app.config.from_pyfile("config.cfg", silent=False) #config.cfg is in the instance folder
-
+config_file = "config.cfg"
+if os.environ.has_key("CONFIG_FILE"):
+    config_file = os.environ["CONFIG_FILE"]
+print ('running with config file: ' + config_file)
+app.config.from_pyfile(config_file, silent=False) #config.cfg is in the instance folder
 instance = flask.Blueprint("instance", __name__, static_folder=instance_path(app))
+print ('DB is: ' + app.config["SQLALCHEMY_DATABASE_URI"])
 
 # the zeeguu core model expects a bunch of configuration stuff to be available in the zeeguu.app.config
 # we bind our current app.config to the zeeguu.app.config so that code does not break.
