@@ -173,7 +173,7 @@ def get_feed_items_for(feed_id):
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_feed_items_for(feed_id):
+def get_feed_items_with_metrics(feed_id):
     """
     Get a list of feed items for a given feed ID
 
