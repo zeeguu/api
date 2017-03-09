@@ -13,6 +13,7 @@ from utils.json_result import json_result
 from . import api
 
 
+# TODO: One day i'll deprecate this...
 @api.route("/get_content_from_url", methods=("POST",))
 @cross_domain
 @with_session
