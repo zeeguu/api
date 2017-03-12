@@ -82,14 +82,10 @@ def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title
     zeeguu.db.session.add(url)
     zeeguu.db.session.commit()
 
-    a= datetime.now()
-    bookmark.calculate_probabilities_after_adding_a_bookmark(flask.g.user, bookmark.origin.language)
-    b = datetime.now()
-    delta = b - a
-    print ("calculating proabilities for user {1} and bookmark {2} took {0}ms".
-           format(int(delta.total_seconds() * 1000),
-                  flask.g.user.id,
-                  bookmark.id))
+    # TODO:
+    # This has to stay commented until we find a way of making it faster
+    # It can take half a second to a second...
+    # bookmark.calculate_probabilities_after_adding_a_bookmark(flask.g.user, bookmark.origin.language)
 
     return str(bookmark.id)
 
