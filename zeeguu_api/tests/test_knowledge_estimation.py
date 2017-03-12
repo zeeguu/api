@@ -50,7 +50,7 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
         self.api_post( '/report_exercise_outcome/Too easy/Recognize/10000/{0}'.format(bookmark_id))
 
         known_words_after = self.json_from_api_get('/get_known_words/de')
-        print known_words_after
+        # print known_words_after
         assert example1_word in known_words_after
 
     #

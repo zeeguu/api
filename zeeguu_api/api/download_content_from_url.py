@@ -1,15 +1,11 @@
-import Queue
-import threading
-import time
-
 import flask
 from flask import request
-from zeeguu.language.text_difficulty import text_difficulty
-from zeeguu.model import KnownWordProbability, Language
-from zeeguu.the_librarian.page_content_extractor import PageExtractor
+from zeeguu.content_retriever.parallel_retriever import get_content_for_urls
+from zeeguu.model import Language
 
 from utils.route_wrappers import cross_domain, with_session
 from utils.json_result import json_result
+
 from . import api
 
 
@@ -35,12 +31,11 @@ def get_content_from_url():
 
     """
     data = request.get_json()
-    queue = Queue.Queue()
 
     urls = []
     if 'urls' in data:
         for url in data['urls']:
-            urls.append(url)
+            urls.append(url['url'])
     else:
         return 'FAIL'
 
@@ -49,40 +44,19 @@ def get_content_from_url():
     else:
         timeout = 10
 
-    # Start worker threads to get url contents
-    threads = []
-    for url in urls:
-        thread = threading.Thread(target=PageExtractor.worker, args=(url['url'], url['id'], queue))
-        thread.daemon = True
-        threads.append(thread)
-        thread.start()
-
-    # Wait for workers to finish until timeout
-    stop = time.time() + timeout
-    while any(t.isAlive() for t in threads) and time.time() < stop:
-        time.sleep(0.1)
-
-    contents = []
-    for i in xrange(len(urls)):
-        try:
-            contents.append(queue.get_nowait())
-        except Queue.Empty:
-            pass
-
-    # If the user sends along the language, then we can compute the difficulty
     if 'lang_code' in data:
         lang_code = data['lang_code']
         language = Language.find(lang_code)
-        if language is not None:
-            print "got language"
-            user = flask.g.user
-            known_probabilities = KnownWordProbability.find_all_by_user_cached(user)
-            for each_content_dict in contents:
-                    difficulty = text_difficulty(
-                            each_content_dict["content"],
-                            language,
-                            known_probabilities
-                            )
-                    each_content_dict["difficulty"] = difficulty
+
+    user = flask.g.user
+
+    # Start worker threads to get url contents
+    contents = get_content_for_urls(urls, timeout)
+
+    # If the user sends along the language, then compute the difficulty
+    if language is not None:
+        for each_content_dict in contents:
+                difficulty = user.text_difficulty(each_content_dict["content"], language)
+                each_content_dict["difficulty"] = difficulty
 
     return json_result(dict(contents=contents))

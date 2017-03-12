@@ -6,7 +6,7 @@ import feedparser
 
 def list_of_feeds_at_url(domain):
     """
-    a list of feed sthat can be found at the given url,
+    a list of feeds that can be found at the given url,
     or an empty list if something goes wrong
     :param domain:
     :return:
@@ -35,7 +35,7 @@ def list_of_feeds_at_url(domain):
         return feed_data
 
     except Exception as e:
-        print e
+        # print e
         return []
 
 

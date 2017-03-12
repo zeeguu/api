@@ -24,7 +24,7 @@ class UserStatsTests(APITestMixin, TestCase):
         rv_extended = self.api_get('/get_upper_bound_percentage_of_extended_vocabulary')
         basic_upper_bound = float (rv_basic.data)
         extended_upper_bound = float (rv_extended.data)
-        assert 1 > basic_upper_bound > extended_upper_bound
+        assert basic_upper_bound > extended_upper_bound > 0
 
     #
     def test_get_percentage_of_probably_known_bookmarked_words(self):

@@ -14,7 +14,7 @@ class WordsTests(APITestMixin, TestCase):
 
         rv = self.api_get('/get_not_looked_up_words/de')
         estimated_user_voc_before = json.loads(rv.data)
-        print estimated_user_voc_before
+        # print estimated_user_voc_before
 
         assert not any(word == 'es' for word in estimated_user_voc_before)
         assert not any(word == 'an' for word in estimated_user_voc_before)
@@ -48,7 +48,7 @@ class WordsTests(APITestMixin, TestCase):
 
         rv = self.api_get('/get_not_looked_up_words/de')
         estimated_user_voc_after = json.loads(rv.data)
-        print estimated_user_voc_after
+        # print estimated_user_voc_after
 
         assert len(estimated_user_voc_after) == len(estimated_user_voc_before) + 2
         assert any(word == 'es' for word in estimated_user_voc_after)

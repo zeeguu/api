@@ -26,7 +26,7 @@ class TranslationTests(APITestMixin, TestCase):
             assert url['content'] is not None
             assert url['image'] is not None
             assert url['difficulty'] is not None
-            print url['difficulty']
+            assert url['difficulty']
             if manual_check:
-                print (url['content'])
-                print (url['image'])
+                assert (url['content'])
+                assert (url['image'])

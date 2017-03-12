@@ -14,23 +14,23 @@ class ReadingRecommenderTests(APITestMixin, TestCase):
             {
             "texts":
                 [
-                    {"content": "Der die das warum, wer nicht fragt bleibt bew\u00f6lkt!", "id": 1},
+                    {"content": "Fischers Fritze fischt frische Fische; Frische Fische fischt Fischers Fritze", "id": 1},
                     {"content": "Das ist ein Test.", "id": 2}],
             "difficulty_computer": "default"
             }
         """
 
         rv = self.api_post('/get_difficulty_for_text/de', data, 'application/json')
-        print rv.data
+        # print rv.data
 
         difficulties = json.loads(rv.data)['difficulties']
         first_text_difficulty = difficulties[0]
         second_text_difficulty = difficulties[1]
 
-        assert round(first_text_difficulty ['score_average'], 2) == 0.67
-        assert first_text_difficulty['estimated_difficulty'] == 'HARD'
+        assert round(first_text_difficulty ['score_average'], 2) > 0.1
+        assert first_text_difficulty['estimated_difficulty'] == "HARD"
 
-        assert second_text_difficulty['estimated_difficulty'] == 'EASY'
+        assert second_text_difficulty['estimated_difficulty']=="EASY"
 
 
 
@@ -51,7 +51,7 @@ class ReadingRecommenderTests(APITestMixin, TestCase):
         for learnability in learnabilities:
             assert 0.0 <= learnability['score'] <= 1.0
             if learnability['id'] is 3:
-                print learnability['score']
+                assert learnability['score']
                 assert 0.16 < learnability['score'] < 0.17
             elif learnability['id'] is 4:
                 assert learnability['score'] == 0.0

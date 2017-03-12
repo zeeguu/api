@@ -32,7 +32,6 @@ def upload_user_activity_data():
     :param self:
     :return: OK if all went well
     """
-    print request.form
 
     time = request.form['time']
     event = request.form['event']

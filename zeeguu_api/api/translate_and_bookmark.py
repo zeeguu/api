@@ -251,7 +251,7 @@ def translate(from_lang_code, to_lang_code):
     :return:
     """
 
-    print str(request.get_data())
+    # print str(request.get_data())
     # context = request.form.get('context', '')
     # url = request.form.get('url', '')
     word = request.form['word']

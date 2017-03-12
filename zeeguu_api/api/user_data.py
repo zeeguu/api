@@ -66,7 +66,5 @@ def bookmarks_to_study(bookmark_count):
     are recommended for this user to study
 
     """
-    print "starting to compute request"
-    b2s = json_result(flask.g.user.bookmarks_to_study(int(bookmark_count)))
-    print "about to sent the result..."
-    return b2s
+    return json_result(flask.g.user.bookmarks_to_study(int(bookmark_count)))
+

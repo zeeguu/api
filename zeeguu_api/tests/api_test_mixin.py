@@ -19,7 +19,7 @@ class APITestMixin(TestCase):
 
         with app.test_request_context():
             if hasattr(self, "maximal_populate"):
-                print ("maximal populate")
+                # print ("maximal populate")
                 create_test_db(zeeguu.db)
             else:
                 create_minimal_test_db(zeeguu.db)

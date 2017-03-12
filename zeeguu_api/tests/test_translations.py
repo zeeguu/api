@@ -69,10 +69,10 @@ class TranslationTests(APITestMixin, TestCase):
         bookmark1 = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
         bookmark2 = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
         bookmark3  = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
-        print bookmark3
+        # print bookmark3
 
         assert (bookmark1["bookmark_id"] == bookmark2["bookmark_id"] == bookmark3["bookmark_id"])
 
         form_data["word"] = "kleine"
         bookmark4  = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
-        print bookmark4
+        # print bookmark4
