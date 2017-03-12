@@ -64,15 +64,8 @@ def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title
     to_lang = Language.find(to_lang_code)
 
     user_word = UserWord.find(word_str, from_lang)
-
     url = Url.find(url_str, title_str)
-    zeeguu.db.session.add(url)
-    zeeguu.db.session.commit()
-
     context = Text.find_or_create(context_str, from_lang, url)
-    zeeguu.db.session.add(context)
-    zeeguu.db.session.commit()
-
     translation = UserWord.find(translation_str, to_lang)
 
     try:
@@ -82,9 +75,14 @@ def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title
 
     except Exception:
         bookmark = Bookmark(user_word, translation, flask.g.user, context, datetime.now())
-        zeeguu.db.session.add(bookmark)
-        bookmark.calculate_probabilities_after_adding_a_bookmark(flask.g.user, bookmark.origin.language)
-        zeeguu.db.session.commit()
+
+    zeeguu.db.session.add(bookmark)
+    zeeguu.db.session.add(context)
+    zeeguu.db.session.add(user_word)
+    zeeguu.db.session.add(url)
+    zeeguu.db.session.commit()
+
+    bookmark.calculate_probabilities_after_adding_a_bookmark(flask.g.user, bookmark.origin.language)
 
     return str(bookmark.id)
 
@@ -194,6 +192,7 @@ def get_translations_for_bookmark(bookmark_id):
     return json_result(result)
 
 
+
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @with_session
@@ -214,10 +213,13 @@ def get_possible_translations(from_lang_code, to_lang_code):
     context = request.form.get('context', '')
     url = request.form.get('url', '')
     word = request.form['word']
+    title_str = request.form.get('title', '')
 
     main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
 
-    lan = Language.find(from_lang_code)
+    bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main_translation)
+
+    lan = Language.find(to_lang_code)
     likelihood = 1.0
     for translation in alternatives:
         wor = UserWord.find(translation, lan)
@@ -228,6 +230,8 @@ def get_possible_translations(from_lang_code, to_lang_code):
                  likelihood=likelihood)
         translations_json.append(t_dict)
         likelihood -= 0.01
+
+    print "did already run bookmark_with_context..."
 
     return json_result(dict(translations=translations_json))
 
