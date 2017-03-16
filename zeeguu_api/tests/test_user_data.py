@@ -22,15 +22,6 @@ class UserDataTests(APITestMixin, TestCase):
         rv = self.api_get('/native_language')
         assert rv.data== "de"
 
-    def test_create_user(self):
-        form_data = dict(
-            username= "gigi",
-            password= "lala"
-        )
-        rv = self.api_post('/add_user/i@i.la',form_data)
-        # print rv.data
-        assert rv.data > 1
-
     def test_get_language(self):
         rv = self.api_get('/learned_language')
         assert rv.data == "de"
