@@ -12,3 +12,6 @@ A teacher agent recommends the most important words to be studied next in order 
 A text recommender agent crawls websites of interest to the user and recommend materials to read which are in the zone of proximal development.
 
 The API is available at https://zeeguu.unibe.ch.
+
+# Installation
+You must first install Zeeguu-Core. 
