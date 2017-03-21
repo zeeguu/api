@@ -31,7 +31,7 @@ app = CrossDomainApp(__name__, instance_relative_config=True)
 
 # Loading the configuration
 app.config.from_object("zeeguu_api.default_config")
-config_file = os.path.expanduser('~/.zeeguu/zeeguu_api.cfg')
+config_file = os.path.expanduser('~/.config/zeeguu/api.cfg')
 if os.environ.has_key("CONFIG_FILE"):
     config_file = os.environ["CONFIG_FILE"]
 print ('running with config file: ' + config_file)
