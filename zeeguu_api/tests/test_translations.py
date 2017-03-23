@@ -6,19 +6,12 @@ from api_test_mixin import APITestMixin
 
 class TranslationTests(APITestMixin, TestCase):
 
-    def test_translate(self):
-        form_data = dict(
-            url='http://mir.lu',
-            context=u'Die kleine Jägermeister',
-            word="Die")
-        rv = self.api_post('/translate/de/en', form_data)
-        # print rv.data
 
     def test_get_possible_translations(self):
         form_data = dict(
             url='http://mir.lu',
-            context=u'Die kleine Jägermeister',
-            word="kleine")
+            context=u'Die klein Jägermeister',
+            word="klein")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
 
         first_alternative = alternatives['translations'][0]

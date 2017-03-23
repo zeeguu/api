@@ -5,12 +5,15 @@ import flask
 from flask import request
 
 import zeeguu
-from zeeguu_api.api.utils import translation_service
+from translators import GlosbeTranslator
+from translators import GoogleTranslator
 
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from zeeguu.model import Bookmark, Language, Text, Url, UserWord
+
+
 
 
 @api.route("/translate_and_bookmark/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -34,10 +37,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
-    # Call the translate API
-
-    translation_str, alternative_translations = translation_service.translate_from_to(word_str, from_lang_code, to_lang_code)
-    translation_str = unquote_plus(translation_str)
+    translation_str = main_translation(word_str, context_str, from_lang_code, to_lang_code)
 
     id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
 
@@ -81,11 +81,6 @@ def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title
     zeeguu.db.session.add(user_word)
     zeeguu.db.session.add(url)
     zeeguu.db.session.commit()
-
-    # TODO:
-    # This has to stay commented until we find a way of making it faster
-    # It can take half a second to a second...
-    # bookmark.calculate_probabilities_after_adding_a_bookmark(flask.g.user, bookmark.origin.language)
 
     return str(bookmark.id)
 
@@ -188,11 +183,16 @@ def get_translations_for_bookmark(bookmark_id):
     result = [
         dict(id=translation.id,
                  word=translation.word,
-                 language=translation.language.name,
-                 ranked_word=translation.rank)
+                 language=translation.language.name
+             # ,ranked_word=translation.rank
+             # this thing seems meaningless. should be removed
+             # however, for now commented out since i'm not sure.
+             )
         for translation in bookmark.translations_list]
 
     return json_result(result)
+
+
 
 
 
@@ -218,7 +218,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     word = request.form['word']
     title_str = request.form.get('title', '')
 
-    main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
+    main_translation, alternatives = translate(word, context, from_lang_code, to_lang_code)
 
     bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main_translation)
 
@@ -245,23 +245,46 @@ def get_possible_translations(from_lang_code, to_lang_code):
 #
 # Sincerely your's,
 # Tom Petty and the Zeeguus
+#
+# @api.route("/translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
+# @cross_domain
+# def translate(from_lang_code, to_lang_code):
+#     """
+#     This will be deprecated soon...
+#     # TODO: Zeeguu Translate for Android should stop relying on this
+#     :param word:
+#     :param from_lang_code:
+#     :param to_lang_code:
+#     :return:
+#     """
+#
+#     # print str(request.get_data())
+#     # context = request.form.get('context', '')
+#     # url = request.form.get('url', '')
+#     word = request.form['word']
+#     main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
+#
+#     return main_translation
 
-@api.route("/translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
-@cross_domain
-def translate(from_lang_code, to_lang_code):
-    """
-    This will be deprecated soon...
-    # TODO: Zeeguu Translate for Android should stop relying on this
-    :param word:
-    :param from_lang_code:
-    :param to_lang_code:
-    :return:
-    """
 
-    # print str(request.get_data())
-    # context = request.form.get('context', '')
-    # url = request.form.get('url', '')
-    word = request.form['word']
-    main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
+def main_translation(word_str, context_str, from_lang_code, to_lang_code):
+    # Assume we're translating the first occurrence of the given word in the context
+    left_context, right_context = context_str.split(word_str, 1)
 
-    return main_translation
+    try:
+        t = GoogleTranslator()
+        translation = t.ca_translate(left_context, word_str, right_context, from_lang_code, to_lang_code)
+    except Exception as e:
+        print e
+
+        # In case Google fails, we fallback on Glosbe
+        t = GlosbeTranslator()
+        translation = t.translate(word_str,from_lang_code, to_lang_code)
+
+    return translation
+
+
+def translate(word_str, context_str, from_lang_code, to_lang_code):
+
+    translation = main_translation(word_str, context_str, from_lang_code, to_lang_code)
+    return translation, []

@@ -32,9 +32,6 @@ class ReadingRecommenderTests(APITestMixin, TestCase):
 
         assert second_text_difficulty['estimated_difficulty']=="EASY"
 
-
-
-
     def test_text_learnability(self):
         data = """
             {"texts":

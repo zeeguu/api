@@ -6,8 +6,7 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from zeeguu.language.text_difficulty import text_difficulty
 from zeeguu.language.text_learnability import text_learnability
-from zeeguu.model import SethiKnowledgeEstimator, KnownWordProbability, Language
-
+from zeeguu.model import Language, SimpleKnowledgeEstimator
 
 @api.route("/get_difficulty_for_text/<lang_code>", methods=("POST",))
 @cross_domain
@@ -51,14 +50,13 @@ def get_difficulty_for_text(lang_code):
         difficulty_computer = data['difficulty_computer'].lower()
 
     user = flask.g.user
-    known_probabilities = KnownWordProbability.find_all_by_user_cached(user)
 
     difficulties = []
     for text in texts:
         difficulty = text_difficulty(
                 text["content"],
                 language,
-                known_probabilities,
+                {},
                 difficulty_computer
                 )
         difficulty["id"] = text["id"]
@@ -103,8 +101,8 @@ def get_learnability_for_text(lang_code):
 
     learnabilities = []
     for text in texts:
-        e = SethiKnowledgeEstimator(user)
-        count, learnability = text_learnability(text, e.words_being_learned(language))
+        e = SimpleKnowledgeEstimator(user)
+        count, learnability = text_learnability(text, e.words_being_learned())
         learnabilities.append(dict(score=learnability, count=count, id=text['id']))
 
     return json_result(dict(learnabilities=learnabilities))

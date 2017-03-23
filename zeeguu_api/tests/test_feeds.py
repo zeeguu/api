@@ -11,11 +11,11 @@ DIE_WELT_FEED_URL = 'http://diewelt.de/channels-extern/weltmobil/weltmobil_start
 
 class FeedTests(APITestMixin, TestCase):
 
-    def test_get_feeds_at_nonexistent_source(self):
-        # print "this next message is in #test_get_feeds_at_inexistent_source"
-        #
-        feeds = self.json_from_api_post('/get_feeds_at_url', dict(url="http://nothinghere.is"))
-        assert len(feeds) == 0
+    # def test_get_feeds_at_nonexistent_source(self):
+    #     # print "this next message is in #test_get_feeds_at_inexistent_source"
+    #     #
+    #     feeds = self.json_from_api_post('/get_feeds_at_url', dict(url="http://nothinghere.is"))
+    #     assert len(feeds) == 0
 
     # obtaining feeds
     def test_get_feeds_at_url(self):

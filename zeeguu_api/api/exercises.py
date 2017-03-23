@@ -2,7 +2,7 @@ import traceback
 from datetime import datetime
 
 import zeeguu
-from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource, KnownWordProbability
+from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
 
 from utils.route_wrappers import cross_domain, with_session
 from utils.json_result import json_result
@@ -61,7 +61,7 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
         zeeguu.db.session.add(exercise)
         zeeguu.db.session.commit()
 
-        KnownWordProbability.update_for_user_and_word(zeeguu.db, bookmark.user, bookmark.origin);
+        # KnownWordProbability.update_for_user_and_word(zeeguu.db, bookmark.user, bookmark.origin);
 
         return "OK"
     except :
