@@ -218,9 +218,10 @@ def get_possible_translations(from_lang_code, to_lang_code):
     word = request.form['word']
     title_str = request.form.get('title', '')
 
-    main_translation, alternatives = translate(word, context, from_lang_code, to_lang_code)
+    main = main_translation(word, context, from_lang_code, to_lang_code)
+    alternatives = alternative_translations(word, context, from_lang_code, to_lang_code)
 
-    bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main_translation)
+    bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main)
 
     lan = Language.find(to_lang_code)
     likelihood = 1.0
@@ -233,8 +234,6 @@ def get_possible_translations(from_lang_code, to_lang_code):
                  likelihood=likelihood)
         translations_json.append(t_dict)
         likelihood -= 0.01
-
-    print "did already run bookmark_with_context..."
 
     return json_result(dict(translations=translations_json))
 
@@ -273,7 +272,7 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
 
     try:
         t = GoogleTranslator()
-        translation = t.ca_translate(left_context, word_str, right_context, from_lang_code, to_lang_code)
+        translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
     except Exception as e:
         print e
 
@@ -282,6 +281,20 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
         translation = t.translate(word_str,from_lang_code, to_lang_code)
 
     return translation
+
+
+def alternative_translations(word_str, context_str, from_lang_code, to_lang_code):
+    try:
+        t = GlosbeTranslator()
+        translations = t.translate(word_str, from_lang_code, to_lang_code, 10)
+        if not translations:
+            raise Exception("nothing found in Glosbe. Trying out GoogleTranslator")
+        return translations
+    except Exception as e:
+        print e
+        t = GoogleTranslator()
+        translation = t.translate(word_str, from_lang_code, to_lang_code)
+        return [translation]
 
 
 def translate(word_str, context_str, from_lang_code, to_lang_code):

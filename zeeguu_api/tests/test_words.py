@@ -54,6 +54,12 @@ class WordsTests(APITestMixin, TestCase):
         rv = self.api_post('/bookmark_with_context/de/den/en/the', form_data)
         rv = self.api_post('/bookmark_with_context/de/den/en/the', form_data)
 
+
+        # TODO: !!!
+        # here we must execute the knowledge estimator on its own
+        # this used to be done automatically after the bookmark_with_context
+        # but we can't afford that -- it is slowing down the client
+
         rv = self.api_get('/get_not_looked_up_words/de')
         estimated_user_voc_after = json.loads(rv.data)
         print estimated_user_voc_after
