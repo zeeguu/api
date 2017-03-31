@@ -12,8 +12,10 @@ from . import api
 @cross_domain
 def add_user(email):
     """
-    Creates user, then redirects to the get_session
-    endpoint. Returns a session
+   
+        Creates user, then redirects to the get_session
+        endpoint. Returns a session
+        
     """
     password = request.form.get("password", None)
     username = request.form.get("username", None)
@@ -33,8 +35,10 @@ def add_user(email):
 @cross_domain
 def add_anon_user():
     """
-    Creates anonymous user, then redirects to the get_session
-    endpoint. Returns a session
+    
+        Creates anonymous user, then redirects to the get_session
+        endpoint. Returns a session
+        
     """
 
     # These two are post parameters required by the method
@@ -56,11 +60,13 @@ def add_anon_user():
 @cross_domain
 def get_session(email):
     """
-    If the email and password match,
-    a sessionId is returned as a string.
-    This sessionId can to be passed
-    along all the other requests that are annotated
-    with @with_user in this file
+    
+        If the email and password match,
+        a sessionId is returned as a string.
+        This sessionId can to be passed
+        along all the other requests that are annotated
+        with @with_user in this file
+
     """
     password = request.form.get("password", None)
     if password is None:
@@ -78,10 +84,12 @@ def get_session(email):
 @cross_domain
 def get_anon_session(uuid):
     """
-    If the uuid and password match, a  sessionId is
-    returned as a string. This sessionId can to be passed
-    along all the other requests that are annotated
-    with @with_user in this file
+    
+        If the uuid and password match, a  sessionId is
+        returned as a string. This sessionId can to be passed
+        along all the other requests that are annotated
+        with @with_user in this file
+        
     """
     password = request.form.get("password", None)
 
@@ -100,6 +108,14 @@ def get_anon_session(uuid):
 @cross_domain
 @with_session
 def validate():
+    """
+    
+        If your session is valid, you will get an OK. 
+        Use this one to test that you are holding a 
+        valid session. 
+    
+    :return: 
+    """
     return "OK"
 
 
@@ -108,7 +124,11 @@ def validate():
 @cross_domain
 @with_session
 def logout():
-    # Note: the gym uses another logout endpoint.
+    """
+    
+        Deactivate a given session. 
+    
+    """
 
     try:
         session_id = int(request.args['session'])
