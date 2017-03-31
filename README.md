@@ -1,7 +1,4 @@
-# Zeeguu-Web
-Language Gym &amp; API for Zeeguu clients 
-
-[<img src="https://travis-ci.org/mircealungu/Zeeguu-API.svg?branch=master">](https://travis-ci.org/mircealungu/Zeeguu-Web/builds)
+# Zeeguu-API
 
 Zeeguu is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition.
 
@@ -11,7 +8,7 @@ A teacher agent recommends the most important words to be studied next in order 
 
 A text recommender agent crawls websites of interest to the user and recommend materials to read which are in the zone of proximal development.
 
-The API is available at https://zeeguu.unibe.ch.
+The API is available at https://zeeguu.unibe.ch/api.
 
-# Installation
-You must first install Zeeguu-Core. 
+# Prerequisites
+To install the API you must first install Zeeguu-Core. 
