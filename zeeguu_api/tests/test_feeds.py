@@ -22,9 +22,6 @@ class FeedTests(APITestMixin, TestCase):
         resulting_feeds = []
 
         urls_to_test = [
-            "http://derspiegel.de",
-                        "http://tageschau.de",
-                        "http://zeit.de",
                         "http://www.handelsblatt.com",
                         "http://www.der-postillon.com/"
                         ]

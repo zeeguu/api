@@ -13,3 +13,9 @@ def select_config_file():
     print ('running with config file: ' + config_file)
 
     return config_file
+
+
+def assert_configs(config, required_keys):
+    for key in required_keys:
+        config_value = config.get(key)
+        assert config_value, "Please define the {key} key in the config file!".format(key=key)

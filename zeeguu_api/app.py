@@ -1,26 +1,20 @@
 # -*- coding: utf8 -*-
-import os
-import os.path
-
-import flask
-import flask_assets
 import flask_sqlalchemy
-from configuration import select_config_file
+from configuration import select_config_file, assert_configs
 from cross_domain_app import CrossDomainApp
 import zeeguu
 
 # *** Creating and starting the App *** #
 app = CrossDomainApp(__name__, instance_relative_config=True)
 
-
 # Loading the external configuration
 app.config.from_object("zeeguu_api.default_config")
 app.config.from_pyfile(select_config_file(), silent=False)
-print ('Running with DB : ' + app.config["SQLALCHEMY_DATABASE_URI"])
 
-# The zeeguu core model expects a bunch of configuration stuff
-# to be available in the zeeguu.app.config
-# we bind our current app.config to the zeeguu.app.config
+assert_configs(app.config, ['HOST', 'PORT', 'DEBUG', 'SECRET_KEY', 'MAX_SESSION'])
+
+# The zeeguu core model relies on configuration zeeguu.app.config
+# We thus bind our current app.config to the zeeguu.app.config
 zeeguu.app = app
 zeeguu.app.config = app.config
 
