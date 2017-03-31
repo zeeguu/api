@@ -10,7 +10,6 @@ app = CrossDomainApp(__name__, instance_relative_config=True)
 # Loading the external configuration
 app.config.from_object("zeeguu_api.default_config")
 app.config.from_pyfile(select_config_file(), silent=False)
-
 assert_configs(app.config, ['HOST', 'PORT', 'DEBUG', 'SECRET_KEY', 'MAX_SESSION'])
 
 # The zeeguu core model relies on configuration zeeguu.app.config
