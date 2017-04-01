@@ -1,7 +1,11 @@
 #!/bin/env python
+
+import os
+
+os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser('~/.config/zeeguu/api.cfg')
+
 from zeeguu_api.app import app as application
 application.logger.debug ( application.instance_path)
-application.logger.debug ( application.config.get("SQLALCHEMY_DATABASE_URI"))
 
 # a basic server to test
 application.run(

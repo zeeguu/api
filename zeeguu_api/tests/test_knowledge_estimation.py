@@ -77,7 +77,7 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
     def test_feedback_from_smartwartch_updates_bookmarks_to_study(self):
         to_study = self.json_from_api_get("bookmarks_to_study/50")
         to_study_count_before = len(to_study)
-        print to_study
+        # print to_study
         # assert len(to_study) == zeeguu.populate.TEST_BOOKMARKS_COUNT
 
         # Create an learnedIt event
@@ -104,4 +104,4 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
 
         to_study = self.json_from_api_get("bookmarks_to_study/50")
         assert not to_study
-        print to_study
+        # print to_study

@@ -1,9 +1,12 @@
 from unittest import TestCase
 import os
-os.environ["CONFIG_FILE"] = "testing.cfg"
-
 import json
+
+# BEGIN: injecting the desired testing config in the app
+os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser("~/.config/zeeguu/api_testing.cfg")
 from zeeguu_api.app import app
+# END: Injecting the desired config...
+
 from zeeguu.populate import TEST_EMAIL, create_test_db
 from zeeguu.populate import TEST_PASS
 from zeeguu.populate import create_minimal_test_db
@@ -15,6 +18,7 @@ import zeeguu
 class APITestMixin(TestCase):
 
     def setUp(self):
+        app.testing = True
         self.app = app.test_client()
 
         with app.test_request_context():
