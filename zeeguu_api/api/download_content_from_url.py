@@ -1,6 +1,5 @@
 import flask
 from flask import request
-from zeeguu.content_retriever.parallel_retriever import get_content_for_urls
 from zeeguu.model import Language
 
 from utils.route_wrappers import cross_domain, with_session
@@ -51,6 +50,7 @@ def get_content_from_url():
     user = flask.g.user
 
     # Start worker threads to get url contents
+    from zeeguu.content_retriever.parallel_retriever import get_content_for_urls
     contents = get_content_for_urls(urls, timeout)
 
     # If the user sends along the language, then compute the difficulty
