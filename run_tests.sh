@@ -1,4 +1,4 @@
-#@IgnoreInspection BashAddShebang
+#!/bin/sh
 export PYTHONWARNINGS='ignore'
 export ZEEGUU_API_CONFIG="./default_api.cfg"
 python -m unittest discover -v
