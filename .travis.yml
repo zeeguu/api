@@ -4,7 +4,7 @@ services:
 before_install:
   - mysql -e "create database IF NOT EXISTS zeeguu_test;" -uroot
   - mysql -e "grant all on zeeguu_test.* to 'zeeguu_test'@'localhost' identified by 'zeeguu_test';" -uroot
-  - mkdir -p ~/.config/zeeguu/ && cp default_api_testing.cfg ~/.config/zeeguu/api_test.cfg
+  - mkdir -p ~/.config/zeeguu/ && cp default_api_testing.cfg ~/.config/zeeguu/api_testing.cfg
 
 
 language: python
