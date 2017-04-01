@@ -10,5 +10,9 @@ A text recommender agent crawls websites of interest to the user and recommend m
 
 The API is available at https://zeeguu.unibe.ch/api.
 
-# Prerequisites
-To install the API you must first install Zeeguu-Core. 
+# Installation
+To install the API clone this repo and run `python setup.py install`. 
+
+To test it run `./run_tests.sh`
+
+To try out the API run `export ZEEGUU_API_CONFIG=<path to config file> && python -m zeeguu_api`
