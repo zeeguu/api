@@ -13,4 +13,4 @@ python:
 
 install: "python setup.py develop"
 
-script: "./utils/run_tests.sh"
+script: "./run_tests.sh"
