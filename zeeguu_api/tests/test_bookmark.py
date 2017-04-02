@@ -81,3 +81,8 @@ class BookmarkTest(APITestMixin, TestCase):
         assert any(translation['word'] == 'love' for translation in translations_dict_bookmark_after_add)
 
 
+
+
+
+
+

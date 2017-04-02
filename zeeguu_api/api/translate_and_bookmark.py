@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from urllib import unquote_plus
 
@@ -266,6 +267,8 @@ def get_possible_translations(from_lang_code, to_lang_code):
 #     return main_translation
 
 
+
+
 def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     """
         
@@ -283,6 +286,10 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
 
     # Assume we're translating the first occurrence of the given word in the context
     left_context, right_context = context_str.split(word_str, 1)
+
+    zeeguu.log ("Looking for a translation\n -- word: {0}\n -- context: {1}\n -- from: {2}\n -- to: {3}\n -- left context: {4}\n -- right context: {5}\n".
+           format(word_str, context_str, from_lang_code, to_lang_code, left_context, right_context))
+
 
     try:
         t = GoogleTranslator.unique_instance()
