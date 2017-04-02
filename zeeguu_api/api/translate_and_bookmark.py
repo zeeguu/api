@@ -293,7 +293,7 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     try:
         t = GoogleTranslator.unique_instance()
         translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
-        zeeguu.log (u"Translation with google: ".format(translation))
+        zeeguu.log (u"Translation with google: {0}".format(translation))
         return translation
 
     except Exception as e:
