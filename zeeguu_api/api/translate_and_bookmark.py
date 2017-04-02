@@ -14,8 +14,6 @@ from .utils.json_result import json_result
 from zeeguu.model import Bookmark, Language, Text, Url, UserWord
 
 
-
-
 @api.route("/translate_and_bookmark/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @with_session
@@ -225,15 +223,17 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     lan = Language.find(to_lang_code)
     likelihood = 1.0
-    for translation in alternatives:
+    for translation in [main] + alternatives:
         wor = UserWord.find(translation, lan)
         zeeguu.db.session.add(wor)
-        zeeguu.db.session.commit()
-        t_dict = dict(translation_id= wor.id,
-                 translation=translation,
-                 likelihood=likelihood)
+        t_dict = dict(
+            translation_id= wor.id,
+            translation=translation,
+            likelihood=likelihood)
         translations_json.append(t_dict)
         likelihood -= 0.01
+
+    zeeguu.db.session.commit()
 
     return json_result(dict(translations=translations_json))
 
@@ -267,20 +267,40 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
 
 def main_translation(word_str, context_str, from_lang_code, to_lang_code):
+    """
+        
+        Guess the best possible translation.  
+        
+        Or throw an exception
+        
+    :param word_str: 
+    :param context_str: 
+    :param from_lang_code: 
+    :param to_lang_code: 
+    :return: best translation
+    
+    """
+
     # Assume we're translating the first occurrence of the given word in the context
     left_context, right_context = context_str.split(word_str, 1)
 
     try:
         t = GoogleTranslator.unique_instance()
         translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
+        print ("got translation with google")
+        return translation
+
     except Exception as e:
+        print "failed translation with google!"
         print e
 
         # In case Google fails, we fallback on Glosbe
         t = GlosbeTranslator()
-        translation = t.translate(word_str,from_lang_code, to_lang_code)
+        translation = t.translate(word_str,from_lang_code, to_lang_code)[0]
+        return translation
 
-    return translation
+    raise Exception ("Could not find a translation for {0} / {1] / {2} / {3}".
+                     format(word_str, context_str, from_lang_code, to_lang_code))
 
 
 def alternative_translations(word_str, context_str, from_lang_code, to_lang_code):
