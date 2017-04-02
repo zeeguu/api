@@ -271,7 +271,7 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     left_context, right_context = context_str.split(word_str, 1)
 
     try:
-        t = GoogleTranslator()
+        t = GoogleTranslator.unique_instance()
         translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
     except Exception as e:
         print e
@@ -292,7 +292,7 @@ def alternative_translations(word_str, context_str, from_lang_code, to_lang_code
         return translations
     except Exception as e:
         print e
-        t = GoogleTranslator()
+        t = GoogleTranslator.unique_instance()
         translation = t.translate(word_str, from_lang_code, to_lang_code)
         return [translation]
 
