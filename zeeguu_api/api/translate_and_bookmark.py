@@ -294,8 +294,8 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     try:
         t = GoogleTranslator.unique_instance()
         translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
-        print ("got translation with google")
-        return translation
+        zeeguu.log (u"Translation with google: ".format(translation))
+
 
     except Exception as e:
         print "failed translation with google!"
@@ -304,6 +304,7 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
         # In case Google fails, we fallback on Glosbe
         t = GlosbeTranslator()
         translation = t.translate(word_str,from_lang_code, to_lang_code)[0]
+        zeeguu.log(u"Translation with Glosbe: ".format(translation))
         return translation
 
     raise Exception ("Could not find a translation for {0} / {1] / {2} / {3}".
