@@ -17,6 +17,7 @@ def with_session(view):
     def wrapped_view(*args, **kwargs):
         try:
             session_id = int(flask.request.args['session'])
+            print ("API CALL: " + str(view))
         except:
             flask.abort(401)
         session = Session.query.get(session_id)
