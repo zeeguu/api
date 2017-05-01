@@ -84,5 +84,3 @@ class BookmarkTest(APITestMixin, TestCase):
 
 
 
-
-

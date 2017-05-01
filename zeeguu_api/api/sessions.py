@@ -17,8 +17,8 @@ def add_user(email):
         endpoint. Returns a session
         
     """
-    password = request.form.get("password", None)
-    username = request.form.get("username", None)
+    password = request.form.get("password")
+    username = request.form.get("username")
     if password is None:
         flask.abort(400)
     try:

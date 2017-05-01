@@ -218,6 +218,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     title_str = request.form.get('title', '')
 
     main = main_translation(word, context, from_lang_code, to_lang_code)
+
     alternatives = alternative_translations(word, context, from_lang_code, to_lang_code)
 
     bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main)
@@ -235,38 +236,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
         likelihood -= 0.01
 
     zeeguu.db.session.commit()
-
     return json_result(dict(translations=translations_json))
-
-
-# Warning:
-# Might be deprecated at some point... or at least, reduced to translating single words...
-# It would make more sense to use translate_and_bookmark instead
-#
-# Sincerely your's,
-# Tom Petty and the Zeeguus
-#
-# @api.route("/translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
-# @cross_domain
-# def translate(from_lang_code, to_lang_code):
-#     """
-#     This will be deprecated soon...
-#     # TODO: Zeeguu Translate for Android should stop relying on this
-#     :param word:
-#     :param from_lang_code:
-#     :param to_lang_code:
-#     :return:
-#     """
-#
-#     # print str(request.get_data())
-#     # context = request.form.get('context', '')
-#     # url = request.form.get('url', '')
-#     word = request.form['word']
-#     main_translation, alternatives = translation_service.translate_from_to(word, from_lang_code, to_lang_code)
-#
-#     return main_translation
-
-
 
 
 def main_translation(word_str, context_str, from_lang_code, to_lang_code):
@@ -306,8 +276,8 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
         zeeguu.log(u"Translation with Glosbe: ".format(translation))
         return translation
 
-    raise Exception ("Could not find a translation for {0} / {1} / {2} / {3}".
-                     format(word_str, context_str, from_lang_code, to_lang_code))
+        raise Exception ("Could not find a translation for {0} / {1} / {2} / {3}".
+                         format(word_str, context_str, from_lang_code, to_lang_code))
 
 
 def alternative_translations(word_str, context_str, from_lang_code, to_lang_code):

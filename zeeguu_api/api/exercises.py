@@ -1,5 +1,6 @@
 import traceback
 from datetime import datetime
+import flask
 
 import zeeguu
 from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
@@ -7,6 +8,22 @@ from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
 from utils.route_wrappers import cross_domain, with_session
 from utils.json_result import json_result
 from . import api
+
+
+@api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
+@cross_domain
+@with_session
+def bookmarks_to_study(bookmark_count):
+    """
+    Returns a number of <bookmark_count> bookmarks that
+    are recommended for this user to study
+
+    """
+    int_count = int(bookmark_count)
+    to_study = flask.g.user.bookmarks_to_study(int_count)
+
+    as_json = map(lambda bookmark: bookmark.json_serializable_dict(), to_study)
+    return json_result(as_json)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))

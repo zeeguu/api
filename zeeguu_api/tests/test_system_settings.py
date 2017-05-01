@@ -11,7 +11,7 @@ class SystemSettingsTests(APITestMixin, TestCase):
         rv = self.api_get('/available_languages')
         assert "de" in rv.data
 
-    def test_logout_API(self):
+    def test_logout_api(self):
         assert "OK" == self.raw_data_from_api_get('/logout_session')
         rv = self.api_get('/validate')
         assert rv.status== "401 UNAUTHORIZED"

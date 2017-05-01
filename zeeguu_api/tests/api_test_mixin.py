@@ -40,7 +40,10 @@ class APITestMixin(TestCase):
         ))
         return rv.data
 
-    def in_session(self, url, other_args=[]):
+    def in_session(self, url, other_args=None):
+        if not other_args:
+            other_args = []
+
         url_with_session = url + "?session=" + self.session
         for each in other_args:
             url_with_session += "&" + each
