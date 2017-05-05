@@ -257,13 +257,13 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     # Assume we're translating the first occurrence of the given word in the context
     left_context, right_context = context_str.split(word_str, 1)
 
-    zeeguu.log (u"\n\n ===== Translation request from: {2} to: {3} \n -- context: {1} \n -- word: {0} \n  -- left context: {4}\n -- right context: {5}".
+    zeeguu.log (u"\n\n ===== Translation request from: {2} to: {3} \n -- context: {1} \n -- word: {0} \n -- left context: {4}\n -- right context: {5}".
            format(word_str, context_str, from_lang_code, to_lang_code, left_context, right_context))
 
     try:
         t = GoogleTranslator.unique_instance()
-        translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
-        zeeguu.log (u"Translation with google: {0}".format(translation))
+        translation = t.translate(word_str, from_lang_code, to_lang_code)
+        zeeguu.log (u"Translation with google (w/o context): {0}".format(translation))
         return translation
 
     except Exception as e:
@@ -290,8 +290,9 @@ def alternative_translations(word_str, context_str, from_lang_code, to_lang_code
     except Exception as e:
         print e
         t = GoogleTranslator.unique_instance()
-        translation = t.translate(word_str, from_lang_code, to_lang_code)
-        zeeguu.log("alternative translation with google w/o context: {0}".format(translation))
+        left_context, right_context = context_str.split(word_str, 1)
+        translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
+        zeeguu.log (u"Translation with google (with context): {0}".format(translation))
         return [translation]
 
 
