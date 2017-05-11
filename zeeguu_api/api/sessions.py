@@ -44,9 +44,10 @@ def add_anon_user():
     # These two are post parameters required by the method
     uuid = request.form.get("uuid", None)
     password = request.form.get("password", None)
+    language_code = request.form.get("language_code", None)
 
     try:
-        new_user = User.create_anonymous(uuid, password)
+        new_user = User.create_anonymous(uuid, password, language_code)
         zeeguu.db.session.add(new_user)
         zeeguu.db.session.commit()
     except ValueError:

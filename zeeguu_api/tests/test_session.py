@@ -21,8 +21,9 @@ class SessionTests(APITestMixin, TestCase):
     def test_create_anonymous_user(self):
         post_data = {
             'uuid': WANNABE_UUID,
-            'password': TEST_PASS
-        }
+            'password': TEST_PASS,
+            'language_code': 'es'}
+
         new_session_id = self.raw_data_from_api_post('/add_anon_user', post_data)
         assert new_session_id > 0
 
@@ -30,7 +31,8 @@ class SessionTests(APITestMixin, TestCase):
         self.test_create_anonymous_user()
         post_data = {
             'uuid': WANNABE_UUID,
-            'password': TEST_PASS
+            'password': TEST_PASS,
+            'language_code': 'es'
         }
         session_id = self.raw_data_from_api_post('/get_anon_session', post_data)
         assert session_id
