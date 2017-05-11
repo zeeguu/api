@@ -21,6 +21,7 @@ setuptools.setup(
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
                       "Flask-Assets",
+                      "flask_cors",
                       "goose-extractor",
                       "cssmin",
                       "jsmin",

@@ -1,9 +1,11 @@
 # -*- coding: utf8 -*-
 from cross_domain_app import CrossDomainApp
 from zeeguu.util.configuration import load_configuration_or_abort
+from flask_cors import CORS, cross_origin
 
 # *** Creating and starting the App *** #
-app = CrossDomainApp("Zeeguu-API")
+app = Flask("Zeeguu-API")
+CORS(app)
 
 load_configuration_or_abort(app, 'ZEEGUU_API_CONFIG',
                             ['SQLALCHEMY_DATABASE_URI', 'HOST', 'DEBUG', 'SECRET_KEY', 'MAX_SESSION'])
