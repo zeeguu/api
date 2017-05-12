@@ -2,6 +2,7 @@
 from cross_domain_app import CrossDomainApp
 from zeeguu.util.configuration import load_configuration_or_abort
 from flask_cors import CORS, cross_origin
+from flask import Flask
 
 # *** Creating and starting the App *** #
 app = Flask("Zeeguu-API")
