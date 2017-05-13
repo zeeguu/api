@@ -50,10 +50,10 @@ def add_anon_user():
         new_user = User.create_anonymous(uuid, password, language_code)
         zeeguu.db.session.add(new_user)
         zeeguu.db.session.commit()
-    except ValueError:
-        flask.abort(400)
-    except sqlalchemy.exc.IntegrityError:
-        flask.abort(400)
+    except ValueError as e:
+        flask.abort(flask.make_response("Could not create anon user.", 400))
+    except sqlalchemy.exc.IntegrityError as e:
+        flask.abort(flask.make_response("Could not create anon user. Maybe uuid already exists?", 400))
     return get_anon_session(uuid)
 
 
