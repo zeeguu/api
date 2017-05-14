@@ -1,7 +1,7 @@
 # coding=utf-8
 from unittest import TestCase
 
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 
 class TranslationTests(APITestMixin, TestCase):
@@ -9,7 +9,7 @@ class TranslationTests(APITestMixin, TestCase):
     def test_get_possible_translations(self):
         form_data = dict(
             url='http://mir.lu',
-            context=u'Die klein Jäger',
+            context='Die klein Jäger',
             word="klein")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
 
@@ -24,7 +24,7 @@ class TranslationTests(APITestMixin, TestCase):
 
         form_data = dict(
             url='http://mir.lu',
-            context=u'Die krassen Jägermeister',
+            context='Die krassen Jägermeister',
             word="krassen")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
 
@@ -35,7 +35,7 @@ class TranslationTests(APITestMixin, TestCase):
 
         form_data = dict(
             url='http://mir.lu',
-            context=u'Die kleine Jägermeister',
+            context='Die kleine Jägermeister',
             word="Die")
 
         bookmark1 = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
@@ -46,4 +46,4 @@ class TranslationTests(APITestMixin, TestCase):
 
         form_data["word"] = "kleine"
         bookmark4  = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
-        assert bookmark4['translation'] == u'little'
+        assert bookmark4['translation'] == 'small'

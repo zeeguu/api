@@ -1,34 +1,27 @@
 # coding=utf-8
 
 from unittest import TestCase
-
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 
 class UserDataTests(APITestMixin, TestCase):
 
     def test_get_language(self):
-        rv = self.api_get('/learned_language')
-        assert rv.data == "de"
+        self.assertEqual ("de", self.api_get_string('/learned_language'))
 
     def test_set_language(self):
-        rv = self.api_post('/learned_language/en')
-        rv = self.api_post('/native_language/de')
-        assert "OK" in rv.data
+        self.assertEqual ("OK", self.string_from_api_post('/learned_language/en'))
 
-        rv = self.api_get('/learned_language')
-        assert rv.data== "en"
+        self.assertEqual("OK", self.string_from_api_post('/native_language/de'))
 
-        rv = self.api_get('/native_language')
-        assert rv.data== "de"
+        self.assertEqual("en", self.api_get_string('/learned_language'))
 
-    def test_get_language(self):
-        rv = self.api_get('/learned_language')
-        assert rv.data == "de"
+        self.assertEqual("de", self.api_get_string('/native_language'))
 
     def test_get_user_details(self):
 
         details = self.json_from_api_get('/get_user_details')
-        assert details
-        assert details["name"]
-        assert details["email"]
+
+        self.assertIsNotNone(details)
+        self.assertIsNotNone(details["name"])
+        self.assertIsNotNone(details["email"])

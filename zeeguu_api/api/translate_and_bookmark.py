@@ -1,13 +1,13 @@
 import os
 from datetime import datetime
-from urllib import unquote_plus
+from urllib.parse import unquote_plus
 
 import flask
 from flask import request
 
 import zeeguu
 from translators import GlosbeTranslator
-from translators import GoogleTranslator
+from translators.factories.google_translator_factory import GoogleTranslatorFactory
 
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
@@ -257,23 +257,23 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
     # Assume we're translating the first occurrence of the given word in the context
     left_context, right_context = context_str.split(word_str, 1)
 
-    zeeguu.log (u"\n\n ===== Translation request from: {2} to: {3} \n -- context: {1} \n -- word: {0} \n -- left context: {4}\n -- right context: {5}".
+    zeeguu.log ("\n\n ===== Translation request from: {2} to: {3} \n -- context: {1} \n -- word: {0} \n -- left context: {4}\n -- right context: {5}".
            format(word_str, context_str, from_lang_code, to_lang_code, left_context, right_context))
 
     try:
-        t = GoogleTranslator.unique_instance()
-        translation = t.translate(word_str, from_lang_code, to_lang_code)
-        zeeguu.log (u"Translation with google (w/o context): {0}".format(translation))
+        t = GoogleTranslatorFactory.build(from_lang_code, to_lang_code)
+        translation = t.translate(word_str)
+        zeeguu.log ("Translation with google (w/o context): {0}".format(translation))
         return translation
 
     except Exception as e:
-        print "failed translation with google!"
-        print e
+        zeeguu.log("failed translation with google!")
+        zeeguu.log(str(e))
 
         # In case Google fails, we fallback on Glosbe
-        t = GlosbeTranslator()
-        translation = t.translate(word_str,from_lang_code, to_lang_code)[0]
-        zeeguu.log(u"Translation with Glosbe: ".format(translation))
+        t = GlosbeTranslator(from_lang_code, to_lang_code)
+        translation = t.translate(word_str)[0]
+        zeeguu.log("Translation with Glosbe: ".format(translation))
         return translation
 
         raise Exception ("Could not find a translation for {0} / {1} / {2} / {3}".
@@ -282,17 +282,17 @@ def main_translation(word_str, context_str, from_lang_code, to_lang_code):
 
 def alternative_translations(word_str, context_str, from_lang_code, to_lang_code):
     try:
-        t = GlosbeTranslator()
-        translations = t.translate(word_str, from_lang_code, to_lang_code, 10)
+        t = GlosbeTranslator(from_lang_code, to_lang_code)
+        translations = t.translate(word_str, 10)
         if not translations:
             raise Exception("nothing found in Glosbe. Trying out GoogleTranslator")
         return translations
     except Exception as e:
-        print e
-        t = GoogleTranslator.unique_instance()
+        zeeguu.log(str(e))
+        t = GoogleTranslatorFactory.build(from_lang_code, to_lang_code)
         left_context, right_context = context_str.split(word_str, 1)
-        translation = t.ca_translate(word_str, from_lang_code, to_lang_code, left_context, right_context)
-        zeeguu.log (u"Translation with google (with context): {0}".format(translation))
+        translation = t.ca_translate(word_str, left_context, right_context)
+        zeeguu.log ("Translation with google (with context): {0}".format(translation))
         return [translation]
 
 

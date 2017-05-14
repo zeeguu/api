@@ -6,9 +6,9 @@ import zeeguu
 from flask import request
 from zeeguu.model import RSSFeedRegistration, RSSFeed, Language, Url
 
-from utils.route_wrappers import cross_domain, with_session
-from utils.feedparser_extensions import list_of_feeds_at_url, two_letter_language_code
-from utils.json_result import json_result
+from .utils.route_wrappers import cross_domain, with_session
+from .utils.feedparser_extensions import list_of_feeds_at_url, two_letter_language_code
+from .utils.json_result import json_result
 from . import api
 
 db = zeeguu.db
@@ -231,7 +231,7 @@ def add_new_feed():
     :return: the id of the newly added feed
     """
 
-    feed_info = json.loads(request.form.get('feed_info', ''), "utf-8")
+    feed_info = json.loads(request.form.get('feed_info', ''))
 
     image_url = feed_info["image"]
     language = Language.find(feed_info["language"])
@@ -276,7 +276,7 @@ def start_following_feed():
     :return:
     """
 
-    feed_info = json.loads(request.form.get('feed_info', ''), "utf-8")
+    feed_info = json.loads(request.form.get('feed_info'))
 
     image_url = feed_info["image"]
     language = Language.find(feed_info["language"])

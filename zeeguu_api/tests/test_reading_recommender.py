@@ -1,6 +1,7 @@
 import json
 from unittest import TestCase
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
+
 
 
 class ReadingRecommenderTests(APITestMixin, TestCase):

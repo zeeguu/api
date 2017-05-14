@@ -1,12 +1,11 @@
 # -*- coding: utf8 -*-
 import json
 from unittest import TestCase
-from api_test_mixin import APITestMixin
-import zeeguu
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 example1_word = 'Freund'
 example1_post_url = '/bookmark_with_context/de/{0}/en/friend'.format(example1_word)
-example1_context = u'Mein Freund lächelte'
+example1_context = 'Mein Freund lächelte'
 example1_context_url = 'http://www.derkleineprinz-online.de/text/2-kapitel/'
 example1_payload = dict(context=example1_context, url=example1_context_url)
 
@@ -38,20 +37,6 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
         known_bookmarks = self.json_from_api_get('/get_known_bookmarks/de')
         assert known_bookmarks
         assert known_bookmarks[0]['origin'] == example1_word
-
-    #
-    #
-    def test_get_known_words(self):
-
-        known_words_before = self.json_from_api_get('/get_known_words/de')
-        assert not known_words_before
-
-        bookmark_id = self.api_post(example1_post_url, example1_payload).data
-        self.api_post( '/report_exercise_outcome/Too easy/Recognize/10000/{0}'.format(bookmark_id))
-
-        known_words_after = self.json_from_api_get('/get_known_words/de')
-        # print known_words_after
-        assert example1_word in known_words_after
 
 
     def test_get_known_bookmarks_after_date(self):
@@ -100,7 +85,7 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
             )
         ]
         result = self.api_post('/upload_smartwatch_events', dict(events=json.dumps(events)))
-        assert (result.data == "OK")
+        assert (result.data == b"OK")
 
         to_study = self.json_from_api_get("bookmarks_to_study/50")
         assert not to_study

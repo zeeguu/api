@@ -2,12 +2,13 @@
 
 import json
 from unittest import TestCase
-from api_test_mixin import APITestMixin
+
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 import zeeguu
 
 example1_post_url = '/bookmark_with_context/de/Freund/en/friend'
-example1_context = u'Mein Freund lächelte'
+example1_context = 'Mein Freund lächelte'
 example1_context_url = 'http://www.derkleineprinz-online.de/text/2-kapitel/'
 example1_payload = dict(context=example1_context, url=example1_context_url)
 
@@ -49,7 +50,7 @@ class BookmarkTest(APITestMixin, TestCase):
         translations_dict_of_bookmark = self.json_from_api_get('/get_translations_for_bookmark/1')
         first_word_translation_of_bookmark = translations_dict_of_bookmark[0]['word']
 
-        assert 'FAIL' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/' + str(first_word_translation_of_bookmark))
+        assert b'FAIL' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/' + str(first_word_translation_of_bookmark))
         self.api_post('/add_new_translation_to_bookmark/love/1')
 
         translations_dict_of_bookmark  = self.json_from_api_get('/get_translations_for_bookmark/1')
@@ -59,8 +60,8 @@ class BookmarkTest(APITestMixin, TestCase):
         assert any (translation['word'] == first_word_translation_of_bookmark for translation in translations_dict_of_bookmark)
         assert any(translation['word'] == 'love' for translation in translations_dict_of_bookmark)
 
-        assert 'FAIL' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/lov')
-        assert 'OK' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/' + str(first_word_translation_of_bookmark))
+        assert b'FAIL' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/lov')
+        assert b'OK' == self.raw_data_from_api_post('/delete_translation_from_bookmark/1/' + str(first_word_translation_of_bookmark))
 
         translations_dict_of_bookmark = self.json_from_api_get('/get_translations_for_bookmark/1')
         assert not any(translation['word'] == first_word_translation_of_bookmark for translation in translations_dict_of_bookmark)
@@ -72,7 +73,7 @@ class BookmarkTest(APITestMixin, TestCase):
         first_translation_word = translations_dict_bookmark_before_add[0]['word']
         assert any(translation['word'] == first_translation_word for translation in translations_dict_bookmark_before_add)
         rv = self.api_post('/add_new_translation_to_bookmark/love/1')
-        assert rv.data == "OK"
+        assert rv.data == b"OK"
         rv = self.api_get('/get_translations_for_bookmark/1')
         translations_dict_bookmark_after_add = json.loads(rv.data)
         assert len(translations_dict_bookmark_after_add) ==2

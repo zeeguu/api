@@ -5,8 +5,8 @@ import flask
 import zeeguu
 from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
 
-from utils.route_wrappers import cross_domain, with_session
-from utils.json_result import json_result
+from .utils.route_wrappers import cross_domain, with_session
+from .utils.json_result import json_result
 from . import api
 
 
@@ -22,7 +22,7 @@ def bookmarks_to_study(bookmark_count):
     int_count = int(bookmark_count)
     to_study = flask.g.user.bookmarks_to_study(int_count)
 
-    as_json = map(lambda bookmark: bookmark.json_serializable_dict(), to_study)
+    as_json = [bookmark.json_serializable_dict() for bookmark in to_study]
     return json_result(as_json)
 
 

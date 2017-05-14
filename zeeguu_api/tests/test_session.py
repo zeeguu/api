@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 WANNABE_UUID = 'lulu'
 TEST_PASS = 'cherrypie'
@@ -16,7 +16,7 @@ class SessionTests(APITestMixin, TestCase):
             password= "lala"
         )
         rv = self.api_post('/add_user/i@i.la',form_data)
-        assert rv.data > 1
+        assert len(rv.data) > 1
 
     def test_create_anonymous_user(self):
         post_data = {
@@ -25,7 +25,7 @@ class SessionTests(APITestMixin, TestCase):
             'language_code': 'es'}
 
         new_session_id = self.raw_data_from_api_post('/add_anon_user', post_data)
-        assert new_session_id > 0
+        assert len(new_session_id) > 0
 
     def get_anonymous_session(self):
         self.test_create_anonymous_user()

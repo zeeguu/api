@@ -3,7 +3,7 @@
 import json
 from unittest import TestCase
 
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 
 DIE_WELT_FEED_URL = 'http://diewelt.de/channels-extern/weltmobil/weltmobil_startseite/?service=Rss'
@@ -43,7 +43,7 @@ class FeedTests(APITestMixin, TestCase):
         self.test_start_following_feed()
 
         response = self.api_get("stop_following_feed/1")
-        assert response.data == "OK"
+        assert response.data == b"OK"
 
         # print "now not following feed.let's try to follow it again!"
         form_data = {"feed_id": 1}
@@ -124,14 +124,14 @@ class FeedTests(APITestMixin, TestCase):
 
         # Now delete one
         response = self.api_get("stop_following_feed/1")
-        assert response.data == "OK"
+        assert response.data == b"OK"
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
         assert len(feeds) == initial_feed_count - 1
 
         # Now delete the second
         self.api_get("stop_following_feed/2")
-        assert response.data == "OK"
+        assert response.data == b"OK"
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
         assert len(feeds) == initial_feed_count - 2
@@ -158,7 +158,7 @@ class FeedTests(APITestMixin, TestCase):
 
         # Now try to delete the first one more time
         response = self.api_get("stop_following_feed/1")
-        assert "OOPS" in response.data
+        assert b"OOPS" in response.data
 
     def test_get_feed_items(self):
         self.test_start_following_feeds()

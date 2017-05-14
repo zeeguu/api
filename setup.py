@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# coding: utf8 -*-
 
 import setuptools
 
@@ -22,12 +22,7 @@ setuptools.setup(
                       "Flask-SQLAlchemy",
                       "Flask-Assets",
                       "flask_cors",
-                      "goose-extractor",
-                      "cssmin",
-                      "jsmin",
-                      "flask-wtf",
-                      "goslate",
-                      "MySQL-python",
+                      "mysqlclient",
                       "regex",
                       "beautifulsoup4",
                       "feedparser",

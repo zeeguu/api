@@ -38,7 +38,7 @@ class APITestMixin(TestCase):
         rv = self.app.post('/session/'+TEST_EMAIL, data=dict(
             password=TEST_PASS
         ))
-        return rv.data
+        return rv.data.decode('utf8')
 
     def in_session(self, url, other_args=None):
         if not other_args:
@@ -54,6 +54,10 @@ class APITestMixin(TestCase):
     def api_get(self, test_data, formdata='None', content_type=None):
         return self.app.get(self.in_session(test_data), data = formdata, content_type = content_type)
 
+    def api_get_string(self, test_data, formdata='None', content_type=None):
+        return self.app.get(self.in_session(test_data), data = formdata, content_type = content_type).data.decode('utf-8')
+
+
     def raw_data_from_api_get(self, test_data, formdata='None', content_type=None):
         return self.api_get(test_data, formdata, content_type).data
 
@@ -65,6 +69,9 @@ class APITestMixin(TestCase):
     # ----
     def api_post(self, test_data, formdata='None', content_type=None):
         return self.app.post(self.in_session(test_data), data = formdata, content_type = content_type)
+
+    def string_from_api_post(self, test_data, formdata='None', content_type=None):
+        return self.app.post(self.in_session(test_data), data = formdata, content_type = content_type).data.decode('utf-8')
 
     def raw_data_from_api_post(self, test_data, formdata='None', content_type=None):
         return self.app.post(self.in_session(test_data), data = formdata, content_type = content_type).data

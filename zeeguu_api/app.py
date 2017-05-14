@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-from cross_domain_app import CrossDomainApp
+from .cross_domain_app import CrossDomainApp
 from zeeguu.util.configuration import load_configuration_or_abort
 from flask_cors import CORS, cross_origin
 from flask import Flask
@@ -20,5 +20,5 @@ import zeeguu.model
 assert zeeguu.model
 # -----------------
 
-from api import api
+from .api import api
 app.register_blueprint(api)

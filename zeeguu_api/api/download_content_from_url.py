@@ -2,8 +2,8 @@ import flask
 from flask import request
 from zeeguu.model import Language
 
-from utils.route_wrappers import cross_domain, with_session
-from utils.json_result import json_result
+from .utils.route_wrappers import cross_domain, with_session
+from .utils.json_result import json_result
 
 from . import api
 
@@ -51,7 +51,7 @@ def get_content_from_url():
 
     # Start worker threads to get url contents
     from zeeguu.content_retriever.parallel_retriever import get_content_for_urls
-    contents = get_content_for_urls(urls, timeout)
+    contents = get_content_for_urls(urls, lang_code, timeout)
 
     # If the user sends along the language, then compute the difficulty
     if language is not None:

@@ -3,7 +3,7 @@
 import json
 from unittest import TestCase
 
-from api_test_mixin import APITestMixin
+from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 
 class SmartwatchEventsTests(APITestMixin, TestCase):
@@ -23,7 +23,7 @@ class SmartwatchEventsTests(APITestMixin, TestCase):
             )
         ]
         result = self.api_post('/upload_smartwatch_events', dict(events=json.dumps(events)))
-        assert (result.data == "OK")
+        assert (result.data == b"OK")
 
     def test_get_user_events(self):
         self.test_upload_events()
@@ -38,5 +38,5 @@ class SmartwatchEventsTests(APITestMixin, TestCase):
             extra_data="seconds"
         )
         result = self.api_post('/upload_user_activity_data', event)
-        assert (result.data == "OK")
+        assert (result.data.decode('utf-8') == "OK")
 

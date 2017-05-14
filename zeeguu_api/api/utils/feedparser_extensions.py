@@ -1,6 +1,6 @@
 # This file contains utilities that
-from BeautifulSoup import BeautifulSoup
-import urllib2
+from bs4 import BeautifulSoup
+import urllib.request, urllib.error, urllib.parse
 import feedparser
 
 
@@ -13,8 +13,8 @@ def list_of_feeds_at_url(domain):
     """
     try:
         feed_data = []
-        page = urllib2.urlopen(domain)
-        soup = BeautifulSoup(page)
+        page = urllib.request.urlopen(domain)
+        soup = BeautifulSoup(page, "lxml")
         feed_urls = soup.findAll("link", type="application/rss+xml")
 
         for feed_url in feed_urls:
