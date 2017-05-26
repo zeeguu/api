@@ -45,6 +45,41 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
                             translation = translation_str))
 
 
+@api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@with_session
+def contribute_translation(from_lang_code, to_lang_code):
+    """
+    
+        User contributes a translation they think is appropriate for 
+         a given context
+    
+        This expects in the post parameter the following:
+            - word (to translate)
+            - context (surrounding paragraph of the original word )
+            - url (of the origin)
+            - title (of the origin page)
+            - translation 
+        
+    :param from_lang_code:
+    :param to_lang_code:
+    :return: 
+    """
+
+    # All these POST params are mandatory
+    word_str = unquote_plus(request.form['word'])
+    translation_str = request.form['translation']
+    url_str = request.form.get('url', '')
+    context_str = request.form.get('context', '')
+    title_str = request.form.get('title', '')
+
+    id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
+
+    return json_result(dict(
+                            bookmark_id = id,
+                            translation = translation_str))
+
+
 def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str):
     """
         This function will lookup a given word-text pair, and if found, it will return
@@ -69,16 +104,16 @@ def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title
 
     try:
         bookmark = Bookmark.find_all_by_user_word_and_text(flask.g.user, user_word, context)[0]
-    #     TODO: Think about updating the date of this bookmark, or maybe creating a duplicate
-    #       otherwise, in the history this translation will not be visible!
 
-    except Exception:
+        # if we found the bookmark, it means that the user has uploaded their own
+        # favorite translation. Thus we update the translation
+        bookmark.translations_list = [translation]
+
+    except Exception as e:
+        print (str(e))
         bookmark = Bookmark(user_word, translation, flask.g.user, context, datetime.now())
 
-    zeeguu.db.session.add(bookmark)
-    zeeguu.db.session.add(context)
-    zeeguu.db.session.add(user_word)
-    zeeguu.db.session.add(url)
+    zeeguu.db.session.add_all([bookmark, context, user_word, url, translation])
     zeeguu.db.session.commit()
 
     return str(bookmark.id)

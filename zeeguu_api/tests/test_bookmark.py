@@ -81,7 +81,22 @@ class BookmarkTest(APITestMixin, TestCase):
         assert any(translation['word'] == first_translation_word for translation in translations_dict_bookmark_after_add)
         assert any(translation['word'] == 'love' for translation in translations_dict_bookmark_after_add)
 
+    def test_upload_translation(self):
 
+        # GIVEN
+        elements  = self.json_from_api_get ('/bookmarks_by_day/with_context')
+        day1 = elements[0]
+        bookmark1 = day1 ["bookmarks"][0]
 
+        # WHEN
+        data = dict(word=bookmark1['from'],
+                    url=bookmark1['url'],
+                    title=bookmark1 ['title'],
+                    context=bookmark1['context'],
+                    translation="lamb")
 
+        self.api_post('contribute_translation/de/en',data)
 
+        # THEN: translation is updated
+        translation = self.json_from_api_get('/get_translations_for_bookmark/1')[0]
+        self.assertEqual(translation['word'], "lamb")
