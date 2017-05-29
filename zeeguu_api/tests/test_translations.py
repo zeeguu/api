@@ -12,7 +12,6 @@ class TranslationTests(APITestMixin, TestCase):
             context='Die klein Jäger',
             word="klein")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
-
         first_alternative = alternatives['translations'][0]
         second_alternative = alternatives['translations'][1]
 

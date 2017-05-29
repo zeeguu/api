@@ -1,18 +1,15 @@
-import os
-from datetime import datetime
 from urllib.parse import unquote_plus
 
 import flask
 from flask import request
 
 import zeeguu
-from translators import GlosbeTranslator
-from translators.factories.google_translator_factory import GoogleTranslatorFactory
+from translators.composite.best_effort import BestEffortTranslator
 
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu.model import Bookmark, Language, Text, Url, UserWord
+from zeeguu.model import Bookmark, UserWord
 
 
 @api.route("/translate_and_bookmark/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -20,11 +17,16 @@ from zeeguu.model import Bookmark, Language, Text, Url, UserWord
 @with_session
 def translate_and_bookmark(from_lang_code, to_lang_code):
     """
-    This expects in the post parameter the following:
+    
+        This expects in the post parameter the following:
         - word (to translate)
         - context (surrounding paragraph of the original word )
         - url (of the origin)
         - title (of the origin page)
+        
+        /get_possible_translations has very similar behavior, only that 
+          if focuses on returning the possible alternative translations
+        
     :param from_lang_code:
     :param to_lang_code:
     :return:
@@ -35,15 +37,61 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     url_str = request.form.get('url', '')
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
+    before_context, after_context = context_str.split(word_str, 1)
 
-    translation_str = main_translation(word_str, context_str, from_lang_code, to_lang_code)
+    translator = BestEffortTranslator(from_lang_code, to_lang_code)
 
-    id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
+    translations = translator.ca_translate(word_str, before_context, after_context, 3)
+    best_guess = translations[0]["translation"]
+
+    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+                                       word_str, from_lang_code,
+                                       best_guess, to_lang_code,
+                                       context_str, url_str, title_str)
+    zeeguu.db.session.add(bookmark)
+    zeeguu.db.session.commit()
+
 
     return json_result(dict(
-                            bookmark_id = id,
-                            translation = translation_str))
+                            bookmark_id = bookmark.id,
+                            translation = best_guess))
 
+
+@api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@with_session
+def get_possible_translations(from_lang_code, to_lang_code):
+    """
+    Returns a list of possible translations for this
+    :param word: word to be translated
+    :param from_lang_code:
+    :param to_lang_code:
+    :return: json array with dictionaries. each of the dictionaries contains at least
+        one 'translation' and one 'translation_id' key.
+
+        In the future we envision that the dict will contain
+        other types of information, such as relative frequency,
+    """
+
+    context = request.form.get('context', '')
+    url = request.form.get('url', '')
+    word = request.form['word']
+    title_str = request.form.get('title', '')
+    before_context, after_context = context.split(word, 1)
+
+    translator = BestEffortTranslator(from_lang_code, to_lang_code)
+
+    translations = translator.ca_translate(word, before_context, after_context, 3)
+    best_guess = translations[0]["translation"]
+
+    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+                                       word, from_lang_code,
+                                       best_guess, to_lang_code,
+                                       context, url, title_str)
+    zeeguu.db.session.add(bookmark)
+    zeeguu.db.session.commit()
+
+    return json_result(dict(translations=translations))
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
@@ -73,59 +121,28 @@ def contribute_translation(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
 
-    id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
-
-    return json_result(dict(
-                            bookmark_id = id,
-                            translation = translation_str))
-
-
-def bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str):
-    """
-        This function will lookup a given word-text pair, and if found, it will return
-     that bookmark rather than a new one
-
-    :param from_lang_code:
-    :param to_lang_code:
-    :param word_str:
-    :param url_str:
-    :param title_str:
-    :param context_str:
-    :param translation_str:
-    :return:
-    """
-    from_lang = Language.find(from_lang_code)
-    to_lang = Language.find(to_lang_code)
-
-    user_word = UserWord.find(word_str, from_lang)
-    url = Url.find(url_str, title_str)
-    context = Text.find_or_create(context_str, from_lang, url)
-    translation = UserWord.find(translation_str, to_lang)
-
-    try:
-        bookmark = Bookmark.find_all_by_user_word_and_text(flask.g.user, user_word, context)[0]
-
-        # if we found the bookmark, it means that the user has uploaded their own
-        # favorite translation. Thus we update the translation
-        bookmark.translations_list = [translation]
-
-    except Exception as e:
-        print (str(e))
-        bookmark = Bookmark(user_word, translation, flask.g.user, context, datetime.now())
-
-    zeeguu.db.session.add_all([bookmark, context, user_word, url, translation])
+    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+                                       word_str, from_lang_code,
+                                       translation_str, to_lang_code,
+                                       context_str, url_str, title_str)
+    zeeguu.db.session.add(bookmark)
     zeeguu.db.session.commit()
 
-    return str(bookmark.id)
+    return json_result(dict(
+                            bookmark_id = bookmark.id,
+                            translation = translation_str))
+
 
 
 @api.route("/bookmark_with_context/<from_lang_code>/<term>/<to_lang_code>/<translation>",
            methods=["POST"])
 @cross_domain
 @with_session
-def bookmark_with_context_api(from_lang_code, term, to_lang_code, translation):
+def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
     """
-    The preferred way of a user saving a word/translation/context to his  profile.
+    
+        The preferred way of a user saving a word/translation/context to his  profile.
+    
     :param from_lang_code:
     :param term:
     :param to_lang_code:
@@ -135,32 +152,28 @@ def bookmark_with_context_api(from_lang_code, term, to_lang_code, translation):
 
     word_str = unquote_plus(term)
     translation_str = unquote_plus(translation)
-
     url_str = request.form.get('url', '')
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
-    id = bookmark_with_context(from_lang_code, to_lang_code, word_str, url_str, title_str, context_str, translation_str)
+    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+                                       word_str, from_lang_code,
+                                       translation_str, to_lang_code,
+                                       context_str, url_str, title_str)
+    zeeguu.db.session.add(bookmark)
+    zeeguu.db.session.commit()
 
-    return id
+    return str(bookmark.id)
 
 
-@api.route("/delete_bookmark/<bookmark_id>",
-           methods=["POST"])
+@api.route("/delete_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
 def delete_bookmark(bookmark_id):
-    # Beware, the web app uses the /delete_bookmark endpoint from the gym API
-    bookmark = Bookmark.query.filter_by(
-            id=bookmark_id
-    ).first()
-
-    try:
-        zeeguu.db.session.delete(bookmark)
-        zeeguu.db.session.commit()
-        return "OK"
-    except Exception:
-        return "FAIL"
+    bookmark = Bookmark.find(bookmark_id)
+    zeeguu.db.session.delete(bookmark)
+    zeeguu.db.session.commit()
+    return "OK"
 
 
 @api.route("/add_new_translation_to_bookmark/<word_translation>/<bookmark_id>",
@@ -168,9 +181,7 @@ def delete_bookmark(bookmark_id):
 @cross_domain
 @with_session
 def add_new_translation_to_bookmark(word_translation, bookmark_id):
-    bookmark = Bookmark.query.filter_by(
-            id=bookmark_id
-    ).first()
+    bookmark = Bookmark.find(bookmark_id)
     translations_of_bookmark = bookmark.translations_list
     for transl in translations_of_bookmark:
         if transl.word == word_translation:
@@ -188,9 +199,7 @@ def add_new_translation_to_bookmark(word_translation, bookmark_id):
 @cross_domain
 @with_session
 def delete_translation_from_bookmark(bookmark_id, translation_word):
-    bookmark = Bookmark.query.filter_by(
-            id=bookmark_id
-    ).first()
+    bookmark = Bookmark.find(bookmark_id)
     if len(bookmark.translations_list) == 1:
         return 'FAIL'
     translation_id = -1
@@ -218,123 +227,9 @@ def get_translations_for_bookmark(bookmark_id):
         dict(id=translation.id,
                  word=translation.word,
                  language=translation.language.name
-             # ,ranked_word=translation.rank
-             # this thing seems meaningless. should be removed
-             # however, for now commented out since i'm not sure.
              )
         for translation in bookmark.translations_list]
 
     return json_result(result)
 
 
-
-
-
-@api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
-@cross_domain
-@with_session
-def get_possible_translations(from_lang_code, to_lang_code):
-    """
-    Returns a list of possible translations for this
-    :param word: word to be translated
-    :param from_lang_code:
-    :param to_lang_code:
-    :return: json array with dictionaries. each of the dictionaries contains at least
-        one 'translation' and one 'translation_id' key.
-
-        In the future we envision that the dict will contain
-        other types of information, such as relative frequency,
-    """
-
-    translations_json = []
-    context = request.form.get('context', '')
-    url = request.form.get('url', '')
-    word = request.form['word']
-    title_str = request.form.get('title', '')
-
-    main = main_translation(word, context, from_lang_code, to_lang_code)
-
-    alternatives = alternative_translations(word, context, from_lang_code, to_lang_code)
-
-    bookmark_with_context(from_lang_code, to_lang_code, word, url, title_str, context, main)
-
-    lan = Language.find(to_lang_code)
-    likelihood = 1.0
-    for translation in [main] + alternatives:
-        wor = UserWord.find(translation, lan)
-        zeeguu.db.session.add(wor)
-        t_dict = dict(
-            translation_id= wor.id,
-            translation=translation,
-            likelihood=likelihood)
-        translations_json.append(t_dict)
-        likelihood -= 0.01
-
-    zeeguu.db.session.commit()
-    return json_result(dict(translations=translations_json))
-
-
-def main_translation(word_str, context_str, from_lang_code, to_lang_code):
-    """
-        
-        Guess the best possible translation.  
-        
-        Or throw an exception
-        
-    :param word_str: 
-    :param context_str: 
-    :param from_lang_code: 
-    :param to_lang_code: 
-    :return: best translation
-    
-    """
-
-    # Assume we're translating the first occurrence of the given word in the context
-    left_context, right_context = context_str.split(word_str, 1)
-
-    try: 
-        zeeguu.log ("\n\n ===== Translation from: {2} to: {3} \n -- word: {0} \n -- left context: {4} \n -- right context: {5}".
-           format(word_str, context_str, from_lang_code, to_lang_code, left_context, right_context))
-    except Exception as e:
-        print(str(e))
-
-    try:
-        t = GoogleTranslatorFactory.build(from_lang_code, to_lang_code)
-        translation = t.translate(word_str)
-        zeeguu.log ("Translation with google (w/o context): {0}".format(translation))
-        return translation
-
-    except Exception as e:
-        zeeguu.log("failed translation with google!")
-        zeeguu.log(str(e))
-
-        # In case Google fails, we fallback on Glosbe
-        t = GlosbeTranslator(from_lang_code, to_lang_code)
-        translation = t.translate(word_str)[0]
-        zeeguu.log("Translation with Glosbe: ".format(translation))
-        return translation
-
-        raise Exception ("Could not find a translation for {0} / {1} / {2} / {3}".
-                         format(word_str, context_str, from_lang_code, to_lang_code))
-
-
-def alternative_translations(word_str, context_str, from_lang_code, to_lang_code):
-    try:
-        t = GlosbeTranslator(from_lang_code, to_lang_code)
-        translations = t.translate(word_str, 10)
-        if not translations:
-            raise Exception("nothing found in Glosbe. Trying out GoogleTranslator")
-        return translations
-    except Exception as e:
-        zeeguu.log(str(e))
-        t = GoogleTranslatorFactory.build(from_lang_code, to_lang_code)
-        left_context, right_context = context_str.split(word_str, 1)
-        translation = t.ca_translate(word_str, left_context, right_context)
-        zeeguu.log ("Translation with google (with context): {0}".format(translation))
-        return [translation]
-
-
-def translate(word_str, context_str, from_lang_code, to_lang_code):
-
-    translation = main_translation(word_str, context_str, from_lang_code, to_lang_code)
-    return translation, []
