@@ -58,35 +58,3 @@ class KnowledgeEstimationTest(APITestMixin, TestCase):
         form_data["after_date"]=first_day_of(2015)
         bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
         assert len(bookmarks) == 0
-
-    def test_feedback_from_smartwartch_updates_bookmarks_to_study(self):
-        to_study = self.json_from_api_get("bookmarks_to_study/50")
-        to_study_count_before = len(to_study)
-        # print to_study
-        # assert len(to_study) == zeeguu.populate.TEST_BOOKMARKS_COUNT
-
-        # Create an learnedIt event
-        learned_bookmark_id = to_study[0]["id"]
-        events = [
-            dict(
-                bookmark_id=to_study[0]["id"],
-                time="2016-05-05T10:10:10",
-                event="learnedIt"
-            ),
-            dict(
-                bookmark_id=to_study[1]["id"],
-                time="2016-05-05T10:11:10",
-                event="wrongTranslation"
-                # NOTE: Wrong Translation is something that the user provides
-                # as feedback in the smartwatch application to say: Don't show
-                # me this word again, i think it's a wrong translation... this is
-                # why neither bookmark 1 nor bookmark 2 are being shown at the end
-                #
-            )
-        ]
-        result = self.api_post('/upload_smartwatch_events', dict(events=json.dumps(events)))
-        assert (result.data == b"OK")
-
-        to_study = self.json_from_api_get("bookmarks_to_study/50")
-        assert not to_study
-        # print to_study

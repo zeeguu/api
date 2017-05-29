@@ -77,7 +77,7 @@ def start_following_feeds():
         if "language" in feed:
             lan = Language.find(two_letter_language_code(feed))
 
-        url = Url.find(url_string)
+        url = Url.find_or_create(url_string)
         db.session.add(url)
         # Important to commit this url first; otherwise we end up creating
         # two domains with the same name for both the urls...
@@ -85,7 +85,7 @@ def start_following_feeds():
 
         feed_object = RSSFeed.find_by_url(url)
         if not feed_object:
-            feed_image_url = Url.find(feed_image_url_string)
+            feed_image_url = Url.find_or_create(feed_image_url_string)
             title = url
             if "title" in feed:
                 title = feed.title
@@ -239,13 +239,13 @@ def add_new_feed():
     title = feed_info["title"]
     description = feed_info["description"]
 
-    url = Url.find(url_string)
+    url = Url.find_or_create(url_string)
     db.session.add(url)
     # Important to commit this url first; otherwise we end up creating
     # two domains with the same name for both the urls...
     db.session.commit()
 
-    feed_image_url = Url.find(image_url)
+    feed_image_url = Url.find_or_create(image_url)
 
     feed_object = RSSFeed.find_or_create(url, title, description, feed_image_url, language)
 
@@ -284,13 +284,13 @@ def start_following_feed():
     title = feed_info["title"]
     description = feed_info["description"]
 
-    url = Url.find(url_string)
+    url = Url.find_or_create(url_string)
     db.session.add(url)
     # Important to commit this url first; otherwise we end up creating
     # two domains with the same name for both the urls...
     db.session.commit()
 
-    feed_image_url = Url.find(image_url)
+    feed_image_url = Url.find_or_create(image_url)
 
     feed_object = RSSFeed.find_or_create(url, title, description, feed_image_url, language)
     feed_registration = RSSFeedRegistration.find_or_create(flask.g.user, feed_object)
