@@ -19,6 +19,9 @@ def bookmarks_to_study(bookmark_count):
     are recommended for this user to study
 
     """
+    from time import sleep
+    sleep(0.5)
+
     int_count = int(bookmark_count)
     to_study = flask.g.user.bookmarks_to_study(int_count)
 

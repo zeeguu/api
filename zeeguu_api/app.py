@@ -22,3 +22,7 @@ assert zeeguu.model
 
 from .api import api
 app.register_blueprint(api)
+
+import dashboard
+dashboard.config.from_file('/home/mircea/zee/http/api/dashboard.cfg')
+dashboard.bind(app=app)
