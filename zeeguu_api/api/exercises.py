@@ -64,7 +64,7 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
 
     try:
         bookmark = Bookmark.find(bookmark_id)
-        new_source = ExerciseSource.find_by_source(exercise_source)
+        new_source = ExerciseSource.find(exercise_source)
         new_outcome = ExerciseOutcome.find(exercise_outcome)
 
         if not bookmark:

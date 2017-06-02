@@ -84,6 +84,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     translations = translator.ca_translate(word, before_context, after_context, 3)
     best_guess = translations[0]["translation"]
 
+    print("before creating the new bookmark")
     bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
                                        word, from_lang_code,
                                        best_guess, to_lang_code,
