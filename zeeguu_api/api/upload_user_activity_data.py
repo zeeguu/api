@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import flask
 from flask import request
 import zeeguu
@@ -39,7 +41,7 @@ def upload_user_activity_data():
     extra_data = request.form['extra_data']
 
     new_entry = UserActivityData(flask.g.user,
-                                 time,
+                                 datetime.strptime(time, "%Y-%m-%dT%H:%M:%S"),
                                  event,
                                  value,
                                  extra_data)
@@ -78,7 +80,7 @@ def test_upload_user_activity_data():
     extra_data = request.form['extra_data']
 
     new_entry = UserActivityData(flask.g.user,
-                                 time,
+                                 datetime.strptime(time, "%Y-%m-%dT%H:%M:%S"),
                                  event,
                                  value,
                                  extra_data)

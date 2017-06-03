@@ -100,3 +100,25 @@ class BookmarkTest(APITestMixin, TestCase):
         # THEN: translation is updated
         translation = self.json_from_api_get('/get_translations_for_bookmark/1')[0]
         self.assertEqual(translation['word'], "lamb")
+
+
+
+    def test_get_known_bookmarks_after_date(self):
+        """
+        The dates in which we have bookmarks in the test data are: 2014, 2011, 2001
+        :return:
+        """
+        def first_day_of(year):
+            return str(year)+"-01-01T00:00:00"
+
+        form_data = dict()
+        bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
+        # If we don't ask for the context, we don't get it
+        assert "context" not in bookmarks[0]["bookmarks"][0]
+        # Also, since we didn't pass any after_date we get all the three days
+        assert len(bookmarks) == 1
+
+        # No bookmarks in the tests after 2015
+        form_data["after_date"]=first_day_of(2015)
+        bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
+        assert len(bookmarks) == 0

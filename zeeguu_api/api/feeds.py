@@ -11,7 +11,8 @@ from .utils.feedparser_extensions import list_of_feeds_at_url, two_letter_langua
 from .utils.json_result import json_result
 from . import api
 
-db = zeeguu.db
+session = zeeguu.db.session
+
 
 # ---------------------------------------------------------------------------
 @api.route("/get_feeds_at_url", methods=("POST",))
@@ -77,26 +78,17 @@ def start_following_feeds():
         if "language" in feed:
             lan = Language.find(two_letter_language_code(feed))
 
-        url = Url.find_or_create(url_string)
-        db.session.add(url)
-        # Important to commit this url first; otherwise we end up creating
-        # two domains with the same name for both the urls...
-        db.session.commit()
+        url = Url.find_or_create(session, url_string)
 
         feed_object = RSSFeed.find_by_url(url)
         if not feed_object:
-            feed_image_url = Url.find_or_create(feed_image_url_string)
+            feed_image_url = Url.find_or_create(session, feed_image_url_string)
             title = url
             if "title" in feed:
                 title = feed.title
-            feed_object = RSSFeed.find_or_create(url, title, feed.description, feed_image_url, lan)
-            db.session.add_all([feed_image_url, feed_object])
-            db.session.commit()
+            feed_object = RSSFeed.find_or_create(session, url, title, feed.description, feed_image_url, lan)
 
-        feed_registration = RSSFeedRegistration.find_or_create(flask.g.user, feed_object)
-
-        db.session.add(feed_registration)
-        db.session.commit()
+        RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
 
     return "OK"
 
@@ -117,9 +109,7 @@ def start_following_feed_with_id():
     feed_id = int(request.form.get('feed_id', ''))
 
     feed_object = RSSFeed.find_by_id(feed_id)
-    feed_registration = RSSFeedRegistration.find_or_create(flask.g.user, feed_object)
-    db.session.add(feed_registration)
-    db.session.commit()
+    feed_registration = RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
 
     return "OK"
 
@@ -137,10 +127,10 @@ def stop_following_feed(feed_id):
 
     try:
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
-        db.session.delete(to_delete)
-        db.session.commit()
+        session.delete(to_delete)
+        session.commit()
     except Exception as e:
-        return "OOPS. FEED AIN'T THERE IT SEEMS ("+str(e)+")"
+        return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
 
@@ -239,18 +229,11 @@ def add_new_feed():
     title = feed_info["title"]
     description = feed_info["description"]
 
-    url = Url.find_or_create(url_string)
-    db.session.add(url)
-    # Important to commit this url first; otherwise we end up creating
-    # two domains with the same name for both the urls...
-    db.session.commit()
+    url = Url.find_or_create(session, url_string)
 
-    feed_image_url = Url.find_or_create(image_url)
+    feed_image_url = Url.find_or_create(session, image_url)
 
-    feed_object = RSSFeed.find_or_create(url, title, description, feed_image_url, language)
-
-    db.session.add_all([feed_image_url, feed_object])
-    db.session.commit()
+    feed_object = RSSFeed.find_or_create(session, url, title, description, feed_image_url, language)
 
     return json.dumps(feed_object.id)
 
@@ -284,19 +267,11 @@ def start_following_feed():
     title = feed_info["title"]
     description = feed_info["description"]
 
-    url = Url.find_or_create(url_string)
-    db.session.add(url)
-    # Important to commit this url first; otherwise we end up creating
-    # two domains with the same name for both the urls...
-    db.session.commit()
+    url = Url.find_or_create(session, url_string)
 
-    feed_image_url = Url.find_or_create(image_url)
+    feed_image_url = Url.find_or_create(session, image_url)
 
-    feed_object = RSSFeed.find_or_create(url, title, description, feed_image_url, language)
-    feed_registration = RSSFeedRegistration.find_or_create(flask.g.user, feed_object)
-
-    db.session.add_all([feed_image_url, feed_object, feed_registration])
-    db.session.commit()
+    feed_object = RSSFeed.find_or_create(session, url, title, description, feed_image_url, language)
+    RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
 
     return "OK"
-

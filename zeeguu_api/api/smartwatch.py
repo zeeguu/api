@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 import flask
 from flask import request
@@ -42,7 +43,7 @@ def upload_smartwatch_events():
         new_event = WatchInteractionEvent(
             event_type,
             event["bookmark_id"],
-            event["time"])
+            datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"),)
         db.session.add(new_event)
     db.session.commit()
 
