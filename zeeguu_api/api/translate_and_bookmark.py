@@ -51,10 +51,9 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     zeeguu.db.session.add(bookmark)
     zeeguu.db.session.commit()
 
-
     return json_result(dict(
-                            bookmark_id = bookmark.id,
-                            translation = best_guess))
+        bookmark_id=bookmark.id,
+        translation=best_guess))
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -94,6 +93,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     return json_result(dict(translations=translations))
 
+
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @with_session
@@ -130,9 +130,8 @@ def contribute_translation(from_lang_code, to_lang_code):
     zeeguu.db.session.commit()
 
     return json_result(dict(
-                            bookmark_id = bookmark.id,
-                            translation = translation_str))
-
+        bookmark_id=bookmark.id,
+        translation=translation_str))
 
 
 @api.route("/bookmark_with_context/<from_lang_code>/<term>/<to_lang_code>/<translation>",
@@ -175,62 +174,3 @@ def delete_bookmark(bookmark_id):
     zeeguu.db.session.delete(bookmark)
     zeeguu.db.session.commit()
     return "OK"
-
-
-@api.route("/add_new_translation_to_bookmark/<word_translation>/<bookmark_id>",
-           methods=["POST"])
-@cross_domain
-@with_session
-def add_new_translation_to_bookmark(word_translation, bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
-    translations_of_bookmark = bookmark.translations_list
-    for transl in translations_of_bookmark:
-        if transl.word == word_translation:
-            return 'FAIL'
-
-    translation_user_word = UserWord.find(word_translation, translations_of_bookmark[0].language)
-    bookmark.add_new_translation(translation_user_word)
-    zeeguu.db.session.add(translation_user_word)
-    zeeguu.db.session.commit()
-    return "OK"
-
-
-@api.route("/delete_translation_from_bookmark/<bookmark_id>/<translation_word>",
-           methods=["POST"])
-@cross_domain
-@with_session
-def delete_translation_from_bookmark(bookmark_id, translation_word):
-    bookmark = Bookmark.find(bookmark_id)
-    if len(bookmark.translations_list) == 1:
-        return 'FAIL'
-    translation_id = -1
-    for b in bookmark.translations_list:
-        if translation_word == b.word:
-            translation_id = b.id
-            break
-    if translation_id == -1:
-        return 'FAIL'
-    translation = UserWord.query.filter_by(
-            id=translation_id
-    ).first()
-    bookmark.remove_translation(translation)
-    zeeguu.db.session.commit()
-    return "OK"
-
-
-@api.route("/get_translations_for_bookmark/<bookmark_id>", methods=("GET",))
-@cross_domain
-@with_session
-def get_translations_for_bookmark(bookmark_id):
-    bookmark = Bookmark.query.filter_by(id=bookmark_id).first()
-
-    result = [
-        dict(id=translation.id,
-                 word=translation.word,
-                 language=translation.language.name
-             )
-        for translation in bookmark.translations_list]
-
-    return json_result(result)
-
-
