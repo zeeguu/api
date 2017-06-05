@@ -45,4 +45,4 @@ class TranslationTests(APITestMixin, TestCase):
 
         form_data["word"] = "kleine"
         bookmark4  = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
-        assert bookmark4['translation'] == 'small'
+        self.assertTrue(bookmark4['translation'] in ['small', 'little'])

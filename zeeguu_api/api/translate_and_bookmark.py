@@ -4,12 +4,17 @@ import flask
 from flask import request
 
 import zeeguu
-from translators.composite.best_effort import BestEffortTranslator
 
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu.model import Bookmark, UserWord
+from zeeguu.model import Bookmark
+
+from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
+from python_translators.translation_query import TranslationQuery
+from python_translators.translators import BestEffortTranslator
+
+session = zeeguu.db.session
 
 
 @api.route("/translate_and_bookmark/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -37,19 +42,20 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     url_str = request.form.get('url', '')
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
-    before_context, after_context = context_str.split(word_str, 1)
+
+    _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
+    processor = RemoveUnnecessarySentences(from_lang_code)
+    query = processor.process_query(_query)
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
+    translations = translator.translate(query).translations
 
-    translations = translator.ca_translate(word_str, before_context, after_context, 3)
     best_guess = translations[0]["translation"]
 
-    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+    bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        best_guess, to_lang_code,
                                        context_str, url_str, title_str)
-    zeeguu.db.session.add(bookmark)
-    zeeguu.db.session.commit()
 
     return json_result(dict(
         bookmark_id=bookmark.id,
@@ -72,24 +78,25 @@ def get_possible_translations(from_lang_code, to_lang_code):
         other types of information, such as relative frequency,
     """
 
-    context = request.form.get('context', '')
+    context_str = request.form.get('context', '')
     url = request.form.get('url', '')
-    word = request.form['word']
+    word_str = request.form['word']
     title_str = request.form.get('title', '')
-    before_context, after_context = context.split(word, 1)
+
+    _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
+    processor = RemoveUnnecessarySentences(from_lang_code)
+    query = processor.process_query(_query)
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
+    translations = translator.translate(query).translations
 
-    translations = translator.ca_translate(word, before_context, after_context, 3)
     best_guess = translations[0]["translation"]
 
     print("before creating the new bookmark")
-    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
-                                       word, from_lang_code,
+    bookmark = Bookmark.find_or_create(session, flask.g.user,
+                                       word_str, from_lang_code,
                                        best_guess, to_lang_code,
-                                       context, url, title_str)
-    zeeguu.db.session.add(bookmark)
-    zeeguu.db.session.commit()
+                                       context_str, url, title_str)
 
     return json_result(dict(translations=translations))
 
@@ -122,12 +129,10 @@ def contribute_translation(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
 
-    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+    bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
                                        context_str, url_str, title_str)
-    zeeguu.db.session.add(bookmark)
-    zeeguu.db.session.commit()
 
     return json_result(dict(
         bookmark_id=bookmark.id,
@@ -156,12 +161,10 @@ def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
-    bookmark = Bookmark.find_or_create(zeeguu.db.session, flask.g.user,
+    bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
                                        context_str, url_str, title_str)
-    zeeguu.db.session.add(bookmark)
-    zeeguu.db.session.commit()
 
     return str(bookmark.id)
 
@@ -171,6 +174,6 @@ def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
 @with_session
 def delete_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    zeeguu.db.session.delete(bookmark)
-    zeeguu.db.session.commit()
+    session.delete(bookmark)
+    session.commit()
     return "OK"
