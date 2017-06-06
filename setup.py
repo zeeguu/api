@@ -16,7 +16,7 @@ setuptools.setup(
     keywords="Second language acquisition api",
     dependency_links=[
             "git+https://github.com/mircealungu/zeeguu-core.git#egg=zeeguu",
-            "git+https://github.com/mircealungu/python-translators.git#egg=translators",
+            "git+https://github.com/mircealungu/python-translators.git#egg=python_translators",
         ],
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
@@ -27,5 +27,5 @@ setuptools.setup(
                       "beautifulsoup4",
                       "feedparser",
                       'zeeguu',
-                      'translators')
+                      'python_translators')
 )
