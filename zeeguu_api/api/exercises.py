@@ -9,6 +9,8 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
+from zeeguu.algos.algo_service import AlgoService
+
 
 @api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
@@ -82,6 +84,8 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
         zeeguu.db.session.commit()
 
         # KnownWordProbability.update_for_user_and_word(zeeguu.db, bookmark.user, bookmark.origin);
+        #AlgoService.update_bookmark_priority(zeeguu.db, flask.g.user)
+        #print ("udpated bookmark priority for " + str(flask.g.user.name))
 
         return "OK"
     except :

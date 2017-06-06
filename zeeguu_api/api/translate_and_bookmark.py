@@ -46,6 +46,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
     processor = RemoveUnnecessarySentences(from_lang_code)
     query = processor.process_query(_query)
+    minimal_context = query.before_context + ' ' + query.query + query.after_context
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
     translations = translator.translate(query).translations
@@ -55,7 +56,8 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        best_guess, to_lang_code,
-                                       context_str, url_str, title_str)
+                                       minimal_context, url_str, title_str)
+
 
     return json_result(dict(
         bookmark_id=bookmark.id,
@@ -86,6 +88,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
     processor = RemoveUnnecessarySentences(from_lang_code)
     query = processor.process_query(_query)
+    minimal_context = query.before_context + ' ' + query.query + query.after_context
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
     translations = translator.translate(query).translations
@@ -96,7 +99,8 @@ def get_possible_translations(from_lang_code, to_lang_code):
     bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        best_guess, to_lang_code,
-                                       context_str, url, title_str)
+                                       minimal_context, url, title_str)
+
 
     return json_result(dict(translations=translations))
 
@@ -134,6 +138,7 @@ def contribute_translation(from_lang_code, to_lang_code):
                                        translation_str, to_lang_code,
                                        context_str, url_str, title_str)
 
+
     return json_result(dict(
         bookmark_id=bookmark.id,
         translation=translation_str))
@@ -165,6 +170,7 @@ def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
                                        context_str, url_str, title_str)
+
 
     return str(bookmark.id)
 
