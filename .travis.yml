@@ -5,6 +5,8 @@ before_install:
   - mysql -e "create database IF NOT EXISTS zeeguu_test;" -uroot
   - mysql -e "grant all on zeeguu_test.* to 'zeeguu_test'@'localhost' identified by 'zeeguu_test';" -uroot
   - mkdir -p ~/.config/zeeguu/ && cp default_api.cfg ~/.config/zeeguu/api_testing.cfg
+  - pip3 install jieba3k
+  - pip3 install coveralls
 
 
 language: python
