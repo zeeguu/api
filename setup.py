@@ -17,6 +17,7 @@ setuptools.setup(
     dependency_links=[
             "git+https://github.com/mircealungu/zeeguu-core.git#egg=zeeguu",
             "git+https://github.com/mircealungu/python-translators.git#egg=python_translators",
+            "git+https://github.com/mircealungu/automatic-monitoring-dasboard.git#egg=dashboard",
         ],
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
@@ -27,5 +28,6 @@ setuptools.setup(
                       "beautifulsoup4",
                       "feedparser",
                       'zeeguu',
-                      'python_translators')
+                      'python_translators',
+                      'dashboard')
 )
