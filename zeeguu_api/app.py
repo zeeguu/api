@@ -47,5 +47,7 @@ try:
 
     dashboard.config.get_group_by = get_user_id
     dashboard.bind(app=app)
-except:
+except Exception as e:
     print ("could not start the dashboard, but will continue anyway")
+    print (str(e))
+
