@@ -173,7 +173,6 @@ def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
     query = processor.process_query(_query)
     minimal_context = query.before_context + ' ' + query.query + query.after_context
 
-
     bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,

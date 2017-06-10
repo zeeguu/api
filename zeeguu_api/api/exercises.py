@@ -65,7 +65,7 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
     try:
         bookmark = Bookmark.find(bookmark_id)
         new_source = ExerciseSource.find(exercise_source)
-        new_outcome = ExerciseOutcome.find(exercise_outcome)
+        new_outcome = ExerciseOutcome.find_or_create(zeeguu.db.session, exercise_outcome)
 
         if not bookmark:
             return "could not find bookmark"
