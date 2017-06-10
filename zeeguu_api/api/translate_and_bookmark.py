@@ -58,7 +58,6 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
                                        best_guess, to_lang_code,
                                        minimal_context, url_str, title_str)
 
-
     return json_result(dict(
         bookmark_id=bookmark.id,
         translation=best_guess))
@@ -101,7 +100,6 @@ def get_possible_translations(from_lang_code, to_lang_code):
                                        best_guess, to_lang_code,
                                        minimal_context, url, title_str)
 
-
     return json_result(dict(translations=translations))
 
 
@@ -133,11 +131,15 @@ def contribute_translation(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
 
+    _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
+    processor = RemoveUnnecessarySentences(from_lang_code)
+    query = processor.process_query(_query)
+    minimal_context = query.before_context + ' ' + query.query + query.after_context
+
     bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
-                                       context_str, url_str, title_str)
-
+                                       minimal_context, url_str, title_str)
 
     return json_result(dict(
         bookmark_id=bookmark.id,
@@ -165,12 +167,17 @@ def bookmark_with_context(from_lang_code, term, to_lang_code, translation):
     url_str = request.form.get('url', '')
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
+    
+    _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
+    processor = RemoveUnnecessarySentences(from_lang_code)
+    query = processor.process_query(_query)
+    minimal_context = query.before_context + ' ' + query.query + query.after_context
+
 
     bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
-                                       context_str, url_str, title_str)
-
+                                       minimal_context, url_str, title_str)
 
     return str(bookmark.id)
 

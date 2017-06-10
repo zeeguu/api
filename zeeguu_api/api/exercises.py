@@ -81,10 +81,6 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
         zeeguu.db.session.add(exercise)
         zeeguu.db.session.commit()
 
-        # KnownWordProbability.update_for_user_and_word(zeeguu.db, bookmark.user, bookmark.origin);
-        #AlgoService.update_bookmark_priority(zeeguu.db, flask.g.user)
-        #print ("udpated bookmark priority for " + str(flask.g.user.name))
-
         return "OK"
     except :
         traceback.print_exc()
