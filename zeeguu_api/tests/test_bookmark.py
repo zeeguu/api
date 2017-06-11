@@ -7,18 +7,17 @@ from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 import zeeguu
 
-example1_post_url = '/bookmark_with_context/de/Freund/en/friend'
+example1_post_url = '/contribute_translation/de/en'
 example1_context = 'Mein Freund lächelte'
 example1_context_url = 'http://www.derkleineprinz-online.de/text/2-kapitel/'
-example1_payload = dict(context=example1_context, url=example1_context_url)
+example1_payload = dict(word='Freund', translation='friend', context=example1_context, url=example1_context_url)
 
 
 class BookmarkTest(APITestMixin, TestCase):
 
     def test_last_bookmark_added_is_first_in_bookmarks_by_day(self):
 
-        new_bookmark_id = self.raw_data_from_api_post(example1_post_url,
-            example1_payload)
+        new_bookmark_id = self.json_from_api_post(example1_post_url, example1_payload)["bookmark_id"]
 
         bookmarks_on_first_day = self.json_from_api_get('/bookmarks_by_day/with_context')[0]["bookmarks"]
 

@@ -33,23 +33,3 @@ class ReadingRecommenderTests(APITestMixin, TestCase):
 
         assert second_text_difficulty['estimated_difficulty']=="EASY"
 
-    def test_text_learnability(self):
-        data = """
-            {"texts":
-                [
-                    {"content": "Der die das besteht warum, wer nicht fragt bleibt jeweils sogar dumm!", "id": 3},
-                    {"content": "Dies ist ein weiterer Test!", "id": 4}
-                ]
-            }
-        """
-
-        rv = self.api_post('/get_learnability_for_text/de', data, 'application/json')
-
-        learnabilities = json.loads(rv.data)['learnabilities']
-        for learnability in learnabilities:
-            assert 0.0 <= learnability['score'] <= 1.0
-            if learnability['id'] is 3:
-                assert learnability['score']
-                assert 0.16 < learnability['score'] < 0.17
-            elif learnability['id'] is 4:
-                assert learnability['score'] == 0.0
