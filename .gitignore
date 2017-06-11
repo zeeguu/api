@@ -8,3 +8,4 @@ instance
 
 .DS_Store
 wordinfo.db
+default_api.cfg
