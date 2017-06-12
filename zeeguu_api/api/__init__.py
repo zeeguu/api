@@ -14,3 +14,4 @@ from . import upload_user_activity_data
 from . import user_data
 from . import user_settings
 from . import user_statistics
+from . import starred_articles
