@@ -22,9 +22,9 @@ def star_article():
 
     """
 
-    url = request.form.get('url', '')
-    title = request.form.get('title', '')
-    language_id = request.form.get('language_id', '')
+    url = str(request.form.get('url', ''))
+    title = str(request.form.get('title', ''))
+    language_id = str(request.form.get('language_id', ''))
 
     StarredArticle.find_or_create(session, flask.g.user, url, title, language_id)
 
@@ -41,7 +41,7 @@ def unstar_article():
 
     """
 
-    url = request.form.get('url', '')
+    url = str(request.form.get('url', ''))
 
     StarredArticle.delete(session, flask.g.user, url)
 
