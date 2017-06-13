@@ -170,6 +170,13 @@ class FeedTests(APITestMixin, TestCase):
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
 
+    def test_top_recommended_articles(self):
+        self.test_start_following_feeds()
+        # After this test, we will have two feeds for the user
+
+        feed_items = self.json_from_api_get("get_top_recommended_articles/3")
+        print (feed_items)
+
     def test_get_feed_items_with_metrics(self):
         self.test_start_following_feeds()
         # After this test, we will have two feeds for the user
