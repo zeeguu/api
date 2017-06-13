@@ -188,9 +188,11 @@ def get_feed_items_with_metrics(feed_id):
 @with_session
 def top_recommended_articles(_count:str):
     """
-    Get a list of feed items for a given feed ID
 
-    :return: json list of dicts, with the following info:
+        Get a list of :param count articles that are
+        recommended reading for this user
+
+        :return: json list of dicts, with the following info:
                     title   = <unicode string>
                     url     = <unicode string>
                     content = <list> e.g.:
