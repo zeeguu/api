@@ -192,6 +192,9 @@ def top_recommended_articles(_count:str):
         Get a list of :param count articles that are
         recommended reading for this user
 
+        This only works if the user has some news sources
+        that he is registered to. 
+
         :return: json list of dicts, with the following info:
                     title   = <unicode string>
                     url     = <unicode string>
