@@ -47,7 +47,16 @@ def get_feeds_being_followed():
                 image_url = ...
     """
     registrations = RSSFeedRegistration.feeds_for_user(flask.g.user)
-    return json_result([reg.rss_feed.as_dictionary() for reg in registrations])
+    feed_list = []
+    for reg in registrations:
+        try: 
+            feed_list.append(reg.rss_feed.as_dictionary()) 
+            print (f"added reg with id: {reg.id}")
+        except Exception as e: 
+            print (f"failed reg with id: {reg.id}")
+            print(str(e))
+            
+    return json_result(feed_list)
 
 
 # ---------------------------------------------------------------------------
