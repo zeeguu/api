@@ -45,6 +45,11 @@ def get_possible_translations(from_lang_code, to_lang_code):
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
     translations = translator.translate(query).translations
 
+    # translators talk about quality, but our users expect likelihood.
+    # rename the key in the dictionary
+    for t in translations:
+        t['likelihood']=t.pop("quality")
+
     best_guess = translations[0]["translation"]
 
     Bookmark.find_or_create(session, flask.g.user,
@@ -105,7 +110,7 @@ def delete_bookmark(bookmark_id):
 
 
 def minimize_context(context_str, from_lang_code, word_str):
-    _query = TranslationQuery.one_context_and_word_index(word_str, context_str, 1, 3)
+    _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 3)
     processor = RemoveUnnecessarySentences(from_lang_code)
     query = processor.process_query(_query)
     minimal_context = query.before_context + ' ' + query.query + query.after_context

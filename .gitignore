@@ -9,3 +9,9 @@ instance
 .DS_Store
 wordinfo.db
 default_api.cfg
+build*
+*.egg*
+*.db
+*.log
+dash.cfg
+
