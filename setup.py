@@ -5,7 +5,7 @@ import setuptools
 
 setuptools.setup(
     name="zeeguu_api",
-    version="0.2",
+    version="0.31",
     packages=setuptools.find_packages(),
     include_package_data=True,
     zip_safe=False,
@@ -26,5 +26,6 @@ setuptools.setup(
                       "beautifulsoup4",
                       "feedparser",
                       'zeeguu',
-                      'python_translators')
+                      'python_translators'
+                      )
 )
