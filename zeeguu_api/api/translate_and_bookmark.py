@@ -49,6 +49,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     # rename the key in the dictionary
     for t in translations:
         t['likelihood']=t.pop("quality")
+        t['source']=t.pop('service_name')
 
     best_guess = translations[0]["translation"]
 
