@@ -12,7 +12,7 @@ from zeeguu.model import Bookmark
 
 from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
 from python_translators.translation_query import TranslationQuery
-from python_translators.translators import BestEffortTranslator
+from python_translators.translators.best_effort_translator import BestEffortTranslator
 
 session = zeeguu.db.session
 

@@ -26,6 +26,8 @@ setuptools.setup(
                       "beautifulsoup4",
                       "feedparser",
                       'zeeguu',
-                      'python_translators'
+                      'python_translators',
+                      'flask_monitoring_dashboard' 
+
                       )
 )
