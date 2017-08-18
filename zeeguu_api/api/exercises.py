@@ -78,6 +78,7 @@ def report_exercise_outcome(exercise_outcome,exercise_source,exercise_solving_sp
 
         exercise = Exercise(new_outcome,new_source,exercise_solving_speed, datetime.now())
         bookmark.add_new_exercise(exercise)
+        bookmark.update_fit_for_study(zeeguu.db.session)
         zeeguu.db.session.add(exercise)
         zeeguu.db.session.commit()
 
