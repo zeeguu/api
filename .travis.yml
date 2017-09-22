@@ -23,4 +23,3 @@ install: "python setup.py develop"
 script: "./run_tests.sh"
 script: "export DASHBOARD_CONFIG=dashboard_test.cfg"
 script: "python collect_performance.py"
-
