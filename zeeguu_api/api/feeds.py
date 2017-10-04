@@ -213,6 +213,7 @@ def get_interesting_feeds_for_language_id(language_id):
     :return:
     """
     feed_data = []
+    print ("trying to get feeds for {0}".format(language_id))
     for feed in RSSFeed.find_for_language_id(language_id):
         feed_data.append(feed.as_dictionary())
     return json_result(feed_data)
