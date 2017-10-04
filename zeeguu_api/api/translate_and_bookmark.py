@@ -46,6 +46,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     print (f'translating to... {to_lang_code}')
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
+    print (f"Query to translate is: {query}")
     translations = translator.translate(query).translations
 
     # translators talk about quality, but our users expect likelihood.
