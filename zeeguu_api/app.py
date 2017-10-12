@@ -25,7 +25,7 @@ app.register_blueprint(api)
 
 try:
     import dashboard
-    dashboard.config.from_file('/home/travis/build/kloostert/Zeeguu-API/dashboard_test.cfg')
+    dashboard.config.from_file('/home/travis/build/zeeguu-ecosystem/Zeeguu-API/dashboard_test.cfg')
 
     # dashboard can benefit from a way of associating a request with a user id
     def get_user_id():
