@@ -22,5 +22,5 @@ install: "python setup.py develop"
 
 script: 
   - "./run_tests.sh"
-  - "export DASHBOARD_CONFIG=dashboard_test.cfg"
+  - "export DASHBOARD_CONFIG=/home/travis/build/zeeguu-ecosystem/Zeeguu-API/dashboard_test.cfg"
   - "python collect_performance.py"
