@@ -16,6 +16,7 @@ setuptools.setup(
     dependency_links=[
             "git+https://github.com/mircealungu/zeeguu-core.git#egg=zeeguu",
             "git+https://github.com/mircealungu/python-translators.git#egg=python_translators",
+            "git+https://github.com/flask-dashboard/Flask-Monitoring-Dashboard#egg=flask_monitoring_dashboard"
         ],
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
