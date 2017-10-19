@@ -25,7 +25,7 @@ app.register_blueprint(api)
 
 try:
     import dashboard
-    dashboard.config.from_file('/home/mircea/zee/http/api/dashboard.cfg')
+    dashboard.config.from_file(None)
 
     # dashboard can benefit from a way of associating a request with a user id
     def get_user_id():
