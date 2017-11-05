@@ -50,4 +50,5 @@ try:
 except Exception as e:
     print ("could not start the dashboard, but will continue anyway")
     print (str(e))
+    raise e
 
