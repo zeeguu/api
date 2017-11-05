@@ -13,7 +13,7 @@ for feed in all_feeds:
 
         print (feed.title)
         print (feed.description)
-        print (feed.language_id)
+        print (feed.language.code)
         print (feed.url.as_string())
         print (feed.image_url.as_string())
 

@@ -43,7 +43,7 @@ def learned_language():
         e.g. API_URL/learned_language?session=123141516
     """
 
-    return flask.g.user.learned_language_id
+    return flask.g.user.learned_language.code
 
 
 @api.route("/learned_language/<language_code>", methods=["POST"])
@@ -69,7 +69,7 @@ def native_language():
     Get the native language of the user in session
     :return:
     """
-    return flask.g.user.native_language_id
+    return flask.g.user.native_language.code
 
 
 @api.route("/learned_and_native_language", methods=["GET"])
