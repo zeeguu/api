@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 from zeeguu.model import RSSFeed, Url, Language
 import zeeguu
