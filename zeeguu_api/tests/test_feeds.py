@@ -164,7 +164,7 @@ class FeedTests(APITestMixin, TestCase):
         self.test_start_following_feeds()
         # After this test, we will have two feeds for the user
 
-        feed_items = self.json_from_api_get("get_feed_items/1")
+        feed_items = self.json_from_api_get("get_feed_items_with_metrics/1")
         assert len(feed_items) > 0
         assert feed_items[0]["title"]
         assert feed_items[0]["summary"]

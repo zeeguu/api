@@ -11,7 +11,7 @@ all = Bookmark.query.all()
 for b in all:
     if name in b.text.content:
         print (b)
-        print ("good for study: " + str(b.good_for_study()))
+        print ("good for study: " + str(b.fit_for_study()))
         print ("quality: " + str(b.quality_bookmark()))
         print ("starred: " + str(b.starred))
         print (" ")
