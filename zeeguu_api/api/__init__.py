@@ -8,7 +8,6 @@ from . import feeds
 from . import sessions
 from . import smartwatch
 from . import system_languages
-from . import text_analysis
 from . import translate_and_bookmark
 from . import upload_user_activity_data
 from . import user_data
