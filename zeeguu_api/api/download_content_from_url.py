@@ -1,10 +1,3 @@
-import flask
-from flask import request
-from zeeguu.model import Language
-
-from .utils.route_wrappers import cross_domain, with_session
-from .utils.json_result import json_result
-
 from . import api
 
 
@@ -16,7 +9,7 @@ def preload_articles():
     for u in User.query.all():
         if u.active_during_recent(days=30):
             print(f'-- PRELOADING the articles for user {u.name}')
-            for each in RSSFeedRegistration.feeds_for_user(u).all():
+            for each in RSSFeedRegistration.feeds_for_user(u):
                 if each not in feeds_already_seen:
                     print(f'---- PRELOADING feed {each.rss_feed.title}')
                     for feed_item in each.rss_feed.feed_items():

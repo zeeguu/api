@@ -49,13 +49,13 @@ def get_feeds_being_followed():
     registrations = RSSFeedRegistration.feeds_for_user(flask.g.user)
     feed_list = []
     for reg in registrations:
-        try: 
-            feed_list.append(reg.rss_feed.as_dictionary()) 
+        try:
+            feed_list.append(reg.rss_feed.as_dictionary())
             # print (f"added reg with id: {reg.id}")
-        except Exception as e: 
+        except Exception as e:
             # print (f"failed reg with id: {reg.id}")
             print(str(e))
-            
+
     return json_result(feed_list)
 
 
@@ -144,8 +144,6 @@ def stop_following_feed(feed_id):
     return "OK"
 
 
-
-
 # ---------------------------------------------------------------------------
 @api.route("/get_feed_items_with_metrics/<feed_id>", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -174,7 +172,7 @@ def get_feed_items_with_metrics(feed_id):
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def top_recommended_articles(_count:str):
+def top_recommended_articles(_count: str):
     """
 
         Get a list of :param count articles that are
@@ -213,9 +211,32 @@ def get_interesting_feeds_for_language_id(language_id):
     :return:
     """
     feed_data = []
-    print ("trying to get feeds for {0}".format(language_id))
+    print("trying to get feeds for {0}".format(language_id))
     for feed in RSSFeed.find_for_language_id(language_id):
         feed_data.append(feed.as_dictionary())
+    return json_result(feed_data)
+
+
+# ---------------------------------------------------------------------------
+@api.route("/non_subscribed_feeds/<language_id>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def get_non_subscribed_feeds(language_id):
+    """
+    Get a list of feeds for the given language
+
+    :return:
+    """
+    feed_data = []
+    already_registered = [each.rss_feed for each in RSSFeedRegistration.feeds_for_user(flask.g.user)]
+
+    # print("trying to get feeds for {0} and {1}".format(language_id, flask.g.user.name))
+    all_available_for_language = RSSFeed.find_for_language_id(language_id)
+    for feed in all_available_for_language:
+        if not feed in already_registered:
+            feed_data.append(feed.as_dictionary())
+
     return json_result(feed_data)
 
 

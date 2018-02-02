@@ -5,12 +5,10 @@ from unittest import TestCase
 
 from zeeguu_api.tests.api_test_mixin import APITestMixin
 
-
 DIE_WELT_FEED_URL = 'http://diewelt.de/channels-extern/weltmobil/weltmobil_startseite/?service=Rss'
 
 
 class FeedTests(APITestMixin, TestCase):
-
     # def test_get_feeds_at_nonexistent_source(self):
     #     # print "this next message is in #test_get_feeds_at_inexistent_source"
     #     #
@@ -22,9 +20,9 @@ class FeedTests(APITestMixin, TestCase):
         resulting_feeds = []
 
         urls_to_test = [
-                        "http://www.handelsblatt.com",
-                        "http://www.der-postillon.com/"
-                        ]
+            "http://www.handelsblatt.com",
+            "http://www.spiegel.de/index.html"
+        ]
 
         for each_url in urls_to_test:
             feeds = self.json_from_api_post('/get_feeds_at_url', dict(url=each_url))
@@ -88,11 +86,10 @@ class FeedTests(APITestMixin, TestCase):
         self.api_post('/start_following_feeds', form_data)
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
-        # print feeds
+        print(feeds)
         # Assumes that the derspiegel site will always have two feeds
-        assert len(feeds) >= 1
+        assert len(feeds) == 3
         feed_count = len(feeds)
-        # assert feeds[0]["language"] == "de"
 
         # Make sure that if we call this twice, we don't get two feed entries
         self.api_post('/start_following_feeds', form_data)
@@ -115,7 +112,7 @@ class FeedTests(APITestMixin, TestCase):
         # Assumes that the derspiegel site will always have two feeds
         assert feeds
 
-    def test_stop_following_feed(self):
+    def test_stop_following_two_of_three_feeds(self):
         self.test_start_following_feeds()
         # After this test, we will have a bunch of feeds for the user
 
@@ -152,8 +149,22 @@ class FeedTests(APITestMixin, TestCase):
         assert first_feed["url"]
         assert len(interesting_feeds) > 0
 
+    def test_non_subscribed_feeds(self):
+        self.test_start_following_feeds()
+        # After this test, we will have two feeds for the user
+
+        feeds = self.json_from_api_get("get_feeds_being_followed")
+        print(feeds)
+
+        non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
+        assert len(non_subscribed_feeds) == 0
+
+        self.test_stop_following_two_of_three_feeds()
+        non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
+        assert len(non_subscribed_feeds) == 2
+
     def test_multiple_stop_following_same_feed(self):
-        self.test_stop_following_feed()
+        self.test_stop_following_two_of_three_feeds()
         # After this test, we will have removed both the feeds 1 and 2
 
         # Now try to delete the first one more time
@@ -175,7 +186,7 @@ class FeedTests(APITestMixin, TestCase):
         # After this test, we will have two feeds for the user
 
         feed_items = self.json_from_api_get("get_top_recommended_articles/3")
-        print (feed_items)
+        print(feed_items)
 
     def test_get_feed_items_with_metrics(self):
         self.test_start_following_feeds()
@@ -187,4 +198,3 @@ class FeedTests(APITestMixin, TestCase):
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
         assert feed_items[0]['metrics']
-
