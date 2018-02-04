@@ -45,7 +45,7 @@ for feed in RSSFeed.query.all():
                 word_count = len(art.text.split(" "))
 
                 if word_count < 10:
-                    zeeguu.lognprint(f" {LOG_CONTEXT}: Can't find text for: {url}")
+                    zeeguu.log_n_print(f" {LOG_CONTEXT}: Can't find text for: {url}")
 
                 else:
                     from zeeguu.language.difficulty_estimator_factory import DifficultyEstimatorFactory
@@ -67,8 +67,8 @@ for feed in RSSFeed.query.all():
                     )
                     session.add(new_article)
                     session.commit()
-                    zeeguu.lognprint()
+                    zeeguu.log_n_print()
                     print(f" {LOG_CONTEXT}: Added: {new_article}")
             except Exception as ex:
-                zeeguu.lognprint(f" {LOG_CONTEXT}: Failed to create zeeguu.Article from {url}")
+                zeeguu.log_n_print(f" {LOG_CONTEXT}: Failed to create zeeguu.Article from {url}")
                 zeeguu.log(str(ex))
