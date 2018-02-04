@@ -5,15 +5,17 @@ from unittest import TestCase
 
 from zeeguu_api.tests.api_test_mixin import APITestMixin
 
-DIE_WELT_FEED_URL = 'http://diewelt.de/channels-extern/weltmobil/weltmobil_startseite/?service=Rss'
+from zeeguu.content_retriever.article_downloader import download_from_feed
+from tests_core_zeeguu.rules.rss_feed_rule import TELEGRAAF_URL, SPIEGEL_URL, RSSFeedRule
+import zeeguu
 
 
 class FeedTests(APITestMixin, TestCase):
-    # def test_get_feeds_at_nonexistent_source(self):
-    #     # print "this next message is in #test_get_feeds_at_inexistent_source"
-    #     #
-    #     feeds = self.json_from_api_post('/get_feeds_at_url', dict(url="http://nothinghere.is"))
-    #     assert len(feeds) == 0
+    def setUp(self):
+        super().setUp()
+
+    def test_one(self):
+        print("test")
 
     # obtaining feeds
     def test_get_feeds_at_url(self):
@@ -35,16 +37,18 @@ class FeedTests(APITestMixin, TestCase):
 
         # following assertion assumes that each site has at least one feed
         assert len(resulting_feeds) >= 0
+        print(resulting_feeds)
         return resulting_feeds
 
     def test_start_following_feed_with_id(self):
-        self.test_start_following_feed()
+        feeds = self.test_start_following_feed()
+        feed_id = feeds[0]['id']
 
-        response = self.api_get("stop_following_feed/1")
+        response = self.api_get(f"stop_following_feed/{feed_id}")
         assert response.data == b"OK"
 
         # print "now not following feed.let's try to follow it again!"
-        form_data = {"feed_id": 1}
+        form_data = {"feed_id": feed_id}
 
         self.api_post('/start_following_feed_with_id', form_data)
 
@@ -59,11 +63,11 @@ class FeedTests(APITestMixin, TestCase):
         form_data = dict(
             feed_info=json.dumps(
                 dict(
-                    image="http://www.nieuws.nl/img",
-                    url="http://www.nieuws.nl/rss",
-                    language="nl",
-                    title="Nieuws",
-                    description="Description"
+                    image="",
+                    url=SPIEGEL_URL,
+                    language="de",
+                    title="Spiegel",
+                    description="Nachrichten"
                 )))
         result = self.api_post('/add_new_feed', form_data)
         new_feed_id = result.data
@@ -78,20 +82,19 @@ class FeedTests(APITestMixin, TestCase):
 
     #
     def test_start_following_feeds(self):
-        feeds = self.test_get_feeds_at_url()
-        feed_urls = [feed.get("url") for feed in feeds]
+        feed_urls = [SPIEGEL_URL, TELEGRAAF_URL]
 
         form_data = dict(
             feeds=json.dumps(feed_urls))
         self.api_post('/start_following_feeds', form_data)
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
-        print(feeds)
-        # Assumes that the derspiegel site will always have two feeds
-        assert len(feeds) == 3
         feed_count = len(feeds)
 
-        # Make sure that if we call this twice, we don't get two feed entries
+        assert feed_count == 2
+
+        # If we call this endpoint again we should still have the same
+        # number of registrations
         self.api_post('/start_following_feeds', form_data)
         feeds = self.json_from_api_get("get_feeds_being_followed")
         assert feed_count == len(feeds)
@@ -100,10 +103,10 @@ class FeedTests(APITestMixin, TestCase):
         form_data = dict(
             feed_info=json.dumps(
                 dict(
-                    image="http://www.nieuws.nl/img",
-                    url="http://www.nieuws.nl/rss",
+                    image="",
+                    url=TELEGRAAF_URL,
                     language="nl",
-                    title="Nieuws",
+                    title="Telegraaf",
                     description="Description"
                 )))
         self.api_post('/start_following_feed', form_data)
@@ -111,8 +114,9 @@ class FeedTests(APITestMixin, TestCase):
         feeds = self.json_from_api_get("get_feeds_being_followed")
         # Assumes that the derspiegel site will always have two feeds
         assert feeds
+        return feeds
 
-    def test_stop_following_two_of_three_feeds(self):
+    def test_stop_following_two_feeds(self):
         self.test_start_following_feeds()
         # After this test, we will have a bunch of feeds for the user
 
@@ -145,7 +149,6 @@ class FeedTests(APITestMixin, TestCase):
         interesting_feeds = self.json_from_api_get("interesting_feeds/de")
         first_feed = interesting_feeds[0]
         assert first_feed["id"]
-        assert first_feed["title"]
         assert first_feed["url"]
         assert len(interesting_feeds) > 0
 
@@ -154,46 +157,33 @@ class FeedTests(APITestMixin, TestCase):
         # After this test, we will have two feeds for the user
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
-        print(feeds)
 
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
-        assert len(non_subscribed_feeds) == 0
+        print(non_subscribed_feeds)
 
-        self.test_stop_following_two_of_three_feeds()
+        self.test_stop_following_two_feeds()
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
-        assert len(non_subscribed_feeds) == 2
+        assert len(non_subscribed_feeds) == 1
 
     def test_multiple_stop_following_same_feed(self):
-        self.test_stop_following_two_of_three_feeds()
+        self.test_stop_following_two_feeds()
         # After this test, we will have removed both the feeds 1 and 2
 
         # Now try to delete the first one more time
         response = self.api_get("stop_following_feed/1")
         assert b"OOPS" in response.data
 
-    def test_get_feed_items(self):
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
-
-        feed_items = self.json_from_api_get("get_feed_items_with_metrics/1")
-        assert len(feed_items) > 0
-        assert feed_items[0]["title"]
-        assert feed_items[0]["summary"]
-        assert feed_items[0]["published"]
-
-    def test_top_recommended_articles(self):
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
-
-        feed_items = self.json_from_api_get("get_top_recommended_articles/3")
-        print(feed_items)
-
     def test_get_feed_items_with_metrics(self):
         self.test_start_following_feeds()
         # After this test, we will have two feeds for the user
 
-        feed_items = self.json_from_api_get("get_feed_items_with_metrics/1")
+        self.spiegel = RSSFeedRule().spiegel
+
+        download_from_feed(self.spiegel, zeeguu.db.session, 3)
+
+        feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.spiegel.id}")
         assert len(feed_items) > 0
+        print (feed_items[0])
         assert feed_items[0]["title"]
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
