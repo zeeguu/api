@@ -164,7 +164,7 @@ def get_feed_items_with_metrics(feed_id):
                         'Fri, 15 Jan 2016 15:26:51 +0100'
     """
     feed = RSSFeed.query.get(feed_id)
-    return json_result(feed.feed_items_with_metrics(flask.g.user, 40))
+    return json_result(feed.feed_items_with_metrics(flask.g.user, 20))
 
 
 # ---------------------------------------------------------------------------
