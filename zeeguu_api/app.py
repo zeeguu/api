@@ -27,7 +27,7 @@ app.register_blueprint(api)
 if dashboard_enabled:
     try:
         import dashboard
-        dashboard.config.from_file(None)
+        dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 
         # dashboard can benefit from a way of associating a request with a user id
         def get_user_id():
