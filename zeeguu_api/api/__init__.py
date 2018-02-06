@@ -15,10 +15,16 @@ from . import user_settings
 from . import user_statistics
 from . import starred_articles
 
+
 import os
 import datetime
 from flask import request
+
 log_dir = os.getenv('DASHBOARD_LOG_DIR')
+log = open(log_dir + "endpoint_hits.log", "a")
+log.write("\"time\",\"endpoint\"\n")
+log.close()
+
 @api.after_request
 def after_request(response):
     t1 = str(datetime.datetime.now())
