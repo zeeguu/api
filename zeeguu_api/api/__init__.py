@@ -26,4 +26,4 @@ def after_request(response):
 	    log = open(log_dir + "endpoint_hits.log", "a")
 	    log.write("\"{}\",\"{}\"\n".format(t1, request.endpoint))
 	    log.close()
-    return response
+	return response
