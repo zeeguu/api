@@ -21,7 +21,7 @@ cache:
 install: "python setup.py develop"
 
 script: 
-  - "./run_tests.sh"
   - "export DASHBOARD_CONFIG=./dashboard_test.cfg"
+  - "./run_tests.sh"
   - "export DASHBOARD_LOG_DIR=./"
   - "python -m dashboard.collect_performance"
