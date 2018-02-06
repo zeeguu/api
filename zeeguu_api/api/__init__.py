@@ -14,16 +14,3 @@ from . import user_data
 from . import user_settings
 from . import user_statistics
 from . import starred_articles
-
-import os
-import datetime
-from flask import request
-log_dir = os.getenv('DASHBOARD_LOG_DIR')
-@api.after_request
-def after_request(response):
-	if log_dir:
-	    t1 = str(datetime.datetime.now())
-	    log = open(log_dir + "endpoint_hits.log", "a")
-	    log.write("\"{}\",\"{}\"\n".format(t1, request.endpoint))
-	    log.close()
-	return response

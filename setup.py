@@ -16,7 +16,7 @@ setuptools.setup(
     dependency_links=[
             "https://github.com/zeeguu-ecosystem/Zeeguu-Core/tarball/master#egg=zeeguu",
             "https://github.com/zeeguu-ecosystem/Python-Translators/tarball/master#egg=python_translators",
-            "https://github.com/flask-dashboard/Flask-Monitoring-Dashboard/tarball/development#egg=flask_monitoring_dashboard"
+            "https://github.com/flask-dashboard/Flask-Monitoring-Dashboard/tarball/testing#egg=flask_monitoring_dashboard"
         ],
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
