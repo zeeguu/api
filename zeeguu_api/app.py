@@ -11,7 +11,7 @@ CORS(app)
 load_configuration_or_abort(app, 'ZEEGUU_API_CONFIG',
                             ['SQLALCHEMY_DATABASE_URI', 'HOST', 'DEBUG', 'SECRET_KEY', 'MAX_SESSION'])
 
-dashboard_enabled = False
+dashboard_enabled = True
 
 # The zeeguu.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
@@ -27,7 +27,7 @@ app.register_blueprint(api)
 if dashboard_enabled:
     try:
         import dashboard
-        dashboard.config.from_file('/home/mircea/zee/http/api/dashboard.cfg')
+        dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 
         # dashboard can benefit from a way of associating a request with a user id
         def get_user_id():
@@ -48,7 +48,7 @@ if dashboard_enabled:
 
 
         dashboard.config.get_group_by = get_user_id
-        dashboard.bind(app=app)
+        dashboard.bind(app=app, blue_print=api)
     except Exception as e:
         print ("could not start the dashboard, but will continue anyway")
         print (str(e))
