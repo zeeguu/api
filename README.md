@@ -18,6 +18,8 @@ To install the API clone this repo and run (once you already activated a Python3
     python -m nltk.downloader -d ~/nltk_data all
     python setup.py install
 
+Also, make sure to copy and adapt the 
+
 To test it run `./run_tests.sh`
 
 To try out the API run `export ZEEGUU_API_CONFIG=<path to config file> && python -m zeeguu_api`
