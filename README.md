@@ -12,7 +12,11 @@ A text recommender agent crawls websites of interest to the user and recommend m
 The API is available at https://zeeguu.unibe.ch/api.
 
 # Installation
-To install the API clone this repo and run `python setup.py install`. 
+To install the API clone this repo and run (once you already activated a Python3.6 environment):
+
+    pip install jieba3k coveralls nltk
+    python -m nltk.downloader -d ~/nltk_data all
+    python setup.py install
 
 To test it run `./run_tests.sh`
 
