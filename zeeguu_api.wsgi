@@ -1,7 +1,18 @@
 #!/bin/env python
 import os
 
-os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser('~/.config/zeeguu/api.cfg')
+if not os.environ["ZEEGUU_API_CONFIG"]:
+    os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser('~/.config/zeeguu/api.cfg')
+    print (os.environ["ZEEGUU_API_CONFIG"])
+
+if not os.environ["DASHBOARD_CONFIG"]:
+    os.environ["DASHBOARD_CONFIG"] = os.path.expanduser('~/.config/zeeguu/dashboard.cfg')
+    print (os.environ["DASHBOARD_CONFIG"])
+
+if not os.environ["DASHBOARD_LOG_DIR"]:
+    os.environ["DASHBOARD_LOG_DIR"]= os.path.expanduser('~/.logs/')
+    print (os.environ["DASHBOARD_LOG_DIR"])
+
 
 from zeeguu_api.app import app as application
 application.logger.debug ( application.instance_path)
