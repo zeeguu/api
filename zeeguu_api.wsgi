@@ -1,17 +1,14 @@
 #!/bin/env python
 import os
 
-if not os.environ["ZEEGUU_API_CONFIG"]:
-    os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser('~/.config/zeeguu/api.cfg')
-    print (os.environ["ZEEGUU_API_CONFIG"])
-
-if not os.environ["DASHBOARD_CONFIG"]:
-    os.environ["DASHBOARD_CONFIG"] = os.path.expanduser('~/.config/zeeguu/dashboard.cfg')
-    print (os.environ["DASHBOARD_CONFIG"])
-
-if not os.environ["DASHBOARD_LOG_DIR"]:
-    os.environ["DASHBOARD_LOG_DIR"]= os.path.expanduser('~/.logs/')
-    print (os.environ["DASHBOARD_LOG_DIR"])
+# this is needed since when run as wsgi this script
+# can't access the systems' env vars. so we load them
+# in another local configuration file.  
+try:
+    print ("found the env_var_defs file")
+    import env_var_defs
+except: 
+    print ("didn't find env_var_defs. hopefully there's envvars defined")
 
 
 from zeeguu_api.app import app as application
