@@ -2,7 +2,6 @@ import flask
 api = flask.Blueprint("api", __name__)
 # These files have to be imported after this line;
 # They enrich the api object
-from . import download_content_from_url
 from . import exercises
 from . import feeds
 from . import sessions
