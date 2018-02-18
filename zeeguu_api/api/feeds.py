@@ -195,7 +195,7 @@ def top_recommended_articles(_count: str = 10):
         new_articles = feed.feed_items_with_metrics(flask.g.user, per_feed_count)
         all_articles.extend(new_articles)
 
-    all_articles.sort(key=lambda each: each['published'])
+    all_articles.sort(key=lambda each: each['published'], reverse=True)
 
     return json_result(all_articles[:count])
 
