@@ -193,10 +193,10 @@ def top_recommended_articles(_count: str = 10):
     all_articles = []
     for registration in all_user_registrations:
         feed = registration.rss_feed
-        new_articles = feed.get_articles(flask.g.user, limit=per_feed_count, easiest_first=True)
+        new_articles = feed.get_articles(flask.g.user, limit=per_feed_count, most_recent_first=True)
         all_articles.extend(new_articles)
 
-    all_articles.sort(key=lambda each: each.fk_difficulty, reverse=False)
+    all_articles.sort(key=lambda each: each.published_time, reverse=True)
 
     return json_result([each.article_info() for each in all_articles[:count]])
 
