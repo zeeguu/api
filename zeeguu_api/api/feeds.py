@@ -164,7 +164,8 @@ def get_feed_items_with_metrics(feed_id):
                         'Fri, 15 Jan 2016 15:26:51 +0100'
     """
     feed = RSSFeed.query.get(feed_id)
-    return json_result(feed.feed_items_with_metrics(flask.g.user, 20))
+    articles = feed.get_articles(flask.g.user, 20)
+    return json_result([article.article_info() for article in articles])
 
 
 # ---------------------------------------------------------------------------
@@ -192,12 +193,12 @@ def top_recommended_articles(_count: str = 10):
     all_articles = []
     for registration in all_user_registrations:
         feed = registration.rss_feed
-        new_articles = feed.feed_items_with_metrics(flask.g.user, per_feed_count)
+        new_articles = feed.get_articles(flask.g.user, limit=per_feed_count, easiest_first=True)
         all_articles.extend(new_articles)
 
-    all_articles.sort(key=lambda each: each['published'], reverse=True)
+    all_articles.sort(key=lambda each: each.fk_difficulty, reverse=False)
 
-    return json_result(all_articles[:count])
+    return json_result([each.article_info() for each in all_articles[:count]])
 
 
 # ---------------------------------------------------------------------------
