@@ -40,6 +40,8 @@ def upload_user_activity_data():
     value = request.form['value']
     extra_data = request.form['extra_data']
 
+    zeeguu.log(f'{event} {value} {extra_data}')
+
     new_entry = UserActivityData(flask.g.user,
                                  datetime.strptime(time, "%Y-%m-%dT%H:%M:%S"),
                                  event,
