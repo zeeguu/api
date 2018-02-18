@@ -168,33 +168,34 @@ def get_feed_items_with_metrics(feed_id):
 
 
 # ---------------------------------------------------------------------------
-@api.route("/get_top_recommended_articles/<_count>", methods=("GET",))
+@api.route("/get_recommended_articles", methods=("GET",))
+@api.route("/get_recommended_articles/<_count>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def top_recommended_articles(_count: str):
+def top_recommended_articles(_count: str = 10):
     """
 
-        Get a list of :param count articles that are
-        recommended reading for this user
+        Retrieve :param _count articles which are distributed
+        over all the feeds to which the learner is registered to.
 
-        This only works if the user has some news sources
-        that he is registered to. 
+    :param _count:
 
-        :return: json list of dicts, with the following info:
-                    title   = <unicode string>
-                    url     = <unicode string>
-                    content = <list> e.g.:
-                        [{u'base': u'http://www.spiegel.de/schlagzeilen/index.rss',
-                         u'type': u'text/html', u'language': None, u'value': u'\xdcberwachungskameras, die bei Aldi verkauft wurden, haben offenbar ein Sicherheitsproblem: Hat man kein Passwort festgelegt, \xfcbertragen sie ihre Aufnahmen ungesch\xfctzt ins Netz - und verraten au\xdferdem WLAN- und E-Mail-Passw\xf6rter.'}]
-                    summary = <unicode string>
-                    published= <unicode string> e.g.
-                        'Fri, 15 Jan 2016 15:26:51 +0100'
+    :return: json list of Article.article_info() data
+    
     """
     count = int(_count)
-    registration = RSSFeedRegistration.feeds_for_user(flask.g.user)[0]
 
-    all_articles = registration.rss_feed.feed_items()
+    all_user_registrations = RSSFeedRegistration.feeds_for_user(flask.g.user)
+    per_feed_count = int (count / len(all_user_registrations)) + 1
+
+    all_articles = []
+    for registration in all_user_registrations:
+        feed = registration.rss_feed
+        new_articles = feed.feed_items_with_metrics(flask.g.user, per_feed_count)
+        all_articles.extend(new_articles)
+
+    all_articles.sort(key=lambda each: each['published'])
 
     return json_result(all_articles[:count])
 
@@ -317,25 +318,3 @@ def start_following_feed():
     RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
 
     return "OK"
-
-# # ---------------------------------------------------------------------------
-# @api.route("/get_feed_items/<feed_id>", methods=("GET",))
-# # ---------------------------------------------------------------------------
-# @cross_domain
-# @with_session
-# def get_feed_items_for(feed_id):
-#     """
-#     Get a list of feed items for a given feed ID
-#
-#     :return: json list of dicts, with the following info:
-#                     title   = <unicode string>
-#                     url     = <unicode string>
-#                     content = <list> e.g.:
-#                         [{u'base': u'http://www.spiegel.de/schlagzeilen/index.rss',
-#                          u'type': u'text/html', u'language': None, u'value': u'\xdcberwachungskameras, die bei Aldi verkauft wurden, haben offenbar ein Sicherheitsproblem: Hat man kein Passwort festgelegt, \xfcbertragen sie ihre Aufnahmen ungesch\xfctzt ins Netz - und verraten au\xdferdem WLAN- und E-Mail-Passw\xf6rter.'}]
-#                     summary = <unicode string>
-#                     published= <unicode string> e.g.
-#                         'Fri, 15 Jan 2016 15:26:51 +0100'
-#     """
-#     registration = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
-#     return json_result(registration.rss_feed.feed_items())

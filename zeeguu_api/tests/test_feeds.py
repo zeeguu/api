@@ -6,7 +6,7 @@ from unittest import TestCase
 from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 from zeeguu.content_retriever.article_downloader import download_from_feed
-from tests_core_zeeguu.rules.rss_feed_rule import TELEGRAAF_URL, SPIEGEL_URL, RSSFeedRule
+from tests_core_zeeguu.rules.rss_feed_rule import URL_OF_FEED_TWO, URL_OF_FEED_ONE, RSSFeedRule
 import zeeguu
 
 
@@ -64,7 +64,7 @@ class FeedTests(APITestMixin, TestCase):
             feed_info=json.dumps(
                 dict(
                     image="",
-                    url=SPIEGEL_URL,
+                    url=URL_OF_FEED_ONE,
                     language="de",
                     title="Spiegel",
                     description="Nachrichten"
@@ -82,7 +82,7 @@ class FeedTests(APITestMixin, TestCase):
 
     #
     def test_start_following_feeds(self):
-        feed_urls = [SPIEGEL_URL, TELEGRAAF_URL]
+        feed_urls = [URL_OF_FEED_ONE, URL_OF_FEED_TWO]
 
         form_data = dict(
             feeds=json.dumps(feed_urls))
@@ -104,7 +104,7 @@ class FeedTests(APITestMixin, TestCase):
             feed_info=json.dumps(
                 dict(
                     image="",
-                    url=TELEGRAAF_URL,
+                    url=URL_OF_FEED_TWO,
                     language="nl",
                     title="Telegraaf",
                     description="Description"
@@ -182,9 +182,25 @@ class FeedTests(APITestMixin, TestCase):
         download_from_feed(self.spiegel, zeeguu.db.session, 3)
 
         feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.spiegel.id}")
+        print(feed_items)
         assert len(feed_items) > 0
-        print (feed_items[0])
+        print(feed_items[0])
         assert feed_items[0]["title"]
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
         assert feed_items[0]['metrics']
+
+    def test_get_recommended_articles(self):
+        from zeeguu.model import RSSFeed
+
+        self.test_start_following_feeds()
+        # After this test, we will have two feeds for the user
+
+        self.one = RSSFeed.query.all()[0]
+        self.two = RSSFeed.query.all()[1]
+
+        download_from_feed(self.one, zeeguu.db.session, 2)
+        download_from_feed(self.two, zeeguu.db.session, 3)
+
+        feed_items = self.json_from_api_get(f"get_recommended_articles/5")
+        assert (len(feed_items) == 5)
