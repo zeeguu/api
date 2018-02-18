@@ -182,7 +182,7 @@ def top_recommended_articles(_count: str = 10):
     :param _count:
 
     :return: json list of Article.article_info() data
-    
+
     """
     count = int(_count)
 

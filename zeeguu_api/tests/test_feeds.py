@@ -14,9 +14,6 @@ class FeedTests(APITestMixin, TestCase):
     def setUp(self):
         super().setUp()
 
-    def test_one(self):
-        print("test")
-
     # obtaining feeds
     def test_get_feeds_at_url(self):
         resulting_feeds = []
@@ -29,7 +26,6 @@ class FeedTests(APITestMixin, TestCase):
         for each_url in urls_to_test:
             feeds = self.json_from_api_post('/get_feeds_at_url', dict(url=each_url))
             resulting_feeds += feeds
-            # print feeds
 
             # following assertion makes sure that we find at least on feed
             # in each o the urls_to_test
@@ -37,7 +33,6 @@ class FeedTests(APITestMixin, TestCase):
 
         # following assertion assumes that each site has at least one feed
         assert len(resulting_feeds) >= 0
-        print(resulting_feeds)
         return resulting_feeds
 
     def test_start_following_feed_with_id(self):
@@ -47,7 +42,6 @@ class FeedTests(APITestMixin, TestCase):
         response = self.api_get(f"stop_following_feed/{feed_id}")
         assert response.data == b"OK"
 
-        # print "now not following feed.let's try to follow it again!"
         form_data = {"feed_id": feed_id}
 
         self.api_post('/start_following_feed_with_id', form_data)
@@ -159,7 +153,7 @@ class FeedTests(APITestMixin, TestCase):
         feeds = self.json_from_api_get("get_feeds_being_followed")
 
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
-        print(non_subscribed_feeds)
+        assert not non_subscribed_feeds
 
         self.test_stop_following_two_feeds()
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
@@ -182,9 +176,9 @@ class FeedTests(APITestMixin, TestCase):
         download_from_feed(self.spiegel, zeeguu.db.session, 3)
 
         feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.spiegel.id}")
-        print(feed_items)
+
         assert len(feed_items) > 0
-        print(feed_items[0])
+
         assert feed_items[0]["title"]
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
