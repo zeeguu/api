@@ -14,27 +14,6 @@ class FeedTests(APITestMixin, TestCase):
     def setUp(self):
         super().setUp()
 
-    # obtaining feeds
-    def test_get_feeds_at_url(self):
-        resulting_feeds = []
-
-        urls_to_test = [
-            "http://www.handelsblatt.com",
-            "http://www.spiegel.de/index.html"
-        ]
-
-        for each_url in urls_to_test:
-            feeds = self.json_from_api_post('/get_feeds_at_url', dict(url=each_url))
-            resulting_feeds += feeds
-
-            # following assertion makes sure that we find at least on feed
-            # in each o the urls_to_test
-            assert (feeds[0]["title"])
-
-        # following assertion assumes that each site has at least one feed
-        assert len(resulting_feeds) >= 0
-        return resulting_feeds
-
     def test_start_following_feed_with_id(self):
         feeds = self.test_start_following_feed()
         feed_id = feeds[0]['id']

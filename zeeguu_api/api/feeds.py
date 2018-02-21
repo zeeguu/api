@@ -15,20 +15,6 @@ session = zeeguu.db.session
 
 
 # ---------------------------------------------------------------------------
-@api.route("/get_feeds_at_url", methods=("POST",))
-# ---------------------------------------------------------------------------
-@cross_domain
-@with_session
-def get_feeds_at_url():
-    """
-    :return: a list of feeds that can be found at the given URL
-    Empty list if soemething
-    """
-    domain = request.form.get('url', '')
-    return json_result(list_of_feeds_at_url(domain))
-
-
-# ---------------------------------------------------------------------------
 @api.route("/get_feeds_being_followed", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -188,11 +174,10 @@ def top_recommended_articles(_count: str = 10):
     count = int(_count)
 
     all_user_registrations = RSSFeedRegistration.feeds_for_user(flask.g.user)
-    per_feed_count = int (count / len(all_user_registrations)) + 1
+    per_feed_count = int(count / len(all_user_registrations)) + 1
 
     all_articles = []
     for registration in all_user_registrations:
-
         feed = registration.rss_feed
         zeeguu.log(f'Getting articles for {feed}')
         new_articles = feed.get_articles(flask.g.user, limit=per_feed_count, most_recent_first=True)
