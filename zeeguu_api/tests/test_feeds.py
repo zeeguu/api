@@ -1,13 +1,12 @@
 # coding=utf-8
 
-import json
 from unittest import TestCase
 
 from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 from zeeguu.model import RSSFeedRegistration
 from zeeguu.content_retriever.article_downloader import download_from_feed
-from tests_core_zeeguu.rules.rss_feed_rule import URL_OF_FEED_TWO, URL_OF_FEED_ONE, RSSFeedRule
+from tests_core_zeeguu.rules.rss_feed_rule import RSSFeedRule
 import zeeguu
 
 
@@ -15,126 +14,60 @@ class FeedTests(APITestMixin, TestCase):
     def setUp(self):
         super().setUp()
 
-    def test_start_following_feed_with_id(self):
-        feeds = self.test_start_following_feed()
-        feed_id = feeds[0]['id']
+        self.feed1 = RSSFeedRule().feed1
+        self.feed2 = RSSFeedRule().feed2
 
-        response = self.api_get(f"stop_following_feed/{feed_id}")
-        assert response.data == b"OK"
+        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, self.feed1)
+        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, self.feed2)
 
-        form_data = {"feed_id": feed_id}
+    def test_stop_following_feed(self):
+        feed_id = self.feed1.id
 
-        self.api_post('/start_following_feed_with_id', form_data)
+        initial_feed_count = len(self.json_from_api_get("get_feeds_being_followed"))
 
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        assert len(feeds) == 1
-
-    #
-    def test_add_new_feed(self):
-        new_feed_id = RSSFeedRule().feed1.id
-
-        # When we following the feed
-        form_data = {"feed_id": new_feed_id}
-        self.api_post('/start_following_feed_with_id', form_data)
-
-        # It is being followed
-        followed_feed_id = self.json_from_api_get("/get_feeds_being_followed")[0]['id']
-        assert (followed_feed_id == new_feed_id)
-
-    #
-    def test_start_following_feeds(self):
-        feed_urls = [URL_OF_FEED_ONE, URL_OF_FEED_TWO]
-
-        form_data = dict(
-            feeds=json.dumps(feed_urls))
-        self.api_post('/start_following_feeds', form_data)
-
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        feed_count = len(feeds)
-
-        assert feed_count == 2
-
-        # If we call this endpoint again we should still have the same
-        # number of registrations
-        self.api_post('/start_following_feeds', form_data)
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        assert feed_count == len(feeds)
-
-    def test_start_following_feed(self):
-        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, RSSFeedRule().feed1)
-
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        print(feeds)
-
-        assert feeds
-        return feeds
-
-    def test_stop_following_two_feeds(self):
-        self.test_start_following_feeds()
-        # After this test, we will have a bunch of feeds for the user
-
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        initial_feed_count = len(feeds)
-
-        # Now delete one
-        response = self.api_get("stop_following_feed/1")
-        assert response.data == b"OK"
-
+        # if we stop following one, we'll follow only one
+        assert self.api_get(f"stop_following_feed/{feed_id}").data == b"OK"
         feeds = self.json_from_api_get("get_feeds_being_followed")
         assert len(feeds) == initial_feed_count - 1
 
-        # Now delete the second
-        self.api_get("stop_following_feed/2")
-        assert response.data == b"OK"
+    def test_start_following_feed(self):
+        new_feed_id = RSSFeedRule().feed.id
 
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-        assert len(feeds) == initial_feed_count - 2
+        # When
+        form_data = {"feed_id": new_feed_id}
+        self.api_post('/start_following_feed_with_id', form_data)
 
-    def test_show_all_clients_feeds(self):
-        self.test_start_following_feeds()
-        response = self.api_get("get_feeds_being_followed")
-        assert response.data
+        # Then
+        followed_feed_ids = [each['id'] for each in self.json_from_api_get("/get_feeds_being_followed")]
+        assert (new_feed_id in followed_feed_ids)
 
     def test_get_interesting_feeds(self):
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
-
         interesting_feeds = self.json_from_api_get("interesting_feeds/de")
-        first_feed = interesting_feeds[0]
-        assert first_feed["id"]
-        assert first_feed["url"]
         assert len(interesting_feeds) > 0
 
     def test_non_subscribed_feeds(self):
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
-
-        feeds = self.json_from_api_get("get_feeds_being_followed")
-
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
-        assert not non_subscribed_feeds
+        initial_non_subscribed_count = len(non_subscribed_feeds)
 
-        self.test_stop_following_two_feeds()
+        self.test_stop_following_feed()
         non_subscribed_feeds = self.json_from_api_get("non_subscribed_feeds/de")
-        assert len(non_subscribed_feeds) == 1
+        final_non_subscribed_count = len(non_subscribed_feeds)
+
+        assert final_non_subscribed_count > initial_non_subscribed_count
 
     def test_multiple_stop_following_same_feed(self):
-        self.test_stop_following_two_feeds()
-        # After this test, we will have removed both the feeds 1 and 2
+        feed_id = self.feed1.id
 
-        # Now try to delete the first one more time
-        response = self.api_get("stop_following_feed/1")
-        assert b"OOPS" in response.data
+        # if we stop following one it'll be ok
+        assert self.api_get(f"stop_following_feed/{feed_id}").data == b"OK"
+
+        # if we stop following it once more, not ok
+        assert not (self.api_get(f"stop_following_feed/{feed_id}").data == b"OK")
 
     def test_get_feed_items_with_metrics(self):
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
+        download_from_feed(self.feed1, zeeguu.db.session, 3)
 
-        self.spiegel = RSSFeedRule().feed1
-
-        download_from_feed(self.spiegel, zeeguu.db.session, 3)
-
-        feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.spiegel.id}")
+        feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.feed1.id}")
 
         assert len(feed_items) > 0
 
@@ -144,16 +77,8 @@ class FeedTests(APITestMixin, TestCase):
         assert feed_items[0]['metrics']
 
     def test_get_recommended_articles(self):
-        from zeeguu.model import RSSFeed
-
-        self.test_start_following_feeds()
-        # After this test, we will have two feeds for the user
-
-        self.one = RSSFeed.query.all()[0]
-        self.two = RSSFeed.query.all()[1]
-
-        download_from_feed(self.one, zeeguu.db.session, 2)
-        download_from_feed(self.two, zeeguu.db.session, 3)
+        download_from_feed(self.feed1, zeeguu.db.session, 2)
+        download_from_feed(self.feed2, zeeguu.db.session, 3)
 
         feed_items = self.json_from_api_get(f"get_recommended_articles/5")
         assert (len(feed_items) == 5)

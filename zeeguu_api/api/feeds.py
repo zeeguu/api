@@ -46,49 +46,6 @@ def get_feeds_being_followed():
 
 
 # ---------------------------------------------------------------------------
-@api.route("/start_following_feeds", methods=("POST",))
-# ---------------------------------------------------------------------------
-@cross_domain
-@with_session
-def start_following_feeds():
-    """
-    :param: feeds (POST param) -- json list with urls for the feeds to be followed
-
-    Starts following all the feeds in the feeds param.
-    To follow a single feed provide a list with one element.
-
-    :return: "OK" in case of success
-    """
-
-    list_of_feed_urls = json.loads(request.form.get('feeds', ''))
-
-    for url_string in list_of_feed_urls:
-        feed = feedparser.parse(url_string).feed
-
-        feed_image_url_string = ""
-        if "image" in feed:
-            feed_image_url_string = feed.image["href"]
-
-        lan = None
-        if "language" in feed:
-            lan = Language.find(two_letter_language_code(feed))
-
-        url = Url.find_or_create(session, url_string)
-
-        feed_object = RSSFeed.find_by_url(url)
-        if not feed_object:
-            feed_image_url = Url.find_or_create(session, feed_image_url_string)
-            title = url
-            if "title" in feed:
-                title = feed.title
-            feed_object = RSSFeed.find_or_create(session, url, title, feed.description, feed_image_url, lan)
-
-        RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
-
-    return "OK"
-
-
-# ---------------------------------------------------------------------------
 @api.route("/start_following_feed_with_id", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
