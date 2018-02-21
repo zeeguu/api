@@ -30,29 +30,16 @@ class FeedTests(APITestMixin, TestCase):
         assert len(feeds) == 1
 
     #
-    # add a new feed,
-    # then start following it
     def test_add_new_feed(self):
-        # 1. add new feed
-        form_data = dict(
-            feed_info=json.dumps(
-                dict(
-                    image="",
-                    url=URL_OF_FEED_ONE,
-                    language="de",
-                    title="Spiegel",
-                    description="Nachrichten"
-                )))
-        result = self.api_post('/add_new_feed', form_data)
-        new_feed_id = result.data
+        new_feed_id = RSSFeedRule().feed1.id
 
-        # 2. start following it
+        # When we following the feed
         form_data = {"feed_id": new_feed_id}
         self.api_post('/start_following_feed_with_id', form_data)
 
-        # 3. test that the feed is being followed
-        feeds = self.json_from_api_get("/get_feeds_being_followed")
-        assert len(feeds) == 1
+        # It is being followed
+        followed_feed_id = self.json_from_api_get("/get_feeds_being_followed")[0]['id']
+        assert (followed_feed_id == new_feed_id)
 
     #
     def test_start_following_feeds(self):
