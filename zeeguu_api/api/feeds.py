@@ -9,15 +9,15 @@ from . import api
 
 session = zeeguu.db.session
 
+START_FOLLOWING_FEED = "start_following_feed"
 STOP_FOLLOWING_FEED = "stop_following_feed"
-START_FOLLOWING_FEED_WITH_ID = "start_following_feed_with_id"
-GET_FEEDS_BEING_FOLLOWED = "get_feeds_being_followed"
+FOLLOWED_FEEDS = "followed_feeds"
 INTERESTING_FEEDS = "interesting_feeds"
-NON_SUBSCRIBED_FEEDS = "non_subscribed_feeds"
+RECOMMENDED_FEEDS = "recommended_feeds"
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{START_FOLLOWING_FEED_WITH_ID}", methods=("POST",))
+@api.route(f"/{START_FOLLOWING_FEED}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
@@ -59,7 +59,7 @@ def stop_following_feed(feed_id):
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{GET_FEEDS_BEING_FOLLOWED}", methods=("GET",))
+@api.route(f"/{FOLLOWED_FEEDS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
@@ -105,7 +105,7 @@ def get_interesting_feeds_for_language_id(language_id):
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{NON_SUBSCRIBED_FEEDS}/<language_id>", methods=("GET",))
+@api.route(f"/{RECOMMENDED_FEEDS}/<language_id>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
