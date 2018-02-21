@@ -1,13 +1,9 @@
-import json
-
-import feedparser
 import flask
 import zeeguu
 from flask import request
-from zeeguu.model import RSSFeedRegistration, RSSFeed, Language, Url
+from zeeguu.model import RSSFeedRegistration, RSSFeed
 
 from .utils.route_wrappers import cross_domain, with_session
-from .utils.feedparser_extensions import list_of_feeds_at_url, two_letter_language_code
 from .utils.json_result import json_result
 from . import api
 
