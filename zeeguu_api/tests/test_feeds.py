@@ -5,6 +5,7 @@ from unittest import TestCase
 
 from zeeguu_api.tests.api_test_mixin import APITestMixin
 
+from zeeguu.model import RSSFeedRegistration
 from zeeguu.content_retriever.article_downloader import download_from_feed
 from tests_core_zeeguu.rules.rss_feed_rule import URL_OF_FEED_TWO, URL_OF_FEED_ONE, RSSFeedRule
 import zeeguu
@@ -73,19 +74,11 @@ class FeedTests(APITestMixin, TestCase):
         assert feed_count == len(feeds)
 
     def test_start_following_feed(self):
-        form_data = dict(
-            feed_info=json.dumps(
-                dict(
-                    image="",
-                    url=URL_OF_FEED_TWO,
-                    language="nl",
-                    title="Telegraaf",
-                    description="Description"
-                )))
-        self.api_post('/start_following_feed', form_data)
+        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, RSSFeedRule().feed1)
 
         feeds = self.json_from_api_get("get_feeds_being_followed")
-        # Assumes that the derspiegel site will always have two feeds
+        print(feeds)
+
         assert feeds
         return feeds
 
@@ -150,7 +143,7 @@ class FeedTests(APITestMixin, TestCase):
         self.test_start_following_feeds()
         # After this test, we will have two feeds for the user
 
-        self.spiegel = RSSFeedRule().spiegel
+        self.spiegel = RSSFeedRule().feed1
 
         download_from_feed(self.spiegel, zeeguu.db.session, 3)
 

@@ -3,6 +3,7 @@ import os
 import json
 
 # BEGIN: injecting the desired testing config in the app
+
 os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser("~/.config/zeeguu/api_testing.cfg")
 from zeeguu_api.app import app
 # END: Injecting the desired config...
@@ -10,6 +11,7 @@ from zeeguu_api.app import app
 from zeeguu.populate import TEST_EMAIL, create_test_db
 from zeeguu.populate import TEST_PASS
 from zeeguu.populate import create_minimal_test_db
+from zeeguu.model import User
 
 
 import zeeguu
@@ -29,6 +31,7 @@ class APITestMixin(TestCase):
                 create_minimal_test_db(zeeguu.db)
 
         self.session = self.get_session()
+        self.user = User.find(TEST_EMAIL)
 
     def tearDown(self):
         self.app = None
