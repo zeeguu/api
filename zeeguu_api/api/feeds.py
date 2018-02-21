@@ -32,7 +32,7 @@ def start_following_feed_with_id():
     feed_id = int(request.form.get('feed_id', ''))
 
     feed_object = RSSFeed.find_by_id(feed_id)
-    feed_registration = RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
+    RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
 
     return "OK"
 
@@ -81,10 +81,8 @@ def get_feeds_being_followed():
     for reg in registrations:
         try:
             feed_list.append(reg.rss_feed.as_dictionary())
-            # print (f"added reg with id: {reg.id}")
         except Exception as e:
-            # print (f"failed reg with id: {reg.id}")
-            print(str(e))
+            zeeguu.log(str(e))
 
     return json_result(feed_list)
 
@@ -122,7 +120,7 @@ def get_non_subscribed_feeds(language_id):
 
     all_available_for_language = RSSFeed.find_for_language_id(language_id)
     for feed in all_available_for_language:
-        if not feed in already_registered:
+        if not (feed in already_registered):
             feed_data.append(feed.as_dictionary())
 
     return json_result(feed_data)
