@@ -2,11 +2,12 @@ import flask
 from flask import request
 
 import zeeguu
+from zeeguu.model.user_article import UserArticle
 
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu.model import StarredArticle
+from zeeguu.model import Article
 
 session = zeeguu.db.session
 
@@ -17,16 +18,18 @@ session = zeeguu.db.session
 def star_article():
     """
 
-        Will star the article with :param url, :param title and in :param language_id
-        All the three parameters are required as post arguments
+        Will star the article with :param url
+
+        This used to required also :param title and in :param language_id
+        but we're not using them anymore.
 
     """
 
     url = str(request.form.get('url', ''))
-    title = str(request.form.get('title', ''))
-    language_id = str(request.form.get('language_id', ''))
 
-    StarredArticle.find_or_create(session, flask.g.user, url, title, language_id)
+    article = Article.find(url)
+    article.star_for_user(session, flask.g.user)
+    session.commit()
 
     return "OK"
 
@@ -37,13 +40,15 @@ def star_article():
 def unstar_article():
     """
 
-        Will unstar the article with the given :param url
+        Requires :param url
 
     """
 
     url = str(request.form.get('url', ''))
 
-    StarredArticle.delete(session, flask.g.user, url)
+    article = Article.find(url)
+    article.star_for_user(session, flask.g.user, False)
+    session.commit()
 
     return "OK"
 
@@ -54,15 +59,18 @@ def unstar_article():
 def get_starred_articles():
     """
 
-        Returns a list of starred articles.
+        Returns a list of starred articles and
+        associated info
 
         Example return:
 
-        [{'user_id': 1, 'url': 'http://mir.lu', 'title': 'test', 'language': 'en', 'starred_date': '2017-06-12T20:17:48'}]
+        [
+            {'user_id': 1,
+            'url': 'http://mir.lu',
+            'title': 'test',
+            'language': 'en',
+            'starred_date': '2017-06-12T20:17:48'}]
 
     """
 
-    articles = StarredArticle.all_for_user(flask.g.user)
-    list_of_dicts = [each.as_dict() for each in articles]
-
-    return json_result(list_of_dicts)
+    return json_result(UserArticle.all_starred_articles_of_user_info(flask.g.user))
