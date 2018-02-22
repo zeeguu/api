@@ -1,5 +1,6 @@
 import flask
 import zeeguu
+from zeeguu.content_recommender.mixed_recommender import article_recommendations_for_user
 from zeeguu.model import RSSFeedRegistration, RSSFeed
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -42,7 +43,7 @@ def get_feed_items_with_metrics(feed_id):
 def top_recommended_articles(_count: str = 10):
     """
 
-        Retrieve :param _count articles which are distributed
+        Retrieve :param _count articles which are equally distributed
         over all the feeds to which the learner is registered to.
 
     :param _count:
@@ -52,19 +53,4 @@ def top_recommended_articles(_count: str = 10):
     """
     count = int(_count)
 
-    all_user_registrations = RSSFeedRegistration.feeds_for_user(flask.g.user)
-    per_feed_count = int(count / len(all_user_registrations)) + 1
-
-    all_articles = []
-    for registration in all_user_registrations:
-        feed = registration.rss_feed
-        zeeguu.log(f'Getting articles for {feed}')
-        new_articles = feed.get_articles(flask.g.user, limit=per_feed_count, most_recent_first=True)
-        all_articles.extend(new_articles)
-        zeeguu.log(f'Added articles for {feed}')
-
-    zeeguu.log('Sorting articles...')
-    all_articles.sort(key=lambda each: each.published_time, reverse=True)
-    zeeguu.log('Sorted articles')
-
-    return json_result([each.article_info() for each in all_articles[:count]])
+    return json_result(article_recommendations_for_user(flask.g.user, count))
