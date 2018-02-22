@@ -51,10 +51,8 @@ def article_opened(session, value, user):
     # https://www.zeeguu.unibe.ch/read/article?articleLanguage=de&articleURL=https://www.nzz.ch/wissenschaft/neandertaler-waren-kuenstler-ld.1358862
     # thus we extract only the last part
     url = value.split('articleURL=')[-1]
-    print(url)
 
     article = Article.find_or_create(session, url)
-    print(article)
     ua = UserArticle.find(user, article)
     if not ua:
         ua = UserArticle.find_or_create(session, user, article, opened=datetime.now())
