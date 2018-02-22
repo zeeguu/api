@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 
 from zeeguu import log
 from zeeguu.model import Article, UserArticle
@@ -34,7 +34,7 @@ def article_opened(session, url, user):
     # https://www.zeeguu.unibe.ch/read/article?articleLanguage=de&articleURL=https://www.nzz.ch/wissenschaft/neandertaler-waren-kuenstler-ld.1358862
     # thus we extract only the last part
     url = url.split('articleURL=')[-1]
-    
+
     article = Article.find_or_create(session, url)
     ua = UserArticle.find_or_create(session, user, article, opened=datetime.now())
     log(f"created new {ua}")
