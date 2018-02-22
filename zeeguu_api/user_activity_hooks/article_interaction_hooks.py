@@ -21,6 +21,7 @@ def distill_article_interactions(session, user, data):
     extra_data = data['extra_data']
 
     log(f'event is: {event}')
+
     if "UMR - OPEN ARTICLE" in event:
         article_opened(session, value, user)
     elif "UMR - LIKE ARTICLE" in event:
@@ -41,7 +42,7 @@ def article_liked(session, value, user, like_value):
     ua.liked = like_value
     session.add(ua)
     session.commit()
-    log(f"created new {ua}")
+    log(f"{ua}")
 
 
 def article_opened(session, value, user):
@@ -49,11 +50,11 @@ def article_opened(session, value, user):
     # might be the zeeguu url: which is of the form
     # https://www.zeeguu.unibe.ch/read/article?articleLanguage=de&articleURL=https://www.nzz.ch/wissenschaft/neandertaler-waren-kuenstler-ld.1358862
     # thus we extract only the last part
-    url = value.split('articleURL=')[-1]
+    url = value
 
     article = Article.find_or_create(session, url)
     ua = UserArticle.find_or_create(session, user, article)
     ua.opened = datetime.now()
     session.add(ua)
     session.commit()
-    log(f"created new {ua}")
+    log(f"{ua}")
