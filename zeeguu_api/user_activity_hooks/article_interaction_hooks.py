@@ -38,7 +38,7 @@ def article_liked(session, value, user, like_value):
     url = value.split('articleURL=')[-1]
 
     article = Article.find_or_create(session, url)
-    ua = UserArticle.find_or_create(session, user, article)
+    ua = UserArticle.find(user, article)
     ua.liked = like_value
     session.add(ua)
     session.commit()
@@ -50,10 +50,14 @@ def article_opened(session, value, user):
     # might be the zeeguu url: which is of the form
     # https://www.zeeguu.unibe.ch/read/article?articleLanguage=de&articleURL=https://www.nzz.ch/wissenschaft/neandertaler-waren-kuenstler-ld.1358862
     # thus we extract only the last part
-    url = value
+    url = value.split('articleURL=')[-1]
+    print(url)
 
     article = Article.find_or_create(session, url)
-    ua = UserArticle.find_or_create(session, user, article)
+    print(article)
+    ua = UserArticle.find(user, article)
+    if not ua:
+        ua = UserArticle.find_or_create(session, user, article, opened=datetime.now())
     ua.opened = datetime.now()
     session.add(ua)
     session.commit()
