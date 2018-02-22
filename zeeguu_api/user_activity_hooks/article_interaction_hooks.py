@@ -1,4 +1,6 @@
 import datetime
+
+from zeeguu import log
 from zeeguu.model import Article, UserArticle
 
 
@@ -26,4 +28,5 @@ def distill_article_interactions(session, user, data):
 
 def article_opened(session, url, user):
     article = Article.find_or_create(session, url)
-    UserArticle.find_or_create(session, user, article, opened=datetime.now())
+    ua = UserArticle.find_or_create(session, user, article, opened=datetime.now())
+    log(f"created new {ua}")
