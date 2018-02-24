@@ -32,7 +32,7 @@ class SmartwatchEventsTests(APITestMixin, TestCase):
 
     def test_upload_user_activity(self):
         event = dict(
-            time="2016-05-05T10:10:10",
+            time="2016-05-05T10:10:10.000Z",
             event="Reading",
             value="200",
             extra_data="seconds"
