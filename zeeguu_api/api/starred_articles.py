@@ -20,8 +20,6 @@ def star_article():
 
         Will star the article with :param url
 
-        This used to required also :param title and in :param language_id
-        but we're not using them anymore.
 
     """
 
