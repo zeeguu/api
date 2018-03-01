@@ -1,2 +1,3 @@
-export ZEEGUU_API_CONFIG="./default_api.cfg"
+#!/usr/bin/env bash
+#export ZEEGUU_API_CONFIG="./default_api.cfg"
 python -m zeeguu_api

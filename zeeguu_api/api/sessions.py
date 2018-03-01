@@ -3,6 +3,8 @@ import sqlalchemy
 import zeeguu
 from flask import request
 from zeeguu.model import Session, User
+from zeeguu.model.unique_code import UniqueCode
+from zeeguu_api.api.utils.reset_password import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
@@ -64,13 +66,11 @@ def add_anon_user():
 @cross_domain
 def get_session(email):
     """
-    
         If the email and password match,
         a sessionId is returned as a string.
         This sessionId can to be passed
         along all the other requests that are annotated
         with @with_user in this file
-
     """
     password = request.form.get("password", None)
     if password is None:
@@ -107,6 +107,20 @@ def get_anon_session(uuid):
     zeeguu.db.session.commit()
     return str(session.id)
 
+
+@api.route("/send_code/<email>", methods=["POST"])
+@cross_domain
+def reset_password(email):
+    """
+    This endpoint generates a unique code that will be used to allow
+    the user to change his/her password. The unique code is send to
+    the specified email address.
+    """
+    code = UniqueCode(email)
+    zeeguu.db.session(code)
+    zeeguu.db.commit()
+
+    send_password_reset_email(code)
 
 @api.route("/validate")
 @cross_domain
