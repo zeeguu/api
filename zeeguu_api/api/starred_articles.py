@@ -71,4 +71,4 @@ def get_starred_articles():
 
     """
 
-    return json_result(UserArticle.all_starred_articles_of_user_info(flask.g.user))
+    return json_result(UserArticle.all_starred_and_liked_articles_of_user_info(flask.g.user))
