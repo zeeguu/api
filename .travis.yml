@@ -22,4 +22,4 @@ script:
   - "export DASHBOARD_CONFIG=./dashboard_test.cfg"
   - "./run_tests.sh"
   - "export DASHBOARD_LOG_DIR=./"
-  - "python -m dashboard.collect_performance"
+  - "python -m flask_monitoringdashboard.collect_performance"
