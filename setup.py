@@ -14,10 +14,8 @@ setuptools.setup(
     description="API for Zeeguu, a project that aims to accelerate vocabulary acquisition in a second language",
     keywords=" API, second language acquisition",
     dependency_links=[
-            "https://github.com/zeeguu-ecosystem/Zeeguu-Core/tarball/master#egg=zeeguu",
-            "https://github.com/zeeguu-ecosystem/Python-Translators/tarball/master#egg=python_translators",
-            "https://github.com/flask-dashboard/Flask-Monitoring-Dashboard/tarball/development#egg=flask_monitoring_dashboard"
-        ],
+        "https://github.com/zeeguu-ecosystem/Zeeguu-Core/tarball/master#egg=zeeguu",
+        "https://github.com/zeeguu-ecosystem/Python-Translators/tarball/master#egg=python_translators"],
     install_requires=("flask>=0.10.1",
                       "Flask-SQLAlchemy",
                       "Flask-Assets",
@@ -28,7 +26,7 @@ setuptools.setup(
                       "feedparser",
                       'zeeguu',
                       'python_translators',
-                      'flask_monitoring_dashboard' 
+                      'flask_monitoringdashboard'
 
                       )
 )
