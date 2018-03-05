@@ -26,7 +26,7 @@ app.register_blueprint(api)
 
 if dashboard_enabled:
     try:
-        import dashboard
+        import flask_monitoringdashboard as dashboard
         dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 
         # dashboard can benefit from a way of associating a request with a user id
