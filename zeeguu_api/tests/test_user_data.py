@@ -6,11 +6,8 @@ from zeeguu_api.tests.api_test_mixin import APITestMixin
 
 class UserDataTests(APITestMixin, TestCase):
 
-    def test_get_language(self):
-        print(self.api_get_string ('/learned_language'))
-
     def test_set_language(self):
-        self.assertEqual ("OK", self.string_from_api_post('/learned_language/en'))
+        self.assertEqual("OK", self.string_from_api_post('/learned_language/en'))
 
         self.assertEqual("OK", self.string_from_api_post('/native_language/de'))
 
@@ -19,7 +16,6 @@ class UserDataTests(APITestMixin, TestCase):
         self.assertEqual("de", self.api_get_string('/native_language'))
 
     def test_get_user_details(self):
-
         details = self.json_from_api_get('/get_user_details')
 
         self.assertIsNotNone(details)
