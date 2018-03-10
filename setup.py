@@ -26,7 +26,6 @@ setuptools.setup(
                       "feedparser",
                       'zeeguu',
                       'python_translators',
-                      'flask_monitoringdashboard'
-
+                      'flask_monitoringdashboard>=1.10.4'
                       )
 )
