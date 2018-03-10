@@ -80,12 +80,3 @@ class FeedTests(APITestMixin, TestCase):
         assert feed_items[0]["summary"]
         assert feed_items[0]["published"]
         assert feed_items[0]['metrics']
-
-    def test_get_recommended_articles(self):
-        download_from_feed(self.feed1, zeeguu.db.session, 2)
-        download_from_feed(self.feed2, zeeguu.db.session, 3)
-
-        feed_items = self.json_from_api_get(f"get_recommended_articles/5")
-        assert (len(feed_items) == 5)
-
-        assert not feed_items[0]['starred']
