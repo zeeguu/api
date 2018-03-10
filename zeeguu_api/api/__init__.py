@@ -12,7 +12,6 @@ from . import user_activity
 from . import user_data
 from . import user_settings
 from . import user_statistics
-from . import starred_articles
 from . import recommendations
 from . import user_article
 from . import user_articles
