@@ -14,4 +14,4 @@ from . import user_settings
 from . import user_statistics
 from . import starred_articles
 from . import recommendations
-from . import article_info
+from . import user_article
