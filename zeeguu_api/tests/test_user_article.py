@@ -12,38 +12,38 @@ class UserArticleTests(APITestMixin, TestCase):
 
     def setUp(self):
         super(UserArticleTests, self).setUp()
-        self.url = urllib.parse.quote_plus(URL_1)
+        self.url_quoted = urllib.parse.quote_plus(URL_1)
+        self.url = URL_1
 
     def test_article_info_other_way(self):
-        url = f'/user_article/{self.url}'
-        result = self.json_from_api_get(url, other_args=dict(with_content=True))
+        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert "content" in result
 
     def test_article_update(self):
         # Article is not starred initially
-        result = self.json_from_api_get(f'/user_article/{self.url}')
+        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert (not result['starred'])
 
         # Make starred
-        self.api_post(f'/user_article/{self.url}', formdata=dict(starred='True'))
+        self.api_post(f'/user_article', formdata=dict(url=self.url, starred='True'))
 
         # Article should be starred
-        result = self.json_from_api_get(f'/user_article/{self.url}')
+        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert (result['starred'])
 
         # Make liked
-        self.api_post(f'/user_article/{self.url}', formdata=dict(liked='True'))
+        self.api_post(f'/user_article', formdata=dict(url=self.url, liked='True'))
 
         # Article should be both liked and starred
-        result = self.json_from_api_get(f'/user_article/{self.url}')
+        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert (result['starred'])
         assert (result['liked'])
 
         # Article un-starred
-        self.api_post(f'/user_article/{self.url}', formdata=dict(starred='False'))
+        self.api_post(f'/user_article', formdata=dict(url=self.url, starred='False'))
 
         # Article is not starred anymore
-        result = self.json_from_api_get(f'/user_article/{self.url}')
+        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert (not result['starred'])
 
 
