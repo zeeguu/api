@@ -37,6 +37,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     context_str = request.form.get('context', '')
     url = request.form.get('url', '')
+    zeeguu.log (f"url before being saved: {url}")
     word_str = request.form['word']
     title_str = request.form.get('title', '')
 
