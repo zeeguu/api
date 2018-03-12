@@ -50,7 +50,7 @@ if dashboard_enabled:
 
         dashboard.config.get_group_by = get_user_id
         dashboard.bind(app=app, blue_print=api)
+    except ModuleNotFoundError as e:
+        print("Running without dashboard (module not present)")
     except Exception as e:
-        print("could not start the dashboard, but will continue anyway")
-        print(str(e))
-        # raise e
+        print(f"Running without dashboard ({e})")
