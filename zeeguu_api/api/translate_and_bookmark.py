@@ -37,8 +37,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     context_str = request.form.get('context', '')
     url = request.form.get('url', '')
-
-    # this is needed since sometimes we get the zeeguu url
+    #
     url = url.split('articleURL=')[-1]
 
     zeeguu.log (f"url before being saved: {url}")
@@ -160,17 +159,21 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
-    minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
+    try:
+        minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
+        translator = BestEffortTranslator(from_lang_code, to_lang_code)
+        translations = translator.translate(query).translations
 
-    translator = BestEffortTranslator(from_lang_code, to_lang_code)
-    translations = translator.translate(query).translations
+        best_guess = translations[0]["translation"]
 
-    best_guess = translations[0]["translation"]
-
-    bookmark = Bookmark.find_or_create(session, flask.g.user,
+        bookmark = Bookmark.find_or_create(session, flask.g.user,
                                        word_str, from_lang_code,
                                        best_guess, to_lang_code,
                                        minimal_context, url_str, title_str)
+    except ValueError as e:
+        zeeguu.log (f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
+        return context_str, query
+
 
     return json_result(dict(
         bookmark_id=bookmark.id,
