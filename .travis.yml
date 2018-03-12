@@ -12,6 +12,7 @@ cache:
   directories:
    - $HOME/virtualenv
    - $HOME/nltk_data
+   - ~/nltk_data
 
 install: "python setup.py install"
 
