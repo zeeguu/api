@@ -1,7 +1,7 @@
 # coding=utf-8
 
 from unittest import TestCase
-from zeeguu_api.tests.api_test_mixin import APITestMixin
+from tests_zeeguu_api.api_test_mixin import APITestMixin
 
 
 class UserDataTests(APITestMixin, TestCase):

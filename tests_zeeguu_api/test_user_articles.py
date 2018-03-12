@@ -2,15 +2,14 @@
 
 from unittest import TestCase
 
-from zeeguu_api.tests.api_test_mixin import APITestMixin
+from tests_zeeguu_api.api_test_mixin import APITestMixin
 
-from tests_core_zeeguu.rules.rss_feed_rule import RSSFeedRule
+from tests_zeeguu.rules.rss_feed_rule import RSSFeedRule
 from zeeguu.content_retriever.article_downloader import download_from_feed
 from zeeguu.model import RSSFeedRegistration
-import urllib.parse
 import zeeguu
 
-from zeeguu_api.tests.test_feeds import FeedTests
+from tests_zeeguu_api.test_feeds import FeedTests
 
 URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
 
