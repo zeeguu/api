@@ -55,7 +55,6 @@ def learned_language_set(language_code):
     :param language_code: one of the ISO language codes
     :return: "OK" for success
     """
-    print(language_code)
     flask.g.user.set_learned_language(language_code)
     zeeguu.db.session.commit()
     return "OK"

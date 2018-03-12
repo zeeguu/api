@@ -26,13 +26,12 @@ app.register_blueprint(api)
 
 if dashboard_enabled:
     try:
-        import dashboard
+        import flask_monitoringdashboard as dashboard
         dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 
         # dashboard can benefit from a way of associating a request with a user id
         def get_user_id():
             import flask
-            print ("trying to get the flask.g.user.id")
             try:
                 session_id = int(flask.request.args['session'])
             except:
@@ -40,10 +39,8 @@ if dashboard_enabled:
                 return 1
             from zeeguu.model import Session
             session = Session.find_for_id(session_id)
-            print ("found session object")
 
             user_id = session.user.id
-            print ("got user id = " + str(user_id))
             return user_id
 
 

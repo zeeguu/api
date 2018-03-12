@@ -37,16 +37,21 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     context_str = request.form.get('context', '')
     url = request.form.get('url', '')
+
+    # this is needed since sometimes we get the zeeguu url
+    url = url.split('articleURL=')[-1]
+
+    zeeguu.log (f"url before being saved: {url}")
     word_str = request.form['word']
     title_str = request.form.get('title', '')
 
     minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
 
     to_lang_code = flask.g.user.native_language.code
-    print (f'translating to... {to_lang_code}')
+    zeeguu.log(f'translating to... {to_lang_code}')
 
     translator = BestEffortTranslator(from_lang_code, to_lang_code)
-    print (f"Query to translate is: {query}")
+    zeeguu.log (f"Query to translate is: {query}")
     translations = translator.translate(query).translations
 
     # translators talk about quality, but our users expect likelihood.
