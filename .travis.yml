@@ -1,8 +1,6 @@
 before_install:
   - pip install jieba3k coveralls nltk
   - python -m nltk.downloader -d ~/nltk_data punkt
-  - git clone https://github.com/zeeguu-ecosystem/Zeeguu-Core
-  - cd Zeeguu-Core && python setup.py install
 
 
 language: python
@@ -11,8 +9,6 @@ python:
 
 cache:
   pip: true
-  directories:
-   - $HOME/virtualenv
 
 install: "python setup.py install"
 
