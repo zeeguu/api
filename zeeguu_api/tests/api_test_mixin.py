@@ -1,18 +1,12 @@
 from unittest import TestCase
-import os
 import json
 
-# BEGIN: injecting the desired testing config in the app
-
-os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser("~/.config/zeeguu/api_testing.cfg")
 from zeeguu_api.app import app
-# END: Injecting the desired config...
 
 from zeeguu.populate import TEST_EMAIL, create_test_db
 from zeeguu.populate import TEST_PASS
 from zeeguu.populate import create_minimal_test_db
 from zeeguu.model import User
-
 
 import zeeguu
 
@@ -38,7 +32,7 @@ class APITestMixin(TestCase):
         self.session = None
 
     def get_session(self):
-        rv = self.app.post('/session/'+TEST_EMAIL, data=dict(
+        rv = self.app.post('/session/' + TEST_EMAIL, data=dict(
             password=TEST_PASS
         ))
         return rv.data.decode('utf8')
@@ -48,18 +42,18 @@ class APITestMixin(TestCase):
             other_args = {}
 
         url_with_session = url + "?session=" + self.session
-        for key,value in other_args.items():
+        for key, value in other_args.items():
             url_with_session += f"&{key}={value}"
         return url_with_session
 
     # GET
     # ---
     def api_get(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.get(self.in_session(test_data, other_args=other_args), data = formdata, content_type = content_type)
+        return self.app.get(self.in_session(test_data, other_args=other_args), data=formdata, content_type=content_type)
 
     def api_get_string(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.get(self.in_session(test_data, other_args=other_args), data = formdata, content_type = content_type).data.decode('utf-8')
-
+        return self.app.get(self.in_session(test_data, other_args=other_args), data=formdata,
+                            content_type=content_type).data.decode('utf-8')
 
     def raw_data_from_api_get(self, test_data, formdata='None', content_type=None, other_args=None):
         return self.api_get(test_data, formdata, content_type, other_args=other_args).data
@@ -71,15 +65,18 @@ class APITestMixin(TestCase):
     # POST
     # ----
     def api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data = formdata, content_type = content_type)
+        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
+                             content_type=content_type)
 
     def string_from_api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data = formdata, content_type = content_type).data.decode('utf-8')
+        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
+                             content_type=content_type).data.decode('utf-8')
 
     def raw_data_from_api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data = formdata, content_type = content_type).data
+        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
+                             content_type=content_type).data
 
     def json_from_api_post(self, test_data, formdata='None', _content_type=None, other_args=None):
         url = self.in_session(test_data, other_args=other_args)
-        rv = self.app.post(url, data = formdata, content_type = _content_type)
+        rv = self.app.post(url, data=formdata, content_type=_content_type)
         return json.loads(rv.data)
