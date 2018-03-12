@@ -110,7 +110,7 @@ def get_anon_session(uuid):
 
 @api.route("/send_code/<email>", methods=["POST"])
 @cross_domain
-def reset_password(email):
+def send_code(email):
     """
     This endpoint generates a unique code that will be used to allow
     the user to change his/her password. The unique code is send to
@@ -120,7 +120,38 @@ def reset_password(email):
     zeeguu.db.session.add(code)
     zeeguu.db.session.commit()
 
-    send_password_reset_email(code)
+    send_password_reset_email(email, code)
+
+    return "OK"
+
+@api.route("/reset_password/<email>", methods=["POST"])
+@cross_domain
+def reset_password(email):
+    """
+    This endpoint can be used to rest a users password.
+    To do this a uniquecode is required.
+    """
+    last_code = UniqueCode.last_code(email)
+    code = request.form.get("code", None)
+    if last_code is not code:
+        flask.abort(400, "Invalid code")
+
+    password = request.form.get("password", None)
+    if len(password) < 4:
+        flask.abort(400, "Password not long enough")
+
+    user = User.find(email)
+    if user is None:
+        flask.abort(400, "Email unknown")
+    user.update_password(password)
+    zeeguu.db.session.commit()
+
+    # Delete all the codes for this user
+    for x in UniqueCode.all_codes_for(email):
+        zeeguu.db.session.delete(x)
+    zeeguu.db.session.commit()
+
+    return "OK"
 
 @api.route("/validate")
 @cross_domain
