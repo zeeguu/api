@@ -1,6 +1,6 @@
 before_install:
   - pip install jieba3k coveralls nltk
-  - python -m nltk.downloader -d ~/nltk_data all
+  - python -m nltk.downloader -d ~/nltk_data punkt
 
 
 language: python
@@ -11,8 +11,6 @@ cache:
   pip: true
   directories:
    - $HOME/virtualenv
-   - $HOME/nltk_data
-   - ~/nltk_data
 
 install: "python setup.py install"
 
