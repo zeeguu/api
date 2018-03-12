@@ -138,7 +138,7 @@ def reset_password(email):
 
     password = request.form.get("password", None)
     if len(password) < 4:
-        flask.abort(400, "Password not long enough")
+        flask.abort(400, "Password should be at least 4 characters long")
 
     user = User.find(email)
     if user is None:
