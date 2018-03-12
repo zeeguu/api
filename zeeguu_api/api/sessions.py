@@ -133,7 +133,7 @@ def reset_password(email):
     """
     last_code = UniqueCode.last_code(email)
     code = request.form.get("code", None)
-    if last_code is not code:
+    if not (last_code == code):
         flask.abort(400, "Invalid code")
 
     password = request.form.get("password", None)
