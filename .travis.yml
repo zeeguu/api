@@ -1,6 +1,3 @@
-services:
-  - mysql
-
 before_install:
   - pip install jieba3k coveralls nltk
   - python -m nltk.downloader -d ~/nltk_data all
@@ -12,8 +9,10 @@ python:
 
 cache:
   pip: true
+  directories:
+   - $HOME/virtualenv
 
-install: "python setup.py develop"
+install: "python setup.py install"
 
 script: 
   - "export DASHBOARD_CONFIG=./dashboard_test.cfg"
