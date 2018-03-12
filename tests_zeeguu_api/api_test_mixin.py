@@ -3,7 +3,7 @@ import json
 
 from zeeguu_api.app import app
 
-from zeeguu.populate import TEST_EMAIL, create_test_db
+from zeeguu.populate import TEST_EMAIL
 from zeeguu.populate import TEST_PASS
 from zeeguu.populate import create_minimal_test_db
 from zeeguu.model import User
@@ -18,11 +18,7 @@ class APITestMixin(TestCase):
         self.app = app.test_client()
 
         with app.test_request_context():
-            if hasattr(self, "maximal_populate"):
-                # print ("maximal populate")
-                create_test_db(zeeguu.db)
-            else:
-                create_minimal_test_db(zeeguu.db)
+            create_minimal_test_db(zeeguu.db)
 
         self.session = self.get_session()
         self.user = User.find(TEST_EMAIL)
