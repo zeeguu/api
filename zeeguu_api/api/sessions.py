@@ -117,8 +117,8 @@ def reset_password(email):
     the specified email address.
     """
     code = UniqueCode(email)
-    zeeguu.db.session(code)
-    zeeguu.db.commit()
+    zeeguu.db.session.add(code)
+    zeeguu.db.session.commit()
 
     send_password_reset_email(code)
 
