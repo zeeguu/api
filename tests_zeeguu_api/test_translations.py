@@ -17,7 +17,7 @@ class TranslationTests(APITestMixin, TestCase):
 
         assert first_alternative is not None
         assert second_alternative is not None
-        assert first_alternative["likelihood"] > second_alternative["likelihood"]
+        assert first_alternative["likelihood"] >= second_alternative["likelihood"]
 
     def test_get_translation_where_gslobe_fails_but_translate_succeeds(self):
         form_data = dict(
@@ -43,7 +43,7 @@ class TranslationTests(APITestMixin, TestCase):
 
         form_data["word"] = "kleine"
         bookmark4 = self.json_from_api_post('/translate_and_bookmark/de/en', form_data)
-        self.assertTrue(bookmark4['translation'] in ['small', 'little'])
+        self.assertTrue(bookmark4['translation'] == 'enielk')
 
     def test_minimize_context(self):
         from zeeguu_api.api.translate_and_bookmark import minimize_context

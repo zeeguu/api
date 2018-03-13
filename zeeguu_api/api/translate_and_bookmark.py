@@ -1,6 +1,7 @@
 from urllib.parse import unquote_plus
 
 import flask
+import sys
 from flask import request
 
 import zeeguu
@@ -12,7 +13,13 @@ from zeeguu.model import Bookmark
 
 from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
 from python_translators.translation_query import TranslationQuery
-from python_translators.translators.best_effort_translator import BestEffortTranslator
+
+# When testing, we're injecting the ReverseTranslator instead of the BestEffort which
+# requires API keys for the third-party services.
+if 'unittest' in sys.modules:
+    from python_translators.translators.reverse_translator import ReverseTranslator as Translator
+else:
+    from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
 
 session = zeeguu.db.session
 
@@ -40,7 +47,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     #
     url = url.split('articleURL=')[-1]
 
-    zeeguu.log (f"url before being saved: {url}")
+    zeeguu.log(f"url before being saved: {url}")
     word_str = request.form['word']
     title_str = request.form.get('title', '')
 
@@ -49,15 +56,15 @@ def get_possible_translations(from_lang_code, to_lang_code):
     to_lang_code = flask.g.user.native_language.code
     zeeguu.log(f'translating to... {to_lang_code}')
 
-    translator = BestEffortTranslator(from_lang_code, to_lang_code)
-    zeeguu.log (f"Query to translate is: {query}")
+    translator = Translator(from_lang_code, to_lang_code)
+    zeeguu.log(f"Query to translate is: {query}")
     translations = translator.translate(query).translations
 
     # translators talk about quality, but our users expect likelihood.
     # rename the key in the dictionary
     for t in translations:
-        t['likelihood']=t.pop("quality")
-        t['source']=t.pop('service_name')
+        t['likelihood'] = t.pop("quality")
+        t['source'] = t.pop('service_name')
 
     best_guess = translations[0]["translation"]
 
@@ -161,19 +168,18 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
 
     try:
         minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
-        translator = BestEffortTranslator(from_lang_code, to_lang_code)
+        translator = Translator(from_lang_code, to_lang_code)
         translations = translator.translate(query).translations
 
         best_guess = translations[0]["translation"]
 
         bookmark = Bookmark.find_or_create(session, flask.g.user,
-                                       word_str, from_lang_code,
-                                       best_guess, to_lang_code,
-                                       minimal_context, url_str, title_str)
+                                           word_str, from_lang_code,
+                                           best_guess, to_lang_code,
+                                           minimal_context, url_str, title_str)
     except ValueError as e:
-        zeeguu.log (f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
+        zeeguu.log(f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
         return context_str, query
-
 
     return json_result(dict(
         bookmark_id=bookmark.id,
