@@ -1,4 +1,5 @@
 #!/bin/sh
+
 export PYTHONWARNINGS='ignore'
-python -m unittest discover tests_zeeguu_api -v
+python -m pytest || echo "make sure to install pytest (pip install pytest)"
 export PYTHONWARNINGS='default'
