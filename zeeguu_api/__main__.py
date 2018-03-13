@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
-from . import app
+from zeeguu_api import app
 application = app.app
 
 print("Instance folder:", application.instance_path)

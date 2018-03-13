@@ -7,8 +7,17 @@ from flask import Flask
 app = Flask("Zeeguu-API")
 CORS(app)
 
-load_configuration_or_abort(app, 'ZEEGUU_API_CONFIG',
-                            ['SQLALCHEMY_DATABASE_URI', 'HOST', 'DEBUG', 'SECRET_KEY', 'MAX_SESSION'])
+load_configuration_or_abort(app,
+                            'ZEEGUU_API_CONFIG',
+                            [  # first three are required by core
+                                'MAX_SESSION',
+                                'SQLALCHEMY_DATABASE_URI',
+                                'SQLALCHEMY_TRACK_MODIFICATIONS',
+                                # next three are required by API when
+                                # run locally
+                                'DEBUG',
+                                'HOST',
+                                'SECRET_KEY', ])
 
 dashboard_enabled = True
 
