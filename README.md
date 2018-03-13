@@ -20,7 +20,7 @@ The API is available at https://zeeguu.unibe.ch/api.
 
 4. To try out the API you can run `./api_test.sh` which will by default create a `test_zeeguu` mysql db which is in sync with the data in the `default_api.cfg` file and start the server with that configuration. 
 
-5. To make sure that the API works, you can call the `/available_languages` endpoint from the command like like this: 
+5. To make sure that the API works, you can call the `/available_languages` endpoint from another terminal (or after having moved the current process to the bacgkround) like this: 
 
      `curl localhost:9001/available_languages`
      
