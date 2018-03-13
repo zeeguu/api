@@ -18,4 +18,4 @@ The API is available at https://zeeguu.unibe.ch/api.
 
      `./run_tests.sh`
 
-4. To try out the API run `export ZEEGUU_API_CONFIG=<path to config file> && python -m zeeguu_api`
+4. To try out the API you can run `./api_test.sh` which will by default create a `test_zeeguu` mysql db which is in sync with the data in the `default_api.cfg` file and start the server with that configuration. 
