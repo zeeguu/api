@@ -13,7 +13,8 @@ The API is available at https://zeeguu.unibe.ch/api.
 
 # Installation
 1. Install [Zeeguu-Core](https://github.com/zeeguu-ecosystem/Zeeguu-Core). The API is a thin layer on top of it.
-2. Clone this repo and run `python setup.py develop` from within the cloned folder. (Make sure to activate the `virtualenv` in which you installed Zeeguu-Core). 
+2. Make sure to activate the virtualenv in which you installed Zeeguu-Core! Most of the packages required by the API, including Core, are already installed there.
+2. Clone this repo and run `python setup.py develop` from within the cloned folder. 
 3. Test that your installation works with: 
 
      `./run_tests.sh`
