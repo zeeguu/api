@@ -22,6 +22,6 @@ The API is available at https://zeeguu.unibe.ch/api.
 
 5. To make sure that the API works, you can call the `/available_languages` endpoint from the command like like this: 
 
-     curl localhost:9001/available_languages
+     `curl localhost:9001/available_languages`
      
 6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working. 
