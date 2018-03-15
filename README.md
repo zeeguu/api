@@ -12,14 +12,17 @@ A text recommender agent crawls websites of interest to the user and recommend m
 The API is available at https://zeeguu.unibe.ch/api.
 
 # Installation
-To install the API clone this repo and run (once you already activated a Python3.6 environment):
+1. Install [Zeeguu-Core](https://github.com/zeeguu-ecosystem/Zeeguu-Core). The API is a thin layer on top of it.
+2. Make sure to activate the virtualenv in which you installed Zeeguu-Core! Most of the packages required by the API, including Core, are already installed there.
+2. Clone this repo and run `python setup.py develop` from within the cloned folder. 
+3. Test that your installation works with: 
 
-    pip install jieba3k coveralls nltk
-    python -m nltk.downloader -d ~/nltk_data all
-    python setup.py install
+     `./run_tests.sh`
 
-Also, make sure to copy and adapt the 
+4. To try out the API you can run `./api_test.sh` which will by default create a `test_zeeguu` mysql db which is in sync with the data in the `default_api.cfg` file and start the server with that configuration. 
 
-To test it run `./run_tests.sh`
+5. To make sure that the API works, you can call the `/available_languages` endpoint from another terminal (or after having moved the current process to the bacgkround) like this: 
 
-To try out the API run `export ZEEGUU_API_CONFIG=<path to config file> && python -m zeeguu_api`
+     `curl localhost:9001/available_languages`
+     
+6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working. 

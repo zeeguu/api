@@ -2,7 +2,7 @@
 #
 from unittest import TestCase
 
-from zeeguu_api.tests.api_test_mixin import APITestMixin
+from tests_zeeguu_api.api_test_mixin import APITestMixin
 
 
 class Test(APITestMixin, TestCase):
@@ -10,7 +10,7 @@ class Test(APITestMixin, TestCase):
     def test_get_possible_translations(self):
         translations = self.json_from_api_post('/get_possible_translations/de/en',
                                                dict(context="das ist sehr schon", url="lalal.is", word="schon", title="lala"))
-        assert "beautiful" in str(translations)
+        assert "nohcs" in str(translations)
 
     def test_get_possible_translations2(self):
         translations = self.json_from_api_post('/get_possible_translations/de/en',
@@ -19,4 +19,4 @@ class Test(APITestMixin, TestCase):
                                                             "glatzköpfig Frauen darstellen,",
                                                     url="lalal.is", word="glatzköpfig", title="lala"))
 
-        assert "bald" in str(translations)
+        assert "gifpökztalg" in str(translations)

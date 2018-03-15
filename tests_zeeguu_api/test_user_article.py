@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from zeeguu_api.tests.api_test_mixin import APITestMixin
+from tests_zeeguu_api.api_test_mixin import APITestMixin
 import urllib.parse
 
 URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
@@ -18,6 +18,7 @@ class UserArticleTests(APITestMixin, TestCase):
     def test_article_info_other_way(self):
         result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
         assert "content" in result
+        assert "translations" in result
 
     def test_article_update(self):
         # Article is not starred initially

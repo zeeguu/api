@@ -1,12 +1,6 @@
-services:
-  - mysql
-
 before_install:
-  - mysql -e "create database IF NOT EXISTS zeeguu_test;" -uroot
-  - mysql -e "grant all on zeeguu_test.* to 'zeeguu_test'@'localhost' identified by 'zeeguu_test';" -uroot
-  - mkdir -p ~/.config/zeeguu/ && cp default_api.cfg ~/.config/zeeguu/api_testing.cfg
   - pip install jieba3k coveralls nltk
-  - python -m nltk.downloader -d ~/nltk_data all
+  - python -m nltk.downloader -d ~/nltk_data punkt
 
 
 language: python
@@ -16,7 +10,7 @@ python:
 cache:
   pip: true
 
-install: "python setup.py develop"
+install: "python setup.py install"
 
 script: 
   - "export DASHBOARD_CONFIG=./dashboard_test.cfg"

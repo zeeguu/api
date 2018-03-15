@@ -1,6 +1,5 @@
 #!/bin/sh
+
 export PYTHONWARNINGS='ignore'
-export ZEEGUU_API_CONFIG="./default_api.cfg"
-echo $ZEEGUU_API_CONFIG
-python -m unittest discover zeeguu_api/tests -v
+python3.6 -m pytest --version 1>/dev/null 2>/dev/null || (echo "installing pytest..." && pip3.6 install pytest) && python3.6 -m pytest
 export PYTHONWARNINGS='default'

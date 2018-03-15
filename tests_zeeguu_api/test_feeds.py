@@ -2,13 +2,13 @@
 
 from unittest import TestCase
 
-from zeeguu_api.tests.api_test_mixin import APITestMixin
+from tests_zeeguu_api.api_test_mixin import APITestMixin
 from zeeguu_api.api.feeds import STOP_FOLLOWING_FEED, FOLLOWED_FEEDS, START_FOLLOWING_FEED, \
     INTERESTING_FEEDS, RECOMMENDED_FEEDS
 
 from zeeguu.model import RSSFeedRegistration
 from zeeguu.content_retriever.article_downloader import download_from_feed
-from tests_core_zeeguu.rules.rss_feed_rule import RSSFeedRule
+from tests_zeeguu.rules.rss_feed_rule import RSSFeedRule
 import zeeguu
 
 
