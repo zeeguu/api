@@ -4,6 +4,7 @@ import zeeguu
 from flask import request
 from zeeguu.model import Session, User
 from zeeguu.model.unique_code import UniqueCode
+from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_api.api.utils.reset_password import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -27,9 +28,9 @@ def add_user(email):
         zeeguu.db.session.add(User(email, username, password))
         zeeguu.db.session.commit()
     except ValueError:
-        flask.abort(400)
+        return make_error(400, "Invalid value")
     except sqlalchemy.exc.IntegrityError:
-        flask.abort(400)
+        return make_error(401, "Invalid credentials")
     return get_session(email)
 
 
@@ -74,10 +75,10 @@ def get_session(email):
     """
     password = request.form.get("password", None)
     if password is None:
-        flask.abort(400)
+        return make_error(400, "Password not given")
     user = User.authorize(email, password)
     if user is None:
-        flask.abort(401)
+        return make_error(401, "Invalid credentials")
     session = Session.for_user(user)
     zeeguu.db.session.add(session)
     zeeguu.db.session.commit()
