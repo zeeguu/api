@@ -23,7 +23,7 @@ def add_user(email):
     password = request.form.get("password")
     username = request.form.get("username")
     if password is None:
-        flask.abort(400)
+        return make_error(400, "Invalid value")
     try:
         zeeguu.db.session.add(User(email, username, password))
         zeeguu.db.session.commit()

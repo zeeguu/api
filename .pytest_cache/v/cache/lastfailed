@@ -1,0 +1,4 @@
+{
+  "tests_zeeguu_api/test_session.py::SessionTests::test_reset_password_invalid_code": true,
+  "tests_zeeguu_api/test_session.py::SessionTests::test_reset_password_unkown_email": true
+}
