@@ -130,3 +130,13 @@ def add_user_with_class():
             return 'no more space in class!'
     return 'failed :('
 
+
+# Gets user words info
+@api.route("/get_user_info/<id>", methods=['GET'])
+def get_user_info(id):
+    user = User.query.filter_by(id=id)
+    activity_data = UserActivityData.query.filer_by(user = user)
+    dictionary = activity_data.data_as_dictionary()
+    return jsonify(dictionary)
+
+
