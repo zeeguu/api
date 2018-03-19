@@ -135,15 +135,15 @@ def reset_password(email):
     last_code = UniqueCode.last_code(email)
     code = request.form.get("code", None)
     if not (last_code == code):
-        flask.abort(400, "Invalid code")
+        return make_error(400, "Invalid code")
 
     password = request.form.get("password", None)
     if len(password) < 4:
-        flask.abort(400, "Password should be at least 4 characters long")
+        return make_error(400, "Password should be at least 4 characters long")
 
     user = User.find(email)
     if user is None:
-        flask.abort(400, "Email unknown")
+        return make_error(400, "Email unknown")
     user.update_password(password)
     zeeguu.db.session.commit()
 
