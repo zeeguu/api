@@ -7,10 +7,12 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort
+from zeeguu.model import User, Cohort, UserActivityData
 import sqlalchemy
 # Using jsonify here to return a list with flask.
 from flask import jsonify
+
+
 
 
 #Takes user_id and returns user.name that corresponds
@@ -134,8 +136,9 @@ def add_user_with_class():
 # Gets user words info
 @api.route("/get_user_info/<id>", methods=['GET'])
 def get_user_info(id):
-    user = User.query.filter_by(id=id)
-    activity_data = UserActivityData.query.filer_by(user = user)
+
+    activity_data = UserActivityData.query.filter_by(user_id = id)
+    print("got activity data")
     dictionary = activity_data.data_as_dictionary()
     return jsonify(dictionary)
 
