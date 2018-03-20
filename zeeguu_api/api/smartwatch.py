@@ -4,12 +4,10 @@ from datetime import datetime
 import flask
 from flask import request
 import zeeguu
-from . import api
+from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from zeeguu.model import WatchInteractionEvent, WatchEventType
-
-db = zeeguu.db
 
 
 @api.route("/upload_smartwatch_events", methods=["POST"])
@@ -37,15 +35,15 @@ def upload_smartwatch_events():
         event_type = WatchEventType.find_by_name(event["event"])
         if not event_type:
             event_type = WatchEventType(event["event"])
-            db.session.add(event_type)
-            db.session.commit()
+            db_session.add(event_type)
+            db_session.commit()
 
         new_event = WatchInteractionEvent(
             event_type,
             event["bookmark_id"],
             datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"),)
-        db.session.add(new_event)
-    db.session.commit()
+        db_session.add(new_event)
+    db_session.commit()
 
     return "OK"
 

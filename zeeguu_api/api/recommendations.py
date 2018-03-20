@@ -6,8 +6,6 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
-
 # ==================== DEPRECATED ======================== #
 # ---------------------------------------------------------------------------
 @api.route("/get_feed_items_with_metrics/<feed_id>", methods=("GET",))
