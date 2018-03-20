@@ -11,6 +11,8 @@ from .utils.route_wrappers import cross_domain, with_session
 from . import api
 
 
+db_session = zeeguu.db.session
+
 @api.route("/add_user/<email>", methods=["POST"])
 @cross_domain
 def add_user(email):
@@ -25,8 +27,8 @@ def add_user(email):
     if password is None:
         return make_error(400, "Invalid value")
     try:
-        zeeguu.db.session.add(User(email, username, password))
-        zeeguu.db.session.commit()
+        db_session.add(User(email, username, password))
+        db_session.commit()
     except ValueError:
         return make_error(400, "Invalid value")
     except sqlalchemy.exc.IntegrityError:
@@ -54,8 +56,8 @@ def add_anon_user():
 
     try:
         new_user = User.create_anonymous(uuid, password, language_code, native_code)
-        zeeguu.db.session.add(new_user)
-        zeeguu.db.session.commit()
+        db_session.add(new_user)
+        db_session.commit()
     except ValueError as e:
         flask.abort(flask.make_response("Could not create anon user.", 400))
     except sqlalchemy.exc.IntegrityError as e:
@@ -80,8 +82,8 @@ def get_session(email):
     if user is None:
         return make_error(401, "Invalid credentials")
     session = Session.for_user(user)
-    zeeguu.db.session.add(session)
-    zeeguu.db.session.commit()
+    db_session.add(session)
+    db_session.commit()
     return str(session.id)
 
 
@@ -104,8 +106,8 @@ def get_anon_session(uuid):
     if user is None:
         flask.abort(401)
     session = Session.for_user(user)
-    zeeguu.db.session.add(session)
-    zeeguu.db.session.commit()
+    db_session.add(session)
+    db_session.commit()
     return str(session.id)
 
 
@@ -118,8 +120,8 @@ def send_code(email):
     the specified email address.
     """
     code = UniqueCode(email)
-    zeeguu.db.session.add(code)
-    zeeguu.db.session.commit()
+    db_session.add(code)
+    db_session.commit()
 
     send_password_reset_email(email, code)
 
@@ -145,12 +147,12 @@ def reset_password(email):
     if user is None:
         return make_error(400, "Email unknown")
     user.update_password(password)
-    zeeguu.db.session.commit()
+    db_session.commit()
 
     # Delete all the codes for this user
     for x in UniqueCode.all_codes_for(email):
-        zeeguu.db.session.delete(x)
-    zeeguu.db.session.commit()
+        db_session.delete(x)
+    db_session.commit()
 
     return "OK"
 
@@ -187,7 +189,7 @@ def logout():
     session = Session.query.get(session_id)
 
     # print "about to expire session..." + str(session_id)
-    zeeguu.db.session.delete(session)
-    zeeguu.db.session.commit()
+    db_session.delete(session)
+    db_session.commit()
 
     return "OK"
