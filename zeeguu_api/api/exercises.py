@@ -7,7 +7,7 @@ from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from . import api
+from . import api, db_session
 
 
 @api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
@@ -71,7 +71,7 @@ def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_
     try:
         bookmark = Bookmark.find(bookmark_id)
         new_source = ExerciseSource.find(exercise_source)
-        new_outcome = ExerciseOutcome.find_or_create(zeeguu.db.session, exercise_outcome)
+        new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
         if not bookmark:
             return "could not find bookmark"
@@ -84,10 +84,10 @@ def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_
 
         exercise = Exercise(new_outcome, new_source, exercise_solving_speed, datetime.now())
         bookmark.add_new_exercise(exercise)
-        bookmark.update_fit_for_study(zeeguu.db.session)
-        bookmark.update_learned_status(zeeguu.db.session)
-        zeeguu.db.session.add(exercise)
-        zeeguu.db.session.commit()
+        bookmark.update_fit_for_study(db_session)
+        bookmark.update_learned_status(db_session)
+        db_session.add(exercise)
+        db_session.commit()
 
         zeeguu.log("recomputting bookmark priorities")
         zeeguu.word_scheduling.arts.update_bookmark_priority(zeeguu.db, flask.g.user)

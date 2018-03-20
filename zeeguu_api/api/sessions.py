@@ -8,10 +8,8 @@ from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_api.api.utils.reset_password import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain, with_session
-from . import api
+from . import api, db_session
 
-
-db_session = zeeguu.db.session
 
 @api.route("/add_user/<email>", methods=["POST"])
 @cross_domain
