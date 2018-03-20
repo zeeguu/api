@@ -29,6 +29,14 @@ class SessionTests(APITestMixin, TestCase):
         rv = self.api_post('/add_user/i@i.la', form_data)
         assert rv.status_code == 400
 
+    def test_create_user_returns_400_if_password_too_short(self):
+        form_data = dict(
+            username="gigi",
+            password="2sh"
+        )
+        rv = self.api_post('/add_user/i@i.la', form_data)
+        assert rv.status_code == 400
+
     def test_reset_password(self):
         code = UniqueCode(TEST_EMAIL)
         zeeguu.db.session.add(code)
