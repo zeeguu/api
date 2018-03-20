@@ -22,8 +22,8 @@ def add_user(email):
     """
     password = request.form.get("password")
     username = request.form.get("username")
-    if password is None:
-        return make_error(400, "Invalid value")
+    if password is None or len(password) < 4:
+        return make_error(400, "Password should be at least 4 characters long")
     try:
         db_session.add(User(email, username, password))
         db_session.commit()
