@@ -2,9 +2,10 @@
 
 from unittest import TestCase
 
+from zeeguu.model.unique_code import UniqueCode
+
 import zeeguu
 from tests_zeeguu_api.api_test_mixin import APITestMixin
-from zeeguu.model import UniqueCode
 from zeeguu.populate import TEST_EMAIL
 
 WANNABE_UUID = 'lulu'
