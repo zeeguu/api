@@ -22,7 +22,7 @@ class SessionTests(APITestMixin, TestCase):
         rv = self.api_post('/add_user/i@i.la',form_data)
         assert len(rv.data) > 1
 
-    def test_create_user_returns_400(self):
+    def test_create_user_returns_400_if_password_not_given(self):
         form_data = dict(
             username="gigi"
         )
@@ -41,7 +41,7 @@ class SessionTests(APITestMixin, TestCase):
         rv = self.api_post('/reset_password/' + TEST_EMAIL, form_data)
         assert rv.status_code == 200
 
-    def test_reset_password_invalid_code(self):
+    def test_reset_password_returns_400_invalid_code(self):
         code = UniqueCode(TEST_EMAIL)
         zeeguu.db.session.add(code)
         zeeguu.db.session.commit()
@@ -53,7 +53,7 @@ class SessionTests(APITestMixin, TestCase):
         rv = self.api_post('/reset_password/' + TEST_EMAIL, form_data)
         assert rv.status_code == 400
 
-    def test_reset_password_too_short(self):
+    def test_reset_password_returns_400_if_password_too_short(self):
         code = UniqueCode(TEST_EMAIL)
         zeeguu.db.session.add(code)
         zeeguu.db.session.commit()
