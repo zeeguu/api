@@ -169,7 +169,7 @@ def add_user_with_class():
 @api.route("/get_user_info/<id>", methods=['GET'])
 def get_user_info(id):
     dictionary = {
-        'name' : get_user_name(id)
+        'name' : get_user_name(id),
         'reading_time': random.randint(1,100),
         'exercises_done': random.randint(1,100),
         'last_article': 'place holder article'
