@@ -63,7 +63,9 @@ def get_users_from_class(id):
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
+
 @api.route("/get_classes_by_teacher_id/<id>", methods=["GET"])
+@with_session
 def get_classes_by_teacher_id(id):
     if(teacher_function_checker(id)):
         from zeeguu.model import TeacherCohortMap
