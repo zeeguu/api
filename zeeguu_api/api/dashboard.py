@@ -11,7 +11,35 @@ from zeeguu.model import User, Cohort, UserActivityData
 import sqlalchemy
 # Using jsonify here to return a list with flask.
 from flask import jsonify
+import random
 
+
+
+#class function wrapper
+def class_function_wrapper(class_id, teacher_id):
+
+    link = TeacherCohortMap.query.filter_by(teacher_id=user.id).all()
+    for id in link.cohort_id
+        if(id == class_id):
+            return True
+    flask.abort(401)
+    return False
+
+#teacher function wrapper
+def teacher_function_wrapper(teacher_id):
+    session_id = int(flask.request.args['session'])
+    user = session.user
+    if(user.id == teacher_id):
+        return True
+    flask.abort(401)
+    return False
+
+
+#student function wrapper
+def student_function_wrapper(student_id):
+    student = User.query.filter_by(id=student_id)
+    class_id = student.cohort_id
+    return class_function_wrapper(class_id)
 
 
 
@@ -48,16 +76,18 @@ def get_classes_by_teacher_id(id):
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>", methods=["GET"])
+#@with_session
 def get_class_info(id):
-    c = Cohort.find(id)
-    class_name = c.class_name
-    inv_code = c.inv_code
-    max_students = c.max_students
-    cur_students = c.cur_students
-    class_language_id = c.class_language_id
-    d = {'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
-    return jsonify(d)
-
+    if(True) #meant to be class_function_wrapper
+        c = Cohort.find(id)
+        class_name = c.class_name
+        inv_code = c.inv_code
+        max_students = c.max_students
+        cur_students = c.cur_students
+        class_language_id = c.class_language_id
+        d = {'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
+        return jsonify(d)
+    return None
 
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
 # url input in format <user_id>/<cohort_id>
@@ -72,8 +102,9 @@ def link_teacher_class(user_id, cohort_id):
 
 # creates a class in the data base. Requires form input (inv_code, class_name, class_language_id, max_students, teacher_id)
 @api.route("/add_class", methods=["POST"])
+@with_session
 def add_class():
-    
+
     from zeeguu.model import Language
     inv_code = request.form.get("inv_code")
     class_name = request.form.get("class_name")
@@ -101,6 +132,7 @@ def add_class():
 
 # creates user and adds them to a cohort
 @api.route("/add_user_with_class", methods=['POST'])
+
 def add_user_with_class():
     email = request.form.get("email")
     password = request.form.get("password")
@@ -136,10 +168,10 @@ def add_user_with_class():
 # Gets user words info
 @api.route("/get_user_info/<id>", methods=['GET'])
 def get_user_info(id):
-
-    activity_data = UserActivityData.query.filter_by(user_id = id)
-    print("got activity data")
-    dictionary = activity_data.data_as_dictionary()
+    dictionary = {
+        'reading_time': random.randint(1,100),
+        'exercises_done': random.randint(1,100),
+        'last_article': 'place holder article'
+    }
     return jsonify(dictionary)
-
 
