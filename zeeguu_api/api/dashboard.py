@@ -177,5 +177,5 @@ def get_user_info(id):
 
 
 @api.route("/print_my_session", methods=['GET'])
-def print_my_session:
+def print_my_session():
     print(flask.request.args['session'])
