@@ -124,7 +124,7 @@ def delete_bookmark(bookmark_id):
 @api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
-def delete_bookmark(bookmark_id):
+def star_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = True
     db_session.commit()
@@ -133,7 +133,7 @@ def delete_bookmark(bookmark_id):
 @api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
-def delete_bookmark(bookmark_id):
+def unstar_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = False
     db_session.commit()
