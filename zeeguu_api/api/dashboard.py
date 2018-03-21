@@ -43,6 +43,7 @@ def teacher_function_checker(teacher_id):
 
 #Takes user_id and returns user.name that corresponds
 @api.route("/get_user_name/<id>", methods=["GET"])
+@with_session
 def get_user_name(id):
     user = User.query.filter_by(id=id).one()
     return user.name
@@ -52,14 +53,16 @@ def get_user_name(id):
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
 @api.route("/get_users_from_class/<id>", methods=["GET"])
+@with_session
 def get_users_from_class(id):
     c = Cohort.query.filter_by(id=id).one()
     if not c is None:
         users = User.query.filter_by(cohort_id=c.id).all()
-        ids = []
+        users_info = []
         for u in users:
-            ids.append(u.id)
-        return jsonify(ids)
+            info = get_user_info(u.id)
+            users_info.append(info)
+        return jsonify(users_info)
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
@@ -69,13 +72,16 @@ def get_users_from_class(id):
 def get_classes_by_teacher_id():
     from zeeguu.model import TeacherCohortMap
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
-    cohort_ids = []
+    cohorts = []
     for m in mappings:
-        cohort_ids.append(m.cohort_id)
-    return jsonify(cohort_ids)
+        info = get_class_info(m.cohort_id)
+        cohort.append(info)
+    return jsonify(cohorts)
+
+
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>", methods=["GET"])
-#@with_session
+@with_session
 def get_class_info(id):
     if(True): #meant to be class_function_wrapper
         c = Cohort.find(id)
@@ -84,13 +90,14 @@ def get_class_info(id):
         max_students = c.max_students
         cur_students = c.cur_students
         class_language_id = c.class_language_id
-        d = {'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
+        d = {'id':id,'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
         return jsonify(d)
     return None
 
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
 # url input in format <user_id>/<cohort_id>
 @api.route("/link_teacher_class/<user_id>/<cohort_id>", methods=["POST"])
+
 def link_teacher_class(user_id, cohort_id):
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
@@ -167,6 +174,7 @@ def add_user_with_class():
 
 # Gets user words info
 @api.route("/get_user_info/<id>", methods=['GET'])
+@with_session
 def get_user_info(id):
     dictionary = {
         'name' : get_user_name(id),
@@ -177,6 +185,3 @@ def get_user_info(id):
     return jsonify(dictionary)
 
 
-@api.route("/print_my_session", methods=['GET'])
-def print_my_session():
-    print(flask.request.args['session'])
