@@ -67,15 +67,12 @@ def get_users_from_class(id):
 @api.route("/get_classes_by_teacher_id/<id>", methods=["GET"])
 @with_session
 def get_classes_by_teacher_id(id):
-    if(teacher_function_checker(id)):
-        from zeeguu.model import TeacherCohortMap
-        mappings = TeacherCohortMap.query.filter_by(user_id=id).all()
-        cohort_ids = []
-        for m in mappings:
-            cohort_ids.append(m.cohort_id)
-        return jsonify(cohort_ids)
-    print('Wrong teacher_id to view classes')
-    return None
+    from zeeguu.model import TeacherCohortMap
+    mappings = TeacherCohortMap.query.filter_by(user_id=id).all()
+    cohort_ids = []
+    for m in mappings:
+        cohort_ids.append(m.cohort_id)
+    return jsonify(cohort_ids)
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>", methods=["GET"])
 #@with_session
