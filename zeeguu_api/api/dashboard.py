@@ -175,3 +175,7 @@ def get_user_info(id):
     }
     return jsonify(dictionary)
 
+
+@api.route("/print_my_session", methods=['GET'])
+def print_my_session:
+    print(flask.request.args['session'])
