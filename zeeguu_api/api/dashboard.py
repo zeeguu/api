@@ -28,7 +28,7 @@ import random
 #teacher function wrapper
 def teacher_function_checker(teacher_id):
     real_id = flask.g.user.id
-    if(read.id == teacher_id):
+    if(real.id == teacher_id):
         return True
     return False
 
