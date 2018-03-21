@@ -26,13 +26,11 @@ import random
 #    return False
 
 #teacher function wrapper
-#def teacher_function_wrapper(teacher_id):
-#    session_id = int(flask.request.args['session'])
-#    user = session.user
-#    if(user.id == teacher_id):
-#        return True
-#    flask.abort(401)
-#    return False
+def teacher_function_checker(teacher_id):
+    real_id = flask.g.user.id
+    if(read.id == teacher_id):
+        return True
+    return False
 
 
 #student function wrapper
@@ -67,13 +65,15 @@ def get_users_from_class(id):
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 @api.route("/get_classes_by_teacher_id/<id>", methods=["GET"])
 def get_classes_by_teacher_id(id):
-    from zeeguu.model import TeacherCohortMap
-    mappings = TeacherCohortMap.query.filter_by(user_id=id).all()
-    cohort_ids = []
-    for m in mappings:
-        cohort_ids.append(m.cohort_id)
-    return jsonify(cohort_ids)
-
+    if(teacher_function_checker(id)):
+        from zeeguu.model import TeacherCohortMap
+        mappings = TeacherCohortMap.query.filter_by(user_id=id).all()
+        cohort_ids = []
+        for m in mappings:
+            cohort_ids.append(m.cohort_id)
+        return jsonify(cohort_ids)
+    print('Wrong teacher_id to view classes')
+    return None
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>", methods=["GET"])
 #@with_session
@@ -110,7 +110,8 @@ def add_class():
     class_name = request.form.get("class_name")
     class_language_id = request.form.get("class_language_id")
     class_language = Language.find_or_create(class_language_id)
-    teacher_id = request.form.get("teacher_id")
+    #teacher_id = request.form.get("teacher_id")
+    teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
     print("gets here")
     try:
