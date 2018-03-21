@@ -64,11 +64,11 @@ def get_users_from_class(id):
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 
-@api.route("/get_classes_by_teacher_id/<id>", methods=["GET"])
+@api.route("/get_classes", methods=["GET"])
 @with_session
-def get_classes_by_teacher_id(id):
+def get_classes_by_teacher_id():
     from zeeguu.model import TeacherCohortMap
-    mappings = TeacherCohortMap.query.filter_by(user_id=id).all()
+    mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohort_ids = []
     for m in mappings:
         cohort_ids.append(m.cohort_id)
