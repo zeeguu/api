@@ -78,7 +78,7 @@ def get_classes_by_teacher_id(id):
 @api.route("/get_class_info/<id>", methods=["GET"])
 #@with_session
 def get_class_info(id):
-    if(True) #meant to be class_function_wrapper
+    if(True): #meant to be class_function_wrapper
         c = Cohort.find(id)
         class_name = c.class_name
         inv_code = c.inv_code
