@@ -121,6 +121,23 @@ def delete_bookmark(bookmark_id):
     db_session.commit()
     return "OK"
 
+@api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def delete_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = True
+    db_session.commit()
+    return "OK"
+
+@api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def delete_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = False
+    db_session.commit()
+    return "OK"
 
 def minimize_context(context_str, from_lang_code, word_str):
     _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 3)
