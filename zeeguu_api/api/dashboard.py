@@ -16,30 +16,30 @@ import random
 
 
 #class function wrapper
-def class_function_wrapper(class_id, teacher_id):
+#def class_function_wrapper(class_id, teacher_id):
 
-    link = TeacherCohortMap.query.filter_by(teacher_id=user.id).all()
-    for id in link.cohort_id
-        if(id == class_id):
-            return True
-    flask.abort(401)
-    return False
+#    link = TeacherCohortMap.query.filter_by(teacher_id=user.id).all()
+    #for id in link.cohort_id
+    #    if(id == class_id):
+    #        return True
+    #flask.abort(401)
+#    return False
 
 #teacher function wrapper
-def teacher_function_wrapper(teacher_id):
-    session_id = int(flask.request.args['session'])
-    user = session.user
-    if(user.id == teacher_id):
-        return True
-    flask.abort(401)
-    return False
+#def teacher_function_wrapper(teacher_id):
+#    session_id = int(flask.request.args['session'])
+#    user = session.user
+#    if(user.id == teacher_id):
+#        return True
+#    flask.abort(401)
+#    return False
 
 
 #student function wrapper
-def student_function_wrapper(student_id):
-    student = User.query.filter_by(id=student_id)
-    class_id = student.cohort_id
-    return class_function_wrapper(class_id)
+#def student_function_wrapper(student_id):
+#    student = User.query.filter_by(id=student_id)
+#    class_id = student.cohort_id
+#    return class_function_wrapper(class_id)
 
 
 
