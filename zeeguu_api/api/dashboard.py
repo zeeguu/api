@@ -53,7 +53,7 @@ def get_user_name(id):
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
 @api.route("/get_users_from_class/<id>", methods=["GET"])
-@with_session
+#@with_session
 def get_users_from_class(id):
     c = Cohort.query.filter_by(id=id).one()
     if not c is None:
@@ -62,7 +62,7 @@ def get_users_from_class(id):
         for u in users:
             info = get_user_info(u.id)
             users_info.append(info)
-        return JsonResponse(json.dumps(users_info), safe=False)
+        return json.dumps(users_info)
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
@@ -76,7 +76,7 @@ def get_classes_by_teacher_id():
     for m in mappings:
         info = get_class_info(m.cohort_id)
         cohorts.append(info)
-    return JsonResponse(json.dumps(cohorts), safe=False)
+    return json.dumps(cohorts)
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
@@ -91,7 +91,7 @@ def get_class_info(id):
         cur_students = c.cur_students
         class_language_id = c.class_language_id
         d = {'id':id,'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
-        return jsonify(d)
+        return d
     return None
 
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
@@ -182,6 +182,6 @@ def get_user_info(id):
         'exercises_done': random.randint(1,100),
         'last_article': 'place holder article'
     }
-    return jsonify(dictionary)
+    return dictionary
 
 
