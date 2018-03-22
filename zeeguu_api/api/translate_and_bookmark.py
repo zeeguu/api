@@ -6,7 +6,7 @@ from flask import request
 
 import zeeguu
 
-from . import api
+from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from zeeguu.model import Bookmark
@@ -20,9 +20,6 @@ if 'unittest' in sys.modules:
     from python_translators.translators.reverse_translator import ReverseTranslator as Translator
 else:
     from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
-
-session = zeeguu.db.session
-
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
@@ -68,7 +65,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     best_guess = translations[0]["translation"]
 
-    Bookmark.find_or_create(session, flask.g.user,
+    Bookmark.find_or_create(db_session, flask.g.user,
                             word_str, from_lang_code,
                             best_guess, to_lang_code,
                             minimal_context, url, title_str)
@@ -107,7 +104,7 @@ def contribute_translation(from_lang_code, to_lang_code):
 
     minimal_context, _ = minimize_context(context_str, from_lang_code, word_str)
 
-    bookmark = Bookmark.find_or_create(session, flask.g.user,
+    bookmark = Bookmark.find_or_create(db_session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
                                        minimal_context, url_str, title_str)
@@ -120,10 +117,27 @@ def contribute_translation(from_lang_code, to_lang_code):
 @with_session
 def delete_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    session.delete(bookmark)
-    session.commit()
+    db_session.delete(bookmark)
+    db_session.commit()
     return "OK"
 
+@api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def star_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = True
+    db_session.commit()
+    return "OK"
+
+@api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def unstar_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = False
+    db_session.commit()
+    return "OK"
 
 def minimize_context(context_str, from_lang_code, word_str):
     _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 3)
@@ -173,7 +187,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
 
         best_guess = translations[0]["translation"]
 
-        bookmark = Bookmark.find_or_create(session, flask.g.user,
+        bookmark = Bookmark.find_or_create(db_session, flask.g.user,
                                            word_str, from_lang_code,
                                            best_guess, to_lang_code,
                                            minimal_context, url_str, title_str)
