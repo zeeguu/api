@@ -62,7 +62,7 @@ def get_users_from_class(id):
         for u in users:
             info = get_user_info(u.id)
             users_info.append(info)
-        return jsonify(users_info)
+        return json.dumps(users_info)
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
