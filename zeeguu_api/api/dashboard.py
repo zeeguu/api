@@ -75,7 +75,7 @@ def get_classes_by_teacher_id():
     cohorts = []
     for m in mappings:
         info = get_class_info(m.cohort_id)
-        cohort.append(info)
+        cohorts.append(info)
     return jsonify(cohorts)
 
 
