@@ -16,7 +16,14 @@ import random
 from django.http import JsonResponse
 
 #class function wrapper
-#def class_function_wrapper(class_id, teacher_id):
+def class_function_checker(class_id):
+    from zeeguu.model import TeacherCohortMap
+    link = TeacherCohortMap.query.filter_by(cohort_id = class_id).all()
+    for l in link:
+        if l.user_id == flask.g.user.id:
+            return True
+    flask.abort(401)
+    return False
 
 #    link = TeacherCohortMap.query.filter_by(teacher_id=user.id).all()
     #for id in link.cohort_id
@@ -53,8 +60,9 @@ def get_user_name(id):
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
 @api.route("/get_users_from_class/<id>", methods=["GET"])
-#@with_session
+@with_session
 def get_users_from_class(id):
+    class_function_checker(id)
     c = Cohort.query.filter_by(id=id).one()
     if not c is None:
         users = User.query.filter_by(cohort_id=c.id).all()
@@ -80,7 +88,6 @@ def get_classes_by_teacher_id():
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
-@api.route("/get_class_info/<id>", methods=["GET"])
 @with_session
 def get_class_info(id):
     if(True): #meant to be class_function_wrapper
@@ -97,7 +104,6 @@ def get_class_info(id):
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
 # url input in format <user_id>/<cohort_id>
 @api.route("/link_teacher_class/<user_id>/<cohort_id>", methods=["POST"])
-
 def link_teacher_class(user_id, cohort_id):
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
@@ -173,10 +179,10 @@ def add_user_with_class():
 
 
 # Gets user words info
-@api.route("/get_user_info/<id>", methods=['GET'])
 @with_session
 def get_user_info(id):
     dictionary = {
+        'id' : str(id),
         'name' : get_user_name(id),
         'reading_time': random.randint(1,100),
         'exercises_done': random.randint(1,100),
