@@ -62,7 +62,7 @@ def get_users_from_class(id):
         for u in users:
             info = get_user_info(u.id)
             users_info.append(info)
-        return json.dumps(users_info)
+        return JsonResponse(json.dumps(users_info), safe=False)
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
@@ -76,7 +76,7 @@ def get_classes_by_teacher_id():
     for m in mappings:
         info = get_class_info(m.cohort_id)
         cohorts.append(info)
-    return jsonify(cohorts)
+    return JsonResponse(json.dumps(cohorts), safe=False)
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
