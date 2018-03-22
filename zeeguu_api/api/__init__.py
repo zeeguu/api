@@ -1,5 +1,10 @@
 import flask
+import zeeguu
+
 api = flask.Blueprint("api", __name__)
+db_session = zeeguu.db.session
+
+
 # These files have to be imported after this line;
 # They enrich the api object
 from . import exercises

@@ -15,4 +15,4 @@ build*
 *.log
 dash.cfg
 env_var_defs.py
-
+.pytest_cache*

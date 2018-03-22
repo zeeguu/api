@@ -6,9 +6,7 @@ from zeeguu.model import Article, UserArticle
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from . import api
-
-session = zeeguu.db.session
+from . import api, db_session
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +38,7 @@ def user_article():
     if not url:
         flask.abort(400)
 
-    article = Article.find_or_create(session, url)
+    article = Article.find_or_create(db_session, url)
 
     return json_result(user_article_info(flask.g.user, article, with_content=True))
 
@@ -66,8 +64,8 @@ def user_article_update():
     starred = request.form.get('starred')
     liked = request.form.get('liked')
 
-    article = Article.find_or_create(session, url)
-    user_article = UserArticle.find_or_create(session, flask.g.user, article)
+    article = Article.find_or_create(db_session, url)
+    user_article = UserArticle.find_or_create(db_session, flask.g.user, article)
 
     if starred is not None:
         user_article.set_starred(starred in ["True", "1"])
@@ -75,7 +73,7 @@ def user_article_update():
     if liked is not None:
         user_article.set_liked(liked in ["True", "1"])
 
-    session.commit()
+    db_session.commit()
 
     return "OK"
 
@@ -98,6 +96,6 @@ def get_user_article_info():
 
     url = str(request.form.get('url', ''))
 
-    article = Article.find_or_create(session, url)
+    article = Article.find_or_create(db_session, url)
 
     return json_result(user_article_info(flask.g.user, article))
