@@ -11,8 +11,8 @@ from zeeguu.model import User, Cohort, UserActivityData
 import sqlalchemy
 # Using jsonify here to return a list with flask.
 from flask import jsonify
+import json
 import random
-
 
 
 #class function wrapper
