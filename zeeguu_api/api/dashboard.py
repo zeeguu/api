@@ -13,7 +13,7 @@ import sqlalchemy
 from flask import jsonify
 import json
 import random
-
+from django.http import JsonResponse
 
 #class function wrapper
 #def class_function_wrapper(class_id, teacher_id):
