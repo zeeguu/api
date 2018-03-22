@@ -90,7 +90,7 @@ def get_class_info(id):
         max_students = c.max_students
         cur_students = c.cur_students
         class_language_id = c.class_language_id
-        d = {'id':id,'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
+        d = {'id':str(id),'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
         return d
     return None
 
