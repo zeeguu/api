@@ -27,3 +27,8 @@ def available_native_languages():
     """
     available_language_codes = list(map((lambda x: x.code), Language.native_languages()))
     return json.dumps(available_language_codes)
+
+
+@api.route("/ping", methods=["GET"])
+def ping():
+    return "OK"
