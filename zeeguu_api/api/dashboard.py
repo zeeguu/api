@@ -7,7 +7,7 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort, UserActivityData
+from zeeguu.model import User, Cohort, UserActivityData, Session
 import sqlalchemy
 # Using jsonify here to return a list with flask.
 from flask import jsonify
