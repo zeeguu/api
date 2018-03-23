@@ -13,48 +13,25 @@ import sqlalchemy
 from flask import jsonify
 import json
 import random
-from django.http import JsonResponse
 
-#class function wrapper
+
+# class function wrapper
 def class_function_checker(class_id):
     from zeeguu.model import TeacherCohortMap
-    link = TeacherCohortMap.query.filter_by(cohort_id = class_id).all()
+    link = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
     for l in link:
         if l.user_id == flask.g.user.id:
             return True
     flask.abort(401)
     return False
 
-#    link = TeacherCohortMap.query.filter_by(teacher_id=user.id).all()
-    #for id in link.cohort_id
-    #    if(id == class_id):
-    #        return True
-    #flask.abort(401)
-#    return False
 
-#teacher function wrapper
-def teacher_function_checker(teacher_id):
-    real_id = flask.g.user.id
-    if(real_id == teacher_id):
-        return True
-    return False
-
-
-#student function wrapper
-#def student_function_wrapper(student_id):
-#    student = User.query.filter_by(id=student_id)
-#    class_id = student.cohort_id
-#    return class_function_wrapper(class_id)
-
-
-
-#Takes user_id and returns user.name that corresponds
+# Takes user_id and returns user.name that corresponds
 @api.route("/get_user_name/<id>", methods=["GET"])
 @with_session
 def get_user_name(id):
     user = User.query.filter_by(id=id).one()
     return user.name
-
 
 
 # Asking for a nonexistant cohort will cause .one() to crash!
@@ -71,6 +48,19 @@ def get_users_from_class(id):
             info = get_user_info(u.id)
             users_info.append(info)
         return json.dumps(users_info)
+
+
+# Gets user words info
+@with_session
+def get_user_info(id):
+    dictionary = {
+        'id': str(id),
+        'name': get_user_name(id),
+        'reading_time': random.randint(1, 100),
+        'exercises_done': random.randint(1, 100),
+        'last_article': 'place holder article'
+    }
+    return dictionary
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
@@ -90,16 +80,16 @@ def get_classes_by_teacher_id():
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @with_session
 def get_class_info(id):
-    if(True): #meant to be class_function_wrapper
-        c = Cohort.find(id)
-        class_name = c.class_name
-        inv_code = c.inv_code
-        max_students = c.max_students
-        cur_students = c.cur_students
-        class_language_id = c.class_language_id
-        d = {'id':str(id),'class_name':class_name, 'inv_code':inv_code, 'max_students':max_students,'cur_students':cur_students,'class_language_id':class_language_id, 'class_id':id}
-        return d
-    return None
+    c = Cohort.find(id)
+    class_name = c.class_name
+    inv_code = c.inv_code
+    max_students = c.max_students
+    cur_students = c.cur_students
+    class_language_id = c.class_language_id
+    d = {'id': str(id), 'class_name': class_name, 'inv_code': inv_code, 'max_students': max_students,
+         'cur_students': cur_students, 'class_language_id': class_language_id, 'class_id': id}
+    return d
+
 
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
 # url input in format <user_id>/<cohort_id>
@@ -108,21 +98,20 @@ def link_teacher_class(user_id, cohort_id):
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
     cohort = Cohort.find(cohort_id)
-    zeeguu.db.session.add(TeacherCohortMap(user,cohort))
+    zeeguu.db.session.add(TeacherCohortMap(user, cohort))
     zeeguu.db.session.commit()
     return 'added teacher_class relationship'
+
 
 # creates a class in the data base. Requires form input (inv_code, class_name, class_language_id, max_students, teacher_id)
 @api.route("/add_class", methods=["POST"])
 @with_session
 def add_class():
-
     from zeeguu.model import Language
     inv_code = request.form.get("inv_code")
     class_name = request.form.get("class_name")
     class_language_id = request.form.get("class_language_id")
     class_language = Language.find_or_create(class_language_id)
-    #teacher_id = request.form.get("teacher_id")
     teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
     print("gets here")
@@ -133,7 +122,7 @@ def add_class():
         zeeguu.db.session.add(c)
         zeeguu.db.session.commit()
         print("added class to database")
-        link_teacher_class(teacher_id,c.id)
+        link_teacher_class(teacher_id, c.id)
         print("linked class to teacher")
         return 'added class complete.'
     except ValueError:
@@ -143,9 +132,9 @@ def add_class():
         print("integ error")
         flask.abort(400)
 
+
 # creates user and adds them to a cohort
 @api.route("/add_user_with_class", methods=['POST'])
-
 def add_user_with_class():
     email = request.form.get("email")
     password = request.form.get("password")
@@ -176,18 +165,3 @@ def add_user_with_class():
                     flask.abort(400)
             return 'no more space in class!'
     return 'failed :('
-
-
-# Gets user words info
-@with_session
-def get_user_info(id):
-    dictionary = {
-        'id' : str(id),
-        'name' : get_user_name(id),
-        'reading_time': random.randint(1,100),
-        'exercises_done': random.randint(1,100),
-        'last_article': 'place holder article'
-    }
-    return dictionary
-
-
