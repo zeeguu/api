@@ -3,7 +3,7 @@ import zeeguu
 
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from . import api, db_session
+from . import api
 
 
 @api.route("/get_user_details", methods=("GET",))
@@ -56,7 +56,7 @@ def learned_language_set(language_code):
     :return: "OK" for success
     """
     flask.g.user.set_learned_language(language_code)
-    db_session.commit()
+    zeeguu.db.session.commit()
     return "OK"
 
 
@@ -95,5 +95,5 @@ def native_language_set(language_code):
     :return: OK for success
     """
     flask.g.user.set_native_language(language_code)
-    db_session.commit()
+    zeeguu.db.session.commit()
     return "OK"
