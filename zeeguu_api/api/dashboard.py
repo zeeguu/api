@@ -192,8 +192,6 @@ def get_user_stats(id):
 
     now = datetime.datetime.now()
     print(now)
-    bookmarks = user.bookmarks_by_date(now)
-    print(jsonify(bookmarks.text))
 
 
     bookmark_counts_by_date = user.bookmark_counts_by_date()
