@@ -36,11 +36,14 @@ def get_user_name(id):
 def has_session():
     try:
         session_id = int(flask.request.args['session'])
-        session = Session.query.get(session_id)
+        session = Session.query.filter_by(id=session_id).one()
         if session is None:
+            print("no session exists")
             return jsonify(0)
+
         return jsonify(1)
     except:
+        print("exception called")
         return jsonify(0)
 
 
