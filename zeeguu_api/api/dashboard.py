@@ -197,7 +197,7 @@ def get_user_stats(id):
     bookmark_counts_by_date = user.bookmark_counts_by_date()
     learner_stats_data = user.learner_stats_data()
     print('Learner stats data:')
-    print(jsonify(learner_stats_data.text))
+    print(jsonify(learner_stats_data))
 
 
     return jsonify(bookmark_counts_by_date)
