@@ -38,17 +38,20 @@ def has_session():
         session_id = int(flask.request.args['session'])
         session = Session.query.get(session_id)
         if session is None:
-            return jsonify(False)
-        return jsonify(True)
+            return jsonify(0)
+        return jsonify(1)
     except:
-        return jsonify(False)
+        return jsonify(0)
 
 
 
 @api.route("/get_class_permissions/<id>", methods=["GET"])
 @with_session
 def get_class_permissions(id):
-    return jsonify(class_function_checker(id))
+    if(class_function_checker(id)):
+        return jsonify(1)
+    return jsonify(0)
+
 
 
 
