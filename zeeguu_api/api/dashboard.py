@@ -135,17 +135,11 @@ def add_class():
     class_language = Language.find_or_create(class_language_id)
     teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
-    print("gets here")
     try:
-        print("gets into try")
         c = Cohort(inv_code, class_name, class_language, max_students)
-        print("created class")
         zeeguu.db.session.add(c)
         zeeguu.db.session.commit()
-        print("added class to database")
         link_teacher_class(teacher_id, c.id)
-        print("linked class to teacher")
-        return 'added class complete.'
     except ValueError:
         print("value error")
         flask.abort(400)
@@ -186,3 +180,14 @@ def add_user_with_class():
                     flask.abort(400)
             return 'no more space in class!'
     return 'failed :('
+
+
+
+@api.route("/get_user_stats/<id>", methods=["GET"])
+def get_user_stats(id):
+    user = User.query.filter_by(id=id).one()
+    if user is None:
+        flask.abort(400)
+
+    bookmark_counts_by_date = user.bookmark_counts_by_date()
+    return jsonify(bookmark_counts_by_date)
