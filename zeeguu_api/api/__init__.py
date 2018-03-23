@@ -14,8 +14,8 @@ from . import smartwatch
 from . import system_languages
 from . import translate_and_bookmark
 from . import user_activity
-from . import user_data
-from . import user_settings
+from . import bookmarks_and_words
+from . import user
 from . import user_statistics
 from . import recommendations
 from . import user_article
