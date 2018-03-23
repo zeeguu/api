@@ -22,7 +22,6 @@ def class_function_checker(class_id):
     for l in link:
         if l.user_id == flask.g.user.id:
             return True
-    flask.abort(401)
     return False
 
 
@@ -33,13 +32,35 @@ def get_user_name(id):
     user = User.query.filter_by(id=id).one()
     return user.name
 
+@api.route("/has_session", methods=["GET"])
+def has_session():
+    try:
+        session_id = int(flask.request.args['session'])
+        session = Session.query.get(session_id)
+        if session is None:
+            return jsonify(False)
+        return jsonify(True)
+    except:
+        return jsonify(False)
+
+
+
+@api.route("/get_class_permissions/<id>", methods=["GET"])
+@with_session
+def get_class_permissions(id):
+    return jsonify(class_function_checker(id))
+
+
+
+
 
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
 @api.route("/get_users_from_class/<id>", methods=["GET"])
 @with_session
 def get_users_from_class(id):
-    class_function_checker(id)
+    if(not class_function_checker(id)):
+        flask.abort(401)
     c = Cohort.query.filter_by(id=id).one()
     if not c is None:
         users = User.query.filter_by(cohort_id=c.id).all()
