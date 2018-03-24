@@ -39,7 +39,7 @@ def article_feedback(session, value, extra_data):
     # thus we extract only the last part
     url = value.split('articleURL=')[-1]
     article = Article.find_or_create(session, url)
-    if extra_data == "not_finished_for_broken":
+    if "not_finished_for_broken" in extra_data:
         article.vote_broken()
         session.add(article)
         session.commit()
