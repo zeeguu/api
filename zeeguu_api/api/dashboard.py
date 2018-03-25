@@ -9,7 +9,6 @@ from . import api
 import zeeguu
 from zeeguu.model import User, Cohort, UserActivityData, Session
 import sqlalchemy
-# Using jsonify here to return a list with flask.
 from flask import jsonify
 import json
 import random
@@ -32,6 +31,8 @@ def get_user_name(id):
     user = User.query.filter_by(id=id).one()
     return user.name
 
+
+# Checks to see if user has a valid active session
 @api.route("/has_session", methods=["GET"])
 def has_session():
     try:
@@ -47,17 +48,13 @@ def has_session():
         return jsonify(0)
 
 
-
+# Checks to see if user has permissions to access a certain class.
 @api.route("/get_class_permissions/<id>", methods=["GET"])
 @with_session
 def get_class_permissions(id):
     if(class_function_checker(id)):
         return jsonify(1)
     return jsonify(0)
-
-
-
-
 
 
 # Asking for a nonexistant cohort will cause .one() to crash!
@@ -141,6 +138,13 @@ def add_class():
     class_language = Language.find_or_create(class_language_id)
     teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
+
+
+    # Check for mysql injections!
+
+
+
+    ################################
     try:
         c = Cohort(inv_code, class_name, class_language, max_students)
         zeeguu.db.session.add(c)
@@ -188,22 +192,3 @@ def add_user_with_class():
     return 'failed :('
 
 
-
-@api.route("/get_user_stats/<id>/", methods=["GET"])
-def get_user_stats(id):
-    user = User.query.filter_by(id=id).one()
-    if user is None:
-        flask.abort(400)
-
-
-    now = datetime.datetime.now()
-    print(now)
-
-
-    bookmark_counts_by_date = user.bookmark_counts_by_date()
-    learner_stats_data = user.learner_stats_data()
-    print('Learner stats data:')
-    print(jsonify(learner_stats_data))
-
-
-    return jsonify(bookmark_counts_by_date)
