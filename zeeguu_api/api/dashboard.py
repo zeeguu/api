@@ -194,7 +194,7 @@ def add_user_with_class():
 
 #Get user bookmarks
 @api.route("/get_user_stats/<id>", methods=["GET", "POST"])
-def get_bookmarks_by_day(id):
+def get_user_stats(id):
     """
     Returns the bookmarks of this user organized by date
     :param return_context: If "with_context" it also returns the
