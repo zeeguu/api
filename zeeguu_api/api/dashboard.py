@@ -202,6 +202,6 @@ def get_user_stats(id):
     is anything else, the context is not returned.
 
     """
-    user = User.query.filter_by(id=id)
+    user = User.query.filter_by(id=id).one()
 
     return json_result(user.bookmarks_by_day(True))
