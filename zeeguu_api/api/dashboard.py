@@ -56,6 +56,15 @@ def get_class_permissions(id):
         return jsonify(1)
     return jsonify(0)
 
+@api.route("/get_user_permissions/<id>", methods=["GET"])
+@with_session
+def get_user_permissions(id):
+    try:
+        user = User.query.filter_by(id=id).one()
+        return get_class_permissions(user.cohort_id)
+    except:
+        flask.abort(401)
+
 
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
@@ -194,14 +203,11 @@ def add_user_with_class():
 
 #Get user bookmarks
 @api.route("/get_user_stats/<id>", methods=["GET", "POST"])
+@with_session
 def get_user_stats(id):
-    """
-    Returns the bookmarks of this user organized by date
-    :param return_context: If "with_context" it also returns the
-    text where the bookmark was found. If <return_context>
-    is anything else, the context is not returned.
 
-    """
     user = User.query.filter_by(id=id).one()
-
+    if(not class_function_checker(user.cohort_id)):
+        flask.abort(401)
+    # True input causes function to return context too.
     return json_result(user.bookmarks_by_day(True))
