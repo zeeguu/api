@@ -192,3 +192,16 @@ def add_user_with_class():
     return 'failed :('
 
 
+#Get user bookmarks
+@api.route("/get_user_stats/<id>", methods=["GET", "POST"])
+def get_bookmarks_by_day(id):
+    """
+    Returns the bookmarks of this user organized by date
+    :param return_context: If "with_context" it also returns the
+    text where the bookmark was found. If <return_context>
+    is anything else, the context is not returned.
+
+    """
+    user = User.query.filter_by(id=id)
+
+    return json_result(user.bookmarks_by_day(True))
