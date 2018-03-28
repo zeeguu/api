@@ -140,7 +140,7 @@ def link_teacher_class(user_id, cohort_id):
 @with_session
 def add_class(invite_code):
     c = Cohort.query.filter_by(inv_code=invite_code).first()
-    if c == None:
+    if c is None:
         return jsonify(1)
     return jsonify(0)
 
