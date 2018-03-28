@@ -138,7 +138,7 @@ def link_teacher_class(user_id, cohort_id):
 #Checks if the inputted invite code is already in use.
 @api.route("/check_invite_code/<invite_code>", methods=["GET"])
 @with_session
-def add_class(invite_code):
+def check_inv_code(invite_code):
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
         return jsonify(1)
