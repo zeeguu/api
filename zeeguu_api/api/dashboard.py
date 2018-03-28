@@ -135,6 +135,15 @@ def link_teacher_class(user_id, cohort_id):
     zeeguu.db.session.commit()
     return 'added teacher_class relationship'
 
+#Checks if the inputted invite code is already in use.
+@api.route("/check_invite_code/<invite_code>", methods=["GET"])
+@with_session
+def add_class(invite_code):
+    c = Cohort.query.filter_by(inv_code=invite_code).first()
+    if c == None:
+        return jsonify(1)
+    return jsonify(0)
+
 
 # creates a class in the data base. Requires form input (inv_code, class_name, class_language_id, max_students, teacher_id)
 @api.route("/add_class", methods=["POST"])
