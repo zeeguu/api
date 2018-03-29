@@ -14,7 +14,22 @@ class DashboardTest(APITestMixin, TestCase):
 
 
 
-    #def test_get_classes(self):
+    def test_get_classes(self):
+        # TEST FOR REAL SESSION
+        classDictionary = {
+            'inv_code':'123',
+            'class_name':'FrenchB1',
+            'class_language_id':'fr',
+            'max_students':'33'
+        }
+        session = rv.data.decode('utf-8')
+        self.api_post('/add_class', data=classDictionary)
+
+        classesJason = self.json_from_api_get('/get_classes')
+        classes = json.loads(classesJason)
+        assert classes[0]['class_name'] is 'FrenchB1'
+
+
 
 
    # def test_get_users_from_class(self):
