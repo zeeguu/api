@@ -168,6 +168,7 @@ def add_class():
         zeeguu.db.session.add(c)
         zeeguu.db.session.commit()
         link_teacher_class(teacher_id, c.id)
+        return jsonify(1)
     except ValueError:
         print("value error")
         flask.abort(400)

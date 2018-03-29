@@ -15,17 +15,26 @@ class DashboardTest(APITestMixin, TestCase):
 
 
     def test_get_classes(self):
+        from zeeguu_api.app import app
+        self.app = app.test_client()
+        userDictionary = {
+            'username': 'testUser',
+            'password': 'password'
+        }
+        rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
+        assert rv
         classDictionary = {
             'inv_code':'123',
             'class_name':'FrenchB1',
             'class_language_id':'fr',
             'max_students':'33'
         }
-        self.api_post('/add_class', data=classDictionary)
-
-        classesJason = self.json_from_api_get('/get_classes')
-        classes = json.loads(classesJason)
-        assert classes[0]['class_name'] is 'FrenchB1'
+        self.app.post('/add_class?session='+rv.data.decode('utf-8'),data= classDictionary)
+        classesJ = self.app.get('/get_classes?session='+rv.data.decode('utf-8'))
+        assert classesJ
+        classes = json.loads(classesJ.data)
+        assert classes
+        assert classes[0]['class_name'] == 'FrenchB1'
 
 
 
