@@ -10,7 +10,7 @@ python:
 cache:
   pip: true
 
-install: "python setup.py install"
+install: "python setup.py develop"
 
 script: 
   - "export DASHBOARD_CONFIG=./dashboard_test.cfg"
