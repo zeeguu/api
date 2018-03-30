@@ -105,7 +105,7 @@ def remove_class(class_id):
     if(not class_function_checker(class_id)):
         flask.abort(401)
 
-    selected_cohort = Cohort.query.filter_by(id=class_id)
+    selected_cohort = Cohort.query.filter_by(id=class_id).one()
 
     if selected_cohort is None:
         flask.abort(400)
