@@ -102,6 +102,7 @@ def get_user_info(id):
 @api.route("/remove_class/<class_id>", methods=["POST"])
 @with_session
 def remove_class(class_id):
+    from zeeguu.model import TeacherCohortMap
     if(not class_function_checker(class_id)):
         flask.abort(401)
 
@@ -113,6 +114,9 @@ def remove_class(class_id):
     if not selected_cohort.cur_students == 0:
         flask.abort(400)
 
+    links = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
+    for link in links:
+        zeeguu.db.session.delete(link)
     zeeguu.db.session.delete(selected_cohort)
     zeeguu.db.session.commit()
     return 'removed'
