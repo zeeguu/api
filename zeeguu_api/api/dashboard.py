@@ -96,6 +96,25 @@ def get_user_info(id):
     return dictionary
 
 
+
+# Removes user from class
+
+@api.route("/remove_class/<class_id>", methods=["POST"])
+@with_session
+def remove_class(class_id):
+    if(not class_function_checker(class_id)):
+        flask.abort(401)
+
+    selected_cohort = Cohort.query.filter_by(id=class_id)
+
+    if selected_cohort is None:
+        flask.abort(400)
+
+    if not selected_cohort.cur_students == 0:
+        flask.abort(400)
+
+    selected_cohort.delete()
+
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 
 @api.route("/get_classes", methods=["GET"])

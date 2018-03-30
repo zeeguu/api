@@ -42,7 +42,7 @@ class DashboardTest(APITestMixin, TestCase):
    # def test_get_users_from_class(self):
 
 
-    #def test_get_user_data(self):
+def test_get_user_data(self):
 
 
     def test_has_session(self):
