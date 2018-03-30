@@ -97,7 +97,8 @@ def get_user_info(id):
 
 
 
-# Removes user from class
+
+# Removes class
 
 @api.route("/remove_class/<class_id>", methods=["POST"])
 @with_session
@@ -136,8 +137,11 @@ def get_classes_by_teacher_id():
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
+@api.route("get_class_info/<id>")
 @with_session
 def get_class_info(id):
+    if(not class_function_checker(id)):
+        flask.abort(401)
     c = Cohort.find(id)
     class_name = c.class_name
     inv_code = c.inv_code
