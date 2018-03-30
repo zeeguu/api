@@ -113,7 +113,7 @@ def remove_class(class_id):
     if not selected_cohort.cur_students == 0:
         flask.abort(400)
 
-    session.delete(select_cohort)
+    zeeguu.db.session.delete(select_cohort)
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 
