@@ -114,6 +114,7 @@ def remove_class(class_id):
         flask.abort(400)
 
     zeeguu.db.session.delete(selected_cohort)
+    zeeguu.db.session.commit()
     return 'removed'
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
