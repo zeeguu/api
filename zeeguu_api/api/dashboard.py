@@ -137,7 +137,7 @@ def get_classes_by_teacher_id():
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
-@api.route("/get_class_info/<id>")
+@api.route("/get_class_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json(id):
     if(not class_function_checker(id)):
