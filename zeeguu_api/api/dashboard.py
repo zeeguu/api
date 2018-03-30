@@ -139,7 +139,7 @@ def get_classes_by_teacher_id():
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>")
 @with_session
-wrapper_to_json(id):
+def wrapper_to_json(id):
     if(not class_function_checker(id)):
         flask.abort(401)
     return jsonify(get_class_info(id))
