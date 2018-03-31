@@ -82,18 +82,30 @@ def get_users_from_class(id):
             users_info.append(info)
         return json.dumps(users_info)
 
+# Takes cohort_id and reuturns dictionary with relevant class variables
+@api.route("/get_user_info/<id>", methods=["GET"])
+@with_session
+def wrapper_to_json_user(id):
+    if(not get_user_permissions(id)):
+        flask.abort(401)
+    return jsonify(get_user_info(id))
 
 # Gets user words info
 @with_session
 def get_user_info(id):
-    dictionary = {
-        'id': str(id),
-        'name': get_user_name(id),
-        'reading_time': random.randint(1, 100),
-        'exercises_done': random.randint(1, 100),
-        'last_article': 'place holder article'
-    }
-    return dictionary
+    try:
+        user = User.query.filter_by(id=id).one()
+        dictionary = {
+            'id': str(id),
+            'name': user.name,
+            'email': user.email,
+            'reading_time': random.randint(1, 100),
+            'exercises_done': random.randint(1, 100),
+            'last_article': 'place holder article'
+        }
+        return dictionary
+    except ValueError:
+        flask.abort(400)
 
 
 
@@ -118,7 +130,7 @@ def remove_class(class_id):
         zeeguu.db.session.commit()
         return 'removed'
     except ValueError:
-        falsk.abort(400)
+        flask.abort(400)
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 @api.route("/get_classes", methods=["GET"])
@@ -136,7 +148,7 @@ def get_classes_by_teacher_id():
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_class_info/<id>", methods=["GET"])
 @with_session
-def wrapper_to_json(id):
+def wrapper_to_json_class(id):
     if(not class_function_checker(id)):
         flask.abort(401)
     return jsonify(get_class_info(id))
@@ -156,7 +168,7 @@ def get_class_info(id):
 
 # Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
 # url input in format <user_id>/<cohort_id>
-@api.route("/link_teacher_class/<user_id>/<cohort_id>", methods=["POST"])
+#@api.route("/link_teacher_class/<user_id>/<cohort_id>", methods=["POST"])
 def link_teacher_class(user_id, cohort_id):
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
