@@ -7,7 +7,7 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort, UserActivityData, Session
+from zeeguu.model import User, Cohort, UserActivityData, Session, Language
 import sqlalchemy
 from flask import jsonify
 import json
@@ -161,8 +161,9 @@ def get_class_info(id):
     max_students = c.max_students
     cur_students = c.cur_students
     class_language_id = c.class_language_id
+    class_language = Language.query.filter_by(id=class_language_id).one()
     d = {'id': str(id), 'class_name': class_name, 'inv_code': inv_code, 'max_students': max_students,
-         'cur_students': cur_students, 'class_language_id': class_language_id, 'class_id': id}
+         'cur_students': cur_students, 'class_language_name': class_language.name, 'class_id': id}
     return d
 
 
