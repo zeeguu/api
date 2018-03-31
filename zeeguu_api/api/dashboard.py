@@ -192,7 +192,6 @@ def check_inv_code(invite_code):
 @api.route("/add_class", methods=["POST"])
 @with_session
 def add_class():
-    from zeeguu.model import Language
     inv_code = request.form.get("inv_code")
     class_name = request.form.get("class_name")
     class_language_id = request.form.get("class_language_id")
@@ -262,3 +261,23 @@ def get_user_stats(id):
         flask.abort(401)
     # True input causes function to return context too.
     return json_result(user.bookmarks_by_day(True))
+
+
+@api.route("/update_class/<class_id>", methods=["POST"])
+@with_session
+def update_class(class_id):
+    if(not class_function_checker(id)):
+        flask.abort(401)
+    try:
+        class_to_change = Cohort.query.filter_by(id=class_id).one()
+        class_to_change.inv_code = request.form.get("inv_code")
+        class_to_change.class_name = request.form.get("class_name")
+        class_to_change.max_students = request.form.get("max_students")
+        zeeguu.db.session.commit()
+        if int(max_students) < 1:
+            flask.abort(400)
+
+    except ValueError:
+        flask.abort(400)
+    except sqlalchemy.exc.IntegrityError:
+        flask.abort(400)
