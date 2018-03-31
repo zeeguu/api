@@ -25,7 +25,7 @@ def class_function_checker(class_id):
 
 
 # Takes user_id and returns user.name that corresponds
-@api.route("/get_user_name/<id>", methods=["GET"])
+#@api.route("/get_user_name/<id>", methods=["GET"])
 @with_session
 def get_user_name(id):
     user = User.query.filter_by(id=id).one()
@@ -166,7 +166,7 @@ def link_teacher_class(user_id, cohort_id):
     return 'added teacher_class relationship'
 
 #Checks if the inputted invite code is already in use.
-@api.route("/check_invite_code/<invite_code>", methods=["GET"])
+#@api.route("/check_invite_code/<invite_code>", methods=["GET"])
 @with_session
 def check_inv_code(invite_code):
     c = Cohort.query.filter_by(inv_code=invite_code).first()
