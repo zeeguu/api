@@ -274,8 +274,10 @@ def update_class(class_id):
         class_to_change.class_name = request.form.get("class_name")
         class_to_change.max_students = request.form.get("max_students")
         zeeguu.db.session.commit()
-
+        return 'updated'
     except ValueError:
         flask.abort(400)
+        return 'failed'
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
+        return 'failed'
