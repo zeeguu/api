@@ -266,7 +266,7 @@ def get_user_stats(id):
 @api.route("/update_class/<class_id>", methods=["POST"])
 @with_session
 def update_class(class_id):
-    if(not class_function_checker(id)):
+    if(not class_function_checker(class_id)):
         flask.abort(401)
     try:
         class_to_change = Cohort.query.filter_by(id=class_id).one()
