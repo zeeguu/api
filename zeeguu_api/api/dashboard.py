@@ -39,12 +39,12 @@ def has_session():
         session_id = int(flask.request.args['session'])
         session = Session.query.filter_by(id=session_id).one()
         if session is None:
-            print("no session exists")
+            #print("no session exists")
             return jsonify(0)
 
         return jsonify(1)
     except:
-        print("exception called")
+        #print("exception called")
         return jsonify(0)
 
 
@@ -99,7 +99,6 @@ def get_user_info(id):
 
 
 # Removes class
-
 @api.route("/remove_class/<class_id>", methods=["POST"])
 @with_session
 def remove_class(class_id):
@@ -123,7 +122,6 @@ def remove_class(class_id):
     return 'removed'
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
-
 @api.route("/get_classes", methods=["GET"])
 @with_session
 def get_classes_by_teacher_id():
@@ -186,16 +184,14 @@ def add_class():
     inv_code = request.form.get("inv_code")
     class_name = request.form.get("class_name")
     class_language_id = request.form.get("class_language_id")
+    if len(class_language_id) != 2:
+        flask.abort(400)
     class_language = Language.find_or_create(class_language_id)
     teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
+    if int(max_students) < 1:
+        flask.abort(400)
 
-
-    # Check for mysql injections!
-
-
-
-    ################################
     try:
         c = Cohort(inv_code, class_name, class_language, max_students)
         zeeguu.db.session.add(c)
@@ -203,10 +199,10 @@ def add_class():
         link_teacher_class(teacher_id, c.id)
         return jsonify(1)
     except ValueError:
-        print("value error")
+        #print("value error")
         flask.abort(400)
     except sqlalchemy.exc.IntegrityError:
-        print("integ error")
+        #print("integ error")
         flask.abort(400)
 
 
