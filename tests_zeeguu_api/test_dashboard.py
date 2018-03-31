@@ -154,3 +154,20 @@ class DashboardTest(APITestMixin, TestCase):
         assert result[0]['name'] == 'newUser1'
 
 
+
+    def test_remove_class(self):
+        userDictionary = {
+            'username': 'testUser1',
+            'password': 'password'
+        }
+        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
+        classDictionary = {
+            'inv_code': '12',
+            'class_name': 'FrenchB1',
+            'class_language_id': 'fr',
+            'max_students': '10'
+        }
+        result = self.app.post('/add_class?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        assert result.status_code == 200
+        result = self.app.post('/remove_class/1?session='+ rv.data.decode('utf-8'))
+        assert result.status_code == 200

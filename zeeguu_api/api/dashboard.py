@@ -105,21 +105,20 @@ def remove_class(class_id):
     from zeeguu.model import TeacherCohortMap
     if(not class_function_checker(class_id)):
         flask.abort(401)
+    try:
+        selected_cohort = Cohort.query.filter_by(id=class_id).one()
 
-    selected_cohort = Cohort.query.filter_by(id=class_id).one()
+        if not selected_cohort.cur_students == 0:
+            flask.abort(400)
 
-    if selected_cohort is None:
-        flask.abort(400)
-
-    if not selected_cohort.cur_students == 0:
-        flask.abort(400)
-
-    links = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
-    for link in links:
-        zeeguu.db.session.delete(link)
-    zeeguu.db.session.delete(selected_cohort)
-    zeeguu.db.session.commit()
-    return 'removed'
+        links = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
+        for link in links:
+            zeeguu.db.session.delete(link)
+        zeeguu.db.session.delete(selected_cohort)
+        zeeguu.db.session.commit()
+        return 'removed'
+    except ValueError:
+        falsk.abort(400)
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 @api.route("/get_classes", methods=["GET"])
