@@ -21,8 +21,6 @@ load_configuration_or_abort(app,
                                 'HOST',
                                 'SECRET_KEY', ])
 
-dashboard_enabled = True
-
 # The zeeguu.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
 import zeeguu
