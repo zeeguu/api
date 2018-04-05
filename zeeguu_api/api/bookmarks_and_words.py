@@ -1,9 +1,11 @@
 from datetime import datetime
-import time
+from faker import Faker
 
 import flask
 from flask import request
 
+from tests_zeeguu.rules.bookmark_rule import BookmarkRule
+from tests_zeeguu.rules.user_word_rule import UserWordRule
 from zeeguu.model import Bookmark, UserWord, Text, Url, Language
 from zeeguu.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
@@ -66,38 +68,10 @@ def post_bookmarks_by_day():
 @with_session
 @time_this
 def create_default_exercises():
-    bookmark_datas = [bd['de'], bd['nl'], bd['fr']]
-
-    for bookmark_data in bookmark_datas:
-        for example in bookmark_data:
-            bookmark = Bookmark.find_or_create(
-                db_session,
-                flask.g.user,
-                example[0], 'de',
-                example[1], 'en',
-                example[2],
-                example[3], 'Url title...')
-            db_session.add(bookmark)
-            db_session.commit()
-
-    for bookmark in Bookmark.query.all():
-        db_session.delete(bookmark)
-        db_session.flush()
-
-    for each in UserWord.query.all():
-        db_session.delete(each)
-        db_session.flush()
-
-    for each in Text.query.all():
-        db_session.delete(each)
-        db_session.flush()
-
-    for each in Url.query.all():
-        db_session.delete(each)
-        db_session.flush()
-
-    for each in Language.query.all():
-        db_session.delete(each)
-        db_session.flush()
+    for _ in range(42):
+        b = BookmarkRule(flask.g.user).bookmark
+        print(b)
+        db_session.add(b)
+        db_session.commit()
 
     return "OK"
