@@ -1,11 +1,15 @@
 from datetime import datetime
+import time
 
 import flask
 from flask import request
 
+from zeeguu.model import Bookmark, UserWord, Text, Url, Language
+from zeeguu.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from . import api
+from . import api, db_session
+from zeeguu.default_exercises.default_words import bookmark_data as bd
 
 
 @api.route("/user_words", methods=["GET"])
@@ -57,4 +61,43 @@ def post_bookmarks_by_day():
     return json_result(flask.g.user.bookmarks_by_day(with_context, after_date))
 
 
+@api.route("/create_default_exercises", methods=["GET"])
+@cross_domain
+@with_session
+@time_this
+def create_default_exercises():
+    bookmark_datas = [bd['de'], bd['nl'], bd['fr']]
 
+    for bookmark_data in bookmark_datas:
+        for example in bookmark_data:
+            bookmark = Bookmark.find_or_create(
+                db_session,
+                flask.g.user,
+                example[0], 'de',
+                example[1], 'en',
+                example[2],
+                example[3], 'Url title...')
+            db_session.add(bookmark)
+            db_session.commit()
+
+    for bookmark in Bookmark.query.all():
+        db_session.delete(bookmark)
+        db_session.flush()
+
+    for each in UserWord.query.all():
+        db_session.delete(each)
+        db_session.flush()
+
+    for each in Text.query.all():
+        db_session.delete(each)
+        db_session.flush()
+
+    for each in Url.query.all():
+        db_session.delete(each)
+        db_session.flush()
+
+    for each in Language.query.all():
+        db_session.delete(each)
+        db_session.flush()
+
+    return "OK"
