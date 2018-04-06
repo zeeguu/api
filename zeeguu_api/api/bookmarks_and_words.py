@@ -1,17 +1,13 @@
 from datetime import datetime
-from faker import Faker
 
 import flask
 from flask import request
 
 from tests_zeeguu.rules.bookmark_rule import BookmarkRule
-from tests_zeeguu.rules.user_word_rule import UserWordRule
-from zeeguu.model import Bookmark, UserWord, Text, Url, Language
 from zeeguu.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
-from zeeguu.default_exercises.default_words import bookmark_data as bd
 
 
 @api.route("/user_words", methods=["GET"])
@@ -68,9 +64,8 @@ def post_bookmarks_by_day():
 @with_session
 @time_this
 def create_default_exercises():
-    for _ in range(42):
+    for _ in range(5):
         b = BookmarkRule(flask.g.user).bookmark
-        print(b)
         db_session.add(b)
         db_session.commit()
 
