@@ -88,28 +88,28 @@ def get_feeds_being_followed():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{INTERESTING_FEEDS}/<language_id>", methods=("GET",))
+@api.route(f"/{INTERESTING_FEEDS}/<language_code>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_interesting_feeds_for_language_id(language_id):
+def get_interesting_feeds_for_language_code(language_code):
     """
     Get a list of feeds for the given language
 
     :return:
     """
     feed_data = []
-    for feed in RSSFeed.find_for_language_id(language_id):
+    for feed in RSSFeed.find_for_language_id(language_code):
         feed_data.append(feed.as_dictionary())
     return json_result(feed_data)
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{RECOMMENDED_FEEDS}/<language_id>", methods=("GET",))
+@api.route(f"/{RECOMMENDED_FEEDS}/<language_code>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_non_subscribed_feeds(language_id):
+def get_non_subscribed_feeds(language_code):
     """
     Get a list of feeds for the given language
 
@@ -118,8 +118,8 @@ def get_non_subscribed_feeds(language_id):
     feed_data = []
     already_registered = [each.rss_feed for each in RSSFeedRegistration.feeds_for_user(flask.g.user)]
 
-    print(f"----> language id is: {language_id}")
-    all_available_for_language = RSSFeed.find_for_language_id(language_id)
+    print(f"----> language id is: {language_code}")
+    all_available_for_language = RSSFeed.find_for_language_id(language_code)
 
     for feed in all_available_for_language:
         if not (feed in already_registered):
