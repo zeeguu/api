@@ -119,6 +119,7 @@ def get_non_subscribed_feeds(language_id):
     already_registered = [each.rss_feed for each in RSSFeedRegistration.feeds_for_user(flask.g.user)]
 
     all_available_for_language = RSSFeed.find_for_language_id(language_id)
+    print (f"language id is: {language_id}")
     for feed in all_available_for_language:
         if not (feed in already_registered):
             feed_data.append(feed.as_dictionary())
