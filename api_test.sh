@@ -13,4 +13,6 @@ fi
 
 
 export ZEEGUU_API_CONFIG="./default_api.cfg"
+export ZEEGUU_CORE_CONFIG="./default_api.cfg"
+python3.6 -m zeeguu.populate
 python -m zeeguu_api
