@@ -272,7 +272,7 @@ def update_class(class_id):
         class_to_change = Cohort.query.filter_by(id=class_id).one()
         class_to_change.inv_code = request.form.get("inv_code")
         class_to_change.class_name = request.form.get("class_name")
-        
+
         if int(request.form.get("max_students")) < 1:
             flask.abort(400)
 

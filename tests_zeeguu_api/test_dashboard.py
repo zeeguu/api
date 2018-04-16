@@ -189,3 +189,80 @@ class DashboardTest(APITestMixin, TestCase):
         # Try to remove class that is already removed
         result = self.app.post('/remove_class/1?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 401
+
+    def test_update_class(self):
+        userDictionary = {
+            'username': 'testUser1',
+            'password': 'password'
+        }
+        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
+        classDictionary = {
+            'inv_code': '12',
+            'class_name': 'FrenchB1',
+            'class_language_id': 'fr',
+            'max_students': '10'
+        }
+        result = self.app.post('/add_class?session=' + rv.data.decode('utf-8'), data=classDictionary)
+
+
+        # Test valid update
+        updateDictionary = {
+            'inv_code':'123',
+            'class_name':'SpanishB1',
+            'max_students':'11'
+        }
+        result = self.app.post('/update_class/1?session='+ rv.data.decode('utf-8'), data=updateDictionary)
+        assert result.status_code == 200
+        result = self.app.get('/get_class_info/1?session='+ rv.data.decode('utf-8'))
+        assert result.status_code == 200
+        loaded = json.loads(result.data)
+        assert loaded['class_name'] == 'SpanishB1'
+        assert loaded['max_students'] == 11
+        assert loaded['inv_code'] == '123'
+
+
+        # Test invalid update (negative max students)
+        updateDictionary = {
+            'inv_code': '123',
+            'class_name': 'SpanishB1',
+            'max_students': '-11'
+        }
+        result = self.app.post('/update_class/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        assert result.status_code == 400
+        result = self.app.get('/get_class_info/1?session=' + rv.data.decode('utf-8'))
+        loaded = json.loads(result.data)
+        assert loaded['max_students'] == 11
+
+        # Add second teacher to create new class
+        userDictionary = {
+            'username': 'testUser2',
+            'password': 'password'
+        }
+        rv2 = self.api_post('/add_user/test321230@gmail.com', userDictionary)
+        # Add class with ID that another class used to have
+        classDictionary = {
+            'inv_code': '12',
+            'class_name': 'FrenchB1',
+            'class_language_id': 'fr',
+            'max_students': '10'
+        }
+        result = self.app.post('/add_class?session=' + rv2.data.decode('utf-8'), data=classDictionary)
+        assert result.status_code == 200
+
+        # Test invalid update (taken inv code)
+        updateDictionary = {
+            'inv_code': '12',
+            'class_name': 'SpanishB1',
+            'max_students': '11'
+        }
+        result = self.app.post('/update_class/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        assert result.status_code == 400
+
+        # Test invalid permissions
+        updateDictionary = {
+            'inv_code': '1245',
+            'class_name': 'SpanishB1',
+            'max_students': '11'
+        }
+        result = self.app.post('/update_class/2?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        assert result.status_code == 401
