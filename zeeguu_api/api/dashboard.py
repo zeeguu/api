@@ -14,8 +14,11 @@ import json
 import random
 import datetime
 
-# class function wrapper
-def class_function_checker(class_id):
+db = zeeguu.db
+
+
+# Checked to see if the user requesting has permission to view the class with id 'class_id'
+def _has_permission_for_class(class_id):
     from zeeguu.model import TeacherCohortMap
     link = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
     for l in link:
@@ -24,41 +27,38 @@ def class_function_checker(class_id):
     return False
 
 
-# Takes user_id and returns user.name that corresponds
-#@api.route("/get_user_name/<id>", methods=["GET"])
-@with_session
-def get_user_name(id):
-    user = User.query.filter_by(id=id).one()
-    return user.name
-
-
 # Checks to see if user has a valid active session
 @api.route("/has_session", methods=["GET"])
 def has_session():
     try:
         session_id = int(flask.request.args['session'])
         session = Session.query.filter_by(id=session_id).one()
-        if session is None:
-            #print("no session exists")
-            return jsonify(0)
-
         return jsonify(1)
     except:
-        #print("exception called")
         return jsonify(0)
 
 
-# Checks to see if user has permissions to access a certain class.
 @api.route("/get_class_permissions/<id>", methods=["GET"])
 @with_session
 def get_class_permissions(id):
-    if(class_function_checker(id)):
+    """
+
+        Checks to see if user has permissions to access a certain class.
+
+    """
+    if (_has_permission_for_class(id)):
         return jsonify(1)
     return jsonify(0)
+
 
 @api.route("/get_user_permissions/<id>", methods=["GET"])
 @with_session
 def get_user_permissions(id):
+    """
+
+        Checks to see if user has permissions to access a certain user.
+
+    """
     try:
         user = User.query.filter_by(id=id).one()
         return get_class_permissions(user.cohort_id)
@@ -71,28 +71,32 @@ def get_user_permissions(id):
 @api.route("/get_users_from_class/<id>", methods=["GET"])
 @with_session
 def get_users_from_class(id):
-    if(not class_function_checker(id)):
+    if (not _has_permission_for_class(id)):
         flask.abort(401)
-    c = Cohort.query.filter_by(id=id).one()
-    if not c is None:
+    try:
+        c = Cohort.query.filter_by(id=id).one()
         users = User.query.filter_by(cohort_id=c.id).all()
         users_info = []
         for u in users:
-            info = get_user_info(u.id)
+            info = _get_user_info(u.id)
             users_info.append(info)
         return json.dumps(users_info)
+
+    except:
+        flask.abort(400)
+
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/get_user_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_user(id):
-    if(not get_user_permissions(id)):
+    if (not get_user_permissions(id)):
         flask.abort(401)
-    return jsonify(get_user_info(id))
+    return jsonify(_get_user_info(id))
 
-# Gets user words info
-@with_session
-def get_user_info(id):
+
+# Gets user info
+def _get_user_info(id):
     try:
         user = User.query.filter_by(id=id).one()
         dictionary = {
@@ -108,14 +112,12 @@ def get_user_info(id):
         flask.abort(400)
 
 
-
-
-# Removes class
+# Removes class.Can only be called successfuly if the class is empty. Otherwise we return 400 (Value error).
 @api.route("/remove_class/<class_id>", methods=["POST"])
 @with_session
 def remove_class(class_id):
     from zeeguu.model import TeacherCohortMap
-    if(not class_function_checker(class_id)):
+    if (not _has_permission_for_class(class_id)):
         flask.abort(401)
     try:
         selected_cohort = Cohort.query.filter_by(id=class_id).one()
@@ -125,12 +127,13 @@ def remove_class(class_id):
 
         links = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
         for link in links:
-            zeeguu.db.session.delete(link)
-        zeeguu.db.session.delete(selected_cohort)
-        zeeguu.db.session.commit()
+            db.session.delete(link)
+        db.session.delete(selected_cohort)
+        db.session.commit()
         return 'removed'
     except ValueError:
         flask.abort(400)
+
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 @api.route("/get_classes", methods=["GET"])
@@ -140,7 +143,7 @@ def get_classes_by_teacher_id():
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
     for m in mappings:
-        info = get_class_info(m.cohort_id)
+        info = _get_class_info(m.cohort_id)
         cohorts.append(info)
     return json.dumps(cohorts)
 
@@ -149,12 +152,12 @@ def get_classes_by_teacher_id():
 @api.route("/get_class_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
-    if(not class_function_checker(id)):
+    if (not _has_permission_for_class(id)):
         flask.abort(401)
-    return jsonify(get_class_info(id))
+    return jsonify(_get_class_info(id))
 
 
-def get_class_info(id):
+def _get_class_info(id):
     c = Cohort.find(id)
     class_name = c.class_name
     inv_code = c.inv_code
@@ -167,18 +170,17 @@ def get_class_info(id):
     return d
 
 
-# Takes two inputs (user_id, cohort_id) and links them other in teacher_cohort_map table.
-# url input in format <user_id>/<cohort_id>
-#@api.route("/link_teacher_class/<user_id>/<cohort_id>", methods=["POST"])
-def link_teacher_class(user_id, cohort_id):
+# Takes two inputs (user_id, cohort_id) and links them to one another in teacher_cohort_map table.
+def _link_teacher_class(user_id, cohort_id):
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
     cohort = Cohort.find(cohort_id)
-    zeeguu.db.session.add(TeacherCohortMap(user, cohort))
-    zeeguu.db.session.commit()
+    db.session.add(TeacherCohortMap(user, cohort))
+    db.session.commit()
     return 'added teacher_class relationship'
 
-#Checks if the inputted invite code is already in use.
+
+# Checks if the inputted invite code is already in use.
 @api.route("/check_invite_code/<invite_code>", methods=["GET"])
 @with_session
 def check_inv_code(invite_code):
@@ -195,7 +197,13 @@ def add_class():
     inv_code = request.form.get("inv_code")
     class_name = request.form.get("class_name")
     class_language_id = request.form.get("class_language_id")
-    if len(class_language_id) != 2:
+    available_languages = Language.available_languages()
+    code_allowed = False
+    for code in available_languages:
+        if class_language_id in str(code):
+            code_allowed = True
+
+    if not code_allowed:
         flask.abort(400)
     class_language = Language.find_or_create(class_language_id)
     teacher_id = flask.g.user.id
@@ -205,15 +213,15 @@ def add_class():
 
     try:
         c = Cohort(inv_code, class_name, class_language, max_students)
-        zeeguu.db.session.add(c)
-        zeeguu.db.session.commit()
-        link_teacher_class(teacher_id, c.id)
+        db.session.add(c)
+        db.session.commit()
+        _link_teacher_class(teacher_id, c.id)
         return jsonify(1)
     except ValueError:
-        #print("value error")
+        # print("value error")
         flask.abort(400)
     except sqlalchemy.exc.IntegrityError:
-        #print("integ error")
+        # print("integ error")
         flask.abort(400)
 
 
@@ -225,39 +233,40 @@ def add_user_with_class():
     username = request.form.get("username")
     inv_code = request.form.get("inv_code")
 
-    cohort_id = Cohort.get_id(inv_code)
-    cohort = Cohort.find(cohort_id)
+    try:
+        cohort_id = Cohort.get_id(inv_code)
+        cohort = Cohort.find(cohort_id)
+    except:
+        flask.abort(400)
 
-    if not cohort is None:
-        if not password is None:
-            # Checks to see if there is space, if there is it increments the cur_students variables.
-            # Therefor it is essential that you ensure you add the student if this function returns true.
-            # Hence it being placed after other checks.
-            # However, if an exeption is caught, this error is handled.
-            if cohort.request_join():
-                try:
-                    user = User(email, username, password)
-                    user.cohort = cohort
-                    zeeguu.db.session.add(user)
-                    zeeguu.db.session.commit()
-                    return 'user created'
-                except ValueError:
-                    cohort.undo_join()
-                    flask.abort(400)
-                except sqlalchemy.exc.IntegrityError:
-                    cohort.undo_join()
-                    flask.abort(400)
-            return 'no more space in class!'
-    return 'failed :('
+    if not len(password) == 0:
+        # Checks to see if there is space, if there is it increments the cur_students variables.
+        # Therefore it is essential that you ensure you add the student if this function returns true.
+        # Hence it being placed after other checks.
+        # However, if an exeption is caught, this error is handled.
+        if cohort.request_join():
+            try:
+                user = User(email, username, password)
+                user.cohort = cohort
+                db.session.add(user)
+                db.session.commit()
+                return 'user created'
+            except ValueError:
+                cohort.undo_join()
+                flask.abort(400)
+            except sqlalchemy.exc.IntegrityError:
+                cohort.undo_join()
+                flask.abort(400)
+        return 'no more space in class!'
+    flask.abort(400)
 
 
-#Get user bookmarks
-@api.route("/get_user_stats/<id>", methods=["GET", "POST"])
+# Get user bookmarks
+@api.route("/get_user_bookmarks/<id>", methods=["GET", "POST"])
 @with_session
-def get_user_stats(id):
-
+def get_user_bookmarks(id):
     user = User.query.filter_by(id=id).one()
-    if(not class_function_checker(user.cohort_id)):
+    if (not _has_permission_for_class(user.cohort_id)):
         flask.abort(401)
     # True input causes function to return context too.
     return json_result(user.bookmarks_by_day(True))
@@ -266,7 +275,7 @@ def get_user_stats(id):
 @api.route("/update_class/<class_id>", methods=["POST"])
 @with_session
 def update_class(class_id):
-    if(not class_function_checker(class_id)):
+    if (not _has_permission_for_class(class_id)):
         flask.abort(401)
     try:
         class_to_change = Cohort.query.filter_by(id=class_id).one()
@@ -278,7 +287,7 @@ def update_class(class_id):
 
         class_to_change.max_students = request.form.get("max_students")
 
-        zeeguu.db.session.commit()
+        db.session.commit()
         return 'updated'
     except ValueError:
         flask.abort(400)

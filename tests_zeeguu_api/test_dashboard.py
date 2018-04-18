@@ -66,6 +66,7 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.post('/add_class?session=' + rv.data.decode('utf-8'), data=classDictionary)
         assert result.status_code == 400
 
+
         # invalid language_id
         classDictionary = {
             'inv_code': '12345',
@@ -152,6 +153,14 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.post('/add_user_with_class', data=newUser)
         assert result.status_code == 200
 
+        newUser = {
+            'username': 'newUser2',
+            'password': '',
+            'email': 'newUser1@gmail.com',
+            'inv_code': '12'
+        }
+        result = self.app.post('/add_user_with_class', data=newUser)
+        assert result.status_code == 400
         # Get list of users in a class
         result = self.app.get('/get_users_from_class/1?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 200
