@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 from tests_zeeguu_api.api_test_mixin import APITestMixin
-from tests_zeeguu.rules.working_session_rule import WorkingSessionRule
+from tests_zeeguu.rules.user_working_session_rule import WorkingSessionRule
 from datetime import datetime, timedelta
 from random import randint
 
