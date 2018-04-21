@@ -122,7 +122,7 @@ def remove_class(class_id):
     try:
         selected_cohort = Cohort.query.filter_by(id=class_id).one()
 
-        if not selected_cohort.cur_students == 0:
+        if not selected_cohort.get_current_student_count() == 0:
             flask.abort(400)
 
         links = TeacherCohortMap.query.filter_by(cohort_id=class_id).all()
@@ -162,7 +162,7 @@ def _get_class_info(id):
     class_name = c.class_name
     inv_code = c.inv_code
     max_students = c.max_students
-    cur_students = c.cur_students
+    cur_students = c.get_current_student_count()
     class_language_id = c.class_language_id
     class_language = Language.query.filter_by(id=class_language_id).one()
     d = {'id': str(id), 'class_name': class_name, 'inv_code': inv_code, 'max_students': max_students,
@@ -244,7 +244,7 @@ def add_user_with_class():
         # Therefore it is essential that you ensure you add the student if this function returns true.
         # Hence it being placed after other checks.
         # However, if an exeption is caught, this error is handled.
-        if cohort.request_join():
+        if cohort.class_still_has_capacity():
             try:
                 user = User(email, username, password)
                 user.cohort = cohort
@@ -252,10 +252,8 @@ def add_user_with_class():
                 db.session.commit()
                 return 'user created'
             except ValueError:
-                cohort.undo_join()
                 flask.abort(400)
             except sqlalchemy.exc.IntegrityError:
-                cohort.undo_join()
                 flask.abort(400)
         return 'no more space in class!'
     flask.abort(400)
