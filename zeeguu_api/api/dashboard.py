@@ -33,9 +33,13 @@ def has_session():
     try:
         session_id = int(flask.request.args['session'])
         session = Session.query.filter_by(id=session_id).one()
-        return jsonify(1)
-    except:
-        return jsonify(0)
+        return "OK"
+    except KeyError:
+        flask.abort(400)
+        return "KeyError"
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoResultFound"
 
 
 @api.route("/test_cohort_permissions/<id>", methods=["GET"])
@@ -47,8 +51,8 @@ def test_cohort_permissions(id):
 
     """
     if (_has_permission_for_cohort(id)):
-        return jsonify(1)
-    return jsonify(0)
+        return "OK"
+    return "Denied"
 
 
 @api.route("/test_user_permissions/<id>", methods=["GET"])
@@ -216,13 +220,13 @@ def create_own_cohort():
         db.session.add(c)
         db.session.commit()
         _link_teacher_cohort(teacher_id, c.id)
-        return jsonify(1)
+        return "OK"
     except ValueError:
-        # print("value error")
         flask.abort(400)
+        return "ValueError"
     except sqlalchemy.exc.IntegrityError:
-        # print("integ error")
         flask.abort(400)
+        return "IntegrityError"
 
 
 # creates user and adds them to a cohort
@@ -286,10 +290,10 @@ def update_cohort(cohort_id):
         cohort_to_change.max_students = request.form.get("max_students")
 
         db.session.commit()
-        return 'updated'
+        return 'OK'
     except ValueError:
         flask.abort(400)
-        return 'failed'
+        return 'ValueError'
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
-        return 'failed'
+        return 'IntegrityError'
