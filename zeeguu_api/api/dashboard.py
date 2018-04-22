@@ -17,8 +17,10 @@ import datetime
 db = zeeguu.db
 
 
-# Checked to see if the user requesting has permission to view the cohort with id 'cohort_id'
 def _has_permission_for_cohort(cohort_id):
+    '''
+        Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
+    '''
     from zeeguu.model import TeacherCohortMap
     links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for l in links:
@@ -27,9 +29,11 @@ def _has_permission_for_cohort(cohort_id):
     return False
 
 
-# Checks to see if user has a valid active session
 @api.route("/has_session", methods=["GET"])
 def has_session():
+    '''
+        Checks to see if user has a valid acitive session.
+    '''
     try:
         session_id = int(flask.request.args['session'])
         session = Session.query.filter_by(id=session_id).one()
@@ -66,15 +70,21 @@ def test_user_permissions(id):
     try:
         user = User.query.filter_by(id=id).one()
         return test_cohort_permissions(user.cohort_id)
-    except:
-        flask.abort(401)
+    except KeyError:
+        flask.abort(400)
+        return "KeyError"
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoResultFound"
 
 
-# Asking for a nonexistant cohort will cause .one() to crash!
-# Takes cohort_id and returns all users belonging to that cohort
 @api.route("/users_from_cohort/<id>", methods=["GET"])
 @with_session
 def users_from_cohort(id):
+    '''
+        Takes id for a cohort and returns all users belonging to that cohort.
+
+    '''
     if (not _has_permission_for_cohort(id)):
         flask.abort(401)
     try:
@@ -85,22 +95,32 @@ def users_from_cohort(id):
             info = _get_user_info(u.id)
             users_info.append(info)
         return json.dumps(users_info)
-
-    except:
+    except KeyError:
         flask.abort(400)
+        return "KeyError"
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoResultFound"
 
 
-# Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/user_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_user(id):
+    '''
+        Takes id for a cohort and wraps _get_user_info
+        then returns result jsonified.
+
+    '''
     if (not test_user_permissions(id)):
         flask.abort(401)
     return jsonify(_get_user_info(id))
 
 
-# Gets user info
 def _get_user_info(id):
+    '''
+        Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
+
+    '''
     try:
         user = User.query.filter_by(id=id).one()
         dictionary = {
@@ -114,12 +134,17 @@ def _get_user_info(id):
         return dictionary
     except ValueError:
         flask.abort(400)
+        return 'ValueError'
 
 
-# Removes class.Can only be called successfuly if the class is empty. Otherwise we return 400 (Value error).
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @with_session
 def remove_cohort(cohort_id):
+    '''
+        Removes cohort by cohort_id.
+        Can only be called successfuly if the class is empty.
+
+    '''
     from zeeguu.model import TeacherCohortMap
     if (not _has_permission_for_cohort(cohort_id)):
         flask.abort(401)
@@ -134,15 +159,22 @@ def remove_cohort(cohort_id):
             db.session.delete(link)
         db.session.delete(selected_cohort)
         db.session.commit()
-        return 'removed'
+        return 'OK'
     except ValueError:
         flask.abort(400)
+        return 'ValueError'
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoResultFound"
 
 
-# Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
 @api.route("/cohorts_info", methods=["GET"])
 @with_session
 def cohorts_by_ownID():
+    '''
+        Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
+
+    '''
     from zeeguu.model import TeacherCohortMap
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
@@ -156,26 +188,42 @@ def cohorts_by_ownID():
 @api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
+    '''
+        Takes id of cohort and then wraps _get_cohort_info
+        returns jsonified result of _get_cohort_info
+    '''
     if (not _has_permission_for_cohort(id)):
         flask.abort(401)
     return jsonify(_get_cohort_info(id))
 
 
 def _get_cohort_info(id):
-    c = Cohort.find(id)
-    name = c.name
-    inv_code = c.inv_code
-    max_students = c.max_students
-    cur_students = c.get_current_student_count()
-    language_id = c.language_id
-    language = Language.query.filter_by(id=language_id).one()
-    d = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-         'cur_students': cur_students, 'language_name': language.name}
-    return d
+    '''
+        Takes id of cohort and returns dictionary with id, name, inv_code, max_students, cur_students and language_name
+    '''
+    try:
+        c = Cohort.find(id)
+        name = c.name
+        inv_code = c.inv_code
+        max_students = c.max_students
+        cur_students = c.get_current_student_count()
+        language_id = c.language_id
+        language = Language.query.filter_by(id=language_id).one()
+        dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
+                      'cur_students': cur_students, 'language_name': language.name}
+        return dictionary
+    except ValueError:
+        flask.abort(400)
+        return 'ValueError'
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoResultFound"
 
 
-# Takes two inputs (user_id, cohort_id) and links them to one another in teacher_cohort_map table.
 def _link_teacher_cohort(user_id, cohort_id):
+    '''
+        Takes user_id and cohort_id and links them together in teacher_cohort_map table.
+    '''
     from zeeguu.model import TeacherCohortMap
     user = User.find_by_id(user_id)
     cohort = Cohort.find(cohort_id)
@@ -184,20 +232,27 @@ def _link_teacher_cohort(user_id, cohort_id):
     return 'added teacher_cohort relationship'
 
 
-# Checks if the inputted invite code is already in use.
 @api.route("/check_invite_code/<invite_code>", methods=["GET"])
 @with_session
 def check_inv_code(invite_code):
+    '''
+        Checks if the inputted invite code is already in use.
+
+    '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
         return jsonify(1)
     return jsonify(0)
 
 
-# creates a class in the data base. Requires form input (inv_code, name, language_id, max_students, teacher_id)
 @api.route("/create_own_cohort", methods=["POST"])
 @with_session
 def create_own_cohort():
+    '''
+        Creates a class in the database.
+        Requires form input (inv_code, name, language_id, max_students, teacher_id)
+
+    '''
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
     language_id = request.form.get("language_id")
@@ -229,9 +284,13 @@ def create_own_cohort():
         return "IntegrityError"
 
 
-# creates user and adds them to a cohort
 @api.route("/add_user_with_cohort", methods=['POST'])
 def add_user_with_cohort():
+    '''
+        Creates user and adds them to a cohort
+        Requires input form (email, password, username, inv_code)
+
+    '''
     email = request.form.get("email")
     password = request.form.get("password")
     username = request.form.get("username")
@@ -263,10 +322,12 @@ def add_user_with_cohort():
     flask.abort(400)
 
 
-# Get user bookmarks
 @api.route("/cohort_member_bookmarks/<id>", methods=["GET"])
 @with_session
-def get_user_bookmarks(id):
+def cohort_member_bookmarks(id):
+    '''
+        Returns books marks from member with input user id.
+    '''
     user = User.query.filter_by(id=id).one()
     if (not _has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
@@ -277,6 +338,11 @@ def get_user_bookmarks(id):
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
 @with_session
 def update_cohort(cohort_id):
+    '''
+        changes details of a specified cohort.
+        requires input form (inv_code, name, max_students)
+
+    '''
     if (not _has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:

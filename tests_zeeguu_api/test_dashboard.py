@@ -173,7 +173,7 @@ class DashboardTest(APITestMixin, TestCase):
 
         # User that doesn't exists
         result = self.app.get('/user_info/55?session=' + rv.data.decode('utf-8'))
-        assert result.status_code == 401
+        assert result.status_code == 400
 
 
     def test_remove_class(self):
