@@ -159,14 +159,14 @@ def wrapper_to_json_class(id):
 
 def _get_cohort_info(id):
     c = Cohort.find(id)
-    class_name = c.class_name
+    name = c.name
     inv_code = c.inv_code
     max_students = c.max_students
     cur_students = c.get_current_student_count()
-    class_language_id = c.class_language_id
-    class_language = Language.query.filter_by(id=class_language_id).one()
-    d = {'id': str(id), 'class_name': class_name, 'inv_code': inv_code, 'max_students': max_students,
-         'cur_students': cur_students, 'class_language_name': class_language.name, 'class_id': id}
+    language_id = c.language_id
+    language = Language.query.filter_by(id=language_id).one()
+    d = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
+         'cur_students': cur_students, 'language_name': language.name, 'id': id}
     return d
 
 
@@ -190,29 +190,29 @@ def check_inv_code(invite_code):
     return jsonify(0)
 
 
-# creates a class in the data base. Requires form input (inv_code, class_name, class_language_id, max_students, teacher_id)
+# creates a class in the data base. Requires form input (inv_code, name, language_id, max_students, teacher_id)
 @api.route("/create_own_cohort", methods=["POST"])
 @with_session
 def create_own_cohort():
     inv_code = request.form.get("inv_code")
-    class_name = request.form.get("class_name")
-    class_language_id = request.form.get("class_language_id")
+    name = request.form.get("name")
+    language_id = request.form.get("language_id")
     available_languages = Language.available_languages()
     code_allowed = False
     for code in available_languages:
-        if class_language_id in str(code):
+        if language_id in str(code):
             code_allowed = True
 
     if not code_allowed:
         flask.abort(400)
-    class_language = Language.find_or_create(class_language_id)
+    language = Language.find_or_create(language_id)
     teacher_id = flask.g.user.id
     max_students = request.form.get("max_students")
     if int(max_students) < 1:
         flask.abort(400)
 
     try:
-        c = Cohort(inv_code, class_name, class_language, max_students)
+        c = Cohort(inv_code, name, language, max_students)
         db.session.add(c)
         db.session.commit()
         _link_teacher_cohort(teacher_id, c.id)
@@ -276,14 +276,14 @@ def update_cohort(cohort_id):
     if (not _has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:
-        class_to_change = Cohort.query.filter_by(id=cohort_id).one()
-        class_to_change.inv_code = request.form.get("inv_code")
-        class_to_change.class_name = request.form.get("class_name")
+        cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
+        cohort_to_change.inv_code = request.form.get("inv_code")
+        cohort_to_change.name = request.form.get("name")
 
         if int(request.form.get("max_students")) < 1:
             flask.abort(400)
 
-        class_to_change.max_students = request.form.get("max_students")
+        cohort_to_change.max_students = request.form.get("max_students")
 
         db.session.commit()
         return 'updated'

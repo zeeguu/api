@@ -37,8 +37,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Acceptable class
         classDictionary = {
             'inv_code': '123',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '33'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -49,8 +49,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Inv code aleady in use
         classDictionary = {
             'inv_code': '123',
-            'class_name': 'FrenchB2',
-            'class_language_id': 'fr',
+            'name': 'FrenchB2',
+            'language_id': 'fr',
             'max_students': '33'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -59,8 +59,8 @@ class DashboardTest(APITestMixin, TestCase):
         # invalid max_students
         classDictionary = {
             'inv_code': '1234',
-            'class_name': 'FrenchB2',
-            'class_language_id': 'fr',
+            'name': 'FrenchB2',
+            'language_id': 'fr',
             'max_students': '-15'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -70,8 +70,8 @@ class DashboardTest(APITestMixin, TestCase):
         # invalid language_id
         classDictionary = {
             'inv_code': '12345',
-            'class_name': 'FrenchB3',
-            'class_language_id': 'frrrr',
+            'name': 'FrenchB3',
+            'language_id': 'frrrr',
             'max_students': '10'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -86,8 +86,8 @@ class DashboardTest(APITestMixin, TestCase):
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
             'inv_code': '12',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '33'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -100,8 +100,8 @@ class DashboardTest(APITestMixin, TestCase):
         rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
         classDictionary = {
             'inv_code': '123',
-            'class_name': 'FrenchB2',
-            'class_language_id': 'fr',
+            'name': 'FrenchB2',
+            'language_id': 'fr',
             'max_students': '33'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -112,12 +112,12 @@ class DashboardTest(APITestMixin, TestCase):
         assert classes
 
         # Assert the correct class of the two is returned
-        assert classes[0]['class_name'] == 'FrenchB2'
+        assert classes[0]['name'] == 'FrenchB2'
 
         # Test get class info
         result = self.app.get('get_cohort_info/' + str(classes[0]['id']) + '?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 200
-        assert json.loads(result.data)['class_name'] == 'FrenchB2'
+        assert json.loads(result.data)['name'] == 'FrenchB2'
 
         # Test get class info for class the teacher doesn't have access too
         result = self.app.get('get_cohort_info/1' + '?session=' + rv.data.decode('utf-8'))
@@ -138,8 +138,8 @@ class DashboardTest(APITestMixin, TestCase):
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
             'inv_code': '12',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '10'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -186,8 +186,8 @@ class DashboardTest(APITestMixin, TestCase):
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
             'inv_code': '12',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '10'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -207,8 +207,8 @@ class DashboardTest(APITestMixin, TestCase):
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
             'inv_code': '12',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '10'
         }
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
@@ -217,7 +217,7 @@ class DashboardTest(APITestMixin, TestCase):
         # Test valid update
         updateDictionary = {
             'inv_code':'123',
-            'class_name':'SpanishB1',
+            'name':'SpanishB1',
             'max_students':'11'
         }
         result = self.app.post('/update_cohort/1?session='+ rv.data.decode('utf-8'), data=updateDictionary)
@@ -225,7 +225,7 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.get('/get_cohort_info/1?session='+ rv.data.decode('utf-8'))
         assert result.status_code == 200
         loaded = json.loads(result.data)
-        assert loaded['class_name'] == 'SpanishB1'
+        assert loaded['name'] == 'SpanishB1'
         assert loaded['max_students'] == 11
         assert loaded['inv_code'] == '123'
 
@@ -233,7 +233,7 @@ class DashboardTest(APITestMixin, TestCase):
         # Test invalid update (negative max students)
         updateDictionary = {
             'inv_code': '123',
-            'class_name': 'SpanishB1',
+            'name': 'SpanishB1',
             'max_students': '-11'
         }
         result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
@@ -251,8 +251,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Add class with ID that another class used to have
         classDictionary = {
             'inv_code': '12',
-            'class_name': 'FrenchB1',
-            'class_language_id': 'fr',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
             'max_students': '10'
         }
         result = self.app.post('/create_own_cohort?session=' + rv2.data.decode('utf-8'), data=classDictionary)
@@ -261,7 +261,7 @@ class DashboardTest(APITestMixin, TestCase):
         # Test invalid update (taken inv code)
         updateDictionary = {
             'inv_code': '12',
-            'class_name': 'SpanishB1',
+            'name': 'SpanishB1',
             'max_students': '11'
         }
         result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
@@ -270,7 +270,7 @@ class DashboardTest(APITestMixin, TestCase):
         # Test invalid permissions
         updateDictionary = {
             'inv_code': '1245',
-            'class_name': 'SpanishB1',
+            'name': 'SpanishB1',
             'max_students': '11'
         }
         result = self.app.post('/update_cohort/2?session=' + rv.data.decode('utf-8'), data=updateDictionary)
