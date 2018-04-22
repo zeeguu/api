@@ -166,7 +166,7 @@ def _get_cohort_info(id):
     language_id = c.language_id
     language = Language.query.filter_by(id=language_id).one()
     d = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-         'cur_students': cur_students, 'language_name': language.name, 'id': id}
+         'cur_students': cur_students, 'language_name': language.name}
     return d
 
 
