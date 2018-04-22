@@ -260,7 +260,7 @@ def add_user_with_cohort():
 
 
 # Get user bookmarks
-@api.route("/get_user_bookmarks/<id>", methods=["GET", "POST"])
+@api.route("/cohort_member_bookmarks/<id>", methods=["GET"])
 @with_session
 def get_user_bookmarks(id):
     user = User.query.filter_by(id=id).one()
