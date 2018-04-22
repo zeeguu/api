@@ -38,9 +38,9 @@ def has_session():
         return jsonify(0)
 
 
-@api.route("/get_cohort_permissions/<id>", methods=["GET"])
+@api.route("/test_cohort_permissions/<id>", methods=["GET"])
 @with_session
-def get_cohort_permissions(id):
+def test_cohort_permissions(id):
     """
 
         Checks to see if user has permissions to access a certain class.
@@ -51,9 +51,9 @@ def get_cohort_permissions(id):
     return jsonify(0)
 
 
-@api.route("/get_user_permissions/<id>", methods=["GET"])
+@api.route("/test_user_permissions/<id>", methods=["GET"])
 @with_session
-def get_user_permissions(id):
+def test_user_permissions(id):
     """
 
         Checks to see if user has permissions to access a certain user.
@@ -61,16 +61,16 @@ def get_user_permissions(id):
     """
     try:
         user = User.query.filter_by(id=id).one()
-        return get_cohort_permissions(user.cohort_id)
+        return test_cohort_permissions(user.cohort_id)
     except:
         flask.abort(401)
 
 
 # Asking for a nonexistant cohort will cause .one() to crash!
 # Takes cohort_id and returns all users belonging to that cohort
-@api.route("/get_users_from_cohort/<id>", methods=["GET"])
+@api.route("/users_from_cohort/<id>", methods=["GET"])
 @with_session
-def get_users_from_cohort(id):
+def users_from_cohort(id):
     if (not _has_permission_for_cohort(id)):
         flask.abort(401)
     try:
@@ -87,10 +87,10 @@ def get_users_from_cohort(id):
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
-@api.route("/get_user_info/<id>", methods=["GET"])
+@api.route("/user_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_user(id):
-    if (not get_user_permissions(id)):
+    if (not test_user_permissions(id)):
         flask.abort(401)
     return jsonify(_get_user_info(id))
 
@@ -136,9 +136,9 @@ def remove_cohort(cohort_id):
 
 
 # Takes Teacher id as input and outputs list of all cohort_ids that teacher owns
-@api.route("/get_cohorts", methods=["GET"])
+@api.route("/cohorts_info", methods=["GET"])
 @with_session
-def get_cohorts_by_ownID():
+def cohorts_by_ownID():
     from zeeguu.model import TeacherCohortMap
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
@@ -149,7 +149,7 @@ def get_cohorts_by_ownID():
 
 
 # Takes cohort_id and reuturns dictionary with relevant class variables
-@api.route("/get_cohort_info/<id>", methods=["GET"])
+@api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
     if (not _has_permission_for_cohort(id)):
