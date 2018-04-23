@@ -223,8 +223,8 @@ def inv_code_exists(invite_code):
     '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
-        return "OK"
-    return "False"
+        return "False"
+    return "OK"
 
 
 @api.route("/create_own_cohort", methods=["POST"])
