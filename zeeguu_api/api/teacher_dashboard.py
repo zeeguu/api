@@ -167,7 +167,6 @@ def cohorts_by_ownID():
     return json.dumps(cohorts)
 
 
-# Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
@@ -224,8 +223,8 @@ def check_inv_code(invite_code):
     '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
-        return jsonify(1)
-    return jsonify(0)
+        return "Taken"
+    return "OK"
 
 
 @api.route("/create_own_cohort", methods=["POST"])
