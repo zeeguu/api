@@ -17,51 +17,34 @@ import datetime
 db = zeeguu.db
 
 
-def _has_permission_for_cohort(cohort_id):
+def has_permission_for_cohort(cohort_id):
     '''
         Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
     '''
     from zeeguu.model import TeacherCohortMap
-    links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
-    for l in links:
-        if l.user_id == flask.g.user.id:
+    maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
+    for m in maps:
+        if m.user_id == flask.g.user.id:
             return True
     return False
 
 
-@api.route("/has_session", methods=["GET"])
-def has_session():
-    '''
-        Checks to see if user has a valid acitive session.
-    '''
-    try:
-        session_id = int(flask.request.args['session'])
-        session = Session.query.filter_by(id=session_id).one()
-        return "OK"
-    except KeyError:
-        flask.abort(400)
-        return "KeyError"
-    except sqlalchemy.orm.exc.NoResultFound:
-        flask.abort(400)
-        return "NoResultFound"
-
-
-@api.route("/test_cohort_permissions/<id>", methods=["GET"])
+@api.route("/has_permission_for_cohort/<id>", methods=["GET"])
 @with_session
-def test_cohort_permissions(id):
+def has_permission_for_cohorts(id):
     """
 
         Checks to see if user has permissions to access a certain class.
 
     """
-    if (_has_permission_for_cohort(id)):
+    if (has_permission_for_cohort(id)):
         return "OK"
     return "Denied"
 
 
-@api.route("/test_user_permissions/<id>", methods=["GET"])
+@api.route("/has_permission_for_user_info/<id>", methods=["GET"])
 @with_session
-def test_user_permissions(id):
+def has_permission_for_user_info(id):
     """
 
         Checks to see if user has permissions to access a certain user.
@@ -69,7 +52,7 @@ def test_user_permissions(id):
     """
     try:
         user = User.query.filter_by(id=id).one()
-        return test_cohort_permissions(user.cohort_id)
+        return has_permission_for_cohort(user.cohort_id)
     except KeyError:
         flask.abort(400)
         return "KeyError"
@@ -85,7 +68,7 @@ def users_from_cohort(id):
         Takes id for a cohort and returns all users belonging to that cohort.
 
     '''
-    if (not _has_permission_for_cohort(id)):
+    if (not has_permission_for_cohort(id)):
         flask.abort(401)
     try:
         c = Cohort.query.filter_by(id=id).one()
@@ -111,7 +94,7 @@ def wrapper_to_json_user(id):
         then returns result jsonified.
 
     '''
-    if (not test_user_permissions(id)):
+    if (not has_permission_for_user_info(id)):
         flask.abort(401)
     return jsonify(_get_user_info(id))
 
@@ -146,7 +129,7 @@ def remove_cohort(cohort_id):
 
     '''
     from zeeguu.model import TeacherCohortMap
-    if (not _has_permission_for_cohort(cohort_id)):
+    if (not has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
@@ -184,7 +167,6 @@ def cohorts_by_ownID():
     return json.dumps(cohorts)
 
 
-# Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
@@ -192,7 +174,7 @@ def wrapper_to_json_class(id):
         Takes id of cohort and then wraps _get_cohort_info
         returns jsonified result of _get_cohort_info
     '''
-    if (not _has_permission_for_cohort(id)):
+    if (not has_permission_for_cohort(id)):
         flask.abort(401)
     return jsonify(_get_cohort_info(id))
 
@@ -241,8 +223,8 @@ def check_inv_code(invite_code):
     '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
-        return jsonify(1)
-    return jsonify(0)
+        return "Taken"
+    return "OK"
 
 
 @api.route("/create_own_cohort", methods=["POST"])
@@ -329,7 +311,7 @@ def cohort_member_bookmarks(id):
         Returns books marks from member with input user id.
     '''
     user = User.query.filter_by(id=id).one()
-    if (not _has_permission_for_cohort(user.cohort_id)):
+    if (not has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
     # True input causes function to return context too.
     return json_result(user.bookmarks_by_day(True))
@@ -343,7 +325,7 @@ def update_cohort(cohort_id):
         requires input form (inv_code, name, max_students)
 
     '''
-    if (not _has_permission_for_cohort(cohort_id)):
+    if (not has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:
         cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()

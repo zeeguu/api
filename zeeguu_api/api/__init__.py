@@ -15,4 +15,4 @@ from . import user_statistics
 from . import recommendations
 from . import user_article
 from . import user_articles
-from . import dashboard
+from . import teacher_dashboard
