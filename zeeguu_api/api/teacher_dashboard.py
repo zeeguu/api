@@ -214,17 +214,17 @@ def _link_teacher_cohort(user_id, cohort_id):
     return 'added teacher_cohort relationship'
 
 
-@api.route("/invite_code_exists/<invite_code>", methods=["GET"])
+@api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
-def inv_code_exists(invite_code):
+def inv_code_usable(invite_code):
     '''
         Checks if the inputted invite code is already in use.
 
     '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
-        return "False"
-    return "OK"
+        return "OK"
+    return "False"
 
 
 @api.route("/create_own_cohort", methods=["POST"])
