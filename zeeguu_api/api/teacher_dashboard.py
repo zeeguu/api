@@ -31,7 +31,7 @@ def has_permission_for_cohort(cohort_id):
 
 @api.route("/has_permission_for_cohort/<id>", methods=["GET"])
 @with_session
-def has_permission_for_cohorts(id):
+def has_permission_for_cohort(id):
     """
 
         Checks to see if user has permissions to access a certain class.
