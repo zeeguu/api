@@ -31,7 +31,7 @@ def has_permission_for_cohort(cohort_id):
 
 @api.route("/has_permission_for_cohort/<id>", methods=["GET"])
 @with_session
-def has_permission_for_cohort(id):
+def has_permission_for_cohort_public(id):
     """
 
         Checks to see if user has permissions to access a certain class.
@@ -52,7 +52,7 @@ def has_permission_for_user_info(id):
     """
     try:
         user = User.query.filter_by(id=id).one()
-        return has_permission_for_cohort(user.cohort_id)
+        return has_permission_for_cohort_public(user.cohort_id)
     except KeyError:
         flask.abort(400)
         return "KeyError"
