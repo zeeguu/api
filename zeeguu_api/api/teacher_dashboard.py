@@ -31,7 +31,7 @@ def has_permission_for_cohort(cohort_id):
 
 @api.route("/has_permission_for_cohort/<id>", methods=["GET"])
 @with_session
-def has_permission_for_cohorts(id):
+def has_permission_for_cohort_public(id):
     """
 
         Checks to see if user has permissions to access a certain class.
@@ -52,7 +52,7 @@ def has_permission_for_user_info(id):
     """
     try:
         user = User.query.filter_by(id=id).one()
-        return has_permission_for_cohort(user.cohort_id)
+        return has_permission_for_cohort_public(user.cohort_id)
     except KeyError:
         flask.abort(400)
         return "KeyError"
@@ -167,7 +167,6 @@ def cohorts_by_ownID():
     return json.dumps(cohorts)
 
 
-# Takes cohort_id and reuturns dictionary with relevant class variables
 @api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
@@ -215,17 +214,17 @@ def _link_teacher_cohort(user_id, cohort_id):
     return 'added teacher_cohort relationship'
 
 
-@api.route("/check_invite_code/<invite_code>", methods=["GET"])
+@api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
-def check_inv_code(invite_code):
+def inv_code_usable(invite_code):
     '''
         Checks if the inputted invite code is already in use.
 
     '''
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
-        return jsonify(1)
-    return jsonify(0)
+        return "OK"
+    return "False"
 
 
 @api.route("/create_own_cohort", methods=["POST"])
