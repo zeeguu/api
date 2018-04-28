@@ -171,7 +171,6 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.post('/add_user/'+newUser['email'], data=newUser)
         assert result.status_code == 200
         result = self.app.get('/user_info/4?session=' + rv.data.decode('utf-8'))
-        print(result.status_code)
         assert result.status_code == 401
 
 
