@@ -162,6 +162,19 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.get('/user_info/55?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 400
 
+        # User not in class owned by teacher
+        newUser = {
+            'username': 'newUser3',
+            'password': 'password',
+            'email': 'newUser3@gmail.com',
+        }
+        result = self.app.post('/add_user/'+newUser['email'], data=newUser)
+        assert result.status_code == 200
+        result = self.app.get('/user_info/4?session=' + rv.data.decode('utf-8'))
+        print(result.status_code)
+        assert result.status_code == 401
+
+
 
     def test_remove_class(self):
         userDictionary = {

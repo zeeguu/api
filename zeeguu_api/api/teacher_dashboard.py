@@ -94,7 +94,7 @@ def wrapper_to_json_user(id):
         then returns result jsonified.
 
     '''
-    if (not has_permission_for_user_info(id)):
+    if (not has_permission_for_user_info(id) == "OK"):
         flask.abort(401)
     return jsonify(_get_user_info(id))
 
