@@ -311,12 +311,17 @@ def cohort_member_bookmarks(id, time_period):
     '''
         Returns books marks from member with input user id.
     '''
-    user = User.query.filter_by(id=id).one()
+    try:
+        user = User.query.filter_by(id=id).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoUserFound"
+
     if (not has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
 
 
-    now = datetime.datetime.now()
+    now = datetime.today()
     date = now - timedelta(days=time_period);
 
 
