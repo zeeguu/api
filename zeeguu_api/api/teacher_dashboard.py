@@ -321,8 +321,9 @@ def cohort_member_bookmarks(id, time_period):
         flask.abort(401)
 
 
+
     now = datetime.today()
-    date = now - timedelta(days=time_period);
+    date = now - timedelta(days=int(time_period));
 
 
     # True input causes function to return context too.
