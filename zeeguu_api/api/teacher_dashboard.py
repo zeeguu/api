@@ -13,6 +13,7 @@ from flask import jsonify
 import json
 import random
 import datetime
+from datetime import datetime, timedelta
 
 db = zeeguu.db
 
@@ -304,17 +305,23 @@ def add_user_with_cohort():
     flask.abort(400)
 
 
-@api.route("/cohort_member_bookmarks/<id>", methods=["GET"])
+@api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
-def cohort_member_bookmarks(id):
+def cohort_member_bookmarks(id, time_period):
     '''
         Returns books marks from member with input user id.
     '''
     user = User.query.filter_by(id=id).one()
     if (not has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
+
+
+    now = datetime.datetime.now()
+    date = now - timedelta(days=time_period);
+
+
     # True input causes function to return context too.
-    return json_result(user.bookmarks_by_day(True))
+    return json_result(user.bookmarks_by_date(True))
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
