@@ -391,7 +391,3 @@ def update_cohort(cohort_id):
         return 'IntegrityError'
 
 
-@api.route("load_time_statistics/<cohort_id>", methods=["GET"])
-@with_session
-def load_time_statistics(cohort_id):
-    try:
