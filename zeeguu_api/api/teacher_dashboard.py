@@ -106,14 +106,48 @@ def _get_user_info(id):
 
     '''
     try:
+
         user = User.query.filter_by(id=id).one()
+        timeDictionary = {
+            'monday_reading_time': random.randint(1, 25),
+            'monday_exercise_time': random.randint(1, 25),
+            'tuesday_reading_time': random.randint(1, 25),
+            'tuesday_exercise_time': random.randint(1, 25),
+            'wednesday_reading_time': random.randint(1, 25),
+            'wednesay_exercise_time': random.randint(1, 25),
+            'thursday_reading_time': random.randint(1, 25),
+            'thursday_exercise_time': random.randint(1, 25),
+            'friday_reading_time': random.randint(1, 25),
+            'friday_reading_time': random.randint(1, 25),
+            'saturday_reading_time': random.randint(1, 25),
+            'saturday_exercise_time': random.randint(1, 25),
+            'sunday_reading_time': random.randint(1, 25),
+            'sunday_exercise_time': random.randint(1, 25),
+        }
+
+        reading_time = timeDictionary['monday_reading_time']
+        reading_time = reading_time + timeDictionary['tuesday_reading_time']
+        reading_time = reading_time + timeDictionary['wednesday_reading_time']
+        reading_time = reading_time + timeDictionary['thursday_reading_time']
+        reading_time = reading_time + timeDictionary['friday_reading_time']
+        reading_time = reading_time + timeDictionary['saturday_reading_time']
+        reading_time = reading_time + timeDictionary['sunday_reading_time']
+
+        exercise_time = timeDictionary['monday_exercise_time']
+        exercise_time = reading_time + timeDictionary['tuesday_exercise_time']
+        exercise_time = reading_time + timeDictionary['wednesday_exercise_time']
+        exercise_time = reading_time + timeDictionary['thursday_exercise_time']
+        exercise_time = reading_time + timeDictionary['friday_exercise_time']
+        exercise_time = reading_time + timeDictionary['saturday_exercise_time']
+        exercise_time = reading_time + timeDictionary['sunday_exercise_time']
         dictionary = {
             'id': str(id),
             'name': user.name,
             'email': user.email,
-            'reading_time': random.randint(1, 100),
-            'exercises_done': random.randint(1, 100),
-            'last_article': 'place holder article'
+            'reading_time': reading_time,
+            'exercises_done': exercise_time,
+            'last_article': 'place holder article',
+            'time_dictionary': timeDictionary
         }
         return dictionary
     except ValueError:
@@ -320,16 +354,11 @@ def cohort_member_bookmarks(id, time_period):
     if (not has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
 
-
-
     now = datetime.today()
     date = now - timedelta(days=int(time_period));
 
-
-
-
     # True input causes function to return context too.
-    return json_result(user.bookmarks_by_day(True,date))
+    return json_result(user.bookmarks_by_day(True, date))
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
@@ -360,3 +389,9 @@ def update_cohort(cohort_id):
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
         return 'IntegrityError'
+
+
+@api.route("load_time_statistics/<cohort_id>", methods=["GET"])
+@with_session
+def load_time_statistics(cohort_id):
+    try:
