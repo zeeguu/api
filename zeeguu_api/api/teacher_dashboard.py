@@ -114,7 +114,7 @@ def _get_user_info(id):
             'tuesday_reading_time': random.randint(1, 25),
             'tuesday_exercise_time': random.randint(1, 25),
             'wednesday_reading_time': random.randint(1, 25),
-            'wednesay_exercise_time': random.randint(1, 25),
+            'wednesday_exercise_time': random.randint(1, 25),
             'thursday_reading_time': random.randint(1, 25),
             'thursday_exercise_time': random.randint(1, 25),
             'friday_reading_time': random.randint(1, 25),
