@@ -108,38 +108,18 @@ def _get_user_info(id):
     try:
 
         user = User.query.filter_by(id=id).one()
-        timeDictionary = {
-            'monday_reading_time': random.randint(1, 25),
-            'monday_exercise_time': random.randint(1, 25),
-            'tuesday_reading_time': random.randint(1, 25),
-            'tuesday_exercise_time': random.randint(1, 25),
-            'wednesday_reading_time': random.randint(1, 25),
-            'wednesday_exercise_time': random.randint(1, 25),
-            'thursday_reading_time': random.randint(1, 25),
-            'thursday_exercise_time': random.randint(1, 25),
-            'friday_reading_time': random.randint(1, 25),
-            'friday_exercise_time': random.randint(1, 25),
-            'saturday_reading_time': random.randint(1, 25),
-            'saturday_exercise_time': random.randint(1, 25),
-            'sunday_reading_time': random.randint(1, 25),
-            'sunday_exercise_time': random.randint(1, 25),
-        }
 
-        reading_time = timeDictionary['monday_reading_time']
-        reading_time = reading_time + timeDictionary['tuesday_reading_time']
-        reading_time = reading_time + timeDictionary['wednesday_reading_time']
-        reading_time = reading_time + timeDictionary['thursday_reading_time']
-        reading_time = reading_time + timeDictionary['friday_reading_time']
-        reading_time = reading_time + timeDictionary['saturday_reading_time']
-        reading_time = reading_time + timeDictionary['sunday_reading_time']
+        reading_time_list = list()
+        exercise_time_list = list()
+        for x in range(0, 6):
+            reading_value = random.randint(1, 25)
+            exercise_value = random.randint(1, 25)
+            reading_time_list.append(reading_value)
+            exercise_time_list.append(exercise_value)
 
-        exercise_time = timeDictionary['monday_exercise_time']
-        exercise_time = reading_time + timeDictionary['tuesday_exercise_time']
-        exercise_time = reading_time + timeDictionary['wednesday_exercise_time']
-        exercise_time = reading_time + timeDictionary['thursday_exercise_time']
-        exercise_time = reading_time + timeDictionary['friday_exercise_time']
-        exercise_time = reading_time + timeDictionary['saturday_exercise_time']
-        exercise_time = reading_time + timeDictionary['sunday_exercise_time']
+
+
+
         dictionary = {
             'id': str(id),
             'name': user.name,
@@ -147,7 +127,8 @@ def _get_user_info(id):
             'reading_time': reading_time,
             'exercises_done': exercise_time,
             'last_article': 'place holder article',
-            'time_dictionary': timeDictionary
+            'reading_time_list': reading_time_list,
+            'exercise_time_list': exercise_time_list
         }
         return dictionary
     except ValueError:
