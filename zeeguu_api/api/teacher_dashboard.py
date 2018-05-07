@@ -111,11 +111,15 @@ def _get_user_info(id):
 
         reading_time_list = list()
         exercise_time_list = list()
+        reading_time = 0
+        exercise_time = 0
         for x in range(0, 6):
             reading_value = random.randint(1, 25)
             exercise_value = random.randint(1, 25)
             reading_time_list.append(reading_value)
             exercise_time_list.append(exercise_value)
+            reading_time += reading_value
+            exercise_time += exercise_value
 
 
 
