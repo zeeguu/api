@@ -89,6 +89,10 @@ def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_
         db_session.add(exercise)
         db_session.commit()
 
+        # Update the exercise session
+        from zeeguu.model import UserExerciseSession
+        UserExerciseSession.update_exercise_session(exercise, db.session)
+
         zeeguu.log("recomputting bookmark priorities")
         zeeguu.word_scheduling.arts.update_bookmark_priority(zeeguu.db, flask.g.user)
 
