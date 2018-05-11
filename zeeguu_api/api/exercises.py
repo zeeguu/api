@@ -4,6 +4,7 @@ import flask
 
 import zeeguu
 from zeeguu.model import Bookmark, Exercise, ExerciseOutcome, ExerciseSource
+from zeeguu.word_scheduling.arts.bookmark_priority_updater import BookmarkPriorityUpdater
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -28,7 +29,7 @@ def bookmarks_to_study(bookmark_count):
         # then are priorities recomputed; thus, in this case, we try to
         # update, and maybe this will solve the problem
         zeeguu.log("recomputting bookmark priorities since there seem to be no bookmarks to study")
-        zeeguu.word_scheduling.arts.BookmarkPriorityUpdater.update_bookmark_priority(zeeguu.db, flask.g.user)
+        BookmarkPriorityUpdater.update_bookmark_priority(zeeguu.db, flask.g.user)
         to_study = flask.g.user.bookmarks_to_study(int_count)
 
     as_json = [bookmark.json_serializable_dict() for bookmark in to_study]
@@ -94,7 +95,7 @@ def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_
         UserExerciseSession.update_exercise_session(exercise, db_session)
 
         zeeguu.log("recomputting bookmark priorities")
-        zeeguu.word_scheduling.arts.BookmarkPriorityUpdater.update_bookmark_priority(zeeguu.db, flask.g.user)
+        BookmarkPriorityUpdater.update_bookmark_priority(zeeguu.db, flask.g.user)
 
         return "OK"
     except:
