@@ -40,4 +40,4 @@ dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 from zeeguu.model import Session
 
 dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
-dashboard.bind(app=app, blue_print=api)
+dashboard.bind(app=app)
