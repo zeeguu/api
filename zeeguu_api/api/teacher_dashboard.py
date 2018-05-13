@@ -115,7 +115,7 @@ def _get_user_info(id, duration):
         exercise_time = 0
 
 
-        for x in range(0, (int)duration):
+        for x in range(0, int(duration)):
             reading_value = random.randint(1, 25)
             exercise_value = random.randint(1, 25)
             reading_time_list.append(reading_value)
