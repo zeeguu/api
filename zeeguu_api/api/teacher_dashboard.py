@@ -64,7 +64,7 @@ def has_permission_for_user_info(id):
 
 @api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
 @with_session
-def users_from_cohort(id):
+def users_from_cohort(id, duration):
     '''
         Takes id for a cohort and returns all users belonging to that cohort.
 
