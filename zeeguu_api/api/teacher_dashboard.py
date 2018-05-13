@@ -62,7 +62,7 @@ def has_permission_for_user_info(id):
         return "NoResultFound"
 
 
-@api.route("/users_from_cohort/<id>", methods=["GET"])
+@api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
 @with_session
 def users_from_cohort(id):
     '''
@@ -76,7 +76,7 @@ def users_from_cohort(id):
         users = User.query.filter_by(cohort_id=c.id).all()
         users_info = []
         for u in users:
-            info = _get_user_info(u.id)
+            info = _get_user_info(u.id, duration)
             users_info.append(info)
         return json.dumps(users_info)
     except KeyError:
@@ -87,9 +87,9 @@ def users_from_cohort(id):
         return "NoResultFound"
 
 
-@api.route("/user_info/<id>", methods=["GET"])
+@api.route("/user_info/<id>/<duration>", methods=["GET"])
 @with_session
-def wrapper_to_json_user(id):
+def wrapper_to_json_user(id, duration):
     '''
         Takes id for a cohort and wraps _get_user_info
         then returns result jsonified.
@@ -97,10 +97,10 @@ def wrapper_to_json_user(id):
     '''
     if (not has_permission_for_user_info(id) == "OK"):
         flask.abort(401)
-    return jsonify(_get_user_info(id))
+    return jsonify(_get_user_info(id, duration))
 
 
-def _get_user_info(id):
+def _get_user_info(id, duration):
     '''
         Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
 
@@ -113,7 +113,9 @@ def _get_user_info(id):
         exercise_time_list = list()
         reading_time = 0
         exercise_time = 0
-        for x in range(0, 7):
+
+
+        for x in range(0, duration):
             reading_value = random.randint(1, 25)
             exercise_value = random.randint(1, 25)
             reading_time_list.append(reading_value)
