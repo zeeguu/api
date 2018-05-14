@@ -110,7 +110,11 @@ def _get_user_info(id, duration):
     try:
         fromDate = datetime.now() - timedelta(days=int(duration))
 
-        times1 = UserReadingSession.find_by_user(id, fromDate, datetime.now())
+
+
+
+
+        times1 = UserReadingSession.find_by_user(602,fromDate, datetime.now())
 
 
         times2 = UserExerciseSession.find_by_user(id, fromDate, datetime.now())
@@ -127,16 +131,14 @@ def _get_user_info(id, duration):
             exercise_time_list.append(0);
 
         for i in times1:
-            startDay = i.start_time
-            
-            index = (datetime.now()-startDay).day
-            print("Chose index =" + index)
+            startDay = i.start_time.date()
+            index = (datetime.now().date()-startDay).days
             reading_time_list[index] += i.duration/1000
             reading_time += i.duration/1000;
 
         for j in times2:
-            startDay = i.start_time
-            index = (datetime.now() - startDay).day
+            startDay = i.start_time.date()
+            index = (datetime.now().date() - startDay).days
             exercise_time_list[index] += i.duration/1000
             exercise_time += i.duration/1000;
 
