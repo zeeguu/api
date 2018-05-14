@@ -111,10 +111,10 @@ def _get_user_info(id, duration):
         fromDate = datetime.now() - timedelta(days=int(duration))
 
         times1 = UserReadingSession.find_by_user(id, fromDate, datetime.now())
-        times1 = json.loads(times1)
+
 
         times2 = UserExerciseSession.find_by_user(id, fromDate, datetime.now())
-        times2 = json.loads(times2)
+        
 
         user = User.query.filter_by(id=id).one()
 
@@ -125,10 +125,12 @@ def _get_user_info(id, duration):
 
 
         for i in times1:
+            i = json.loads(i)
             reading_value = i["duration"]/1000
             reading_time_list.append(reading_value)
             reading_time += reading_value
         for j in times2:
+            j = json.loads(j)
             exercise_value = j["duration"]/1000
             exercise_time_list.append(exercise_value)
             exercise_time += exercise_value;
