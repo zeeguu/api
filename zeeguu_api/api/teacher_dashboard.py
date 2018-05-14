@@ -110,10 +110,10 @@ def _get_user_info(id, duration):
     try:
         fromDate = datetime.now() - timedelta(days=int(duration))
 
-        times1 = UserReadingSession.find_by_user(id, fromDate, timedate.now())
+        times1 = UserReadingSession.find_by_user(id, fromDate, datetime.now())
         times1 = json.loads(times1)
 
-        times2 = UserExerciseSession.find_by_user(id, fromDate, timedate.now())
+        times2 = UserExerciseSession.find_by_user(id, fromDate, datetime.now())
         times2 = json.loads(times2)
 
         user = User.query.filter_by(id=id).one()
