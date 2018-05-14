@@ -108,7 +108,7 @@ def _get_user_info(id, duration):
 
     '''
     try:
-        fromDate = timedate.now() - timedelta(days=int(duration))
+        fromDate = datetime.now() - timedelta(days=int(duration))
 
         times1 = UserReadingSession.find_by_user(id, fromDate, timedate.now())
         times1 = json.loads(times1)
