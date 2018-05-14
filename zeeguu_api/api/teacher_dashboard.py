@@ -114,7 +114,7 @@ def _get_user_info(id, duration):
 
 
         times2 = UserExerciseSession.find_by_user(id, fromDate, datetime.now())
-        
+
 
         user = User.query.filter_by(id=id).one()
 
@@ -122,18 +122,23 @@ def _get_user_info(id, duration):
         exercise_time_list = list()
         reading_time = 0
         exercise_time = 0
-
+        for n in range(0,duration):
+            reading_time_list[n] = 0;
+            exercise_time_list[n] =0;
 
         for i in times1:
-            i = json.loads(i)
-            reading_value = i["duration"]/1000
-            reading_time_list.append(reading_value)
-            reading_time += reading_value
+            startDay = i.start_time
+            print("startDay = " +startDay)
+            index = (datetime.now()-startDay).day
+            print("Chose index =" + index)
+            reading_time_list[index] += i.duration/1000
+            reading_time += i.duration/1000;
+
         for j in times2:
-            j = json.loads(j)
-            exercise_value = j["duration"]/1000
-            exercise_time_list.append(exercise_value)
-            exercise_time += exercise_value;
+            startDay = i.start_time
+            index = (datetime.now() - startDay).day
+            exercise_time_list[index] += i.duration/1000
+            exercise_time += i.duration/1000;
 
 
 
