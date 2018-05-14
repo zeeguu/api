@@ -101,11 +101,20 @@ def wrapper_to_json_user(id, duration):
 
 
 def _get_user_info(id, duration):
+    from zeeguu.model import UserReadingSession, UserExerciseSession
+
     '''
         Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
 
     '''
     try:
+        fromDate = timedate.now() - timedelta(days=int(duration))
+
+        times1 = UserReadingSession.find_by_user(id, fromDate, timedate.now())
+        times1 = json.loads(times1)
+
+        times2 = UserExerciseSession.find_by_user(id, fromDate, timedate.now())
+        times2 = json.loads(times2)
 
         user = User.query.filter_by(id=id).one()
 
@@ -115,13 +124,14 @@ def _get_user_info(id, duration):
         exercise_time = 0
 
 
-        for x in range(0, int(duration)):
-            reading_value = random.randint(1, 25)
-            exercise_value = random.randint(1, 25)
+        for i in times1:
+            reading_value = i["duration"]/1000
             reading_time_list.append(reading_value)
-            exercise_time_list.append(exercise_value)
             reading_time += reading_value
-            exercise_time += exercise_value
+        for j in times2:
+            exercise_value = j["duration"]/1000
+            exercise_time_list.append(exercise_value)
+            exercise_time += exercise_value;
 
 
 
