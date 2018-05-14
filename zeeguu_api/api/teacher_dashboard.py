@@ -128,7 +128,7 @@ def _get_user_info(id, duration):
 
         for i in times1:
             startDay = i.start_time
-            print("startDay = " +startDay)
+            
             index = (datetime.now()-startDay).day
             print("Chose index =" + index)
             reading_time_list[index] += i.duration/1000
