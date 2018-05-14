@@ -114,10 +114,10 @@ def _get_user_info(id, duration):
 
 
 
-        times1 = UserReadingSession.find_by_user(602,fromDate, datetime.now())
+        times1 = UserReadingSession.find_by_user(int(id),fromDate, datetime.now())
 
 
-        times2 = UserExerciseSession.find_by_user(id, fromDate, datetime.now())
+        times2 = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
 
 
         user = User.query.filter_by(id=id).one()
