@@ -16,10 +16,8 @@ from python_translators.translation_query import TranslationQuery
 
 # When testing, we're injecting the ReverseTranslator instead of the BestEffort which
 # requires API keys for the third-party services.
-if 'unittest' in sys.modules:
-    from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
-else:
-    from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
+#from python_translators.translators.best_effort_translator import GlosbeTranslator as Translator
+from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
@@ -40,12 +38,14 @@ def get_possible_translations(from_lang_code, to_lang_code):
     """
 
     context_str = request.form.get('context', '')
+    print (context_str)
     url = request.form.get('url', '')
     #
     url = url.split('articleURL=')[-1]
 
     zeeguu.log(f"url before being saved: {url}")
     word_str = request.form['word']
+    print (word_str)
     title_str = request.form.get('title', '')
 
     minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
@@ -55,6 +55,20 @@ def get_possible_translations(from_lang_code, to_lang_code):
 
     translator = Translator(from_lang_code, to_lang_code)
     zeeguu.log(f"Query to translate is: {query}")
+
+    last_word_in_context = minimal_context.split(' ')[-1]
+    if last_word_in_context[-1] == '.':
+        last_word_in_context = last_word_in_context[:-1]
+    print(last_word_in_context)
+
+
+    VERBS = [u"schließt", 'trifft']
+    PARTICLES = ["aus", "ein", "auf","zu"] 
+
+    if last_word_in_context in PARTICLES and word_str in VERBS:
+        query.query = query.query + " " + last_word_in_context
+        pass
+ 
     translations = translator.translate(query).translations
 
     # translators talk about quality, but our users expect likelihood.
@@ -70,6 +84,10 @@ def get_possible_translations(from_lang_code, to_lang_code):
                             best_guess, to_lang_code,
                             minimal_context, url, title_str)
 
+    if last_word_in_context in PARTICLES and word_str in VERBS:
+        translations[0]['particle'] = last_word_in_context
+
+    print (translations)
     return json_result(dict(translations=translations))
 
 
