@@ -1,0 +1,200 @@
+import flask
+import zeeguu
+from zeeguu.model.search import Search
+from zeeguu.model.search_filter import SearchFilter
+from zeeguu.model.search_subscription import SearchSubscription
+from zeeguu.content_recommender.mixed_recommender import article_search_for_user, filter_render_articles, search_render_articles
+
+from .utils.route_wrappers import cross_domain, with_session
+from .utils.json_result import json_result
+from . import api
+
+session = zeeguu.db.session
+
+SEARCH = "search"
+SUBSCRIBE_SEARCH = "subscribe_search"
+UNSUBSCRIBE_SEARCH = "unsubscribe_search"
+SUBSCRIBED_SEARCHES = "subscribed_searches"
+FILTER_SEARCH = "filter_search"
+UNFILTER_SEARCH = "unfilter_search"
+FILTERED_SEARCHES = "filtered_searches"
+RENDER_SEARCH = "render_search"
+RENDER_FILTER = "render_filter"
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{SUBSCRIBE_SEARCH}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def subscribe_to_search(search_terms):
+    """
+    :param: search_terms -- the search terms to be subscribed to.
+    Subscribe to the topic with the given id
+
+    :return: "OK" in case of success
+    """
+    search = Search.find_or_create(session, search_terms, flask.g.user)
+    SearchSubscription.find_or_create(session, flask.g.user, search)
+
+    return json_result(search.as_dictionary())
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{UNSUBSCRIBE_SEARCH}/<search_id>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def unsubscribe_from_search(search_id):
+    """
+    A user can unsubscribe from the topic with a given ID
+    :return: OK / ERROR
+    """
+    try:
+        to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
+        session.delete(to_delete)
+        to_delete2 = Search.find_by_id(search_id)
+        articles = to_delete2.all_articles()
+        for article in articles:
+            article.searches.remove(to_delete2)
+            session.add(article)
+        session.delete(to_delete2)
+        session.commit()
+
+    except Exception as e:
+        return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
+
+    return "OK"
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{SUBSCRIBED_SEARCHES}", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def get_subscribed_searches():
+    """
+    A user might be subscribed to multiple searches at once.
+    This endpoint returns them as a list.
+
+    :return: a json list with searches for which the user is registered;
+     every search in this list is a dictionary with the following info:
+                id = unique id of the topic;
+                search_keywords = <unicode string>
+    """
+    subscriptions = SearchSubscription.search_subscriptions_for_user(flask.g.user)
+    searches_list = []
+
+    for subs in subscriptions:
+        try:
+            searches_list.append(subs.search.as_dictionary())
+        except Exception as e:
+            zeeguu.log(str(e))
+
+    return json_result(searches_list)
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{FILTER_SEARCH}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def filter_search(search_terms):
+    """
+    :param: search_terms -- the search to be subscribed to.
+    Subscribe to the topic with the given id
+
+    :return: "OK" in case of success
+    """
+
+    search = Search.find_or_create(session, search_terms, flask.g.user)
+    SearchFilter.find_or_create(session, flask.g.user, search)
+
+    return json_result(search.as_dictionary())
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{UNFILTER_SEARCH}/<search_id>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def unfilter_search(search_id):
+    """
+    A user can unsubscribe from the topic with a given ID
+    :return: OK / ERROR
+    """
+
+    try:
+        to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
+        session.delete(to_delete)
+        session.commit()
+        # If the search is now non-used, delete it
+        subs = SearchSubscription.with_search(search_id)
+        filts = SearchFilter.with_search(search_id)
+        if subs is None and filts is None:
+            to_delete = Search.find_by_id(search_id)
+            articles = to_delete.all_articles()
+            for article in articles:
+                article.searches.remove(to_delete)
+                session.add(article)
+            session.commit()
+            session.delete(to_delete)
+            session.commit()
+
+    except Exception as e:
+        return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
+
+    return "OK"
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{FILTERED_SEARCHES}", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def get_filtered_searches():
+    """
+    A user might be subscribed to multiple searches at once.
+    This endpoint returns them as a list.
+
+    :return: a json list with searches for which the user is registered;
+     every search in this list is a dictionary with the following info:
+                id = unique id of the topic;
+                search_keywords = <unicode string>
+    """
+    filters = SearchFilter.search_filters_for_user(flask.g.user)
+    filtered_searches = []
+
+    for filt in filters:
+        try:
+            filtered_searches.append(filt.search.as_dictionary())
+        except Exception as e:
+            zeeguu.log(str(e))
+
+    return json_result(filtered_searches)
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def search_for_search_terms(search_terms):
+    return json_result(article_search_for_user(flask.g.user, 20, search_terms))
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{RENDER_SEARCH}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def render_search_articles(search_terms):
+    return json_result(search_render_articles(flask.g.user, 20, search_terms))
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{RENDER_FILTER}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def render_filter_articles(search_terms):
+    return json_result(filter_render_articles(flask.g.user, 20, search_terms))
+

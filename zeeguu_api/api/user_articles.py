@@ -31,3 +31,4 @@ def user_articles_recommended(count: int = 20):
 @with_session
 def user_articles_starred_and_liked():
     return json_result(UserArticle.all_starred_and_liked_articles_of_user_info(flask.g.user))
+
