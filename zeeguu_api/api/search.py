@@ -3,7 +3,7 @@ import zeeguu
 from zeeguu.model.search import Search
 from zeeguu.model.search_filter import SearchFilter
 from zeeguu.model.search_subscription import SearchSubscription
-from zeeguu.content_recommender.mixed_recommender import article_search_for_user, filter_render_articles, search_render_articles
+from zeeguu.content_recommender.mixed_recommender import article_search_for_user
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -34,7 +34,7 @@ def subscribe_to_search(search_terms):
 
     :return: "OK" in case of success
     """
-    search = Search.find_or_create(session, search_terms, flask.g.user)
+    search = Search.find_or_create(session, search_terms)
     SearchSubscription.find_or_create(session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
@@ -54,10 +54,6 @@ def unsubscribe_from_search(search_id):
         to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
         session.delete(to_delete)
         to_delete2 = Search.find_by_id(search_id)
-        articles = to_delete2.all_articles()
-        for article in articles:
-            article.searches.remove(to_delete2)
-            session.add(article)
         session.delete(to_delete2)
         session.commit()
 
@@ -107,7 +103,7 @@ def filter_search(search_terms):
     :return: "OK" in case of success
     """
 
-    search = Search.find_or_create(session, search_terms, flask.g.user)
+    search = Search.find_or_create(session, search_terms)
     SearchFilter.find_or_create(session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
@@ -127,19 +123,9 @@ def unfilter_search(search_id):
     try:
         to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
         session.delete(to_delete)
+        to_delete = Search.find_by_id(search_id)
+        session.delete(to_delete)
         session.commit()
-        # If the search is now non-used, delete it
-        subs = SearchSubscription.with_search(search_id)
-        filts = SearchFilter.with_search(search_id)
-        if subs is None and filts is None:
-            to_delete = Search.find_by_id(search_id)
-            articles = to_delete.all_articles()
-            for article in articles:
-                article.searches.remove(to_delete)
-                session.add(article)
-            session.commit()
-            session.delete(to_delete)
-            session.commit()
 
     except Exception as e:
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
@@ -181,20 +167,3 @@ def get_filtered_searches():
 @with_session
 def search_for_search_terms(search_terms):
     return json_result(article_search_for_user(flask.g.user, 20, search_terms))
-
-# ---------------------------------------------------------------------------
-@api.route(f"/{RENDER_SEARCH}/<search_terms>", methods=("GET",))
-# ---------------------------------------------------------------------------
-@cross_domain
-@with_session
-def render_search_articles(search_terms):
-    return json_result(search_render_articles(flask.g.user, 20, search_terms))
-
-# ---------------------------------------------------------------------------
-@api.route(f"/{RENDER_FILTER}/<search_terms>", methods=("GET",))
-# ---------------------------------------------------------------------------
-@cross_domain
-@with_session
-def render_filter_articles(search_terms):
-    return json_result(filter_render_articles(flask.g.user, 20, search_terms))
-

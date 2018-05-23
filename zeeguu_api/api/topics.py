@@ -106,9 +106,10 @@ def get_interesting_topics():
     already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
 
     for topic in Topic.find_interesting_topics(flask.g.user):
-        if (not topic in already_filtered) and (not topic in already_subscribed):
+        if (topic not in already_filtered) and (topic not in already_subscribed):
             topic_data.append(topic.as_dictionary())
     return json_result(topic_data)
+
 
 # ---------------------------------------------------------------------------
 @api.route(f"/{FILTER_TOPIC}", methods=("POST",))
@@ -197,7 +198,7 @@ def get_interesting_filters():
     already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
 
     for topic in Topic.find_interesting_filters(flask.g.user):
-        if (not topic in already_filtered) and (not topic in already_subscribed):
+        if (topic not in already_filtered) and (topic not in already_subscribed):
             filter_data.append(topic.as_dictionary())
     return json_result(filter_data)
 
