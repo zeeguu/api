@@ -137,10 +137,10 @@ def _get_user_info(id, duration):
             reading_time += i.duration/1000;
 
         for j in times2:
-            startDay = i.start_time.date()
+            startDay = j.start_time.date()
             index = (datetime.now().date() - startDay).days
-            exercise_time_list[index] += i.duration/1000
-            exercise_time += i.duration/1000;
+            exercise_time_list[index] += j.duration/1000
+            exercise_time += j.duration/1000;
 
 
 
