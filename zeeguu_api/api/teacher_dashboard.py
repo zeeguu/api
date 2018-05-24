@@ -126,7 +126,7 @@ def _get_user_info(id, duration):
         exercise_time_list = list()
         reading_time = 0
         exercise_time = 0
-        for n in range(0,int(duration)):
+        for n in range(0,int(duration)+1):
             reading_time_list.append(0);
             exercise_time_list.append(0);
 
