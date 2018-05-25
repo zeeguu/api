@@ -116,7 +116,7 @@ def filter_search(search_terms):
 @with_session
 def unfilter_search(search_id):
     """
-    A user can unsubscribe from the topic with a given ID
+    A user can unsubscribe from the search with a given ID
     :return: OK / ERROR
     """
 
@@ -140,7 +140,7 @@ def unfilter_search(search_id):
 @with_session
 def get_filtered_searches():
     """
-    A user might be subscribed to multiple searches at once.
+    A user might be subscribed to multiple search filters at once.
     This endpoint returns them as a list.
 
     :return: a json list with searches for which the user is registered;
@@ -166,4 +166,11 @@ def get_filtered_searches():
 @cross_domain
 @with_session
 def search_for_search_terms(search_terms):
+    """
+    This endpoint is used for the standard search.
+    It passes the search terms to the mixed_recommender function
+    and returns the articles in a json format as a list.
+    :param search_terms:
+    :return:
+    """
     return json_result(article_search_for_user(flask.g.user, 20, search_terms))

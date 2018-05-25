@@ -24,6 +24,7 @@ INTERESTING_LANGUAGES = "user_languages/interesting"
 @with_session
 def add_user_language():
     """
+    This endpoint is for adding a user language.
 
     :return: "OK" in case of success
     """
@@ -42,7 +43,8 @@ def add_user_language():
 @with_session
 def delete_user_language(language_id):
     """
-    A user can delete a language with a given ID
+    A user can delete a language with a given ID.
+
     :return: OK / ERROR
     """
 
@@ -63,13 +65,13 @@ def delete_user_language(language_id):
 @with_session
 def get_user_languages():
     """
-    A user might be subscribed to multiple searches at once.
+    A user might be subscribed to multiple languages at once.
     This endpoint returns them as a list.
 
     :return: a json list with searches for which the user is registered;
      every search in this list is a dictionary with the following info:
                 id = unique id of the topic;
-                search_keywords = <unicode string>
+                language = <unicode string>
     """
     all_user_languages = []
     user_languages = UserLanguage.get_all_user_languages(flask.g.user)
@@ -85,8 +87,8 @@ def get_user_languages():
 @with_session
 def get_interesting_languages():
     """
-    :param: search_terms -- the search to be subscribed to.
-    Subscribe to the topic with the given id
+    'Interesting languages' are defined as languages the user
+    isn't subscribed to already and thus might subscribe to.
 
     :return: "OK" in case of success
     """

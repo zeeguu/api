@@ -105,7 +105,7 @@ def get_interesting_topics():
     already_filtered = [each.topic for each in TopicFilter.topics_for_user(flask.g.user)]
     already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
 
-    for topic in Topic.find_interesting_topics(flask.g.user):
+    for topic in Topic.get_all_topics():
         if (topic not in already_filtered) and (topic not in already_subscribed):
             topic_data.append(topic.as_dictionary())
     return json_result(topic_data)
@@ -197,7 +197,7 @@ def get_interesting_filters():
     already_filtered = [each.topic for each in TopicFilter.topics_for_user(flask.g.user)]
     already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
 
-    for topic in Topic.find_interesting_filters(flask.g.user):
+    for topic in Topic.get_all_topics():
         if (topic not in already_filtered) and (topic not in already_subscribed):
             filter_data.append(topic.as_dictionary())
     return json_result(filter_data)
