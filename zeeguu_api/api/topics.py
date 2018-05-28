@@ -76,7 +76,7 @@ def get_subscribed_topics():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    subscriptions = TopicSubscription.topics_for_user(flask.g.user)
+    subscriptions = TopicSubscription.all_for_user(flask.g.user)
     topic_list = []
     for sub in subscriptions:
         try:
@@ -102,8 +102,8 @@ def get_interesting_topics():
     :return:
     """
     topic_data = []
-    already_filtered = [each.topic for each in TopicFilter.topics_for_user(flask.g.user)]
-    already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
+    already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
+    already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
 
     for topic in Topic.get_all_topics():
         if (topic not in already_filtered) and (topic not in already_subscribed):
@@ -168,7 +168,7 @@ def get_subscribed_filters():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    filters = TopicFilter.topics_for_user(flask.g.user)
+    filters = TopicFilter.all_for_user(flask.g.user)
     filter_list = []
     for fil in filters:
         try:
@@ -194,8 +194,8 @@ def get_interesting_filters():
     :return:
     """
     filter_data = []
-    already_filtered = [each.topic for each in TopicFilter.topics_for_user(flask.g.user)]
-    already_subscribed = [each.topic for each in TopicSubscription.topics_for_user(flask.g.user)]
+    already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
+    already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
 
     for topic in Topic.get_all_topics():
         if (topic not in already_filtered) and (topic not in already_subscribed):

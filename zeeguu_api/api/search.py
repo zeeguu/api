@@ -78,7 +78,7 @@ def get_subscribed_searches():
                 id = unique id of the topic;
                 search_keywords = <unicode string>
     """
-    subscriptions = SearchSubscription.search_subscriptions_for_user(flask.g.user)
+    subscriptions = SearchSubscription.all_for_user(flask.g.user)
     searches_list = []
 
     for subs in subscriptions:
@@ -148,7 +148,7 @@ def get_filtered_searches():
                 id = unique id of the topic;
                 search_keywords = <unicode string>
     """
-    filters = SearchFilter.search_filters_for_user(flask.g.user)
+    filters = SearchFilter.all_for_user(flask.g.user)
     filtered_searches = []
 
     for filt in filters:

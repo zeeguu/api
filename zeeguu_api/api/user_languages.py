@@ -84,7 +84,7 @@ def get_user_languages():
                 language = <unicode string>
     """
     all_user_languages = []
-    user_languages = UserLanguage.get_all_user_languages(flask.g.user)
+    user_languages = UserLanguage.all_for_user(flask.g.user)
     for lan in user_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)
@@ -106,7 +106,7 @@ def get_reading_languages():
                 language = <unicode string>
     """
     all_user_languages = []
-    reading_languages = UserLanguage.get_all_reading_languages(flask.g.user)
+    reading_languages = UserLanguage.all_reading_for_user(flask.g.user)
     for lan in reading_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)
@@ -126,7 +126,7 @@ def get_interesting_languages():
     """
 
     all_languages = Language.available_languages()
-    learned_languages = UserLanguage.get_all_reading_languages(flask.g.user)
+    learned_languages = UserLanguage.all_reading_for_user(flask.g.user)
 
     interesting_languages = []
 
