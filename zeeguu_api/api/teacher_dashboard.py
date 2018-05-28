@@ -91,7 +91,7 @@ def users_from_cohort(id, duration):
 @with_session
 def wrapper_to_json_user(id, duration):
     '''
-        Takes id for a cohort and wraps _get_user_info
+        Takes id for a user and wraps _get_user_info
         then returns result jsonified.
 
     '''
@@ -272,7 +272,7 @@ def inv_code_usable(invite_code):
 @with_session
 def create_own_cohort():
     '''
-        Creates a class in the database.
+        Creates a cohort in the database.
         Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
     '''
