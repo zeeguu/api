@@ -12,11 +12,10 @@ session = zeeguu.db.session
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"
 SUBSCRIBED_TOPICS = "subscribed_topics"
-INTERESTING_TOPICS = "interesting_topics"
+UNFOLLOWED_TOPICS = "unfollowed_topics"
 FILTER_TOPIC = "filter_topic"
 UNFILTER_TOPIC = "unfilter_topic"
 FILTERED_TOPICS = "filtered_topics"
-INTERESTING_FILTERS = "interesting_filters"
 
 
 # ---------------------------------------------------------------------------
@@ -88,11 +87,11 @@ def get_subscribed_topics():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{INTERESTING_TOPICS}", methods=("GET",))
+@api.route(f"/{UNFOLLOWED_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_interesting_topics():
+def get_unfollowed_topics():
     """
     Get a list of interesting topics for the given language.
     Interesting topics are for now defined as:
@@ -177,28 +176,4 @@ def get_subscribed_filters():
             zeeguu.log(str(e))
 
     return json_result(filter_list)
-
-
-# ---------------------------------------------------------------------------
-@api.route(f"/{INTERESTING_FILTERS}", methods=("GET",))
-# ---------------------------------------------------------------------------
-@cross_domain
-@with_session
-def get_interesting_filters():
-    """
-    Get a list of interesting topic filters for the given language.
-    Interesting topic filters are for now defined as:
-        - The filter is not yet followed
-        - The filter is not in the topics list
-
-    :return:
-    """
-    filter_data = []
-    already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
-    already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
-
-    for topic in Topic.get_all_topics():
-        if (topic not in already_filtered) and (topic not in already_subscribed):
-            filter_data.append(topic.as_dictionary())
-    return json_result(filter_data)
 
