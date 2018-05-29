@@ -78,9 +78,9 @@ def get_user_languages():
     A user might be subscribed to multiple languages at once.
     This endpoint returns them as a list.
 
-    :return: a json list with searches for which the user is registered;
-     every search in this list is a dictionary with the following info:
-                id = unique id of the topic;
+    :return: a json list with languages for which the user is registered;
+     every language in this list is a dictionary with the following info:
+                id = unique id of the language;
                 language = <unicode string>
     """
     all_user_languages = []
@@ -100,9 +100,9 @@ def get_reading_languages():
     A user might be subscribed to multiple languages at once.
     This endpoint returns them as a list.
 
-    :return: a json list with searches for which the user is registered;
-     every search in this list is a dictionary with the following info:
-                id = unique id of the topic;
+    :return: a json list with languages for which the user is registered;
+     every language in this list is a dictionary with the following info:
+                id = unique id of the language;
                 language = <unicode string>
     """
     all_user_languages = []
