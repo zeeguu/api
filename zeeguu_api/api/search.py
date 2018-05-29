@@ -30,7 +30,6 @@ def subscribe_to_search(search_terms):
     :param: search_terms -- the search terms to be subscribed to.
     Subscribe to a search with given search terms.
 
-    :return: "OK" in case of success
     """
     search = Search.find_or_create(session, search_terms)
     SearchSubscription.find_or_create(session, flask.g.user, search)
@@ -98,7 +97,6 @@ def filter_search(search_terms):
     :param: search_terms -- the search to be filtered.
     Subscribe to the search filter with the given terms.
 
-    :return: "OK" in case of success
     """
 
     search = Search.find_or_create(session, search_terms)
@@ -169,6 +167,6 @@ def search_for_search_terms(search_terms):
     It passes the search terms to the mixed_recommender function
     and returns the articles in a json format as a list.
     :param search_terms:
-    :return:
+    :return: json article list for the search term
     """
     return json_result(article_search_for_user(flask.g.user, 20, search_terms))
