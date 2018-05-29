@@ -18,8 +18,6 @@ SUBSCRIBED_SEARCHES = "subscribed_searches"
 FILTER_SEARCH = "filter_search"
 UNFILTER_SEARCH = "unfilter_search"
 FILTERED_SEARCHES = "filtered_searches"
-RENDER_SEARCH = "render_search"
-RENDER_FILTER = "render_filter"
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +28,7 @@ RENDER_FILTER = "render_filter"
 def subscribe_to_search(search_terms):
     """
     :param: search_terms -- the search terms to be subscribed to.
-    Subscribe to the topic with the given id
+    Subscribe to a search with given search terms.
 
     :return: "OK" in case of success
     """
@@ -47,7 +45,7 @@ def subscribe_to_search(search_terms):
 @with_session
 def unsubscribe_from_search(search_id):
     """
-    A user can unsubscribe from the topic with a given ID
+    A user can unsubscribe from the search with a given ID
     :return: OK / ERROR
     """
     try:
@@ -97,8 +95,8 @@ def get_subscribed_searches():
 @with_session
 def filter_search(search_terms):
     """
-    :param: search_terms -- the search to be subscribed to.
-    Subscribe to the topic with the given id
+    :param: search_terms -- the search to be filtered.
+    Subscribe to the search filter with the given terms.
 
     :return: "OK" in case of success
     """
