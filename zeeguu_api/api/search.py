@@ -55,6 +55,7 @@ def unsubscribe_from_search(search_id):
         session.commit()
 
     except Exception as e:
+        zeeguu.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -124,6 +125,7 @@ def unfilter_search(search_id):
         session.commit()
 
     except Exception as e:
+        zeeguu.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"

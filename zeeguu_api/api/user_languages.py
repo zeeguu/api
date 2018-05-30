@@ -12,30 +12,47 @@ from . import api
 session = zeeguu.db.session
 
 USER_LANGUAGES = "user_languages"
-ADD_USER_LANGUAGE = "user_languages/add"
+MODIFY_USER_LANGUAGE = "user_languages/modify"
 DELETE_USER_LANGUAGE = "user_languages/delete"
 INTERESTING_LANGUAGES = "user_languages/interesting"
 READING_LANGUAGES = "user_languages/reading"
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{ADD_USER_LANGUAGE}", methods=("POST",))
+@api.route(f"/{MODIFY_USER_LANGUAGE}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
 def add_user_language():
     """
-    This endpoint is for adding a user language.
+    This endpoint is for modifying a user language.
     It tries to find the user_language, and otherwise create it.
-    After that set it to reading_news so it appears in the reader.
+    It then sets all the parameters given.
 
     :return: "OK" in case of success
     """
     language_id = int(request.form.get('language_id', ''))
+    try:
+        language_reading = int(request.form.get('language_reading', ''))
+    except:
+        language_reading = None
+    try:
+        language_exercises = int(request.form.get('language_exercises', ''))
+    except:
+        language_exercises = None
+    try:
+        language_level = int(request.form.get('language_level', ''))
+    except:
+        language_level = None
 
     language_object = Language.find_by_id(language_id)
     user_language = UserLanguage.find_or_create(session, flask.g.user, language_object)
-    user_language.set_reading_news()
+    if language_reading is not None:
+        user_language.reading_news = language_reading
+    if language_exercises is not None:
+        user_language.doing_exercises = language_exercises
+    if language_level is not None:
+        user_language.declared_level = language_level
     session.add(user_language)
     session.commit()
 
@@ -50,17 +67,15 @@ def add_user_language():
 def delete_user_language(language_id):
     """
     A user can delete a language with a given ID.
-    At the moment this endpoint is used for deleting it from the reader,
-    not actually deleting the user language, as it might still be used
-    somewhere else or later on.
+    With this endpoint the full user language with all the data is deleted.
+    At the moment not used but might be useful.
 
     :return: OK / ERROR
     """
 
     try:
-        language = UserLanguage.with_language_id(language_id, flask.g.user)
-        language.stop_reading_news()
-        session.add(language)
+        to_delete = UserLanguage.with_language_id(language_id, flask.g.user)
+        session.delete(to_delete)
         session.commit()
     except Exception as e:
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
@@ -122,7 +137,10 @@ def get_interesting_languages():
     'Interesting languages' are defined as languages the user
     isn't subscribed to already and thus might subscribe to.
 
-    :return: "OK" in case of success
+    :return: a json list with languages the user isn't reading yet.
+    every language in this list is a dictionary with the following info:
+                id = unique id of the language;
+                language = <unicode string>
     """
 
     all_languages = Language.available_languages()
