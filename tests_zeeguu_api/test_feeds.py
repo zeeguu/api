@@ -36,7 +36,7 @@ class FeedTests(APITestMixin, TestCase):
         new_feed_id = RSSFeedRule().feed.id
 
         # When
-        form_data = {"feed_id": new_feed_id}
+        form_data = {"source_id": new_feed_id}
         self.api_post(f'/{START_FOLLOWING_FEED}', form_data)
 
         # Then
