@@ -30,6 +30,11 @@ def subscribe_to_search(search_terms):
     :param: search_terms -- the search terms to be subscribed to.
     Subscribe to a search with given search terms.
 
+    :return: it returns the search as a dictionary. Like:
+                id = unique id of the search;
+                search_keywords = <unicode string>
+             This is used to display it in the UI.
+
     """
     search = Search.find_or_create(session, search_terms)
     SearchSubscription.find_or_create(session, flask.g.user, search)
@@ -45,6 +50,7 @@ def subscribe_to_search(search_terms):
 def unsubscribe_from_search(search_id):
     """
     A user can unsubscribe from the search with a given ID
+
     :return: OK / ERROR
     """
     try:
@@ -73,7 +79,7 @@ def get_subscribed_searches():
 
     :return: a json list with searches for which the user is registered;
      every search in this list is a dictionary with the following info:
-                id = unique id of the topic;
+                id = unique id of the search;
                 search_keywords = <unicode string>
     """
     subscriptions = SearchSubscription.all_for_user(flask.g.user)
@@ -168,7 +174,9 @@ def search_for_search_terms(search_terms):
     This endpoint is used for the standard search.
     It passes the search terms to the mixed_recommender function
     and returns the articles in a json format as a list.
+
     :param search_terms:
     :return: json article list for the search term
+
     """
     return json_result(article_search_for_user(flask.g.user, 20, search_terms))
