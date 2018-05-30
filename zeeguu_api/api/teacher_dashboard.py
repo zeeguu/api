@@ -326,10 +326,6 @@ def add_user_with_cohort():
         flask.abort(400)
 
     if not len(password) == 0:
-        # Checks to see if there is space, if there is it increments the cur_students variables.
-        # Therefore it is essential that you ensure you add the student if this function returns true.
-        # Hence it being placed after other checks.
-        # However, if an exeption is caught, this error is handled.
         if cohort.cohort_still_has_capacity():
             try:
                 user = User(email, username, password)
