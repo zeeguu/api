@@ -43,7 +43,7 @@ def subscribe_to_search(search_terms):
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{UNSUBSCRIBE_SEARCH}/<search_id>", methods=("GET",))
+@api.route(f"/{UNSUBSCRIBE_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
@@ -53,6 +53,9 @@ def unsubscribe_from_search(search_id):
 
     :return: OK / ERROR
     """
+
+    search_id = int(request.form.get('search_id', ''))
+
     try:
         to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
         session.delete(to_delete)
