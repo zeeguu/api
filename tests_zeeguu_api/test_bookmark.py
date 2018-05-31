@@ -108,3 +108,11 @@ class BookmarkTest(APITestMixin, TestCase):
         bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
         assert "context"  in bookmarks[0]["bookmarks"][0]
 
+    def test_top_bookmarks(self):
+        """
+        Tests that both "True" and "true" can be used as values for the "with_context" form field.
+        :return:
+        """
+        result = self.raw_data_from_api_get('/top_bookmarks/10')
+        print (result)
+
