@@ -40,16 +40,18 @@ def subscribe_to_topic_with_id():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{UNSUBSCRIBE_TOPIC}/<topic_id>", methods=("GET",))
+@api.route(f"/{UNSUBSCRIBE_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def unsubscribe_from_topic(topic_id):
+def unsubscribe_from_topic():
     """
     A user can unsubscribe from the topic with a given ID
 
     :return: "OK" in case of success
     """
+
+    topic_id = int(request.form.get('topic_id', ''))
 
     try:
         to_delete = TopicSubscription.with_topic_id(topic_id, flask.g.user)
@@ -133,15 +135,17 @@ def subscribe_to_filter_with_id():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{UNFILTER_TOPIC}/<filter_id>", methods=("GET",))
+@api.route(f"/{UNFILTER_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def unsubscribe_from_filter(filter_id):
+def unsubscribe_from_filter():
     """
     A user can unsubscribe from the filter with a given ID
     :return: OK / ERROR
     """
+
+    filter_id = int(request.form.get('topic_id', ''))
 
     try:
         to_delete = TopicFilter.with_topic_id(filter_id, flask.g.user)

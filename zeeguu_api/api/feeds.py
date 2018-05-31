@@ -38,15 +38,17 @@ def start_following_feed_with_id():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{STOP_FOLLOWING_FEED}/<feed_id>", methods=("GET",))
+@api.route(f"/{STOP_FOLLOWING_FEED}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def stop_following_feed(feed_id):
+def stop_following_feed():
     """
     A user can stop following the feed with a given ID
     :return: OK / ERROR
     """
+
+    feed_id = int(request.form.get('source_id', ''))
 
     try:
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
