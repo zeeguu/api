@@ -28,7 +28,8 @@ class FeedTests(APITestMixin, TestCase):
         initial_feed_count = len(self.json_from_api_get(f"{FOLLOWED_FEEDS}"))
 
         # if we stop following one, we'll follow only one
-        assert self.api_get(f"{STOP_FOLLOWING_FEED}/{feed_id}").data == b"OK"
+        form_data = {"source_id": feed_id}
+        assert self.api_post(f"{STOP_FOLLOWING_FEED}", form_data).data == b"OK"
         feeds = self.json_from_api_get(f"{FOLLOWED_FEEDS}")
         assert len(feeds) == initial_feed_count - 1
 
@@ -63,11 +64,12 @@ class FeedTests(APITestMixin, TestCase):
     def test_multiple_stop_following_same_feed(self):
         feed_id = self.feed1.id
 
+        form_data = {"source_id": feed_id}
         # if we stop following one it'll be ok
-        assert self.api_get(f"{STOP_FOLLOWING_FEED}/{feed_id}").data == b"OK"
+        assert self.api_post(f"{STOP_FOLLOWING_FEED}", form_data).data == b"OK"
 
         # if we stop following it once more, not ok
-        assert not (self.api_get(f"{STOP_FOLLOWING_FEED}/{feed_id}").data == b"OK")
+        assert not (self.api_post(f"{STOP_FOLLOWING_FEED}", form_data).data == b"OK")
 
     def test_get_feed_items_with_metrics(self):
         download_from_feed(self.feed1, zeeguu.db.session, 3)
