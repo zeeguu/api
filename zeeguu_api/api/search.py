@@ -101,9 +101,9 @@ def get_subscribed_searches():
 @with_session
 def filter_search(search_terms):
     """
-    :param: search_terms -- the search to be filtered.
     Subscribe to the search filter with the given terms.
-
+    :param: search_terms -- the search to be filtered.
+    :return: the search as a dictionary
     """
 
     search = Search.find_or_create(session, search_terms)

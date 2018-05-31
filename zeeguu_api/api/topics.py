@@ -12,7 +12,7 @@ session = zeeguu.db.session
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"
 SUBSCRIBED_TOPICS = "subscribed_topics"
-UNFOLLOWED_TOPICS = "unfollowed_topics"
+INTERESTING_TOPICS = "interesting_topics"
 FILTER_TOPIC = "filter_topic"
 UNFILTER_TOPIC = "unfilter_topic"
 FILTERED_TOPICS = "filtered_topics"
@@ -47,7 +47,8 @@ def subscribe_to_topic_with_id():
 def unsubscribe_from_topic(topic_id):
     """
     A user can unsubscribe from the topic with a given ID
-    :return: OK / ERROR
+
+    :return: "OK" in case of success
     """
 
     try:
@@ -87,11 +88,11 @@ def get_subscribed_topics():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{UNFOLLOWED_TOPICS}", methods=("GET",))
+@api.route(f"/{INTERESTING_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_unfollowed_topics():
+def get_interesting_topics():
     """
     Get a list of interesting topics for the given language.
     Interesting topics are for now defined as:

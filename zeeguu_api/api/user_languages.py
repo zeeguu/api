@@ -23,7 +23,7 @@ READING_LANGUAGES = "user_languages/reading"
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def add_user_language():
+def modify_user_language():
     """
     This endpoint is for modifying a user language.
     It tries to find the user_language, and otherwise create it.
@@ -70,7 +70,7 @@ def delete_user_language(language_id):
     With this endpoint the full user language with all the data is deleted.
     At the moment not used but might be useful.
 
-    :return: OK / ERROR
+    :return: "OK" in case of success
     """
 
     try:
