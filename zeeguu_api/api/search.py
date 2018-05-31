@@ -1,5 +1,6 @@
 import flask
 import zeeguu
+from flask import request
 from zeeguu.model.search import Search
 from zeeguu.model.search_filter import SearchFilter
 from zeeguu.model.search_subscription import SearchSubscription
@@ -47,7 +48,7 @@ def subscribe_to_search(search_terms):
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def unsubscribe_from_search(search_id):
+def unsubscribe_from_search():
     """
     A user can unsubscribe from the search with a given ID
 
@@ -116,15 +117,17 @@ def filter_search(search_terms):
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{UNFILTER_SEARCH}/<search_id>", methods=("GET",))
+@api.route(f"/{UNFILTER_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def unfilter_search(search_id):
+def unfilter_search():
     """
     A user can unsubscribe from the search with a given ID
     :return: OK / ERROR
     """
+
+    search_id = int(request.form.get('search_id', ''))
 
     try:
         to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
