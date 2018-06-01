@@ -14,7 +14,7 @@ session = zeeguu.db.session
 USER_LANGUAGES = "user_languages"
 MODIFY_USER_LANGUAGE = "user_languages/modify"
 DELETE_USER_LANGUAGE = "user_languages/delete"
-INTERESTING_LANGUAGES = "user_languages/interesting"
+INTERESTING_LANGUAGES_FOR_READING = "user_languages/interesting_for_reading"
 READING_LANGUAGES = "user_languages/reading"
 
 
@@ -90,8 +90,8 @@ def delete_user_language(language_id):
 @with_session
 def get_user_languages():
     """
-    A user might be subscribed to multiple languages at once.
-    This endpoint returns them as a list.
+    A user might have multiple user languages, which can be for reading
+    and/or doing exercises.
 
     :return: a json list with languages for which the user is registered;
      every language in this list is a dictionary with the following info:
@@ -128,11 +128,11 @@ def get_reading_languages():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{INTERESTING_LANGUAGES}", methods=("GET",))
+@api.route(f"/{INTERESTING_LANGUAGES_FOR_READING}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_interesting_languages():
+def get_interesting_reading_languages():
     """
     'Interesting languages' are defined as languages the user
     isn't subscribed to already and thus might subscribe to.
