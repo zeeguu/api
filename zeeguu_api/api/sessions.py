@@ -30,7 +30,7 @@ def add_user(email):
     except ValueError:
         return make_error(400, "Invalid value")
     except sqlalchemy.exc.IntegrityError:
-        return make_error(401, "Invalid credentials")
+        return make_error(401, "There is already an account for this email.")
     return get_session(email)
 
 
