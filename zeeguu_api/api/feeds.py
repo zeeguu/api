@@ -28,8 +28,10 @@ def start_following_feed_with_id():
 
     :return: "OK" in case of success
     """
-
-    feed_id = int(request.form.get('source_id', ''))
+    if request.form.get('source_id', ''):
+        feed_id = int(request.form.get('source_id', ''))
+    else:
+        feed_id = int(request.form.get('feed_id', ''))
 
     feed_object = RSSFeed.find_by_id(feed_id)
     RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
@@ -48,7 +50,10 @@ def stop_following_feed():
     :return: OK / ERROR
     """
 
-    feed_id = int(request.form.get('source_id', ''))
+    if request.form.get('source_id', ''):
+        feed_id = int(request.form.get('source_id', ''))
+    else:
+        feed_id = int(request.form.get('feed_id', ''))
 
     try:
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
