@@ -1,3 +1,4 @@
+import datetime
 from urllib.parse import unquote_plus
 
 import flask
@@ -16,10 +17,11 @@ from python_translators.translation_query import TranslationQuery
 
 # When testing, we're injecting the ReverseTranslator instead of the BestEffort which
 # requires API keys for the third-party services.
-#if 'unittest' in sys.modules:
+# if 'unittest' in sys.modules:
 #    from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
-#else:
+# else:
 from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
+
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
@@ -121,6 +123,18 @@ def delete_bookmark(bookmark_id):
     db_session.commit()
     return "OK"
 
+
+@api.route("/report_learned_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def report_learned_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.learned = True
+    bookmark.learned_time = datetime.datetime.now()
+    db_session.commit()
+    return "OK"
+
+
 @api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
@@ -130,6 +144,7 @@ def star_bookmark(bookmark_id):
     db_session.commit()
     return "OK"
 
+
 @api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
@@ -138,6 +153,7 @@ def unstar_bookmark(bookmark_id):
     bookmark.starred = False
     db_session.commit()
     return "OK"
+
 
 def minimize_context(context_str, from_lang_code, word_str):
     _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 3)
