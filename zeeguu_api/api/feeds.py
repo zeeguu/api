@@ -40,7 +40,7 @@ def start_following_feed_with_id():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{STOP_FOLLOWING_FEED}", methods=("POST","GET"))
+@api.route(f"/{STOP_FOLLOWING_FEED}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
@@ -50,10 +50,7 @@ def stop_following_feed():
     :return: OK / ERROR
     """
 
-    if request.form.get('source_id', ''):
-        feed_id = int(request.form.get('source_id', ''))
-    else:
-        feed_id = int(request.form.get('feed_id', ''))
+    feed_id = int(request.form.get('source_id', ''))
 
     try:
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
