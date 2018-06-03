@@ -40,7 +40,7 @@ def start_following_feed_with_id():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{STOP_FOLLOWING_FEED}", methods=("POST",))
+@api.route(f"/{STOP_FOLLOWING_FEED}", methods=("POST","GET"))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
