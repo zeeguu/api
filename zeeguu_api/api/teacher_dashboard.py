@@ -110,15 +110,9 @@ def _get_user_info(id, duration):
     try:
         fromDate = datetime.now() - timedelta(days=int(duration))
 
-
-
-
-
-        times1 = UserReadingSession.find_by_user(int(id),fromDate, datetime.now())
-
+        times1 = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
 
         times2 = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
-
 
         user = User.query.filter_by(id=id).one()
 
@@ -126,24 +120,21 @@ def _get_user_info(id, duration):
         exercise_time_list = list()
         reading_time = 0
         exercise_time = 0
-        for n in range(0,int(duration)+1):
+        for n in range(0, int(duration) + 1):
             reading_time_list.append(0);
             exercise_time_list.append(0);
 
         for i in times1:
             startDay = i.start_time.date()
-            index = (datetime.now().date()-startDay).days
-            reading_time_list[index] += i.duration/1000
-            reading_time += i.duration/1000;
+            index = (datetime.now().date() - startDay).days
+            reading_time_list[index] += i.duration / 1000
+            reading_time += i.duration / 1000;
 
         for j in times2:
             startDay = j.start_time.date()
             index = (datetime.now().date() - startDay).days
-            exercise_time_list[index] += j.duration/1000
-            exercise_time += j.duration/1000;
-
-
-
+            exercise_time_list[index] += j.duration / 1000
+            exercise_time += j.duration / 1000;
 
         dictionary = {
             'id': str(id),
@@ -230,10 +221,16 @@ def _get_cohort_info(id):
         inv_code = c.inv_code
         max_students = c.max_students
         cur_students = c.get_current_student_count()
-        language_id = c.language_id
-        language = Language.query.filter_by(id=language_id).one()
+        try:
+            language_id = c.language_id
+            language = Language.query.filter_by(id=language_id).one()
+            language_name = language.name
+        except ValueError:
+            language_name = "None"
+        except sqlalchemy.orm.exc.NoResultFound:
+            language_name = "None"
         dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-                      'cur_students': cur_students, 'language_name': language.name}
+                      'cur_students': cur_students, 'language_name': language_name}
         return dictionary
     except ValueError:
         flask.abort(400)
@@ -391,5 +388,3 @@ def update_cohort(cohort_id):
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
         return 'IntegrityError'
-
-
