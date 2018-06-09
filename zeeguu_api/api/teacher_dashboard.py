@@ -315,7 +315,6 @@ def add_user_with_cohort():
     password = request.form.get("password")
     username = request.form.get("username")
     inv_code = request.form.get("inv_code")
-
     try:
         cohort_id = Cohort.get_id(inv_code)
         cohort = Cohort.find(cohort_id)
@@ -325,14 +324,16 @@ def add_user_with_cohort():
     if not len(password) == 0:
         if cohort.cohort_still_has_capacity():
             try:
-                user = User(email, username, password)
+                user = User(email, username, password, invitation_code = inv_code)
                 user.cohort = cohort
                 db.session.add(user)
                 db.session.commit()
                 return 'user created'
             except ValueError:
+                return 'valueerror'
                 flask.abort(400)
             except sqlalchemy.exc.IntegrityError:
+                return 'sqlerror'
                 flask.abort(400)
         return 'no more space in class!'
     flask.abort(400)
