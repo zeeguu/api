@@ -7,7 +7,7 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort, UserActivityData, Session, Language
+from zeeguu.model import User, Cohort, UserActivityData, Session, Language, Teacher
 import sqlalchemy
 from flask import jsonify
 import json
@@ -16,6 +16,14 @@ import datetime
 from datetime import datetime, timedelta
 
 db = zeeguu.db
+
+def is_teacher(id):
+    try:
+        teacher = Teacher.query.filter_by(user_id=id).one()
+        if not teacher is None:
+            return True
+    except:
+        return False
 
 
 def has_permission_for_cohort(cohort_id):
@@ -273,9 +281,13 @@ def create_own_cohort():
         Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
     '''
+    if not is_teacher(flask.g.user.id):
+        flask.abort(401)
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
     language_id = request.form.get("language_id")
+    if name is None or inv_code is None or language_id is None:
+        flask.abort(400)
     available_languages = Language.available_languages()
     code_allowed = False
     for code in available_languages:
@@ -304,12 +316,21 @@ def create_own_cohort():
         return "IntegrityError"
 
 
+@api.route("/add_teacher/<id>", methods=['POST'])
+def add_teacher(id):
+    try:
+        user = User.query.filter_by(id=id).one()
+        teacher = Teacher(user)
+        db.session.add(teacher)
+        db.session.commit()
+        return "OK"
+    except:
+        flask.abort(400)
 @api.route("/add_user_with_cohort", methods=['POST'])
 def add_user_with_cohort():
     '''
         Creates user and adds them to a cohort
         Requires input form (email, password, username, inv_code)
-
     '''
     email = request.form.get("email")
     password = request.form.get("password")
@@ -328,12 +349,10 @@ def add_user_with_cohort():
                 user.cohort = cohort
                 db.session.add(user)
                 db.session.commit()
-                return 'user created'
+                return 'OK'
             except ValueError:
-                return 'valueerror'
                 flask.abort(400)
             except sqlalchemy.exc.IntegrityError:
-                return 'sqlerror'
                 flask.abort(400)
         return 'no more space in class!'
     flask.abort(400)
