@@ -147,20 +147,32 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.post('/add_user_with_cohort', data=newUser)
         assert result.status_code == 400
         # Get list of users in a class
-        result = self.app.get('/users_from_cohort/1?session=' + rv.data.decode('utf-8'))
+        result = self.app.get('/users_from_cohort/1/14?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 200
         result = json.loads(result.data)
         assert result[0]['name'] == 'newUser1'
 
         # Get individual user
-        result = self.app.get('/user_info/'+str(result[0]['id'])+"?session="+ rv.data.decode('utf-8'))
+        result = self.app.get('/user_info/'+str(result[0]['id'])+"/14?session="+ rv.data.decode('utf-8'))
         assert result.status_code == 200
         result = json.loads(result.data)
         assert result['name'] == 'newUser1'
 
         # User that doesn't exists
-        result = self.app.get('/user_info/55?session=' + rv.data.decode('utf-8'))
+        result = self.app.get('/user_info/55/14?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 400
+
+        # User not in class owned by teacher
+        newUser = {
+            'username': 'newUser3',
+            'password': 'password',
+            'email': 'newUser3@gmail.com',
+        }
+        result = self.app.post('/add_user/'+newUser['email'], data=newUser)
+        assert result.status_code == 200
+        result = self.app.get('/user_info/4/14?session=' + rv.data.decode('utf-8'))
+        assert result.status_code == 401
+
 
 
     def test_remove_class(self):

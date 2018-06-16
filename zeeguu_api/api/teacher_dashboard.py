@@ -7,14 +7,23 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort, UserActivityData, Session, Language
+from zeeguu.model import User, Cohort, UserActivityData, Session, Language, Teacher
 import sqlalchemy
 from flask import jsonify
 import json
 import random
 import datetime
+from datetime import datetime, timedelta
 
 db = zeeguu.db
+
+def is_teacher(id):
+    try:
+        teacher = Teacher.query.filter_by(user_id=id).one()
+        if not teacher is None:
+            return True
+    except:
+        return False
 
 
 def has_permission_for_cohort(cohort_id):
@@ -61,9 +70,9 @@ def has_permission_for_user_info(id):
         return "NoResultFound"
 
 
-@api.route("/users_from_cohort/<id>", methods=["GET"])
+@api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
 @with_session
-def users_from_cohort(id):
+def users_from_cohort(id, duration):
     '''
         Takes id for a cohort and returns all users belonging to that cohort.
 
@@ -75,7 +84,7 @@ def users_from_cohort(id):
         users = User.query.filter_by(cohort_id=c.id).all()
         users_info = []
         for u in users:
-            info = _get_user_info(u.id)
+            info = _get_user_info(u.id, duration)
             users_info.append(info)
         return json.dumps(users_info)
     except KeyError:
@@ -86,33 +95,64 @@ def users_from_cohort(id):
         return "NoResultFound"
 
 
-@api.route("/user_info/<id>", methods=["GET"])
+@api.route("/user_info/<id>/<duration>", methods=["GET"])
 @with_session
-def wrapper_to_json_user(id):
+def wrapper_to_json_user(id, duration):
     '''
-        Takes id for a cohort and wraps _get_user_info
+        Takes id for a user and wraps _get_user_info
         then returns result jsonified.
 
     '''
-    if (not has_permission_for_user_info(id)):
+    if (not has_permission_for_user_info(id) == "OK"):
         flask.abort(401)
-    return jsonify(_get_user_info(id))
+    return jsonify(_get_user_info(id, duration))
 
 
-def _get_user_info(id):
+def _get_user_info(id, duration):
+    from zeeguu.model import UserReadingSession, UserExerciseSession
+
     '''
         Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
 
     '''
     try:
+        fromDate = datetime.now() - timedelta(days=int(duration))
+
+        times1 = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
+
+        times2 = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
+
         user = User.query.filter_by(id=id).one()
+
+        reading_time_list = list()
+        exercise_time_list = list()
+        reading_time = 0
+        exercise_time = 0
+        for n in range(0, int(duration) + 1):
+            reading_time_list.append(0);
+            exercise_time_list.append(0);
+
+        for i in times1:
+            startDay = i.start_time.date()
+            index = (datetime.now().date() - startDay).days
+            reading_time_list[index] += i.duration / 1000
+            reading_time += i.duration / 1000;
+
+        for j in times2:
+            startDay = j.start_time.date()
+            index = (datetime.now().date() - startDay).days
+            exercise_time_list[index] += j.duration / 1000
+            exercise_time += j.duration / 1000;
+
         dictionary = {
             'id': str(id),
             'name': user.name,
             'email': user.email,
-            'reading_time': random.randint(1, 100),
-            'exercises_done': random.randint(1, 100),
-            'last_article': 'place holder article'
+            'reading_time': reading_time,
+            'exercises_done': exercise_time,
+            'last_article': 'place holder article',
+            'reading_time_list': reading_time_list,
+            'exercise_time_list': exercise_time_list
         }
         return dictionary
     except ValueError:
@@ -189,10 +229,16 @@ def _get_cohort_info(id):
         inv_code = c.inv_code
         max_students = c.max_students
         cur_students = c.get_current_student_count()
-        language_id = c.language_id
-        language = Language.query.filter_by(id=language_id).one()
+        try:
+            language_id = c.language_id
+            language = Language.query.filter_by(id=language_id).one()
+            language_name = language.name
+        except ValueError:
+            language_name = "None"
+        except sqlalchemy.orm.exc.NoResultFound:
+            language_name = "None"
         dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-                      'cur_students': cur_students, 'language_name': language.name}
+                      'cur_students': cur_students, 'language_name': language_name}
         return dictionary
     except ValueError:
         flask.abort(400)
@@ -231,13 +277,17 @@ def inv_code_usable(invite_code):
 @with_session
 def create_own_cohort():
     '''
-        Creates a class in the database.
+        Creates a cohort in the database.
         Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
     '''
+    if not is_teacher(flask.g.user.id):
+        flask.abort(401)
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
     language_id = request.form.get("language_id")
+    if name is None or inv_code is None or language_id is None:
+        flask.abort(400)
     available_languages = Language.available_languages()
     code_allowed = False
     for code in available_languages:
@@ -266,18 +316,26 @@ def create_own_cohort():
         return "IntegrityError"
 
 
+@api.route("/add_teacher/<id>", methods=['POST'])
+def add_teacher(id):
+    try:
+        user = User.query.filter_by(id=id).one()
+        teacher = Teacher(user)
+        db.session.add(teacher)
+        db.session.commit()
+        return "OK"
+    except:
+        flask.abort(400)
 @api.route("/add_user_with_cohort", methods=['POST'])
 def add_user_with_cohort():
     '''
         Creates user and adds them to a cohort
         Requires input form (email, password, username, inv_code)
-
     '''
     email = request.form.get("email")
     password = request.form.get("password")
     username = request.form.get("username")
     inv_code = request.form.get("inv_code")
-
     try:
         cohort_id = Cohort.get_id(inv_code)
         cohort = Cohort.find(cohort_id)
@@ -285,17 +343,13 @@ def add_user_with_cohort():
         flask.abort(400)
 
     if not len(password) == 0:
-        # Checks to see if there is space, if there is it increments the cur_students variables.
-        # Therefore it is essential that you ensure you add the student if this function returns true.
-        # Hence it being placed after other checks.
-        # However, if an exeption is caught, this error is handled.
         if cohort.cohort_still_has_capacity():
             try:
-                user = User(email, username, password)
+                user = User(email, username, password, invitation_code = inv_code)
                 user.cohort = cohort
                 db.session.add(user)
                 db.session.commit()
-                return 'user created'
+                return 'OK'
             except ValueError:
                 flask.abort(400)
             except sqlalchemy.exc.IntegrityError:
@@ -304,17 +358,26 @@ def add_user_with_cohort():
     flask.abort(400)
 
 
-@api.route("/cohort_member_bookmarks/<id>", methods=["GET"])
+@api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
-def cohort_member_bookmarks(id):
+def cohort_member_bookmarks(id, time_period):
     '''
         Returns books marks from member with input user id.
     '''
-    user = User.query.filter_by(id=id).one()
+    try:
+        user = User.query.filter_by(id=id).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoUserFound"
+
     if (not has_permission_for_cohort(user.cohort_id)):
         flask.abort(401)
+
+    now = datetime.today()
+    date = now - timedelta(days=int(time_period));
+
     # True input causes function to return context too.
-    return json_result(user.bookmarks_by_day(True))
+    return json_result(user.bookmarks_by_day(True, date))
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
