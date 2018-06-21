@@ -1,6 +1,5 @@
 # Zeeguu-API [![Build Status](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API.svg?branch=master)](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API)
 
-
 Zeeguu is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition.
 
 The API offers translations for the words that a learner encounters in his readings. The history of the translated words and their context is saved and used to build a dynamic model of the user knowledge. The context is used to extract the words the user knows and their topics of interest.
@@ -26,3 +25,5 @@ The API is available at https://zeeguu.unibe.ch/api.
      `curl localhost:9001/available_languages`
      
 6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working. 
+
+Go have fun!
