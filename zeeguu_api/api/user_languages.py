@@ -3,6 +3,7 @@ import zeeguu
 from flask import request
 from zeeguu.model.language import Language
 from zeeguu.model.user_language import UserLanguage
+from zeeguu.content_recommender.mixed_recommender import add_hash
 
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -49,6 +50,7 @@ def modify_user_language():
     user_language = UserLanguage.find_or_create(session, flask.g.user, language_object)
     if language_reading is not None:
         user_language.reading_news = language_reading
+        add_hash(flask.g.user, session)
     if language_exercises is not None:
         user_language.doing_exercises = language_exercises
     if language_level is not None:
