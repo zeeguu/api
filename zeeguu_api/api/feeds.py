@@ -57,7 +57,7 @@ def stop_following_feed():
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
         session.delete(to_delete)
         session.commit()
-        recompute_recommender_cash_if_needed(flask.g.user, session)
+        recompute_recommender_cache_if_needed(flask.g.user, session)
     except Exception as e:
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
