@@ -27,5 +27,5 @@ def get_feed_items_with_metrics(feed_id):
                         'Fri, 15 Jan 2016 15:26:51 +0100'
     """
     feed = RSSFeed.query.get(feed_id)
-    articles = feed.get_articles(flask.g.user, 20, most_recent_first=True)
+    articles = feed.get_articles(20, most_recent_first=True)
     return json_result([article.article_info() for article in articles])
