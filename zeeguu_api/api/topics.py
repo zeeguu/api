@@ -2,7 +2,7 @@ import flask
 import zeeguu
 from flask import request
 from zeeguu.model import Topic, TopicSubscription, TopicFilter
-from zeeguu.content_recommender.mixed_recommender import recompute_recommender_cash_if_needed
+from zeeguu.content_recommender.mixed_recommender import recompute_recommender_cache_if_needed
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -58,7 +58,7 @@ def unsubscribe_from_topic():
         to_delete = TopicSubscription.with_topic_id(topic_id, flask.g.user)
         session.delete(to_delete)
         session.commit()
-        recompute_recommender_cash_if_needed(flask.g.user, session)
+        recompute_recommender_cache_if_needed(flask.g.user, session)
     except Exception as e:
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -153,7 +153,7 @@ def unsubscribe_from_filter():
         to_delete = TopicFilter.with_topic_id(filter_id, flask.g.user)
         session.delete(to_delete)
         session.commit()
-        recompute_recommender_cash_if_needed(flask.g.user, session)
+        recompute_recommender_cache_if_needed(flask.g.user, session)
     except Exception as e:
         return "OOPS. FILTER AIN'T THERE IT SEEMS (" + str(e) + ")"
 
