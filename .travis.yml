@@ -13,8 +13,6 @@ cache:
 install: "python setup.py develop"
 
 script: 
-  - "export DASHBOARD_CONFIG=./dashboard_test.cfg"
   - "./run_tests.sh"
-  - "export DASHBOARD_LOG_DIR=./"
   - "python -m flask_monitoringdashboard.collect_performance --test_folder ./tests_zeeguu_api/ --url https://zeeguu.unibe.ch/api/dashboard"
 

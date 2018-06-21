@@ -27,3 +27,5 @@ The API is available at https://zeeguu.unibe.ch/api.
 6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working. 
 
 Go have fun!
+
+The Zeeguu Team
