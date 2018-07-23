@@ -15,7 +15,7 @@ feedfinder2==0.0.4
 feedparser==5.2.1
 Flask==0.12.2
 Flask-Assets==0.12
-Flask-Cors==3.0.3
+Flask-Cors==3.0.6
 Flask-MonitoringDashboard==1.11.1
 Flask-SQLAlchemy==2.3.2
 Flask-WTF==0.14.2
@@ -43,7 +43,6 @@ pyasn1==0.4.2
 pyasn1-modules==0.2.1
 PyJWT==1.6.1
 python-dateutil==2.7.2
-python-translators==0.1
 pytz==2018.3
 PyYAML==3.12
 regex==2018.2.21
@@ -62,4 +61,3 @@ Werkzeug==0.14.1
 wordstats==0.1
 WTForms==2.1
 zeeguu==0.1
-zeeguu-api==0.31
