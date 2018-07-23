@@ -29,6 +29,6 @@ setuptools.setup(
                       'zeeguu',
                       'wordstats',
                       'python_translators',
-                      'flask_monitoringdashboard>=1.10.4'
+                      'flask_monitoringdashboard'
                       )
 )
