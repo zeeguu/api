@@ -17,10 +17,10 @@ from python_translators.translation_query import TranslationQuery
 
 # When testing, we're injecting the ReverseTranslator instead of the BestEffort which
 # requires API keys for the third-party services.
-# if 'unittest' in sys.modules:
-#    from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
-# else:
-from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
+if not hasattr(zeeguu, "_called_from_test"):
+    from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
+else:
+    from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])

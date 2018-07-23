@@ -14,6 +14,12 @@ import zeeguu
 class APITestMixin(TestCase):
 
     def setUp(self):
+        # idea from here:
+        # https: // docs.pytest.org / en / latest / example / simple.html  # detect-if-running-from-within-a-pytest-run
+        # allows the api translate_and_Bookmark to know that it's being called from the unit test
+        # and use the reverse translator instead of the real translators
+        zeeguu._called_from_test = True
+
         app.testing = True
         self.app = app.test_client()
 
