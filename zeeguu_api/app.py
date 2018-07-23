@@ -3,7 +3,7 @@ from zeeguu.configuration.configuration import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask
 import flask
-import flask_monitoringdashboard as dashboard
+
 
 # *** Creating and starting the App *** #
 app = Flask("Zeeguu-API")
@@ -35,9 +35,13 @@ from .api import api
 
 app.register_blueprint(api)
 
-dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
+try:
+    import flask_monitoringdashboard as dashboard
+    dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
 
-from zeeguu.model import Session
+    from zeeguu.model import Session
 
-dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
-dashboard.bind(app=app)
+    dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
+    dashboard.bind(app=app)
+except:
+    print ("could not install the flask_monitornig_dashboard")
