@@ -8,11 +8,11 @@ else
 	echo "To create you must either "
 	echo " - provide the password for the mysql root user, or"
 	echo " - modify the script accordingly"
-	mysql -e "create database IF NOT EXISTS zeeguu_test; grant all on zeeguu_test.* to 'zeeguu_test'@'localhost' identified by 'zeeguu_test';" -uroot -p
+	mysql -uroot -p < test_db_creation.sql
 fi
 
 
 export ZEEGUU_API_CONFIG="./default_api.cfg"
 export ZEEGUU_CORE_CONFIG="./default_api.cfg"
-python3.6 -m zeeguu.populate
-python -m zeeguu_api
+python3 -m zeeguu.populate
+python3 -m zeeguu_api
