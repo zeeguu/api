@@ -2,7 +2,6 @@ import datetime
 from urllib.parse import unquote_plus
 
 import flask
-import sys
 from flask import request
 
 import zeeguu
@@ -17,7 +16,7 @@ from python_translators.translation_query import TranslationQuery
 
 # When testing, we're injecting the ReverseTranslator instead of the BestEffort which
 # requires API keys for the third-party services.
-if not hasattr(zeeguu, "_called_from_test"):
+if hasattr(zeeguu, "_in_unit_tests"):
     from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
 else:
     from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator

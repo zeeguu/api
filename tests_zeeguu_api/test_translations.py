@@ -5,6 +5,9 @@ from tests_zeeguu_api.api_test_mixin import APITestMixin
 
 
 class TranslationTests(APITestMixin, TestCase):
+    
+    def setUp(self):
+        super(TranslationTests, self).setUp()
 
     def test_get_possible_translations(self):
         form_data = dict(

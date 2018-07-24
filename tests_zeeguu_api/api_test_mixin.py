@@ -1,14 +1,17 @@
 from unittest import TestCase
 import json
 
+import zeeguu
+# this must be called before any of the other Zeeguu / API code
+# is imported...
+zeeguu._in_unit_tests = True
+
 from zeeguu_api.app import app
 
 from zeeguu.populate import TEST_EMAIL
 from zeeguu.populate import TEST_PASS
 from zeeguu.populate import create_minimal_test_db
 from zeeguu.model import User
-
-import zeeguu
 
 
 class APITestMixin(TestCase):
@@ -18,7 +21,6 @@ class APITestMixin(TestCase):
         # https: // docs.pytest.org / en / latest / example / simple.html  # detect-if-running-from-within-a-pytest-run
         # allows the api translate_and_Bookmark to know that it's being called from the unit test
         # and use the reverse translator instead of the real translators
-        zeeguu._called_from_test = True
 
         app.testing = True
         self.app = app.test_client()
