@@ -9,7 +9,8 @@ from zeeguu_api.app import app
 
 class DashboardTest(APITestMixin, TestCase):
 
-
+    def setUp(self):
+        super(DashboardTest, self).setUp()
 
     def test_adding_classes(self):
         userDictionary = {
@@ -26,6 +27,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '33'
         }
+        self._make_teacher("test321@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
         assert result.status_code == 200
 
@@ -51,7 +53,6 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
         assert result.status_code == 400
 
-
         # invalid language_id
         classDictionary = {
             'inv_code': '12345',
@@ -75,6 +76,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '33'
         }
+        self._make_teacher("test3210@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
 
         # Insert class from teacher we will test
@@ -89,6 +91,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '33'
         }
+        self._make_teacher("test321@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
         classesJ = self.app.get('/cohorts_info?session=' + rv.data.decode('utf-8'))
         assert classesJ
@@ -106,16 +109,13 @@ class DashboardTest(APITestMixin, TestCase):
 
         # Test get class info for class the teacher doesn't have access too
         result = self.app.get('cohort_info/1' + '?session=' + rv.data.decode('utf-8'))
-        assert result.status_code ==401
+        assert result.status_code == 401
 
         # Test get class info for class that doesn't exist
         result = self.app.get('cohort_info/5' + '?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 401
 
-
     def test_get_users_from_class_and_without(self):
-
-
         userDictionary = {
             'username': 'testUser1',
             'password': 'password'
@@ -127,6 +127,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '10'
         }
+        self._make_teacher("test3210@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
 
         newUser = {
@@ -153,7 +154,7 @@ class DashboardTest(APITestMixin, TestCase):
         assert result[0]['name'] == 'newUser1'
 
         # Get individual user
-        result = self.app.get('/user_info/'+str(result[0]['id'])+"/14?session="+ rv.data.decode('utf-8'))
+        result = self.app.get('/user_info/' + str(result[0]['id']) + "/14?session=" + rv.data.decode('utf-8'))
         assert result.status_code == 200
         result = json.loads(result.data)
         assert result['name'] == 'newUser1'
@@ -168,12 +169,10 @@ class DashboardTest(APITestMixin, TestCase):
             'password': 'password',
             'email': 'newUser3@gmail.com',
         }
-        result = self.app.post('/add_user/'+newUser['email'], data=newUser)
+        result = self.app.post('/add_user/' + newUser['email'], data=newUser)
         assert result.status_code == 200
         result = self.app.get('/user_info/4/14?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 401
-
-
 
     def test_remove_class(self):
         userDictionary = {
@@ -187,6 +186,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '10'
         }
+        self._make_teacher("test3210@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
         assert result.status_code == 200
         # Remove class that teacher owns
@@ -208,24 +208,24 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '10'
         }
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
 
+        self._make_teacher("test3210@gmail.com")
+        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
 
         # Test valid update
         updateDictionary = {
-            'inv_code':'123',
-            'name':'SpanishB1',
-            'max_students':'11'
+            'inv_code': '123',
+            'name': 'SpanishB1',
+            'max_students': '11'
         }
-        result = self.app.post('/update_cohort/1?session='+ rv.data.decode('utf-8'), data=updateDictionary)
+        result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
         assert result.status_code == 200
-        result = self.app.get('/cohort_info/1?session='+ rv.data.decode('utf-8'))
+        result = self.app.get('/cohort_info/1?session=' + rv.data.decode('utf-8'))
         assert result.status_code == 200
         loaded = json.loads(result.data)
         assert loaded['name'] == 'SpanishB1'
         assert loaded['max_students'] == 11
         assert loaded['inv_code'] == '123'
-
 
         # Test invalid update (negative max students)
         updateDictionary = {
@@ -252,6 +252,7 @@ class DashboardTest(APITestMixin, TestCase):
             'language_id': 'fr',
             'max_students': '10'
         }
+        self._make_teacher("test321230@gmail.com")
         result = self.app.post('/create_own_cohort?session=' + rv2.data.decode('utf-8'), data=classDictionary)
         assert result.status_code == 200
 
@@ -272,3 +273,11 @@ class DashboardTest(APITestMixin, TestCase):
         }
         result = self.app.post('/update_cohort/2?session=' + rv.data.decode('utf-8'), data=updateDictionary)
         assert result.status_code == 401
+
+    def _make_teacher(self, email):
+        from zeeguu.model import User, Teacher
+        db = zeeguu.db
+
+        u = User.find(email)
+        db.session.add(Teacher(u))
+        db.session.commit()

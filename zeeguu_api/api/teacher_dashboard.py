@@ -281,6 +281,7 @@ def create_own_cohort():
         Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
     '''
+
     if not is_teacher(flask.g.user.id):
         flask.abort(401)
     inv_code = request.form.get("inv_code")
