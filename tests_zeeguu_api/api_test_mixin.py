@@ -2,8 +2,8 @@ from unittest import TestCase
 import json
 
 import zeeguu
-# this must be called before any of the other Zeeguu / API code
-# is imported...
+# This must be set before any of the other Zeeguu / API code
+# is imported. Especially the translate API requires it.  
 zeeguu._in_unit_tests = True
 
 from zeeguu_api.app import app

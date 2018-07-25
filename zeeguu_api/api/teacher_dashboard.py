@@ -4,25 +4,37 @@ import flask
 from flask import request
 
 from .utils.json_result import json_result
-from .utils.route_wrappers import cross_domain, with_session
+from .utils.route_wrappers import with_session
 from . import api
 import zeeguu
-from zeeguu.model import User, Cohort, UserActivityData, Session, Language, Teacher
+from zeeguu.model import User, Cohort, Language, Teacher
 import sqlalchemy
 from flask import jsonify
 import json
-import random
 import datetime
 from datetime import datetime, timedelta
 
 db = zeeguu.db
+
+
+@api.route("/is_teacher", methods=["GET"])
+@with_session
+def is_teacher():
+    print(flask.g.user.id)
+
+    if is_teacher(flask.g.user.id):
+        return "True"
+
+    return "False"
+
 
 def is_teacher(id):
     try:
         teacher = Teacher.query.filter_by(user_id=id).one()
         if not teacher is None:
             return True
-    except:
+    except Exception as e:
+        print(e)
         return False
 
 
@@ -281,6 +293,7 @@ def create_own_cohort():
         Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
     '''
+
     if not is_teacher(flask.g.user.id):
         flask.abort(401)
     inv_code = request.form.get("inv_code")
@@ -326,6 +339,8 @@ def add_teacher(id):
         return "OK"
     except:
         flask.abort(400)
+
+
 @api.route("/add_user_with_cohort", methods=['POST'])
 def add_user_with_cohort():
     '''
@@ -345,7 +360,7 @@ def add_user_with_cohort():
     if not len(password) == 0:
         if cohort.cohort_still_has_capacity():
             try:
-                user = User(email, username, password, invitation_code = inv_code)
+                user = User(email, username, password, invitation_code=inv_code)
                 user.cohort = cohort
                 db.session.add(user)
                 db.session.commit()

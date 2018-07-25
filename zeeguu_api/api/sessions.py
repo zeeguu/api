@@ -125,6 +125,7 @@ def send_code(email):
 
     return "OK"
 
+
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
@@ -153,6 +154,7 @@ def reset_password(email):
     db_session.commit()
 
     return "OK"
+
 
 @api.route("/validate")
 @cross_domain
