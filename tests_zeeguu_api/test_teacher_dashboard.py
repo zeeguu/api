@@ -4,13 +4,40 @@ from unittest import TestCase
 from tests_zeeguu_api.api_test_mixin import APITestMixin
 
 import zeeguu
-from zeeguu_api.app import app
 
 
 class DashboardTest(APITestMixin, TestCase):
 
     def setUp(self):
         super(DashboardTest, self).setUp()
+
+    def test_is_teacher(self):
+        userDictionary = {
+            'username': 'testUser',
+            'password': 'password'
+        }
+        rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
+        assert rv
+
+        session = rv.data.decode('utf-8')
+        print (session)
+
+        # Acceptable class
+        classDictionary = {
+            'inv_code': '123',
+            'name': 'FrenchB1',
+            'language_id': 'fr',
+            'max_students': '33'
+        }
+        self._make_teacher("test321@gmail.com")
+        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        assert result.status_code == 200
+
+        assert result.data.decode("utf-8") == "OK"
+
+        url = '/is_teacher?session='+session
+        answer = self.app.get(url)
+        assert answer.data == b'True'
 
     def test_adding_classes(self):
         userDictionary = {
