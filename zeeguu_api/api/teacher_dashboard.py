@@ -2,6 +2,7 @@ from datetime import datetime
 
 import flask
 from flask import request
+from sqlalchemy.orm.exc import NoResultFound
 
 from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
@@ -20,20 +21,17 @@ db = zeeguu.db
 @api.route("/is_teacher", methods=["GET"])
 @with_session
 def is_teacher():
-
     if is_teacher(flask.g.user.id):
         return "True"
 
     return "False"
 
 
-def is_teacher(id):
+def is_teacher(user_id):
     try:
-        teacher = Teacher.query.filter_by(user_id=id).one()
-        if not teacher is None:
-            return True
-    except Exception as e:
-        print(e)
+        Teacher.query.filter_by(user_id=user_id).one()
+        return True
+    except NoResultFound:
         return False
 
 
