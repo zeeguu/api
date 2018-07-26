@@ -1,19 +1,18 @@
-from datetime import datetime
+import json
+from datetime import datetime, timedelta
 
 import flask
-from flask import request
+from flask import request, jsonify
+
+import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 
 from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
 from . import api
+
 import zeeguu
 from zeeguu.model import User, Cohort, Language, Teacher
-import sqlalchemy
-from flask import jsonify
-import json
-import datetime
-from datetime import datetime, timedelta
 
 db = zeeguu.db
 
@@ -37,7 +36,9 @@ def is_teacher(user_id):
 
 def has_permission_for_cohort(cohort_id):
     '''
+
         Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
+
     '''
     from zeeguu.model import TeacherCohortMap
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
