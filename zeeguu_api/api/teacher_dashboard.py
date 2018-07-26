@@ -20,7 +20,6 @@ db = zeeguu.db
 @api.route("/is_teacher", methods=["GET"])
 @with_session
 def is_teacher():
-    print(flask.g.user.id)
 
     if is_teacher(flask.g.user.id):
         return "True"
