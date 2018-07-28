@@ -89,10 +89,11 @@ def post_bookmarks_by_day():
 
     """
     with_context = request.form.get("with_context", "false") in ["True", "true"]
+    with_title = request.form.get("with_title", "false") in ["True", "true"]
     after_date_string = request.form.get("after_date", "1970-01-01T00:00:00")
     after_date = datetime.strptime(after_date_string, '%Y-%m-%dT%H:%M:%S')
 
-    return json_result(flask.g.user.bookmarks_by_day(with_context, after_date))
+    return json_result(flask.g.user.bookmarks_by_day(with_context, after_date, with_title=with_title))
 
 
 @api.route("/create_default_exercises", methods=["GET"])
