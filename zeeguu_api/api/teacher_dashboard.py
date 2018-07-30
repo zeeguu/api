@@ -390,7 +390,7 @@ def cohort_member_bookmarks(id, time_period):
     date = now - timedelta(days=int(time_period));
 
     # True input causes function to return context too.
-    return json_result(user.bookmarks_by_day(True, date))
+    return json_result(user.bookmarks_by_day(True, date, with_title=True))
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
