@@ -26,14 +26,15 @@ class UserArticlesTests(APITestMixin, TestCase):
         assert (len(result) == 0)
 
         # Star article
-        self.api_post(f'/user_article', formdata=dict(starred='True', url=self.url))
+        article_id = self.json_from_api_get('/article_id', other_args=dict(url=self.url))['article_id']
+        self.api_post(f'/user_article', formdata=dict(starred='True', article_id=article_id))
 
         # One article is starred eventually
         result = self.json_from_api_get(f'/user_articles/starred_or_liked')
         assert (len(result) == 1)
 
         # Like article
-        self.api_post(f'/user_article', formdata=dict(liked='True', url=self.url))
+        self.api_post(f'/user_article', formdata=dict(liked='True', article_id=article_id))
 
         # Still one article is returned
         result = self.json_from_api_get(f'/user_articles/starred_or_liked')

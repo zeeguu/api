@@ -34,11 +34,11 @@ def user_article():
 
     """
 
-    url = request.args.get('url', '')
-    if not url:
+    article_id = int(request.args.get('article_id', ''))
+    if not article_id:
         flask.abort(400)
 
-    article = Article.find_or_create(db_session, url)
+    article = Article.query.filter_by(id=article_id).one()
 
     return json_result(user_article_info(flask.g.user, article, with_content=True))
 
@@ -60,11 +60,12 @@ def user_article_update():
 
     """
 
-    url = request.form.get('url')
+    article_id = int(request.form.get('article_id'))
     starred = request.form.get('starred')
     liked = request.form.get('liked')
 
-    article = Article.find_or_create(db_session, url)
+    article = Article.query.filter_by(id=article_id).one()
+
     user_article = UserArticle.find_or_create(db_session, flask.g.user, article)
 
     if starred is not None:

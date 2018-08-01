@@ -24,3 +24,4 @@ from . import user_languages
 from . import teacher_dashboard
 from . import topics
 from . import search
+from . import article
