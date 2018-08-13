@@ -22,15 +22,24 @@ def add_user(email):
     """
     password = request.form.get("password")
     username = request.form.get("username")
+    invite_code = request.form.get("invite_code")
+
     if password is None or len(password) < 4:
         return make_error(400, "Password should be at least 4 characters long")
+
+    if not invite_code in zeeguu.app.config.get("INVITATION_CODES"):
+        return make_error(400, "Invitation code is not recognized. Please contact us.")
+
     try:
-        db_session.add(User(email, username, password))
+
+        db_session.add(User(email, username, password, invitation_code=invite_code))
         db_session.commit()
-    except ValueError:
-        return make_error(400, "Invalid value")
+
     except sqlalchemy.exc.IntegrityError:
         return make_error(401, "There is already an account for this email.")
+    except ValueError:
+        return make_error(400, "Invalid value")
+
     return get_session(email)
 
 

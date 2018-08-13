@@ -15,11 +15,20 @@ load_configuration_or_abort(app,
                                 'MAX_SESSION',
                                 'SQLALCHEMY_DATABASE_URI',
                                 'SQLALCHEMY_TRACK_MODIFICATIONS',
+                                
                                 # next three are required by API when
                                 # run locally
                                 'DEBUG',
                                 'HOST',
-                                'SECRET_KEY', ])
+                                'SECRET_KEY',
+
+                                # the following are required by the API
+                                # for user account creation & password recovery
+                                'INVITATION_CODES',
+                                'SMTP_SERVER',
+                                'SMTP_USERNAME',
+                                'SMTP_PASSWORD',
+                                ])
 
 # The zeeguu.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
