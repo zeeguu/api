@@ -10,17 +10,19 @@ class DashboardTest(APITestMixin, TestCase):
 
     def setUp(self):
         super(DashboardTest, self).setUp()
+        zeeguu.app.config["INVITATION_CODES"] = ["test"]
 
     def test_is_teacher(self):
         userDictionary = {
             'username': 'testUser',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
         assert rv
 
         session = rv.data.decode('utf-8')
-        print (session)
+        print(session)
 
         # Acceptable class
         classDictionary = {
@@ -35,14 +37,15 @@ class DashboardTest(APITestMixin, TestCase):
 
         assert result.data.decode("utf-8") == "OK"
 
-        url = '/is_teacher?session='+session
+        url = '/is_teacher?session=' + session
         answer = self.app.get(url)
         assert answer.data == b'True'
 
     def test_adding_classes(self):
         userDictionary = {
             'username': 'testUser',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
         assert rv
@@ -94,7 +97,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Insert class from another teacher
         userDictionary = {
             'username': 'testUser1',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
@@ -109,7 +113,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Insert class from teacher we will test
         userDictionary = {
             'username': 'testUser2',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
         classDictionary = {
@@ -145,7 +150,8 @@ class DashboardTest(APITestMixin, TestCase):
     def test_get_users_from_class_and_without(self):
         userDictionary = {
             'username': 'testUser1',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
@@ -160,6 +166,7 @@ class DashboardTest(APITestMixin, TestCase):
         newUser = {
             'username': 'newUser1',
             'password': 'password',
+            'invite_code': "test",
             'email': 'newUser1@gmail.com',
             'inv_code': '12'
         }
@@ -195,6 +202,7 @@ class DashboardTest(APITestMixin, TestCase):
             'username': 'newUser3',
             'password': 'password',
             'email': 'newUser3@gmail.com',
+            'invite_code': "test"
         }
         result = self.app.post('/add_user/' + newUser['email'], data=newUser)
         assert result.status_code == 200
@@ -204,7 +212,8 @@ class DashboardTest(APITestMixin, TestCase):
     def test_remove_class(self):
         userDictionary = {
             'username': 'testUser1',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
@@ -226,7 +235,8 @@ class DashboardTest(APITestMixin, TestCase):
     def test_update_class(self):
         userDictionary = {
             'username': 'testUser1',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
         classDictionary = {
@@ -269,7 +279,8 @@ class DashboardTest(APITestMixin, TestCase):
         # Add second teacher to create new class
         userDictionary = {
             'username': 'testUser2',
-            'password': 'password'
+            'password': 'password',
+            'invite_code': "test"
         }
         rv2 = self.api_post('/add_user/test321230@gmail.com', userDictionary)
         # Add class with ID that another class used to have

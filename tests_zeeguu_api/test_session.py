@@ -13,13 +13,18 @@ TEST_PASS = 'cherrypie'
 
 
 class SessionTests(APITestMixin, TestCase):
+    def setUp(self):
+        super(SessionTests, self).setUp()
+        zeeguu.app.config["INVITATION_CODES"] = ["test"]
 
     def test_create_user(self):
+
         form_data = dict(
-            username= "gigi",
-            password= "lala"
+            username="gigi",
+            password="lala",
+            invite_code="test"
         )
-        rv = self.api_post('/add_user/i@i.la',form_data)
+        rv = self.api_post('/add_user/i@i.la', form_data)
         assert len(rv.data) > 1
 
     def test_create_user_returns_400_if_password_not_given(self):
@@ -32,7 +37,8 @@ class SessionTests(APITestMixin, TestCase):
     def test_create_user_returns_400_if_password_too_short(self):
         form_data = dict(
             username="gigi",
-            password="2sh"
+            password="2sh",
+            invite_code="test"
         )
         rv = self.api_post('/add_user/i@i.la', form_data)
         assert rv.status_code == 400
@@ -129,4 +135,3 @@ class SessionTests(APITestMixin, TestCase):
         }
         session_id = self.raw_data_from_api_post('/get_anon_session', post_data)
         assert session_id
-
