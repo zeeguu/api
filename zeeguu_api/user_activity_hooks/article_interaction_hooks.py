@@ -15,10 +15,8 @@ def distill_article_interactions(session, user, data):
     :param user:
     """
 
-    time = data['time']
     event = data['event']
     value = data['value']
-    extra_data = data['extra_data']
     article_id = int(data['article_id'])
 
     log(f'event is: {event}')
@@ -30,13 +28,13 @@ def distill_article_interactions(session, user, data):
     elif "UMR - UNLIKE ARTICLE" in event:
         article_liked(session, article_id, user, False)
     elif "UMR - USER FEEDBACK" in event:
-        article_feedback(session, article_id, extra_data)
+        article_feedback(session, article_id, value)
 
 
-def article_feedback(session, article_id, extra_data):
+def article_feedback(session, article_id, event_value):
     article = Article.query.filter_by(id=article_id).one()
 
-    if "not_finished_for_broken" in extra_data:
+    if "not_finished_for_broken" in event_value:
         article.vote_broken()
         session.add(article)
         session.commit()
