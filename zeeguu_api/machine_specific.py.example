@@ -1,6 +1,8 @@
 
 # example of loading
 # sentry with a machine specific configuration
+# rename without the .example and customize accordingly
+
 
 
 def machine_specific_config(app):
