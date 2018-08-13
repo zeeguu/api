@@ -45,3 +45,9 @@ try:
     dashboard.bind(app=app)
 except:
     print ("could not install the flask_monitornig_dashboard")
+
+try:
+    from zeeguu_api.machine_specific import machine_specific_config
+    machine_specific_config(app)
+except ModuleNotFoundError as e:
+    print ("no machine specific code found")
