@@ -1,0 +1,12 @@
+
+# example of loading
+# sentry with a machine specific configuration
+
+
+def machine_specific_config(app):
+    print ("about to load sentry")
+
+    from raven.contrib.flask import Sentry
+    sentry = Sentry(app, dsn='lalala/1260113')
+
+    print ("loaded sentry")
