@@ -133,7 +133,6 @@ class TeacherTest(APITestMixin, TestCase):
         result = self.app.get(f'cohort_info/5?session={t2_session}')
         assert result.status_code == 401
 
-
     def test_add_student_to_class_success(self):
         self._create_teacher_and_class(test_teacher, french_b1)
 
@@ -190,12 +189,12 @@ class TeacherTest(APITestMixin, TestCase):
         teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
 
         # Test valid update
-        updateDictionary = {
+        update_info = {
             'inv_code': '123',
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=updateDictionary)
+        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_info)
         assert result.status_code == 200
 
         result = self.app.get(f'/cohort_info/1?session={teacher_session}')
@@ -231,22 +230,24 @@ class TeacherTest(APITestMixin, TestCase):
         teacher2_session, _ = self._create_teacher_and_class(test_teacher2, french_b2)
 
         # Test invalid update (taken inv code)
-        update_dictionary = {
+        update_info = {
             'inv_code': french_b2['inv_code'],
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_dictionary)
+        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_info)
         assert result.status_code == 400
 
         # Test invalid permissions
-        update_dictionary = {
+        update_info = {
             'inv_code': '1245',
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post(f'/update_cohort/2?session={teacher_session}', data=update_dictionary)
+        result = self.app.post(f'/update_cohort/2?session={teacher_session}', data=update_info)
         assert result.status_code == 401
+
+    # Private, helper methods
 
     def _create_teacher(self, teacher: _UserInfo):
         def _upgrade_to_teacher(email):
@@ -272,4 +273,3 @@ class TeacherTest(APITestMixin, TestCase):
         teacher_session = self._create_teacher(teacher)
         result = self.app.post(f'/create_own_cohort?session={teacher_session}', data=cohort)
         return teacher_session, result
-
