@@ -37,7 +37,14 @@ def add_user(email):
 
     try:
 
-        db_session.add(User(email, username, password, invitation_code=invite_code))
+        cohort = Cohort.query.filter_by(inv_code=invite_code).first()
+
+        if cohort:
+            # if the invite code is from a cohort, then there has to be capacity
+            if not cohort.cohort_still_has_capacity():
+                return make_error(400, "No more places in this class. Please contact us.")
+
+        db_session.add(User(email, username, password, invitation_code=invite_code, cohort=cohort))
         db_session.commit()
 
     except sqlalchemy.exc.IntegrityError:
