@@ -46,7 +46,6 @@ test_student_3 = {
     'email': 'student3@gmail.com'
 }
 
-
 french_b1 = {'inv_code': '123',
              'name': 'FrenchB1',
              'language_id': 'fr',
@@ -78,29 +77,20 @@ french_b2_wrong_language = {'inv_code': '1234',
                             }
 
 
-class DashboardTest(APITestMixin, TestCase):
+class TeacherTest(APITestMixin, TestCase):
 
     def setUp(self):
-        super(DashboardTest, self).setUp()
+        super(TeacherTest, self).setUp()
         zeeguu.app.config["INVITATION_CODES"] = ["test"]
 
     def test_is_teacher(self):
         session = self._create_teacher(test_teacher)
-        result = self.app.post(f'/create_own_cohort?session={session}', data=french_b1)
-
-        assert result.status_code == 200
-        assert result.data.decode("utf-8") == "OK"
-
         answer = self.app.get(f'/is_teacher?session={session}')
         assert answer.data == b'True'
 
     def test_adding_classes(self):
-        session = self._create_teacher(test_teacher)
-
-        result = self.app.post(f'/create_own_cohort?session={session}', data=french_b1)
+        session, result = self._create_teacher_and_class(test_teacher, french_b1)
         assert result.status_code == 200
-
-        assert result.data.decode("utf-8") == "OK"
 
         # Inv code already in use
         result = self.app.post(f'/create_own_cohort?session={session}', data=french_b2_wrong_invcode)
@@ -116,27 +106,26 @@ class DashboardTest(APITestMixin, TestCase):
 
     def test_get_classes_and_get_class_info(self):
         # Insert class from another teacher
-
-        t1_session = self._create_teacher(test_teacher)
-        result = self.app.post(f'/create_own_cohort?session={t1_session}', data=french_b1)
+        t1_session, result = self._create_teacher_and_class(test_teacher, french_b1)
         assert result.status_code == 200
 
         # Insert class from teacher we will test
-        t2_session = self._create_teacher(test_teacher2)
-        result = self.app.post(f'/create_own_cohort?session={t2_session}', data=french_b2)
+        t2_session, result = self._create_teacher_and_class(test_teacher2, french_b2)
         assert result.status_code == 200
 
-        classes_json_data = self.app.get(f'/cohorts_info?session={t2_session}')
-        classes = json.loads(classes_json_data.data)
-        teacher2s_class = classes[0]
-        assert teacher2s_class['name'] == 'FrenchB2'
+        # cohorts info should contain only frenchb2 for our teacher2
+        classes_json = self.app.get(f'/cohorts_info?session={t2_session}')
+        class_of_teacher2 = json.loads(classes_json.data)[0]
+        class_of_teacher2_name = class_of_teacher2['name']
+        assert class_of_teacher2_name == 'FrenchB2'
 
         # Test get class info
-        result = self.app.get(f'cohort_info/{teacher2s_class["id"]}?session={t2_session}')
+        class_of_teacher2_id = class_of_teacher2['id']
+        result = self.app.get(f'cohort_info/{class_of_teacher2_id}?session={t2_session}')
         assert result.status_code == 200
         assert json.loads(result.data)['name'] == 'FrenchB2'
 
-        # Test get class info for class the teacher doesn't have access too
+        # Test get class info for class the teacher doesn't have access to
         result = self.app.get(f'cohort_info/1?session={t2_session}')
         assert result.status_code == 401
 
@@ -144,10 +133,6 @@ class DashboardTest(APITestMixin, TestCase):
         result = self.app.get(f'cohort_info/5?session={t2_session}')
         assert result.status_code == 401
 
-    def _create_teacher_and_class(self, teacher, cohort):
-        teacher_session = self._create_teacher(teacher)
-        result = self.app.post(f'/create_own_cohort?session={teacher_session}', data=cohort)
-        return teacher_session, result
 
     def test_add_student_to_class_success(self):
         self._create_teacher_and_class(test_teacher, french_b1)
@@ -162,7 +147,6 @@ class DashboardTest(APITestMixin, TestCase):
         assert result.status_code == 400
 
     def test_get_users_from_class(self):
-
         teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
         self._add_student(test_student_1, french_b1['inv_code'])
         self._add_student(test_student_2, french_b1['inv_code'])
@@ -192,8 +176,7 @@ class DashboardTest(APITestMixin, TestCase):
         assert result.status_code == 401
 
     def test_remove_class(self):
-
-        teacher_session,_ = self._create_teacher_and_class(test_teacher, french_b1)
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
 
         # Remove class that teacher owns
         result = self.app.post(f'/remove_cohort/1?session={teacher_session}')
@@ -285,4 +268,8 @@ class DashboardTest(APITestMixin, TestCase):
         student['invite_code'] = inv_code
         return self.app.post(f'/add_user/{student["email"]}', data=student)
 
+    def _create_teacher_and_class(self, teacher, cohort):
+        teacher_session = self._create_teacher(teacher)
+        result = self.app.post(f'/create_own_cohort?session={teacher_session}', data=cohort)
+        return teacher_session, result
 
