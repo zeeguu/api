@@ -114,5 +114,5 @@ class BookmarkTest(APITestMixin, TestCase):
         :return:
         """
         result = self.raw_data_from_api_get('/top_bookmarks/10')
-        print (result)
+        assert (len(result) > 0)
 

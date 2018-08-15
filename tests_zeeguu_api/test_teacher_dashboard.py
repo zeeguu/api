@@ -22,7 +22,6 @@ class DashboardTest(APITestMixin, TestCase):
         assert rv
 
         session = rv.data.decode('utf-8')
-        print(session)
 
         # Acceptable class
         classDictionary = {
