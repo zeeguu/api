@@ -60,3 +60,11 @@ try:
     machine_specific_config(app)
 except ModuleNotFoundError as e:
     print ("no machine specific code found")
+
+from zeeguu.model import Topic, Language
+
+for each in Topic.get_all_topics():
+    each.all_articles()
+
+for each in Language.available_languages():
+    each.get_articles()
