@@ -34,7 +34,7 @@ def distill_article_interactions(session, user, data):
 def article_feedback(session, article_id, event_value):
     article = Article.query.filter_by(id=article_id).one()
 
-    if "not_finished_for_broken" in event_value:
+    if "not_finished_for_broken" or "not_finished_for_incomplete" or "not_finished_for_other" in event_value:
         article.vote_broken()
         session.add(article)
         session.commit()
