@@ -20,18 +20,15 @@ db = zeeguu.db
 @api.route("/is_teacher", methods=["GET"])
 @with_session
 def is_teacher():
-    if is_teacher(flask.g.user.id):
-        return "True"
+    def _is_teacher(user_id):
+        try:
+            Teacher.query.filter_by(user_id=user_id).one()
+            return True
+        except NoResultFound:
 
-    return "False"
+            return False
 
-
-def is_teacher(user_id):
-    try:
-        Teacher.query.filter_by(user_id=user_id).one()
-        return True
-    except NoResultFound:
-        return False
+    return str(_is_teacher(flask.g.user.id))
 
 
 def has_permission_for_cohort(cohort_id):
@@ -292,7 +289,7 @@ def create_own_cohort():
 
     '''
 
-    if not is_teacher(flask.g.user.id):
+    if not _is_teacher(flask.g.user.id):
         flask.abort(401)
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
@@ -337,8 +334,6 @@ def add_teacher(id):
         return "OK"
     except:
         flask.abort(400)
-
-
 
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
