@@ -17,17 +17,18 @@ from zeeguu.model import User, Cohort, Language, Teacher
 db = zeeguu.db
 
 
+def _is_teacher(user_id):
+    try:
+        Teacher.query.filter_by(user_id=user_id).one()
+        return True
+    except NoResultFound:
+
+        return False
+
+
 @api.route("/is_teacher", methods=["GET"])
 @with_session
 def is_teacher():
-    def _is_teacher(user_id):
-        try:
-            Teacher.query.filter_by(user_id=user_id).one()
-            return True
-        except NoResultFound:
-
-            return False
-
     return str(_is_teacher(flask.g.user.id))
 
 
@@ -236,16 +237,19 @@ def _get_cohort_info(id):
         inv_code = c.inv_code
         max_students = c.max_students
         cur_students = c.get_current_student_count()
+
         try:
             language_id = c.language_id
             language = Language.query.filter_by(id=language_id).one()
             language_name = language.name
+
         except ValueError:
             language_name = "None"
         except sqlalchemy.orm.exc.NoResultFound:
             language_name = "None"
         dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-                      'cur_students': cur_students, 'language_name': language_name}
+                      'cur_students': cur_students, 'language_name': language_name,
+                      'declared_level_min': c.declared_level_min, 'declared_level_max': c.declared_level_max}
         return dictionary
     except ValueError:
         flask.abort(400)
@@ -291,6 +295,7 @@ def create_own_cohort():
 
     if not _is_teacher(flask.g.user.id):
         flask.abort(401)
+
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
     language_id = request.form.get("language_id")
@@ -373,10 +378,8 @@ def update_cohort(cohort_id):
         cohort_to_change.inv_code = request.form.get("inv_code")
         cohort_to_change.name = request.form.get("name")
 
-        if int(request.form.get("max_students")) < 1:
-            flask.abort(400)
-
-        cohort_to_change.max_students = request.form.get("max_students")
+        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
+        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
 
         db.session.commit()
         return 'OK'

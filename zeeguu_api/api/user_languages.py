@@ -146,6 +146,7 @@ def get_interesting_reading_languages():
     """
 
     all_languages = Language.available_languages()
+    all_languages.sort(key=lambda x: x.name)
     learned_languages = UserLanguage.all_reading_for_user(flask.g.user)
 
     interesting_languages = []
