@@ -16,35 +16,42 @@ class UserArticleTests(APITestMixin, TestCase):
         self.url = URL_1
 
     def test_article_info_other_way(self):
-        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
+        json_result = self.json_from_api_get('/article_id', other_args=dict(url=self.url_quoted))
+        article_id = json_result['article_id']
+
+        result = self.json_from_api_get('/user_article', other_args=dict(article_id=article_id))
+
         assert "content" in result
         assert "translations" in result
 
     def test_article_update(self):
         # Article is not starred initially
-        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
+        json_result = self.json_from_api_get('/article_id', other_args=dict(url=self.url_quoted))
+        article_id = json_result['article_id']
+
+        result = self.json_from_api_get('/user_article', other_args=dict(article_id=article_id))
         assert (not result['starred'])
 
         # Make starred
-        self.api_post(f'/user_article', formdata=dict(url=self.url, starred='True'))
+        self.api_post(f'/user_article', formdata=dict(article_id=article_id, starred='True'))
 
         # Article should be starred
-        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
+        result = self.json_from_api_get('/user_article', other_args=dict(article_id=article_id))
         assert (result['starred'])
 
         # Make liked
-        self.api_post(f'/user_article', formdata=dict(url=self.url, liked='True'))
+        self.api_post(f'/user_article', formdata=dict(article_id=article_id, liked='True'))
 
         # Article should be both liked and starred
-        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
+        result = self.json_from_api_get('/user_article', other_args=dict(article_id=article_id))
         assert (result['starred'])
         assert (result['liked'])
 
         # Article un-starred
-        self.api_post(f'/user_article', formdata=dict(url=self.url, starred='False'))
+        self.api_post(f'/user_article', formdata=dict(article_id=article_id, starred='False'))
 
         # Article is not starred anymore
-        result = self.json_from_api_get('/user_article', other_args=dict(url=self.url_quoted))
+        result = self.json_from_api_get('/user_article', other_args=dict(article_id=article_id))
         assert (not result['starred'])
 
 

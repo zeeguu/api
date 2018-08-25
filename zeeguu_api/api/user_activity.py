@@ -7,6 +7,7 @@ from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from zeeguu.model import UserActivityData
 
+
 @api.route("/upload_user_activity_data", methods=["POST"])
 @cross_domain
 @with_session
@@ -33,6 +34,8 @@ def upload_user_activity_data():
     """
 
     UserActivityData.create_from_post_data(db_session, request.form, flask.g.user)
-    distill_article_interactions(db_session, flask.g.user, request.form)
+
+    if request.form.get('article_id', None):
+        distill_article_interactions(db_session, flask.g.user, request.form)
 
     return "OK"

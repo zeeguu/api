@@ -17,21 +17,19 @@ from zeeguu.model import User, Cohort, Language, Teacher
 db = zeeguu.db
 
 
-@api.route("/is_teacher", methods=["GET"])
-@with_session
-def is_teacher():
-    if is_teacher(flask.g.user.id):
-        return "True"
-
-    return "False"
-
-
-def is_teacher(user_id):
+def _is_teacher(user_id):
     try:
         Teacher.query.filter_by(user_id=user_id).one()
         return True
     except NoResultFound:
+
         return False
+
+
+@api.route("/is_teacher", methods=["GET"])
+@with_session
+def is_teacher():
+    return str(_is_teacher(flask.g.user.id))
 
 
 def has_permission_for_cohort(cohort_id):
@@ -239,16 +237,19 @@ def _get_cohort_info(id):
         inv_code = c.inv_code
         max_students = c.max_students
         cur_students = c.get_current_student_count()
+
         try:
             language_id = c.language_id
             language = Language.query.filter_by(id=language_id).one()
             language_name = language.name
+
         except ValueError:
             language_name = "None"
         except sqlalchemy.orm.exc.NoResultFound:
             language_name = "None"
         dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-                      'cur_students': cur_students, 'language_name': language_name}
+                      'cur_students': cur_students, 'language_name': language_name,
+                      'declared_level_min': c.declared_level_min, 'declared_level_max': c.declared_level_max}
         return dictionary
     except ValueError:
         flask.abort(400)
@@ -292,8 +293,9 @@ def create_own_cohort():
 
     '''
 
-    if not is_teacher(flask.g.user.id):
+    if not _is_teacher(flask.g.user.id):
         flask.abort(401)
+
     inv_code = request.form.get("inv_code")
     name = request.form.get("name")
     language_id = request.form.get("language_id")
@@ -339,38 +341,6 @@ def add_teacher(id):
         flask.abort(400)
 
 
-@api.route("/add_user_with_cohort", methods=['POST'])
-def add_user_with_cohort():
-    '''
-        Creates user and adds them to a cohort
-        Requires input form (email, password, username, inv_code)
-    '''
-    email = request.form.get("email")
-    password = request.form.get("password")
-    username = request.form.get("username")
-    inv_code = request.form.get("inv_code")
-    try:
-        cohort_id = Cohort.get_id(inv_code)
-        cohort = Cohort.find(cohort_id)
-    except:
-        flask.abort(400)
-
-    if not len(password) == 0:
-        if cohort.cohort_still_has_capacity():
-            try:
-                user = User(email, username, password, invitation_code=inv_code)
-                user.cohort = cohort
-                db.session.add(user)
-                db.session.commit()
-                return 'OK'
-            except ValueError:
-                flask.abort(400)
-            except sqlalchemy.exc.IntegrityError:
-                flask.abort(400)
-        return 'no more space in class!'
-    flask.abort(400)
-
-
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
 def cohort_member_bookmarks(id, time_period):
@@ -408,10 +378,8 @@ def update_cohort(cohort_id):
         cohort_to_change.inv_code = request.form.get("inv_code")
         cohort_to_change.name = request.form.get("name")
 
-        if int(request.form.get("max_students")) < 1:
-            flask.abort(400)
-
-        cohort_to_change.max_students = request.form.get("max_students")
+        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
+        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
 
         db.session.commit()
         return 'OK'

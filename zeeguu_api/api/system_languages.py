@@ -32,3 +32,5 @@ def available_native_languages():
 @api.route("/ping", methods=["GET"])
 def ping():
     return "OK"
+
+

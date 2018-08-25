@@ -185,3 +185,21 @@ def get_subscribed_filters():
 
     return json_result(filter_list)
 
+
+@api.route(f"/cache_articles/<code>", methods=("GET",))
+def cache_articles(code):
+    from zeeguu import app
+    if code != app.config.get("PRIVATE_API_CODE"):
+        return "Nope"
+
+    from zeeguu.model import Topic, Language
+
+    for each in Topic.get_all_topics():
+        each.all_articles()
+
+    for each in Language.available_languages():
+        each.get_articles()
+
+    print("done caching articles!")
+
+    return "OK"

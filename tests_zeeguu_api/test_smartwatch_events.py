@@ -35,7 +35,8 @@ class SmartwatchEventsTests(APITestMixin, TestCase):
             time="2016-05-05T10:10:10.000Z",
             event="Reading",
             value="200",
-            extra_data="seconds"
+            extra_data="seconds",
+            article_id=""
         )
         result = self.api_post('/upload_user_activity_data', event)
         assert (result.data.decode('utf-8') == "OK")

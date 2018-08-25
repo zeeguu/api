@@ -155,7 +155,7 @@ def unstar_bookmark(bookmark_id):
 
 
 def minimize_context(context_str, from_lang_code, word_str):
-    _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 3)
+    _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 7)
     processor = RemoveUnnecessarySentences(from_lang_code)
     query = processor.process_query(_query)
     minimal_context = query.before_context + ' ' + query.query + query.after_context

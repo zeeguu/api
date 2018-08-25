@@ -59,7 +59,7 @@ def user_article_history(user_id):
                 if event.is_like():
                     has_like = True
                 if event.is_feedback():
-                    feedback = event.extra_data
+                    feedback = event.value
                     difficulty = "fk: " + str(each.article.fk_difficulty)
 
             dates[each.human_readable_date()].append(

@@ -6,305 +6,270 @@ from tests_zeeguu_api.api_test_mixin import APITestMixin
 import zeeguu
 
 
-class DashboardTest(APITestMixin, TestCase):
+class _UserInfo():
+    """
+    for keeping user info together
+    """
+
+    def __init__(self, username, password, invite_code, email):
+        self.username = username
+        self.password = password
+        self.invite_code = invite_code
+        self.email = email
+
+    def data_dict(self):
+        return dict(
+            username=self.username,
+            password=self.password,
+            invite_code=self.invite_code
+        )
+
+
+test_teacher = _UserInfo('testUser', 'password', 'test', 'test321@gmail.com')
+test_teacher2 = _UserInfo('testUser2', 'password2', 'test', 'teacher2@gmail.com')
+
+test_student_1 = {
+    'username': 'student1',
+    'password': 'password',
+    'email': 'student1@gmail.com'
+}
+
+test_student_2 = {
+    'username': 'student2',
+    'password': 'password',
+    'email': 'student2@gmail.com'
+}
+
+test_student_3 = {
+    'username': 'student3',
+    'password': 'password',
+    'email': 'student3@gmail.com'
+}
+
+french_b1 = {'inv_code': '123',
+             'name': 'FrenchB1',
+             'language_id': 'fr',
+             'max_students': 33
+             }
+
+french_b2 = {'inv_code': '1235',
+             'name': 'FrenchB2',
+             'language_id': 'fr',
+             'max_students': '33'
+             }
+
+french_b2_wrong_invcode = {'inv_code': '123',
+                           'name': 'FrenchB2',
+                           'language_id': 'fr',
+                           'max_students': '33'
+                           }
+
+french_b2_wrong_students = {'inv_code': '1234',
+                            'name': 'FrenchB2',
+                            'language_id': 'fr',
+                            'max_students': '-33'
+                            }
+
+french_b2_wrong_language = {'inv_code': '1234',
+                            'name': 'FrenchB2',
+                            'language_id': 'frr',
+                            'max_students': '33'
+                            }
+
+
+class TeacherTest(APITestMixin, TestCase):
 
     def setUp(self):
-        super(DashboardTest, self).setUp()
+        super(TeacherTest, self).setUp()
+        zeeguu.app.config["INVITATION_CODES"] = ["test"]
 
     def test_is_teacher(self):
-        userDictionary = {
-            'username': 'testUser',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
-        assert rv
-
-        session = rv.data.decode('utf-8')
-        print (session)
-
-        # Acceptable class
-        classDictionary = {
-            'inv_code': '123',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '33'
-        }
-        self._make_teacher("test321@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
-        assert result.status_code == 200
-
-        assert result.data.decode("utf-8") == "OK"
-
-        url = '/is_teacher?session='+session
-        answer = self.app.get(url)
+        session = self._create_teacher(test_teacher)
+        answer = self.app.get(f'/is_teacher?session={session}')
         assert answer.data == b'True'
 
     def test_adding_classes(self):
-        userDictionary = {
-            'username': 'testUser',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
-        assert rv
-
-        # Acceptable class
-        classDictionary = {
-            'inv_code': '123',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '33'
-        }
-        self._make_teacher("test321@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        session, result = self._create_teacher_and_class(test_teacher, french_b1)
         assert result.status_code == 200
 
-        assert result.data.decode("utf-8") == "OK"
-
-        # Inv code aleady in use
-        classDictionary = {
-            'inv_code': '123',
-            'name': 'FrenchB2',
-            'language_id': 'fr',
-            'max_students': '33'
-        }
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        # Inv code already in use
+        result = self.app.post(f'/create_own_cohort?session={session}', data=french_b2_wrong_invcode)
         assert result.status_code == 400
 
         # invalid max_students
-        classDictionary = {
-            'inv_code': '1234',
-            'name': 'FrenchB2',
-            'language_id': 'fr',
-            'max_students': '-15'
-        }
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        result = self.app.post(f'/create_own_cohort?session={session}', data=french_b2_wrong_students)
         assert result.status_code == 400
 
         # invalid language_id
-        classDictionary = {
-            'inv_code': '12345',
-            'name': 'FrenchB3',
-            'language_id': 'frrrr',
-            'max_students': '10'
-        }
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        result = self.app.post(f'/create_own_cohort?session={session}', data=french_b2_wrong_language)
         assert result.status_code == 400
 
     def test_get_classes_and_get_class_info(self):
         # Insert class from another teacher
-        userDictionary = {
-            'username': 'testUser1',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
-        classDictionary = {
-            'inv_code': '12',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '33'
-        }
-        self._make_teacher("test3210@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        t1_session, result = self._create_teacher_and_class(test_teacher, french_b1)
+        assert result.status_code == 200
 
         # Insert class from teacher we will test
-        userDictionary = {
-            'username': 'testUser2',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test321@gmail.com', userDictionary)
-        classDictionary = {
-            'inv_code': '123',
-            'name': 'FrenchB2',
-            'language_id': 'fr',
-            'max_students': '33'
-        }
-        self._make_teacher("test321@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
-        classesJ = self.app.get('/cohorts_info?session=' + rv.data.decode('utf-8'))
-        assert classesJ
-        classes = json.loads(classesJ.data)
-        # Assert something is returned
-        assert classes
+        t2_session, result = self._create_teacher_and_class(test_teacher2, french_b2)
+        assert result.status_code == 200
 
-        # Assert the correct class of the two is returned
-        assert classes[0]['name'] == 'FrenchB2'
+        # cohorts info should contain only frenchb2 for our teacher2
+        classes_json = self.app.get(f'/cohorts_info?session={t2_session}')
+        class_of_teacher2 = json.loads(classes_json.data)[0]
+        class_of_teacher2_name = class_of_teacher2['name']
+        assert class_of_teacher2_name == 'FrenchB2'
 
         # Test get class info
-        result = self.app.get('cohort_info/' + str(classes[0]['id']) + '?session=' + rv.data.decode('utf-8'))
+        class_of_teacher2_id = class_of_teacher2['id']
+        result = self.app.get(f'cohort_info/{class_of_teacher2_id}?session={t2_session}')
         assert result.status_code == 200
         assert json.loads(result.data)['name'] == 'FrenchB2'
 
-        # Test get class info for class the teacher doesn't have access too
-        result = self.app.get('cohort_info/1' + '?session=' + rv.data.decode('utf-8'))
+        # Test get class info for class the teacher doesn't have access to
+        result = self.app.get(f'cohort_info/1?session={t2_session}')
         assert result.status_code == 401
 
         # Test get class info for class that doesn't exist
-        result = self.app.get('cohort_info/5' + '?session=' + rv.data.decode('utf-8'))
+        result = self.app.get(f'cohort_info/5?session={t2_session}')
         assert result.status_code == 401
 
-    def test_get_users_from_class_and_without(self):
-        userDictionary = {
-            'username': 'testUser1',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
-        classDictionary = {
-            'inv_code': '12',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '10'
-        }
-        self._make_teacher("test3210@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+    def test_add_student_to_class_success(self):
+        self._create_teacher_and_class(test_teacher, french_b1)
 
-        newUser = {
-            'username': 'newUser1',
-            'password': 'password',
-            'email': 'newUser1@gmail.com',
-            'inv_code': '12'
-        }
-        result = self.app.post('/add_user_with_cohort', data=newUser)
+        result = self._add_student(test_student_1, french_b1['inv_code'])
         assert result.status_code == 200
 
-        newUser = {
-            'username': 'newUser2',
-            'password': '',
-            'email': 'newUser1@gmail.com',
-            'inv_code': '12'
-        }
-        result = self.app.post('/add_user_with_cohort', data=newUser)
+    def test_add_student_to_class_wrong_invite_code(self):
+        self._create_teacher_and_class(test_teacher, french_b1)
+
+        result = self._add_student(test_student_2, "wild_guess")
         assert result.status_code == 400
+
+    def test_get_users_from_class(self):
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
+        self._add_student(test_student_1, french_b1['inv_code'])
+        self._add_student(test_student_2, french_b1['inv_code'])
+
         # Get list of users in a class
-        result = self.app.get('/users_from_cohort/1/14?session=' + rv.data.decode('utf-8'))
+        result = self.app.get(f'/users_from_cohort/1/14?session={teacher_session}')
         assert result.status_code == 200
-        result = json.loads(result.data)
-        assert result[0]['name'] == 'newUser1'
+
+        student_1 = json.loads(result.data)[0]
+
+        assert student_1['name'] == test_student_1['username']
 
         # Get individual user
-        result = self.app.get('/user_info/' + str(result[0]['id']) + "/14?session=" + rv.data.decode('utf-8'))
+        result = self.app.get(f'/user_info/{student_1["id"]}/14?session={teacher_session}')
         assert result.status_code == 200
         result = json.loads(result.data)
-        assert result['name'] == 'newUser1'
+        assert result['name'] == 'student1'
 
         # User that doesn't exists
-        result = self.app.get('/user_info/55/14?session=' + rv.data.decode('utf-8'))
+        result = self.app.get(f'/user_info/55/14?session={teacher_session}')
         assert result.status_code == 400
 
         # User not in class owned by teacher
-        newUser = {
-            'username': 'newUser3',
-            'password': 'password',
-            'email': 'newUser3@gmail.com',
-        }
-        result = self.app.post('/add_user/' + newUser['email'], data=newUser)
-        assert result.status_code == 200
-        result = self.app.get('/user_info/4/14?session=' + rv.data.decode('utf-8'))
+        self._add_student(test_student_3, 'test')
+
+        result = self.app.get(f'/user_info/5/14?session={teacher_session}')
         assert result.status_code == 401
 
     def test_remove_class(self):
-        userDictionary = {
-            'username': 'testUser1',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
-        classDictionary = {
-            'inv_code': '12',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '10'
-        }
-        self._make_teacher("test3210@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
-        assert result.status_code == 200
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
+
         # Remove class that teacher owns
-        result = self.app.post('/remove_cohort/1?session=' + rv.data.decode('utf-8'))
+        result = self.app.post(f'/remove_cohort/1?session={teacher_session}')
         assert result.status_code == 200
+
         # Try to remove class that is already removed
-        result = self.app.post('/remove_cohort/1?session=' + rv.data.decode('utf-8'))
+        result = self.app.post(f'/remove_cohort/1?session={teacher_session}')
         assert result.status_code == 401
 
     def test_update_class(self):
-        userDictionary = {
-            'username': 'testUser1',
-            'password': 'password'
-        }
-        rv = self.api_post('/add_user/test3210@gmail.com', userDictionary)
-        classDictionary = {
-            'inv_code': '12',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '10'
-        }
-
-        self._make_teacher("test3210@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv.data.decode('utf-8'), data=classDictionary)
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
 
         # Test valid update
-        updateDictionary = {
+        update_info = {
             'inv_code': '123',
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_info)
         assert result.status_code == 200
-        result = self.app.get('/cohort_info/1?session=' + rv.data.decode('utf-8'))
+
+        result = self.app.get(f'/cohort_info/1?session={teacher_session}')
         assert result.status_code == 200
+
         loaded = json.loads(result.data)
         assert loaded['name'] == 'SpanishB1'
         assert loaded['max_students'] == 11
         assert loaded['inv_code'] == '123'
 
+    def test_invalid_update_class(self):
         # Test invalid update (negative max students)
-        updateDictionary = {
+
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
+
+        update_info = {
             'inv_code': '123',
             'name': 'SpanishB1',
             'max_students': '-11'
         }
-        result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_info)
         assert result.status_code == 400
-        result = self.app.get('/cohort_info/1?session=' + rv.data.decode('utf-8'))
-        loaded = json.loads(result.data)
-        assert loaded['max_students'] == 11
 
-        # Add second teacher to create new class
-        userDictionary = {
-            'username': 'testUser2',
-            'password': 'password'
-        }
-        rv2 = self.api_post('/add_user/test321230@gmail.com', userDictionary)
-        # Add class with ID that another class used to have
-        classDictionary = {
-            'inv_code': '12',
-            'name': 'FrenchB1',
-            'language_id': 'fr',
-            'max_students': '10'
-        }
-        self._make_teacher("test321230@gmail.com")
-        result = self.app.post('/create_own_cohort?session=' + rv2.data.decode('utf-8'), data=classDictionary)
-        assert result.status_code == 200
+        result = self.app.get(f'/cohort_info/1?session={teacher_session}')
+        loaded = json.loads(result.data)
+
+        assert loaded['max_students'] == french_b1['max_students']
+
+    def test_more_invalid_updates(self):
+        # Test invalid update (negative max students)
+
+        teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
+        teacher2_session, _ = self._create_teacher_and_class(test_teacher2, french_b2)
 
         # Test invalid update (taken inv code)
-        updateDictionary = {
-            'inv_code': '12',
+        update_info = {
+            'inv_code': french_b2['inv_code'],
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post('/update_cohort/1?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        result = self.app.post(f'/update_cohort/1?session={teacher_session}', data=update_info)
         assert result.status_code == 400
 
         # Test invalid permissions
-        updateDictionary = {
+        update_info = {
             'inv_code': '1245',
             'name': 'SpanishB1',
             'max_students': '11'
         }
-        result = self.app.post('/update_cohort/2?session=' + rv.data.decode('utf-8'), data=updateDictionary)
+        result = self.app.post(f'/update_cohort/2?session={teacher_session}', data=update_info)
         assert result.status_code == 401
 
-    def _make_teacher(self, email):
-        from zeeguu.model import User, Teacher
-        db = zeeguu.db
+    # Private, helper methods
 
-        u = User.find(email)
-        db.session.add(Teacher(u))
-        db.session.commit()
+    def _create_teacher(self, teacher: _UserInfo):
+        def _upgrade_to_teacher(email):
+            from zeeguu.model import User, Teacher
+            db = zeeguu.db
+
+            u = User.find(email)
+            db.session.add(Teacher(u))
+            db.session.commit()
+
+        rv = self.api_post(f'/add_user/{teacher.email}', teacher.data_dict())
+
+        session = rv.data.decode('utf-8')
+
+        _upgrade_to_teacher(teacher.email)
+        return session
+
+    def _add_student(self, student, inv_code):
+        student['invite_code'] = inv_code
+        return self.app.post(f'/add_user/{student["email"]}', data=student)
+
+    def _create_teacher_and_class(self, teacher, cohort):
+        teacher_session = self._create_teacher(teacher)
+        result = self.app.post(f'/create_own_cohort?session={teacher_session}', data=cohort)
+        return teacher_session, result
