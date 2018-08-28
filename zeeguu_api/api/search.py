@@ -4,7 +4,8 @@ from flask import request
 from zeeguu.model.search import Search
 from zeeguu.model.search_filter import SearchFilter
 from zeeguu.model.search_subscription import SearchSubscription
-from zeeguu.content_recommender.mixed_recommender import article_search_for_user, recompute_recommender_cache_if_needed
+
+from zeeguu.content_recommender.mixed_recommender import article_search_for_user
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -63,7 +64,6 @@ def unsubscribe_from_search():
         to_delete2 = Search.find_by_id(search_id)
         session.delete(to_delete2)
         session.commit()
-        recompute_recommender_cache_if_needed(flask.g.user, session)
 
     except Exception as e:
         zeeguu.log(str(e))
@@ -136,7 +136,6 @@ def unfilter_search():
         to_delete = Search.find_by_id(search_id)
         session.delete(to_delete)
         session.commit()
-        recompute_recommender_cache_if_needed(flask.g.user, session)
 
     except Exception as e:
         zeeguu.log(str(e))
