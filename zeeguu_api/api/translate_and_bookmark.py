@@ -140,6 +140,7 @@ def report_learned_bookmark(bookmark_id):
 def star_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = True
+    bookmark.update_fit_for_study()
     db_session.commit()
     return "OK"
 
@@ -150,6 +151,7 @@ def star_bookmark(bookmark_id):
 def unstar_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = False
+    bookmark.update_fit_for_study()
     db_session.commit()
     return "OK"
 
