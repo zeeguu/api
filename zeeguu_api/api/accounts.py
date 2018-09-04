@@ -2,7 +2,7 @@ import flask
 import sqlalchemy
 import zeeguu
 from flask import request
-from zeeguu.model import User, Cohort
+from zeeguu.model import User, Cohort, Teacher
 from zeeguu.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
@@ -44,8 +44,16 @@ def add_user(email):
             if not cohort.cohort_still_has_capacity():
                 return make_error(400, "No more places in this class. Please contact us.")
 
-        db_session.add(User(email, username, password, invitation_code=invite_code, cohort=cohort))
+        new_user = User(email, username, password, invitation_code=invite_code, cohort=cohort)
+        db_session.add(new_user)
+
+        if cohort:
+            if cohort.is_cohort_of_teachers:
+                teacher = Teacher(new_user)
+                db_session.add(teacher)
+
         db_session.commit()
+
 
     except sqlalchemy.exc.IntegrityError:
         return make_error(401, "There is already an account for this email.")
