@@ -13,6 +13,7 @@ fi
 
 
 export ZEEGUU_API_CONFIG=`pwd`"/default_api.cfg"
-export ZEEGUU_CORE_CONFIG=`pwd`"/default_api.cfg"
-python -m zeeguu.populate
+
+# don't think this is needed
+#python -m zeeguu.populate
 python -m zeeguu_api
