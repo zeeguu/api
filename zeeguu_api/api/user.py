@@ -120,6 +120,10 @@ def user_settings():
     if submitted_native_language_code:
         flask.g.user.set_native_language(submitted_native_language_code)
 
+    submitted_learned_language_code = data.get('learned_language_code', None)
+    if submitted_native_language_code:
+        flask.g.user.set_learned_language(submitted_learned_language_code)
+
     submitted_email = data.get('email', None)
     if submitted_email:
         flask.g.user.email = submitted_email
