@@ -80,8 +80,8 @@ def learned_and_native_language():
     :return:
     """
     u = flask.g.user
-    res = dict( native  = u.native_language_id,
-                learned = u.learned_language_id)
+    res = dict(native=u.native_language_id,
+               learned=u.learned_language_id)
     return json_result(res)
 
 
@@ -95,5 +95,34 @@ def native_language_set(language_code):
     :return: OK for success
     """
     flask.g.user.set_native_language(language_code)
+    zeeguu.db.session.commit()
+    return "OK"
+
+
+@api.route("/user_settings", methods=["POST"])
+@cross_domain
+@with_session
+def user_settings():
+    """
+    set the native language of the user in session
+    :param language_code:
+    :return: OK for success
+    """
+
+    data = flask.request.form
+    print(data)
+
+    submitted_name = data.get('name', None)
+    if submitted_name:
+        flask.g.user.name = submitted_name
+
+    submitted_native_language_code = data.get('native_language_code', None)
+    if submitted_native_language_code:
+        flask.g.user.set_native_language(submitted_native_language_code)
+
+    submitted_email = data.get('email', None)
+    if submitted_email:
+        flask.g.user.email = submitted_email
+
     zeeguu.db.session.commit()
     return "OK"
