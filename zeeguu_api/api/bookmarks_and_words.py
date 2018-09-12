@@ -96,6 +96,31 @@ def post_bookmarks_by_day():
     return json_result(flask.g.user.bookmarks_by_day(with_context, after_date, with_title=with_title))
 
 
+@api.route("/bookmarks_for_article/<article_id>", methods=["POST"])
+@cross_domain
+@with_session
+def bookmarks_for_article(article_id):
+    """
+    Returns the bookmarks of this user organized by date. Based on the
+    POST arguments, it can return also the context of the bookmark as
+    well as it can return only the bookmarks after a given date.
+
+    :param (POST) with_context: If this parameter is "true", the endpoint
+    also returns the text where the bookmark was found.
+
+    :param (POST) after_date: the date after which to start retrieving
+     the bookmarks. if no date is specified, all the bookmarks are returned.
+     The date format is: %Y-%m-%dT%H:%M:%S. E.g. 2001-01-01T01:55:00
+
+    """
+    with_context = request.form.get("with_context", "false") in ["True", "true"]
+    with_title = request.form.get("with_title", "false") in ["True", "true"]
+    after_date_string = request.form.get("after_date", "1970-01-01T00:00:00")
+    after_date = datetime.strptime(after_date_string, '%Y-%m-%dT%H:%M:%S')
+
+    return json_result(flask.g.user.bookmarks_for_article(article_id, with_context, after_date, with_title=with_title))
+
+
 @api.route("/create_default_exercises", methods=["GET"])
 @cross_domain
 @with_session
