@@ -6,7 +6,7 @@ from zeeguu.model import User, Cohort, Teacher
 from zeeguu.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
-from zeeguu_api.api.utils.reset_password import send_password_reset_email
+from zeeguu_api.api.utils.zeeeguu_mailer import send_password_reset_email, send_new_user_account_email
 
 from .utils.route_wrappers import cross_domain
 from . import api, db_session
@@ -28,6 +28,7 @@ def add_user(email):
     password = request.form.get("password")
     username = request.form.get("username")
     invite_code = request.form.get("invite_code")
+    cohort_name = ''
 
     if password is None or len(password) < 4:
         return make_error(400, "Password should be at least 4 characters long")
@@ -44,6 +45,8 @@ def add_user(email):
             if not cohort.cohort_still_has_capacity():
                 return make_error(400, "No more places in this class. Please contact us.")
 
+            cohort_name = cohort.name
+
         new_user = User(email, username, password, invitation_code=invite_code, cohort=cohort)
         db_session.add(new_user)
 
@@ -53,6 +56,8 @@ def add_user(email):
                 db_session.add(teacher)
 
         db_session.commit()
+
+        send_new_user_account_email(username, invite_code, cohort_name)
 
 
     except sqlalchemy.exc.IntegrityError:
