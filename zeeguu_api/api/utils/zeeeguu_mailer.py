@@ -58,5 +58,5 @@ def send_new_user_account_email(username, invite_code='', cohort=''):
         "The Zeeguu Team"
     ])
 
-    emailer = ZeeguuMailer('New Account', app.config.get('SMTP_USERNAME'), body)
+    emailer = ZeeguuMailer('New Account', body, app.config.get('SMTP_USERNAME'))
     emailer.send()
