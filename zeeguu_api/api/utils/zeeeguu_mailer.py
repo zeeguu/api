@@ -29,7 +29,7 @@ class ZeeguuMailer(object):
         from email.mime.text import MIMEText
 
         message = MIMEText(self.message_body)
-        message['From'] = self.from_email
+        message['From'] = self.our_email
         message['To'] = self.to_email
         message['Subject'] = self.message_subject
 
