@@ -28,7 +28,7 @@ class ZeeguuMailer(object):
     def _content_of_email(self):
         from email.mime.text import MIMEText
 
-        message = MIMEText(self.body)
+        message = MIMEText(self.message_body)
         message['From'] = self.from_email
         message['To'] = self.to_email
         message['Subject'] = self.message_subject
