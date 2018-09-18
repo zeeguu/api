@@ -52,11 +52,11 @@ def send_password_reset_email(to_email, code):
 
 def send_new_user_account_email(username, invite_code='', cohort=''):
     body = "\r\n".join([
-        f"Name: {username} Invite Code: {invite_code} Class: {cohort}"
+        f"Code: {invite_code} Class: {cohort}"
         " ",
         "Cheers,",
         "The Zeeguu Team"
     ])
 
-    emailer = ZeeguuMailer('New Account', body, app.config.get('SMTP_USERNAME'))
+    emailer = ZeeguuMailer(f'New Account: {username}', body, app.config.get('SMTP_USERNAME'))
     emailer.send()
