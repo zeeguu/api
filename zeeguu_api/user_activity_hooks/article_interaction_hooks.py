@@ -48,7 +48,7 @@ def article_liked(session, article_id, user, like_value):
     session.add(ua)
     session.commit()
     log(f"{ua}")
-    send_notification_article_liked(user.name, article)
+    send_notification_article_liked(user.name, article.title, article.url.as_string())
 
 def article_opened(session, article_id, user):
     article = Article.query.filter_by(id=article_id).one()
