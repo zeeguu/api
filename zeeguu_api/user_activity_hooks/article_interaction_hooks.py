@@ -1,8 +1,9 @@
 from datetime import datetime
 
+from tools.recent_activity import beautify_article_feedback
 from zeeguu import log
 from zeeguu.model import Article, UserArticle
-from zeeguu_api.api.utils.emailer import send_notification_article_liked
+from zeeguu_api.api.utils.emailer import send_notification_article_feedback
 
 
 def distill_article_interactions(session, user, data):
@@ -29,16 +30,19 @@ def distill_article_interactions(session, user, data):
     elif "UMR - UNLIKE ARTICLE" in event:
         article_liked(session, article_id, user, False)
     elif "UMR - USER FEEDBACK" in event:
-        article_feedback(session, article_id, value)
+        article_feedback(session, article_id, user, value)
 
 
-def article_feedback(session, article_id, event_value):
+def article_feedback(session, article_id, user, event_value):
     article = Article.query.filter_by(id=article_id).one()
 
     if "not_finished_for_broken" or "not_finished_for_incomplete" or "not_finished_for_other" in event_value:
         article.vote_broken()
         session.add(article)
         session.commit()
+
+    send_notification_article_feedback(beautify_article_feedback(event_value), user.name, article.title,
+                                       article.url.as_string())
 
 
 def article_liked(session, article_id, user, like_value):
@@ -48,7 +52,8 @@ def article_liked(session, article_id, user, like_value):
     session.add(ua)
     session.commit()
     log(f"{ua}")
-    send_notification_article_liked(user.name, article.title, article.url.as_string())
+    send_notification_article_feedback('Liked', user.name, article.title, article.url.as_string())
+
 
 def article_opened(session, article_id, user):
     article = Article.query.filter_by(id=article_id).one()
