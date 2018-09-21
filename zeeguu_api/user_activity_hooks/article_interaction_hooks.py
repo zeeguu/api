@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from tools.recent_activity import beautify_article_feedback
 from zeeguu import log
 from zeeguu.model import Article, UserArticle
 from zeeguu_api.api.utils.emailer import send_notification_article_feedback
@@ -34,6 +33,22 @@ def distill_article_interactions(session, user, data):
 
 
 def article_feedback(session, article_id, user, event_value):
+    nicer = {
+        '"not_finished_for_broken"': "BROKEN",
+        '"maybe_finish_later"': "Later",
+        '"finished_difficulty_ok"': "OK",
+        '"finished_difficulty_hard"': "HARD",
+        '"finished_difficulty_easy"': "EASY",
+        '"not_finished_for_other"': "Not Finished - OTHER",
+        '"not_finished_for_boring"': "Not Finished - BORINNG",
+        '"read_later"': "Read Later",
+        '"not_finished_for_too_difficult"': "Not Finished - TOO DIFFICULT"
+
+    }
+
+    def beautify_article_feedback(feedback):
+        return nicer.get(feedback, feedback)
+
     article = Article.query.filter_by(id=article_id).one()
 
     if "not_finished_for_broken" or "not_finished_for_incomplete" or "not_finished_for_other" in event_value:
