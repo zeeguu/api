@@ -2,6 +2,7 @@ from datetime import datetime
 
 from zeeguu import log
 from zeeguu.model import Article, UserArticle
+from zeeguu_api.api.utils.emailer import send_notification_article_liked
 
 
 def distill_article_interactions(session, user, data):
@@ -47,7 +48,7 @@ def article_liked(session, article_id, user, like_value):
     session.add(ua)
     session.commit()
     log(f"{ua}")
-
+    send_notification_article_liked(user.name, article)
 
 def article_opened(session, article_id, user):
     article = Article.query.filter_by(id=article_id).one()

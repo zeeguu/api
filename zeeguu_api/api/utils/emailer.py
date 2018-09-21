@@ -55,8 +55,20 @@ def send_new_user_account_email(username, invite_code='', cohort=''):
         f"Code: {invite_code} Class: {cohort}"
         " ",
         "Cheers,",
-        "The Zeeguu Team"
+        "The Zeeguu Server ;)"
     ])
 
     emailer = ZeeguuMailer(f'New Account: {username}', body, app.config.get('SMTP_USERNAME'))
+    emailer.send()
+
+
+def send_notification_article_liked(username, article_title, article_url):
+    body = "\r\n".join([
+        f"Title: {article_title} Url: https://www.zeeguu.unibe.ch/read/article?articleURL={article_url}"
+        " ",
+        "Cheers,",
+        "The Zeeguu Server ;)"
+    ])
+
+    emailer = ZeeguuMailer(f'Article Read By: {username}', body, app.config.get('SMTP_USERNAME'))
     emailer.send()
