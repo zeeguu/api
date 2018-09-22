@@ -23,4 +23,4 @@ def send_notification_article_feedback(feedback, user: User, article_title, arti
         cheers_your_server
     ]
 
-    ZeeguuMailer.send_mail(f'{user.name} On: {article_title}', content_lines)
+    ZeeguuMailer.send_mail(f'{user.name} - {article_title}', content_lines)
