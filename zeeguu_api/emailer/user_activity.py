@@ -17,9 +17,8 @@ def send_notification_article_feedback(feedback, user: User, article_title, arti
     cohort_id = user.cohort_id or 0
 
     content_lines = [
-        f'{feedback}',
-        f'Article: https://www.zeeguu.unibe.ch/read/article?articleURL={article_url}',
-        f'User Words: https://www.zeeguu.unibe.ch/teacher/class/{cohort_id}/student/{user.id}/',
+        f'{feedback} https://www.zeeguu.unibe.ch/read/article?articleURL={article_url}',
+        f'User Translations: https://www.zeeguu.unibe.ch/teacher/class/{cohort_id}/student/{user.id}/',
         cheers_your_server
     ]
 
