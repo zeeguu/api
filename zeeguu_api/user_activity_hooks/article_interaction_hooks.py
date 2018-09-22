@@ -56,7 +56,7 @@ def article_feedback(session, article_id, user, event_value):
         session.add(article)
         session.commit()
 
-    send_notification_article_feedback(beautify_article_feedback(event_value), user.name, article.title,
+    send_notification_article_feedback(beautify_article_feedback(event_value), user, article.title,
                                        article.url.as_string())
 
 
@@ -67,7 +67,7 @@ def article_liked(session, article_id, user, like_value):
     session.add(ua)
     session.commit()
     log(f"{ua}")
-    send_notification_article_feedback('Liked', user.name, article.title, article.url.as_string())
+    send_notification_article_feedback('Liked', user, article.title, article.url.as_string())
 
 
 def article_opened(session, article_id, user):
