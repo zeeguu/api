@@ -2,7 +2,7 @@ from datetime import datetime
 
 from zeeguu import log
 from zeeguu.model import Article, UserArticle
-from zeeguu_api.api.utils.emailer import send_notification_article_feedback
+from zeeguu_api.emailer.user_activity import send_notification_article_feedback
 
 
 def distill_article_interactions(session, user, data):

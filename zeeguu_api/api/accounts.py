@@ -6,7 +6,8 @@ from zeeguu.model import User, Cohort, Teacher
 from zeeguu.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
-from zeeguu_api.api.utils.emailer import send_password_reset_email, send_new_user_account_email
+from zeeguu_api.emailer.user_activity import send_new_user_account_email
+from zeeguu_api.emailer.password_reset import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain
 from . import api, db_session
