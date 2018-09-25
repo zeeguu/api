@@ -14,6 +14,12 @@ class ZeeguuMailer(object):
         self.password = app.config.get('SMTP_PASSWORD')
 
     def send(self):
+
+        # disable the mailer during unit testing
+        import zeeguu
+        if hasattr(zeeguu, "_in_unit_tests"):
+           return
+
         message = self._content_of_email()
         # Send email
         server = SMTP(self.server_name)
