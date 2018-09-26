@@ -16,8 +16,7 @@ class ZeeguuMailer(object):
     def send(self):
 
         # disable the mailer during unit testing
-        import zeeguu
-        if hasattr(zeeguu, "_in_unit_tests"):
+        if not app.config.get('SEND_NOTIFICATION_EMAILS', False):
            return
 
         message = self._content_of_email()
