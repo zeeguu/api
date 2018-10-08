@@ -43,11 +43,12 @@ def get_possible_translations(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
     url = request.form.get('url', '')
     #
-    if 'articleURL' in url:
+    article_id = None
+    if 'articleID' in url:
+        article_id = url.split('articleID=')[-1]
+        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
+    elif 'articleURL' in url:
         url = url.split('articleURL=')[-1]
-    elif 'articleID' in url:
-        id = url.split('articleID=')[-1]
-        url = Article.query.filter_by(id=id).one().url.as_canonical_string()
 
     zeeguu.log(f"url before being saved: {url}")
     word_str = request.form['word']
@@ -73,7 +74,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     Bookmark.find_or_create(db_session, flask.g.user,
                             word_str, from_lang_code,
                             best_guess, to_lang_code,
-                            minimal_context, url, title_str, id)
+                            minimal_context, url, title_str, article_id)
 
     return json_result(dict(translations=translations))
 
