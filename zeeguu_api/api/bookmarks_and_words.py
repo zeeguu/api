@@ -4,7 +4,7 @@ import flask
 from flask import request
 
 from tests_zeeguu.rules.bookmark_rule import BookmarkRule
-from zeeguu.model import User
+from zeeguu.model import User, Article
 from zeeguu.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
@@ -116,7 +116,14 @@ def bookmarks_for_article(article_id, user_id):
     """
 
     user = User.find_by_id(user_id)
-    return json_result(user.bookmarks_for_article(article_id, with_context=True, with_title=True))
+    article = Article.query.filter_by(id=article_id).one()
+
+    bookmarks = user.bookmarks_for_article(article_id, with_context=True, with_title=True)
+
+    return json_result(dict(
+        bookmarks = bookmarks,
+        article_title = article.title
+    ))
 
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST"])
@@ -137,7 +144,7 @@ def bookmarks_for_article_2(article_id):
 
     """
 
-    return json_result(flask.g.user.bookmarks_for_article(article_id, with_context=True, with_title=True))
+    return bookmarks_for_article(article_id, flask.g.user.id)
 
 
 @api.route("/create_default_exercises", methods=["GET"])
