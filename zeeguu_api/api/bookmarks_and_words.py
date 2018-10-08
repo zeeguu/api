@@ -118,6 +118,7 @@ def bookmarks_for_article(article_id, user_id):
     user = User.find_by_id(user_id)
     return json_result(user.bookmarks_for_article(article_id, with_context=True, with_title=True))
 
+
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST"])
 @cross_domain
 @with_session
