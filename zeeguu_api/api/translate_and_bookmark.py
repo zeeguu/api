@@ -73,7 +73,7 @@ def get_possible_translations(from_lang_code, to_lang_code):
     Bookmark.find_or_create(db_session, flask.g.user,
                             word_str, from_lang_code,
                             best_guess, to_lang_code,
-                            minimal_context, url, title_str)
+                            minimal_context, url, title_str, id)
 
     return json_result(dict(translations=translations))
 
