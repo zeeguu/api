@@ -9,7 +9,7 @@ import zeeguu
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu.model import Bookmark
+from zeeguu.model import Bookmark, Article
 
 from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
 from python_translators.translation_query import TranslationQuery
@@ -43,7 +43,11 @@ def get_possible_translations(from_lang_code, to_lang_code):
     context_str = request.form.get('context', '')
     url = request.form.get('url', '')
     #
-    url = url.split('articleURL=')[-1]
+    if 'articleURL' in url:
+        url = url.split('articleURL=')[-1]
+    elif 'articleID' in url:
+        id = url.split('articleID=')[-1]
+        url = Article.query.filter_by(id=id).one().url.as_canonical_string()
 
     zeeguu.log(f"url before being saved: {url}")
     word_str = request.form['word']
@@ -194,6 +198,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     word_str = unquote_plus(request.form['word'])
 
     url_str = request.form.get('url', '')
+
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
