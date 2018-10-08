@@ -2,7 +2,7 @@ import functools
 import flask
 import zeeguu
 from zeeguu.model.session import Session
-
+from zeeguu import db
 
 def with_session(view):
     """
@@ -26,6 +26,9 @@ def with_session(view):
             flask.abort(401)
         flask.g.user = session.user
         session.update_use_date()
+
+        db.session.add(session)
+        db.session.commit()
         return view(*args, **kwargs)
 
     return wrapped_view
