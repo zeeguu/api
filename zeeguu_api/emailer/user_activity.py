@@ -13,12 +13,12 @@ def send_new_user_account_email(username, invite_code='', cohort=''):
         ])
 
 
-def send_notification_article_feedback(feedback, user: User, article_title, article_url):
+def send_notification_article_feedback(feedback, user: User, article_title, article_url, article_id):
     cohort_id = user.cohort_id or 0
 
     content_lines = [
-        f'{feedback} https://www.zeeguu.unibe.ch/read/article?articleURL={article_url}',
-        f'User Translations: https://www.zeeguu.unibe.ch/teacher/class/{cohort_id}/student/{user.id}/',
+        f'{feedback}',
+        f'User Translations: https://www.zeeguu.unibe.ch/bookmarks_for_article/{article_id}/{user.id}',
         cheers_your_server
     ]
 
