@@ -101,9 +101,17 @@ def contribute_translation(from_lang_code, to_lang_code):
     # All these POST params are mandatory
     word_str = unquote_plus(request.form['word'])
     translation_str = request.form['translation']
-    url_str = request.form.get('url', '')
+    url = request.form.get('url', '')
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
+
+    article_id = None
+    if 'articleID' in url:
+        article_id = url.split('articleID=')[-1]
+        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
+    elif 'articleURL' in url:
+        url = url.split('articleURL=')[-1]
+
 
     # Optional POST param
     selected_from_predefined_choices = request.form.get('selected_from_predefined_choices', '')
@@ -113,7 +121,7 @@ def contribute_translation(from_lang_code, to_lang_code):
     bookmark = Bookmark.find_or_create(db_session, flask.g.user,
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
-                                       minimal_context, url_str, title_str)
+                                       minimal_context, url, title_str, article_id)
 
     return json_result(dict(bookmark_id=bookmark.id))
 
