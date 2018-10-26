@@ -2,6 +2,7 @@
 from unittest import TestCase
 
 from tests_zeeguu_api.api_test_mixin import APITestMixin
+from tests_zeeguu_api.test_article import URL_1
 
 
 class TranslationTests(APITestMixin, TestCase):
@@ -11,7 +12,7 @@ class TranslationTests(APITestMixin, TestCase):
 
     def test_get_possible_translations(self):
         form_data = dict(
-            url='http://mir.lu',
+            url=URL_1,
             context='Die klein Jäger',
             word="klein")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
@@ -24,7 +25,7 @@ class TranslationTests(APITestMixin, TestCase):
 
     def test_get_translation_where_gslobe_fails_but_translate_succeeds(self):
         form_data = dict(
-            url='http://mir.lu',
+            url=URL_1,
             context='Die krassen Jägermeister',
             word="krassen")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
@@ -34,7 +35,7 @@ class TranslationTests(APITestMixin, TestCase):
 
     def test_translate_and_bookmark(self):
         form_data = dict(
-            url='http://mir.lu',
+            url=URL_1,
             context='Die kleine Jägermeister',
             word="Die")
 

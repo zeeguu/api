@@ -49,6 +49,10 @@ def get_possible_translations(from_lang_code, to_lang_code):
         url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
     elif 'articleURL' in url:
         url = url.split('articleURL=')[-1]
+    else:
+        # the url comes from elsewhere not from the reader, so we find or creat the article
+        article = Article.find_or_create(db_session, url)
+        article_id = article.id
 
     zeeguu.log(f"url before being saved: {url}")
     word_str = request.form['word']
@@ -111,6 +115,11 @@ def contribute_translation(from_lang_code, to_lang_code):
         url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
     elif 'articleURL' in url:
         url = url.split('articleURL=')[-1]
+    else:
+        # the url comes from elsewhere not from the reader, so we find or creat the article
+        article = Article.find_or_create(db_session, url)
+        article_id = article.id
+
 
 
     # Optional POST param
