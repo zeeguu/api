@@ -220,6 +220,10 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     title_str = request.form.get('title', '')
     context_str = request.form.get('context', '')
 
+    # the url comes from elsewhere not from the reader, so we find or creat the article
+    article = Article.find_or_create(db_session, url_str)
+    article_id = article.id
+
     try:
         minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
         translator = Translator(from_lang_code, to_lang_code)
@@ -230,7 +234,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
         bookmark = Bookmark.find_or_create(db_session, flask.g.user,
                                            word_str, from_lang_code,
                                            best_guess, to_lang_code,
-                                           minimal_context, url_str, title_str)
+                                           minimal_context, url_str, title_str, article_id)
     except ValueError as e:
         zeeguu.log(f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
         return context_str, query
