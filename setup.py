@@ -13,21 +13,4 @@ setuptools.setup(
     author_email="zeeguu.team@gmail.com",
     description="API for Zeeguu, a project that aims to accelerate vocabulary acquisition in a second language",
     keywords=" API, second language acquisition",
-    
-    dependency_links=[
-        "https://github.com/zeeguu-ecosystem/Zeeguu-Core/tarball/master#egg=zeeguu",
-        "git+https://github.com/mircealungu/python-wordstats.git#egg=wordstats",
-        "https://github.com/zeeguu-ecosystem/Python-Translators/tarball/master#egg=python_translators"],
-    install_requires=("flask>=0.10.1",
-                      "Flask-SQLAlchemy",
-                      "Flask-Assets",
-                      "flask_cors",
-                      "mysqlclient",
-                      "regex",
-                      "beautifulsoup4",
-                      "feedparser",
-                      'zeeguu',
-                      'wordstats',
-                      'python_translators'
-                      )
 )
