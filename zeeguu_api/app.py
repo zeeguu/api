@@ -4,7 +4,6 @@ from flask_cors import CORS
 from flask import Flask
 import flask
 
-
 # *** Creating and starting the App *** #
 app = Flask("Zeeguu-API")
 CORS(app)
@@ -15,7 +14,7 @@ load_configuration_or_abort(app,
                                 'MAX_SESSION',
                                 'SQLALCHEMY_DATABASE_URI',
                                 'SQLALCHEMY_TRACK_MODIFICATIONS',
-                                
+
                                 # next three are required by API when
                                 # run locally
                                 'DEBUG',
@@ -28,7 +27,7 @@ load_configuration_or_abort(app,
                                 'SMTP_SERVER',
                                 'SMTP_USERNAME',
                                 'SMTP_PASSWORD',
-                                ])
+                            ])
 
 # The zeeguu.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
@@ -46,18 +45,19 @@ app.register_blueprint(api)
 
 try:
     import flask_monitoringdashboard as dashboard
-    dashboard.config.init_from(envvar='DASHBOARD_CONFIG')
+
+    dashboard.config.init_from(envvar='FLASK_MONITORING_DASHBOARD_CONFIG')
 
     from zeeguu.model import Session
 
     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
     dashboard.bind(app=app)
 except:
-    print ("could not install the flask_monitornig_dashboard")
+    print("could not install the flask_monitornig_dashboard")
 
 try:
     from zeeguu_api.machine_specific import machine_specific_config
+
     machine_specific_config(app)
 except ModuleNotFoundError as e:
-    print ("no machine specific code found")
-
+    print("no machine specific code found")
