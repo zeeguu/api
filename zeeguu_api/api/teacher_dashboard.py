@@ -92,7 +92,7 @@ def users_from_cohort(id, duration):
         users = User.query.filter_by(cohort_id=c.id).all()
         users_info = []
         for u in users:
-            info = _get_user_info(u.id, duration)
+            info = _get_user_info_for_teacher_dashboard(u.id, duration)
             users_info.append(info)
         return json.dumps(users_info)
     except KeyError:
@@ -113,10 +113,10 @@ def wrapper_to_json_user(id, duration):
     '''
     if (not has_permission_for_user_info(id) == "OK"):
         flask.abort(401)
-    return jsonify(_get_user_info(id, duration))
+    return jsonify(_get_user_info_for_teacher_dashboard(id, duration))
 
 
-def _get_user_info(id, duration):
+def _get_user_info_for_teacher_dashboard(id, duration):
     from zeeguu.model import UserReadingSession, UserExerciseSession
 
     '''
@@ -126,9 +126,9 @@ def _get_user_info(id, duration):
     try:
         fromDate = datetime.now() - timedelta(days=int(duration))
 
-        times1 = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
+        reading_sessions = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
 
-        times2 = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
+        exercise_sessions = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
 
         user = User.query.filter_by(id=id).one()
 
@@ -140,13 +140,15 @@ def _get_user_info(id, duration):
             reading_time_list.append(0);
             exercise_time_list.append(0);
 
-        for i in times1:
-            startDay = i.start_time.date()
+        for each in reading_sessions:
+            startDay = each.start_time.date()
             index = (datetime.now().date() - startDay).days
-            reading_time_list[index] += i.duration / 1000
-            reading_time += i.duration / 1000;
+            reading_time_list[index] += each.duration / 1000
+            reading_time += each.duration / 1000
 
-        for j in times2:
+
+
+        for j in exercise_sessions:
             startDay = j.start_time.date()
             index = (datetime.now().date() - startDay).days
             exercise_time_list[index] += j.duration / 1000
