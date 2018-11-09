@@ -17,7 +17,7 @@ application.logger.debug ( application.instance_path)
 # Uncomment following lines if you want to try this out w/o wsgi
 # application.run(
 #     host=application.config.get("HOST", "localhost"),
-#     port=application.config.get("PORT", 9000)
+#     port=application.config.get("PORT", 9001)
 # )
 
 
