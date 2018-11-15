@@ -53,8 +53,9 @@ try:
     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
     dashboard.bind(app=app)
     print("Started the Flask Monitoring Dashboard")
-except:
+except Exception as e:
     print("Could not install the flask_monitornig_dashboard")
+    print(e)
 
 try:
     from zeeguu_api.machine_specific import machine_specific_config
