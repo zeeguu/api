@@ -27,6 +27,9 @@ class APITestMixin(TestCase):
 
         with app.test_request_context():
             create_minimal_test_db(zeeguu_core.db)
+            # create_minimal... hits the derkleineprinz url which sometimes fails if it's hit too fast...
+            from time import sleep
+            sleep(0.5)
 
         self.session = self.get_session()
         self.user = User.find(TEST_EMAIL)
