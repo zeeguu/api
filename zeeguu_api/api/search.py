@@ -1,17 +1,17 @@
 import flask
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model.search import Search
-from zeeguu.model.search_filter import SearchFilter
-from zeeguu.model.search_subscription import SearchSubscription
+from zeeguu_core.model.search import Search
+from zeeguu_core.model.search_filter import SearchFilter
+from zeeguu_core.model.search_subscription import SearchSubscription
 
-from zeeguu.content_recommender.mixed_recommender import article_search_for_user
+from zeeguu_core.content_recommender.mixed_recommender import article_search_for_user
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 SEARCH = "search"
 SUBSCRIBE_SEARCH = "subscribe_search"
@@ -66,7 +66,7 @@ def unsubscribe_from_search():
         session.commit()
 
     except Exception as e:
-        zeeguu.log(str(e))
+        zeeguu_core.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -94,7 +94,7 @@ def get_subscribed_searches():
         try:
             searches_list.append(subs.search.as_dictionary())
         except Exception as e:
-            zeeguu.log(str(e))
+            zeeguu_core.log(str(e))
 
     return json_result(searches_list)
 
@@ -138,7 +138,7 @@ def unfilter_search():
         session.commit()
 
     except Exception as e:
-        zeeguu.log(str(e))
+        zeeguu_core.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -166,7 +166,7 @@ def get_filtered_searches():
         try:
             filtered_searches.append(filt.search.as_dictionary())
         except Exception as e:
-            zeeguu.log(str(e))
+            zeeguu_core.log(str(e))
 
     return json_result(filtered_searches)
 

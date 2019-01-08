@@ -1,15 +1,15 @@
 import flask
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model.language import Language
-from zeeguu.model.user_language import UserLanguage
+from zeeguu_core.model.language import Language
+from zeeguu_core.model.user_language import UserLanguage
 
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 USER_LANGUAGES = "user_languages"
 MODIFY_USER_LANGUAGE = "user_languages/modify"

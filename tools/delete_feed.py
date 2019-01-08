@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from zeeguu.model import RSSFeed, Url, Language, RSSFeedRegistration
-import zeeguu
+from zeeguu_core.model import RSSFeed, Url, Language, RSSFeedRegistration
+import zeeguu_core
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 name = input("Feed name to delete: " )
 

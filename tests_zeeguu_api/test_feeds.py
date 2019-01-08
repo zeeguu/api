@@ -6,10 +6,10 @@ from tests_zeeguu_api.api_test_mixin import APITestMixin
 from zeeguu_api.api.feeds import STOP_FOLLOWING_FEED, FOLLOWED_FEEDS, START_FOLLOWING_FEED, \
     INTERESTING_FEEDS, RECOMMENDED_FEEDS
 
-from zeeguu.model import RSSFeedRegistration
-from zeeguu.content_retriever.article_downloader import download_from_feed
-from tests_zeeguu.rules.rss_feed_rule import RSSFeedRule
-import zeeguu
+from zeeguu_core.model import RSSFeedRegistration
+from zeeguu_core.content_retriever.article_downloader import download_from_feed
+from zeeguu_core_test.rules.rss_feed_rule import RSSFeedRule
+import zeeguu_core
 
 
 class FeedTests(APITestMixin, TestCase):
@@ -19,8 +19,8 @@ class FeedTests(APITestMixin, TestCase):
         self.feed1 = RSSFeedRule().feed1
         self.feed2 = RSSFeedRule().feed2
 
-        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, self.feed1)
-        RSSFeedRegistration.find_or_create(zeeguu.db.session, self.user, self.feed2)
+        RSSFeedRegistration.find_or_create(zeeguu_core.db.session, self.user, self.feed1)
+        RSSFeedRegistration.find_or_create(zeeguu_core.db.session, self.user, self.feed2)
 
     def test_stop_following_feed(self):
         feed_id = self.feed1.id
@@ -72,7 +72,7 @@ class FeedTests(APITestMixin, TestCase):
         assert not (self.api_post(f"{STOP_FOLLOWING_FEED}", form_data).data == b"OK")
 
     def test_get_feed_items_with_metrics(self):
-        download_from_feed(self.feed1, zeeguu.db.session, 3)
+        download_from_feed(self.feed1, zeeguu_core.db.session, 3)
 
         feed_items = self.json_from_api_get(f"get_feed_items_with_metrics/{self.feed1.id}")
 

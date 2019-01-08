@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from zeeguu import log
-from zeeguu.model import Article, UserArticle
+from zeeguu_core.model import Article, UserArticle
 from zeeguu_api.emailer.user_activity import send_notification_article_feedback
 
 

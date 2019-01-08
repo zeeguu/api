@@ -1,8 +1,8 @@
 import functools
 import flask
-import zeeguu
-from zeeguu.model.session import Session
-from zeeguu import db
+import zeeguu_core
+from zeeguu_core.model.session import Session
+
 
 def with_session(view):
     """
@@ -18,7 +18,7 @@ def with_session(view):
     def wrapped_view(*args, **kwargs):
         try:
             session_id = int(flask.request.args['session'])
-            zeeguu.log(("API CALL: " + str(view)))
+            zeeguu_core.log(("API CALL: " + str(view)))
         except:
             flask.abort(401)
         session = Session.query.get(session_id)
@@ -27,8 +27,8 @@ def with_session(view):
         flask.g.user = session.user
         session.update_use_date()
 
-        db.session.add(session)
-        db.session.commit()
+        zeeguu_core.db.session.add(session)
+        zeeguu_core.db.session.commit()
         return view(*args, **kwargs)
 
     return wrapped_view

@@ -3,11 +3,11 @@ from datetime import datetime
 
 import flask
 from flask import request
-import zeeguu
+import zeeguu_core
 from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from zeeguu.model import WatchInteractionEvent, WatchEventType
+from zeeguu_core.model import WatchInteractionEvent, WatchEventType
 
 
 @api.route("/upload_smartwatch_events", methods=["POST"])

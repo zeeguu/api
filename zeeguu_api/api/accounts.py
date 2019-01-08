@@ -1,9 +1,9 @@
 import flask
 import sqlalchemy
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model import User, Cohort, Teacher
-from zeeguu.model.unique_code import UniqueCode
+from zeeguu_core.model import User, Cohort, Teacher
+from zeeguu_core.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_api.emailer.user_activity import send_new_user_account_email
@@ -24,7 +24,7 @@ def add_user(email):
     """
 
     def _valid_invite_code(invite_code: str):
-        return invite_code in zeeguu.app.config.get("INVITATION_CODES") or Cohort.exists_with_invite_code(invite_code)
+        return invite_code in zeeguu_core.app.config.get("INVITATION_CODES") or Cohort.exists_with_invite_code(invite_code)
 
     password = request.form.get("password")
     username = request.form.get("username")

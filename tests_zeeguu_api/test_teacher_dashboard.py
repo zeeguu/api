@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from tests_zeeguu_api.api_test_mixin import APITestMixin
 
-import zeeguu
+import zeeguu_core
 
 
 class _UserInfo():
@@ -81,7 +81,7 @@ class TeacherTest(APITestMixin, TestCase):
 
     def setUp(self):
         super(TeacherTest, self).setUp()
-        zeeguu.app.config["INVITATION_CODES"] = ["test"]
+        zeeguu_core.app.config["INVITATION_CODES"] = ["test"]
 
     def test_is_teacher(self):
         session = self._create_teacher(test_teacher)
@@ -233,8 +233,8 @@ class TeacherTest(APITestMixin, TestCase):
 
     def _create_teacher(self, teacher: _UserInfo):
         def _upgrade_to_teacher(email):
-            from zeeguu.model import User, Teacher
-            db = zeeguu.db
+            from zeeguu_core.model import User, Teacher
+            db = zeeguu_core.db
 
             u = User.find(email)
             db.session.add(Teacher(u))

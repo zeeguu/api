@@ -1,12 +1,12 @@
 import flask
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model import RSSFeedRegistration, RSSFeed
+from zeeguu_core.model import RSSFeedRegistration, RSSFeed
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 START_FOLLOWING_FEED = "start_following_feed"
 STOP_FOLLOWING_FEED = "stop_following_feed"
@@ -85,7 +85,7 @@ def get_feeds_being_followed():
         try:
             feed_list.append(reg.rss_feed.as_dictionary())
         except Exception as e:
-            zeeguu.log(str(e))
+            zeeguu_core.log(str(e))
 
     return json_result(feed_list)
 

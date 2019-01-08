@@ -11,10 +11,10 @@ from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
 from . import api
 
-import zeeguu
-from zeeguu.model import User, Cohort, Language, Teacher
+import zeeguu_core
+from zeeguu_core.model import User, Cohort, Language, Teacher
 
-db = zeeguu.db
+db = zeeguu_core.db
 
 
 def _is_teacher(user_id):
@@ -38,7 +38,7 @@ def has_permission_for_cohort(cohort_id):
         Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
 
     '''
-    from zeeguu.model import TeacherCohortMap
+    from zeeguu_core.model import TeacherCohortMap
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for m in maps:
         if m.user_id == flask.g.user.id:
@@ -117,7 +117,7 @@ def wrapper_to_json_user(id, duration):
 
 
 def _get_user_info_for_teacher_dashboard(id, duration):
-    from zeeguu.model import UserReadingSession, UserExerciseSession
+    from zeeguu_core.model import UserReadingSession, UserExerciseSession
 
     '''
         Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
@@ -178,7 +178,7 @@ def remove_cohort(cohort_id):
         Can only be called successfuly if the class is empty.
 
     '''
-    from zeeguu.model import TeacherCohortMap
+    from zeeguu_core.model import TeacherCohortMap
     if (not has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:
@@ -208,7 +208,7 @@ def cohorts_by_ownID():
         Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
 
     '''
-    from zeeguu.model import TeacherCohortMap
+    from zeeguu_core.model import TeacherCohortMap
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
     for m in mappings:
@@ -265,7 +265,7 @@ def _link_teacher_cohort(user_id, cohort_id):
     '''
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
     '''
-    from zeeguu.model import TeacherCohortMap
+    from zeeguu_core.model import TeacherCohortMap
     user = User.find_by_id(user_id)
     cohort = Cohort.find(cohort_id)
     db.session.add(TeacherCohortMap(user, cohort))

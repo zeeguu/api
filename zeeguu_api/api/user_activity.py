@@ -1,11 +1,11 @@
 import flask
 from flask import request
-import zeeguu
+import zeeguu_core
 from zeeguu_api.user_activity_hooks.article_interaction_hooks import distill_article_interactions
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
-from zeeguu.model import UserActivityData
+from zeeguu_core.model import UserActivityData
 
 
 @api.route("/upload_user_activity_data", methods=["POST"])

@@ -1,7 +1,7 @@
 import flask
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model import Article
+from zeeguu_core.model import Article
 from zeeguu_api.api.utils.json_result import json_result
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -34,5 +34,5 @@ def article_id():
         article = Article.find_or_create(db_session, url)
         return json_result(dict(article_id=article.id))
     except Exception as e:
-        zeeguu.log(e)
+        zeeguu_core.log(e)
         flask.abort(500)

@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-from zeeguu.configuration.configuration import load_configuration_or_abort
+from zeeguu_core.configuration.configuration import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask
 import flask
@@ -29,14 +29,14 @@ load_configuration_or_abort(app,
                                 'SMTP_PASSWORD',
                             ])
 
-# The zeeguu.model  module relies on an app being injected from outside
+# The zeeguu_core.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
-import zeeguu
+import zeeguu_core
 
-zeeguu.app = app
-import zeeguu.model
+zeeguu_core.app = app
+import zeeguu_core.model
 
-assert zeeguu.model
+assert zeeguu_core.model
 # -----------------
 
 from .api import api
@@ -48,7 +48,7 @@ try:
 
     dashboard.config.init_from(envvar='FLASK_MONITORING_DASHBOARD_CONFIG')
 
-    from zeeguu.model import Session
+    from zeeguu_core.model import Session
 
     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
     dashboard.bind(app=app)

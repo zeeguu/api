@@ -1,5 +1,5 @@
 import flask
-import zeeguu
+import zeeguu_core
 
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
@@ -56,7 +56,7 @@ def learned_language_set(language_code):
     :return: "OK" for success
     """
     flask.g.user.set_learned_language(language_code)
-    zeeguu.db.session.commit()
+    zeeguu_core.db.session.commit()
     return "OK"
 
 
@@ -95,7 +95,7 @@ def native_language_set(language_code):
     :return: OK for success
     """
     flask.g.user.set_native_language(language_code)
-    zeeguu.db.session.commit()
+    zeeguu_core.db.session.commit()
     return "OK"
 
 
@@ -128,5 +128,5 @@ def user_settings():
     if submitted_email:
         flask.g.user.email = submitted_email
 
-    zeeguu.db.session.commit()
+    zeeguu_core.db.session.commit()
     return "OK"

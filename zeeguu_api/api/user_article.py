@@ -1,8 +1,7 @@
 import flask
-import zeeguu
 from flask import request
-from zeeguu.content_recommender.mixed_recommender import user_article_info
-from zeeguu.model import Article, UserArticle
+from zeeguu_core.content_recommender.mixed_recommender import user_article_info
+from zeeguu_core.model import Article, UserArticle
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result

@@ -4,11 +4,11 @@ import datetime
 import os
 os.environ["ZEEGUU_CORE_CONFIG"] = os.path.expanduser('~/.config/zeeguu/gomarus_anon_analysis.cfg')
 
-from zeeguu.model import Exercise, User, ExerciseOutcome
-import zeeguu
+from zeeguu_core.model import Exercise, User, ExerciseOutcome
+import zeeguu_core
 
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 all_users = User.query.all()
 

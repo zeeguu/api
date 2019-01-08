@@ -1,4 +1,4 @@
-from zeeguu.model import User
+from zeeguu_core.model import User
 from zeeguu_api.emailer.zeeguu_mailer import ZeeguuMailer
 
 cheers_your_server = '\n\rCheers,\n\rYour Zeeguu Server ;)'

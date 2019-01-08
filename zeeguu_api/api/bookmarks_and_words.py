@@ -3,9 +3,9 @@ from datetime import datetime
 import flask
 from flask import request
 
-from tests_zeeguu.rules.bookmark_rule import BookmarkRule
-from zeeguu.model import User, Article
-from zeeguu.util.timer_logging_decorator import time_this
+from zeeguu_core_test.rules.bookmark_rule import BookmarkRule
+from zeeguu_core.model import User, Article
+from zeeguu_core.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session

@@ -2,7 +2,7 @@ import json
 
 from . import api
 from .utils.route_wrappers import cross_domain
-from zeeguu.model import Language
+from zeeguu_core.model import Language
 
 
 @api.route("/available_languages", methods=["GET"])

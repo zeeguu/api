@@ -1,13 +1,13 @@
 import flask
-import zeeguu
-from zeeguu.content_recommender.mixed_recommender import article_recommendations_for_user
-from zeeguu.model import UserArticle, UserReadingSession, User
+import zeeguu_core
+from zeeguu_core.content_recommender.mixed_recommender import article_recommendations_for_user
+from zeeguu_core.model import UserArticle, UserReadingSession, User
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 
 # ---------------------------------------------------------------------------

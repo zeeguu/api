@@ -1,17 +1,17 @@
 from unittest import TestCase
 import json
 
-import zeeguu
+import zeeguu_core
 # This must be set before any of the other Zeeguu / API code
 # is imported. Especially the translate API requires it.  
-zeeguu._in_unit_tests = True
+zeeguu_core._in_unit_tests = True
 
 from zeeguu_api.app import app
 
-from zeeguu.populate import TEST_EMAIL
-from zeeguu.populate import TEST_PASS
-from zeeguu.populate import create_minimal_test_db
-from zeeguu.model import User
+from zeeguu_core.populate import TEST_EMAIL
+from zeeguu_core.populate import TEST_PASS
+from zeeguu_core.populate import create_minimal_test_db
+from zeeguu_core.model import User
 
 
 class APITestMixin(TestCase):
@@ -26,7 +26,7 @@ class APITestMixin(TestCase):
         self.app = app.test_client()
 
         with app.test_request_context():
-            create_minimal_test_db(zeeguu.db)
+            create_minimal_test_db(zeeguu_core.db)
 
         self.session = self.get_session()
         self.user = User.find(TEST_EMAIL)

@@ -1,8 +1,8 @@
 import flask
-import zeeguu
+import zeeguu_core
 
 api = flask.Blueprint("api", __name__)
-db_session = zeeguu.db.session
+db_session = zeeguu_core.db.session
 
 
 # These files have to be imported after this line;

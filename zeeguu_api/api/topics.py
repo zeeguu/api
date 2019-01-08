@@ -1,13 +1,13 @@
 import flask
-import zeeguu
+import zeeguu_core
 from flask import request
-from zeeguu.model import Topic, TopicSubscription, TopicFilter
+from zeeguu_core.model import Topic, TopicSubscription, TopicFilter
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"
@@ -84,7 +84,7 @@ def get_subscribed_topics():
         try:
             topic_list.append(sub.topic.as_dictionary())
         except Exception as e:
-            zeeguu.log(str(e))
+            zeeguu_core.log(str(e))
 
     return json_result(topic_list)
 
@@ -178,7 +178,7 @@ def get_subscribed_filters():
         try:
             filter_list.append(fil.topic.as_dictionary())
         except Exception as e:
-            zeeguu.log(str(e))
+            zeeguu_core.log(str(e))
 
     return json_result(filter_list)
 
@@ -189,7 +189,7 @@ def cache_articles(code):
     if code != app.config.get("PRIVATE_API_CODE"):
         return "Nope"
 
-    from zeeguu.model import Topic, Language
+    from zeeguu_core.model import Topic, Language
 
     for each in Topic.get_all_topics():
         each.all_articles()

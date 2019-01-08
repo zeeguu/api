@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from tests_zeeguu_api.api_test_mixin import APITestMixin
 
-import zeeguu
+import zeeguu_core
 
 example1_post_url = '/contribute_translation/de/en'
 example1_context = 'Mein Freund lächelte'
@@ -42,7 +42,7 @@ class BookmarkTest(APITestMixin, TestCase):
     def test_delete_bookmark3(self):
         self.api_post("delete_bookmark/1")
         bookmarks = self.json_from_api_get('/bookmarks_by_day/with_context')
-        assert len(bookmarks) == zeeguu.populate.TEST_BOOKMARKS_COUNT - 1
+        assert len(bookmarks) == zeeguu_core.populate.TEST_BOOKMARKS_COUNT - 1
 
     def test_upload_translation(self):
         # GIVEN

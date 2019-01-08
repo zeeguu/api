@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from zeeguu.model import Bookmark, Url, Language
-import zeeguu
+from zeeguu_core.model import Bookmark, Url, Language
+import zeeguu_core
 
-session = zeeguu.db.session
+session = zeeguu_core.db.session
 
 name = input("Text from bookmark: " )
 

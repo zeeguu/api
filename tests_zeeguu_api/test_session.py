@@ -2,11 +2,11 @@
 
 from unittest import TestCase
 
-from zeeguu.model.unique_code import UniqueCode
+from zeeguu_core.model.unique_code import UniqueCode
 
-import zeeguu
+import zeeguu_core
 from tests_zeeguu_api.api_test_mixin import APITestMixin
-from zeeguu.populate import TEST_EMAIL
+from zeeguu_core.populate import TEST_EMAIL
 
 WANNABE_UUID = 'lulu'
 TEST_PASS = 'cherrypie'
@@ -15,7 +15,7 @@ TEST_PASS = 'cherrypie'
 class SessionTests(APITestMixin, TestCase):
     def setUp(self):
         super(SessionTests, self).setUp()
-        zeeguu.app.config["INVITATION_CODES"] = ["test"]
+        zeeguu_core.app.config["INVITATION_CODES"] = ["test"]
 
     def test_create_user(self):
 
@@ -45,8 +45,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.db.session.add(code)
-        zeeguu.db.session.commit()
+        zeeguu_core.db.session.add(code)
+        zeeguu_core.db.session.commit()
 
         form_data = dict(
             code=code,
@@ -57,8 +57,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_returns_400_invalid_code(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.db.session.add(code)
-        zeeguu.db.session.commit()
+        zeeguu_core.db.session.add(code)
+        zeeguu_core.db.session.commit()
 
         form_data = dict(
             code="thiswontwork",
@@ -69,8 +69,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_returns_400_if_password_too_short(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.db.session.add(code)
-        zeeguu.db.session.commit()
+        zeeguu_core.db.session.add(code)
+        zeeguu_core.db.session.commit()
 
         form_data = dict(
             code=code,
@@ -81,8 +81,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_can_use_new_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.db.session.add(code)
-        zeeguu.db.session.commit()
+        zeeguu_core.db.session.add(code)
+        zeeguu_core.db.session.commit()
 
         form_data = dict(
             code=code,
@@ -100,8 +100,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_cant_use_old_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.db.session.add(code)
-        zeeguu.db.session.commit()
+        zeeguu_core.db.session.add(code)
+        zeeguu_core.db.session.commit()
 
         form_data = dict(
             code=code,

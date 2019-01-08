@@ -4,19 +4,19 @@ from urllib.parse import unquote_plus
 import flask
 from flask import request
 
-import zeeguu
+import zeeguu_core
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu.model import Bookmark, Article
+from zeeguu_core.model import Bookmark, Article
 
 from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
 from python_translators.translation_query import TranslationQuery
 
 # When testing, we're injecting the ReverseTranslator instead of the BestEffort which
 # requires API keys for the third-party services.
-if hasattr(zeeguu, "_in_unit_tests"):
+if hasattr(zeeguu_core, "_in_unit_tests"):
     from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
 else:
     from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
@@ -54,17 +54,17 @@ def get_possible_translations(from_lang_code, to_lang_code):
         article = Article.find_or_create(db_session, url)
         article_id = article.id
 
-    zeeguu.log(f"url before being saved: {url}")
+    zeeguu_core.log(f"url before being saved: {url}")
     word_str = request.form['word']
     title_str = request.form.get('title', '')
 
     minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
 
     to_lang_code = flask.g.user.native_language.code
-    zeeguu.log(f'translating to... {to_lang_code}')
+    zeeguu_core.log(f'translating to... {to_lang_code}')
 
     translator = Translator(from_lang_code, to_lang_code)
-    zeeguu.log(f"Query to translate is: {query}")
+    zeeguu_core.log(f"Query to translate is: {query}")
     translations = translator.translate(query).translations
 
     # translators talk about quality, but our users expect likelihood.
@@ -236,7 +236,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
                                            best_guess, to_lang_code,
                                            minimal_context, url_str, title_str, article_id)
     except ValueError as e:
-        zeeguu.log(f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
+        zeeguu_core.log(f"minimize context failed {e}on: {context_str} x {from_lang_code} x {word_str} ")
         return context_str, query
 
     return json_result(dict(
