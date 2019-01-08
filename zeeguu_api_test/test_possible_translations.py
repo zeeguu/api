@@ -3,7 +3,7 @@
 from unittest import TestCase
 
 from zeeguu_core_test.testing_data import VERY_EASY_STORY_URL
-from tests_zeeguu_api.api_test_mixin import APITestMixin
+from zeeguu_api_test.api_test_mixin import APITestMixin
 
 
 class Test(APITestMixin, TestCase):

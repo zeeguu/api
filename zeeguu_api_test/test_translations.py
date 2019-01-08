@@ -1,8 +1,8 @@
 # coding=utf-8
 from unittest import TestCase
 
-from tests_zeeguu_api.api_test_mixin import APITestMixin
-from tests_zeeguu_api.test_article import URL_1
+from zeeguu_api_test.api_test_mixin import APITestMixin
+from zeeguu_api_test.test_article import URL_1
 
 
 class TranslationTests(APITestMixin, TestCase):

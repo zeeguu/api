@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from tests_zeeguu_api.api_test_mixin import APITestMixin
+from zeeguu_api_test.api_test_mixin import APITestMixin
 
 URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
 
