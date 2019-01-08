@@ -185,8 +185,8 @@ def get_subscribed_filters():
 
 @api.route(f"/cache_articles/<code>", methods=("GET",))
 def cache_articles(code):
-    from zeeguu import app
-    if code != app.config.get("PRIVATE_API_CODE"):
+
+    if code != zeeguu_core.app.config.get("PRIVATE_API_CODE"):
         return "Nope"
 
     from zeeguu_core.model import Topic, Language
