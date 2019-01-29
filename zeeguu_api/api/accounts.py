@@ -13,6 +13,13 @@ from .utils.route_wrappers import cross_domain
 from . import api, db_session
 
 
+def _valid_invite_code(invite_code: str):
+    return (
+            invite_code in zeeguu_core.app.config.get("INVITATION_CODES")
+            or Cohort.exists_with_invite_code(invite_code)
+    )
+
+
 @api.route("/add_user/<email>", methods=["POST"])
 @cross_domain
 def add_user(email):
@@ -22,9 +29,6 @@ def add_user(email):
         endpoint. Returns a session
 
     """
-
-    def _valid_invite_code(invite_code: str):
-        return invite_code in zeeguu_core.app.config.get("INVITATION_CODES") or Cohort.exists_with_invite_code(invite_code)
 
     password = request.form.get("password")
     username = request.form.get("username")

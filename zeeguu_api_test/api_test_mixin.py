@@ -1,22 +1,30 @@
 from unittest import TestCase
 import json
 
+import requests_mock
 import zeeguu_core
+
 # This must be set before any of the other Zeeguu / API code
-# is imported. Especially the translate API requires it.  
+# is imported. Especially the translate API requires it.
 zeeguu_core._in_unit_tests = True
+
+from zeeguu_core_test.urls_for_test import mock_requests_get
+
+from unittest.mock import patch
 
 from zeeguu_api.app import app
 
-from zeeguu_core.populate import TEST_EMAIL
-from zeeguu_core.populate import TEST_PASS
-from zeeguu_core.populate import create_minimal_test_db
+TEST_PASS = 'test'
+TEST_EMAIL = 'i@mir.lu'
+TEST_USER = "test_user"
+
 from zeeguu_core.model import User
 
 
 class APITestMixin(TestCase):
 
-    def setUp(self):
+    @patch('zeeguu_api.api.accounts._valid_invite_code', return_value=True)
+    def setUp(self, mock_invite_code):
         # idea from here:
         # https: // docs.pytest.org / en / latest / example / simple.html  # detect-if-running-from-within-a-pytest-run
         # allows the api translate_and_Bookmark to know that it's being called from the unit test
@@ -24,25 +32,34 @@ class APITestMixin(TestCase):
 
         app.testing = True
         self.app = app.test_client()
+        zeeguu_core.db.create_all()
 
-        with app.test_request_context():
-            create_minimal_test_db(zeeguu_core.db)
-            # create_minimal... hits the derkleineprinz url which sometimes fails if it's hit too fast...
-            from time import sleep
-            sleep(0.5)
+        response = self.app.post(f"/add_user/{TEST_EMAIL}", data=dict(
+            password=TEST_PASS,
+            username=TEST_USER
+        ))
 
-        self.session = self.get_session()
+        self.session = str(int(response.data))
         self.user = User.find(TEST_EMAIL)
 
     def tearDown(self):
-        self.app = None
-        self.session = None
+        super(APITestMixin, self).tearDown()
 
-    def get_session(self):
-        rv = self.app.post('/session/' + TEST_EMAIL, data=dict(
-            password=TEST_PASS
-        ))
-        return rv.data.decode('utf8')
+        # sometimes the tearDown freezes on drop_all
+        # and it seems that it's because there's still
+        # a session open somewhere. Better call first:
+        zeeguu_core.db.session.close()
+        zeeguu_core.db.drop_all()
+
+    def run(self, result=None):
+
+        # For the unit tests we use several HTML documents
+        # that are stored locally so we don't have to download
+        # them for every test
+        # To do this we mock requests.get
+        with requests_mock.Mocker() as m:
+            mock_requests_get(m)
+            super(APITestMixin, self).run(result)
 
     def in_session(self, url, other_args=None):
         if not other_args:
