@@ -15,12 +15,18 @@ example1_payload = dict(word='Freund', translation='friend', context=example1_co
 
 class BookmarkTest(APITestMixin, TestCase):
 
-    def test_last_bookmark_added_is_first_in_bookmarks_by_day(self):
+    def setUp(self):
+        super(BookmarkTest, self).setUp()
+
+        self.example_bookmark_id = self._add_example_bookmark()
+
+    def _add_example_bookmark(self):
         new_bookmark_id = self.json_from_api_post(example1_post_url, example1_payload)["bookmark_id"]
+        return new_bookmark_id
 
+    def test_last_bookmark_added_is_first_in_bookmarks_by_day(self):
         bookmarks_on_first_day = self.json_from_api_get('/bookmarks_by_day/with_context')[0]["bookmarks"]
-
-        assert int(new_bookmark_id) == bookmarks_on_first_day[0]["id"]
+        assert self.example_bookmark_id == bookmarks_on_first_day[0]["id"]
 
     def test_context_parameter_functions_in_bookmarks_by_day(self):
         elements = self.json_from_api_get('/bookmarks_by_day/with_context')
@@ -39,10 +45,10 @@ class BookmarkTest(APITestMixin, TestCase):
         assert not "context" in some_contrib
 
     #
-    def test_delete_bookmark3(self):
-        self.api_post("delete_bookmark/1")
+    def test_delete_bookmark(self):
+        self.api_post(f"delete_bookmark/{self.example_bookmark_id}")
         bookmarks = self.json_from_api_get('/bookmarks_by_day/with_context')
-        assert len(bookmarks) == zeeguu_core.populate.TEST_BOOKMARKS_COUNT - 1
+        assert len(bookmarks) == 0
 
     def test_upload_translation(self):
         # GIVEN
@@ -82,31 +88,24 @@ class BookmarkTest(APITestMixin, TestCase):
         # Also, since we didn't pass any after_date we get all the three days
         assert len(bookmarks) == 1
 
-        # No bookmarks in the tests after 2015
-        form_data["after_date"] = first_day_of(2015)
+        # No bookmarks in the tests after 2030
+        form_data["after_date"] = first_day_of(2030)
         bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
         assert len(bookmarks) == 0
-
-    def test_default_exercises(self):
-        """
-        The dates in which we have bookmarks in the test data are: 2014, 2011, 2001
-        :return:
-        """
-        result = self.raw_data_from_api_get('/create_default_exercises')
-        self.assertEqual(b"OK", result)
 
     def test_True_and_true_both_accepted(self):
         """
         Tests that both "True" and "true" can be used as values for the "with_context" form field.
         :return:
         """
+
         form_data = {"with_context": "true"}
         bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
         assert "context" in bookmarks[0]["bookmarks"][0]
 
-        form_data = {"with_context" : "True"}
+        form_data = {"with_context": "True"}
         bookmarks = self.json_from_api_post('/bookmarks_by_day', form_data)
-        assert "context"  in bookmarks[0]["bookmarks"][0]
+        assert "context" in bookmarks[0]["bookmarks"][0]
 
     def test_top_bookmarks(self):
         """
@@ -115,4 +114,3 @@ class BookmarkTest(APITestMixin, TestCase):
         """
         result = self.raw_data_from_api_get('/top_bookmarks/10')
         assert (len(result) > 0)
-
