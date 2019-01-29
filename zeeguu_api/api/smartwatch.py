@@ -41,12 +41,14 @@ def upload_smartwatch_events():
         new_event = WatchInteractionEvent(
             event_type,
             event["bookmark_id"],
-            datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"),)
+            datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"), )
         db_session.add(new_event)
     db_session.commit()
 
     return "OK"
 
+
+# This seems to be broken; the corresponding test does not work.
 @api.route("/get_smartwatch_events", methods=["GET"])
 @cross_domain
 @with_session
