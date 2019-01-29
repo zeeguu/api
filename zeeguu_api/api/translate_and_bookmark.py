@@ -14,12 +14,7 @@ from zeeguu_core.model import Bookmark, Article
 from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
 from python_translators.translation_query import TranslationQuery
 
-# When testing, we're injecting the ReverseTranslator instead of the BestEffort which
-# requires API keys for the third-party services.
-if hasattr(zeeguu_core, "_in_unit_tests"):
-    from python_translators.translators.best_effort_translator import DummyBestEffortTranslator as Translator
-else:
-    from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
+from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -119,8 +114,6 @@ def contribute_translation(from_lang_code, to_lang_code):
         # the url comes from elsewhere not from the reader, so we find or creat the article
         article = Article.find_or_create(db_session, url)
         article_id = article.id
-
-
 
     # Optional POST param
     selected_from_predefined_choices = request.form.get('selected_from_predefined_choices', '')
@@ -225,6 +218,7 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     article_id = article.id
 
     try:
+
         minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
         translator = Translator(from_lang_code, to_lang_code)
         translations = translator.translate(query).translations

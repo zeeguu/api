@@ -4,10 +4,6 @@ import json
 import requests_mock
 import zeeguu_core
 
-# This must be set before any of the other Zeeguu / API code
-# is imported. Especially the translate API requires it.
-zeeguu_core._in_unit_tests = True
-
 from zeeguu_core_test.test_data.mocking_the_web import mock_requests_get
 
 from unittest.mock import patch
