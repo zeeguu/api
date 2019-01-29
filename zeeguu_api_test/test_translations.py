@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from zeeguu_api_test.api_test_mixin import APITestMixin
 from zeeguu_api_test.mocks.mock_translator import MockTranslator
-from zeeguu_core_test.test_data.mocking_the_web import spiegel_venezuela_url
+from zeeguu_core_test.test_data.mocking_the_web import url_spiegel_venezuela
 
 
 class TranslationTests(APITestMixin, TestCase):
@@ -17,7 +17,7 @@ class TranslationTests(APITestMixin, TestCase):
         mock_bet.return_value = MockTranslator({"klein": ["small", "little"], "krassen": ["big"]})
 
         form_data = dict(
-            url=spiegel_venezuela_url,
+            url=url_spiegel_venezuela,
             context='Die klein Jäger',
             word="klein")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
@@ -33,7 +33,7 @@ class TranslationTests(APITestMixin, TestCase):
         mock_bet.return_value = MockTranslator({"klein": ["small"], "krassen": ["big", "extreme"]})
 
         form_data = dict(
-            url=spiegel_venezuela_url,
+            url=url_spiegel_venezuela,
             context='Die krassen Jägermeister',
             word="krassen")
         alternatives = self.json_from_api_post('/get_possible_translations/de/en', form_data)
@@ -49,7 +49,7 @@ class TranslationTests(APITestMixin, TestCase):
         mock_bet.return_value = MockTranslator({"Die": ["The"], "kleine": ["small"]})
 
         form_data = dict(
-            url=spiegel_venezuela_url,
+            url=url_spiegel_venezuela,
             context='Die kleine Jägermeister',
             word="Die")
 
