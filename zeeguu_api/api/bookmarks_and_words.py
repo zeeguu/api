@@ -145,16 +145,3 @@ def bookmarks_for_article_2(article_id):
     """
 
     return bookmarks_for_article(article_id, flask.g.user.id)
-
-
-@api.route("/create_default_exercises", methods=["GET"])
-@cross_domain
-@with_session
-@time_this
-def create_default_exercises():
-    for _ in range(5):
-        b = BookmarkRule(flask.g.user).bookmark
-        db_session.add(b)
-        db_session.commit()
-
-    return "OK"
