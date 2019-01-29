@@ -12,14 +12,14 @@ class TestPossibleTranslations(APITestMixin, TestCase):
 
     @patch("zeeguu_api.api.translate_and_bookmark.Translator")
     def test_get_possible_translations(self, mock_translator):
-        mock_translator.return_value = MockTranslator({"schon": ["nohcs"]})
+        mock_translator.return_value = MockTranslator({"schon": ["nice"]})
 
         translations = self.json_from_api_post('/get_possible_translations/de/en',
                                                dict(context="das ist sehr schon",
                                                     url=VERY_EASY_STORY_URL,
                                                     word="schon",
                                                     title="lala"))
-        assert "nohcs" in str(translations)
+        assert "nice" in str(translations)
 
     @patch("zeeguu_api.api.translate_and_bookmark.Translator")
     def test_get_possible_translations2(self, mock_translator):
