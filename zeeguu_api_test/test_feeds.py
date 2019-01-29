@@ -17,10 +17,8 @@ class FeedTests(APITestMixin, TestCase):
         super().setUp()
 
         self.feed1 = RSSFeedRule().feed1
-        self.feed2 = RSSFeedRule().feed2
 
         RSSFeedRegistration.find_or_create(zeeguu_core.db.session, self.user, self.feed1)
-        RSSFeedRegistration.find_or_create(zeeguu_core.db.session, self.user, self.feed2)
 
     def test_stop_following_feed(self):
         feed_id = self.feed1.id
