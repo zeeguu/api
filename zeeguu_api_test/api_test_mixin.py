@@ -8,7 +8,7 @@ import zeeguu_core
 # is imported. Especially the translate API requires it.
 zeeguu_core._in_unit_tests = True
 
-from zeeguu_core_test.urls_for_test import mock_requests_get
+from zeeguu_core_test.test_data.urls_for_test import mock_requests_get
 
 from unittest.mock import patch
 
