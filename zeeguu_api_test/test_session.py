@@ -1,24 +1,23 @@
 # coding=utf-8
 
 from unittest import TestCase
-
-from zeeguu_core.model.unique_code import UniqueCode
+from zeeguu_api_test.api_test_mixin import APITestMixin, TEST_EMAIL
 
 import zeeguu_core
-from zeeguu_api_test.api_test_mixin import APITestMixin
-from zeeguu_core.populate import TEST_EMAIL
+from zeeguu_core.model.unique_code import UniqueCode
 
 WANNABE_UUID = 'lulu'
 TEST_PASS = 'cherrypie'
 
 
 class SessionTests(APITestMixin, TestCase):
+
     def setUp(self):
-        super(SessionTests, self).setUp()
+        super().setUp()
+
         zeeguu_core.app.config["INVITATION_CODES"] = ["test"]
 
     def test_create_user(self):
-
         form_data = dict(
             username="gigi",
             password="lala",
