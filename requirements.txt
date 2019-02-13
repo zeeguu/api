@@ -2,7 +2,7 @@ flask>=0.10.1
 Flask-SQLAlchemy
 Flask-Assets
 flask_cors
-flask_monitoringdashboard
+flask_monitoringdashboard==2.0.0
 mysqlclient
 regex
 beautifulsoup4
