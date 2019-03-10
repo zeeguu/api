@@ -12,7 +12,7 @@ from .utils.route_wrappers import with_session
 from . import api
 
 import zeeguu_core
-from zeeguu_core.model import User, Cohort, Language, Teacher
+from zeeguu_core.model import User, Cohort, Language, Teacher 
 
 db = zeeguu_core.db
 
@@ -169,6 +169,26 @@ def _get_user_info_for_teacher_dashboard(id, duration):
         flask.abort(400)
         return 'ValueError'
 
+@api.route("/user_reading_sessions/<id>/<duration>", methods=["GET"])
+@with_session
+def get_user_reading_sessions(id, duration):
+    '''
+        Returns a serialized list of dictionaries of the sessions belonging to the user.
+
+    '''
+    from zeeguu_core.model import UserReadingSession
+    user = User.query.filter_by(id=id).one()
+    if (not has_permission_for_cohort(user.cohort_id)):
+        flask.abort(401)
+    try:
+        fromDate = datetime.now() - timedelta(days=int(duration))
+        reading_sessions = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
+        return json.dumps([each.toJSON() for each in reading_sessions])
+        
+    except ValueError:
+        flask.abort(400)    
+        return 'ValueError'
+    
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @with_session
@@ -260,7 +280,6 @@ def _get_cohort_info(id):
         flask.abort(400)
         return "NoResultFound"
 
-
 def _link_teacher_cohort(user_id, cohort_id):
     '''
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
@@ -272,6 +291,20 @@ def _link_teacher_cohort(user_id, cohort_id):
     db.session.commit()
     return 'added teacher_cohort relationship'
 
+@api.route("/users_by_teacher/<duration>", methods=["GET"])
+@with_session 
+def users_by_teacher(duration):
+    '''
+        Return list of dictionaries containing user info for all cohorts that the logged in user owns.
+
+    '''
+    from zeeguu_core.model import TeacherCohortMap
+    mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
+    all_users = []
+    for m in mappings:
+        users = users_from_cohort(m.cohort_id, duration)
+        all_users.extend(json.loads(users))
+    return json.dumps(all_users)
 
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
