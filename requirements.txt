@@ -2,11 +2,11 @@ flask>=0.10.1
 Flask-SQLAlchemy
 Flask-Assets
 flask_cors
-flask_monitoringdashboard==2.0.0
 mysqlclient
 regex
 beautifulsoup4
 feedparser
+flask_monitoringdashboard
 numpy
 git+git://github.com/zeeguu-ecosystem/python-wordstats.git@master#egg=wordstats
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators

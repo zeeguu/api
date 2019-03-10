@@ -56,6 +56,8 @@ try:
 except Exception as e:
     print("Could not install the flask_monitornig_dashboard")
     print(e)
+    import traceback
+    print(traceback.format_exc())
 
 try:
     from zeeguu_api.machine_specific import machine_specific_config
