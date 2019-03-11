@@ -168,26 +168,6 @@ def _get_user_info_for_teacher_dashboard(id, duration):
     except ValueError:
         flask.abort(400)
         return 'ValueError'
-
-@api.route("/user_reading_sessions/<id>/<duration>", methods=["GET"])
-@with_session
-def get_user_reading_sessions(id, duration):
-    '''
-        Returns a serialized list of dictionaries of the sessions belonging to the user.
-
-    '''
-    from zeeguu_core.model import UserReadingSession
-    user = User.query.filter_by(id=id).one()
-    if (not has_permission_for_cohort(user.cohort_id)):
-        flask.abort(401)
-    try:
-        fromDate = datetime.now() - timedelta(days=int(duration))
-        reading_sessions = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
-        return json.dumps([each.toJSON() for each in reading_sessions])
-        
-    except ValueError:
-        flask.abort(400)    
-        return 'ValueError'
     
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
@@ -374,6 +354,28 @@ def add_teacher(id):
         return "OK"
     except:
         flask.abort(400)
+
+
+@api.route("/cohort_member_reading_sessions/<id>/<time_period>", methods=["GET"])
+@with_session
+def cohort_member_reading_sessions(id, time_period):
+    '''
+        Returns reading sessions from member with input user id.
+    '''
+    try:
+        user = User.query.filter_by(id=id).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        flask.abort(400)
+        return "NoUserFound"
+
+    if (not has_permission_for_cohort(user.cohort_id)):
+        flask.abort(401)
+
+    now = datetime.today()
+    date = now - timedelta(days=int(time_period));
+
+    # True input causes function to return context too.
+    return json_result(user.reading_sessions_by_day(date, max=10000))
 
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
