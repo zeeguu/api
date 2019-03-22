@@ -77,6 +77,18 @@ def has_permission_for_user_info(id):
         flask.abort(400)
         return "NoResultFound"
 
+def user_info_from_cohort(id, duration):
+    '''
+       Takes id for a cohort and returns all users belonging to that cohort. 
+    '''
+    c = Cohort.query.filter_by(id=id).one()
+    users = User.query.filter_by(cohort_id=c.id).all()
+    users_info = []
+    for u in users:
+        info = _get_user_info_for_teacher_dashboard(u.id, duration)
+        users_info.append(info)
+    return users_info
+
 
 @api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
 @with_session
@@ -88,12 +100,7 @@ def users_from_cohort(id, duration):
     if (not has_permission_for_cohort(id)):
         flask.abort(401)
     try:
-        c = Cohort.query.filter_by(id=id).one()
-        users = User.query.filter_by(cohort_id=c.id).all()
-        users_info = []
-        for u in users:
-            info = _get_user_info_for_teacher_dashboard(u.id, duration)
-            users_info.append(info)
+        users_info = user_info_from_cohort(id, duration)
         return json.dumps(users_info)
     except KeyError:
         flask.abort(400)
@@ -278,12 +285,13 @@ def users_by_teacher(duration):
         Return list of dictionaries containing user info for all cohorts that the logged in user owns.
 
     '''
+
     from zeeguu_core.model import TeacherCohortMap
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     all_users = []
     for m in mappings:
-        users = users_from_cohort(m.cohort_id, duration)
-        all_users.extend(json.loads(users))
+        users = user_info_from_cohort(m.cohort_id, duration)
+        all_users.extend(users)
     return json.dumps(all_users)
 
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
@@ -372,11 +380,9 @@ def cohort_member_reading_sessions(id, time_period):
         flask.abort(401)
 
     now = datetime.today()
-    date = now - timedelta(days=int(time_period));
-
-    # True input causes function to return context too.
+    date = now - timedelta(days=int(time_period))
     return json_result(user.reading_sessions_by_day(date, max=10000))
-
+    
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
