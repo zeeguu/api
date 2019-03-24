@@ -10,3 +10,4 @@ numpy
 git+git://github.com/zeeguu-ecosystem/python-wordstats.git@master#egg=wordstats
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
 git+git://github.com/zeeguu-ecosystem/Zeeguu-Core.git@master#egg=zeeguu
+git+git://github.com/zeeguu-ecosystem/apimux.git@master#egg=apimux

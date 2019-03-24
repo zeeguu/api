@@ -10,11 +10,7 @@ from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from zeeguu_core.model import Bookmark, Article
-
-from python_translators.query_processors.remove_unnecessary_sentences import RemoveUnnecessarySentences
-from python_translators.translation_query import TranslationQuery
-
-from python_translators.translators.best_effort_translator import BestEffortTranslator as Translator
+from zeeguu_api.api.translator import minimize_context, get_all_translations
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -34,10 +30,10 @@ def get_possible_translations(from_lang_code, to_lang_code):
         :return: json array with translations
 
     """
-
-    context_str = request.form.get('context', '')
+    data = {"from_lang_code": from_lang_code, "to_lang_code": to_lang_code}
+    data["context"] = request.form.get('context', '')
     url = request.form.get('url', '')
-    #
+    data["url"] = url
     article_id = None
     if 'articleID' in url:
         article_id = url.split('articleID=')[-1]
@@ -48,19 +44,19 @@ def get_possible_translations(from_lang_code, to_lang_code):
         # the url comes from elsewhere not from the reader, so we find or creat the article
         article = Article.find_or_create(db_session, url)
         article_id = article.id
-
     zeeguu_core.log(f"url before being saved: {url}")
     word_str = request.form['word']
+    data["word"] = word_str
     title_str = request.form.get('title', '')
+    data["title"] = title_str
 
-    minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
-
-    to_lang_code = flask.g.user.native_language.code
-    zeeguu_core.log(f'translating to... {to_lang_code}')
-
-    translator = Translator(from_lang_code, to_lang_code)
+    zeeguu_core.log(f'translating to... {data["to_lang_code"]}')
+    minimal_context, query = minimize_context(
+        data["context"], data["from_lang_code"], data["word"])
     zeeguu_core.log(f"Query to translate is: {query}")
-    translations = translator.translate(query).translations
+    data["query"] = query
+    translations = get_all_translations(data).translations
+    zeeguu_core.log(f"Got translations: {translations}")
 
     # translators talk about quality, but our users expect likelihood.
     # rename the key in the dictionary
@@ -171,14 +167,6 @@ def unstar_bookmark(bookmark_id):
     return "OK"
 
 
-def minimize_context(context_str, from_lang_code, word_str):
-    _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 7)
-    processor = RemoveUnnecessarySentences(from_lang_code)
-    query = processor.process_query(_query)
-    minimal_context = query.before_context + ' ' + query.query + query.after_context
-    return minimal_context, query
-
-
 # --- DANGER ZONE: Deprecated Endpoint --- #
 # ---------------------------------------- #
 
@@ -206,12 +194,16 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
     :return:
     """
 
+    data = {"from_lang_code": from_lang_code, "to_lang_code": to_lang_code}
     word_str = unquote_plus(request.form['word'])
-
+    data["word"] = word_str
     url_str = request.form.get('url', '')
+    data["url"] = url_str
 
     title_str = request.form.get('title', '')
+    data["title"] = title_str
     context_str = request.form.get('context', '')
+    data["context"] = context_str
 
     # the url comes from elsewhere not from the reader, so we find or creat the article
     article = Article.find_or_create(db_session, url_str)
@@ -219,9 +211,10 @@ def translate_and_bookmark(from_lang_code, to_lang_code):
 
     try:
 
-        minimal_context, query = minimize_context(context_str, from_lang_code, word_str)
-        translator = Translator(from_lang_code, to_lang_code)
-        translations = translator.translate(query).translations
+        minimal_context, query = minimize_context(
+            data["context"], data["from_lang_code"], data["word"])
+        data["query"] = query
+        translations = get_all_translations(data).translations
 
         best_guess = translations[0]["translation"]
 
