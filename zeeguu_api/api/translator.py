@@ -1,7 +1,11 @@
+import json
+import os
+
 import zeeguu_core
 
 from apimux.api_base import BaseThirdPartyAPIService
 from apimux.mux import APIMultiplexer
+from apimux.log import logger
 
 from python_translators.config import get_key_from_config
 from python_translators.query_processors.remove_unnecessary_sentences import (
@@ -15,6 +19,11 @@ from python_translators.factories.google_translator_factory import (
 from python_translators.factories.microsoft_translator_factory import (
     MicrosoftTranslatorFactory)
 from python_translators.translators.wordnik_translator import WordnikTranslator
+
+AB_TESTING = False
+if os.environ.get("ENABLE_A_B_TESTING", None) is not None:
+    logger.warning("A/B testing enabled!")
+    AB_TESTING = True
 
 
 class WordnikTranslate(BaseThirdPartyAPIService):
@@ -36,7 +45,8 @@ class WordnikTranslate(BaseThirdPartyAPIService):
 
 class GoogleTranslateWithContext(BaseThirdPartyAPIService):
     def __init__(self):
-        super(GoogleTranslateWithContext, self).__init__()
+        super(GoogleTranslateWithContext, self).__init__(
+            name='Google - with context')
 
     def get_result(self, data):
         if data["source_language"] == data["target_language"] == "en":
@@ -54,7 +64,8 @@ class GoogleTranslateWithContext(BaseThirdPartyAPIService):
 
 class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
     def __init__(self):
-        super(GoogleTranslateWithoutContext, self).__init__()
+        super(GoogleTranslateWithoutContext, self).__init__(
+            name='Google - without context')
 
     def get_result(self, data):
         if data["source_language"] == data["target_language"] == "en":
@@ -72,7 +83,8 @@ class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
 
 class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
     def __init__(self):
-        super(MicrosoftTranslateWithContext, self).__init__()
+        super(MicrosoftTranslateWithContext, self).__init__(
+            name='Microsoft - with context')
 
     def get_result(self, data):
         if data["source_language"] == data["target_language"] == "en":
@@ -90,7 +102,8 @@ class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
 
 class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
     def __init__(self):
-        super(MicrosoftTranslateWithoutContext, self).__init__()
+        super(MicrosoftTranslateWithoutContext, self).__init__(
+            name='Microsoft - without context')
 
     def get_result(self, data):
         if data["source_language"] == data["target_language"] == "en":
@@ -109,7 +122,7 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
 api_mux = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
     MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext(),
-    WordnikTranslate()])
+    WordnikTranslate()], a_b_testing=AB_TESTING)
 
 
 def get_all_translations(data):
@@ -128,12 +141,19 @@ def get_all_translations(data):
         translations = merge_translations(translations, resp.translations)
 
     translations = filter_empty_translations(translations)
-    translations = order_by_quality(translations, data["query"])
+    if AB_TESTING:
+        # Disabling order by quality when A/B testing is enabled
+        translations = order_by_quality(translations, data["query"])
 
     zeeguu_core.log(f"Translations: {translations}")
     response = TranslationResponse(translations=translations)
     zeeguu_core.log(f"Returning response: {response}")
     return response
+
+
+def contribute_trans(data):
+    logger.debug("Preferred service: %s"
+                 % json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
 
 def minimize_context(context_str, from_lang_code, word_str):

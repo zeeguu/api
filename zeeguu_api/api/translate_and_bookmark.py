@@ -10,7 +10,8 @@ from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from zeeguu_core.model import Bookmark, Article
-from zeeguu_api.api.translator import minimize_context, get_all_translations
+from zeeguu_api.api.translator import (
+    minimize_context, get_all_translations, contribute_trans)
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -99,6 +100,7 @@ def contribute_translation(from_lang_code, to_lang_code):
     url = request.form.get('url', '')
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
+    service_name = request.form.get('servicename_translation', 'MANUAL')
 
     article_id = None
     if 'articleID' in url:
@@ -120,7 +122,11 @@ def contribute_translation(from_lang_code, to_lang_code):
                                        word_str, from_lang_code,
                                        translation_str, to_lang_code,
                                        minimal_context, url, title_str, article_id)
-
+    # Inform apimux about translation selection
+    data = {"word_str": word_str, "translation_str": translation_str,
+            "url": url, "context_size": len(context_str),
+            "service_name": service_name}
+    contribute_trans(data)
     return json_result(dict(bookmark_id=bookmark.id))
 
 
