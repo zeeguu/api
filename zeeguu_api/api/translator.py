@@ -20,10 +20,10 @@ from python_translators.factories.microsoft_translator_factory import (
     MicrosoftTranslatorFactory)
 from python_translators.translators.wordnik_translator import WordnikTranslator
 
-AB_TESTING = False
-if os.environ.get("ENABLE_A_B_TESTING", None) is not None:
+MULTI_LANG_TRANSLATOR_AB_TESTING = False
+if os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING", None) is not None:
     logger.warning("A/B testing enabled!")
-    AB_TESTING = True
+    MULTI_LANG_TRANSLATOR_AB_TESTING = True
 
 
 class WordnikTranslate(BaseThirdPartyAPIService):
@@ -122,7 +122,7 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
 api_mux = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
     MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext(),
-    WordnikTranslate()], a_b_testing=AB_TESTING)
+    WordnikTranslate()], a_b_testing=MULTI_LANG_TRANSLATOR_AB_TESTING)
 
 
 def get_all_translations(data):
@@ -141,7 +141,7 @@ def get_all_translations(data):
         translations = merge_translations(translations, resp.translations)
 
     translations = filter_empty_translations(translations)
-    if AB_TESTING:
+    if MULTI_LANG_TRANSLATOR_AB_TESTING:
         # Disabling order by quality when A/B testing is enabled
         translations = order_by_quality(translations, data["query"])
 
