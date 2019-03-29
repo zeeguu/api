@@ -100,6 +100,8 @@ def contribute_translation(from_lang_code, to_lang_code):
     url = request.form.get('url', '')
     context_str = request.form.get('context', '')
     title_str = request.form.get('title', '')
+    # when a translation is added by hand, the servicename_translation is None
+    # thus we set it to MANUAL
     service_name = request.form.get('servicename_translation', 'MANUAL')
 
     article_id = None
