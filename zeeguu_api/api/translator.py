@@ -22,8 +22,6 @@ class WordnikTranslate(BaseThirdPartyAPIService):
         super(WordnikTranslate, self).__init__()
 
     def get_result(self, data):
-        if not (data["source_language"] == data["target_language"] == "en"):
-            return None
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
@@ -39,8 +37,6 @@ class GoogleTranslateWithContext(BaseThirdPartyAPIService):
         super(GoogleTranslateWithContext, self).__init__()
 
     def get_result(self, data):
-        if data["source_language"] == data["target_language"] == "en":
-            return None
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
@@ -57,8 +53,6 @@ class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
         super(GoogleTranslateWithoutContext, self).__init__()
 
     def get_result(self, data):
-        if data["source_language"] == data["target_language"] == "en":
-            return None
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
@@ -75,8 +69,6 @@ class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
         super(MicrosoftTranslateWithContext, self).__init__()
 
     def get_result(self, data):
-        if data["source_language"] == data["target_language"] == "en":
-            return None
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
@@ -93,8 +85,6 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
         super(MicrosoftTranslateWithoutContext, self).__init__()
 
     def get_result(self, data):
-        if data["source_language"] == data["target_language"] == "en":
-            return None
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
@@ -106,10 +96,10 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
         return self._translator.translate(data["query"])
 
 
-api_mux = APIMultiplexer(api_list=[
+api_mux_translators = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
-    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext(),
-    WordnikTranslate()])
+    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()])
+api_mux_worddefs = APIMultiplexer(api_list=[WordnikTranslate()])
 
 
 def get_all_translations(data):
@@ -118,14 +108,21 @@ def get_all_translations(data):
         "target_language": data["to_lang_code"],
         "query": data["query"]
     }
-    translator_results = api_mux.get_all_results(translator_data)
+    api_mux_to_use = None
+    if data["from_lang_code"] == data["to_lang_code"] == "en":
+        api_mux_to_use = api_mux_worddefs
+    else:
+        api_mux_to_use = api_mux_translators
+    translator_results = api_mux_to_use.get_all_results(translator_data)
     zeeguu_core.log(f"Got results: {translator_results}")
     # Returning data: [('GoogleTranslateWithContext',
     #                   <python_translators.translation_response.TranslationResponse>), ...]
-    responses = [x[1] for x in translator_results if x[1] is not None]
     translations = []
-    for resp in responses:
-        translations = merge_translations(translations, resp.translations)
+    for service_name, translation in translator_results:
+        if translation is None:
+            continue
+        translations = merge_translations(translations,
+                                          translation.translations)
 
     translations = filter_empty_translations(translations)
     translations = order_by_quality(translations, data["query"])
