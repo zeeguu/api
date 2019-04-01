@@ -442,8 +442,7 @@ def update_cohort(cohort_id):
 @with_session
 def upload_file(cohort_id):
     '''
-        uploads a file for a cohort
-
+        uploads a file for a cohort with input from a POST request
     '''
     if (not has_permission_for_cohort(cohort_id)):
         flask.abort(401)
@@ -454,14 +453,10 @@ def upload_file(cohort_id):
             authors = file['authors']
             content = file['content']
             summary = file['summary']
-            # published_time = file['published_time']
             published_time = datetime.now()
             language_code = file['language_code']
             language = Language.find(language_code)
 
-            zeeguu_core.log("url")
-            zeeguu_core.log(url)
-            zeeguu_core.log(url.as_string())
             new_article = Article(
                 url,
                 title,
@@ -484,7 +479,6 @@ def upload_file(cohort_id):
         db.session.commit()
         return 'OK'
     except ValueError:
-
         flask.abort(400)
         return 'ValueError'
 
@@ -498,3 +492,25 @@ def cohort_files(cohort_id):
     cohort = Cohort.find(cohort_id) 
     articles = CohortArticleMap.get_articles_for_cohort(cohort)
     return json.dumps(articles)
+
+@api.route("/delete_article/<cohort_id>/<article_id>", methods=["POST"])
+@with_session
+def delete_article(cohort_id, article_id):
+		'''
+				Removes article by article_id.
+				Only works if the teacher has permission to access the class
+		'''
+	
+		if (not has_permission_for_cohort(cohort_id)):
+				flask.abort(401)
+		try:
+				article = Article.query.filter_by(id=article_id).one()
+				db.session.delete(article)
+				db.session.commit()
+				return 'OK'
+		except ValueError:
+				flask.abort(400)
+				return 'ValueError'
+		except sqlalchemy.orm.exc.NoResultFound:
+				flask.abort(400)
+				return "NoResultFound"
