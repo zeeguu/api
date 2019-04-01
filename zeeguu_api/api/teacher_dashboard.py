@@ -269,7 +269,6 @@ def _get_cohort_info(id):
         flask.abort(400)
         return "NoResultFound"
 
-
 def _link_teacher_cohort(user_id, cohort_id):
     '''
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
@@ -279,9 +278,7 @@ def _link_teacher_cohort(user_id, cohort_id):
     cohort = Cohort.find(cohort_id)
     db.session.add(TeacherCohortMap(user, cohort))
     db.session.commit()
-
     return 'added teacher_cohort relationship'
-
 
 @api.route("/users_by_teacher/<duration>", methods=["GET"])
 @with_session
@@ -296,10 +293,8 @@ def users_by_teacher(duration):
     all_users = []
     for m in mappings:
         users = user_info_from_cohort(m.cohort_id, duration)
-
         all_users.extend(users)
     return json.dumps(all_users)
-
 
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
@@ -500,6 +495,6 @@ def cohort_files(cohort_id):
     '''
         Gets the files associated with a cohort
     '''
-    cohort = Cohort.find(cohort_id)
+    cohort = Cohort.find(cohort_id) 
     articles = CohortArticleMap.get_articles_for_cohort(cohort)
     return json.dumps(articles)
