@@ -438,23 +438,23 @@ def update_cohort(cohort_id):
         return 'IntegrityError'
 
 
-@api.route("/upload_files/<cohort_id>", methods=["POST"])
+@api.route("/upload_articles/<cohort_id>", methods=["POST"])
 @with_session
-def upload_file(cohort_id):
+def upload_articles(cohort_id):
     '''
-        uploads a file for a cohort with input from a POST request
+        uploads articles for a cohort with input from a POST request
     '''
     if (not has_permission_for_cohort(cohort_id)):
         flask.abort(401)
     try:
-        for file in json.loads(request.data):
-            url = Url('teacher-dash-file/{}'.format(datetime.now()))
-            title = file['title']
-            authors = file['authors']
-            content = file['content']
-            summary = file['summary']
+        for article_data in json.loads(request.data):
+            url = Url('userarticle/{}'.format(uuid.uuid4().hex))
+            title = article_data['title']
+            authors = article_data['authors']
+            content = article_data['content']
+            summary = article_data['summary']
             published_time = datetime.now()
-            language_code = file['language_code']
+            language_code = article_data['language_code']
             language = Language.find(language_code)
 
             new_article = Article(
@@ -490,27 +490,27 @@ def cohort_files(cohort_id):
         Gets the files associated with a cohort
     '''
     cohort = Cohort.find(cohort_id) 
-    articles = CohortArticleMap.get_articles_for_cohort(cohort)
+    articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
     return json.dumps(articles)
 
 @api.route("/delete_article/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
 def delete_article(cohort_id, article_id):
-		'''
-				Removes article by article_id.
-				Only works if the teacher has permission to access the class
-		'''
-	
-		if (not has_permission_for_cohort(cohort_id)):
-				flask.abort(401)
-		try:
-				article = Article.query.filter_by(id=article_id).one()
-				db.session.delete(article)
-				db.session.commit()
-				return 'OK'
-		except ValueError:
-				flask.abort(400)
-				return 'ValueError'
-		except sqlalchemy.orm.exc.NoResultFound:
-				flask.abort(400)
-				return "NoResultFound"
+    '''
+        Removes article by article_id.
+        Only works if the teacher has permission to access the class
+    '''
+
+    if (not has_permission_for_cohort(cohort_id)):
+      flask.abort(401)
+    try:
+      article = Article.query.filter_by(id=article_id).one()
+      db.session.delete(article)
+      db.session.commit()
+      return 'OK'
+    except ValueError:
+      flask.abort(400)
+      return 'ValueError'
+    except sqlalchemy.orm.exc.NoResultFound:
+      flask.abort(400)
+      return "NoResultFound"
