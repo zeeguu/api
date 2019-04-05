@@ -7,6 +7,8 @@ from flask import request, jsonify
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 
+import uuid
+
 from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
 from . import api
