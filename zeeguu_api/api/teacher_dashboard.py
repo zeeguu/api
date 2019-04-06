@@ -7,12 +7,15 @@ from flask import request, jsonify
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 
+import uuid
+
 from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
 from . import api
 
 import zeeguu_core
-from zeeguu_core.model import User, Cohort, Language, Teacher 
+from zeeguu_core.model import User, Cohort, Language, Teacher, Article, Url
+from zeeguu_core.model.cohort_article_map import CohortArticleMap
 
 db = zeeguu_core.db
 
@@ -77,9 +80,10 @@ def has_permission_for_user_info(id):
         flask.abort(400)
         return "NoResultFound"
 
+
 def user_info_from_cohort(id, duration):
     '''
-       Takes id for a cohort and returns all users belonging to that cohort. 
+       Takes id for a cohort and returns all users belonging to that cohort.
     '''
     c = Cohort.query.filter_by(id=id).one()
     users = User.query.filter_by(cohort_id=c.id).all()
@@ -133,9 +137,11 @@ def _get_user_info_for_teacher_dashboard(id, duration):
     try:
         fromDate = datetime.now() - timedelta(days=int(duration))
 
-        reading_sessions = UserReadingSession.find_by_user(int(id), fromDate, datetime.now())
+        reading_sessions = UserReadingSession.find_by_user(
+            int(id), fromDate, datetime.now())
 
-        exercise_sessions = UserExerciseSession.find_by_user(int(id), fromDate, datetime.now())
+        exercise_sessions = UserExerciseSession.find_by_user(
+            int(id), fromDate, datetime.now())
 
         user = User.query.filter_by(id=id).one()
 
@@ -144,8 +150,8 @@ def _get_user_info_for_teacher_dashboard(id, duration):
         reading_time = 0
         exercise_time = 0
         for n in range(0, int(duration) + 1):
-            reading_time_list.append(0);
-            exercise_time_list.append(0);
+            reading_time_list.append(0)
+            exercise_time_list.append(0)
 
         for each in reading_sessions:
             startDay = each.start_time.date()
@@ -153,13 +159,11 @@ def _get_user_info_for_teacher_dashboard(id, duration):
             reading_time_list[index] += each.duration / 1000
             reading_time += each.duration / 1000
 
-
-
         for j in exercise_sessions:
             startDay = j.start_time.date()
             index = (datetime.now().date() - startDay).days
             exercise_time_list[index] += j.duration / 1000
-            exercise_time += j.duration / 1000;
+            exercise_time += j.duration / 1000
 
         dictionary = {
             'id': str(id),
@@ -175,7 +179,7 @@ def _get_user_info_for_teacher_dashboard(id, duration):
     except ValueError:
         flask.abort(400)
         return 'ValueError'
-    
+
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @with_session
@@ -279,7 +283,7 @@ def _link_teacher_cohort(user_id, cohort_id):
     return 'added teacher_cohort relationship'
 
 @api.route("/users_by_teacher/<duration>", methods=["GET"])
-@with_session 
+@with_session
 def users_by_teacher(duration):
     '''
         Return list of dictionaries containing user info for all cohorts that the logged in user owns.
@@ -382,7 +386,7 @@ def cohort_member_reading_sessions(id, time_period):
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
     return json_result(user.reading_sessions_by_day(date, max=10000))
-    
+
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
@@ -400,7 +404,7 @@ def cohort_member_bookmarks(id, time_period):
         flask.abort(401)
 
     now = datetime.today()
-    date = now - timedelta(days=int(time_period));
+    date = now - timedelta(days=int(time_period))
 
     # True input causes function to return context too.
     return json_result(user.bookmarks_by_day(True, date, with_title=True, max=10000))
@@ -421,8 +425,10 @@ def update_cohort(cohort_id):
         cohort_to_change.inv_code = request.form.get("inv_code")
         cohort_to_change.name = request.form.get("name")
 
-        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
-        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
+        cohort_to_change.declared_level_min = request.form.get(
+            "declared_level_min")
+        cohort_to_change.declared_level_max = request.form.get(
+            "declared_level_max")
 
         db.session.commit()
         return 'OK'
@@ -432,3 +438,81 @@ def update_cohort(cohort_id):
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
         return 'IntegrityError'
+
+
+@api.route("/upload_articles/<cohort_id>", methods=["POST"])
+@with_session
+def upload_articles(cohort_id):
+    '''
+        uploads articles for a cohort with input from a POST request
+    '''
+    if (not has_permission_for_cohort(cohort_id)):
+        flask.abort(401)
+    try:
+        for article_data in json.loads(request.data):
+            url = Url('userarticle/{}'.format(uuid.uuid4().hex))
+            title = article_data['title']
+            authors = article_data['authors']
+            content = article_data['content']
+            summary = article_data['summary']
+            published_time = datetime.now()
+            language_code = article_data['language_code']
+            language = Language.find(language_code)
+
+            new_article = Article(
+                url,
+                title,
+                authors,
+                content,
+                summary,
+                published_time,
+                None,  # rss feed
+                language
+            )
+            
+            db.session.add(new_article)
+            db.session.flush()
+            db.session.refresh(new_article)
+            
+            cohort = Cohort.find(cohort_id)
+            new_cohort_article_map = CohortArticleMap(cohort, new_article)
+
+            db.session.add(new_cohort_article_map)
+        db.session.commit()
+        return 'OK'
+    except ValueError:
+        flask.abort(400)
+        return 'ValueError'
+
+
+@api.route("/cohort_files/<cohort_id>", methods=["GET"])
+@with_session
+def cohort_files(cohort_id):
+    '''
+        Gets the files associated with a cohort
+    '''
+    cohort = Cohort.find(cohort_id) 
+    articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
+    return json.dumps(articles)
+
+@api.route("/delete_article/<cohort_id>/<article_id>", methods=["POST"])
+@with_session
+def delete_article(cohort_id, article_id):
+    '''
+        Removes article by article_id.
+        Only works if the teacher has permission to access the class
+    '''
+
+    if (not has_permission_for_cohort(cohort_id)):
+      flask.abort(401)
+    try:
+      article = Article.query.filter_by(id=article_id).one()
+      db.session.delete(article)
+      db.session.commit()
+      return 'OK'
+    except ValueError:
+      flask.abort(400)
+      return 'ValueError'
+    except sqlalchemy.orm.exc.NoResultFound:
+      flask.abort(400)
+      return "NoResultFound"
