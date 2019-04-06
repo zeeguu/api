@@ -129,8 +129,9 @@ def get_all_translations(data):
         api_mux_to_use = api_mux_translators
     translator_results = api_mux_to_use.get_all_results(translator_data)
     zeeguu_core.log(f"Got results: {translator_results}")
+    json_translator_results = [(x, y.to_json()) for x, y in translator_results]
     logger.debug(f"Zeeguu-API - Request data: {data}")
-    logger.debug(f"Zeeguu-API - Got results: {translator_results}")
+    logger.debug(f"Zeeguu-API - Got results: {json_translator_results}")
     # Returning data: [('GoogleTranslateWithContext',
     #                   <python_translators.translation_response.TranslationResponse>), ...]
     translations = []
