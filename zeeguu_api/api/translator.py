@@ -22,23 +22,28 @@ from python_translators.translators.wordnik_translator import WordnikTranslator
 
 MULTI_LANG_TRANSLATOR_AB_TESTING = False
 if os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING", None) is not None:
-    logger.warning("A/B testing enabled!")
+    logger.warning("A/B testing enabled! - MULTI_LANG_TRANSLATOR_AB_TESTING")
     MULTI_LANG_TRANSLATOR_AB_TESTING = True
 
 
 class WordnikTranslate(BaseThirdPartyAPIService):
-    def __init__(self):
-        super(WordnikTranslate, self).__init__()
+    def __init__(self, KEY_ENVVAR_NAME):
+        super(WordnikTranslate, self).__init__(
+            name=('Wordnik - %s' % KEY_ENVVAR_NAME))
+        self._key_envvar_name = KEY_ENVVAR_NAME
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
             target_language=data["target_language"]
         )
-        lang_config['key'] = get_key_from_config('WORDNIK_API_KEY')
+        lang_config['key'] = get_key_from_config(self._key_envvar_name)
         self._translator = WordnikTranslator(**lang_config)
         self._translator.quality = 90
-        return self._translator.translate(data["query"])
+        response = self._translator.translate(data["query"])
+        if len(response.translations) == 0:
+            return None
+        return response
 
 
 class GoogleTranslateWithContext(BaseThirdPartyAPIService):
@@ -55,7 +60,10 @@ class GoogleTranslateWithContext(BaseThirdPartyAPIService):
         self._translator = GoogleTranslatorFactory.build_with_context(
             **lang_config)
         self._translator.quality = 95
-        return self._translator.translate(data["query"])
+        response = self._translator.translate(data["query"])
+        if len(response.translations) == 0:
+            return None
+        return response
 
 
 class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
@@ -72,7 +80,10 @@ class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
         self._translator = GoogleTranslatorFactory.build_contextless(
             **lang_config)
         self._translator.quality = 70
-        return self._translator.translate(data["query"])
+        response = self._translator.translate(data["query"])
+        if len(response.translations) == 0:
+            return None
+        return response
 
 
 class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
@@ -89,7 +100,10 @@ class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
         self._translator = MicrosoftTranslatorFactory.build_with_context(
             **lang_config)
         self._translator.quality = 80
-        return self._translator.translate(data["query"])
+        response = self._translator.translate(data["query"])
+        if len(response.translations) == 0:
+            return None
+        return response
 
 
 class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
@@ -106,15 +120,29 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
         self._translator = MicrosoftTranslatorFactory.build_contextless(
             **lang_config)
         self._translator.quality = 60
-        return self._translator.translate(data["query"])
+        response = self._translator.translate(data["query"])
+        if len(response.translations) == 0:
+            return None
+        return response
 
 
 api_mux_translators = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
-    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()], 
+    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()],
     a_b_testing=MULTI_LANG_TRANSLATOR_AB_TESTING)
 
-api_mux_worddefs = APIMultiplexer(api_list=[WordnikTranslate()])
+
+wordnik_api_keys = []
+for env_var_name in os.environ:
+    if env_var_name.startswith('WORDNIK_API_KEY'):
+        wordnik_api_keys += [env_var_name]
+wordnik_translators = [WordnikTranslate(apikey) for apikey in wordnik_api_keys]
+a_b_testing_wordnik = len(wordnik_translators) > 1
+logger.info("Number of wordnik api keys: %s" % len(wordnik_translators))
+api_mux_worddefs = APIMultiplexer(
+    api_list=wordnik_translators,
+    a_b_testing=a_b_testing_wordnik)
+
 
 def get_all_translations(data):
     translator_data = {
@@ -122,12 +150,11 @@ def get_all_translations(data):
         "target_language": data["to_lang_code"],
         "query": data["query"]
     }
-    api_mux_to_use = None
     if data["from_lang_code"] == data["to_lang_code"] == "en":
-        api_mux_to_use = api_mux_worddefs
+        translator_results = api_mux_worddefs.get_top_result(translator_data)
     else:
-        api_mux_to_use = api_mux_translators
-    translator_results = api_mux_to_use.get_all_results(translator_data)
+        translator_results = api_mux_translators.get_all_results(
+            translator_data)
     zeeguu_core.log(f"Got results: {translator_results}")
     json_translator_results = [(x, y.to_json()) for x, y in translator_results]
     logger.debug(f"Zeeguu-API - Request data: {data}")
