@@ -47,8 +47,6 @@ def user_articles_cohort(count: int = 20):
     return json_result(cohort_articles_for_user(flask.g.user, count))
 
 
-
-
 # ---------------------------------------------------------------------------
 @api.route("/user_article_history/<user_id>", methods=("GET",))
 # ---------------------------------------------------------------------------
