@@ -16,12 +16,12 @@ session = zeeguu_core.db.session
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def user_articles_recommended(count: int = 20):
+def user_articles_recommended():
     """
         recommendations for all languages
     """
 
-    return json_result(article_recommendations_for_user(flask.g.user, count))
+    return json_result(article_recommendations_for_user(flask.g.user))
 
 
 # ---------------------------------------------------------------------------
