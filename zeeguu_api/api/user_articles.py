@@ -16,12 +16,12 @@ session = zeeguu_core.db.session
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def user_articles_recommended():
+def user_articles_recommended(count: int = 20):
     """
         recommendations for all languages
     """
 
-    return json_result(article_recommendations_for_user(flask.g.user))
+    return json_result(article_recommendations_for_user(flask.g.user, count))
 
 
 # ---------------------------------------------------------------------------
@@ -39,12 +39,12 @@ def user_articles_starred_and_liked():
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def user_articles_cohort(count: int = 20):
+def user_articles_cohort():
     """
         get articles for the cohort associated with the user
     """
 
-    return json_result(cohort_articles_for_user(flask.g.user, count))
+    return json_result(cohort_articles_for_user(flask.g.user))
 
 
 # ---------------------------------------------------------------------------
