@@ -11,7 +11,7 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from zeeguu_core.model import Bookmark, Article
 from zeeguu_api.api.translator import (
-    minimize_context, get_all_translations, contribute_trans)
+    minimize_context, get_all_translations, get_next_results, contribute_trans)
 
 
 @api.route("/get_possible_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -71,6 +71,76 @@ def get_possible_translations(from_lang_code, to_lang_code):
                             word_str, from_lang_code,
                             best_guess, to_lang_code,
                             minimal_context, url, title_str, article_id)
+
+    return json_result(dict(translations=translations))
+
+
+@api.route("/get_next_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@with_session
+def get_next_translations(from_lang_code, to_lang_code):
+    """
+        Returns a list of possible translations in :param to_lang_code
+        for :param word in :param from_lang_code.
+
+        You must also specify the :param context, :param url, and :param title
+         of the page where the word was found.
+
+        The context is the sentence.
+
+        :return: json array with translations
+    """
+    data = {"from_lang_code": from_lang_code, "to_lang_code": to_lang_code}
+    data["context"] = request.form.get('context', '')
+    url = request.form.get('url', '')
+    number_of_results = int(request.form.get('numberOfResults', -1))
+    service_name = request.form.get('service', '')
+    exclude_services = [] if service_name is '' else [service_name]
+    currentTranslation = request.form.get('currentTranslation', '')
+    exclude_results = [] if currentTranslation is '' else [currentTranslation.lower()]
+    data["url"] = url
+    article_id = None
+    if 'articleID' in url:
+        article_id = url.split('articleID=')[-1]
+        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
+    elif 'articleURL' in url:
+        url = url.split('articleURL=')[-1]
+    else:
+        # the url comes from elsewhere not from the reader, so we find or creat the article
+        article = Article.find_or_create(db_session, url)
+        article_id = article.id
+    zeeguu_core.log(f"url before being saved: {url}")
+    word_str = request.form['word']
+    data["word"] = word_str
+    title_str = request.form.get('title', '')
+    data["title"] = title_str
+
+    zeeguu_core.log(f'translating to... {data["to_lang_code"]}')
+    minimal_context, query = minimize_context(
+        data["context"], data["from_lang_code"], data["word"])
+    zeeguu_core.log(f"Query to translate is: {query}")
+    data["query"] = query
+    translations = get_next_results(
+        data,
+        exclude_services=exclude_services,
+        exclude_results=exclude_results,
+        number_of_results=number_of_results).translations
+    zeeguu_core.log(f"Got translations: {translations}")
+
+    # translators talk about quality, but our users expect likelihood.
+    # rename the key in the dictionary
+    for t in translations:
+        t['likelihood'] = t.pop("quality")
+        t['source'] = t.pop('service_name')
+
+    first_call_for_this_word = len(exclude_services) == 0
+    if len(translations) > 0 and first_call_for_this_word:
+        best_guess = translations[0]["translation"]
+
+        Bookmark.find_or_create(db_session, flask.g.user,
+                                word_str, from_lang_code,
+                                best_guess, to_lang_code,
+                                minimal_context, url, title_str, article_id)
 
     return json_result(dict(translations=translations))
 
