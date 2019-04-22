@@ -40,7 +40,7 @@ def user_articles_starred_and_liked():
 @with_session
 def user_articles_cohort():
     """
-        get articles for the cohort associated with the user
+        get all articles for the cohort associated with the user
     """
 
     return json_result(cohort_articles_for_user(flask.g.user))
