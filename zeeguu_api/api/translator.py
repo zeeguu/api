@@ -169,7 +169,7 @@ def get_all_translations(data):
                                           translation.translations)
 
     translations = filter_empty_translations(translations)
-    if MULTI_LANG_TRANSLATOR_AB_TESTING:
+    if not MULTI_LANG_TRANSLATOR_AB_TESTING:
         # Disabling order by quality when A/B testing is enabled
         translations = order_by_quality(translations, data["query"])
 
