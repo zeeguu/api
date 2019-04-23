@@ -1,6 +1,6 @@
 import flask
 import zeeguu_core
-from zeeguu_core.content_recommender.mixed_recommender import article_recommendations_for_user
+from zeeguu_core.content_recommender.mixed_recommender import article_recommendations_for_user, cohort_articles_for_user
 from zeeguu_core.model import UserArticle, UserReadingSession, User
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -31,6 +31,19 @@ def user_articles_recommended(count: int = 20):
 @with_session
 def user_articles_starred_and_liked():
     return json_result(UserArticle.all_starred_and_liked_articles_of_user_info(flask.g.user))
+
+
+# ---------------------------------------------------------------------------
+@api.route("/cohort_articles/", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def user_articles_cohort():
+    """
+        get all articles for the cohort associated with the user
+    """
+
+    return json_result(cohort_articles_for_user(flask.g.user))
 
 
 # ---------------------------------------------------------------------------

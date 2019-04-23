@@ -495,9 +495,9 @@ def cohort_files(cohort_id):
     articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
     return json.dumps(articles)
 
-@api.route("/delete_article/<cohort_id>/<article_id>", methods=["POST"])
+@api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
-def delete_article(cohort_id, article_id):
+def remove_article_from_cohort(cohort_id, article_id):
     '''
         Removes article by article_id.
         Only works if the teacher has permission to access the class
@@ -506,8 +506,8 @@ def delete_article(cohort_id, article_id):
     if (not has_permission_for_cohort(cohort_id)):
       flask.abort(401)
     try:
-      article = Article.query.filter_by(id=article_id).one()
-      db.session.delete(article)
+      article_in_class = CohortArticleMap.query.filter_by(article_id=article_id).one()
+      db.session.delete(article_in_class)
       db.session.commit()
       return 'OK'
     except ValueError:
