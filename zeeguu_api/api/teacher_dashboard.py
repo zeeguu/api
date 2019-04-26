@@ -168,6 +168,7 @@ def _get_user_info_for_teacher_dashboard(id, duration):
         dictionary = {
             'id': str(id),
             'name': user.name,
+            'cohort_name': user.cohort.name,
             'email': user.email,
             'reading_time': reading_time,
             'exercises_done': exercise_time,
