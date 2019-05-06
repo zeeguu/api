@@ -1,0 +1,7 @@
+#!/bin/sh
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+for rule_name in $DIR/rules; do
+	$DIR/rules/routes_should_not_end_in_slash 
+done

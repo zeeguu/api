@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Flask routes should not end with a forward slash
+
+ADDED_LINE='^\+'
+FLASK_ROUTE_PREFIX='.*@.*route.*".*"'
+
+COUNT=$(git diff --cached | grep -c -E "$ADDED_LINE$FLASK_ROUTE_PREFIX/")
+
+if [ $COUNT -gt 0 ]; then
+	echo " "
+	echo "   Flask routes should not end with a forward slash!"
+	echo " "
+	echo "Error is on the following line: "
+	echo " "
+	echo "   " $(git diff --cached | grep -E "$ADDED_LINE$FLASK_ROUTE_PREFIX/")
+	echo " "
+
+	exit 1
+fi
+
