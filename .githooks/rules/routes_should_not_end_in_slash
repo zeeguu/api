@@ -5,12 +5,12 @@
 # Regex for added lines
 ADDED_LINE='^\+'
 
-# Regex for bad routes ... 
+# Regex for bad routes
 BAD_FLASK_ROUTE='.*@.*route.*".+/"'
 
-COUNT=$(git diff --cached   | grep -c -E "$ADDED_LINE$BAD_FLASK_ROUTE")
+COUNT_BAD_LINES=$(git diff --cached   | grep -c -E "$ADDED_LINE$BAD_FLASK_ROUTE")
 
-if [ $COUNT -gt 0 ]; then
+if [ $COUNT_BAD_LINES -gt 0 ]; then
 	echo " "
 	echo "   Flask routes should not end with a forward slash!"
 	echo " "
