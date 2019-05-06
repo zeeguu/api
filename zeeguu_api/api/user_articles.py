@@ -34,7 +34,7 @@ def user_articles_starred_and_liked():
 
 
 # ---------------------------------------------------------------------------
-@api.route("/cohort_articles/", methods=("GET",))
+@api.route("/cohort_articles", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
