@@ -16,8 +16,9 @@ Once you clone the repo, please run:
 
     git config --local core.hooksPath .githooks/
 
-The .githooks folder checks for several pre-commit hooks
-that verify the submitted code.
+This will make the rules in the .githooks/rules 
+folder be run before every commit. The rules
+check for well-known bugs and code conventions.
 
 
 # Installation
