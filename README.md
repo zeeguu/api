@@ -10,6 +10,16 @@ A text recommender agent crawls websites of interest to the user and recommend m
 
 The API is available at https://zeeguu.unibe.ch/api.
 
+# Development Notes
+
+Once you clone the repo, please run: 
+
+    git config --local core.hooksPath .githooks/
+
+The .githooks folder checks for several pre-commit hooks
+that verify the submitted code.
+
+
 # Installation
 1. Install ``docker`` on your machine. For Ubuntu you can run the following:
 
