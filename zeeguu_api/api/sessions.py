@@ -68,6 +68,18 @@ def validate():
     return "OK"
 
 
+@cross_domain
+@api.route("/is_up")
+def is_up():
+    """
+
+        Useful for testing that the server is up
+
+    :return:
+    """
+    return "OK"
+
+
 @api.route("/logout_session",
            methods=["GET"])
 @cross_domain
