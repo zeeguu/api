@@ -128,8 +128,7 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
 
 api_mux_translators = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
-    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()],
-    a_b_testing=MULTI_LANG_TRANSLATOR_AB_TESTING)
+    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()])
 
 
 wordnik_api_keys = []
@@ -140,42 +139,69 @@ wordnik_translators = [WordnikTranslate(apikey) for apikey in wordnik_api_keys]
 a_b_testing_wordnik = len(wordnik_translators) > 1
 logger.info("Number of wordnik api keys: %s" % len(wordnik_translators))
 api_mux_worddefs = APIMultiplexer(
-    api_list=wordnik_translators,
-    a_b_testing=a_b_testing_wordnik)
+    api_list=wordnik_translators)
 
 
 def get_all_translations(data):
+    if data["from_lang_code"] == data["to_lang_code"] == "en":
+        # Wordnik case, get only the top result
+        response = get_next_results(data, number_of_results=1)
+    else:
+        response = get_next_results(data, number_of_results=-1)
+
+    logger.debug(f"Zeeguu-API - Request data: {data}")
+    return response
+
+
+def get_next_results(data, exclude_services=[], exclude_results=[],
+                     number_of_results=-1):
     translator_data = {
         "source_language": data["from_lang_code"],
         "target_language": data["to_lang_code"],
         "query": data["query"]
     }
+    api_mux = None
     if data["from_lang_code"] == data["to_lang_code"] == "en":
-        translator_results = api_mux_worddefs.get_top_result(translator_data)
+        api_mux = api_mux_worddefs
     else:
-        translator_results = api_mux_translators.get_all_results(
-            translator_data)
-    zeeguu_core.log(f"Got results: {translator_results}")
+        api_mux = api_mux_translators
+
+    if number_of_results == 1:
+        logger.debug("Getting only top result")
+        translator_results = api_mux.get_next_results(
+            translator_data, number_of_results=1)
+    else:
+        logger.debug("Getting all results")
+        translator_results = api_mux.get_next_results(
+            translator_data, number_of_results=-1,
+            exclude_services=exclude_services)
+    zeeguu_core.log(f"Got results get_next_results: {translator_results}")
     json_translator_results = [(x, y.to_json()) for x, y in translator_results]
-    logger.debug(f"Zeeguu-API - Request data: {data}")
-    logger.debug(f"Zeeguu-API - Got results: {json_translator_results}")
+    logger.debug("get_next_results Zeeguu-API - Got results: %s"
+                 % json_translator_results)
+    logger.debug("get_next_results - exclude_services %s" % exclude_services)
     # Returning data: [('GoogleTranslateWithContext',
     #                   <python_translators.translation_response.TranslationResponse>), ...]
     translations = []
     for service_name, translation in translator_results:
         if translation is None:
             continue
+        lower_translation = translation.translations[0]["translation"].lower()
+        if lower_translation in exclude_results:
+            # Translation already exists fetched by get_top_translation
+            continue
         translations = merge_translations(translations,
                                           translation.translations)
 
     translations = filter_empty_translations(translations)
+
     if not MULTI_LANG_TRANSLATOR_AB_TESTING:
         # Disabling order by quality when A/B testing is enabled
-        translations = order_by_quality(translations, data["query"])
+        translations = order_by_quality(translations, translator_data["query"])
 
-    zeeguu_core.log(f"Translations: {translations}")
+    zeeguu_core.log(f"Translations get_next_results: {translations}")
     response = TranslationResponse(translations=translations)
-    zeeguu_core.log(f"Returning response: {response}")
+    zeeguu_core.log(f"Returning response get_next_results: {response}")
     return response
 
 
