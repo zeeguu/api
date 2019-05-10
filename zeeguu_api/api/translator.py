@@ -128,8 +128,8 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
 
 api_mux_translators = APIMultiplexer(api_list=[
     GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
-    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()])
-
+    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()],
+    config_filepath=os.environ.get("API_MUX_CONFIG__TRANSLATORS", ''))
 
 wordnik_api_keys = []
 for env_var_name in os.environ:
@@ -139,7 +139,8 @@ wordnik_translators = [WordnikTranslate(apikey) for apikey in wordnik_api_keys]
 a_b_testing_wordnik = len(wordnik_translators) > 1
 logger.info("Number of wordnik api keys: %s" % len(wordnik_translators))
 api_mux_worddefs = APIMultiplexer(
-    api_list=wordnik_translators)
+    api_list=wordnik_translators,
+    config_filepath=os.environ.get("API_MUX_CONFIG__EN2EN", ''))
 
 
 def get_all_translations(data):
