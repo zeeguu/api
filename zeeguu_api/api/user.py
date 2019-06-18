@@ -55,7 +55,7 @@ def learned_language_set(language_code):
     :param language_code: one of the ISO language codes
     :return: "OK" for success
     """
-    flask.g.user.set_learned_language(language_code)
+    flask.g.user.set_learned_language(language_code, session=zeeguu_core.db.session)
     zeeguu_core.db.session.commit()
     return "OK"
 
@@ -122,7 +122,7 @@ def user_settings():
 
     submitted_learned_language_code = data.get('learned_language_code', None)
     if submitted_native_language_code:
-        flask.g.user.set_learned_language(submitted_learned_language_code)
+        flask.g.user.set_learned_language(submitted_learned_language_code, zeeguu_core.db.session)
 
     submitted_email = data.get('email', None)
     if submitted_email:

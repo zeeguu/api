@@ -55,13 +55,6 @@ def add_user(email):
         new_user = User(email, username, password, invitation_code=invite_code, cohort=cohort)
         db_session.add(new_user)
 
-        # Add the learned language to user languages and set reading_news to True
-        # so that the user has articles in the reader when opening it for the first time.
-        from zeeguu_core.model import UserLanguage
-        language = UserLanguage(new_user, new_user.learned_language, reading_news=True)
-        db_session.add(language)
-
-
         if cohort:
             if cohort.is_cohort_of_teachers:
                 teacher = Teacher(new_user)
