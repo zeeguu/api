@@ -26,7 +26,11 @@ def with_session(view):
         flask.g.user = session.user
         session.update_use_date()
 
-        zeeguu_core.log(("API CALL: " + " User ID: " + str(flask.g.user.id)))
+        zeeguu_core.log(
+            str(flask.g.user.id)
+            + " API CALL: "
+            + str(view)
+        )
 
         zeeguu_core.db.session.add(session)
         zeeguu_core.db.session.commit()
