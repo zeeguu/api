@@ -43,7 +43,6 @@ class APITestMixin(TestCase):
         self.session = str(int(response.data))
         self.user = User.find(TEST_EMAIL)
 
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
     def tearDown(self):
         super(APITestMixin, self).tearDown()
 
