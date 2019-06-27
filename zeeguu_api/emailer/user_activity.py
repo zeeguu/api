@@ -18,7 +18,7 @@ def send_notification_article_feedback(feedback, user: User, article_title, arti
 
     content_lines = [
         f'{feedback}',
-        f'User Translations: https://www.zeeguu.unibe.ch/bookmarks_for_article/{article_id}/{user.id}',
+        f'User Translations: https://www.zeeguu.org/bookmarks_for_article/{article_id}/{user.id}',
         cheers_your_server
     ]
 
