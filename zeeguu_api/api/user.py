@@ -1,3 +1,5 @@
+import json
+
 import flask
 import zeeguu_core
 
@@ -110,7 +112,6 @@ def user_settings():
     """
 
     data = flask.request.form
-    print(data)
 
     submitted_name = data.get('name', None)
     if submitted_name:
@@ -121,12 +122,19 @@ def user_settings():
         flask.g.user.set_native_language(submitted_native_language_code)
 
     submitted_learned_language_code = data.get('learned_language_code', None)
-    if submitted_native_language_code:
+    if submitted_learned_language_code:
         flask.g.user.set_learned_language(submitted_learned_language_code, zeeguu_core.db.session)
+
+    submitted_learned_language_data = json.loads(data.get('language_level_data', None))
+    for language_level in submitted_learned_language_data:
+        flask.g.user.set_learned_language_level(language_level[0],
+                                                language_level[1],
+                                                zeeguu_core.db.session)
 
     submitted_email = data.get('email', None)
     if submitted_email:
         flask.g.user.email = submitted_email
 
+    zeeguu_core.db.session.add(flask.g.user)
     zeeguu_core.db.session.commit()
     return "OK"
