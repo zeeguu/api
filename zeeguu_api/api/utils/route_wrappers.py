@@ -36,6 +36,8 @@ def with_session(view):
         zeeguu_core.db.session.commit()
         return view(*args, **kwargs)
 
+        zeeguu_core.db.session.close()
+
     return wrapped_view
 
 
