@@ -8,7 +8,7 @@ A teacher agent recommends the most important words to be studied next in order 
 
 A text recommender agent crawls websites of interest to the user and recommend materials to read which are in the zone of proximal development.
 
-To read more about the API see the [article](https://www.researchgate.net/publication/322489283_As_We_May_Study_Towards_the_Web_as_a_Personalized_Language_Textbook) published about Zeeguu in the CHI'18 conference. The API is also deployed for the [zeeguu.org](https://zeeguu.org) website. 
+To read more about the API see the [article](https://www.researchgate.net/publication/322489283_As_We_May_Study_Towards_the_Web_as_a_Personalized_Language_Textbook) published about Zeeguu in the CHI'18 conference. The API is also deployed as the backend for the [zeeguu.org](https://zeeguu.org) website. 
 
 # Development Notes
 
