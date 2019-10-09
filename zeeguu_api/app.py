@@ -45,6 +45,7 @@ app.register_blueprint(api)
 
 try:
     import flask_monitoringdashboard as dashboard
+    from .custom_fmd_graphs import daily_visitors
 
     dashboard.config.init_from(envvar='FLASK_MONITORING_DASHBOARD_CONFIG')
 
@@ -52,11 +53,14 @@ try:
 
     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
     dashboard.bind(app=app)
+    daily_visitors(dashboard)
     print("Started the Flask Monitoring Dashboard")
+
 except Exception as e:
     print("Could not install the flask_monitornig_dashboard")
     print(e)
     import traceback
+
     print(traceback.format_exc())
 
 try:
