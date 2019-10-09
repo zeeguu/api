@@ -1,14 +1,17 @@
 # Zeeguu-API [![Build Status](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API.svg?branch=master)](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API)
 
-Zeeguu is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition.
+Zeeguu is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition. The API is also deployed as the backend for the [zeeguu.org](https://zeeguu.org) website. 
 
-The API offers translations for the words that a learner encounters in his readings. The history of the translated words and their context is saved and used to build a dynamic model of the user knowledge. The context is used to extract the words the user knows and their topics of interest.
+## Overview
+
+The API offers translations for the words that a learner encounters in their readings. The history of the translated words and their context is saved and used to build a dynamic model of the user knowledge. The context is used to extract the words the user knows and their topics of interest.
 
 A teacher agent recommends the most important words to be studied next in order for the learner to accelerate his vocabulary retention. This information can be used as input by language exercise applications, for example interactive games.
 
 A text recommender agent crawls websites of interest to the user and recommend materials to read which are in the zone of proximal development.
 
-The API is available at https://zeeguu.unibe.ch/api.
+## Read More 
+To read more about the API see the [article](https://www.researchgate.net/publication/322489283_As_We_May_Study_Towards_the_Web_as_a_Personalized_Language_Textbook) published about Zeeguu in the CHI'18 conference. 
 
 # Development Notes
 
