@@ -121,6 +121,7 @@ def send_code(email):
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
+    
     code = request.form.get("code", None)
     submitted_pass = request.form.get("password", None)
 
