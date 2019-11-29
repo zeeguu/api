@@ -1,4 +1,6 @@
 import datetime
+
+from sqlalchemy.orm.exc import NoResultFound
 from urllib.parse import unquote_plus
 
 import flask
@@ -206,11 +208,14 @@ def contribute_translation(from_lang_code, to_lang_code):
 @cross_domain
 @with_session
 def delete_bookmark(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
-    db_session.delete(bookmark)
-    db_session.commit()
-    return "OK"
+    try:
+        bookmark = Bookmark.find(bookmark_id)
+        db_session.delete(bookmark)
+        db_session.commit()
+    except NoResultFound:
+        return "Inexistent"
 
+    return "OK"
 
 @api.route("/report_learned_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
