@@ -1,0 +1,2 @@
+echo "Activating the zeeguu environment..."
+source ~/.venvs/z_env/bin/activate
