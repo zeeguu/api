@@ -11,7 +11,7 @@ import zeeguu_core
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu_core.model import Bookmark, Article
+from zeeguu_core.model import Bookmark, Article, ExerciseSource, ExerciseOutcome, Exercise
 from zeeguu_api.api.translator import (
     minimize_context, get_all_translations, get_next_results, contribute_trans)
 
@@ -217,14 +217,26 @@ def delete_bookmark(bookmark_id):
 
     return "OK"
 
-@api.route("/report_learned_bookmark/<bookmark_id>", methods=["POST"])
+
+@api.route("/report_correct_mini_exercise/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.learned = True
-    bookmark.learned_time = datetime.datetime.now()
+
+    # Originally this modified the DB... that was not cool
+    # Now it simply inserts an exercise in the exercises table
+
+    new_source = ExerciseSource.find_or_create(db_session, ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE)
+    new_outcome = ExerciseOutcome.find_or_create(db_session, ExerciseOutcome.CORRECT)
+
+    exercise = Exercise(new_outcome, new_source, -1, datetime.datetime.now())
+    bookmark.add_new_exercise(exercise)
+    bookmark.update_fit_for_study(db_session)
+    bookmark.update_learned_status(db_session)
+    db_session.add(exercise)
     db_session.commit()
+
     return "OK"
 
 
