@@ -223,10 +223,6 @@ def delete_bookmark(bookmark_id):
 @with_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-
-    # Originally this modified the DB... that was not cool
-    # Now it simply inserts an exercise in the exercises table
-
     bookmark.report_exercise_outcome(ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
                                      ExerciseOutcome.CORRECT,
                                      -1,
