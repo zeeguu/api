@@ -227,15 +227,10 @@ def report_learned_bookmark(bookmark_id):
     # Originally this modified the DB... that was not cool
     # Now it simply inserts an exercise in the exercises table
 
-    new_source = ExerciseSource.find_or_create(db_session, ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE)
-    new_outcome = ExerciseOutcome.find_or_create(db_session, ExerciseOutcome.CORRECT)
-
-    exercise = Exercise(new_outcome, new_source, -1, datetime.datetime.now())
-    bookmark.add_new_exercise(exercise)
-    bookmark.update_fit_for_study(db_session)
-    bookmark.update_learned_status(db_session)
-    db_session.add(exercise)
-    db_session.commit()
+    bookmark.report_exercise_outcome(ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
+                                     ExerciseOutcome.CORRECT,
+                                     -1,
+                                     db_session)
 
     return "OK"
 
