@@ -9,6 +9,7 @@ from zeeguu_core.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
+from zeeguu_core.bookmark_quality import top_bookmarks
 
 
 @api.route("/user_words", methods=["GET"])
@@ -28,7 +29,7 @@ def top_bookmarks(count):
     """
     Returns a list of the words that the user is currently studying.
     """
-    top_bookmarks = flask.g.user.top_bookmarks(count)
+    top_bookmarks = top_bookmarks(flask.g.user, count)
     json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
     return json_result(json_bookmarks)
 
