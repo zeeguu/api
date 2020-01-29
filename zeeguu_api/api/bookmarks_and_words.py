@@ -25,12 +25,12 @@ def studied_words():
 @api.route("/top_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
 @with_session
-def top_bookmarks(count):
+def top_bookmarks_route(count):
     """
     Returns a list of the words that the user is currently studying.
     """
-    top_bookmarks = top_bookmarks(flask.g.user, count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    bookmarks = top_bookmarks(flask.g.user, count)
+    json_bookmarks = [b.json_serializable_dict(True) for b in bookmarks]
     return json_result(json_bookmarks)
 
 
