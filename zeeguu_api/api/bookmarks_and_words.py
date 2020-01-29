@@ -3,12 +3,10 @@ from datetime import datetime
 import flask
 from flask import request
 
-from zeeguu_core_test.rules.bookmark_rule import BookmarkRule
 from zeeguu_core.model import User, Article
-from zeeguu_core.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from . import api, db_session
+from . import api
 from zeeguu_core.bookmark_quality import top_bookmarks
 
 
@@ -122,8 +120,8 @@ def bookmarks_for_article(article_id, user_id):
     bookmarks = user.bookmarks_for_article(article_id, with_context=True, with_title=True)
 
     return json_result(dict(
-        bookmarks = bookmarks,
-        article_title = article.title
+        bookmarks=bookmarks,
+        article_title=article.title
     ))
 
 
