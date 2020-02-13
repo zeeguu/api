@@ -6,7 +6,6 @@ mysqlclient
 regex
 beautifulsoup4
 feedparser
-flask_monitoringdashboard>=3.0.2
 numpy
 blinker
 sentry_sdk
