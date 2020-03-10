@@ -9,6 +9,8 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import uuid
 
+from zeeguu_core.model.student import Student
+
 from .utils.json_result import json_result
 from .utils.route_wrappers import with_session
 from . import api
@@ -128,55 +130,17 @@ def wrapper_to_json_user(id, duration):
 
 
 def _get_user_info_for_teacher_dashboard(id, duration):
-    from zeeguu_core.model import UserReadingSession, UserExerciseSession
-
     '''
-        Takes id for a cohort and returns a dictionary with id,name,email,reading_time,exercises_done and last article
+        Takes id for a cohort and returns a dictionary with
+        id,name,email,reading_time,exercises_done and last article
 
     '''
     try:
-        fromDate = datetime.now() - timedelta(days=int(duration))
 
-        reading_sessions = UserReadingSession.find_by_user(
-            int(id), fromDate, datetime.now())
+        student = Student(id)
+        return student.info_for_teacher_dashboard(duration)
 
-        exercise_sessions = UserExerciseSession.find_by_user(
-            int(id), fromDate, datetime.now())
 
-        user = User.query.filter_by(id=id).one()
-
-        reading_time_list = list()
-        exercise_time_list = list()
-        reading_time = 0
-        exercise_time = 0
-        for n in range(0, int(duration) + 1):
-            reading_time_list.append(0)
-            exercise_time_list.append(0)
-
-        for each in reading_sessions:
-            startDay = each.start_time.date()
-            index = (datetime.now().date() - startDay).days
-            reading_time_list[index] += each.duration / 1000
-            reading_time += each.duration / 1000
-
-        for j in exercise_sessions:
-            startDay = j.start_time.date()
-            index = (datetime.now().date() - startDay).days
-            exercise_time_list[index] += j.duration / 1000
-            exercise_time += j.duration / 1000
-
-        dictionary = {
-            'id': str(id),
-            'name': user.name,
-            'cohort_name': user.cohort.name,
-            'email': user.email,
-            'reading_time': reading_time,
-            'exercises_done': exercise_time,
-            'last_article': 'place holder article',
-            'reading_time_list': reading_time_list,
-            'exercise_time_list': exercise_time_list
-        }
-        return dictionary
     except ValueError:
         flask.abort(400)
         return 'ValueError'
@@ -272,6 +236,7 @@ def _get_cohort_info(id):
         flask.abort(400)
         return "NoResultFound"
 
+
 def _link_teacher_cohort(user_id, cohort_id):
     '''
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
@@ -282,6 +247,7 @@ def _link_teacher_cohort(user_id, cohort_id):
     db.session.add(TeacherCohortMap(user, cohort))
     db.session.commit()
     return 'added teacher_cohort relationship'
+
 
 @api.route("/users_by_teacher/<duration>", methods=["GET"])
 @with_session
@@ -298,6 +264,7 @@ def users_by_teacher(duration):
         users = user_info_from_cohort(m.cohort_id, duration)
         all_users.extend(users)
     return json.dumps(all_users)
+
 
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
@@ -470,11 +437,11 @@ def upload_articles(cohort_id):
                 None,  # rss feed
                 language
             )
-            
+
             db.session.add(new_article)
             db.session.flush()
             db.session.refresh(new_article)
-            
+
             cohort = Cohort.find(cohort_id)
             new_cohort_article_map = CohortArticleMap(cohort, new_article)
 
@@ -492,9 +459,10 @@ def cohort_files(cohort_id):
     '''
         Gets the files associated with a cohort
     '''
-    cohort = Cohort.find(cohort_id) 
+    cohort = Cohort.find(cohort_id)
     articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
     return json.dumps(articles)
+
 
 @api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
@@ -505,15 +473,15 @@ def remove_article_from_cohort(cohort_id, article_id):
     '''
 
     if (not has_permission_for_cohort(cohort_id)):
-      flask.abort(401)
+        flask.abort(401)
     try:
-      article_in_class = CohortArticleMap.query.filter_by(article_id=article_id).one()
-      db.session.delete(article_in_class)
-      db.session.commit()
-      return 'OK'
+        article_in_class = CohortArticleMap.query.filter_by(article_id=article_id).one()
+        db.session.delete(article_in_class)
+        db.session.commit()
+        return 'OK'
     except ValueError:
-      flask.abort(400)
-      return 'ValueError'
+        flask.abort(400)
+        return 'ValueError'
     except sqlalchemy.orm.exc.NoResultFound:
-      flask.abort(400)
-      return "NoResultFound"
+        flask.abort(400)
+        return "NoResultFound"

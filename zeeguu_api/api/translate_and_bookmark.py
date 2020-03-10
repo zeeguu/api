@@ -1,4 +1,6 @@
 import datetime
+
+from sqlalchemy.orm.exc import NoResultFound
 from urllib.parse import unquote_plus
 
 import flask
@@ -9,7 +11,7 @@ import zeeguu_core
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
-from zeeguu_core.model import Bookmark, Article
+from zeeguu_core.model import Bookmark, Article, ExerciseSource, ExerciseOutcome, Exercise
 from zeeguu_api.api.translator import (
     minimize_context, get_all_translations, get_next_results, contribute_trans)
 
@@ -206,20 +208,26 @@ def contribute_translation(from_lang_code, to_lang_code):
 @cross_domain
 @with_session
 def delete_bookmark(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
-    db_session.delete(bookmark)
-    db_session.commit()
+    try:
+        bookmark = Bookmark.find(bookmark_id)
+        db_session.delete(bookmark)
+        db_session.commit()
+    except NoResultFound:
+        return "Inexistent"
+
     return "OK"
 
 
-@api.route("/report_learned_bookmark/<bookmark_id>", methods=["POST"])
+@api.route("/report_correct_mini_exercise/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.learned = True
-    bookmark.learned_time = datetime.datetime.now()
-    db_session.commit()
+    bookmark.report_exercise_outcome(ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
+                                     ExerciseOutcome.CORRECT,
+                                     -1,
+                                     db_session)
+
     return "OK"
 
 

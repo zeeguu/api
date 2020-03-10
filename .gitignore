@@ -18,3 +18,7 @@ env_var_defs.py
 .pytest_cache*
 zeeguu_api/machine_specific.py
 *.db-journal
+
+.out
+
+machine_specific.py

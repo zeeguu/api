@@ -3,12 +3,11 @@ from datetime import datetime
 import flask
 from flask import request
 
-from zeeguu_core_test.rules.bookmark_rule import BookmarkRule
 from zeeguu_core.model import User, Article
-from zeeguu_core.util.timer_logging_decorator import time_this
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from . import api, db_session
+from . import api
+from zeeguu_core.bookmark_quality import top_bookmarks
 
 
 @api.route("/user_words", methods=["GET"])
@@ -24,12 +23,12 @@ def studied_words():
 @api.route("/top_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
 @with_session
-def top_bookmarks(count):
+def top_bookmarks_route(count):
     """
     Returns a list of the words that the user is currently studying.
     """
-    top_bookmarks = flask.g.user.top_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    bookmarks = top_bookmarks(flask.g.user, count)
+    json_bookmarks = [b.json_serializable_dict(True) for b in bookmarks]
     return json_result(json_bookmarks)
 
 
@@ -121,8 +120,8 @@ def bookmarks_for_article(article_id, user_id):
     bookmarks = user.bookmarks_for_article(article_id, with_context=True, with_title=True)
 
     return json_result(dict(
-        bookmarks = bookmarks,
-        article_title = article.title
+        bookmarks=bookmarks,
+        article_title=article.title
     ))
 
 

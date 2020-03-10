@@ -8,19 +8,6 @@ from .utils.route_wrappers import cross_domain, with_session
 from . import api
 
 
-@api.route("/get_user_details", methods=("GET",))
-@cross_domain
-@with_session
-def get_user_details():
-    """
-    after the login, this information might be useful to be displayed
-    by an app
-    :param lang_code:
-    :return:
-    """
-    return json_result(flask.g.user.details_as_dictionary())
-
-
 @api.route("/learned_language", methods=["GET"])
 @cross_domain
 @with_session
@@ -66,11 +53,20 @@ def learned_language_set(language_code):
 @cross_domain
 @with_session
 def native_language():
-    """
-    Get the native language of the user in session
-    :return:
-    """
     return flask.g.user.native_language.code
+
+
+@api.route("/native_language/<language_code>", methods=["POST"])
+@cross_domain
+@with_session
+def native_language_set(language_code):
+    """
+    :param language_code:
+    :return: OK for success
+    """
+    flask.g.user.set_native_language(language_code)
+    zeeguu_core.db.session.commit()
+    return "OK"
 
 
 @api.route("/learned_and_native_language", methods=["GET"])
@@ -78,7 +74,8 @@ def native_language():
 @with_session
 def learned_and_native_language():
     """
-    Get the native language of the user in session
+    Get both the native and the learned language 
+    for the user in session
     :return:
     """
     u = flask.g.user
@@ -87,18 +84,17 @@ def learned_and_native_language():
     return json_result(res)
 
 
-@api.route("/native_language/<language_code>", methods=["POST"])
+@api.route("/get_user_details", methods=("GET",))
 @cross_domain
 @with_session
-def native_language_set(language_code):
+def get_user_details():
     """
-    set the native language of the user in session
-    :param language_code:
-    :return: OK for success
+    after the login, this information might be useful to be displayed
+    by an app
+    :param lang_code:
+    :return:
     """
-    flask.g.user.set_native_language(language_code)
-    zeeguu_core.db.session.commit()
-    return "OK"
+    return json_result(flask.g.user.details_as_dictionary())
 
 
 @api.route("/user_settings", methods=["POST"])

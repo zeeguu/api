@@ -6,8 +6,9 @@ mysqlclient
 regex
 beautifulsoup4
 feedparser
-flask_monitoringdashboard
 numpy
+blinker
+sentry_sdk
 git+git://github.com/zeeguu-ecosystem/python-wordstats.git@master#egg=wordstats
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
 git+git://github.com/zeeguu-ecosystem/Zeeguu-Core.git@master#egg=zeeguu

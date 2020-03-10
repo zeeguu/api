@@ -1,4 +1,3 @@
-import flask
 import sqlalchemy
 import zeeguu_core
 from flask import request
@@ -59,9 +58,9 @@ def add_anon_user():
         db_session.add(new_user)
         db_session.commit()
     except ValueError as e:
-        flask.abort(flask.make_response("Could not create anon user.", 400))
+        return bad_request("Could not create anon user.")
     except sqlalchemy.exc.IntegrityError as e:
-        flask.abort(flask.make_response("Could not create anon user. Maybe uuid already exists?", 400))
+        return bad_request("Could not create anon user. Maybe uuid already exists?")
     return get_anon_session(uuid)
 
 
@@ -85,28 +84,40 @@ def send_code(email):
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
-    """
-    This endpoint can be used to rest a users password.
-    To do this a uniquecode is required.
-    """
-    last_code = UniqueCode.last_code(email)
+    
     code = request.form.get("code", None)
-    if not (last_code == code):
-        return make_error(400, "Invalid code")
-
-    password = request.form.get("password", None)
-    if len(password) < 4:
-        return make_error(400, "Password should be at least 4 characters long")
+    submitted_pass = request.form.get("password", None)
 
     user = User.find(email)
-    if user is None:
-        return make_error(400, "Email unknown")
-    user.update_password(password)
-    db_session.commit()
+    last_code = UniqueCode.last_code(email)
 
-    # Delete all the codes for this user
-    for x in UniqueCode.all_codes_for(email):
-        db_session.delete(x)
+    if submitted_code_is_wrong(last_code, code):
+        return bad_request("Invalid code")
+    if password_is_too_short(submitted_pass):
+        return bad_request("Password is too short")
+    if user is None:
+        return bad_request("Email unknown")
+
+    user.update_password(submitted_pass)
+    delete_all_codes_for_email(email)
+
     db_session.commit()
 
     return "OK"
+
+
+def bad_request(msg):
+    return make_error(400, msg)
+
+
+def submitted_code_is_wrong(submitted_code, db_code):
+    return submitted_code != db_code
+
+
+def password_is_too_short(password):
+    return len(password) < 4
+
+
+def delete_all_codes_for_email(email):
+    for x in UniqueCode.all_codes_for(email):
+        db_session.delete(x)
