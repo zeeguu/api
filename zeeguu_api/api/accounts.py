@@ -6,18 +6,11 @@ from zeeguu_core.model import User, Cohort, Teacher
 from zeeguu_core.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
-from zeeguu_api.emailer.user_activity import send_new_user_account_email
-from zeeguu_api.emailer.password_reset import send_password_reset_email
+from zeeguu_core.emailer.user_activity import send_new_user_account_email
+from zeeguu_core.emailer.password_reset import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain
 from . import api, db_session
-
-
-def _valid_invite_code(invite_code: str):
-    return (
-            invite_code in zeeguu_core.app.config.get("INVITATION_CODES")
-            or Cohort.exists_with_invite_code(invite_code)
-    )
 
 
 @api.route("/add_user/<email>", methods=["POST"])
@@ -33,42 +26,12 @@ def add_user(email):
     password = request.form.get("password")
     username = request.form.get("username")
     invite_code = request.form.get("invite_code")
-    cohort_name = ''
 
-    if password is None or len(password) < 4:
-        return make_error(400, "Password should be at least 4 characters long")
+    from zeeguu_core.util.user_account_creation import create_account
 
-    if not (_valid_invite_code(invite_code)):
-        return make_error(400, "Invitation code is not recognized. Please contact us.")
-
-    try:
-
-        cohort = Cohort.query.filter_by(inv_code=invite_code).first()
-
-        if cohort:
-            # if the invite code is from a cohort, then there has to be capacity
-            if not cohort.cohort_still_has_capacity():
-                return make_error(400, "No more places in this class. Please contact us (zeeguu.team@gmail.com).")
-
-            cohort_name = cohort.name
-
-        new_user = User(email, username, password, invitation_code=invite_code, cohort=cohort)
-        db_session.add(new_user)
-
-        if cohort:
-            if cohort.is_cohort_of_teachers:
-                teacher = Teacher(new_user)
-                db_session.add(teacher)
-
-        db_session.commit()
-
-        send_new_user_account_email(username, invite_code, cohort_name)
-
-
-    except sqlalchemy.exc.IntegrityError:
-        return make_error(401, "There is already an account for this email.")
-    except ValueError:
-        return make_error(400, "Invalid value")
+    result = create_account(db_session, username, password, invite_code, email)
+    if "OK" != result:
+        return make_error(400, result)
 
     return get_session(email)
 
