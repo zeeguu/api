@@ -2,7 +2,6 @@ from datetime import datetime
 
 from zeeguu_core import log
 from zeeguu_core.model import Article, UserArticle
-from zeeguu_core.emailer.user_activity import send_notification_article_feedback
 
 
 def distill_article_interactions(session, user, data):
@@ -33,6 +32,7 @@ def distill_article_interactions(session, user, data):
 
 
 def article_feedback(session, article_id, user, event_value):
+    from zeeguu_core.emailer.user_activity import send_notification_article_feedback
     nicer = {
         '"not_finished_for_broken"': "BROKEN",
         '"maybe_finish_later"': "Later",
@@ -61,6 +61,7 @@ def article_feedback(session, article_id, user, event_value):
 
 
 def article_liked(session, article_id, user, like_value):
+    from zeeguu_core.emailer.user_activity import send_notification_article_feedback
     article = Article.query.filter_by(id=article_id).one()
     ua = UserArticle.find(user, article)
     ua.liked = like_value

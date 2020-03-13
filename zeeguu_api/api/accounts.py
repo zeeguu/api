@@ -1,12 +1,11 @@
 import sqlalchemy
 import zeeguu_core
 from flask import request
+from zeeguu_core.model import Session
 from zeeguu_core.model import User, Cohort, Teacher
 from zeeguu_core.model.unique_code import UniqueCode
 from zeeguu_api.api.sessions import get_session, get_anon_session
 from zeeguu_api.api.utils.abort_handling import make_error
-from zeeguu_core.emailer.user_activity import send_new_user_account_email
-from zeeguu_core.emailer.password_reset import send_password_reset_email
 
 from .utils.route_wrappers import cross_domain
 from . import api, db_session
@@ -28,11 +27,15 @@ def add_user(email):
 
     from zeeguu_core.util.user_account_creation import create_account
 
-    result = create_account(db_session, username, password, invite_code, email)
-    if "OK" != result:
-        return make_error(400, result)
+    try:
+        new_user = create_account(db_session, username, password, invite_code, email)
+        new_session = Session.for_user(new_user)
+        db_session.add(new_session)
+        db_session.commit()
+        return str(new_session.id)
 
-    return get_session(email)
+    except Exception as e:
+        return make_error(400, str(e))
 
 
 @api.route("/add_anon_user", methods=["POST"])
@@ -72,6 +75,7 @@ def send_code(email):
     the user to change his/her password. The unique code is send to
     the specified email address.
     """
+    from zeeguu_core.emailer.password_reset import send_password_reset_email
     code = UniqueCode(email)
     db_session.add(code)
     db_session.commit()
@@ -84,7 +88,6 @@ def send_code(email):
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
-    
     code = request.form.get("code", None)
     submitted_pass = request.form.get("password", None)
 
