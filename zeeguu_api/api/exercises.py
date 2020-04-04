@@ -28,7 +28,7 @@ def bookmarks_to_study(bookmark_count):
         # then are priorities recomputed; thus, in this case, we try to
         # update, and maybe this will solve the problem
         zeeguu_core.log("recomputting bookmark priorities since there seem to be no bookmarks to study")
-        BookmarkPriorityUpdater.update_bookmark_priority(zeeguu_core.db.session, flask.g.user)
+        BookmarkPriorityUpdater.update_bookmark_priority(zeeguu_core.db, flask.g.user)
         to_study = flask.g.user.bookmarks_to_study(int_count)
 
     as_json = [bookmark.json_serializable_dict() for bookmark in to_study]
