@@ -1,6 +1,5 @@
 import flask
 from flask import request
-from zeeguu_core.content_recommender.mixed_recommender import user_article_info
 from zeeguu_core.model import Article, UserArticle
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -39,7 +38,7 @@ def user_article():
 
     article = Article.query.filter_by(id=article_id).one()
 
-    return json_result(user_article_info(flask.g.user, article, with_content=True))
+    return json_result(UserArticle.user_article_info(flask.g.user, article, with_content=True))
 
 
 # ---------------------------------------------------------------------------
@@ -98,4 +97,4 @@ def get_user_article_info():
 
     article = Article.find_or_create(db_session, url)
 
-    return json_result(user_article_info(flask.g.user, article))
+    return json_result(UserArticle.user_article_info(flask.g.user, article))
