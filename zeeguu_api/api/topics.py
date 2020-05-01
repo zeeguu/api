@@ -1,7 +1,7 @@
 import flask
 import zeeguu_core
 from flask import request
-from zeeguu_core.model import Topic, TopicSubscription, TopicFilter
+from zeeguu_core.model import Topic, TopicSubscription, TopicFilter, LocalizedTopic, UserLanguage
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -100,6 +100,7 @@ def get_interesting_topics():
     Interesting topics are for now defined as:
         - The topic is not followed yet
         - The topic is not in the filters list
+        - There are articles with that topic in the language
 
     :return:
     """
@@ -107,7 +108,15 @@ def get_interesting_topics():
     already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
     already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
 
-    for topic in Topic.get_all_topics():
+    reading_languages = UserLanguage.all_reading_for_user(flask.g.user)
+
+    loc_topics = []
+    for each in reading_languages:
+        loc_topics.extend(LocalizedTopic.all_for_language(each))
+
+    topics = [each.topic for each in loc_topics]
+
+    for topic in topics:
         if (topic not in already_filtered) and (topic not in already_subscribed):
             topic_data.append(topic.as_dictionary())
     return json_result(topic_data)
@@ -185,7 +194,6 @@ def get_subscribed_filters():
 
 @api.route(f"/cache_articles/<code>", methods=("GET",))
 def cache_articles(code):
-
     if code != zeeguu_core.app.config.get("PRIVATE_API_CODE"):
         return "Nope"
 
