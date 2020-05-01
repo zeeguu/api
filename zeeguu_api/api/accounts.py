@@ -38,7 +38,7 @@ def add_user(email):
 
     except Exception as e:
         print(traceback.format_exc())
-        return make_error(400, "Could not create a new use account.")
+        return make_error(400, str(e))
 
 
 @api.route("/add_anon_user", methods=["POST"])
