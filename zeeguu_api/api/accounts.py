@@ -1,4 +1,6 @@
 import sqlalchemy
+import traceback
+
 import zeeguu_core
 from flask import request
 from zeeguu_core.model import Session
@@ -35,7 +37,8 @@ def add_user(email):
         return str(new_session.id)
 
     except Exception as e:
-        return make_error(400, str(e))
+        print(traceback.format_exc())
+        return make_error(400, "Could not create a new use account.")
 
 
 @api.route("/add_anon_user", methods=["POST"])
