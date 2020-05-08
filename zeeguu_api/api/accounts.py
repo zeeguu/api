@@ -27,7 +27,7 @@ def add_user(email):
     username = request.form.get("username")
     invite_code = request.form.get("invite_code")
 
-    from zeeguu_core.util.user_account_creation import create_account
+    from zeeguu_core.account_management.user_account_creation import create_account
 
     try:
         new_user = create_account(db_session, username, password, invite_code, email)

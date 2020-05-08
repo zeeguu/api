@@ -27,7 +27,7 @@ from zeeguu_core.model import User
 
 class APITestMixin(TestCase):
 
-    @patch('zeeguu_core.util.user_account_creation.valid_invite_code', return_value=True)
+    @patch('zeeguu_core.account_management.user_account_creation.valid_invite_code', return_value=True)
     def setUp(self, mock_invite_code):
         # idea from here:
         # https: // docs.pytest.org / en / latest / example / simple.html  # detect-if-running-from-within-a-pytest-run
