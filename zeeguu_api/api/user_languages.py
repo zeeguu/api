@@ -121,7 +121,7 @@ def get_reading_languages():
                 language = <unicode string>
     """
     all_user_languages = []
-    reading_languages = UserLanguage.all_reading_for_user(flask.g.user)
+    reading_languages = Language.all_reading_for_user(flask.g.user)
     for lan in reading_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)
@@ -145,7 +145,7 @@ def get_interesting_reading_languages():
 
     all_languages = Language.available_languages()
     all_languages.sort(key=lambda x: x.name)
-    learned_languages = UserLanguage.all_reading_for_user(flask.g.user)
+    learned_languages = Language.all_reading_for_user(flask.g.user)
 
     interesting_languages = []
 

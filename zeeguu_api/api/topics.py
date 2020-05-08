@@ -1,7 +1,7 @@
 import flask
 import zeeguu_core
 from flask import request
-from zeeguu_core.model import Topic, TopicSubscription, TopicFilter, LocalizedTopic, UserLanguage
+from zeeguu_core.model import Topic, TopicSubscription, TopicFilter, LocalizedTopic, UserLanguage, Language
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -108,7 +108,7 @@ def get_interesting_topics():
     already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
     already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
 
-    reading_languages = UserLanguage.all_reading_for_user(flask.g.user)
+    reading_languages = Language.all_reading_for_user(flask.g.user)
 
     loc_topics = []
     for each in reading_languages:
