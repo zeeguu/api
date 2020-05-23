@@ -13,6 +13,7 @@ def available_languages():
     supported languages.
     e.g. ["en", "fr", "de", "it", "no", "ro"]
     """
+    print("in a_l")
     available_language_codes = list(map((lambda x: x.code), Language.available_languages()))
     return json.dumps(available_language_codes)
 

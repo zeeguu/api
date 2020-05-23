@@ -1,6 +1,6 @@
 import flask
 import zeeguu_core
-from zeeguu_core.content_recommender.mixed_recommender import article_recommendations_for_user, cohort_articles_for_user
+from zeeguu_core.content_recommender import article_recommendations_for_user
 from zeeguu_core.model import UserArticle, UserReadingSession, User
 
 from .utils.route_wrappers import cross_domain, with_session
@@ -43,7 +43,7 @@ def user_articles_cohort():
         get all articles for the cohort associated with the user
     """
 
-    return json_result(cohort_articles_for_user(flask.g.user))
+    return json_result(flask.g.user.cohort_articles_for_user())
 
 
 # ---------------------------------------------------------------------------

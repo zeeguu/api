@@ -33,6 +33,7 @@ def with_session(view):
         )
 
         zeeguu_core.db.session.add(session)
+        # TODO: remove this commit? and add it after such that the session can be added with the next commit?
         zeeguu_core.db.session.commit()
         return view(*args, **kwargs)
 

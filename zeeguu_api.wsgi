@@ -1,5 +1,6 @@
 #!/bin/env python
 import sys
+import logging
 
 # this is needed since when run as wsgi this script
 # can't access the systems' env vars. so we load them
@@ -15,6 +16,8 @@ except:
 from zeeguu_api.app import app as application
 
 application.logger.debug(application.instance_path)
+
+logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":
     # Uncomment following lines if you want to try this out w/o wsgi
