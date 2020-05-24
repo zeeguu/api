@@ -69,3 +69,5 @@ try:
     machine_specific_config(app)
 except ModuleNotFoundError as e:
     print("no machine specific code found")
+
+print("started the api!!")

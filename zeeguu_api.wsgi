@@ -6,8 +6,10 @@ import logging
 # can't access the systems' env vars. so we load them
 # in another local configuration file.  
 try:
-    print("found the env_var_defs file")
     import env_var_defs
+
+    print("found the env_var_defs file")
+
 except:
     print("didn't find env_var_defs. hopefully there's envvars defined")
 
