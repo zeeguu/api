@@ -32,9 +32,11 @@ def user_article():
 
     """
 
-    article_id = int(request.args.get('article_id', ''))
+    article_id = request.args.get('article_id', '')
     if not article_id:
         flask.abort(400)
+
+    article_id = int(article_id)
 
     article = Article.query.filter_by(id=article_id).one()
 

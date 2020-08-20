@@ -7,6 +7,7 @@ import flask
 from flask import request
 
 import zeeguu_core
+from zeeguu_core.crowd_translations import own_or_crowdsourced_translation
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
@@ -122,6 +123,14 @@ def get_next_translations(from_lang_code, to_lang_code):
         data["context"], data["from_lang_code"], data["word"])
     zeeguu_core.log(f"Query to translate is: {query}")
     data["query"] = query
+
+    first_call_for_this_word = len(exclude_services) == 0
+
+    if first_call_for_this_word:
+        translations = own_or_crowdsourced_translation(flask.g.user, word_str, from_lang_code, minimal_context)
+        if translations:
+            return json_result(dict(translations=translations))
+
     translations = get_next_results(
         data,
         exclude_services=exclude_services,
@@ -135,7 +144,6 @@ def get_next_translations(from_lang_code, to_lang_code):
         t['likelihood'] = t.pop("quality")
         t['source'] = t.pop('service_name')
 
-    first_call_for_this_word = len(exclude_services) == 0
     if len(translations) > 0 and first_call_for_this_word:
         best_guess = translations[0]["translation"]
 
@@ -201,6 +209,7 @@ def contribute_translation(from_lang_code, to_lang_code):
             "url": url, "context_size": len(context_str),
             "service_name": service_name}
     contribute_trans(data)
+
     return json_result(dict(bookmark_id=bookmark.id))
 
 
