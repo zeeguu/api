@@ -1,7 +1,6 @@
 import flask
 from flask import request
-import zeeguu_core
-from zeeguu_api.user_activity_hooks.article_interaction_hooks import distill_article_interactions
+from zeeguu_core.user_activity_hooks.article_interaction_hooks import distill_article_interactions
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
