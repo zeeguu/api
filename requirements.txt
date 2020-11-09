@@ -6,6 +6,7 @@ mysqlclient
 regex
 beautifulsoup4
 feedparser
+jinja2==2.11.1
 numpy
 blinker
 sentry_sdk
