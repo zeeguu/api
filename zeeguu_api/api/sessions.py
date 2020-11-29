@@ -17,9 +17,14 @@ def get_session(email):
         along all the other requests that are annotated
         with @with_user in this file
     """
+
     password = request.form.get("password", None)
-    if password is None:
-        return make_error(400, "Password not given")
+    if password == '':
+        return make_error(401, "Password not given")
+
+    if not User.email_exists(email):
+        return make_error(401, "There is no account associated with this email")
+
     user = User.authorize(email, password)
     if user is None:
         return make_error(401, "Invalid credentials")
