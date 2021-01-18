@@ -13,3 +13,4 @@ sentry_sdk
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
 git+git://github.com/zeeguu-ecosystem/Zeeguu-Core.git@master#egg=zeeguu_core
 git+git://github.com/zeeguu-ecosystem/apimux.git@master#egg=apimux
+deprecated

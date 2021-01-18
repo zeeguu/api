@@ -7,7 +7,7 @@ import flask
 from flask import request
 
 import zeeguu_core
-from zeeguu_core.crowd_translations import own_or_crowdsourced_translation
+from zeeguu_core.crowd_translations import own_or_crowdsourced_translation, own_translation
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
@@ -93,13 +93,18 @@ def get_next_translations(from_lang_code, to_lang_code):
 
         :return: json array with translations
     """
+    print(">>>>>>> in get_next_translations")
     data = {"from_lang_code": from_lang_code, "to_lang_code": to_lang_code}
     data["context"] = request.form.get('context', '')
     url = request.form.get('url', '')
     number_of_results = int(request.form.get('numberOfResults', -1))
+    print("+++++++++++++ number_of_results")
+    print(number_of_results)
     service_name = request.form.get('service', '')
+    print(service_name)
     exclude_services = [] if service_name is '' else [service_name]
     currentTranslation = request.form.get('currentTranslation', '')
+    print(currentTranslation)
     exclude_results = [] if currentTranslation is '' else [currentTranslation.lower()]
     data["url"] = url
     article_id = None
@@ -127,24 +132,101 @@ def get_next_translations(from_lang_code, to_lang_code):
     first_call_for_this_word = len(exclude_services) == 0
 
     if first_call_for_this_word:
-        translations = own_or_crowdsourced_translation(flask.g.user, word_str, from_lang_code, minimal_context)
+        print('first call...')
+        translations = own_or_crowdsourced_translation(flask.g.user, word_str, from_lang_code, to_lang_code, minimal_context)
         if translations:
             return json_result(dict(translations=translations))
 
+    print('second call for word...')
+    print(data)
+    print(exclude_services)
+    print(exclude_results)
+    print(number_of_results)
     translations = get_next_results(
         data,
         exclude_services=exclude_services,
         exclude_results=exclude_results,
         number_of_results=number_of_results).translations
-    zeeguu_core.log(f"Got translations: {translations}")
+    print(f"Got translations: {translations}")
 
     # translators talk about quality, but our users expect likelihood.
     # rename the key in the dictionary
     for t in translations:
         t['likelihood'] = t.pop("quality")
-        t['source'] = t.pop('service_name')
+        t['source'] = t['service_name']
 
     if len(translations) > 0 and first_call_for_this_word:
+        best_guess = translations[0]["translation"]
+
+        Bookmark.find_or_create(db_session, flask.g.user,
+                                word_str, from_lang_code,
+                                best_guess, to_lang_code,
+                                minimal_context, url, title_str, article_id)
+
+    print("+++++++++++ about to return: ")
+    print(dict(translations=translations))
+    return json_result(dict(translations=translations))
+
+
+@api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@with_session
+def get_one_translation(from_lang_code, to_lang_code):
+    """
+
+        Addressing some of the problems with the
+        get_next_translations...
+        - it should be separated in get_first and get_alternatives
+        - alternatively it can be get one and get all
+
+        To think about:
+        - it would also make sense to separate translation from
+        logging; or at least, allow for situations where a translation
+        is not associated with an url... or?
+
+        :return: json array with translations
+    """
+
+    word_str = request.form['word']
+    url = request.form.get('url')
+    title_str = request.form.get('title', '')
+    context = request.form.get('context', '')
+
+    minimal_context, query = minimize_context(context, from_lang_code, word_str)
+
+    translation = own_translation(flask.g.user, word_str, from_lang_code, to_lang_code, minimal_context)
+    if translation:
+        return json_result(dict(translations=translation))
+
+    translations = get_next_results(
+        {"from_lang_code": from_lang_code,
+         "to_lang_code": to_lang_code,
+         "url": request.form.get('url'),
+         "word": word_str,
+         "title": title_str,
+         "query": query,
+         "context": minimal_context
+         }, number_of_results=1).translations
+
+    # do we really need this?
+    # translators talk about quality, but our users expect likelihood.
+    # rename the key in the dictionary
+    for t in translations:
+        t['likelihood'] = t.pop("quality")
+        t['source'] = t['service_name']
+
+    print(f"Got translations: {translations}")
+
+    article_id = None
+    if 'article?id=' in url:
+        article_id = url.split('article?id=')[-1]
+        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
+    else:
+        # the url comes from elsewhere not from the reader, so we find or creat the article
+        article = Article.find_or_create(db_session, url)
+        article_id = article.id
+
+    if len(translations) > 0:
         best_guess = translations[0]["translation"]
 
         Bookmark.find_or_create(db_session, flask.g.user,
