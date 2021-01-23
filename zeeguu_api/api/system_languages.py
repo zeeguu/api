@@ -5,6 +5,15 @@ from .utils.route_wrappers import cross_domain
 from zeeguu_core.model import Language
 
 
+@api.route("/system_languages", methods=["GET"])
+@cross_domain
+def system_languages():
+    result = dict()
+    result['learnable_languages'] = list(map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages()))
+    result['native_languages'] = list(map((lambda x: dict(name=x.name, code=x.code)), Language.native_languages()))
+    return result
+
+
 @api.route("/available_languages", methods=["GET"])
 @cross_domain
 def available_languages():
