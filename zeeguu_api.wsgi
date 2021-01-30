@@ -8,8 +8,6 @@ import logging
 try:
     import env_var_defs
 
-    print("found the env_var_defs file")
-
 except:
     print("didn't find env_var_defs. hopefully there's envvars defined")
 
@@ -18,6 +16,8 @@ from zeeguu_api.app import app as application
 application.logger.debug(application.instance_path)
 
 logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
+
+
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":
     # Uncomment following lines if you want to try this out w/o wsgi

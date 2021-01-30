@@ -205,6 +205,4 @@ def cache_articles(code):
     for each in Language.available_languages():
         each.get_articles()
 
-    print("done caching articles!")
-
     return "OK"

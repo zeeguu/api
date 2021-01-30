@@ -93,18 +93,18 @@ def get_next_translations(from_lang_code, to_lang_code):
 
         :return: json array with translations
     """
-    print(">>>>>>> in get_next_translations")
+
     data = {"from_lang_code": from_lang_code, "to_lang_code": to_lang_code}
     data["context"] = request.form.get('context', '')
     url = request.form.get('url', '')
     number_of_results = int(request.form.get('numberOfResults', -1))
-    print("+++++++++++++ number_of_results")
-    print(number_of_results)
+
+
     service_name = request.form.get('service', '')
-    print(service_name)
+
     exclude_services = [] if service_name is '' else [service_name]
     currentTranslation = request.form.get('currentTranslation', '')
-    print(currentTranslation)
+
     exclude_results = [] if currentTranslation is '' else [currentTranslation.lower()]
     data["url"] = url
     article_id = None
@@ -132,22 +132,15 @@ def get_next_translations(from_lang_code, to_lang_code):
     first_call_for_this_word = len(exclude_services) == 0
 
     if first_call_for_this_word:
-        print('first call...')
         translations = own_or_crowdsourced_translation(flask.g.user, word_str, from_lang_code, to_lang_code, minimal_context)
         if translations:
             return json_result(dict(translations=translations))
 
-    print('second call for word...')
-    print(data)
-    print(exclude_services)
-    print(exclude_results)
-    print(number_of_results)
     translations = get_next_results(
         data,
         exclude_services=exclude_services,
         exclude_results=exclude_results,
         number_of_results=number_of_results).translations
-    print(f"Got translations: {translations}")
 
     # translators talk about quality, but our users expect likelihood.
     # rename the key in the dictionary
@@ -163,8 +156,6 @@ def get_next_translations(from_lang_code, to_lang_code):
                                 best_guess, to_lang_code,
                                 minimal_context, url, title_str, article_id)
 
-    print("+++++++++++ about to return: ")
-    print(dict(translations=translations))
     return json_result(dict(translations=translations))
 
 
@@ -214,8 +205,6 @@ def get_one_translation(from_lang_code, to_lang_code):
     for t in translations:
         t['likelihood'] = t.pop("quality")
         t['source'] = t['service_name']
-
-    print(f"Got translations: {translations}")
 
     article_id = None
     if 'article?id=' in url:

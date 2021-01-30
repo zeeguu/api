@@ -4,6 +4,12 @@ from flask_cors import CORS
 from flask import Flask
 import flask
 
+# apimux is quite noisy; supress it's output
+import logging
+from apimux.log import logger
+logger.setLevel(logging.CRITICAL)
+
+
 # *** Creating and starting the App *** #
 app = Flask("Zeeguu-API")
 CORS(app)
@@ -57,11 +63,7 @@ try:
     print("Started the Flask Monitoring Dashboard")
 
 except Exception as e:
-    print("Could not install the flask_monitornig_dashboard")
-    print(e)
-    import traceback
-
-    print(traceback.format_exc())
+    print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
 try:
     from zeeguu_api.machine_specific import machine_specific_config
@@ -70,4 +72,4 @@ try:
 except ModuleNotFoundError as e:
     print("no machine specific code found")
 
-print("started the api!!")
+
