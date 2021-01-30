@@ -23,5 +23,6 @@ if len(sys.argv) > 1 and sys.argv[1] == "run":
     # Uncomment following lines if you want to try this out w/o wsgi
     application.run(
         host=application.config.get("HOST", "localhost"),
-        port=application.config.get("PORT", 9001)
+        port=application.config.get("PORT", 9001),
+        debug=False
     )
