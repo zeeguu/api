@@ -20,6 +20,11 @@ from python_translators.factories.microsoft_translator_factory import (
     MicrosoftTranslatorFactory)
 from python_translators.translators.wordnik_translator import WordnikTranslator
 
+import logging
+import python_translators
+logging.getLogger('python_translators').setLevel(logging.CRITICAL)
+
+
 MULTI_LANG_TRANSLATOR_AB_TESTING = False
 if os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING", None) is not None:
     logger.warning("A/B testing enabled! - MULTI_LANG_TRANSLATOR_AB_TESTING")
