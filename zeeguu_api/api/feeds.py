@@ -56,6 +56,8 @@ def stop_following_feed():
         session.delete(to_delete)
         session.commit()
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -85,6 +87,8 @@ def get_feeds_being_followed():
         try:
             feed_list.append(reg.rss_feed.as_dictionary())
         except Exception as e:
+            from sentry_sdk import capture_exception
+            capture_exception(e)
             zeeguu_core.log(str(e))
 
     return json_result(feed_list)

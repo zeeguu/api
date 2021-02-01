@@ -58,6 +58,8 @@ def unsubscribe_from_topic():
         session.delete(to_delete)
         session.commit()
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -84,6 +86,8 @@ def get_subscribed_topics():
         try:
             topic_list.append(sub.topic.as_dictionary())
         except Exception as e:
+            from sentry_sdk import capture_exception
+            capture_exception(e)
             zeeguu_core.log(str(e))
 
     return json_result(topic_list)
@@ -161,6 +165,8 @@ def unsubscribe_from_filter():
         session.delete(to_delete)
         session.commit()
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return "OOPS. FILTER AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -187,6 +193,8 @@ def get_subscribed_filters():
         try:
             filter_list.append(fil.topic.as_dictionary())
         except Exception as e:
+            from sentry_sdk import capture_exception
+            capture_exception(e)
             zeeguu_core.log(str(e))
 
     return json_result(filter_list)

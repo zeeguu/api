@@ -34,5 +34,7 @@ def article_id():
         article = Article.find_or_create(db_session, url)
         return json_result(dict(article_id=article.id))
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         zeeguu_core.log(e)
         flask.abort(500)

@@ -78,6 +78,8 @@ def delete_user_language(language_id):
         session.delete(to_delete)
         session.commit()
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"

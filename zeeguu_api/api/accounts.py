@@ -37,7 +37,8 @@ def add_user(email):
         return str(new_session.id)
 
     except Exception as e:
-        print(traceback.format_exc())
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return make_error(400, str(e))
 
 

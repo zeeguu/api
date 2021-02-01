@@ -66,6 +66,8 @@ def unsubscribe_from_search():
         session.commit()
 
     except Exception as e:
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         zeeguu_core.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -95,6 +97,8 @@ def get_subscribed_searches():
             searches_list.append(subs.search.as_dictionary())
         except Exception as e:
             zeeguu_core.log(str(e))
+            from sentry_sdk import capture_exception
+            capture_exception(e)
 
     return json_result(searches_list)
 
@@ -139,6 +143,8 @@ def unfilter_search():
 
     except Exception as e:
         zeeguu_core.log(str(e))
+        from sentry_sdk import capture_exception
+        capture_exception(e)
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -166,6 +172,8 @@ def get_filtered_searches():
         try:
             filtered_searches.append(filt.search.as_dictionary())
         except Exception as e:
+            from sentry_sdk import capture_exception
+            capture_exception(e)
             zeeguu_core.log(str(e))
 
     return json_result(filtered_searches)
