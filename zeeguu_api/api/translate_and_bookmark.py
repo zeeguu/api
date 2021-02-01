@@ -102,10 +102,10 @@ def get_next_translations(from_lang_code, to_lang_code):
 
     service_name = request.form.get('service', '')
 
-    exclude_services = [] if service_name is '' else [service_name]
+    exclude_services = [] if service_name == '' else [service_name]
     currentTranslation = request.form.get('currentTranslation', '')
 
-    exclude_results = [] if currentTranslation is '' else [currentTranslation.lower()]
+    exclude_results = [] if currentTranslation == '' else [currentTranslation.lower()]
     data["url"] = url
     article_id = None
     if 'articleID' in url:
