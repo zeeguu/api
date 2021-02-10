@@ -69,10 +69,10 @@ def user_article_update():
     user_article = UserArticle.find_or_create(db_session, flask.g.user, article)
 
     if starred is not None:
-        user_article.set_starred(starred in ["True", "1"])
+        user_article.set_starred(starred in ["true", "True", "1"])
 
     if liked is not None:
-        user_article.set_liked(liked in ["True", "1"])
+        user_article.set_liked(liked in ["true", "True", "1"])
 
     db_session.commit()
 
