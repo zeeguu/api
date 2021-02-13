@@ -107,16 +107,18 @@ def get_next_translations(from_lang_code, to_lang_code):
 
     exclude_results = [] if currentTranslation == '' else [currentTranslation.lower()]
     data["url"] = url
-    article_id = None
-    if 'articleID' in url:
-        article_id = url.split('articleID=')[-1]
-        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
-    elif 'articleURL' in url:
-        url = url.split('articleURL=')[-1]
-    else:
-        # the url comes from elsewhere not from the reader, so we find or creat the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
+    article_id = request.form.get('articleID', None)
+
+    if article_id == None:
+        if 'articleID' in url:
+            article_id = url.split('articleID=')[-1]
+            url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
+        elif 'articleURL' in url:
+            url = url.split('articleURL=')[-1]
+        else:
+            # the url comes from elsewhere not from the reader, so we find or creat the article
+            article = Article.find_or_create(db_session, url)
+            article_id = article.id
     zeeguu_core.log(f"url before being saved: {url}")
     word_str = request.form['word']
     data["word"] = word_str

@@ -24,5 +24,5 @@ if len(sys.argv) > 1 and sys.argv[1] == "run":
     application.run(
         host=application.config.get("HOST", "localhost"),
         port=application.config.get("PORT", 9001),
-        debug=False
+        debug=True
     )
