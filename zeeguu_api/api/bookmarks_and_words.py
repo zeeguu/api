@@ -91,9 +91,11 @@ def post_bookmarks_by_day():
     with_context = request.form.get("with_context", "false") in ["True", "true"]
     with_title = request.form.get("with_title", "false") in ["True", "true"]
     after_date_string = request.form.get("after_date", "1970-01-01T00:00:00")
-    after_date = datetime.strptime(after_date_string, '%Y-%m-%dT%H:%M:%S')
+    after_date = datetime.strptime(after_date_string, "%Y-%m-%dT%H:%M:%S")
 
-    return json_result(flask.g.user.bookmarks_by_day(with_context, after_date, with_title=with_title))
+    return json_result(
+        flask.g.user.bookmarks_by_day(with_context, after_date, with_title=with_title)
+    )
 
 
 @api.route("/bookmarks_for_article/<int:article_id>/<int:user_id>", methods=["POST"])
@@ -117,15 +119,14 @@ def bookmarks_for_article(article_id, user_id):
     user = User.find_by_id(user_id)
     article = Article.query.filter_by(id=article_id).one()
 
-    bookmarks = user.bookmarks_for_article(article_id, with_context=True, with_title=True)
+    bookmarks = user.bookmarks_for_article(
+        article_id, with_context=True, with_title=True
+    )
 
-    return json_result(dict(
-        bookmarks=bookmarks,
-        article_title=article.title
-    ))
+    return json_result(dict(bookmarks=bookmarks, article_title=article.title))
 
 
-@api.route("/bookmarks_for_article/<int:article_id>", methods=["POST"])
+@api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])
 @cross_domain
 @with_session
 def bookmarks_for_article_2(article_id):
