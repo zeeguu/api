@@ -18,19 +18,31 @@ from . import api, db_session
 def add_user(email):
     """
 
-        Creates user, then redirects to the get_session
-        endpoint. Returns a session
+    Creates user, then redirects to the get_session
+    endpoint. Returns a session
 
     """
 
     password = request.form.get("password")
     username = request.form.get("username")
+    learned_language_code = request.form.get("learned_language")
+    native_language_code = request.form.get("native_language")
+    learned_cefr_level = request.form.get("learned_cefr_level", 0)
     invite_code = request.form.get("invite_code")
 
     from zeeguu_core.account_management.user_account_creation import create_account
 
     try:
-        new_user = create_account(db_session, username, password, invite_code, email)
+        new_user = create_account(
+            db_session,
+            username,
+            password,
+            invite_code,
+            email,
+            learned_language_code,
+            native_language_code,
+            learned_cefr_level,
+        )
         new_session = Session.for_user(new_user)
         db_session.add(new_session)
         db_session.commit()
@@ -38,6 +50,7 @@ def add_user(email):
 
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return make_error(400, str(e))
 
@@ -47,8 +60,8 @@ def add_user(email):
 def add_anon_user():
     """
 
-        Creates anonymous user, then redirects to the get_session
-        endpoint. Returns a session
+    Creates anonymous user, then redirects to the get_session
+    endpoint. Returns a session
 
     """
 
@@ -80,6 +93,7 @@ def send_code(email):
     the specified email address.
     """
     from zeeguu_core.emailer.password_reset import send_password_reset_email
+
     code = UniqueCode(email)
     db_session.add(code)
     db_session.commit()
