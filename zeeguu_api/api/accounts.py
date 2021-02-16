@@ -96,7 +96,7 @@ def send_code(email):
 
     try:
         User.find(email)
-    except:
+    except sqlalchemy.orm.exc.NoResultFound:
         return bad_request("Email unknown")
 
     code = UniqueCode(email)
