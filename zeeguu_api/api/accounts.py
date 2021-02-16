@@ -94,6 +94,11 @@ def send_code(email):
     """
     from zeeguu_core.emailer.password_reset import send_password_reset_email
 
+    try:
+        User.find(email)
+    except:
+        return bad_request("Email unknown")
+
     code = UniqueCode(email)
     db_session.add(code)
     db_session.commit()
