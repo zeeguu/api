@@ -25,8 +25,12 @@ def add_user(email):
 
     password = request.form.get("password")
     username = request.form.get("username")
-    learned_language_code = request.form.get("learned_language")
-    native_language_code = request.form.get("native_language")
+    learned_language_code = request.form.get(
+        "learned_language", "de"
+    )  # default language; it's changed by the ui later
+    native_language_code = request.form.get(
+        "native_language", "en"
+    )  # default language; it's changed by the ui later
     learned_cefr_level = request.form.get("learned_cefr_level", 0)
     invite_code = request.form.get("invite_code")
 
