@@ -32,7 +32,7 @@ def user_article():
 
     """
 
-    article_id = request.args.get('article_id', '')
+    article_id = request.args.get("article_id", "")
     if not article_id:
         flask.abort(400)
 
@@ -40,7 +40,33 @@ def user_article():
 
     article = Article.query.filter_by(id=article_id).one()
 
-    return json_result(UserArticle.user_article_info(flask.g.user, article, with_content=True))
+    return json_result(
+        UserArticle.user_article_info(flask.g.user, article, with_content=True)
+    )
+
+
+# ---------------------------------------------------------------------------
+@api.route("/article_opened", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def article_opened():
+    """
+
+    track the fact that the article has been opened by the user
+
+
+    """
+
+    article_id = int(request.form.get("article_id"))
+    article = Article.query.filter_by(id=article_id).one()
+    ua = UserArticle.find_or_create(db_session, flask.g.user, article)
+    ua.set_opened()
+
+    db_session.add(ua)
+    db_session.commit()
+
+    return "OK"
 
 
 # ---------------------------------------------------------------------------
@@ -60,9 +86,9 @@ def user_article_update():
 
     """
 
-    article_id = int(request.form.get('article_id'))
-    starred = request.form.get('starred')
-    liked = request.form.get('liked')
+    article_id = int(request.form.get("article_id"))
+    starred = request.form.get("starred")
+    liked = request.form.get("liked")
 
     article = Article.query.filter_by(id=article_id).one()
 
@@ -95,7 +121,7 @@ def get_user_article_info():
 
     """
 
-    url = str(request.form.get('url', ''))
+    url = str(request.form.get("url", ""))
 
     article = Article.find_or_create(db_session, url)
 
