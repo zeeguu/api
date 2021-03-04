@@ -38,12 +38,13 @@ def is_teacher():
 
 
 def has_permission_for_cohort(cohort_id):
-    '''
+    """
 
-        Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
+    Checks to see if user requesting has permissions to view the cohort with id 'cohort_id'
 
-    '''
+    """
     from zeeguu_core.model import TeacherCohortMap
+
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for m in maps:
         if m.user_id == flask.g.user.id:
@@ -56,10 +57,10 @@ def has_permission_for_cohort(cohort_id):
 def has_permission_for_cohort_public(id):
     """
 
-        Checks to see if user has permissions to access a certain class.
+    Checks to see if user has permissions to access a certain class.
 
     """
-    if (has_permission_for_cohort(id)):
+    if has_permission_for_cohort(id):
         return "OK"
     return "Denied"
 
@@ -69,7 +70,7 @@ def has_permission_for_cohort_public(id):
 def has_permission_for_user_info(id):
     """
 
-        Checks to see if user has permissions to access a certain user.
+    Checks to see if user has permissions to access a certain user.
 
     """
     try:
@@ -84,9 +85,9 @@ def has_permission_for_user_info(id):
 
 
 def user_info_from_cohort(id, duration):
-    '''
-       Takes id for a cohort and returns all users belonging to that cohort.
-    '''
+    """
+    Takes id for a cohort and returns all users belonging to that cohort.
+    """
     c = Cohort.query.filter_by(id=id).one()
     users = User.query.filter_by(cohort_id=c.id).all()
     users_info = []
@@ -99,18 +100,19 @@ def user_info_from_cohort(id, duration):
 @api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
 @with_session
 def users_from_cohort(id, duration):
-    '''
-        Takes id for a cohort and returns all users belonging to that cohort.
+    """
+    Takes id for a cohort and returns all users belonging to that cohort.
 
-    '''
-    if (not has_permission_for_cohort(id)):
+    """
+    if not has_permission_for_cohort(id):
         flask.abort(401)
     try:
         users_info = user_info_from_cohort(id, duration)
         if flask.g.user.id in [2362]:
             from faker import Faker
+
             for each in users_info:
-                each['name'] = Faker().name()
+                each["name"] = Faker().name()
 
         return json.dumps(users_info)
     except KeyError:
@@ -124,43 +126,43 @@ def users_from_cohort(id, duration):
 @api.route("/user_info/<id>/<duration>", methods=["GET"])
 @with_session
 def wrapper_to_json_user(id, duration):
-    '''
-        Takes id for a user and wraps _get_user_info
-        then returns result jsonified.
+    """
+    Takes id for a user and wraps _get_user_info
+    then returns result jsonified.
 
-    '''
-    if (not has_permission_for_user_info(id) == "OK"):
+    """
+    if not has_permission_for_user_info(id) == "OK":
         flask.abort(401)
     return jsonify(_get_user_info_for_teacher_dashboard(id, duration))
 
 
 def _get_user_info_for_teacher_dashboard(id, duration):
-    '''
-        Takes id for a cohort and returns a dictionary with
-        id,name,email,reading_time,exercises_done and last article
+    """
+    Takes id for a cohort and returns a dictionary with
+    id,name,email,reading_time,exercises_done and last article
 
-    '''
+    """
     try:
 
         student = Student(id)
         return student.info_for_teacher_dashboard(duration)
 
-
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @with_session
 def remove_cohort(cohort_id):
-    '''
-        Removes cohort by cohort_id.
-        Can only be called successfuly if the class is empty.
+    """
+    Removes cohort by cohort_id.
+    Can only be called successfuly if the class is empty.
 
-    '''
+    """
     from zeeguu_core.model import TeacherCohortMap
-    if (not has_permission_for_cohort(cohort_id)):
+
+    if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
@@ -173,10 +175,10 @@ def remove_cohort(cohort_id):
             db.session.delete(link)
         db.session.delete(selected_cohort)
         db.session.commit()
-        return 'OK'
+        return "OK"
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
@@ -185,11 +187,12 @@ def remove_cohort(cohort_id):
 @api.route("/cohorts_info", methods=["GET"])
 @with_session
 def cohorts_by_ownID():
-    '''
-        Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
+    """
+    Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
 
-    '''
+    """
     from zeeguu_core.model import TeacherCohortMap
+
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
     for m in mappings:
@@ -201,19 +204,19 @@ def cohorts_by_ownID():
 @api.route("/cohort_info/<id>", methods=["GET"])
 @with_session
 def wrapper_to_json_class(id):
-    '''
-        Takes id of cohort and then wraps _get_cohort_info
-        returns jsonified result of _get_cohort_info
-    '''
-    if (not has_permission_for_cohort(id)):
+    """
+    Takes id of cohort and then wraps _get_cohort_info
+    returns jsonified result of _get_cohort_info
+    """
+    if not has_permission_for_cohort(id):
         flask.abort(401)
     return jsonify(_get_cohort_info(id))
 
 
 def _get_cohort_info(id):
-    '''
-        Takes id of cohort and returns dictionary with id, name, inv_code, max_students, cur_students and language_name
-    '''
+    """
+    Takes id of cohort and returns dictionary with id, name, inv_code, max_students, cur_students and language_name
+    """
     try:
         c = Cohort.find(id)
         name = c.name
@@ -230,39 +233,48 @@ def _get_cohort_info(id):
             language_name = "None"
         except sqlalchemy.orm.exc.NoResultFound:
             language_name = "None"
-        dictionary = {'id': str(id), 'name': name, 'inv_code': inv_code, 'max_students': max_students,
-                      'cur_students': cur_students, 'language_name': language_name,
-                      'declared_level_min': c.declared_level_min, 'declared_level_max': c.declared_level_max}
+        dictionary = {
+            "id": str(id),
+            "name": name,
+            "inv_code": inv_code,
+            "max_students": max_students,
+            "cur_students": cur_students,
+            "language_name": language_name,
+            "declared_level_min": c.declared_level_min,
+            "declared_level_max": c.declared_level_max,
+        }
         return dictionary
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
 
 
 def _link_teacher_cohort(user_id, cohort_id):
-    '''
-        Takes user_id and cohort_id and links them together in teacher_cohort_map table.
-    '''
+    """
+    Takes user_id and cohort_id and links them together in teacher_cohort_map table.
+    """
     from zeeguu_core.model import TeacherCohortMap
+
     user = User.find_by_id(user_id)
     cohort = Cohort.find(cohort_id)
     db.session.add(TeacherCohortMap(user, cohort))
     db.session.commit()
-    return 'added teacher_cohort relationship'
+    return "added teacher_cohort relationship"
 
 
 @api.route("/users_by_teacher/<duration>", methods=["GET"])
 @with_session
 def users_by_teacher(duration):
-    '''
-        Return list of dictionaries containing user info for all cohorts that the logged in user owns.
+    """
+    Return list of dictionaries containing user info for all cohorts that the logged in user owns.
 
-    '''
+    """
 
     from zeeguu_core.model import TeacherCohortMap
+
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     all_users = []
     for m in mappings:
@@ -274,10 +286,10 @@ def users_by_teacher(duration):
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
 @with_session
 def inv_code_usable(invite_code):
-    '''
-        Checks if the inputted invite code is already in use.
+    """
+    Checks if the inputted invite code is already in use.
 
-    '''
+    """
     c = Cohort.query.filter_by(inv_code=invite_code).first()
     if c is None:
         return "OK"
@@ -287,11 +299,11 @@ def inv_code_usable(invite_code):
 @api.route("/create_own_cohort", methods=["POST"])
 @with_session
 def create_own_cohort():
-    '''
-        Creates a cohort in the database.
-        Requires form input (inv_code, name, language_id, max_students, teacher_id)
+    """
+    Creates a cohort in the database.
+    Requires form input (inv_code, name, language_id, max_students, teacher_id)
 
-    '''
+    """
 
     if not _is_teacher(flask.g.user.id):
         flask.abort(401)
@@ -329,7 +341,7 @@ def create_own_cohort():
         return "IntegrityError"
 
 
-@api.route("/add_teacher/<id>", methods=['POST'])
+@api.route("/add_teacher/<id>", methods=["POST"])
 def add_teacher(id):
     try:
         user = User.query.filter_by(id=id).one()
@@ -344,16 +356,16 @@ def add_teacher(id):
 @api.route("/cohort_member_reading_sessions/<id>/<time_period>", methods=["GET"])
 @with_session
 def cohort_member_reading_sessions(id, time_period):
-    '''
-        Returns reading sessions from member with input user id.
-    '''
+    """
+    Returns reading sessions from member with input user id.
+    """
     try:
         user = User.query.filter_by(id=id).one()
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoUserFound"
 
-    if (not has_permission_for_cohort(user.cohort_id)):
+    if not has_permission_for_cohort(user.cohort_id):
         flask.abort(401)
 
     now = datetime.today()
@@ -364,72 +376,76 @@ def cohort_member_reading_sessions(id, time_period):
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
 @with_session
 def cohort_member_bookmarks(id, time_period):
-    '''
-        Returns books marks from member with input user id.
-    '''
+    """
+    Returns books marks from member with input user id.
+    """
     try:
         user = User.query.filter_by(id=id).one()
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoUserFound"
 
-    if (not has_permission_for_cohort(user.cohort_id)):
+    if not has_permission_for_cohort(user.cohort_id):
         flask.abort(401)
 
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
 
+    cohort_language_id = Cohort.query.filter_by(id=id).one().language_id
+
     # True input causes function to return context too.
-    return json_result(user.bookmarks_by_day(True, date, with_title=True, max=10000))
+    return json_result(
+        user.bookmarks_by_day(
+            True, date, with_title=True, max=10000, language_id=cohort_language_id
+        )
+    )
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
 @with_session
 def update_cohort(cohort_id):
-    '''
-        changes details of a specified cohort.
-        requires input form (inv_code, name, max_students)
+    """
+    changes details of a specified cohort.
+    requires input form (inv_code, name, max_students)
 
-    '''
-    if (not has_permission_for_cohort(cohort_id)):
+    """
+    if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
         cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
         cohort_to_change.inv_code = request.form.get("inv_code")
         cohort_to_change.name = request.form.get("name")
 
-        cohort_to_change.declared_level_min = request.form.get(
-            "declared_level_min")
-        cohort_to_change.declared_level_max = request.form.get(
-            "declared_level_max")
+        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
+        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
 
         db.session.commit()
-        return 'OK'
+        return "OK"
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
     except sqlalchemy.exc.IntegrityError:
         flask.abort(400)
-        return 'IntegrityError'
+        return "IntegrityError"
 
 
 @api.route("/upload_articles/<cohort_id>", methods=["POST"])
 @with_session
 def upload_articles(cohort_id):
-    '''
-        uploads articles for a cohort with input from a POST request
-    '''
-    if (not has_permission_for_cohort(cohort_id)):
+    """
+    uploads articles for a cohort with input from a POST request
+    """
+    if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
         for article_data in json.loads(request.data):
-            url = Url('userarticle/{}'.format(uuid.uuid4().hex))
-            title = article_data['title']
-            authors = article_data['authors']
-            content = article_data['content']
-            summary = article_data['summary']
+            url = Url("userarticle/{}".format(uuid.uuid4().hex))
+            title = article_data["title"]
+            authors = article_data["authors"]
+            content = article_data["content"]
+            summary = article_data["summary"]
             published_time = datetime.now()
-            language_code = article_data['language_code']
+            language_code = article_data["language_code"]
             language = Language.find(language_code)
 
             new_article = Article(
@@ -440,7 +456,7 @@ def upload_articles(cohort_id):
                 summary,
                 published_time,
                 None,  # rss feed
-                language
+                language,
             )
 
             db.session.add(new_article)
@@ -452,18 +468,18 @@ def upload_articles(cohort_id):
 
             db.session.add(new_cohort_article_map)
         db.session.commit()
-        return 'OK'
+        return "OK"
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
 
 
 @api.route("/cohort_files/<cohort_id>", methods=["GET"])
 @with_session
 def cohort_files(cohort_id):
-    '''
-        Gets the files associated with a cohort
-    '''
+    """
+    Gets the files associated with a cohort
+    """
     cohort = Cohort.find(cohort_id)
     articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
     return json.dumps(articles)
@@ -472,21 +488,21 @@ def cohort_files(cohort_id):
 @api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
 def remove_article_from_cohort(cohort_id, article_id):
-    '''
-        Removes article by article_id.
-        Only works if the teacher has permission to access the class
-    '''
+    """
+    Removes article by article_id.
+    Only works if the teacher has permission to access the class
+    """
 
-    if (not has_permission_for_cohort(cohort_id)):
+    if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
         article_in_class = CohortArticleMap.query.filter_by(article_id=article_id).one()
         db.session.delete(article_in_class)
         db.session.commit()
-        return 'OK'
+        return "OK"
     except ValueError:
         flask.abort(400)
-        return 'ValueError'
+        return "ValueError"
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
