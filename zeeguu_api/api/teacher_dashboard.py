@@ -368,9 +368,13 @@ def cohort_member_reading_sessions(id, time_period):
     if not has_permission_for_cohort(user.cohort_id):
         flask.abort(401)
 
+    cohort_language_id = Cohort.query.filter_by(id=user.cohort_id).one().language_id
+
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
-    return json_result(user.reading_sessions_by_day(date, max=10000))
+    return json_result(
+        user.reading_sessions_by_day(date, max=10000, language_id=cohort_language_id)
+    )
 
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
@@ -391,7 +395,7 @@ def cohort_member_bookmarks(id, time_period):
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
 
-    cohort_language_id = Cohort.query.filter_by(id=id).one().language_id
+    cohort_language_id = Cohort.query.filter_by(id=user.cohort_id).one().language_id
 
     # True input causes function to return context too.
     return json_result(
