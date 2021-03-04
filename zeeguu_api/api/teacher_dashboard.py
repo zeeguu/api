@@ -368,7 +368,8 @@ def cohort_member_reading_sessions(id, time_period):
     if not has_permission_for_cohort(user.cohort_id):
         flask.abort(401)
 
-    cohort_language_id = Cohort.query.filter_by(id=user.cohort_id).one().language_id
+    cohort = Cohort.query.filter_by(id=user.cohort_id).one()
+    cohort_language_id = cohort.language_id
 
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
