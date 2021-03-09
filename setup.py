@@ -1,7 +1,29 @@
 #!/usr/bin/env python
-# coding: utf8 -*-
-
+# -*- coding: utf8 -*-
 import setuptools
+from setuptools.command.develop import develop
+from setuptools.command.install import install
+
+
+class DevelopScript(develop):
+    def run(self):
+        develop.run(self)
+        ntlk_install_packages()
+
+
+class InstallScript(install):
+    def run(self):
+        install.run(self)
+        ntlk_install_packages()
+
+
+def ntlk_install_packages():
+    import nltk
+
+    print("Downloading nltk packages...")
+    nltk.download("punkt")
+    nltk.download("averaged_perceptron_tagger")
+
 
 setuptools.setup(
     name="zeeguu_api",
@@ -16,4 +38,8 @@ setuptools.setup(
         " acquisition in a second language"
     ),
     keywords=" API, second language acquisition",
+    cmdclass={
+        "develop": DevelopScript,
+        "install": InstallScript,
+    },
 )

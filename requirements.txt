@@ -6,6 +6,9 @@ beautifulsoup4
 blinker
 elasticsearch
 flask
+flask_sqlalchemy
+numpy
+mysqlclient
 # flask>=1.1.2
 flask_cors
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
@@ -22,3 +25,4 @@ requests_mock
 sentry_sdk
 sortedcontainers
 wordstats
+deprecated
