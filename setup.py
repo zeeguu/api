@@ -11,6 +11,9 @@ setuptools.setup(
     zip_safe=False,
     author="The Zeeguu Team",
     author_email="zeeguu.team@gmail.com",
-    description="API for Zeeguu, a project that aims to accelerate vocabulary acquisition in a second language",
+    description=(
+        "API for Zeeguu, a project that aims to accelerate vocabulary"
+        " acquisition in a second language"
+    ),
     keywords=" API, second language acquisition",
 )

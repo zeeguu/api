@@ -56,7 +56,7 @@ def unsubscribe_from_search():
     :return: OK / ERROR
     """
 
-    search_id = int(request.form.get('search_id', ''))
+    search_id = int(request.form.get("search_id", ""))
 
     try:
         to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
@@ -67,6 +67,7 @@ def unsubscribe_from_search():
 
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         zeeguu_core.log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
@@ -98,6 +99,7 @@ def get_subscribed_searches():
         except Exception as e:
             zeeguu_core.log(str(e))
             from sentry_sdk import capture_exception
+
             capture_exception(e)
 
     return json_result(searches_list)
@@ -132,7 +134,7 @@ def unfilter_search():
     :return: OK / ERROR
     """
 
-    search_id = int(request.form.get('search_id', ''))
+    search_id = int(request.form.get("search_id", ""))
 
     try:
         to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
@@ -144,6 +146,7 @@ def unfilter_search():
     except Exception as e:
         zeeguu_core.log(str(e))
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -173,6 +176,7 @@ def get_filtered_searches():
             filtered_searches.append(filt.search.as_dictionary())
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             zeeguu_core.log(str(e))
 

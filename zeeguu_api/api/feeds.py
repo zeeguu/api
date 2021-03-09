@@ -27,10 +27,10 @@ def start_following_feed_with_id():
 
     :return: "OK" in case of success
     """
-    if request.form.get('source_id', ''):
-        feed_id = int(request.form.get('source_id', ''))
+    if request.form.get("source_id", ""):
+        feed_id = int(request.form.get("source_id", ""))
     else:
-        feed_id = int(request.form.get('feed_id', ''))
+        feed_id = int(request.form.get("feed_id", ""))
 
     feed_object = RSSFeed.find_by_id(feed_id)
     RSSFeedRegistration.find_or_create(session, flask.g.user, feed_object)
@@ -49,7 +49,7 @@ def stop_following_feed():
     :return: OK / ERROR
     """
 
-    feed_id = int(request.form.get('source_id', ''))
+    feed_id = int(request.form.get("source_id", ""))
 
     try:
         to_delete = RSSFeedRegistration.with_feed_id(feed_id, flask.g.user)
@@ -57,6 +57,7 @@ def stop_following_feed():
         session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -88,6 +89,7 @@ def get_feeds_being_followed():
             feed_list.append(reg.rss_feed.as_dictionary())
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             zeeguu_core.log(str(e))
 

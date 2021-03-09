@@ -31,17 +31,17 @@ def modify_user_language():
 
     :return: "OK" in case of success
     """
-    language_id = int(request.form.get('language_id', ''))
+    language_id = int(request.form.get("language_id", ""))
     try:
-        language_reading = int(request.form.get('language_reading', ''))
+        language_reading = int(request.form.get("language_reading", ""))
     except:
         language_reading = None
     try:
-        language_exercises = int(request.form.get('language_exercises', ''))
+        language_exercises = int(request.form.get("language_exercises", ""))
     except:
         language_exercises = None
     try:
-        language_level = int(request.form.get('language_level', ''))
+        language_level = int(request.form.get("language_level", ""))
     except:
         language_level = None
 
@@ -79,6 +79,7 @@ def delete_user_language(language_id):
         session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 

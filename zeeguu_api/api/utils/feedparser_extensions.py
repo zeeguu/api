@@ -24,13 +24,15 @@ def list_of_feeds_at_url(domain):
 
             feed = feedparser.parse(feed_url).feed
 
-            feed_data.append({
-                "url": feed_url,
-                "title": feed.get("title",""),
-                "description": feed.get("description",""),
-                "image_url": feed.get("image",""),
-                "language": feed.get("language","")
-            })
+            feed_data.append(
+                {
+                    "url": feed_url,
+                    "title": feed.get("title", ""),
+                    "description": feed.get("description", ""),
+                    "image_url": feed.get("image", ""),
+                    "language": feed.get("language", ""),
+                }
+            )
 
         return feed_data
 
@@ -50,4 +52,3 @@ def two_letter_language_code(feed):
     :return:
     """
     return feed.language[:2]
-

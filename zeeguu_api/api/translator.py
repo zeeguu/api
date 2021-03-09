@@ -9,20 +9,27 @@ from apimux.log import logger
 
 from python_translators.config import get_key_from_config
 from python_translators.query_processors.remove_unnecessary_sentences import (
-    RemoveUnnecessarySentences)
+    RemoveUnnecessarySentences,
+)
 from python_translators.translation_query import TranslationQuery
 from python_translators.translation_response import (
-    TranslationResponse, order_by_quality, filter_empty_translations)
+    TranslationResponse,
+    order_by_quality,
+    filter_empty_translations,
+)
 from python_translators.translation_response import merge_translations
 from python_translators.factories.google_translator_factory import (
-    GoogleTranslatorFactory)
+    GoogleTranslatorFactory,
+)
 from python_translators.factories.microsoft_translator_factory import (
-    MicrosoftTranslatorFactory)
+    MicrosoftTranslatorFactory,
+)
 from python_translators.translators.wordnik_translator import WordnikTranslator
 
 import logging
 import python_translators
-logging.getLogger('python_translators').setLevel(logging.CRITICAL)
+
+logging.getLogger("python_translators").setLevel(logging.CRITICAL)
 
 
 MULTI_LANG_TRANSLATOR_AB_TESTING = False
@@ -33,16 +40,15 @@ if os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING", None) is not None:
 
 class WordnikTranslate(BaseThirdPartyAPIService):
     def __init__(self, KEY_ENVVAR_NAME):
-        super(WordnikTranslate, self).__init__(
-            name=('Wordnik - %s' % KEY_ENVVAR_NAME))
+        super(WordnikTranslate, self).__init__(name=("Wordnik - %s" % KEY_ENVVAR_NAME))
         self._key_envvar_name = KEY_ENVVAR_NAME
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
-            target_language=data["target_language"]
+            target_language=data["target_language"],
         )
-        lang_config['key'] = get_key_from_config(self._key_envvar_name)
+        lang_config["key"] = get_key_from_config(self._key_envvar_name)
         self._translator = WordnikTranslator(**lang_config)
         self._translator.quality = 90
         response = self._translator.translate(data["query"])
@@ -53,17 +59,15 @@ class WordnikTranslate(BaseThirdPartyAPIService):
 
 class GoogleTranslateWithContext(BaseThirdPartyAPIService):
     def __init__(self):
-        super(GoogleTranslateWithContext, self).__init__(
-            name='Google - with context')
+        super(GoogleTranslateWithContext, self).__init__(name="Google - with context")
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
-            target_language=data["target_language"]
+            target_language=data["target_language"],
         )
         # Google Translator WITH context
-        self._translator = GoogleTranslatorFactory.build_with_context(
-            **lang_config)
+        self._translator = GoogleTranslatorFactory.build_with_context(**lang_config)
         self._translator.quality = 95
         response = self._translator.translate(data["query"])
         if len(response.translations) == 0:
@@ -74,16 +78,16 @@ class GoogleTranslateWithContext(BaseThirdPartyAPIService):
 class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
     def __init__(self):
         super(GoogleTranslateWithoutContext, self).__init__(
-            name='Google - without context')
+            name="Google - without context"
+        )
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
-            target_language=data["target_language"]
+            target_language=data["target_language"],
         )
         # Google Translator WITHOUT context
-        self._translator = GoogleTranslatorFactory.build_contextless(
-            **lang_config)
+        self._translator = GoogleTranslatorFactory.build_contextless(**lang_config)
         self._translator.quality = 70
         response = self._translator.translate(data["query"])
         if len(response.translations) == 0:
@@ -94,16 +98,16 @@ class GoogleTranslateWithoutContext(BaseThirdPartyAPIService):
 class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
     def __init__(self):
         super(MicrosoftTranslateWithContext, self).__init__(
-            name='Microsoft - with context')
+            name="Microsoft - with context"
+        )
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
-            target_language=data["target_language"]
+            target_language=data["target_language"],
         )
         # Microsoft Translator WITH context
-        self._translator = MicrosoftTranslatorFactory.build_with_context(
-            **lang_config)
+        self._translator = MicrosoftTranslatorFactory.build_with_context(**lang_config)
         self._translator.quality = 80
         response = self._translator.translate(data["query"])
         if len(response.translations) == 0:
@@ -114,16 +118,16 @@ class MicrosoftTranslateWithContext(BaseThirdPartyAPIService):
 class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
     def __init__(self):
         super(MicrosoftTranslateWithoutContext, self).__init__(
-            name='Microsoft - without context')
+            name="Microsoft - without context"
+        )
 
     def get_result(self, data):
         lang_config = dict(
             source_language=data["source_language"],
-            target_language=data["target_language"]
+            target_language=data["target_language"],
         )
         # Microsoft Translator WITHOUT context
-        self._translator = MicrosoftTranslatorFactory.build_contextless(
-            **lang_config)
+        self._translator = MicrosoftTranslatorFactory.build_contextless(**lang_config)
         self._translator.quality = 60
         response = self._translator.translate(data["query"])
         if len(response.translations) == 0:
@@ -131,21 +135,27 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
         return response
 
 
-api_mux_translators = APIMultiplexer(api_list=[
-    GoogleTranslateWithContext(), GoogleTranslateWithoutContext(),
-    MicrosoftTranslateWithContext(), MicrosoftTranslateWithoutContext()],
-    config_filepath=os.environ.get("API_MUX_CONFIG__TRANSLATORS", ''))
+api_mux_translators = APIMultiplexer(
+    api_list=[
+        GoogleTranslateWithContext(),
+        GoogleTranslateWithoutContext(),
+        MicrosoftTranslateWithContext(),
+        MicrosoftTranslateWithoutContext(),
+    ],
+    config_filepath=os.environ.get("API_MUX_CONFIG__TRANSLATORS", ""),
+)
 
 wordnik_api_keys = []
 for env_var_name in os.environ:
-    if env_var_name.startswith('WORDNIK_API_KEY'):
+    if env_var_name.startswith("WORDNIK_API_KEY"):
         wordnik_api_keys += [env_var_name]
 wordnik_translators = [WordnikTranslate(apikey) for apikey in wordnik_api_keys]
 a_b_testing_wordnik = len(wordnik_translators) > 1
 logger.info("Number of wordnik api keys: %s" % len(wordnik_translators))
 api_mux_worddefs = APIMultiplexer(
     api_list=wordnik_translators,
-    config_filepath=os.environ.get("API_MUX_CONFIG__EN2EN", ''))
+    config_filepath=os.environ.get("API_MUX_CONFIG__EN2EN", ""),
+)
 
 
 def get_all_translations(data):
@@ -159,12 +169,13 @@ def get_all_translations(data):
     return response
 
 
-def get_next_results(data, exclude_services=[], exclude_results=[],
-                     number_of_results=-1):
+def get_next_results(
+    data, exclude_services=[], exclude_results=[], number_of_results=-1
+):
     translator_data = {
         "source_language": data["from_lang_code"],
         "target_language": data["to_lang_code"],
-        "query": data["query"]
+        "query": data["query"],
     }
     api_mux = None
     if data["from_lang_code"] == data["to_lang_code"] == "en":
@@ -175,16 +186,18 @@ def get_next_results(data, exclude_services=[], exclude_results=[],
     if number_of_results == 1:
         logger.debug("Getting only top result")
         translator_results = api_mux.get_next_results(
-            translator_data, number_of_results=1)
+            translator_data, number_of_results=1
+        )
     else:
         logger.debug("Getting all results")
         translator_results = api_mux.get_next_results(
-            translator_data, number_of_results=-1,
-            exclude_services=exclude_services)
+            translator_data, number_of_results=-1, exclude_services=exclude_services
+        )
     zeeguu_core.log(f"Got results get_next_results: {translator_results}")
     json_translator_results = [(x, y.to_json()) for x, y in translator_results]
-    logger.debug("get_next_results Zeeguu-API - Got results: %s"
-                 % json_translator_results)
+    logger.debug(
+        "get_next_results Zeeguu-API - Got results: %s" % json_translator_results
+    )
     logger.debug("get_next_results - exclude_services %s" % exclude_services)
     # Returning data: [('GoogleTranslateWithContext',
     #                   <python_translators.translation_response.TranslationResponse>), ...]
@@ -196,8 +209,7 @@ def get_next_results(data, exclude_services=[], exclude_results=[],
         if lower_translation in exclude_results:
             # Translation already exists fetched by get_top_translation
             continue
-        translations = merge_translations(translations,
-                                          translation.translations)
+        translations = merge_translations(translations, translation.translations)
 
     translations = filter_empty_translations(translations)
 
@@ -212,14 +224,14 @@ def get_next_results(data, exclude_services=[], exclude_results=[],
 
 
 def contribute_trans(data):
-    logger.debug("Preferred service: %s"
-                 % json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    logger.debug(
+        "Preferred service: %s" % json.dumps(data, ensure_ascii=False).encode("utf-8")
+    )
 
 
 def minimize_context(context_str, from_lang_code, word_str):
     _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 7)
     processor = RemoveUnnecessarySentences(from_lang_code)
     query = processor.process_query(_query)
-    minimal_context = (
-        query.before_context + ' ' + query.query + query.after_context)
+    minimal_context = query.before_context + " " + query.query + query.after_context
     return minimal_context, query

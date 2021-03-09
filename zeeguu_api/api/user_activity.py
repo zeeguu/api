@@ -1,6 +1,8 @@
 import flask
 from flask import request
-from zeeguu_core.user_activity_hooks.article_interaction_hooks import distill_article_interactions
+from zeeguu_core.user_activity_hooks.article_interaction_hooks import (
+    distill_article_interactions,
+)
 
 from . import api, db_session
 from .utils.route_wrappers import cross_domain, with_session
@@ -34,7 +36,7 @@ def upload_user_activity_data():
 
     UserActivityData.create_from_post_data(db_session, request.form, flask.g.user)
 
-    if request.form.get('article_id', None):
+    if request.form.get("article_id", None):
         distill_article_interactions(db_session, flask.g.user, request.form)
 
     return "OK"

@@ -7,6 +7,7 @@ import flask
 # apimux is quite noisy; supress it's output
 import logging
 from apimux.log import logger
+
 logger.setLevel(logging.CRITICAL)
 
 
@@ -14,26 +15,26 @@ logger.setLevel(logging.CRITICAL)
 app = Flask("Zeeguu-API")
 CORS(app)
 
-load_configuration_or_abort(app,
-                            'ZEEGUU_API_CONFIG',
-                            [  # first three are required by core
-                                'MAX_SESSION',
-                                'SQLALCHEMY_DATABASE_URI',
-                                'SQLALCHEMY_TRACK_MODIFICATIONS',
-
-                                # next three are required by API when
-                                # run locally
-                                'DEBUG',
-                                'HOST',
-                                'SECRET_KEY',
-
-                                # the following are required by the API
-                                # for user account creation & password recovery
-                                'INVITATION_CODES',
-                                'SMTP_SERVER',
-                                'SMTP_USERNAME',
-                                'SMTP_PASSWORD',
-                            ])
+load_configuration_or_abort(
+    app,
+    "ZEEGUU_API_CONFIG",
+    [  # first three are required by core
+        "MAX_SESSION",
+        "SQLALCHEMY_DATABASE_URI",
+        "SQLALCHEMY_TRACK_MODIFICATIONS",
+        # next three are required by API when
+        # run locally
+        "DEBUG",
+        "HOST",
+        "SECRET_KEY",
+        # the following are required by the API
+        # for user account creation & password recovery
+        "INVITATION_CODES",
+        "SMTP_SERVER",
+        "SMTP_USERNAME",
+        "SMTP_PASSWORD",
+    ],
+)
 
 # The zeeguu_core.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
@@ -53,7 +54,7 @@ try:
     import flask_monitoringdashboard as dashboard
     from .custom_fmd_graphs import daily_visitors
 
-    dashboard.config.init_from(envvar='FLASK_MONITORING_DASHBOARD_CONFIG')
+    dashboard.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
 
     from zeeguu_core.model import Session
 
@@ -71,5 +72,3 @@ try:
     machine_specific_config(app)
 except ModuleNotFoundError as e:
     print("no machine specific code found")
-
-

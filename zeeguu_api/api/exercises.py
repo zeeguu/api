@@ -3,7 +3,9 @@ import flask
 
 import zeeguu_core
 from zeeguu_core.model import Bookmark
-from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import BookmarkPriorityUpdater
+from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import (
+    BookmarkPriorityUpdater,
+)
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -27,7 +29,9 @@ def bookmarks_to_study(bookmark_count):
         # computed since theuser never did an exercise, and currently only
         # then are priorities recomputed; thus, in this case, we try to
         # update, and maybe this will solve the problem
-        zeeguu_core.log("recomputting bookmark priorities since there seem to be no bookmarks to study")
+        zeeguu_core.log(
+            "recomputting bookmark priorities since there seem to be no bookmarks to study"
+        )
         BookmarkPriorityUpdater.update_bookmark_priority(zeeguu_core.db, flask.g.user)
         to_study = flask.g.user.bookmarks_to_study(int_count)
 
@@ -44,19 +48,27 @@ def get_exercise_log_for_bookmark(bookmark_id):
     exercise_log_dict = []
     exercise_log = bookmark.exercise_log
     for exercise in exercise_log:
-        exercise_log_dict.append(dict(id=exercise.id,
-                                      outcome=exercise.outcome.outcome,
-                                      source=exercise.source.source,
-                                      exercise_log_solving_speed=exercise.solving_speed,
-                                      time=exercise.time.strftime('%m/%d/%Y')))
+        exercise_log_dict.append(
+            dict(
+                id=exercise.id,
+                outcome=exercise.outcome.outcome,
+                source=exercise.source.source,
+                exercise_log_solving_speed=exercise.solving_speed,
+                time=exercise.time.strftime("%m/%d/%Y"),
+            )
+        )
 
     return json_result(exercise_log_dict)
 
 
-@api.route("/report_exercise_outcome/<exercise_outcome>/<exercise_source>/<exercise_solving_speed>/<bookmark_id>",
-           methods=["POST"])
+@api.route(
+    "/report_exercise_outcome/<exercise_outcome>/<exercise_source>/<exercise_solving_speed>/<bookmark_id>",
+    methods=["POST"],
+)
 @with_session
-def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_speed, bookmark_id):
+def report_exercise_outcome(
+    exercise_outcome, exercise_source, exercise_solving_speed, bookmark_id
+):
     """
     In the model parlance, an exercise is an entry in a table that
     logs the performance of an exercise. Every such performance, has a source, and an outcome.
@@ -70,10 +82,9 @@ def report_exercise_outcome(exercise_outcome, exercise_source, exercise_solving_
 
     try:
         bookmark = Bookmark.find(bookmark_id)
-        bookmark.report_exercise_outcome(exercise_source,
-                                         exercise_outcome,
-                                         exercise_solving_speed,
-                                         db_session)
+        bookmark.report_exercise_outcome(
+            exercise_source, exercise_outcome, exercise_solving_speed, db_session
+        )
 
         return "OK"
     except:

@@ -18,7 +18,7 @@ session = zeeguu_core.db.session
 @with_session
 def user_articles_recommended(count: int = 20):
     """
-        recommendations for all languages
+    recommendations for all languages
     """
 
     return json_result(article_recommendations_for_user(flask.g.user, count))
@@ -30,7 +30,9 @@ def user_articles_recommended(count: int = 20):
 @cross_domain
 @with_session
 def user_articles_starred_and_liked():
-    return json_result(UserArticle.all_starred_and_liked_articles_of_user_info(flask.g.user))
+    return json_result(
+        UserArticle.all_starred_and_liked_articles_of_user_info(flask.g.user)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +42,7 @@ def user_articles_starred_and_liked():
 @with_session
 def user_articles_cohort():
     """
-        get all articles for the cohort associated with the user
+    get all articles for the cohort associated with the user
     """
 
     return json_result(flask.g.user.cohort_articles_for_user())
@@ -77,13 +79,13 @@ def user_article_history(user_id):
 
             dates[each.human_readable_date()].append(
                 {
-                    'date': each.human_readable_date(),
-                    'duration': each.human_readable_duration(),
-                    'start': each.start_time.strftime("%H:%M:%S"),
-                    'article': each.article.title,
-                    'liked': has_like,
-                    'feedback': feedback,
-                    'difficulty': difficulty
+                    "date": each.human_readable_date(),
+                    "duration": each.human_readable_duration(),
+                    "start": each.start_time.strftime("%H:%M:%S"),
+                    "article": each.article.title,
+                    "liked": has_like,
+                    "feedback": feedback,
+                    "difficulty": difficulty,
                 }
             )
 
@@ -93,13 +95,15 @@ def user_article_history(user_id):
     for date in dates:
         text_result += date + "<br/>"
         for session in dates[date]:
-            if previous_title != session['article']:
+            if previous_title != session["article"]:
                 text_result += f"<br/>&nbsp;&nbsp;<b> {session['article']} </b><br/>"
-            text_result += f"&nbsp;&nbsp;&nbsp;&nbsp; {session['duration']} ({session['start']})"
-            if session['liked']:
-                text_result += ' (LIKED) '
-            text_result += session['difficulty'] + " " + session['feedback'] + " <br/>"
-            previous_title = session['article']
+            text_result += (
+                f"&nbsp;&nbsp;&nbsp;&nbsp; {session['duration']} ({session['start']})"
+            )
+            if session["liked"]:
+                text_result += " (LIKED) "
+            text_result += session["difficulty"] + " " + session["feedback"] + " <br/>"
+            previous_title = session["article"]
 
         text_result += "<br/><br/>"
 

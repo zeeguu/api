@@ -26,7 +26,7 @@ def article_id():
 
     """
 
-    url = request.args.get('url', '')
+    url = request.args.get("url", "")
     if not url:
         flask.abort(400)
 
@@ -35,6 +35,7 @@ def article_id():
         return json_result(dict(article_id=article.id))
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         zeeguu_core.log(e)
         flask.abort(500)

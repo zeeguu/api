@@ -6,7 +6,6 @@ from zeeguu_api_test.api_test_mixin import APITestMixin
 
 
 class MetaTests(APITestMixin, TestCase):
-
     def test_RoutesDoNotEndWithSlash(self):
 
         # There are only two routes in the application which are
@@ -16,9 +15,12 @@ class MetaTests(APITestMixin, TestCase):
         exceptions = ["/", "/dashboard/"]
 
         # We test all the other route names
-        route_names = [rule.rule for rule in self.app.application.url_map.iter_rules()
-                           if rule.rule not in exceptions]
+        route_names = [
+            rule.rule
+            for rule in self.app.application.url_map.iter_rules()
+            if rule.rule not in exceptions
+        ]
 
         for name in route_names:
-            if name.endswith('/'):
+            if name.endswith("/"):
                 self.fail(f"{name}: Rules should not end in /")

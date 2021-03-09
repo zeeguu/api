@@ -13,21 +13,20 @@ from unittest.mock import patch
 
 from zeeguu_api.app import app
 
-TEST_PASS = 'test'
-TEST_EMAIL = 'i@mir.lu'
+TEST_PASS = "test"
+TEST_EMAIL = "i@mir.lu"
 TEST_USER = "test_user"
 
-test_user_data = dict(
-    password=TEST_PASS,
-    username=TEST_USER
-)
+test_user_data = dict(password=TEST_PASS, username=TEST_USER)
 
 from zeeguu_core.model import User
 
 
 class APITestMixin(TestCase):
-
-    @patch('zeeguu_core.account_management.user_account_creation.valid_invite_code', return_value=True)
+    @patch(
+        "zeeguu_core.account_management.user_account_creation.valid_invite_code",
+        return_value=True,
+    )
     def setUp(self, mock_invite_code):
         # idea from here:
         # https: // docs.pytest.org / en / latest / example / simple.html  # detect-if-running-from-within-a-pytest-run
@@ -73,35 +72,65 @@ class APITestMixin(TestCase):
 
     # GET
     # ---
-    def api_get(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.get(self.in_session(test_data, other_args=other_args), data=formdata, content_type=content_type)
+    def api_get(self, test_data, formdata="None", content_type=None, other_args=None):
+        return self.app.get(
+            self.in_session(test_data, other_args=other_args),
+            data=formdata,
+            content_type=content_type,
+        )
 
-    def api_get_string(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.get(self.in_session(test_data, other_args=other_args), data=formdata,
-                            content_type=content_type).data.decode('utf-8')
+    def api_get_string(
+        self, test_data, formdata="None", content_type=None, other_args=None
+    ):
+        return self.app.get(
+            self.in_session(test_data, other_args=other_args),
+            data=formdata,
+            content_type=content_type,
+        ).data.decode("utf-8")
 
-    def raw_data_from_api_get(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.api_get(test_data, formdata, content_type, other_args=other_args).data
+    def raw_data_from_api_get(
+        self, test_data, formdata="None", content_type=None, other_args=None
+    ):
+        return self.api_get(
+            test_data, formdata, content_type, other_args=other_args
+        ).data
 
-    def json_from_api_get(self, test_data, formdata='None', content_type=None, other_args=None):
+    def json_from_api_get(
+        self, test_data, formdata="None", content_type=None, other_args=None
+    ):
         rv = self.api_get(test_data, formdata, content_type, other_args=other_args)
         return json.loads(rv.data)
 
     # POST
     # ----
-    def api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
-                             content_type=content_type)
+    def api_post(self, test_data, formdata="None", content_type=None, other_args=None):
+        return self.app.post(
+            self.in_session(test_data, other_args=other_args),
+            data=formdata,
+            content_type=content_type,
+        )
 
-    def string_from_api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
-                             content_type=content_type).data.decode('utf-8')
+    def string_from_api_post(
+        self, test_data, formdata="None", content_type=None, other_args=None
+    ):
+        return self.app.post(
+            self.in_session(test_data, other_args=other_args),
+            data=formdata,
+            content_type=content_type,
+        ).data.decode("utf-8")
 
-    def raw_data_from_api_post(self, test_data, formdata='None', content_type=None, other_args=None):
-        return self.app.post(self.in_session(test_data, other_args=other_args), data=formdata,
-                             content_type=content_type).data
+    def raw_data_from_api_post(
+        self, test_data, formdata="None", content_type=None, other_args=None
+    ):
+        return self.app.post(
+            self.in_session(test_data, other_args=other_args),
+            data=formdata,
+            content_type=content_type,
+        ).data
 
-    def json_from_api_post(self, test_data, formdata='None', _content_type=None, other_args=None):
+    def json_from_api_post(
+        self, test_data, formdata="None", _content_type=None, other_args=None
+    ):
         url = self.in_session(test_data, other_args=other_args)
         rv = self.app.post(url, data=formdata, content_type=_content_type)
         return json.loads(rv.data)

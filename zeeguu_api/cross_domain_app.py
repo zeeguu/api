@@ -7,5 +7,5 @@ class CrossDomainApp(flask.Flask):
     def handle_user_exception(self, e):
         rv = super(CrossDomainApp, self).handle_user_exception(e)
         rv = self.make_response(rv)
-        rv.headers['Access-Control-Allow-Origin'] = "*"
+        rv.headers["Access-Control-Allow-Origin"] = "*"
         return rv

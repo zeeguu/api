@@ -11,15 +11,15 @@ from . import api, db_session
 @cross_domain
 def get_session(email):
     """
-        If the email and password match,
-        a sessionId is returned as a string.
-        This sessionId can to be passed
-        along all the other requests that are annotated
-        with @with_user in this file
+    If the email and password match,
+    a sessionId is returned as a string.
+    This sessionId can to be passed
+    along all the other requests that are annotated
+    with @with_user in this file
     """
 
     password = request.form.get("password", None)
-    if password == '':
+    if password == "":
         return make_error(401, "Password not given")
 
     if not User.email_exists(email):
@@ -38,12 +38,12 @@ def get_session(email):
 @cross_domain
 def get_anon_session(uuid):
     """
-    
-        If the uuid and password match, a  sessionId is
-        returned as a string. This sessionId can to be passed
-        along all the other requests that are annotated
-        with @with_user in this file
-        
+
+    If the uuid and password match, a  sessionId is
+    returned as a string. This sessionId can to be passed
+    along all the other requests that are annotated
+    with @with_user in this file
+
     """
     password = request.form.get("password", None)
 
@@ -63,12 +63,12 @@ def get_anon_session(uuid):
 @with_session
 def validate():
     """
-    
-        If your session is valid, you will get an OK. 
-        Use this one to test that you are holding a 
-        valid session. 
-    
-    :return: 
+
+        If your session is valid, you will get an OK.
+        Use this one to test that you are holding a
+        valid session.
+
+    :return:
     """
     return "OK"
 
@@ -85,19 +85,18 @@ def is_up():
     return "OK"
 
 
-@api.route("/logout_session",
-           methods=["GET"])
+@api.route("/logout_session", methods=["GET"])
 @cross_domain
 @with_session
 def logout():
     """
-    
-        Deactivate a given session. 
-    
+
+    Deactivate a given session.
+
     """
 
     try:
-        session_id = int(request.args['session'])
+        session_id = int(request.args["session"])
     except:
         flask.abort(401)
     session = Session.query.get(session_id)

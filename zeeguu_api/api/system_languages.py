@@ -9,8 +9,12 @@ from zeeguu_core.model import Language
 @cross_domain
 def system_languages():
     result = dict()
-    result['learnable_languages'] = list(map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages()))
-    result['native_languages'] = list(map((lambda x: dict(name=x.name, code=x.code)), Language.native_languages()))
+    result["learnable_languages"] = list(
+        map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages())
+    )
+    result["native_languages"] = list(
+        map((lambda x: dict(name=x.name, code=x.code)), Language.native_languages())
+    )
     return result
 
 
@@ -22,7 +26,9 @@ def available_languages():
     supported languages.
     e.g. ["en", "fr", "de", "it", "no", "ro"]
     """
-    available_language_codes = list(map((lambda x: x.code), Language.available_languages()))
+    available_language_codes = list(
+        map((lambda x: x.code), Language.available_languages())
+    )
     return json.dumps(available_language_codes)
 
 
@@ -34,12 +40,12 @@ def available_native_languages():
     supported native languages. curently only english...
     e.g. ["en", "fr", "de", "it", "no", "ro"]unquote_plus(flask.r
     """
-    available_language_codes = list(map((lambda x: x.code), Language.native_languages()))
+    available_language_codes = list(
+        map((lambda x: x.code), Language.native_languages())
+    )
     return json.dumps(available_language_codes)
 
 
 @api.route("/ping", methods=["GET"])
 def ping():
     return "OK"
-
-

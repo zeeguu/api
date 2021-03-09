@@ -30,7 +30,7 @@ def upload_smartwatch_events():
     :return: OK or FAIL
     """
 
-    events = json.loads(request.form['events'])
+    events = json.loads(request.form["events"])
     for event in events:
         event_type = WatchEventType.find_by_name(event["event"])
         if not event_type:
@@ -41,7 +41,8 @@ def upload_smartwatch_events():
         new_event = WatchInteractionEvent(
             event_type,
             event["bookmark_id"],
-            datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"), )
+            datetime.strptime(event["time"], "%Y-%m-%dT%H:%M:%S"),
+        )
         db_session.add(new_event)
     db_session.commit()
 

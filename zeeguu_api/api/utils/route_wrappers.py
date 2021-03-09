@@ -17,7 +17,7 @@ def with_session(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         try:
-            session_id = int(flask.request.args['session'])
+            session_id = int(flask.request.args["session"])
         except:
             flask.abort(401)
         session = Session.query.get(session_id)
@@ -26,11 +26,7 @@ def with_session(view):
         flask.g.user = session.user
         session.update_use_date()
 
-        zeeguu_core.log(
-            str(flask.g.user.id)
-            + " API CALL: "
-            + str(view)
-        )
+        zeeguu_core.log(str(flask.g.user.id) + " API CALL: " + str(view))
 
         zeeguu_core.db.session.add(session)
         # TODO: remove this commit? and add it after such that the session can be added with the next commit?
@@ -52,7 +48,7 @@ def cross_domain(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         response = flask.make_response(view(*args, **kwargs))
-        response.headers['Access-Control-Allow-Origin'] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
 
     return wrapped_view

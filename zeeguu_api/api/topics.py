@@ -1,7 +1,14 @@
 import flask
 import zeeguu_core
 from flask import request
-from zeeguu_core.model import Topic, TopicSubscription, TopicFilter, LocalizedTopic, UserLanguage, Language
+from zeeguu_core.model import (
+    Topic,
+    TopicSubscription,
+    TopicFilter,
+    LocalizedTopic,
+    UserLanguage,
+    Language,
+)
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -31,7 +38,7 @@ def subscribe_to_topic_with_id():
     :return: "OK" in case of success
     """
 
-    topic_id = int(request.form.get('topic_id', ''))
+    topic_id = int(request.form.get("topic_id", ""))
 
     topic_object = Topic.find_by_id(topic_id)
     TopicSubscription.find_or_create(session, flask.g.user, topic_object)
@@ -51,7 +58,7 @@ def unsubscribe_from_topic():
     :return: "OK" in case of success
     """
 
-    topic_id = int(request.form.get('topic_id', ''))
+    topic_id = int(request.form.get("topic_id", ""))
 
     try:
         to_delete = TopicSubscription.with_topic_id(topic_id, flask.g.user)
@@ -59,6 +66,7 @@ def unsubscribe_from_topic():
         session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return "OOPS. FEED AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -87,6 +95,7 @@ def get_subscribed_topics():
             topic_list.append(sub.topic.as_dictionary())
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             zeeguu_core.log(str(e))
 
@@ -110,7 +119,9 @@ def get_interesting_topics():
     """
     topic_data = []
     already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
-    already_subscribed = [each.topic for each in TopicSubscription.all_for_user(flask.g.user)]
+    already_subscribed = [
+        each.topic for each in TopicSubscription.all_for_user(flask.g.user)
+    ]
 
     reading_languages = Language.all_reading_for_user(flask.g.user)
 
@@ -139,7 +150,7 @@ def subscribe_to_filter_with_id():
     :return: "OK" in case of success
     """
 
-    filter_id = int(request.form.get('filter_id', ''))
+    filter_id = int(request.form.get("filter_id", ""))
 
     filter_object = Topic.find_by_id(filter_id)
     TopicFilter.find_or_create(session, flask.g.user, filter_object)
@@ -158,7 +169,7 @@ def unsubscribe_from_filter():
     :return: OK / ERROR
     """
 
-    filter_id = int(request.form.get('topic_id', ''))
+    filter_id = int(request.form.get("topic_id", ""))
 
     try:
         to_delete = TopicFilter.with_topic_id(filter_id, flask.g.user)
@@ -166,6 +177,7 @@ def unsubscribe_from_filter():
         session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         return "OOPS. FILTER AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -194,6 +206,7 @@ def get_subscribed_filters():
             filter_list.append(fil.topic.as_dictionary())
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             zeeguu_core.log(str(e))
 
