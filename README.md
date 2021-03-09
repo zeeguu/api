@@ -1,4 +1,4 @@
-# Zeeguu-API [![Build Status](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API.svg?branch=master)](https://travis-ci.org/zeeguu-ecosystem/Zeeguu-API)
+# Zeeguu-API ![Build Status](https://github.com/zeeguu-ecosystem/Zeeguu-API/actions/workflows/test.yml/badge.svg)
 
 
 Zeeguu-API is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition. The API is also currently deployed as the backend for the [zeeguu.org](https://zeeguu.org) website. 
