@@ -74,28 +74,6 @@ RUN a2ensite zeeguu-api
 RUN sed -i "s,Listen 80,Listen 8080,g" /etc/apache2/ports.conf
 
 
-# apimux
-# ------
-COPY ./vendor/apimux /apimux
-RUN chown -R www-data:www-data /apimux
-
-WORKDIR /apimux
-
-RUN python -m pip install -r requirements.txt
-RUN python setup.py develop
-
-
-# python translators
-# ------------------
-COPY ./vendor/Python-Translators /Python-Translators
-RUN chown -R www-data:www-data /Python-Translators
-
-WORKDIR /Python-Translators
-
-RUN python -m pip install -r requirements.txt
-RUN python setup.py develop
-
-
 # FMD
 # ---
 RUN pip install flask_monitoringdashboard
@@ -103,8 +81,7 @@ RUN pip install flask_monitoringdashboard
 
 # Zeeguu-Api
 # ----------
-COPY ./requirements.txt /Zeeguu-API/requirements.txt
-COPY ./setup.py /Zeeguu-API/setup.py
+COPY . /Zeeguu-API
 RUN chown -R www-data:www-data /Zeeguu-API
 
 WORKDIR /Zeeguu-API
