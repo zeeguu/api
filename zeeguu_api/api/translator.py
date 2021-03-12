@@ -231,7 +231,4 @@ def contribute_trans(data):
 
 def minimize_context(context_str, from_lang_code, word_str):
     _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 7)
-    processor = RemoveUnnecessarySentences(from_lang_code)
-    query = processor.process_query(_query)
-    minimal_context = query.before_context + " " + query.query + query.after_context
-    return minimal_context, query
+    return context_str, _query
