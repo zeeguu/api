@@ -14,19 +14,18 @@ from langdetect import detect
 
 db = zeeguu_core.db
 
-article_topic_map = Table('article_topic_map',
-                          db.Model.metadata,
-                          Column('article_id', Integer,
-                                 ForeignKey('article.id')),
-                          Column('topic_id', Integer,
-                                 ForeignKey('topic.id'))
-                          )
+article_topic_map = Table(
+    "article_topic_map",
+    db.Model.metadata,
+    Column("article_id", Integer, ForeignKey("article.id")),
+    Column("topic_id", Integer, ForeignKey("topic.id")),
+)
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
 
 class Article(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True)
 
@@ -55,9 +54,10 @@ class Article(db.Model):
     language = relationship(Language)
 
     from zeeguu_core.model.topic import Topic
-    topics = relationship(Topic,
-                          secondary="article_topic_map",
-                          backref=backref('articles'))
+
+    topics = relationship(
+        Topic, secondary="article_topic_map", backref=backref("articles")
+    )
 
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
@@ -65,8 +65,18 @@ class Article(db.Model):
     # has only the first paragraph available
     MINIMUM_WORD_COUNT = 90
 
-    def __init__(self, url, title, authors, content, summary, published_time, rss_feed,
-                 language, broken=0):
+    def __init__(
+        self,
+        url,
+        title,
+        authors,
+        content,
+        summary,
+        published_time,
+        rss_feed,
+        language,
+        broken=0,
+    ):
         self.url = url
         self.title = title
         self.authors = authors
@@ -78,7 +88,9 @@ class Article(db.Model):
         self.broken = broken
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(self.content, self.language, None)['grade']
+        fk_difficulty = fk_estimator.estimate_difficulty(
+            self.content, self.language, None
+        )["grade"]
 
         # easier to store integer in the DB
         # otherwise we have to use Decimal, and it's not supported on all dbs
@@ -86,7 +98,7 @@ class Article(db.Model):
         self.word_count = len(self.content.split())
 
     def __repr__(self):
-        return f'<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>'
+        return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
 
     def vote_broken(self):
         # somebody could vote that this article is broken
@@ -114,20 +126,7 @@ class Article(db.Model):
         :return:
         """
 
-        # transient fix for a donwloader bug;
-        # added on Jul 18 2020; can be removed
-        # in a few weeks if speed is impacted
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(self.summary, "lxml")
-        summary = soup.get_text()
-        # this is also as of Jul 18 2020 duplicating the
-        # functionality in the article_downloader.py
-        # so after a while this code can be removed
-        # for speed
-        if len(summary[:MAX_CHAR_COUNT_IN_SUMMARY]) > 10:
-            summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
-        else:
-            summary = self.content[:MAX_CHAR_COUNT_IN_SUMMARY]
+        summary = self.content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         result_dict = dict(
             id=self.id,
@@ -138,24 +137,24 @@ class Article(db.Model):
             authors=self.authors,
             topics=self.topics_as_string(),
             metrics=dict(
-                difficulty=self.fk_difficulty / 100,
-                word_count=self.word_count
-            ))
+                difficulty=self.fk_difficulty / 100, word_count=self.word_count
+            ),
+        )
 
         if self.published_time:
-            result_dict['published'] = self.published_time.strftime(JSON_TIME_FORMAT)
+            result_dict["published"] = self.published_time.strftime(JSON_TIME_FORMAT)
 
         if self.rss_feed:
-            result_dict['feed_id'] = self.rss_feed.id,
-            result_dict['icon_name'] = self.rss_feed.icon_name
+            result_dict["feed_id"] = (self.rss_feed.id,)
+            result_dict["icon_name"] = self.rss_feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
             # until the codebase is moved to zorg.
             if self.rss_feed.image_url:
-                result_dict['feed_image_url'] = self.rss_feed.image_url.as_string()
+                result_dict["feed_image_url"] = self.rss_feed.image_url.as_string()
 
         if with_content:
-            result_dict['content'] = self.content
+            result_dict["content"] = self.content
 
         return result_dict
 
@@ -171,6 +170,7 @@ class Article(db.Model):
 
     def star_for_user(self, session, user, state=True):
         from zeeguu_core.model.user_article import UserArticle
+
         ua = UserArticle.find_or_create(session, user, self)
         ua.set_starred(state)
         session.add(ua)
@@ -199,22 +199,25 @@ class Article(db.Model):
             art.download()
             art.parse()
 
-            if art.text == '':
+            if art.text == "":
                 # raise Exception("Newspaper got empty article from: " + url)
-                art.text = 'N/A'
+                art.text = "N/A"
                 # this is a temporary solution for allowing translations
                 # on pages that do not have "articles" downloadable by newspaper.
 
             if sleep_a_bit:
                 import time
                 from random import randint
+
                 print("GOT: " + url)
                 sleep_time = randint(3, 33)
-                print(f"sleeping for {sleep_time}s... so we don't annoy our friendly servers")
+                print(
+                    f"sleeping for {sleep_time}s... so we don't annoy our friendly servers"
+                )
                 time.sleep(sleep_time)
 
             if not language:
-                if art.meta_lang == '':
+                if art.meta_lang == "":
                     art.meta_lang = detect(art.text)
                     zeeguu_core.log(f"langdetect: {art.meta_lang} for {url}")
                 language = Language.find_or_create(art.meta_lang)
@@ -225,12 +228,12 @@ class Article(db.Model):
             new_article = Article(
                 url_object,
                 art.title,
-                ', '.join(art.authors),
+                ", ".join(art.authors),
                 art.text[0:32000],  # any article longer than this will be truncated...
                 art.summary,
                 None,
                 None,
-                language
+                language,
             )
             session.add(new_article)
 
@@ -264,6 +267,7 @@ class Article(db.Model):
         """
 
         from zeeguu_core.model import Url
+
         try:
             url_object = Url.find(url)
             return (cls.query.filter(cls.url == url_object)).one()
@@ -273,12 +277,11 @@ class Article(db.Model):
     @classmethod
     def all_older_than(cls, days):
         import datetime
+
         today = datetime.date.today()
         long_ago = today - datetime.timedelta(days)
         try:
-            return cls.query.filter(
-                cls.published_time < long_ago
-            ).all()
+            return cls.query.filter(cls.published_time < long_ago).all()
 
         except NoResultFound:
             return []
@@ -286,9 +289,7 @@ class Article(db.Model):
     @classmethod
     def exists(cls, article):
         try:
-            cls.query.filter(
-                cls.url == article.url
-            ).one()
+            cls.query.filter(cls.url == article.url).one()
             return True
         except NoResultFound:
             return False
