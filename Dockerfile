@@ -73,6 +73,12 @@ RUN a2ensite zeeguu-api
 # have apache listen on port 8080
 RUN sed -i "s,Listen 80,Listen 8080,g" /etc/apache2/ports.conf
 
+# reroute the access & error.log to stdout
+# https://serverfault.com/questions/599103/make-a-docker-application-write-to-stdout
+RUN ln -sf /dev/stdout /var/log/apache2/access.log \
+    && ln -sf /dev/stderr /var/log/apache2/error.log
+
+
 
 # FMD
 # ---
@@ -90,5 +96,5 @@ RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
 
 
-
 CMD  /usr/sbin/apache2ctl -D FOREGROUND
+
