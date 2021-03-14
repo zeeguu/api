@@ -85,6 +85,19 @@ RUN ln -sf /dev/stdout /var/log/apache2/access.log \
 RUN pip install flask_monitoringdashboard
 
 
+# Python Translators
+# we can't rely on this being pulled automatically from GH by the requirements.txt
+# some conflict between the install_requires and requirments.txt results in
+# a mismatch between the google-api-python and six
+# for the future it might still make sense to have a vendors folder and only
+# map it in here; for debugging purposes it would be better than having to
+# redeploy in case of needing to debug something
+RUN git clone https://github.com/zeeguu-ecosystem/Python-Translators.git
+WORKDIR Python-Translators
+RUN python setup.py develop
+
+
+
 # Zeeguu-Api
 # ----------
 COPY . /Zeeguu-API
