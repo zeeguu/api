@@ -82,7 +82,11 @@ RUN ln -sf /dev/stdout /var/log/apache2/access.log \
 
 # FMD
 # ---
-RUN pip install flask_monitoringdashboard
+#RUN pip install flask_monitoringdashboard
+RUN git clone https://github.com/flask-dashboard/Flask-MonitoringDashboard/
+WORKDIR Flask-MonitoringDashboard
+RUN python setup.py develop
+
 
 
 # Python Translators
