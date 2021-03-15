@@ -23,7 +23,7 @@ def ntlk_install_packages():
 
     # install in /var/www if available
     # when API is run with mod_wsgi from container
-    if os.path.exists("/var/www"):
+    if os.path.exists("/var/www") and os.access("/var/www", os.W_OK):
         nltk.download("punkt", download_dir="/var/www/nltk_data/")
         nltk.download("averaged_perceptron_tagger", download_dir="/var/www/nltk_data/")
     else:
