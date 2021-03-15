@@ -64,6 +64,8 @@ try:
     print("Started the Flask Monitoring Dashboard")
 
 except Exception as e:
+    import traceback
+    traceback.print_exc()
     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
 try:
