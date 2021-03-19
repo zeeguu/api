@@ -10,7 +10,7 @@ flask_sqlalchemy
 git+git://github.com/zeeguu-ecosystem/apimux.git@master#egg=apimux
 git+git://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
 jieba3k
-jinja2==2.11.1
+jinja2==2.11.3
 langdetect
 lxml
 mysqlclient
