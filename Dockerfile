@@ -1,4 +1,4 @@
-FROM debian:10
+FROM python:3.9.2-buster
 
 RUN apt-get update
 RUN apt-get upgrade -y
@@ -8,14 +8,6 @@ RUN apt-get upgrade -y
 # ---
 # required by github dependencies in requirements.txt
 RUN apt-get -y install git
-
-
-# Python
-# ------
-RUN apt-get install -y python3 python3-pip
-
-RUN ln -s /usr/bin/python3 /usr/bin/python
-RUN ln -s /usr/bin/pip3 /usr/bin/pip
 
 RUN pip install pytest
 
