@@ -528,7 +528,7 @@ class User(db.Model):
         # compute bookmark_counts_by_date
         year = (
             datetime.date.today().year - 1
-        )  # get data from year 2015(if this year is 2016)
+        )
         month = datetime.date.today().month
         bookmarks_dict, dates = self.bookmarks_by_date(
             datetime.datetime(year, month, 1)
