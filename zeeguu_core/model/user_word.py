@@ -1,4 +1,4 @@
-from datetime import time
+import time
 
 import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound

@@ -2,6 +2,7 @@
 import logging
 import sys
 
+
 logger = logging.getLogger(__name__)
 print(f"zeeguu_core initialized logger with name: {logger.name}")
 
@@ -33,3 +34,12 @@ def critical(msg):
 def logp(msg):
     log(msg)
     print(msg)
+
+
+import zeeguu_core.word_scheduling.arts
+import zeeguu_core.word_scheduling
+import zeeguu_core.model.learner_stats.learner_stats
+import zeeguu_core.model.learner_stats
+import zeeguu_core.bookmark_quality
+import zeeguu_core.content_recommender
+import zeeguu_core.emailer
