@@ -11,10 +11,11 @@ from zeeguu_core.configuration.configuration import load_configuration_or_abort
 # we create the app here and load the corresponding configuration
 if not hasattr(zeeguu_core, "app"):
     zeeguu_core.app = Flask("Zeeguu-Core")
-    load_configuration_or_abort(zeeguu_core.app, 'ZEEGUU_CORE_CONFIG',
-                                ['MAX_SESSION',
-                                 'SQLALCHEMY_DATABASE_URI',
-                                 'SQLALCHEMY_TRACK_MODIFICATIONS'])
+    load_configuration_or_abort(
+        zeeguu_core.app,
+        "ZEEGUU_CONFIG",
+        ["MAX_SESSION", "SQLALCHEMY_DATABASE_URI", "SQLALCHEMY_TRACK_MODIFICATIONS"],
+    )
 
 # Create the zeeguu_core.db object, which will be the superclass
 # of all the model classes
@@ -85,4 +86,4 @@ zeeguu_core.db.create_all(app=zeeguu_core.app)
 # Log the DB connection string; after masking the password
 db_connection_string = zeeguu_core.app.config["SQLALCHEMY_DATABASE_URI"]
 anon_conn_string = re.sub(":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string)
-zeeguu_core.warning('*** ==== ZEEGUU CORE: Linked model with: ' + anon_conn_string)
+zeeguu_core.warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
