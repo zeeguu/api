@@ -17,7 +17,7 @@ CORS(app)
 
 load_configuration_or_abort(
     app,
-    "ZEEGUU_API_CONFIG",
+    "ZEEGUU_CONFIG",
     [  # first three are required by core
         "MAX_SESSION",
         "SQLALCHEMY_DATABASE_URI",
@@ -65,6 +65,7 @@ try:
 
 except Exception as e:
     import traceback
+
     traceback.print_exc()
     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
