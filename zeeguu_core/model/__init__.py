@@ -11,7 +11,7 @@ from zeeguu_core.configuration.configuration import load_configuration_or_abort
 # we create the app here and load the corresponding configuration
 if not hasattr(zeeguu_core, "app"):
     zeeguu_core.app = Flask("Zeeguu-Core")
-    load_configuration_or_abort(zeeguu_core.app, 'ZEEGUU_CONFIG',
+    load_configuration_or_abort(zeeguu_core.app, 'ZEEGUU_CORE_CONFIG',
                                 ['MAX_SESSION',
                                  'SQLALCHEMY_DATABASE_URI',
                                  'SQLALCHEMY_TRACK_MODIFICATIONS'])
