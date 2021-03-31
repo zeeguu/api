@@ -22,6 +22,15 @@ if os.environ.get("SENTRY_DSN"):
         traces_sample_rate=0.3,
     )
 
+# install nltk punkt & tagger if missing
+import nltk
+
+try:
+    nltk.sent_tokenize("I am a berliner.")
+except LookupError as e:
+    nltk.download("punkt")
+    nltk.download("averaged_perceptron_tagger")
+
 
 def info(msg):
     logger.info(msg)
