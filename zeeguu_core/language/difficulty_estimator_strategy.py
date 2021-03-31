@@ -14,12 +14,16 @@ class DifficultyEstimatorStrategy:
         :param estimator_name: Estimator name you want to check
         :return: True if the given name is listed as a custom name for the implementing estimator
         """
-        in_custom_names = estimator_name.lower() in [name.lower() for name in cls.CUSTOM_NAMES]
+        in_custom_names = estimator_name.lower() in [
+            name.lower() for name in cls.CUSTOM_NAMES
+        ]
         return in_custom_names
 
     @classmethod
     @abstractmethod
-    def estimate_difficulty(cls, text: str, language: 'model.Language', user: 'model.User'):
+    def estimate_difficulty(
+        cls, text: str, language: "model.Language", user: "model.User"
+    ):
         """
         Estimates a normalized difficulty of a given text.
 
@@ -31,4 +35,5 @@ class DifficultyEstimatorStrategy:
         :return: Depending on the implementing class the dictionary contains different
         estimation values, such as: normalized, discrete, median or average
         """
+
         pass

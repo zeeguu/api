@@ -87,3 +87,16 @@ zeeguu_core.db.create_all(app=zeeguu_core.app)
 db_connection_string = zeeguu_core.app.config["SQLALCHEMY_DATABASE_URI"]
 anon_conn_string = re.sub(":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string)
 zeeguu_core.warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
+
+
+# install nltk punkt & tagger if missing
+# we can only do it here because the nltk loads in memory the unittest
+# and when that is detected, the configuration of the system is set to
+# testing... and it does not configure the model with the right db
+import nltk
+
+try:
+    nltk.sent_tokenize("I am a berliner.")
+except LookupError as e:
+    nltk.download("punkt")
+    nltk.download("averaged_perceptron_tagger")
