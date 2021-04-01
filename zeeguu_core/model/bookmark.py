@@ -27,19 +27,18 @@ db = zeeguu_core.db
 
 CORRECTS_IN_A_ROW_FOR_LEARNED = 4
 
-bookmark_exercise_mapping = Table('bookmark_exercise_mapping',
-                                  db.Model.metadata,
-                                  Column('bookmark_id', Integer,
-                                         ForeignKey('bookmark.id')),
-                                  Column('exercise_id', Integer,
-                                         ForeignKey('exercise.id'))
-                                  )
+bookmark_exercise_mapping = Table(
+    "bookmark_exercise_mapping",
+    db.Model.metadata,
+    Column("bookmark_id", Integer, ForeignKey("bookmark.id")),
+    Column("exercise_id", Integer, ForeignKey("exercise.id")),
+)
 
 WordAlias = db.aliased(UserWord, name="translated_word")
 
 
 class Bookmark(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -57,9 +56,9 @@ class Bookmark(db.Model):
 
     time = db.Column(db.DateTime)
 
-    exercise_log = relationship(Exercise,
-                                secondary="bookmark_exercise_mapping",
-                                order_by="Exercise.id")
+    exercise_log = relationship(
+        Exercise, secondary="bookmark_exercise_mapping", order_by="Exercise.id"
+    )
 
     starred = db.Column(db.Boolean, default=False)
 
@@ -69,8 +68,14 @@ class Bookmark(db.Model):
 
     learned_time = db.Column(db.DateTime)
 
-    def __init__(self, origin: UserWord, translation: UserWord, user: 'User',
-                 text: str, time: datetime):
+    def __init__(
+        self,
+        origin: UserWord,
+        translation: UserWord,
+        user: "User",
+        text: str,
+        time: datetime,
+    ):
         self.origin = origin
         self.translation = translation
         self.user = user
@@ -80,15 +85,19 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
 
     def __repr__(self):
-        return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n". \
-            format(self.origin.word, self.translation.word,
-                   self.text.content[0:10], self.id, self.user_id)
+        return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
+            self.origin.word,
+            self.translation.word,
+            self.text.content[0:10],
+            self.id,
+            self.user_id,
+        )
 
     def serializable_dictionary(self):
         return dict(
             origin=self.origin.word,
             translation=self.translation.word,
-            context=self.text.content
+            context=self.text.content,
         )
 
     def add_new_exercise(self, exercise):
@@ -116,34 +125,41 @@ class Bookmark(db.Model):
         if session:
             session.add(self)
 
-    def add_new_exercise_result(self,
-                                exercise_source: ExerciseSource,
-                                exercise_outcome: ExerciseOutcome,
-                                exercise_solving_speed):
+    def add_new_exercise_result(
+        self,
+        exercise_source: ExerciseSource,
+        exercise_outcome: ExerciseOutcome,
+        exercise_solving_speed,
+    ):
 
-        exercise = Exercise(exercise_outcome, exercise_source, exercise_solving_speed,
-                            datetime.now())
+        exercise = Exercise(
+            exercise_outcome, exercise_source, exercise_solving_speed, datetime.now()
+        )
 
         self.add_new_exercise(exercise)
         db.session.add(exercise)
 
         return exercise
 
-    def report_exercise_outcome(self,
-                                exercise_source: str,
-                                exercise_outcome: str,
-                                exercise_solving_speed,
-                                db_session):
+    def report_exercise_outcome(
+        self,
+        exercise_source: str,
+        exercise_outcome: str,
+        exercise_solving_speed,
+        db_session,
+    ):
 
         from zeeguu_core.model import UserExerciseSession
-        from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import BookmarkPriorityUpdater
+        from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import (
+            BookmarkPriorityUpdater,
+        )
 
         new_source = ExerciseSource.find_or_create(db_session, exercise_source)
         new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
-        exercise = self.add_new_exercise_result(new_source,
-                                                new_outcome,
-                                                exercise_solving_speed)
+        exercise = self.add_new_exercise_result(
+            new_source, new_outcome, exercise_solving_speed
+        )
         db_session.add(exercise)
         db_session.commit()
 
@@ -156,7 +172,7 @@ class Bookmark(db.Model):
     def split_words_from_context(self):
 
         result = []
-        bookmark_content_words = re.findall(r'(?u)\w+', self.text.content)
+        bookmark_content_words = re.findall(r"(?u)\w+", self.text.content)
         for word in bookmark_content_words:
             if word.lower() != self.origin.word.lower():
                 result.append(word)
@@ -170,17 +186,20 @@ class Bookmark(db.Model):
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
             translation_word = self.translation.word
+            translation_language = self.translation.language.code
         except AttributeError as e:
-            translation_word = ''
-            zeeguu_core.log(f"Exception caught: for some reason there was no translation for {self.id}")
+            translation_word = ""
+            translation_language = ""
+            zeeguu_core.log(
+                f"Exception caught: for some reason there was no translation for {self.id}"
+            )
             print(str(e))
 
-        word_info = Word.stats(self.origin.word,
-                               self.origin.language.code)
+        word_info = Word.stats(self.origin.word, self.origin.language.code)
 
-        learned_datetime = str(self.learned_time.date()) if self.learned else ''
+        learned_datetime = str(self.learned_time.date()) if self.learned else ""
 
-        created_day = "today" if self.time.date() == datetime.now().date() else ''
+        created_day = "today" if self.time.date() == datetime.now().date() else ""
 
         bookmark_title = ""
         if with_title:
@@ -188,6 +207,7 @@ class Bookmark(db.Model):
                 bookmark_title = self.text.article.title
             except Exception as e:
                 from sentry_sdk import capture_exception
+
                 capture_exception(e)
                 print(f"could not find article title for bookmark with id: {self.id}")
 
@@ -195,31 +215,40 @@ class Bookmark(db.Model):
             id=self.id,
             to=translation_word,
             from_lang=self.origin.language.code,
-            to_lang=self.translation.language.code,
+            to_lang=translation_language,
             title=bookmark_title,
             url=self.text.url.as_string(),
             origin_importance=word_info.importance,
             learned_datetime=SortedExerciseLog(self).str_most_recent_correct_dates(),
-            origin_rank=word_info.rank if word_info.rank != 100000 else '',
+            origin_rank=word_info.rank if word_info.rank != 100000 else "",
             starred=self.starred if self.starred is not None else False,
-            article_id=self.text.article_id if self.text.article_id else '',
+            article_id=self.text.article_id if self.text.article_id else "",
             created_day=created_day,  # human readable stuff...
-            time=self.time.strftime(JSON_TIME_FORMAT)
+            time=self.time.strftime(JSON_TIME_FORMAT),
         )
 
         if self.text.article:
-            result['article_title'] = self.text.article.title
+            result["article_title"] = self.text.article.title
 
         result["from"] = self.origin.word
         if with_context:
-            result['context'] = self.text.content
+            result["context"] = self.text.content
         return result
 
     @classmethod
-    def find_or_create(cls, session, user,
-                       _origin: str, _origin_lang: str,
-                       _translation: str, _translation_lang: str,
-                       _context: str, _url: str, _url_title: str, article_id: int):
+    def find_or_create(
+        cls,
+        session,
+        user,
+        _origin: str,
+        _origin_lang: str,
+        _translation: str,
+        _translation_lang: str,
+        _context: str,
+        _url: str,
+        _url_title: str,
+        article_id: int,
+    ):
         """
             if the bookmark does not exist, it creates it and returns it
             if it exists, it ** updates the translation** and returns the bookmark object
@@ -247,8 +276,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_text(user, origin,
-                                                           context)
+            bookmark = Bookmark.find_by_user_word_and_text(user, origin, context)
 
             # update the translation
             bookmark.translation = translation
@@ -265,9 +293,7 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_by_specific_user(cls, user):
-        return cls.query.filter_by(
-            user=user
-        ).all()
+        return cls.query.filter_by(user=user).all()
 
     @classmethod
     def find_all(cls):
@@ -279,36 +305,29 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_all_for_user_and_url(cls, user, url):
-        return cls.query.join(Text).filter(Text.url == url).filter(Bookmark.user == user).all()
+        return (
+            cls.query.join(Text)
+            .filter(Text.url == url)
+            .filter(Bookmark.user == user)
+            .all()
+        )
 
     @classmethod
     def find(cls, b_id):
-        return cls.query.filter_by(
-            id=b_id
-        ).one()
+        return cls.query.filter_by(id=b_id).one()
 
     @classmethod
     def find_all_by_user_and_word(cls, user, word):
-        return cls.query.filter_by(
-            user=user,
-            origin=word
-        ).all()
+        return cls.query.filter_by(user=user, origin=word).all()
 
     @classmethod
     def find_by_user_word_and_text(cls, user, word, text):
-        return cls.query.filter_by(
-            user=user,
-            origin=word,
-            text=text
-        ).one()
+        return cls.query.filter_by(user=user, origin=word, text=text).one()
 
     @classmethod
     def exists(cls, bookmark):
         try:
-            cls.query.filter_by(
-                origin_id=bookmark.origin.id,
-                id=bookmark.id
-            ).one()
+            cls.query.filter_by(origin_id=bookmark.origin.id, id=bookmark.id).one()
             return True
         except NoResultFound:
             return False
@@ -329,4 +348,6 @@ class Bookmark(db.Model):
             self.learned = True
             session.add(self)
         else:
-            zeeguu_core.log(f"Log: {log.summary()}: bookmark {self.id} not learned yet.")
+            zeeguu_core.log(
+                f"Log: {log.summary()}: bookmark {self.id} not learned yet."
+            )
