@@ -5,6 +5,8 @@
 """
 import traceback
 
+import elasticsearch
+
 from zeeguu_core import logp as log
 
 from .elastic_recommender import (
@@ -25,7 +27,7 @@ def article_recommendations_for_user(user, count):
 
         return elastic_article_recommendations_for_user(user, count)
 
-    except ConnectionError:
+    except elasticsearch.exceptions.ConnectionError:
         log(ES_DOWN_MESSAGE)
         log(print(traceback.format_exc()))
 
@@ -37,7 +39,7 @@ def article_search_for_user(user, count, search_terms):
 
         return elastic_article_search_for_user(user, count, search_terms)
 
-    except ConnectionError:
+    except elasticsearch.exceptions.ConnectionError:
         log(ES_DOWN_MESSAGE)
         log(print(traceback.format_exc()))
 
