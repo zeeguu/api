@@ -25,13 +25,11 @@ def article_recommendations_for_user(user, count):
 
         return elastic_article_recommendations_for_user(user, count)
 
-    except Exception as e:
+    except ConnectionError:
         log(ES_DOWN_MESSAGE)
         log(print(traceback.format_exc()))
 
-    finally:
-
-        return mixed_article_recommendations_for_user(user, count)
+    return mixed_article_recommendations_for_user(user, count)
 
 
 def article_search_for_user(user, count, search_terms):
@@ -39,8 +37,8 @@ def article_search_for_user(user, count, search_terms):
 
         return elastic_article_search_for_user(user, count, search_terms)
 
-    except Exception as e:
+    except ConnectionError:
         log(ES_DOWN_MESSAGE)
         log(print(traceback.format_exc()))
 
-        return mixed_article_search_for_user(user, count, search_terms)
+    return mixed_article_search_for_user(user, count, search_terms)
