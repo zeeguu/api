@@ -16,9 +16,14 @@ from zeeguu_core.model import (
     SearchFilter,
     SearchSubscription,
     UserArticle,
-    UserLanguage, Language)
+    UserLanguage,
+    Language,
+)
 
-from zeeguu_core.elastic.elastic_query_builder import build_elastic_query, build_more_like_this_query
+from zeeguu_core.elastic.elastic_query_builder import (
+    build_elastic_query,
+    build_more_like_this_query,
+)
 from zeeguu_core.util.timer_logging_decorator import time_this
 from zeeguu_core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
@@ -83,7 +88,10 @@ def article_search_for_user(user, count, search_terms):
         # 3. Topics subscribed, and thus to include
         # =========================================
         topic_subscriptions = TopicSubscription.all_for_user(user)
-        topics_to_include = [subscription.topic.title for subscription in TopicSubscription.all_for_user(user)]
+        topics_to_include = [
+            subscription.topic.title
+            for subscription in TopicSubscription.all_for_user(user)
+        ]
         print(f"topics to include: {topic_subscriptions}")
 
         # 4. Wanted user topics
@@ -96,29 +104,35 @@ def article_search_for_user(user, count, search_terms):
         print(f"keywords to include: {wanted_user_topics}")
 
         # build the query using elastic_query_builder
-        query_body = build_elastic_query(per_language_article_count,
-                                         search_terms,
-                                         _list_to_string(topics_to_include),
-                                         _list_to_string(topics_to_exclude),
-                                         _list_to_string(wanted_user_topics),
-                                         _list_to_string(unwanted_user_topics),
-                                         language,
-                                         upper_bounds,
-                                         lower_bounds)
+        query_body = build_elastic_query(
+            per_language_article_count,
+            search_terms,
+            _list_to_string(topics_to_include),
+            _list_to_string(topics_to_exclude),
+            _list_to_string(wanted_user_topics),
+            _list_to_string(unwanted_user_topics),
+            language,
+            upper_bounds,
+            lower_bounds,
+        )
 
         es = Elasticsearch(ES_CONN_STRING)
         res = es.search(index=ES_ZINDEX, body=query_body)
 
-        hit_list = res['hits'].get('hits')
+        hit_list = res["hits"].get("hits")
         final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
     # convert to article_info and return
-    return [UserArticle.user_article_info(user, article) for article in final_article_mix]
+    return [
+        UserArticle.user_article_info(user, article)
+        for article in final_article_mix
+        if article is not None
+    ]
 
 
 def more_like_this_article(user, count, article_id):
     """
-        Given a article ID find more articles like that one via Elasticsearchs "more_like_this" method
+    Given a article ID find more articles like that one via Elasticsearchs "more_like_this" method
 
     """
     article = Article.find_by_id(article_id)
@@ -127,18 +141,20 @@ def more_like_this_article(user, count, article_id):
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)  # execute search
-    hit_list = res['hits'].get('hits')
+    hit_list = res["hits"].get("hits")
 
     # TODO need to make sure either that the searched on article is always a part of the list \
     #  or that it is never there.
     #  it could be used to show on website; you searched on X, here is what we found related to X
 
     final_article_mix = _to_articles_from_ES_hits(hit_list)
-    return [UserArticle.user_article_info(user, article) for article in final_article_mix]
+    return [
+        UserArticle.user_article_info(user, article) for article in final_article_mix
+    ]
 
 
 def _list_to_string(input_list):
-    return ' '.join([each for each in input_list]) or ''
+    return " ".join([each for each in input_list]) or ""
 
 
 def _to_articles_from_ES_hits(hits):
