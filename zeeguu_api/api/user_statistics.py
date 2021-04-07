@@ -1,7 +1,7 @@
 import flask
 
 from zeeguu_api.api.utils.json_result import json_result
-from zeeguu_core.user_statistics.activity import activity_by_day
+from zeeguu_core.user_statistics.activity import activity_duration_by_day
 from . import api
 from .utils.route_wrappers import cross_domain, with_session
 
@@ -24,4 +24,4 @@ def activity_by_day():
     User sessions by day
     """
 
-    return json_result(activity_by_day(flask.g.user))
+    return json_result(activity_duration_by_day(flask.g.user))
