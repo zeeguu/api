@@ -16,10 +16,10 @@ def bookmark_counts_by_date():
     return flask.g.user.bookmark_counts_by_date()
 
 
-@api.route("/activity_by_day/<time_interval>", methods=("GET",))
+@api.route("/activity_by_day", methods=("GET",))
 @cross_domain
 @with_session
-def activity_by_day_endpoint(time_interval):
+def activity_by_day():
     """
     User sessions by day
     """

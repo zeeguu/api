@@ -13,7 +13,7 @@ from . import sessions
 from . import smartwatch
 from . import system_languages
 from . import translate_and_bookmark
-from . import user_activity
+from . import activity_tracking
 from . import bookmarks_and_words
 from . import user
 from . import user_statistics
