@@ -131,7 +131,7 @@ def build_elastic_query(
 
     function1 = {
         # original parameters by Simon & Marcus
-        # "gauss": {"published_time": {"scale": "365d", "offset": "1d", "decay": 0.3}},
+        # "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
         # "weight": 1.2,
         "gauss": {"published_time": {"origin": "now", "scale": "30d", "decay": 0.8}},
         "weight": 4.2,
