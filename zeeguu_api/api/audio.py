@@ -26,7 +26,7 @@ def tts():
         db_session, text_to_pronounce, Language.find_or_create(language_id)
     )
 
-    audio_file_path = _file_name_for_userWord(user_word, language_id)
+    audio_file_path = _file_name_for_user_word(user_word, language_id)
 
     if not os.path.isfile(audio_file_path):
         _save_speech_to_file(user_word, language_id, audio_file_path)
@@ -36,7 +36,6 @@ def tts():
 
 def _save_speech_to_file(user_word, language_id, audio_file_path):
     from google.cloud import texttospeech
-    import re
 
     # Instantiates a client
     client = texttospeech.TextToSpeechClient()
@@ -60,19 +59,19 @@ def _save_speech_to_file(user_word, language_id, audio_file_path):
         input=synthesis_input, voice=voice, audio_config=audio_config
     )
 
+    from zeeguu_api.app import app
+
     # The response's audio_content is binary.
-    with open(audio_file_path, "wb") as out:
+    with open(app.config.get("ZEEGUU_DATA_FOLDER") + audio_file_path, "wb") as out:
         # Write the response to the output file.
         out.write(response.audio_content)
 
 
-def _file_name_for_userWord(user_word, language_id):
-    from zeeguu_api.app import app
-
-    ZEEGUU_SPEECH_FOLDER = app.config.get("ZEEGUU_DATA_FOLDER") + "/speech"
+def _file_name_for_user_word(user_word, language_id):
+    import re
 
     word_without_special_chars = re.sub("[^A-Za-z0-9]+", "_", user_word.word)
-    return f"{ZEEGUU_SPEECH_FOLDER}/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
+    return f"/speech/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
 
 
 def _code_from_id(language_id):
