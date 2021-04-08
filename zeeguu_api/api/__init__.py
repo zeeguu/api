@@ -26,4 +26,4 @@ from . import topics
 from . import search
 from . import article
 from . import accounts
-from . import audio
+from . import speech
