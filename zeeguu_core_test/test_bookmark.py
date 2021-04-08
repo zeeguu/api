@@ -55,11 +55,6 @@ class BookmarkTest(ModelTestMixIn):
 
         assert random_bookmark.content_is_not_too_long()
 
-        random_text_long = TextRule(length=59).text
-        random_bookmark.text = random_text_long
-
-        assert not random_bookmark.content_is_not_too_long()
-
     def test_add_exercise_outcome(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         random_exercise = ExerciseRule().exercise
