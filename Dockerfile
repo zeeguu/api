@@ -48,6 +48,7 @@ RUN echo '\n\
     WSGIScriptAlias / /Zeeguu-API/zeeguu_api.wsgi\n\
     <Location />\n\
         WSGIProcessGroup zeeguu_api\n\
+	WSGIApplicationGroup %{GLOBAL}
     </Location>\n\
     <Directory "/Zeeguu-API">\n\
         <Files "zeeguu_api.wsgi">\n\
