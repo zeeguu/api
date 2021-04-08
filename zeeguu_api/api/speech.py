@@ -6,6 +6,10 @@ from flask import request
 from zeeguu_api.api import api
 from zeeguu_api.api.utils.route_wrappers import cross_domain, with_session
 
+from zeeguu_api.app import app
+
+DATA_FOLDER = app.config.get("ZEEGUU_DATA_FOLDER")
+
 
 @api.route("/text_to_speech", methods=("POST",))
 @cross_domain
@@ -28,7 +32,7 @@ def tts():
 
     audio_file_path = _file_name_for_user_word(user_word, language_id)
 
-    if not os.path.isfile(audio_file_path):
+    if not os.path.isfile(DATA_FOLDER + audio_file_path):
         _save_speech_to_file(user_word, language_id, audio_file_path)
 
     return audio_file_path
@@ -59,16 +63,13 @@ def _save_speech_to_file(user_word, language_id, audio_file_path):
         input=synthesis_input, voice=voice, audio_config=audio_config
     )
 
-    from zeeguu_api.app import app
-
     # The response's audio_content is binary.
-    with open(app.config.get("ZEEGUU_DATA_FOLDER") + audio_file_path, "wb") as out:
+    with open(DATA_FOLDER + audio_file_path, "wb") as out:
         # Write the response to the output file.
         out.write(response.audio_content)
 
 
 def _file_name_for_user_word(user_word, language_id):
-    import re
 
     word_without_special_chars = re.sub("[^A-Za-z0-9]+", "_", user_word.word)
     return f"/speech/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
