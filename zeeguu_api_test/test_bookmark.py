@@ -35,10 +35,6 @@ class BookmarkTest(APITestMixin, TestCase):
         bookmarks_on_first_day = all_bookmarks[0]["bookmarks"]
         assert self.example_bookmark_id == bookmarks_on_first_day[0]["id"]
 
-    def test_activity_by_day(self):
-        activity = self.json_from_api_get("/activity_by_day/30")
-        print(activity)
-
     def test_context_parameter_functions_in_bookmarks_by_day(self):
         elements = self.json_from_api_get("/bookmarks_by_day/with_context")
         some_date = elements[0]
