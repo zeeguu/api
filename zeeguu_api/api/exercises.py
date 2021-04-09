@@ -99,4 +99,4 @@ def report_exercise_outcome(
 def similar_words_api(bookmark_id):
 
     bookmark = Bookmark.find(bookmark_id)
-    return similar_words(bookmark, flask.g.user)
+    return json_result(similar_words(bookmark, flask.g.user))
