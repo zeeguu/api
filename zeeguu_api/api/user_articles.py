@@ -1,4 +1,6 @@
 import flask
+from flask import request
+
 import zeeguu_core
 from zeeguu_core.content_recommender import article_recommendations_for_user
 from zeeguu_core.model import UserArticle, UserReadingSession, User
@@ -8,6 +10,13 @@ from .utils.json_result import json_result
 from . import api
 
 session = zeeguu_core.db.session
+
+
+@api.route("/post_user_article", methods=["POST"])
+@cross_domain
+def post_user_article():
+
+    return f"<p>You submitted the following data</p><p>{str(request.form)}</p>"
 
 
 # ---------------------------------------------------------------------------
