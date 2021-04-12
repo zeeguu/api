@@ -16,11 +16,16 @@ session = zeeguu_core.db.session
 @cross_domain
 def post_user_article():
 
-    from newspaper import fulltext
+    import newspaper
+
+    article = newspaper.Article("")
+    article.set_html((request.form.get("page_content")))
+    article.parse()
 
     return (
         f"<p>You submitted the following data</p><p>{str(request.form.get('title'))}</p><br/>"
-        f"with content: {str(fulltext((request.form.get('page_content'))))}"
+        f"<img src='{article.top_image}'/> with content: {article.text} "
+        f"and top image: {article.top_image}"
         f"<p>Normally next steps would be: <ul>"
         f" <li>Save article in DB and get SOME_NEW_ID</li>"
         f" <li>Redirect to "
