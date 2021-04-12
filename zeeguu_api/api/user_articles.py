@@ -20,8 +20,9 @@ def post_user_article():
         f"<p>You submitted the following data</p><p>{str(request.form)}</p><br/>"
         f"<p>Normally next steps would be: <ul>"
         f" <li>Save article in DB</li>"
-        f" <li>Redirect to <a href='https://zeeguu.com/posted_article/article?id=<1500011>'>"
-        f"      https://zeeguu.com/posted_article/article?id=<NEWID></a></li>"
+        f" <li>Redirect to "
+        f"      https://zeeguu.com/posted_article/article?id=<NEWID></a></li> "
+        f" or something similar"
         f"</ul></p>"
     )
 
