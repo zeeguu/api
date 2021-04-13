@@ -1,15 +1,13 @@
 import flask
 from flask import request
 
-import zeeguu_core
+
 from zeeguu_core.content_recommender import article_recommendations_for_user
-from zeeguu_core.model import UserArticle, UserReadingSession, User
+from zeeguu_core.model import UserArticle, UserReadingSession, User, Article, Language
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
-
-session = zeeguu_core.db.session
 
 
 @api.route("/post_user_article", methods=["POST"])
