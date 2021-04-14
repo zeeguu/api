@@ -200,6 +200,7 @@ def _filter_subscribed_articles(
         query = query.order_by(Article.id.desc())
         query = query.filter(Article.language == language)
         query = query.filter(Article.broken == False)
+        query = query.filter(Article.uploader_id == None)
 
         # speed up a bit the stuff
         # query = query.filter(Article.id > 500000)

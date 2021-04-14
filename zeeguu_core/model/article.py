@@ -146,8 +146,10 @@ class Article(db.Model):
 
         if self.authors:
             result_dict["authors"] = self.authors
-        else:
+        elif self.uploader:
             result_dict["authors"] = self.uploader.name
+        else:
+            result_dict["authors"] = ""
 
         if self.url:
             result_dict["url"] = self.url.as_string()
@@ -199,6 +201,7 @@ class Article(db.Model):
         session.add(new_article)
 
         session.commit()
+        return new_article.id
 
     @classmethod
     def find_or_create(cls, session, _url: str, language=None, sleep_a_bit=False):

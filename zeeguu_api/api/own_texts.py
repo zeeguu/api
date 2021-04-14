@@ -1,4 +1,5 @@
 import flask
+import sqlalchemy
 from flask import request
 
 from zeeguu_core.model import Article, Language
@@ -13,15 +14,16 @@ from . import api, db_session
 @with_session
 def upload_own_text():
 
+    db_session.rollback()
     language = Language.find_or_create(request.form.get("language", ""))
     content = request.form.get("content", "")
     title = request.form.get("title", "")
 
-    new_article = Article.create_from_upload(
+    new_article_id = Article.create_from_upload(
         db_session, title, content, flask.g.user, language
     )
 
-    return new_article.id
+    return str(new_article_id)
 
 
 @api.route("/own_texts", methods=["GET"])
@@ -36,10 +38,17 @@ def own_texts():
 @cross_domain
 @with_session
 def delete_own_text(id):
-    a = Article.query.filter(Article.id == id).one()
-    db_session.delete(a)
-    db_session.commit()
-    return "OK"
+
+    try:
+        a = Article.query.filter(Article.id == id).one()
+
+        db_session.delete(a)
+        db_session.commit()
+
+        return "OK"
+
+    except sqlalchemy.orm.exc.NoResultFound:
+        return "An article with that ID does not exist."
 
 
 @api.route("/update_own_text/<id>", methods=["POST"])

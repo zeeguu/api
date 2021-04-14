@@ -27,3 +27,4 @@ from . import search
 from . import article
 from . import accounts
 from . import speech
+from . import own_texts
