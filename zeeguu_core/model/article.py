@@ -78,7 +78,7 @@ class Article(db.Model):
         published_time,
         rss_feed,
         language,
-        uploader,
+        uploader=None,
         broken=0,
     ):
         self.url = url
