@@ -28,3 +28,4 @@ from . import article
 from . import accounts
 from . import speech
 from . import own_texts
+from . import student
