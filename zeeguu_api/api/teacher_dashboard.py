@@ -420,6 +420,7 @@ def update_cohort(cohort_id):
         cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
         cohort_to_change.inv_code = request.form.get("inv_code")
         cohort_to_change.name = request.form.get("name")
+        cohort_to_change.language_id = request.form.get("language_id")
 
         cohort_to_change.declared_level_min = request.form.get("declared_level_min")
         cohort_to_change.declared_level_max = request.form.get("declared_level_max")
