@@ -157,7 +157,7 @@ def _get_user_info_for_teacher_dashboard(id, duration):
 def remove_cohort(cohort_id):
     """
     Removes cohort by cohort_id.
-    Can only be called successfuly if the class is empty.
+    Can only be called successfully if the class is empty.
 
     """
     from zeeguu_core.model import TeacherCohortMap
@@ -167,8 +167,9 @@ def remove_cohort(cohort_id):
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
-        if not selected_cohort.get_current_student_count() == 0:
-            flask.abort(400)
+        for student in selected_cohort.get_students():
+            student.cohort_id = None
+            db.session.add(student)
 
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
         for link in links:
