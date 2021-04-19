@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import uuid
 
+from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_core.model.student import Student
 
 from .utils.json_result import json_result
@@ -543,9 +544,10 @@ def add_article_to_cohort():
 
     article = Article.find_by_id(request.form.get("article_id"))
 
-    new_mapping = CohortArticleMap(cohort, article)
-    db.session.add(new_mapping)
-    db.session.commit()
+    if not CohortArticleMap.find(cohort.id, article.id):
+        new_mapping = CohortArticleMap(cohort, article)
+        db.session.add(new_mapping)
+        db.session.commit()
 
     return "OK"
 
@@ -565,7 +567,9 @@ def delete_article_from_cohort():
     article = Article.find_by_id(request.form.get("article_id"))
 
     mapping = CohortArticleMap.find(cohort.id, article.id)
-    db.session.delete(mapping)
-    db.session.commit()
-
-    return "OK"
+    if mapping:
+        db.session.delete(mapping)
+        db.session.commit()
+        return "OK"
+    else:
+        return make_error(401, "That article does not belong to the cohort!")

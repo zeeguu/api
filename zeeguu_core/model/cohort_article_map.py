@@ -23,7 +23,7 @@ class CohortArticleMap(zeeguu_core.db.Model):
 
     @classmethod
     def find(cls, cohort_id, article_id):
-        return cls.query.filter_by(article_id=article_id, cohort_id=cohort_id).one()
+        return cls.query.filter_by(article_id=article_id, cohort_id=cohort_id).first()
 
     @classmethod
     def get_articles_info_for_cohort(cls, cohort):
