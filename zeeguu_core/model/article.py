@@ -10,6 +10,7 @@ from zeeguu_core.constants import JSON_TIME_FORMAT
 from zeeguu_core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from langdetect import detect
 
+
 db = zeeguu_core.db
 
 article_topic_map = Table(
@@ -170,6 +171,17 @@ class Article(db.Model):
             result_dict["content"] = self.content
 
         return result_dict
+
+    def article_info_for_teacher(self):
+        from zeeguu_core.model import CohortArticleMap
+
+        info = self.article_info()
+        info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
+
+        return info
+
+    def is_owned_by(self, user):
+        return self.uploader_id == user.id
 
     def add_topic(self, topic):
         self.topics.append(topic)

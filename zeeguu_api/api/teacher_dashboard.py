@@ -492,6 +492,7 @@ def cohort_files(cohort_id):
     return json.dumps(articles)
 
 
+# DEPRECATED!
 @api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
 def remove_article_from_cohort(cohort_id, article_id):
@@ -513,3 +514,58 @@ def remove_article_from_cohort(cohort_id, article_id):
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
+
+
+@api.route("/teacher_texts", methods=["GET"])
+@with_session
+def teacher_texts():
+    """
+    Gets all the articles of this teacher
+    """
+    print("ahem!")
+    articles = Article.own_texts_for_user(flask.g.user)
+    article_info_dicts = [article.article_info_for_teacher() for article in articles]
+
+    return json.dumps(article_info_dicts)
+
+
+@api.route("/add_article_to_cohort", methods=["POST"])
+@with_session
+def add_article_to_cohort():
+    """
+    Gets all the articles of this teacher
+    """
+
+    cohort = Cohort.find(request.form.get("cohort_id"))
+
+    if not has_permission_for_cohort(cohort.id):
+        flask.abort(401)
+
+    article = Article.find_by_id(request.form.get("article_id"))
+
+    new_mapping = CohortArticleMap(cohort, article)
+    db.session.add(new_mapping)
+    db.session.commit()
+
+    return "OK"
+
+
+@api.route("/delete_article_from_cohort", methods=["POST"])
+@with_session
+def delete_article_from_cohort():
+    """
+    Gets all the articles of this teacher
+    """
+
+    cohort = Cohort.find(request.form.get("cohort_id"))
+
+    if not has_permission_for_cohort(cohort.id):
+        flask.abort(401)
+
+    article = Article.find_by_id(request.form.get("article_id"))
+
+    mapping = CohortArticleMap.find(cohort.id, article.id)
+    db.session.delete(mapping)
+    db.session.commit()
+
+    return "OK"
