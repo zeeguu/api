@@ -419,13 +419,18 @@ def update_cohort(cohort_id):
     if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
-        cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
-        cohort_to_change.inv_code = request.form.get("inv_code")
-        cohort_to_change.name = request.form.get("name")
-        cohort_to_change.language_id = request.form.get("language_id")
+        params = request.form
 
-        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
-        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
+        cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
+        cohort_to_change.inv_code = params.get("inv_code")
+        cohort_to_change.name = params.get("name")
+
+        # language_id is deprecated; use language_code instead
+        language_code = params.get("language_code") or params.get("language_id")
+        cohort_to_change.language_id = Language.find(language_code).id
+
+        cohort_to_change.declared_level_min = params.get("declared_level_min")
+        cohort_to_change.declared_level_max = params.get("declared_level_max")
 
         db.session.commit()
         return "OK"
