@@ -310,22 +310,27 @@ def create_own_cohort():
     if not _is_teacher(flask.g.user.id):
         flask.abort(401)
 
-    inv_code = request.form.get("inv_code")
-    name = request.form.get("name")
-    language_id = request.form.get("language_id")
-    if name is None or inv_code is None or language_id is None:
+    params = request.form
+    inv_code = params.get("inv_code")
+    name = params.get("name")
+
+    # language_id is deprecated and kept here for backwards compatibility
+    # use language_code instead
+    language_code = params.get("language_code") or params.get("language_id")
+    if name is None or inv_code is None or language_code is None:
         flask.abort(400)
+
     available_languages = Language.available_languages()
     code_allowed = False
     for code in available_languages:
-        if language_id in str(code):
+        if language_code in str(code):
             code_allowed = True
 
     if not code_allowed:
         flask.abort(400)
-    language = Language.find_or_create(language_id)
+    language = Language.find_or_create(language_code)
     teacher_id = flask.g.user.id
-    max_students = request.form.get("max_students")
+    max_students = params.get("max_students")
     if int(max_students) < 1:
         flask.abort(400)
 
