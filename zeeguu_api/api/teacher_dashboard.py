@@ -533,11 +533,23 @@ def teacher_texts():
     """
     Gets all the articles of this teacher
     """
-    print("ahem!")
+
     articles = Article.own_texts_for_user(flask.g.user)
     article_info_dicts = [article.article_info_for_teacher() for article in articles]
 
     return json.dumps(article_info_dicts)
+
+
+@api.route("/get_cohorts_for_article/<article_id>", methods=["GET"])
+@with_session
+def get_cohorts_for_article(article_id):
+    """
+    Gets all the cohorts for this article
+    """
+
+    article = Article.find_by_id(article_id)
+
+    return json.dumps(CohortArticleMap.get_cohorts_for_article(article))
 
 
 @api.route("/add_article_to_cohort", methods=["POST"])
