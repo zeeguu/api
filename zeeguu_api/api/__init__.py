@@ -7,6 +7,7 @@ db_session = zeeguu_core.db.session
 
 # These files have to be imported after this line;
 # They enrich the api object
+from . import feature_toggles
 from . import exercises
 from . import feeds
 from . import sessions
