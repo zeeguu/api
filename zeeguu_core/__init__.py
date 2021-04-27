@@ -4,6 +4,7 @@ import os
 import sys
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+import zeeguu_core.word_stats
 
 logger = logging.getLogger(__name__)
 print(f"zeeguu_core initialized logger with name: {logger.name}")
