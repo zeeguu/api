@@ -81,6 +81,9 @@ def report_exercise_outcome(
     :return:
     """
 
+    if not exercise_solving_speed.isdigit():
+        exercise_solving_speed = 0
+
     try:
         bookmark = Bookmark.find(bookmark_id)
         bookmark.report_exercise_outcome(
