@@ -2,6 +2,7 @@ select b.user_id,
         e.time, 
         uw.word, 
         eo.outcome, 
+        e.solving_speed,
         es.source as ex_type
 from 
     exercise as e
