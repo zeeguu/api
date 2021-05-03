@@ -104,25 +104,35 @@ def user_article_update():
 
     return "OK"
 
-
 # ---------------------------------------------------------------------------
-# !!!!!!!!!!!!!!!!!!!!!!!!! DEPRECATED !!!!!!!!!!!!!!!!!!!!!!!!!
-@api.route("/get_user_article_info", methods=("POST",))
-# !!!!!!!!!!!!!!!!!!!!!!!!! DEPRECATED !!!!!!!!!!!!!!!!!!!!!!!!!
+@api.route("/parse_html", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_user_article_info():
-    """
+def parse_html():
+    import newspaper
 
-        expects one parameter: url
+    article_html = request.form.get("html")
 
-    :return: json dictionary with info
+    art = newspaper.Article(url='')
+    art.set_html(article_html)
+    art.parse()
 
-    """
+    return json_result({'article_title':art.title,'text':art.text})
 
-    url = str(request.form.get("url", ""))
 
-    article = Article.find_or_create(db_session, url)
+# ---------------------------------------------------------------------------
+@api.route("/parse_url", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def parse_url():
+    import newspaper
 
-    return json_result(UserArticle.user_article_info(flask.g.user, article))
+    article_url = request.form.get("url")
+
+    art = newspaper.Article(url=article_url)
+    art.download()
+    art.parse()
+
+    return json_result({'article_title':art.title,'text':art.text})
