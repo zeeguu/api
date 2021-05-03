@@ -1,5 +1,3 @@
-import time
-
 import sqlalchemy
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
@@ -11,6 +9,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeTex
 from zeeguu_core.constants import JSON_TIME_FORMAT
 from zeeguu_core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from langdetect import detect
+
 
 db = zeeguu_core.db
 
@@ -53,6 +52,11 @@ class Article(db.Model):
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
 
+    from zeeguu_core.model.user import User
+
+    uploader_id = Column(Integer, ForeignKey(User.id))
+    uploader = relationship(User)
+
     from zeeguu_core.model.topic import Topic
 
     topics = relationship(
@@ -75,6 +79,7 @@ class Article(db.Model):
         published_time,
         rss_feed,
         language,
+        uploader=None,
         broken=0,
     ):
         self.url = url
@@ -85,6 +90,7 @@ class Article(db.Model):
         self.published_time = published_time
         self.rss_feed = rss_feed
         self.language = language
+        self.uploader = uploader
         self.broken = broken
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
@@ -131,15 +137,23 @@ class Article(db.Model):
         result_dict = dict(
             id=self.id,
             title=self.title,
-            url=self.url.as_string(),
             summary=summary,
             language=self.language.code,
-            authors=self.authors,
             topics=self.topics_as_string(),
             metrics=dict(
                 difficulty=self.fk_difficulty / 100, word_count=self.word_count
             ),
         )
+
+        if self.authors:
+            result_dict["authors"] = self.authors
+        elif self.uploader:
+            result_dict["authors"] = self.uploader.name
+        else:
+            result_dict["authors"] = ""
+
+        if self.url:
+            result_dict["url"] = self.url.as_string()
 
         if self.published_time:
             result_dict["published"] = self.published_time.strftime(JSON_TIME_FORMAT)
@@ -158,6 +172,17 @@ class Article(db.Model):
 
         return result_dict
 
+    def article_info_for_teacher(self):
+        from zeeguu_core.model import CohortArticleMap
+
+        info = self.article_info()
+        info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
+
+        return info
+
+    def is_owned_by(self, user):
+        return self.uploader_id == user.id
+
     def add_topic(self, topic):
         self.topics.append(topic)
 
@@ -174,6 +199,21 @@ class Article(db.Model):
         ua = UserArticle.find_or_create(session, user, self)
         ua.set_starred(state)
         session.add(ua)
+
+    @classmethod
+    def own_texts_for_user(cls, user):
+        return cls.query.filter(cls.uploader_id == user.id).all()
+
+    @classmethod
+    def create_from_upload(cls, session, title, content, uploader, language):
+
+        new_article = Article(
+            None, title, None, content, None, None, None, language, uploader
+        )
+        session.add(new_article)
+
+        session.commit()
+        return new_article.id
 
     @classmethod
     def find_or_create(cls, session, _url: str, language=None, sleep_a_bit=False):

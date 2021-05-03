@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import uuid
 
+from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_core.model.student import Student
 
 from .utils.json_result import json_result
@@ -157,7 +158,7 @@ def _get_user_info_for_teacher_dashboard(id, duration):
 def remove_cohort(cohort_id):
     """
     Removes cohort by cohort_id.
-    Can only be called successfuly if the class is empty.
+    Can only be called successfully if the class is empty.
 
     """
     from zeeguu_core.model import TeacherCohortMap
@@ -167,8 +168,9 @@ def remove_cohort(cohort_id):
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
-        if not selected_cohort.get_current_student_count() == 0:
-            flask.abort(400)
+        for student in selected_cohort.get_students():
+            student.cohort_id = None
+            db.session.add(student)
 
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
         for link in links:
@@ -308,22 +310,27 @@ def create_own_cohort():
     if not _is_teacher(flask.g.user.id):
         flask.abort(401)
 
-    inv_code = request.form.get("inv_code")
-    name = request.form.get("name")
-    language_id = request.form.get("language_id")
-    if name is None or inv_code is None or language_id is None:
+    params = request.form
+    inv_code = params.get("inv_code")
+    name = params.get("name")
+
+    # language_id is deprecated and kept here for backwards compatibility
+    # use language_code instead
+    language_code = params.get("language_code") or params.get("language_id")
+    if name is None or inv_code is None or language_code is None:
         flask.abort(400)
+
     available_languages = Language.available_languages()
     code_allowed = False
     for code in available_languages:
-        if language_id in str(code):
+        if language_code in str(code):
             code_allowed = True
 
     if not code_allowed:
         flask.abort(400)
-    language = Language.find_or_create(language_id)
+    language = Language.find_or_create(language_code)
     teacher_id = flask.g.user.id
-    max_students = request.form.get("max_students")
+    max_students = params.get("max_students")
     if int(max_students) < 1:
         flask.abort(400)
 
@@ -417,12 +424,18 @@ def update_cohort(cohort_id):
     if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
     try:
-        cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
-        cohort_to_change.inv_code = request.form.get("inv_code")
-        cohort_to_change.name = request.form.get("name")
+        params = request.form
 
-        cohort_to_change.declared_level_min = request.form.get("declared_level_min")
-        cohort_to_change.declared_level_max = request.form.get("declared_level_max")
+        cohort_to_change = Cohort.query.filter_by(id=cohort_id).one()
+        cohort_to_change.inv_code = params.get("inv_code")
+        cohort_to_change.name = params.get("name")
+
+        # language_id is deprecated; use language_code instead
+        language_code = params.get("language_code") or params.get("language_id")
+        cohort_to_change.language_id = Language.find(language_code).id
+
+        cohort_to_change.declared_level_min = params.get("declared_level_min")
+        cohort_to_change.declared_level_max = params.get("declared_level_max")
 
         db.session.commit()
         return "OK"
@@ -490,6 +503,7 @@ def cohort_files(cohort_id):
     return json.dumps(articles)
 
 
+# DEPRECATED!
 @api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
 @with_session
 def remove_article_from_cohort(cohort_id, article_id):
@@ -511,3 +525,73 @@ def remove_article_from_cohort(cohort_id, article_id):
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
+
+
+@api.route("/teacher_texts", methods=["GET"])
+@with_session
+def teacher_texts():
+    """
+    Gets all the articles of this teacher
+    """
+
+    articles = Article.own_texts_for_user(flask.g.user)
+    article_info_dicts = [article.article_info_for_teacher() for article in articles]
+
+    return json.dumps(article_info_dicts)
+
+
+@api.route("/get_cohorts_for_article/<article_id>", methods=["GET"])
+@with_session
+def get_cohorts_for_article(article_id):
+    """
+    Gets all the cohorts for this article
+    """
+
+    article = Article.find_by_id(article_id)
+
+    return json.dumps(CohortArticleMap.get_cohorts_for_article(article))
+
+
+@api.route("/add_article_to_cohort", methods=["POST"])
+@with_session
+def add_article_to_cohort():
+    """
+    Gets all the articles of this teacher
+    """
+
+    cohort = Cohort.find(request.form.get("cohort_id"))
+
+    if not has_permission_for_cohort(cohort.id):
+        flask.abort(401)
+
+    article = Article.find_by_id(request.form.get("article_id"))
+
+    if not CohortArticleMap.find(cohort.id, article.id):
+        new_mapping = CohortArticleMap(cohort, article)
+        db.session.add(new_mapping)
+        db.session.commit()
+
+    return "OK"
+
+
+@api.route("/delete_article_from_cohort", methods=["POST"])
+@with_session
+def delete_article_from_cohort():
+    """
+    Gets all the articles of this teacher
+    """
+
+    cohort = Cohort.find(request.form.get("cohort_id"))
+
+    if not has_permission_for_cohort(cohort.id):
+        flask.abort(401)
+
+    article = Article.find_by_id(request.form.get("article_id"))
+
+    mapping = CohortArticleMap.find(cohort.id, article.id)
+    if mapping:
+        db.session.delete(mapping)
+        db.session.commit()
+        return "OK"
+    else:
+        return make_error(401, "That article does not belong to the cohort!")

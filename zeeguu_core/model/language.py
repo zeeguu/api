@@ -7,27 +7,34 @@ db = zeeguu_core.db
 
 
 class Language(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'language'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "language"
 
     LANGUAGE_NAMES = {
-
-        'da': 'Danish',
-        'de': 'German',
-        'en': 'English',
-        'es': 'Spanish',
-        'fr': 'French',
-        'it': 'Italian',
-        'nl': 'Dutch',
-        'pl': 'Polish',
-        'pt': 'Portuguese',
-        'ro': 'Romanian',
-        'zh-CN': 'Chinese'
-
+        "da": "Danish",
+        "de": "German",
+        "en": "English",
+        "es": "Spanish",
+        "fr": "French",
+        "it": "Italian",
+        "nl": "Dutch",
+        "pl": "Polish",
+        "pt": "Portuguese",
+        "ro": "Romanian",
+        "zh-CN": "Chinese",
     }
 
-    CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = ['de', 'es', 'fr', 'nl', 'en', 'it', 'da', 'pl']
-    CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = ['da', 'en', 'nl', 'ro', 'zh-CN']
+    CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
+        "de",
+        "es",
+        "fr",
+        "nl",
+        "en",
+        "it",
+        "da",
+        "pl",
+    ]
+    CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = ["da", "en", "nl", "ro", "zh-CN"]
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(5))
@@ -38,7 +45,7 @@ class Language(db.Model):
         self.name = name
 
     def __repr__(self):
-        return '<Language %r>' % self.code
+        return "<Language %r>" % self.code
 
     def __eq__(self, other):
         return self.code == other.code or self.name == other.name
@@ -49,7 +56,6 @@ class Language(db.Model):
             id=self.id,
             code=self.code,
             language=self.name,
-
         )
 
     @classmethod
@@ -62,13 +68,17 @@ class Language(db.Model):
 
     @classmethod
     def native_languages(cls):
-        return [Language.find_or_create(code)
-                for code in cls.CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE]
+        return [
+            Language.find_or_create(code)
+            for code in cls.CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE
+        ]
 
     @classmethod
     def available_languages(cls):
-        return [Language.find_or_create(code)
-                for code in cls.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED]
+        return [
+            Language.find_or_create(code)
+            for code in cls.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
+        ]
 
     @classmethod
     def find(cls, code):
@@ -76,16 +86,16 @@ class Language(db.Model):
         return result
 
     @classmethod
-    def find_or_create(cls, language_id):
+    def find_or_create(cls, language_code):
         # due to the limitations of the WTFFOrms, the zh-CN can't be used in the UI...
-        if language_id == 'cn':
-            language_id = 'zh-CN'
+        if language_code == "cn":
+            language_code = "zh-CN"
 
         try:
-            language = cls.find(language_id)
+            language = cls.find(language_code)
 
         except NoResultFound:
-            language = cls(language_id, cls.LANGUAGE_NAMES[language_id])
+            language = cls(language_code, cls.LANGUAGE_NAMES[language_code])
             db.session.add(language)
             db.session.commit()
 
@@ -99,25 +109,37 @@ class Language(db.Model):
     def find_by_id(cls, i):
         return cls.query.filter(Language.id == i).one()
 
-    def get_articles(self, after_date=None, most_recent_first=False, easiest_first=False):
+    def get_articles(
+        self, after_date=None, most_recent_first=False, easiest_first=False
+    ):
         from zeeguu_core.model import Article
 
-        if hasattr(Language, 'cached_articles') and (self.cached_articles.get(self.id, None)):
-            zeeguu_core.logp(f"found {len(Language.cached_articles[self.id])} cached articles for {self.name}")
+        if hasattr(Language, "cached_articles") and (
+            self.cached_articles.get(self.id, None)
+        ):
+            zeeguu_core.logp(
+                f"found {len(Language.cached_articles[self.id])} cached articles for {self.name}"
+            )
             all_ids = Language.cached_articles[self.id]
             return Article.query.filter(Article.id.in_(all_ids)).all()
 
-        if not hasattr(Language, 'cached_articles'):
+        if not hasattr(Language, "cached_articles"):
             Language.cached_articles = {}
 
-        zeeguu_core.logp("computing and caching the articles for language: " + self.name)
-        Language.cached_articles[self.id] = [each.id for each in
-                                             self._get_articles(after_date, most_recent_first, easiest_first)]
+        zeeguu_core.logp(
+            "computing and caching the articles for language: " + self.name
+        )
+        Language.cached_articles[self.id] = [
+            each.id
+            for each in self._get_articles(after_date, most_recent_first, easiest_first)
+        ]
 
         all_ids = Language.cached_articles[self.id]
         return Article.query.filter(Article.id.in_(all_ids)).all()
 
-    def _get_articles(self, after_date=None, most_recent_first=False, easiest_first=False):
+    def _get_articles(
+        self, after_date=None, most_recent_first=False, easiest_first=False
+    ):
         """
 
             Articles for this language from the article DB
@@ -135,11 +157,12 @@ class Language(db.Model):
             after_date = datetime(2001, 1, 1)
 
         try:
-            q = (Article.query.
-                 filter(Article.language == self).
-                 filter(Article.broken == 0).
-                 filter(Article.published_time >= after_date).
-                 filter(Article.word_count > Article.MINIMUM_WORD_COUNT))
+            q = (
+                Article.query.filter(Article.language == self)
+                .filter(Article.broken == 0)
+                .filter(Article.published_time >= after_date)
+                .filter(Article.word_count > Article.MINIMUM_WORD_COUNT)
+            )
 
             if most_recent_first:
                 q = q.order_by(Article.published_time.desc())

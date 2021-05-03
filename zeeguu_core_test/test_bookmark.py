@@ -1,8 +1,10 @@
 import random
 
 from zeeguu_core.bookmark_quality import top_bookmarks, bad_quality_bookmark
-from zeeguu_core.definition_of_learned import is_learned_based_on_exercise_outcomes, \
-    CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
+from zeeguu_core.definition_of_learned import (
+    is_learned_based_on_exercise_outcomes,
+    CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED,
+)
 from zeeguu_core.model.SortedExerciseLog import SortedExerciseLog
 from zeeguu_core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu_core_test.model_test_mixin import ModelTestMixIn
@@ -53,17 +55,14 @@ class BookmarkTest(ModelTestMixIn):
 
         assert random_bookmark.content_is_not_too_long()
 
-        random_text_long = TextRule(length=200).text
-        random_bookmark.text = random_text_long
-
-        assert not random_bookmark.content_is_not_too_long()
-
     def test_add_exercise_outcome(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         random_exercise = ExerciseRule().exercise
-        random_bookmark.add_new_exercise_result(random_exercise.source,
-                                                random_exercise.outcome,
-                                                random_exercise.solving_speed)
+        random_bookmark.add_new_exercise_result(
+            random_exercise.source,
+            random_exercise.outcome,
+            random_exercise.solving_speed,
+        )
         latest_exercise = random_bookmark.exercise_log[-1]
 
         assert latest_exercise.source == random_exercise.source
@@ -102,7 +101,9 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         exercise_count_before = len(random_bookmark.exercise_log)
 
-        random_bookmark.add_new_exercise_result(SourceRule().random, OutcomeRule().random, random.randint(100, 1000))
+        random_bookmark.add_new_exercise_result(
+            SourceRule().random, OutcomeRule().random, random.randint(100, 1000)
+        )
 
         exercise_count_after = len(random_bookmark.exercise_log)
 
@@ -124,7 +125,9 @@ class BookmarkTest(ModelTestMixIn):
 
     def find_all_for_user_and_text(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_all_for_text_and_user(bookmark_should_be.text, self.user)
+        bookmark_to_check = Bookmark.find_all_for_text_and_user(
+            bookmark_should_be.text, self.user
+        )
 
         assert bookmark_should_be in bookmark_to_check
 
@@ -136,14 +139,17 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_find_all_by_user_and_word(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_all_by_user_and_word(self.user, bookmark_should_be.origin)
+        bookmark_to_check = Bookmark.find_all_by_user_and_word(
+            self.user, bookmark_should_be.origin
+        )
 
         assert bookmark_should_be in bookmark_to_check
 
     def test_find_by_user_word_and_text(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_by_user_word_and_text(self.user, bookmark_should_be.origin,
-                                                                bookmark_should_be.text)
+        bookmark_to_check = Bookmark.find_by_user_word_and_text(
+            self.user, bookmark_should_be.origin, bookmark_should_be.text
+        )
 
         assert bookmark_to_check == bookmark_should_be
 
@@ -160,25 +166,34 @@ class BookmarkTest(ModelTestMixIn):
         random_exercise = ExerciseRule().exercise
         random_bookmark.add_new_exercise(random_exercise)
 
-        assert random_exercise.outcome == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
+        assert (
+            random_exercise.outcome
+            == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
+        )
 
     def test_is_learned_based_on_exercise_outcomes(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
 
         # Empty exercise_log should lead to a False return
-        learned = is_learned_based_on_exercise_outcomes(SortedExerciseLog(random_bookmarks[0]))
+        learned = is_learned_based_on_exercise_outcomes(
+            SortedExerciseLog(random_bookmarks[0])
+        )
         assert not learned
 
         # An exercise with Outcome equal to TOO EASY results in True, and time of last exercise
         random_exercise = ExerciseRule().exercise
         random_exercise.outcome = OutcomeRule().too_easy
         random_bookmarks[1].add_new_exercise(random_exercise)
-        learned = is_learned_based_on_exercise_outcomes(SortedExerciseLog(random_bookmarks[1]))
+        learned = is_learned_based_on_exercise_outcomes(
+            SortedExerciseLog(random_bookmarks[1])
+        )
         result_time = SortedExerciseLog(random_bookmarks[1]).last_exercise_time()
         assert learned and result_time == random_exercise.time
 
         # Same test as above, but without a second return value
-        learned = is_learned_based_on_exercise_outcomes(SortedExerciseLog(random_bookmarks[1]))
+        learned = is_learned_based_on_exercise_outcomes(
+            SortedExerciseLog(random_bookmarks[1])
+        )
         assert learned
 
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
@@ -186,8 +201,10 @@ class BookmarkTest(ModelTestMixIn):
         correct_bookmark = random_bookmarks[2]
         exercises = 0
         distinct_dates = set()
-        while not (exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED and
-                   len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED):
+        while not (
+            exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
+            and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
+        ):
             correct_exercise = ExerciseRule().exercise
             correct_exercise.outcome = OutcomeRule().correct
             correct_bookmark.add_new_exercise(correct_exercise)
@@ -215,4 +232,4 @@ class BookmarkTest(ModelTestMixIn):
         assert not learned
 
     def test_top_bookmarks(self):
-        assert (top_bookmarks(self.user))
+        assert top_bookmarks(self.user)

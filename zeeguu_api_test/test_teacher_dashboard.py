@@ -201,7 +201,12 @@ class TeacherTest(APITestMixin, TestCase):
         teacher_session, _ = self._create_teacher_and_class(test_teacher, french_b1)
 
         # Test valid update
-        update_info = {"inv_code": "123", "name": "SpanishB1", "max_students": "11"}
+        update_info = {
+            "inv_code": "123",
+            "name": "SpanishB1",
+            "max_students": "11",
+            "language_code": "de",
+        }
         result = self.app.post(
             f"/update_cohort/1?session={teacher_session}", data=update_info
         )

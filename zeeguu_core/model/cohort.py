@@ -7,7 +7,7 @@ db = zeeguu_core.db
 
 
 class Cohort(zeeguu_core.db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     inv_code = db.Column(db.String(255), unique=True)
@@ -19,7 +19,9 @@ class Cohort(zeeguu_core.db.Model):
     declared_level_max = Column(Integer)
     is_cohort_of_teachers = Column(Boolean)
 
-    def __init__(self, inv_code, name, language, max_students, level_min=0, level_max=10):
+    def __init__(
+        self, inv_code, name, language, max_students, level_min=0, level_max=10
+    ):
         self.inv_code = inv_code
         self.name = name
         self.language = language
@@ -28,24 +30,16 @@ class Cohort(zeeguu_core.db.Model):
         self.declared_level_max = level_max
         self.is_cohort_of_teachers = False  # by default a cohort is a student cohort!
 
-    @classmethod
-    def find(cls, id):
-        return cls.query.filter_by(id=id).one()
-
-    @classmethod
-    def get_id(cls, inv):
-        c = cls.query.filter_by(inv_code=inv).one()
-        return c.id
-
     def get_current_student_count(self):
         from zeeguu_core.model.user import User
+
         users_in_cohort = User.query.filter_by(cohort_id=self.id).all()
         return len(users_in_cohort)
 
     def cohort_still_has_capacity(self):
         # +10 here is just an approximation, because in the UI we
         # ask the teacher to give us an approximate number
-        if (self.get_current_student_count() < self.max_students + 10):
+        if self.get_current_student_count() < self.max_students + 10:
             return True
         return False
 
@@ -63,7 +57,21 @@ class Cohort(zeeguu_core.db.Model):
 
     def get_teachers(self):
         from zeeguu_core.model.teacher_cohort_map import TeacherCohortMap
+
         return TeacherCohortMap.get_teachers_for(self)
+
+    @classmethod
+    def find(cls, id):
+        return cls.query.filter_by(id=id).one()
+
+    @classmethod
+    def find_by_code(cls, invite_code):
+        return cls.query.filter_by(inv_code=invite_code).one()
+
+    @classmethod
+    def get_id(cls, inv):
+        c = cls.query.filter_by(inv_code=inv).one()
+        return c.id
 
     @classmethod
     def exists_with_invite_code(cls, code: str):

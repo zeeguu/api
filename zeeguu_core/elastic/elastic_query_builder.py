@@ -21,7 +21,7 @@ def build_more_like_this_query(count, content, language):
         add_to_dict(more_like_this, "like", content)
         add_to_dict(more_like_this, "min_term_freq", 1)
         add_to_dict(more_like_this, "max_query_terms", 25)
-        must.append({'more_like_this': more_like_this})
+        must.append({"more_like_this": more_like_this})
 
         must.append(match("language", language.name))
 
@@ -29,44 +29,53 @@ def build_more_like_this_query(count, content, language):
     return query_body
 
 
-def build_elastic_query(count, search_terms, topics, unwanted_topics, user_topics, unwanted_user_topics, language, upper_bounds,
-                        lower_bounds):
+def build_elastic_query(
+    count,
+    search_terms,
+    topics,
+    unwanted_topics,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+):
     """
 
-        Builds an elastic search query.
-        Does this by building a big JSON object.
+    Builds an elastic search query.
+    Does this by building a big JSON object.
 
-        Example of a final query body:
-        {'size': 20.0, 'query':
-            {'bool':
+    Example of a final query body:
+    {'size': 20.0, 'query':
+        {'bool':
+            {
+            'filter':
                 {
-                'filter':
+                'range':
                     {
-                    'range':
+                    'fk_difficulty':
                         {
-                        'fk_difficulty':
-                            {
-                            'gt': 0,
-                             'lt': 100
-                             }
-                        }
-                    },
-                'should': [
-                    {'match': {'topics': 'Sport'}},
-                    {'match': {'content': 'soccer ronaldo'}},
-                    {'match': {'title': 'soccer ronaldo'}}
-                ],
-                'must': [
-                    {'match': {'language': 'English'}}
-                ],
-                'must_not': [
-                    {'match': {'topics': 'Health'}},
-                    {'match': {'content': 'messi'}},
-                    {'match': {'title': 'messi'}}
-                    ]
-                }
+                        'gt': 0,
+                         'lt': 100
+                         }
+                    }
+                },
+            'should': [
+                {'match': {'topics': 'Sport'}},
+                {'match': {'content': 'soccer ronaldo'}},
+                {'match': {'title': 'soccer ronaldo'}}
+            ],
+            'must': [
+                {'match': {'language': 'English'}}
+            ],
+            'must_not': [
+                {'match': {'topics': 'Health'}},
+                {'match': {'content': 'messi'}},
+                {'match': {'title': 'messi'}}
+                ]
             }
         }
+    }
 
     """
 
@@ -106,23 +115,27 @@ def build_elastic_query(count, search_terms, topics, unwanted_topics, user_topic
 
     must.append(exists("published_time"))
     # add the must, must_not and should lists to the query body
-    bool_query_body["query"]["bool"].update({"filter": {"range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}}})
+    bool_query_body["query"]["bool"].update(
+        {
+            "filter": {
+                "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
+            }
+        }
+    )
 
     bool_query_body["query"]["bool"].update({"should": should})
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
 
-
     full_query = {"size": count, "query": {"function_score": {}}}
 
     function1 = {
-            "gauss": {"published_time": {
-                    "scale": "365d",
-                    "offset": "7d",
-                    "decay": 0.3
-                }
-            }, "weight": 1.2
-          }
+        # original parameters by Simon & Marcus
+        # "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
+        # "weight": 1.2,
+        "gauss": {"published_time": {"origin": "now", "scale": "30d", "decay": 0.8}},
+        "weight": 4.2,
+    }
 
     full_query["query"]["function_score"].update({"functions": [function1]})
     full_query["query"]["function_score"].update(bool_query_body)

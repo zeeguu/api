@@ -25,5 +25,5 @@ requests_mock
 sentry-sdk[flask]
 sortedcontainers
 SQLAlchemy==1.3.20
-wordstats
-
+git+git://github.com/zeeguu-ecosystem/Python-Wordstats.git@master#egg=wordstats
+google-cloud-texttospeech==2.3.0

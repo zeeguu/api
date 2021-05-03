@@ -2,6 +2,7 @@ import traceback
 import flask
 
 import zeeguu_core
+from zeeguu_core.exercises.similar_words import similar_words
 from zeeguu_core.model import Bookmark
 from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import (
     BookmarkPriorityUpdater,
@@ -80,6 +81,9 @@ def report_exercise_outcome(
     :return:
     """
 
+    if not exercise_solving_speed.isdigit():
+        exercise_solving_speed = 0
+
     try:
         bookmark = Bookmark.find(bookmark_id)
         bookmark.report_exercise_outcome(
@@ -90,3 +94,12 @@ def report_exercise_outcome(
     except:
         traceback.print_exc()
         return "FAIL"
+
+
+@api.route("/similar_words/<bookmark_id>", methods=["GET"])
+@cross_domain
+@with_session
+def similar_words_api(bookmark_id):
+
+    bookmark = Bookmark.find(bookmark_id)
+    return json_result(similar_words(bookmark, flask.g.user))

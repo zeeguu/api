@@ -1,13 +1,36 @@
 import flask
-import zeeguu_core
+from flask import request
+
+
 from zeeguu_core.content_recommender import article_recommendations_for_user
-from zeeguu_core.model import UserArticle, UserReadingSession, User
+from zeeguu_core.model import UserArticle, UserReadingSession, User, Article, Language
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api
 
-session = zeeguu_core.db.session
+
+@api.route("/post_user_article", methods=["POST"])
+@cross_domain
+def post_user_article():
+
+    import newspaper
+
+    article = newspaper.Article("")
+    article.set_html((request.form.get("page_content")))
+    article.parse()
+
+    return (
+        f"<p>You submitted the following data</p><p>{str(request.form.get('title'))}</p><br/>"
+        f"<img src='{article.top_image}'/> with content: {article.text} "
+        f"and top image: {article.top_image}"
+        f"<p>Normally next steps would be: <ul>"
+        f" <li>Save article in DB and get SOME_NEW_ID</li>"
+        f" <li>Redirect to "
+        f"      https://zeeguu.com/posted_article/article?id=SOME_NEW_ID</li> "
+        f" or something similar"
+        f"</ul></p>"
+    )
 
 
 # ---------------------------------------------------------------------------
