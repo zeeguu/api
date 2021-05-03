@@ -100,6 +100,6 @@ def report_exercise_outcome(
 @cross_domain
 @with_session
 def similar_words_api(bookmark_id):
-
+    
     bookmark = Bookmark.find(bookmark_id)
-    return json_result(similar_words(bookmark, flask.g.user))
+    return json_result(similar_words(bookmark.origin.word, bookmark.origin.language, flask.g.user))
