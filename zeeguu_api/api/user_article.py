@@ -6,6 +6,8 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api, db_session
 
+import newspaper
+
 
 # ---------------------------------------------------------------------------
 @api.route("/user_article", methods=("GET",))
@@ -111,7 +113,6 @@ def user_article_update():
 @cross_domain
 @with_session
 def parse_html():
-    import newspaper
 
     article_html = request.form.get("html")
 
@@ -134,7 +135,6 @@ def parse_html():
 @cross_domain
 @with_session
 def parse_url():
-    import newspaper
 
     article_url = request.form.get("url")
 
