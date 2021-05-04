@@ -104,6 +104,7 @@ def user_article_update():
 
     return "OK"
 
+
 # ---------------------------------------------------------------------------
 @api.route("/parse_html", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -114,11 +115,17 @@ def parse_html():
 
     article_html = request.form.get("html")
 
-    art = newspaper.Article(url='')
+    art = newspaper.Article(url="")
     art.set_html(article_html)
     art.parse()
 
-    return json_result({'article_title':art.title,'text':art.text})
+    return json_result(
+        {
+            "title": art.title,
+            "text": art.text,
+            "top_image": art.top_image,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -135,4 +142,10 @@ def parse_url():
     art.download()
     art.parse()
 
-    return json_result({'article_title':art.title,'text':art.text})
+    return json_result(
+        {
+            "title": art.title,
+            "text": art.text,
+            "top_image": art.top_image,
+        }
+    )
