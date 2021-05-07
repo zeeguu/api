@@ -13,7 +13,7 @@ from zeeguu_core.model import Cohort, Language, Article, Url
 from zeeguu_core.model.cohort_article_map import CohortArticleMap
 from .decorator import only_teachers
 from .permissions import (
-    _abort_if_no_permission_for_cohort,
+    check_permission_for_cohort,
 )
 from .. import api
 from ..utils.route_wrappers import with_session
@@ -31,7 +31,7 @@ def add_article_to_cohort():
 
     cohort = Cohort.find(request.form.get("cohort_id"))
 
-    _abort_if_no_permission_for_cohort(cohort.id)
+    check_permission_for_cohort(cohort.id)
 
     article = Article.find_by_id(request.form.get("article_id"))
 
@@ -50,7 +50,7 @@ def upload_articles(cohort_id):
     """
     uploads articles for a cohort with input from a POST request
     """
-    _abort_if_no_permission_for_cohort(cohort_id)
+    check_permission_for_cohort(cohort_id)
 
     try:
         for article_data in json.loads(request.data):
@@ -112,7 +112,7 @@ def delete_article_from_cohort():
 
     cohort = Cohort.find(request.form.get("cohort_id"))
 
-    _abort_if_no_permission_for_cohort(cohort.id)
+    check_permission_for_cohort(cohort.id)
 
     article = Article.find_by_id(request.form.get("article_id"))
 
@@ -135,7 +135,7 @@ def remove_article_from_cohort(cohort_id, article_id):
     Only works if the teacher has permission to access the class
     """
 
-    _abort_if_no_permission_for_cohort(cohort_id)
+    check_permission_for_cohort(cohort_id)
 
     try:
         article_in_class = CohortArticleMap.query.filter_by(article_id=article_id).one()
@@ -157,7 +157,7 @@ def cohort_files(cohort_id):
     """
     Gets the files associated with a cohort
     """
-    _abort_if_no_permission_for_cohort(cohort_id)
+    check_permission_for_cohort(cohort_id)
 
     cohort = Cohort.find(cohort_id)
     articles = CohortArticleMap.get_articles_info_for_cohort(cohort)

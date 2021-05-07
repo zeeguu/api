@@ -18,7 +18,7 @@ def has_permission_for_cohort(cohort_id):
     return False
 
 
-def _abort_if_no_permission_for_cohort(cohort_id):
+def check_permission_for_cohort(cohort_id):
     if not has_permission_for_cohort(cohort_id):
         flask.abort(401)
 
@@ -26,10 +26,10 @@ def _abort_if_no_permission_for_cohort(cohort_id):
 def _abort_if_no_permission_for_user(user_id):
     # TODO: optimize this to only use one query
     user = User.query.filter_by(id=user_id).one()
-    _abort_if_no_permission_for_cohort(user.cohort_id)
+    check_permission_for_cohort(user.cohort_id)
 
 
-def _abort_if_no_permission_for_user(id):
+def check_permission_for_user(id):
     try:
         user = User.query.filter_by(id=id).one()
         if not has_permission_for_cohort(user.cohort_id):

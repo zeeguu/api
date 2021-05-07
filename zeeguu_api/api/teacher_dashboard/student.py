@@ -9,13 +9,22 @@ from zeeguu_core.model import User, Cohort
 from .decorator import only_teachers
 from .helpers import student_info_for_teacher_dashboard
 from .permissions import (
-    _abort_if_no_permission_for_cohort,
-    _abort_if_no_permission_for_user,
+    check_permission_for_cohort,
+    check_permission_for_user,
     has_permission_for_cohort,
 )
 from .. import api
 from ..utils.json_result import json_result
 from ..utils.route_wrappers import with_session
+
+
+@api.route("/user_info/<id>/<duration>", methods=["GET"])
+@with_session
+def user_info_api(id, duration):
+
+    check_permission_for_user(id)
+
+    return jsonify(student_info_for_teacher_dashboard(id, duration))
 
 
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
@@ -25,7 +34,7 @@ def cohort_member_bookmarks(id, time_period):
 
     user = User.query.filter_by(id=id).one()
 
-    _abort_if_no_permission_for_cohort(user.cohort_id)
+    check_permission_for_cohort(user.cohort_id)
 
     now = datetime.today()
     date = now - timedelta(days=int(time_period))
@@ -38,15 +47,6 @@ def cohort_member_bookmarks(id, time_period):
             True, date, with_title=True, max=10000, language_id=cohort_language_id
         )
     )
-
-
-@api.route("/user_info/<id>/<duration>", methods=["GET"])
-@with_session
-def user_info_api(id, duration):
-
-    _abort_if_no_permission_for_user(id)
-
-    return jsonify(student_info_for_teacher_dashboard(id, duration))
 
 
 @api.route("/cohort_member_reading_sessions/<id>/<time_period>", methods=["GET"])

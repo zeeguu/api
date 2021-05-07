@@ -13,7 +13,7 @@ from .helpers import (
     get_cohort_info,
 )
 from .permissions import (
-    _abort_if_no_permission_for_cohort,
+    check_permission_for_cohort,
 )
 from .. import api
 from ..utils.route_wrappers import with_session
@@ -31,7 +31,7 @@ def remove_cohort(cohort_id):
     """
     from zeeguu_core.model import TeacherCohortMap
 
-    _abort_if_no_permission_for_cohort(cohort_id)
+    check_permission_for_cohort(cohort_id)
 
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
@@ -123,7 +123,7 @@ def update_cohort(cohort_id):
     requires input form (inv_code, name, max_students)
 
     """
-    _abort_if_no_permission_for_cohort(cohort_id)
+    check_permission_for_cohort(cohort_id)
 
     try:
         params = request.form
@@ -155,7 +155,7 @@ def users_from_cohort(id, duration):
     """
     Takes id for a cohort and returns all users belonging to that cohort.
     """
-    _abort_if_no_permission_for_cohort(id)
+    check_permission_for_cohort(id)
 
     try:
         users_info = all_user_info_from_cohort(id, duration)
@@ -200,6 +200,6 @@ def wrapper_to_json_class(id):
     Takes id of cohort and then wraps _get_cohort_info
     returns jsonified result of _get_cohort_info
     """
-    _abort_if_no_permission_for_cohort(id)
+    check_permission_for_cohort(id)
 
     return jsonify(get_cohort_info(id))

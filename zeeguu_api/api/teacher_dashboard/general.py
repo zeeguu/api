@@ -9,7 +9,7 @@ from .helpers import all_user_info_from_cohort
 from .permissions import (
     has_permission_for_cohort,
     is_teacher,
-    _abort_if_no_permission_for_user,
+    check_permission_for_user,
 )
 
 
@@ -44,7 +44,7 @@ def has_permission_for_cohort_api(id):
 @only_teachers
 def has_permission_for_user_info(id):
 
-    _abort_if_no_permission_for_user(id)
+    check_permission_for_user(id)
 
     return "OK"
 
