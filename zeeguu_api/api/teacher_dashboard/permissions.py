@@ -32,7 +32,8 @@ def _abort_if_no_permission_for_user(user_id):
 def _abort_if_no_permission_for_user(id):
     try:
         user = User.query.filter_by(id=id).one()
-        return has_permission_for_cohort(user.cohort_id)
+        if not has_permission_for_cohort(user.cohort_id):
+            flask.abort(401)
     except KeyError:
         flask.abort(400)
         return "KeyError"

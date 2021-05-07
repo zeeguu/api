@@ -42,7 +42,7 @@ def cohort_member_bookmarks(id, time_period):
 
 @api.route("/user_info/<id>/<duration>", methods=["GET"])
 @with_session
-def wrapper_to_json_user(id, duration):
+def user_info_api(id, duration):
 
     _abort_if_no_permission_for_user(id)
 

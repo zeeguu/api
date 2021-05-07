@@ -31,7 +31,7 @@ def remove_cohort(cohort_id):
     """
     from zeeguu_core.model import TeacherCohortMap
 
-    _abort_if_no_permission_for_cohort(id)
+    _abort_if_no_permission_for_cohort(cohort_id)
 
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
