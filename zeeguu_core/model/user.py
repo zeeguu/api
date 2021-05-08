@@ -553,9 +553,6 @@ class User(db.Model):
 
         return learner_stats_data
 
-    def exercise_correctness(self, date, cohort_language_id):
-        pass
-
     def user_words(self):
         return [b.origin.word for b in self.all_bookmarks()]
 

@@ -1,21 +1,27 @@
 import datetime
 from datetime import timedelta
 
+from dateutil.utils import today
+
+import zeeguu_core
+
 import flask
 from flask import jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu_core.model import User, Cohort
+from zeeguu_core.user_statistics.exercise_corectness import exercise_correctness
 from .decorator import only_teachers
 from .helpers import student_info_for_teacher_dashboard
 from .permissions import (
     check_permission_for_cohort,
     check_permission_for_user,
-    has_permission_for_cohort,
 )
 from .. import api
 from ..utils.json_result import json_result
 from ..utils.route_wrappers import with_session
+
+db = zeeguu_core.db
 
 
 @api.route("/user_info/<id>/<duration>", methods=["GET"])
@@ -66,17 +72,28 @@ def cohort_member_reading_sessions(id, time_period):
     cohort = Cohort.query.filter_by(id=user.cohort_id).one()
     cohort_language_id = cohort.language_id
 
-    now = datetime.today()
+    now = today()
     date = now - timedelta(days=int(time_period))
     return json_result(
         user.reading_sessions_by_day(date, max=10000, language_id=cohort_language_id)
     )
 
 
-@api.route("/get_exercise_correctness/<student_id>/<number_of_days>", methods=["GET"])
+@api.route("/exercise_correctness/<student_id>/<number_of_days>", methods=["GET"])
 @with_session
-def student_reading_sessions(student_id, number_of_days):
-
+def exercise_correctness_api(student_id, number_of_days):
+    """
+    e.g. GET http://localhost:9001/exercise_correctness/534/30
+        {
+            "Correct": 55,
+            "Incorrect": 4,
+            "Wrong": 2,
+            "too_easy": 1
+        }
+    :param student_id:
+    :param number_of_days:
+    :return:
+    """
     try:
         user = User.query.filter_by(id=student_id).one()
     except NoResultFound:
@@ -84,10 +101,8 @@ def student_reading_sessions(student_id, number_of_days):
 
     check_permission_for_user(user.id)
 
-    cohort = Cohort.query.filter_by(id=user.cohort_id).one()
-    cohort_language_id = cohort.language_id
+    now = today()
+    then = now - timedelta(days=int(number_of_days))
+    stats = exercise_correctness(user.id, then, now)
 
-    now = datetime.today()
-    date = now - timedelta(days=int(number_of_days))
-
-    return json_result(user.exercise_correctness(date, cohort_language_id))
+    return json_result(stats)

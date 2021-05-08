@@ -22,7 +22,7 @@ from . import recommendations
 from . import user_article
 from . import user_articles
 from . import user_languages
-from . import teacher_dashboard
+from .teacher_dashboard import *
 from . import topics
 from . import search
 from . import article
