@@ -526,9 +526,7 @@ class User(db.Model):
         """
 
         # compute bookmark_counts_by_date
-        year = (
-            datetime.date.today().year - 1
-        )
+        year = datetime.date.today().year - 1
         month = datetime.date.today().month
         bookmarks_dict, dates = self.bookmarks_by_date(
             datetime.datetime(year, month, 1)
@@ -554,6 +552,9 @@ class User(db.Model):
         learner_stats_data = compute_learner_stats(self)
 
         return learner_stats_data
+
+    def exercise_correctness(self, date, cohort_language_id):
+        pass
 
     def user_words(self):
         return [b.origin.word for b in self.all_bookmarks()]

@@ -61,8 +61,7 @@ def cohort_member_reading_sessions(id, time_period):
         flask.abort(400)
         return "NoUserFound"
 
-    if not has_permission_for_cohort(user.cohort_id):
-        flask.abort(401)
+    check_permission_for_cohort(user.cohort_id)
 
     cohort = Cohort.query.filter_by(id=user.cohort_id).one()
     cohort_language_id = cohort.language_id
@@ -72,3 +71,23 @@ def cohort_member_reading_sessions(id, time_period):
     return json_result(
         user.reading_sessions_by_day(date, max=10000, language_id=cohort_language_id)
     )
+
+
+@api.route("/get_exercise_correctness/<student_id>/<number_of_days>", methods=["GET"])
+@with_session
+def student_reading_sessions(student_id, number_of_days):
+
+    try:
+        user = User.query.filter_by(id=student_id).one()
+    except NoResultFound:
+        flask.abort(400)
+
+    check_permission_for_user(user.id)
+
+    cohort = Cohort.query.filter_by(id=user.cohort_id).one()
+    cohort_language_id = cohort.language_id
+
+    now = datetime.today()
+    date = now - timedelta(days=int(number_of_days))
+
+    return json_result(user.exercise_correctness(date, cohort_language_id))
