@@ -11,6 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu_core.model import User, Cohort
 from zeeguu_core.user_statistics.exercise_corectness import exercise_correctness
+from zeeguu_core.user_statistics.reading_sessions import reading_sessions
 from .decorator import only_teachers
 from .helpers import student_info_for_teacher_dashboard
 from .permissions import (
@@ -55,6 +56,111 @@ def cohort_member_bookmarks(id, time_period):
     )
 
 
+@api.route("/student_exercise_correctness", methods=["POST"])
+@with_session
+def student_exercise_correctness():
+    """
+    :param student_id: int
+    :param number_of_days: int
+    :param cohort_id: int
+    :return: e.g.
+        {
+            "Correct": 55,
+            "2nd Try": 55,
+            "Incorrect": 4,
+            "too_easy": 1,
+            "Bad Example":1,
+        }
+    """
+    student_id = flask.request.form.get("student_id")
+    number_of_days = flask.request.form.get("number_of_days")
+    cohort_id = flask.request.form.get("cohort_id")
+
+    try:
+        user = User.query.filter_by(id=student_id).one()
+    except NoResultFound:
+        flask.abort(400)
+
+    check_permission_for_user(user.id)
+
+    now = today()
+    then = now - timedelta(days=int(number_of_days))
+    stats = exercise_correctness(user.id, cohort_id, then, now)
+
+    return json_result(stats)
+
+
+@api.route("/student_reading_sessions", methods=["POST"])
+@with_session
+def student_reading_sessions():
+    """
+    :param student_id: int
+    :param number_of_days: int
+    :param cohort_id: int
+    :return: Example output
+        [
+            {
+                "session_id": 52719,
+                "user_id": 534,
+                "start_time": "2021-04-26T18:45:18",
+                "end_time": "2021-04-26T18:48:01",
+                "duration_in_sec": 163,
+                "article_id": 1505738,
+                "title": "Dieter Henrichs Autobiographie: Das Ich, das viel besagt",
+                "word_count": 490,
+                "difficulty": 54,
+                "language_id": 3,
+                "translations": []
+            },
+            {
+                "session_id": 52665,
+                "user_id": 534,
+                "start_time": "2021-04-17T15:20:09",
+                "end_time": "2021-04-17T15:22:43",
+                "duration_in_sec": 154,
+                "article_id": 1504732,
+                "title": "Interview mit Swiss Re-Chef",
+                "word_count": 134,
+                "difficulty": 40,
+                "language_id": 3,
+                "translations": [
+                    {
+                        "id": 279611,
+                        "word": "Zugang",
+                        "translation": "Access",
+                        "practiced": 1
+                    },
+                    {
+                        "id": 279612,
+                        "word": "Verwaltungsratspräsident",
+                        "translation": "Chairman of the Board of Directors",
+                        "practiced": 0
+                    }
+                ]
+            }
+        ]
+    """
+
+    student_id = flask.request.form.get("student_id")
+    number_of_days = flask.request.form.get("number_of_days")
+    cohort_id = flask.request.form.get("cohort_id")
+
+    try:
+        user = User.query.filter_by(id=student_id).one()
+    except NoResultFound:
+        flask.abort(400)
+
+    check_permission_for_user(user.id)
+
+    now = today()
+    then = now - timedelta(days=int(number_of_days))
+    sessions = reading_sessions(user.id, cohort_id, then, now)
+
+    return json_result(sessions)
+
+
+# deprecated
+# use student_reading_sessions
 @api.route("/cohort_member_reading_sessions/<id>/<time_period>", methods=["GET"])
 @with_session
 def cohort_member_reading_sessions(id, time_period):
@@ -77,39 +183,3 @@ def cohort_member_reading_sessions(id, time_period):
     return json_result(
         user.reading_sessions_by_day(date, max=10000, language_id=cohort_language_id)
     )
-
-
-@api.route("/student_exercise_correctness", methods=["POST"])
-@with_session
-def student_exercise_correctness():
-    """
-    e.g. POST http://localhost:9001/exercise_correctness/534/30
-        {
-            "Correct": 55,
-            "2nd Try": 55,
-            "Incorrect": 4,
-            "too_easy": 1,
-            "Bad Example":1,
-        }
-    :param student_id: int
-    :param number_of_days: int
-    :param cohort_id: int
-    :return:
-    """
-
-    student_id = flask.request.form.get("student_id")
-    number_of_days = flask.request.form.get("number_of_days")
-    cohort_id = flask.request.form.get("cohort_id")
-
-    try:
-        user = User.query.filter_by(id=student_id).one()
-    except NoResultFound:
-        flask.abort(400)
-
-    # check_permission_for_user(user.id)
-
-    now = today()
-    then = now - timedelta(days=int(number_of_days))
-    stats = exercise_correctness(user.id, cohort_id, then, now)
-
-    return json_result(stats)

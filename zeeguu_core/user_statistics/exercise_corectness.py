@@ -1,5 +1,5 @@
 import zeeguu_core
-
+from zeeguu_core.sql.query_building import date_format
 
 db = zeeguu_core.db
 
@@ -23,10 +23,8 @@ def exercise_correctness(user_id, cohort_id, start_date, end_date):
             group by outcome
     """
 
-    query = query.replace('"', " ")
-
-    start_date_fmt = start_date.strftime("%Y-%m-%d")
-    end_date_fmt = end_date.strftime("%Y-%m-%d")
+    start_date_fmt = date_format(start_date)
+    end_date_fmt = date_format(end_date)
 
     rows = db.session.execute(
         query, {"userid": user_id, "startDate": start_date_fmt, "endDate": end_date_fmt}
