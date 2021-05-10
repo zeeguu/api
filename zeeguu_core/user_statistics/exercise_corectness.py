@@ -4,7 +4,9 @@ import zeeguu_core
 db = zeeguu_core.db
 
 
-def exercise_correctness(user_id, start_date, end_date):
+def exercise_correctness(user_id, cohort_id, start_date, end_date):
+
+    # TODO: Use the cohort id in the query in order to ensure that we're only looking at the appropriate language
 
     query = """
         select o.outcome, count(o.outcome)

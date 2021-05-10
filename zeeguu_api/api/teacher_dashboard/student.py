@@ -93,11 +93,13 @@ def student_exercise_correctness():
         }
     :param student_id: int
     :param number_of_days: int
+    :param cohort_id: int
     :return:
     """
 
     student_id = flask.request.form.get("student_id")
     number_of_days = flask.request.form.get("number_of_days")
+    cohort_id = flask.request.form.get("cohort_id")
 
     try:
         user = User.query.filter_by(id=student_id).one()
@@ -108,6 +110,6 @@ def student_exercise_correctness():
 
     now = today()
     then = now - timedelta(days=int(number_of_days))
-    stats = exercise_correctness(user.id, then, now)
+    stats = exercise_correctness(user.id, cohort_id, then, now)
 
     return json_result(stats)
