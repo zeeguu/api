@@ -5,17 +5,17 @@ db = zeeguu_core.db
 
 
 def correctness_percentage(user_id, cohort_id, start_date, end_date):
-    correctness = exercise_correctness(user_id, cohort_id, start_date, end_date)
+    correctness_stats = exercise_correctness(user_id, cohort_id, start_date, end_date)
 
     total = 0
-    for each in correctness.values():
+    for each in correctness_stats.values():
         total += each
 
     if total == 0:
         return 0
 
     return {
-        "correct_on_1st_try": int(correctness["Correct"] / total * 100) / 100,
+        "correct_on_1st_try": int(correctness_stats["Correct"] / total * 100) / 100,
         "exercises_count": total,
     }
 
