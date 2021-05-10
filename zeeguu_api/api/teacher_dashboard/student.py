@@ -79,11 +79,11 @@ def cohort_member_reading_sessions(id, time_period):
     )
 
 
-@api.route("/exercise_correctness/<student_id>/<number_of_days>", methods=["GET"])
+@api.route("/student_exercise_correctness", methods=["POST"])
 @with_session
-def exercise_correctness_api(student_id, number_of_days):
+def student_exercise_correctness():
     """
-    e.g. GET http://localhost:9001/exercise_correctness/534/30
+    e.g. POST http://localhost:9001/exercise_correctness/534/30
         {
             "Correct": 55,
             "2nd Try": 55,
@@ -91,16 +91,20 @@ def exercise_correctness_api(student_id, number_of_days):
             "too_easy": 1,
             "Bad Example":1,
         }
-    :param student_id:
-    :param number_of_days:
+    :param student_id: int
+    :param number_of_days: int
     :return:
     """
+
+    student_id = flask.request.form.get("student_id")
+    number_of_days = flask.request.form.get("number_of_days")
+
     try:
         user = User.query.filter_by(id=student_id).one()
     except NoResultFound:
         flask.abort(400)
 
-    check_permission_for_user(user.id)
+    # check_permission_for_user(user.id)
 
     now = today()
     then = now - timedelta(days=int(number_of_days))
