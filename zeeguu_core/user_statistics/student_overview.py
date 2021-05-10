@@ -9,6 +9,7 @@ db = zeeguu_core.db
 def student_activity_overview(user_id, cohort_id, start_date, end_date):
 
     student_activity = {}
+
     student_activity.update(
         summarize_reading_activity(user_id, cohort_id, start_date, end_date)
     )
