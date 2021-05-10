@@ -86,9 +86,10 @@ def exercise_correctness_api(student_id, number_of_days):
     e.g. GET http://localhost:9001/exercise_correctness/534/30
         {
             "Correct": 55,
+            "2nd Try": 55,
             "Incorrect": 4,
-            "Wrong": 2,
-            "too_easy": 1
+            "too_easy": 1,
+            "Bad Example":1,
         }
     :param student_id:
     :param number_of_days:

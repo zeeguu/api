@@ -14,6 +14,7 @@ from .helpers import (
 )
 from .permissions import (
     check_permission_for_cohort,
+    check_permission_for_user,
 )
 from .. import api
 from ..utils.route_wrappers import with_session
@@ -203,3 +204,18 @@ def wrapper_to_json_class(id):
     check_permission_for_cohort(id)
 
     return jsonify(get_cohort_info(id))
+
+
+@api.route("/remove_user_from_cohort/<user_id>", methods=["GET"])
+@with_session
+@only_teachers
+def remove_user_from_cohort(user_id):
+
+    check_permission_for_user(user_id)
+
+    u = User.find_by_id(user_id)
+    u.cohort_id = None
+    db.session.add(u)
+    db.session.commit()
+
+    return "OK"
