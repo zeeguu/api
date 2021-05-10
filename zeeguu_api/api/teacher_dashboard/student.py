@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu_core.model import User, Cohort
 from zeeguu_core.user_statistics.exercise_corectness import exercise_correctness
 from zeeguu_core.user_statistics.reading_sessions import reading_sessions
+from zeeguu_core.user_statistics.student_overview import student_activity_overview
 from .decorator import only_teachers
 from .helpers import student_info_for_teacher_dashboard
 from .permissions import (
@@ -86,6 +87,42 @@ def student_exercise_correctness():
     now = today()
     then = now - timedelta(days=int(number_of_days))
     stats = exercise_correctness(user.id, cohort_id, then, now)
+
+    return json_result(stats)
+
+
+@api.route("/student_activity_overview", methods=["POST"])
+@with_session
+def api_student_activity_overview():
+    """
+    :param student_id: int
+    :param number_of_days: int
+    :param cohort_id: int
+    :return: e.g.
+
+        {
+            "number_of_texts": 3,
+            "reading_time": 325,
+            "average_text_length": 245,
+            "average_text_difficulty": 41,
+            "exercise_time_in_sec": 818,
+            "Correct_on_1st_Try": 87
+        }
+    """
+    student_id = flask.request.form.get("student_id")
+    number_of_days = flask.request.form.get("number_of_days")
+    cohort_id = flask.request.form.get("cohort_id")
+
+    try:
+        user = User.query.filter_by(id=student_id).one()
+    except NoResultFound:
+        flask.abort(400)
+
+    # check_permission_for_user(user.id)
+
+    now = today()
+    then = now - timedelta(days=int(number_of_days))
+    stats = student_activity_overview(user.id, cohort_id, then, now)
 
     return json_result(stats)
 

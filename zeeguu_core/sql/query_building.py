@@ -3,4 +3,4 @@ def date_format(date_object):
 
 
 def datetime_format(date_object):
-    return date_object.strftime("%Y-%m-%d %H")
+    return date_object.strftime("%Y-%m-%d %H-%M-%S")

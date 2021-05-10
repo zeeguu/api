@@ -1,7 +1,38 @@
 from zeeguu_core.sql.query_building import date_format
 import zeeguu_core
+from statistics import mean
 
 db = zeeguu_core.db
+
+
+def summarize_reading_activity(user_id, cohort_id, start_date, end_date):
+    def _mean(l):
+        if len(l) == 0:
+            return 0
+        return int(mean(l))
+
+    r_sessions = reading_sessions(user_id, cohort_id, start_date, end_date)
+
+    distinct_texts = set()
+    reading_time = 0
+    text_lengths = []
+    text_difficulties = []
+    for session in r_sessions:
+        if session["title"] not in distinct_texts:
+            text_lengths.append(session["word_count"])
+            text_difficulties.append(session["difficulty"])
+            distinct_texts.add(session["title"])
+
+        reading_time += session["duration_in_sec"]
+
+    number_of_texts = len(distinct_texts)
+
+    return {
+        "number_of_texts": number_of_texts,
+        "reading_time": reading_time,
+        "average_text_length": _mean(text_lengths),
+        "average_text_difficulty": _mean(text_difficulties),
+    }
 
 
 """

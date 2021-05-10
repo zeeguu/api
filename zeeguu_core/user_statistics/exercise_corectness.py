@@ -4,6 +4,19 @@ from zeeguu_core.sql.query_building import date_format
 db = zeeguu_core.db
 
 
+def correctness_percentage(user_id, cohort_id, start_date, end_date):
+    correctness = exercise_correctness(user_id, cohort_id, start_date, end_date)
+
+    total = 0
+    for each in correctness.values():
+        total += each
+
+    if total == 0:
+        return 0
+
+    return {"Correct_on_1st_Try": int(correctness["Correct"] / total * 100)}
+
+
 def exercise_correctness(user_id, cohort_id, start_date, end_date):
 
     # TODO: Use the cohort id in the query in order to ensure that we're only looking at the appropriate language
