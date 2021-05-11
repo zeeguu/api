@@ -130,7 +130,7 @@ def get_next_translations(from_lang_code, to_lang_code):
 
     exclude_results = [] if currentTranslation == "" else [currentTranslation.lower()]
     data["url"] = url
-    article_id = request.form.get("articleID", None)
+    article_id = request.form.get("articleId", None)
 
     if article_id == None:
         if "articleID" in url:
@@ -219,6 +219,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     url = request.form.get("url")
     title_str = request.form.get("title", "")
     context = request.form.get("context", "")
+    article_id = request.form.get("articleID", None)
 
     minimal_context, query = minimize_context(context, from_lang_code, word_str)
 
@@ -241,23 +242,25 @@ def get_one_translation(from_lang_code, to_lang_code):
         number_of_results=1,
     ).translations
 
-    # do we really need this?
-    # translators talk about quality, but our users expect likelihood.
-    # rename the key in the dictionary
-    for t in translations:
-        t["likelihood"] = t.pop("quality")
-        t["source"] = t["service_name"]
-
-    article_id = None
-    if "article?id=" in url:
-        article_id = url.split("article?id=")[-1]
-        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
-    else:
-        # the url comes from elsewhere not from the reader, so we find or creat the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
-
     if len(translations) > 0:
+
+        # do we really need this?
+        # translators talk about quality, but our users expect likelihood.
+        # rename the key in the dictionary
+        for t in translations:
+            t["likelihood"] = t.pop("quality")
+            t["source"] = t["service_name"]
+
+        if not article_id and "article?id=" in url:
+            article_id = url.split("article?id=")[-1]
+
+        if article_id:
+            article_id = int(article_id)
+        else:
+            # the url comes from elsewhere not from the reader, so we find or creat the article
+            article = Article.find_or_create(db_session, url)
+            article_id = article.id
+
         best_guess = translations[0]["translation"]
 
         Bookmark.find_or_create(

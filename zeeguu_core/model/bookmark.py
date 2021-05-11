@@ -266,9 +266,10 @@ class Bookmark(db.Model):
 
         article = Article.query.filter_by(id=article_id).one()
 
-        url = Url.find_or_create(session, article.url.as_string(), _url_title)
+        # this used to be required; not anymore; it's implied in the article
+        # url = Url.find_or_create(session, article.url.as_string(), _url_title)
 
-        context = Text.find_or_create(session, _context, origin_lang, url, article)
+        context = Text.find_or_create(session, _context, origin_lang, None, article)
 
         translation = UserWord.find_or_create(session, _translation, translation_lang)
 
