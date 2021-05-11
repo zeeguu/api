@@ -183,7 +183,6 @@ def cohorts_info():
     Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
 
     """
-    from zeeguu_core.model import TeacherCohortMap
 
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
