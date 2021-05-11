@@ -6,7 +6,7 @@ from flask import request, jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu_core
-from zeeguu_core.model import User, Cohort, Language
+from zeeguu_core.model import User, Cohort, Language, TeacherCohortMap
 from .decorator import only_teachers
 from .helpers import (
     all_user_info_from_cohort,
@@ -204,6 +204,24 @@ def wrapper_to_json_class(id):
     check_permission_for_cohort(id)
 
     return jsonify(get_cohort_info(id))
+
+
+@api.route("/add_colleague_to_cohort", methods=["POST"])
+@with_session
+@only_teachers
+def add_colleague_to_cohort():
+
+    cohort_id = request.form.get("cohort_id")
+    colleague_email = request.form.get("colleague_email")
+
+    check_permission_for_cohort(id)
+
+    colleague = User.find(colleague_email)
+    cohort = Cohort.find(cohort_id)
+    db.session.add(TeacherCohortMap(colleague, cohort))
+    db.session.commit()
+
+    return "OK"
 
 
 @api.route("/remove_user_from_cohort/<user_id>", methods=["GET"])
