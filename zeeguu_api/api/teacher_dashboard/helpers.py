@@ -4,6 +4,7 @@ import sqlalchemy
 from zeeguu_core.model.student import Student
 
 from zeeguu_core.model import Cohort, User, Language
+from zeeguu_core.sql.teacher.teachers_for_cohort import teachers_for_cohort
 
 
 def all_user_info_from_cohort(id, duration):
@@ -59,6 +60,7 @@ def get_cohort_info(id):
             "language_name": language_name,
             "declared_level_min": c.declared_level_min,
             "declared_level_max": c.declared_level_max,
+            "teachers_for_cohort": teachers_for_cohort(id),
         }
         return dictionary
     except ValueError:
