@@ -93,7 +93,7 @@ def reading_sessions(user_id, cohort_id, start_date, end_date):
     for row in rows:
         session = dict(row)
         session["translations"] = translations_in_interval(
-            session["start_time"], session["end_time"]
+            session["start_time"], session["end_time"], user_id
         )
         result.append(session)
 
@@ -105,17 +105,19 @@ def reading_sessions(user_id, cohort_id, start_date, end_date):
 
         b.time > '2021-04-17 15:20:09'
         and b.time < '2021-04-17 15:22:43'
+        and b.user_id = 534
     
 """
 
 
-def translations_in_interval(start_time, end_time):
+def translations_in_interval(start_time, end_time, user_id):
 
     query = """
         select 
             b.id, 
             uw.word, 
             uwt.word as translation,
+            t.content as context,
             IF(bem.bookmark_id IS NULL, FALSE, TRUE) as practiced
         
         from bookmark as b	
@@ -125,6 +127,9 @@ def translations_in_interval(start_time, end_time):
            
         join user_word as uwt
            on b.translation_id = uwt.id
+           
+        join text as t
+        	on b.text_id = t.id
         
         left join bookmark_exercise_mapping as bem
            on bem.bookmark_id = b.id
@@ -132,12 +137,12 @@ def translations_in_interval(start_time, end_time):
         where 
             b.time > :start_time
             and b.time < :end_time
-
+            and b.user_id = :user_id
     """
 
     rows = db.session.execute(
         query,
-        {"start_time": start_time, "end_time": end_time},
+        {"start_time": start_time, "end_time": end_time, "user_id": user_id},
     )
 
     result = []

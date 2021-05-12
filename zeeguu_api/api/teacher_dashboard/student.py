@@ -165,12 +165,14 @@ def student_reading_sessions():
                         "id": 279611,
                         "word": "Zugang",
                         "translation": "Access",
+                        "context": " Re-Chef: „Der Zugang zur EU ",
                         "practiced": 1
                     },
                     {
                         "id": 279612,
                         "word": "Verwaltungsratspräsident",
                         "translation": "Chairman of the Board of Directors",
+                        "context": " Der Verwaltungsratspräsident des Versicherers ",
                         "practiced": 0
                     }
                 ]
