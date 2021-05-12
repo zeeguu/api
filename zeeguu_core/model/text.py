@@ -14,7 +14,7 @@ db = zeeguu_core.db
 
 
 class Text(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(10000))
@@ -38,7 +38,17 @@ class Text(db.Model):
         self.article = article
 
     def __repr__(self):
-        return '<Text %r>' % (self.content)
+        return "<Text %r>" % (self.content)
+
+    def url(self):
+        # legacy; some texts don't have an article associated with them
+        if not self.article:
+            return ""
+
+        if not self.article.url:
+            return ""
+
+        return self.article.url.as_string()
 
     def words(self):
         for word in re.split(re.compile("[^\\w]+", re.U), self.content):
@@ -46,17 +56,19 @@ class Text(db.Model):
 
     def shorten_word_context(self, given_word, max_word_count):
         # shorter_text = ""
-        limited_words=[]
+        limited_words = []
 
-        words = self.content.split() # ==> gives me a list of the words ["these", "types", ",", "the"]
+        words = (
+            self.content.split()
+        )  # ==> gives me a list of the words ["these", "types", ",", "the"]
         word_count = len(words)
 
         if word_count <= max_word_count:
             return self.content
 
         for i in range(0, max_word_count):
-            limited_words.append(words[i]) # lista cu primele max_length cuvinte
-        shorter_text = ' '.join(limited_words) # string cu primele 'max_word_count' cuv
+            limited_words.append(words[i])  # lista cu primele max_length cuvinte
+        shorter_text = " ".join(limited_words)  # string cu primele 'max_word_count' cuv
 
         # sometimes the given_word does not exist in the text.
         # in that case return a text containing max_length words
@@ -66,14 +78,15 @@ class Text(db.Model):
         if words.index(given_word) <= max_word_count:
             return shorter_text
 
-        for i in range(max_word_count + 1,  words.index(given_word) + 1):
+        for i in range(max_word_count + 1, words.index(given_word) + 1):
             limited_words.append(words[i])
-        shorter_text = ' '.join(limited_words)
+        shorter_text = " ".join(limited_words)
 
         return shorter_text
 
     def all_bookmarks(self, user):
         from zeeguu_core.model import Bookmark
+
         return Bookmark.find_all_for_text_and_user(self, user)
 
     @classmethod
@@ -86,7 +99,11 @@ class Text(db.Model):
         """
 
         try:
-            return cls.query.filter(cls.content_hash == text_hash(text)).filter(cls.article==article).one()
+            return (
+                cls.query.filter(cls.content_hash == text_hash(text))
+                .filter(cls.article == article)
+                .one()
+            )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
                 new = cls(text, language, url, article)
@@ -105,4 +122,3 @@ class Text(db.Model):
                         time.sleep(0.3)
                         continue
                     break
-

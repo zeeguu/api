@@ -217,7 +217,7 @@ class Bookmark(db.Model):
             from_lang=self.origin.language.code,
             to_lang=translation_language,
             title=bookmark_title,
-            url=self.text.article.url.as_string(),
+            url=self.text.url(),
             origin_importance=word_info.importance,
             learned_datetime=SortedExerciseLog(self).str_most_recent_correct_dates(),
             origin_rank=word_info.rank if word_info.rank != 100000 else "",
