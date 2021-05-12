@@ -40,13 +40,13 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         assert random_bookmark.translation is not None
 
-    def test_bookmarks_in_url(self):
+    def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        url = random_bookmark.text.url
+        article = random_bookmark.text.article
 
-        # each bookmark belongs to a random text / url so the
-        # combo of user/url will always result in one bookmark
-        assert 1 == len(Bookmark.find_all_for_user_and_url(self.user, url))
+        # each bookmark belongs to a random text / article so the
+        # combo of user/article will always result in one bookmark
+        assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
 
     def test_text_is_not_too_long(self):
         random_bookmark = BookmarkRule(self.user).bookmark

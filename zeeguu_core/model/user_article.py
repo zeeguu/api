@@ -258,7 +258,7 @@ class UserArticle(zeeguu_core.db.Model):
             )
 
         if with_translations:
-            translations = Bookmark.find_all_for_user_and_url(user, article.url)
+            translations = Bookmark.find_all_for_user_and_article(user, article)
             returned_info["translations"] = [
                 each.serializable_dictionary() for each in translations
             ]
