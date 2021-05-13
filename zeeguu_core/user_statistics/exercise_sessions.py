@@ -30,4 +30,8 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
     )
     result = rows.first()[0]
 
-    return {"exercise_time_in_sec": int(result / 1000)}
+    exercise_time_in_sec = 0
+    if result:
+        exercise_time_in_sec = int(result / 1000)
+
+    return {"exercise_time_in_sec": exercise_time_in_sec}
