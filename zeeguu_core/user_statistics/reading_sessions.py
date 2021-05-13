@@ -38,9 +38,9 @@ def summarize_reading_activity(user_id, cohort_id, start_date, end_date):
 """
     Example where clause:
             
-            user_id = 534
-            and start_time > '2021-04-01'
-            and last_action_time < '2021-05-01'
+            user_id = 2792
+            and start_time > '2020-12-13'
+            and last_action_time < '2021-05-13'
             and duration > 0
             and language_id = (select language_id from `cohort` where cohort.id=6)
         

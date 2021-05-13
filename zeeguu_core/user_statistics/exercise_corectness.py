@@ -11,13 +11,16 @@ def correctness_percentage(user_id, cohort_id, start_date, end_date):
     for each in correctness_stats.values():
         total += each
 
-    if total == 0:
-        return 0
+    correct_on_1st_try = "0"
+    if total != 0:
+        correct_on_1st_try = int(correctness_stats["Correct"] / total * 100) / 100
 
-    return {
-        "correct_on_1st_try": int(correctness_stats["Correct"] / total * 100) / 100,
+    r = {
+        "correct_on_1st_try": correct_on_1st_try,
         "exercises_count": total,
     }
+
+    return r
 
 
 def exercise_correctness(user_id, cohort_id, start_date, end_date):
