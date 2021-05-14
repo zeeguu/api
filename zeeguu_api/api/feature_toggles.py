@@ -25,4 +25,4 @@ def _feature_map():
 
 
 def _activity_dashboard_enabled(user):
-    return user.id in [534, 2455, 2833]
+    return user.id in [534, 2455, 2833, 2794, 2673, 2643, 2953]
