@@ -4,6 +4,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timedelta
 
+from dateutil.utils import today
 from zeeguu_core_test.model_test_mixin import ModelTestMixIn
 from zeeguu_core_test.rules.bookmark_rule import BookmarkRule
 from zeeguu_core_test.rules.user_rule import UserRule
@@ -20,8 +21,12 @@ class UserTest(ModelTestMixIn):
         new_password = self.faker.password()
         self.user.update_password(new_password)
 
-        user_to_check = User.create_anonymous(str(self.user.id), new_password,
-                                              self.user.learned_language.code, self.user.native_language.code)
+        user_to_check = User.create_anonymous(
+            str(self.user.id),
+            new_password,
+            self.user.learned_language.code,
+            self.user.native_language.code,
+        )
 
         assert user_to_check.email == str(self.user.id) + User.ANONYMOUS_EMAIL_DOMAIN
         assert user_to_check.name == str(self.user.id)
@@ -29,13 +34,16 @@ class UserTest(ModelTestMixIn):
         assert user_to_check.native_language == self.user.native_language
 
     def test_date_of_last_bookmark(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))]
+        random_bookmarks = [
+            BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))
+        ]
         random_bookmarks[-1].time = datetime.now()
 
         last_bookmark_time = self.user.date_of_last_bookmark()
 
-        assert last_bookmark_time == random_bookmarks[-1].time, \
-            "{0} should be {1}".format(last_bookmark_time, random_bookmarks[-1].time)
+        assert (
+            last_bookmark_time == random_bookmarks[-1].time
+        ), "{0} should be {1}".format(last_bookmark_time, random_bookmarks[-1].time)
 
     def test_active_during_recent(self):
         # User has no bookmarks, so he/she was not active recently
@@ -47,15 +55,15 @@ class UserTest(ModelTestMixIn):
 
     def test_validate_email(self):
         random_email = self.faker.email()
-        assert User.validate_email('', random_email)
+        assert User.validate_email("", random_email)
 
     def test_validate_password(self):
         random_password = self.faker.password()
-        assert User.validate_password('', random_password)
+        assert User.validate_password("", random_password)
 
     def test_validate_name(self):
         random_name = self.faker.name()
-        assert User.validate_name('', random_name)
+        assert User.validate_name("", random_name)
 
     def test_update_password(self):
         password_before = self.user.password
@@ -64,20 +72,30 @@ class UserTest(ModelTestMixIn):
         assert password_before != password_after
 
     def test_all_bookmarks(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))]
+        random_bookmarks = [
+            BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))
+        ]
         bookmarks_retrieved = self.user.all_bookmarks()
 
         assert all([b in bookmarks_retrieved for b in random_bookmarks])
 
     def test_bookmarks_chronologically(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))]
-        random_bookmarks_ordered = sorted(random_bookmarks, key=lambda b: b.time, reverse=True)
+        random_bookmarks = [
+            BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))
+        ]
+        random_bookmarks_ordered = sorted(
+            random_bookmarks, key=lambda b: b.time, reverse=True
+        )
 
         assert self.user.bookmarks_chronologically() == random_bookmarks_ordered
 
     def test_bookmarks_by_date(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))]
-        random_bookmarks_dates = [self.__truncate_time_from_date(b.time) for b in random_bookmarks]
+        random_bookmarks = [
+            BookmarkRule(self.user).bookmark for _ in range(random.randint(2, 5))
+        ]
+        random_bookmarks_dates = [
+            self.__truncate_time_from_date(b.time) for b in random_bookmarks
+        ]
         random_bookmarks_dates_count = dict(Counter(random_bookmarks_dates))
 
         result_bookmarks, result_dates_sorted = self.user.bookmarks_by_date()
@@ -88,7 +106,7 @@ class UserTest(ModelTestMixIn):
     def test_bookmark_counts_by_date(self):
         date_bookmark_pair = []
         for i in range(random.randint(5, 10)):
-            today_without_time = self.__truncate_time_from_date(datetime.today())
+            today_without_time = self.__truncate_time_from_date(today())
             random_date = today_without_time - timedelta(random.randint(1, 364))
 
             random_bookmark = BookmarkRule(self.user).bookmark
@@ -101,8 +119,8 @@ class UserTest(ModelTestMixIn):
         counts_by_date = json.loads(self.user.bookmark_counts_by_date())
 
         for pair in counts_by_date:
-            result_date = datetime.strptime(pair['date'], "%Y-%m-%d")
-            result_count = pair['count']
+            result_date = datetime.strptime(pair["date"], "%Y-%m-%d")
+            result_count = pair["count"]
 
             assert result_date in date_bookmark_count_pair
             assert result_count == date_bookmark_count_pair[result_date]
@@ -129,4 +147,6 @@ class UserTest(ModelTestMixIn):
         assert result is not None and result == anonymous_user
 
     def __truncate_time_from_date(self, date_with_time):
-        return datetime(date_with_time.year, date_with_time.month, date_with_time.day, 0, 0, 0)
+        return datetime(
+            date_with_time.year, date_with_time.month, date_with_time.day, 0, 0, 0
+        )

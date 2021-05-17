@@ -1,4 +1,3 @@
-import datetime
 from datetime import timedelta
 
 from dateutil.utils import today
@@ -44,7 +43,7 @@ def cohort_member_bookmarks(id, time_period):
 
     check_permission_for_cohort(user.cohort_id)
 
-    now = datetime.today()
+    now = today()
     date = now - timedelta(days=int(time_period))
 
     cohort_language_id = Cohort.query.filter_by(id=user.cohort_id).one().language_id
