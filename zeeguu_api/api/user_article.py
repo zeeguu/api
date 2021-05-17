@@ -140,6 +140,7 @@ def parse_url():
 
     art = newspaper.Article(url=article_url)
     art.download()
+
     art.parse()
 
     return json_result(
@@ -147,5 +148,6 @@ def parse_url():
             "title": art.title,
             "text": art.text,
             "top_image": art.top_image,
+            "language_code": art.meta_lang,
         }
     )
