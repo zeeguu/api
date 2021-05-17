@@ -125,6 +125,7 @@ def parse_html():
             "title": art.title,
             "text": art.text,
             "top_image": art.top_image,
+            "language_code": art.meta_lang,
         }
     )
 
