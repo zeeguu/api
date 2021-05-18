@@ -73,4 +73,3 @@ CONTAINER ID        IMAGE                    COMMAND                  CREATED   
 6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
 Go have fun!
-
