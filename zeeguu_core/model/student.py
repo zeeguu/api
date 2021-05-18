@@ -7,7 +7,6 @@ db = zeeguu_core.db
 
 
 class Student(object):
-
     def __init__(self, user_id):
         self.user_id = user_id
         self.user = User.find_by_id(user_id)
@@ -16,18 +15,20 @@ class Student(object):
     # Zeeguu-API/.../teacher_dashboard.py
     def info_for_teacher_dashboard(self, duration):
 
-        '''
-            Takes id for a cohort and returns a dictionary with
-            id,name,email,reading_time,exercises_done and last article
-    
-        '''
+        """
+        Takes id for a cohort and returns a dictionary with
+        id,name,email,reading_time,exercises_done and last article
+
+        """
         fromDate = datetime.now() - timedelta(days=int(duration))
 
         reading_sessions = UserReadingSession.find_by_user(
-            self.user_id, fromDate, datetime.now())
+            self.user_id, fromDate, datetime.now()
+        )
 
         exercise_sessions = UserExerciseSession.find_by_user(
-            self.user_id, fromDate, datetime.now())
+            self.user_id, fromDate, datetime.now()
+        )
 
         user = User.query.filter_by(id=self.user_id).one()
 
@@ -52,14 +53,15 @@ class Student(object):
             exercise_time += j.duration / 1000
 
         dictionary = {
-            'id': str(self.user_id),
-            'name': user.name,
-            'cohort_name': user.cohort.name if user.cohort else '',
-            'email': user.email,
-            'reading_time': reading_time,
-            'exercises_done': exercise_time,
-            'last_article': 'place holder article',
-            'reading_time_list': reading_time_list,
-            'exercise_time_list': exercise_time_list
+            "id": str(self.user_id),
+            "name": user.name,
+            "cohort_name": user.cohort.name if user.cohort else "",
+            "cohort_id": user.cohort.id if user.cohort else "",
+            "email": user.email,
+            "reading_time": reading_time,
+            "exercises_done": exercise_time,
+            "last_article": "place holder article",
+            "reading_time_list": reading_time_list,
+            "exercise_time_list": exercise_time_list,
         }
         return dictionary
