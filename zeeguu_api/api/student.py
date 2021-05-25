@@ -23,7 +23,7 @@ def join_cohort():
         db_session.add(flask.g.user)
         db_session.commit()
 
-        return json_result({"cohort_id": cohort.id})
+        return "OK"
 
     except Exception as e:
         from sentry_sdk import capture_exception
