@@ -197,21 +197,6 @@ def student_reading_sessions():
     return json_result(sessions)
 
 
-@api.route("/join_cohort", methods=["POST"])
-@with_session
-def join_cohort():
-
-    invite_code = flask.request.form.get("invite_code")
-
-    cohort = Cohort.find_by_code(invite_code)
-    flask.g.user.cohort_id = cohort.id
-
-    db.session.add(flask.g.user)
-    db.session.commit()
-
-    return "OK"
-
-
 # deprecated
 # use student_reading_sessions
 @api.route("/cohort_member_reading_sessions/<id>/<time_period>", methods=["GET"])
