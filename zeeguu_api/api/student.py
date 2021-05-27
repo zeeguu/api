@@ -5,7 +5,7 @@ from zeeguu_core.model import Cohort
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session, json_result
 
-
+print("loading api/student/join_cohort")
 # ---------------------------------------------------------------------------
 @api.route("/join_cohort", methods=("POST",))
 # ---------------------------------------------------------------------------
