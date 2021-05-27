@@ -29,9 +29,5 @@ from . import search
 from . import article
 from . import accounts
 from . import speech
-
-print("before loading student")
 from .student import *
-
-print("before loading own_texts")
 from . import own_texts

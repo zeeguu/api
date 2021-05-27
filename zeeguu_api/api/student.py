@@ -1,4 +1,3 @@
-print("before imports in  api/student/join_cohort")
 import flask
 from flask import request
 
@@ -8,7 +7,6 @@ from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
 
 
-print("loading api/student/join_cohort")
 # ---------------------------------------------------------------------------
 @api.route("/join_cohort", methods=("POST",))
 # ---------------------------------------------------------------------------
