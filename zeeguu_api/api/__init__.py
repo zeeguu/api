@@ -4,6 +4,7 @@ import zeeguu_core
 api = flask.Blueprint("api", __name__)
 db_session = zeeguu_core.db.session
 
+print("loading api endpionts...")
 
 # These files have to be imported after this line;
 # They enrich the api object
