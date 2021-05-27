@@ -29,5 +29,5 @@ from . import search
 from . import article
 from . import accounts
 from . import speech
-from .student import *
 from . import own_texts
+from .student import *
