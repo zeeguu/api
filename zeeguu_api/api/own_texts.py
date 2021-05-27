@@ -8,6 +8,8 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api, db_session
 
+print("loading api/owntexts")
+
 
 @api.route("/upload_own_text", methods=["POST"])
 @cross_domain
