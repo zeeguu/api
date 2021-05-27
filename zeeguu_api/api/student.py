@@ -1,9 +1,12 @@
+print("before imports in  api/student/join_cohort")
 import flask
 from flask import request
+
 from zeeguu_core.model import Cohort
 
 from .utils.route_wrappers import cross_domain, with_session
-from . import api, db_session, json_result
+from . import api, db_session
+
 
 print("loading api/student/join_cohort")
 # ---------------------------------------------------------------------------
@@ -11,7 +14,7 @@ print("loading api/student/join_cohort")
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def join_cohort():
+def join_cohort_api():
     invite_code = request.form.get("invite_code", "")
 
     if not invite_code:
