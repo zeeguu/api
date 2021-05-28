@@ -27,7 +27,7 @@ def exercise_history(user_id, language_id, from_date, to_date):
         join user_word as t_uw
             on t_uw.id = b.translation_id
         where 
-            e.time > '2021-05-17' -- before this date data is saved in a different format... 
+            e.time > '2021-05-24' -- before this date data is saved in a different format... 
             and e.time > :from_date -- '2021-04-13'
             and e.time < :to_date -- '2021-05-23'
             and o_uw.language_id = :language_id -- 3
