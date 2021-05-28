@@ -56,40 +56,6 @@ def cohort_member_bookmarks(id, time_period):
     )
 
 
-@api.route("/student_exercise_correctness", methods=["POST"])
-@with_session
-def student_exercise_correctness():
-    """
-    :param student_id: int
-    :param number_of_days: int
-    :param cohort_id: int
-    :return: e.g.
-        {
-            "Correct": 55,
-            "2nd Try": 55,
-            "Incorrect": 4,
-            "too_easy": 1,
-            "Bad Example":1,
-        }
-    """
-    student_id = flask.request.form.get("student_id")
-    number_of_days = flask.request.form.get("number_of_days")
-    cohort_id = flask.request.form.get("cohort_id")
-
-    try:
-        user = User.query.filter_by(id=student_id).one()
-    except NoResultFound:
-        flask.abort(400)
-
-    check_permission_for_user(user.id)
-
-    now = today()
-    then = now - timedelta(days=int(number_of_days))
-    stats = exercise_correctness(user.id, cohort_id, then, now)
-
-    return json_result(stats)
-
-
 @api.route("/student_activity_overview", methods=["POST"])
 @with_session
 def api_student_activity_overview():
