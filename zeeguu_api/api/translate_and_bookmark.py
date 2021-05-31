@@ -223,60 +223,67 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     minimal_context, query = minimize_context(context, from_lang_code, word_str)
 
-    translation = own_translation(
+    best_guess = own_translation(
         flask.g.user, word_str, from_lang_code, to_lang_code, minimal_context
     )
-    if translation:
-        return json_result(dict(translations=translation))
 
-    translations = get_next_results(
+    if best_guess:
+        source = "Own past translation"
+        likelihood = 1
+
+    else:
+        # we don't have an own / teacher translation; we try to translate; get the first result
+        translations = get_next_results(
+            {
+                "from_lang_code": from_lang_code,
+                "to_lang_code": to_lang_code,
+                "url": request.form.get("url"),
+                "word": word_str,
+                "title": title_str,
+                "query": query,
+                "context": minimal_context,
+            },
+            number_of_results=1,
+        ).translations
+
+        if len(translations) == 1:
+            best_guess = translations[0]["translation"]
+            likelihood = translations[0].pop("quality")
+            source = translations[0].pop("service_name")
+
+    if not article_id and "article?id=" in url:
+        article_id = url.split("article?id=")[-1]
+
+    if article_id:
+        article_id = int(article_id)
+    else:
+        # the url comes from elsewhere not from the reader, so we find or create the article
+        article = Article.find_or_create(db_session, url)
+        article_id = article.id
+
+    bookmark = Bookmark.find_or_create(
+        db_session,
+        flask.g.user,
+        word_str,
+        from_lang_code,
+        best_guess,
+        to_lang_code,
+        minimal_context,
+        url,
+        title_str,
+        article_id,
+    )
+
+    result = [
         {
-            "from_lang_code": from_lang_code,
-            "to_lang_code": to_lang_code,
-            "url": request.form.get("url"),
-            "word": word_str,
-            "title": title_str,
-            "query": query,
-            "context": minimal_context,
-        },
-        number_of_results=1,
-    ).translations
+            "translation": best_guess,
+            "bookmark_id": bookmark.id,
+            "source": source,
+            "likelihood": likelihood,
+        }
+    ]
 
-    if len(translations) > 0:
-
-        # do we really need this?
-        # translators talk about quality, but our users expect likelihood.
-        # rename the key in the dictionary
-        for t in translations:
-            t["likelihood"] = t.pop("quality")
-            t["source"] = t["service_name"]
-
-        if not article_id and "article?id=" in url:
-            article_id = url.split("article?id=")[-1]
-
-        if article_id:
-            article_id = int(article_id)
-        else:
-            # the url comes from elsewhere not from the reader, so we find or creat the article
-            article = Article.find_or_create(db_session, url)
-            article_id = article.id
-
-        best_guess = translations[0]["translation"]
-
-        Bookmark.find_or_create(
-            db_session,
-            flask.g.user,
-            word_str,
-            from_lang_code,
-            best_guess,
-            to_lang_code,
-            minimal_context,
-            url,
-            title_str,
-            article_id,
-        )
-
-    return json_result(dict(translations=translations))
+    return json_result(dict(translations=result))
 
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
