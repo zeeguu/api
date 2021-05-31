@@ -5,62 +5,87 @@ from deprecated import deprecated
 from sentry_sdk import capture_exception, capture_message
 
 
-@deprecated(reason="there are now individual own_translation and crowdsourced_translations functions")
-def own_or_crowdsourced_translation(user, word: str, from_lang_code: str, to_lang_code: str, context: str):
+@deprecated(
+    reason="there are now individual own_translation and crowdsourced_translations functions"
+)
+def own_or_crowdsourced_translation(
+    user, word: str, from_lang_code: str, to_lang_code: str, context: str
+):
 
-    own_past_translation = get_own_past_translation(user, word, from_lang_code, to_lang_code, context)
+    own_past_translation = get_own_past_translation(
+        user, word, from_lang_code, to_lang_code, context
+    )
 
     if own_past_translation:
-        translations = [{'translation': own_past_translation,
-                         'service_name': 'Own Last Translation',
-                         'quality': 100}]
+        translations = [
+            {
+                "translation": own_past_translation,
+                "service_name": "Own Last Translation",
+                "quality": 100,
+            }
+        ]
         return translations
 
-    others_past_translation = get_others_past_translation(word, from_lang_code, to_lang_code, context)
+    others_past_translation = get_others_past_translation(
+        word, from_lang_code, to_lang_code, context
+    )
     if others_past_translation:
-        translations = [{'translation': others_past_translation,
-                         'service_name': 'Contributed Translation',
-                         'quality': 100}]
+        translations = [
+            {
+                "translation": others_past_translation,
+                "service_name": "Contributed Translation",
+                "quality": 100,
+            }
+        ]
         return translations
 
     return None
 
-def own_translation(user, word: str, from_lang_code: str, to_lang_code:str, context: str):
 
-    own_past_translation = get_own_past_translation(user, word, from_lang_code, to_lang_code, context)
+def own_translation(
+    user, word: str, from_lang_code: str, to_lang_code: str, context: str
+):
+
+    own_past_translation = get_own_past_translation(
+        user, word, from_lang_code, to_lang_code, context
+    )
     print(">>>>>>>>>> !!!!!! <<<<<<<<<<")
     print(own_past_translation)
 
-    if own_past_translation:
-        translations = [{'translation': own_past_translation,
-                         'service_name': 'Own Last Translation',
-                         'quality': 100}]
-        return translations
-
-    return None
+    return own_past_translation
 
 
 def crowdsourced_translation(user, word: str, from_lang_code: str, context: str):
 
     others_past_translation = get_others_past_translation(word, from_lang_code, context)
     if others_past_translation:
-        translations = [{'translation': others_past_translation,
-                         'service_name': 'Contributed Translation',
-                         'quality': 100}]
+        translations = [
+            {
+                "translation": others_past_translation,
+                "service_name": "Contributed Translation",
+                "quality": 100,
+            }
+        ]
         return translations
 
     return None
 
 
-def get_others_past_translation(word: str, from_lang_code: str, to_lang_code:str, context: str):
+def get_others_past_translation(
+    word: str, from_lang_code: str, to_lang_code: str, context: str
+):
     return _get_past_translation(word, from_lang_code, to_lang_code, context)
 
 
-def get_own_past_translation(user, word: str, from_lang_code: str, to_lang_code, context: str):
+def get_own_past_translation(
+    user, word: str, from_lang_code: str, to_lang_code, context: str
+):
     return _get_past_translation(word, from_lang_code, to_lang_code, context, user)
 
 
-def _get_past_translation(word: str, from_lang_code: str, to_lang_code:str, context: str, user: User = None):
+def _get_past_translation(
+    word: str, from_lang_code: str, to_lang_code: str, context: str, user: User = None
+):
     try:
 
         from_language = Language.find(from_lang_code)
@@ -73,14 +98,17 @@ def _get_past_translation(word: str, from_lang_code: str, to_lang_code:str, cont
         except NoResultFound:
             return None
 
-        query = Bookmark.query.join(UserWord, UserWord.id==Bookmark.translation_id).\
-            filter(UserWord.language_id==to_language.id,
-                   Bookmark.origin_id==origin_word.id,
-                   Bookmark.origin_id==origin_word.id,
-                   Bookmark.text_id==text.id)
+        query = Bookmark.query.join(
+            UserWord, UserWord.id == Bookmark.translation_id
+        ).filter(
+            UserWord.language_id == to_language.id,
+            Bookmark.origin_id == origin_word.id,
+            Bookmark.origin_id == origin_word.id,
+            Bookmark.text_id == text.id,
+        )
 
         if user:
-            query = query.filter(Bookmark.user_id==user.id)
+            query = query.filter(Bookmark.user_id == user.id)
 
         # prioritize older users
         query.order_by(Bookmark.user_id.asc())

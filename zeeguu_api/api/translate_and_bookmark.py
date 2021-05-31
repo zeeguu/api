@@ -233,6 +233,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     else:
         # we don't have an own / teacher translation; we try to translate; get the first result
+
         translations = get_next_results(
             {
                 "from_lang_code": from_lang_code,
@@ -274,16 +275,14 @@ def get_one_translation(from_lang_code, to_lang_code):
         article_id,
     )
 
-    result = [
+    return json_result(
         {
             "translation": best_guess,
             "bookmark_id": bookmark.id,
             "source": source,
             "likelihood": likelihood,
         }
-    ]
-
-    return json_result(dict(translations=result))
+    )
 
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
