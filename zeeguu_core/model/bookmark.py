@@ -225,6 +225,7 @@ class Bookmark(db.Model):
             article_id=self.text.article_id if self.text.article_id else "",
             created_day=created_day,  # human readable stuff...
             time=self.time.strftime(JSON_TIME_FORMAT),
+            fit_for_study=self.fit_for_study == 1,
         )
 
         if self.text.article:
