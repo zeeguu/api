@@ -32,7 +32,11 @@ def upload_own_text():
 @cross_domain
 @with_session
 def own_texts():
-    r = [e.article_info() for e in Article.own_texts_for_user(flask.g.user)]
+    r = [
+        e.article_info()
+        for e in Article.own_texts_for_user(flask.g.user)
+        if e.deleted != 1
+    ]
     return json_result(r)
 
 
@@ -43,8 +47,7 @@ def delete_own_text(id):
 
     try:
         a = Article.query.filter(Article.id == id).one()
-
-        db_session.delete(a)
+        a.deleted = 1
         db_session.commit()
 
         return "OK"

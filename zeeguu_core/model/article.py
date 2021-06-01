@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import sqlalchemy
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
@@ -36,6 +38,7 @@ class Article(db.Model):
     published_time = Column(DateTime)
     fk_difficulty = Column(Integer)
     broken = Column(Integer)
+    deleted = Column(Integer)
 
     from zeeguu_core.model.url import Url
 
@@ -81,6 +84,7 @@ class Article(db.Model):
         language,
         uploader=None,
         broken=0,
+        deleted=0,
     ):
         self.url = url
         self.title = title
@@ -92,6 +96,7 @@ class Article(db.Model):
         self.language = language
         self.uploader = uploader
         self.broken = broken
+        self.deleted = deleted
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
@@ -207,8 +212,9 @@ class Article(db.Model):
     @classmethod
     def create_from_upload(cls, session, title, content, uploader, language):
 
+        current_time = datetime.now()
         new_article = Article(
-            None, title, None, content, None, None, None, language, uploader
+            None, title, None, content, None, current_time, None, language, uploader
         )
         session.add(new_article)
 
