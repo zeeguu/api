@@ -206,8 +206,15 @@ class Article(db.Model):
         session.add(ua)
 
     @classmethod
-    def own_texts_for_user(cls, user):
-        return cls.query.filter(cls.uploader_id == user.id).all()
+    def own_texts_for_user(cls, user, ignore_deleted=True):
+
+        query = cls.query.filter(cls.uploader_id == user.id)
+
+        if ignore_deleted:
+            # by using > 0 we filter out both NULL and 0 values
+            query = query.filter(cls.deleted > 0)
+
+        return query.all()
 
     @classmethod
     def create_from_upload(cls, session, title, content, uploader, language):

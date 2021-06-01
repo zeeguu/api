@@ -32,11 +32,7 @@ def upload_own_text():
 @cross_domain
 @with_session
 def own_texts():
-    r = [
-        e.article_info()
-        for e in Article.own_texts_for_user(flask.g.user)
-        if e.deleted != 1
-    ]
+    r = [e.article_info() for e in Article.own_texts_for_user(flask.g.user)]
     return json_result(r)
 
 
