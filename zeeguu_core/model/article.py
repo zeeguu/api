@@ -212,7 +212,7 @@ class Article(db.Model):
 
         if ignore_deleted:
             # by using > 0 we filter out both NULL and 0 values
-            query = query.filter(cls.deleted > 0)
+            query = query.filter((cls.deleted == 0) | (cls.deleted.is_(None)))
 
         return query.all()
 
