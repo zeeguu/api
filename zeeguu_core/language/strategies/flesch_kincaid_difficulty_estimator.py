@@ -2,7 +2,9 @@ import nltk
 import pyphen
 from numpy import math
 
-from zeeguu_core.language.difficulty_estimator_strategy import DifficultyEstimatorStrategy
+from zeeguu_core.language.difficulty_estimator_strategy import (
+    DifficultyEstimatorStrategy,
+)
 from zeeguu_core.util.text import split_words_from_text
 from zeeguu_core.model import Language
 from collections import Counter
@@ -18,8 +20,8 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
     CUSTOM_NAMES = ["fk", "fkindex", "flesch-kincaid"]
 
     @classmethod
-    def estimate_difficulty(cls, text: str, language: 'Language', user: 'User'):
-        '''
+    def estimate_difficulty(cls, text: str, language: "Language", user: "User"):
+        """
         Estimates the difficulty based on the Flesch-Kincaid readability index.
         :param text: See DifficultyEstimatorStrategy
         :param language: See DifficultyEstimatorStrategy
@@ -28,44 +30,53 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
         :return: The dictionary contains the keys and return types
                     normalized: float (0<=normalized<=1)
                     discrete: string [EASY, MEDIUM, HARD]
-        '''
+        """
         flesch_kincaid_index = cls.flesch_kincaid_readability_index(text, language)
 
         difficulty_scores = dict(
             normalized=cls.normalize_difficulty(flesch_kincaid_index),
             discrete=cls.discrete_difficulty(flesch_kincaid_index),
-            grade=cls.grade_difficulty(flesch_kincaid_index)
+            grade=cls.grade_difficulty(flesch_kincaid_index),
         )
 
         return difficulty_scores
 
     @classmethod
-    def flesch_kincaid_readability_index(cls, text: str, language: 'Language'):
+    def flesch_kincaid_readability_index(cls, text: str, language: "Language"):
         words = [w.lower() for w in split_words_from_text(text)]
 
         number_of_syllables = 0
         number_of_words = len(words)
         for word, freq in Counter(words).items():
-            syllables_in_word = cls.estimate_number_of_syllables_in_word_pyphen(word, language)
-            number_of_syllables += syllables_in_word*freq
+            syllables_in_word = cls.estimate_number_of_syllables_in_word_pyphen(
+                word, language
+            )
+            number_of_syllables += syllables_in_word * freq
 
         number_of_sentences = len(nltk.sent_tokenize(text))
 
-        constants = cls.get_constants_for_language(language);
+        constants = cls.get_constants_for_language(language)
 
-        index = constants["start"] - constants["sentence"] * (number_of_words / number_of_sentences) \
+        try:
+            index = (
+                constants["start"]
+                - constants["sentence"] * (number_of_words / number_of_sentences)
                 - constants["word"] * (number_of_syllables / number_of_words)
+            )
+        except ZeroDivisionError:
+            index = 0
+
         return index
 
     @classmethod
-    def get_constants_for_language(cls, language: 'language'):
+    def get_constants_for_language(cls, language: "language"):
         if language.code in ["de", "pl"]:
             return {"start": 180, "sentence": 1, "word": 58.5}
         else:
             return {"start": 206.835, "sentence": 1.015, "word": 84.6}
 
     @classmethod
-    def estimate_number_of_syllables_in_word(cls, word: str, language: 'Language'):
+    def estimate_number_of_syllables_in_word(cls, word: str, language: "Language"):
         if len(word) < cls.AVERAGE_SYLLABLE_LENGTH:
             syllables = 1  # Always at least 1 syllable
         else:
@@ -73,7 +84,9 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
         return int(math.floor(syllables))  # Truncate the number of syllables
 
     @classmethod
-    def estimate_number_of_syllables_in_word_pyphen(cls, word: str, language: 'Language'):
+    def estimate_number_of_syllables_in_word_pyphen(
+        cls, word: str, language: "Language"
+    ):
 
         if language.code == "zh-CN":
             if len(word) < cls.AVERAGE_SYLLABLE_LENGTH:
