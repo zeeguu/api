@@ -25,4 +25,16 @@ def _feature_map():
 
 
 def _activity_dashboard_enabled(user):
+    everybody_but_these_for_maria = [
+        2052,
+        2133,
+        2042,
+        2652,
+        2616,
+        2650,
+        2612,
+        2574,
+        2568,
+        2598,
+    ]
     return user.id in [534, 2455, 2833, 2794, 2673, 2643, 2953]
