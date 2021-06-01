@@ -1,5 +1,6 @@
 import flask
 from flask import request
+from zeeguu_api.api.utils.json_result import json_result
 
 from zeeguu_core.model import Cohort
 
@@ -31,3 +32,17 @@ def join_cohort_api():
 
         capture_exception(e)
         flask.abort(500)
+
+
+@api.route("/student_info", methods=["GET"])
+@cross_domain
+@with_session
+def student_info():
+
+    return json_result(
+        {
+            "name": flask.g.user.name,
+            "email": flask.g.user.email,
+            "cohort": flask.g.user.cohort_id,
+        }
+    )
