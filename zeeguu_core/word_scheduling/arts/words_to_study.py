@@ -20,7 +20,7 @@ def bookmarks_to_study(user, desired_bookmarks_count=10):
     bookmarks_query = (
         Bookmark.query.filter_by(user_id=user.id)
         .filter_by(learned=False)
-        .filter(or_(Bookmark.fit_for_study == 1, Bookmark.starred == True))
+        .filter(Bookmark.fit_for_study > 1 | Bookmark.starred == True)
         .join(BookmarkPriorityARTS, BookmarkPriorityARTS.bookmark_id == Bookmark.id)
         .join(UserWord, Bookmark.origin_id == UserWord.id)
         .filter(UserWord.language_id == user.learned_language_id)
