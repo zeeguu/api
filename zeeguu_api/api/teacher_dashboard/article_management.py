@@ -173,6 +173,10 @@ def teacher_texts():
     """
 
     articles = Article.own_texts_for_user(flask.g.user)
-    article_info_dicts = [article.article_info_for_teacher() for article in articles]
+    article_info_dicts = [
+        article.article_info_for_teacher()
+        for article in articles
+        if article.deleted != 1
+    ]
 
     return json.dumps(article_info_dicts)
