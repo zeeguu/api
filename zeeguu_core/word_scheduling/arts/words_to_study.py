@@ -17,7 +17,7 @@ def bookmarks_to_study(user, desired_bookmarks_count=10):
     possible_bookmarks_to_return_count is equally dividable by the group count.
 
     """
-    bookmarks = (
+    bookmarks_query = (
         Bookmark.query.filter_by(user_id=user.id)
         .filter_by(learned=False)
         .filter(or_(Bookmark.fit_for_study == 1, Bookmark.starred == True))
@@ -25,8 +25,9 @@ def bookmarks_to_study(user, desired_bookmarks_count=10):
         .join(UserWord, Bookmark.origin_id == UserWord.id)
         .filter(UserWord.language_id == user.learned_language_id)
         .order_by(BookmarkPriorityARTS.priority.desc())
-        .all()
     )
+
+    bookmarks = bookmarks_query.all()
 
     # Group the bookmarks by their used priority algorithm in lists
     bookmark_groups = ABTesting.split_bookmarks_based_on_algorithm(bookmarks)
