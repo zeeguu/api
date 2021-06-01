@@ -474,7 +474,9 @@ class User(db.Model):
         )
         return result
 
-    def bookmarks_for_article(self, article_id, with_context, with_title=False):
+    def bookmarks_for_article(
+        self, article_id, with_context, with_title=False, good_for_study=False
+    ):
 
         from zeeguu_core.model import Bookmark, Text
 
@@ -488,6 +490,11 @@ class User(db.Model):
             .order_by(Bookmark.id.asc())
             .all()
         )
+
+        if good_for_study:
+            all_for_article = [
+                each for each in all_for_article if each.should_be_studied()
+            ]
 
         for each in all_for_article:
             bookmarks.append(each.json_serializable_dict(with_context, with_title))

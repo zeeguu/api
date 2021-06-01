@@ -135,12 +135,10 @@ def bookmarks_to_study_for_article(article_id):
     article = Article.query.filter_by(id=article_id).one()
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True
+        article_id, with_context=True, with_title=True, good_for_study=True
     )
 
-    good_for_study = [each for each in bookmarks if each.should_be_studied()]
-
-    return json_result(dict(bookmarks=good_for_study, article_title=article.title))
+    return json_result(dict(bookmarks=bookmarks, article_title=article.title))
 
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])
