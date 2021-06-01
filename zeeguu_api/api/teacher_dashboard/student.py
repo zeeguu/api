@@ -25,6 +25,17 @@ from ..utils.route_wrappers import with_session
 db = zeeguu_core.db
 
 
+@api.route("/basic_user_info/<id>", methods=["GET"])
+@with_session
+def basic_user_info(id):
+
+    user = check_permission_for_user(id)
+
+    return jsonify(
+        {"name": user.name, "email": user.email, "cohort_id": user.cohort_id}
+    )
+
+
 @api.route("/user_info/<id>/<duration>", methods=["GET"])
 @with_session
 def user_info_api(id, duration):

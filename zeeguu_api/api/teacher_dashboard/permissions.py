@@ -34,6 +34,7 @@ def check_permission_for_user(id):
         user = User.query.filter_by(id=id).one()
         if not has_permission_for_cohort(user.cohort_id):
             flask.abort(401)
+        return user
     except KeyError:
         flask.abort(400)
         return "KeyError"

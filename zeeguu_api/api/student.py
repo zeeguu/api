@@ -43,6 +43,6 @@ def student_info():
         {
             "name": flask.g.user.name,
             "email": flask.g.user.email,
-            "cohort": flask.g.user.cohort_id,
+            "cohort_id": flask.g.user.cohort_id,
         }
     )
