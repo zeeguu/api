@@ -106,6 +106,9 @@ class Bookmark(db.Model):
     def translations_rendered_as_text(self):
         return self.translation.word
 
+    def should_be_studied(self):
+        return (self.stared or self.fit_for_study) and not self.learned
+
     def content_is_not_too_long(self):
         return len(self.text.content) < 60
 
