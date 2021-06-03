@@ -1,15 +1,12 @@
 from datetime import timedelta
 
-from dateutil.utils import today
-
-import zeeguu_core
-
 import flask
+from dateutil.utils import today
 from flask import jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
+import zeeguu_core
 from zeeguu_core.model import User, Cohort
-from zeeguu_core.user_statistics.exercise_corectness import exercise_correctness
 from zeeguu_core.user_statistics.reading_sessions import reading_sessions
 from zeeguu_core.user_statistics.student_overview import student_activity_overview
 from .decorator import only_teachers
@@ -25,14 +22,6 @@ from ..utils.route_wrappers import with_session
 db = zeeguu_core.db
 
 
-@api.route("/cohort_name/<id>", methods=["GET"])
-@with_session
-def cohort_name(id):
-
-    cohort = Cohort.find(id)
-    return {
-        "name": cohort.name
-    }
 
 
 @api.route("/basic_user_info/<id>", methods=["GET"])

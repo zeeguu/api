@@ -46,3 +46,13 @@ def student_info():
             "cohort_id": flask.g.user.cohort_id,
         }
     )
+
+
+@api.route("/cohort_name/<id>", methods=["GET"])
+@with_session
+def cohort_name(id):
+
+    cohort = Cohort.find(id)
+    return {
+        "name": cohort.name
+    }
