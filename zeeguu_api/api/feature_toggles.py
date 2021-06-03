@@ -36,5 +36,6 @@ def _activity_dashboard_enabled(user):
         2574,
         2568,
         2598,
+        534,
     ]
     return user.id not in ids_excluded_in_marias_experiment
