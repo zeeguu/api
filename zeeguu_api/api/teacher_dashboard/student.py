@@ -25,6 +25,16 @@ from ..utils.route_wrappers import with_session
 db = zeeguu_core.db
 
 
+@api.route("/cohort_name/<id>", methods=["GET"])
+@with_session
+def cohort_name(id):
+
+    cohort = Cohort.find(id)
+    return {
+        "name": cohort.name
+    }
+
+
 @api.route("/basic_user_info/<id>", methods=["GET"])
 @with_session
 def basic_user_info(id):
