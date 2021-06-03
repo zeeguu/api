@@ -25,7 +25,7 @@ def _feature_map():
 
 
 def _activity_dashboard_enabled(user):
-    everybody_but_these_for_maria = [
+    ids_excluded_in_marias_experiment = [
         2052,
         2133,
         2042,
@@ -37,4 +37,4 @@ def _activity_dashboard_enabled(user):
         2568,
         2598,
     ]
-    return user.id in [534, 2455, 2833, 2794, 2673, 2643, 2953]
+    return user.id not in ids_excluded_in_marias_experiment
