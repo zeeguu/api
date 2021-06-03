@@ -22,7 +22,8 @@ class ExerciseOutcome(db.Model):
 
     correct_outcomes = [
         CORRECT,
-        TOO_EASY
+        TOO_EASY,
+        'C'
     ]
 
     too_easy_outcomes = [
@@ -31,6 +32,7 @@ class ExerciseOutcome(db.Model):
     ]
 
     wrong_outcomes = [
+        'W',
         WRONG,
         SHOW_SOLUTION,
         ASKED_FOR_HINT
