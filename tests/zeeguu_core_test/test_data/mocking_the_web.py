@@ -66,6 +66,7 @@ def mock_requests_get(m):
         content = (f.read())
 
         m.get(url, text=content)
+        f.close()
 
     for each in test_urls.keys():
         mock_requests_get_for_url(m, each)
