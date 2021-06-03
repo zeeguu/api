@@ -45,3 +45,39 @@ def words_not_studied(user_id, language_id, from_date, to_date):
     )
 
 
+def learned_words(user_id, language_id, from_date, to_date):
+    query = """
+        select 
+        b.id as bookmark_id,
+        o_uw.word,
+        t_uw.word as translation,
+        b.learned_time
+        
+        from bookmark as b
+
+        join user_word as o_uw
+            on o_uw.id = b.origin_id
+
+        join user_word as t_uw
+            on t_uw.id = b.translation_id
+            
+        where 
+            b.learned_time > :from_date -- '2021-05-24'  
+            and b.learned_time < :to_date -- '2021-06-23'
+            and o_uw.language_id = :language_id -- 2
+            and b.user_id = :user_id -- 2953
+            and learned = 1
+        order by b.learned_time
+        """
+
+    return list_of_dicts_from_query(
+        query,
+        {
+            "user_id": user_id,
+            "from_date": datetime_format(from_date),
+            "to_date": datetime_format(to_date),
+            "language_id": language_id,
+        },
+    )
+
+
