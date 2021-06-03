@@ -1,23 +1,15 @@
 import datetime
 from datetime import timedelta
 
-from dateutil.utils import today
-
-import zeeguu_core
-
 import flask
-from flask import jsonify
+from dateutil.utils import today
 from sqlalchemy.orm.exc import NoResultFound
 
+import zeeguu_core
 from zeeguu_core.model import User, Cohort
 from zeeguu_core.sql.learner.exercises_history import exercises_grouped_by_word
 from zeeguu_core.user_statistics.exercise_corectness import exercise_correctness
-from zeeguu_core.user_statistics.reading_sessions import reading_sessions
-from zeeguu_core.user_statistics.student_overview import student_activity_overview
-from .decorator import only_teachers
-from .helpers import student_info_for_teacher_dashboard
 from .permissions import (
-    check_permission_for_cohort,
     check_permission_for_user,
 )
 from .. import api
