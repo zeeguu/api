@@ -49,6 +49,7 @@ def exercise_history(user_id, language_id, from_date, to_date):
 def exercises_grouped_by_word(user_id, language_id, from_date, to_date):
     exercise_details_list = exercise_history(user_id, language_id, from_date, to_date)
 
+
     practiced_dict = {}
 
     for exercise_details in exercise_details_list:
@@ -67,4 +68,11 @@ def exercises_grouped_by_word(user_id, language_id, from_date, to_date):
         )
         practiced_dict[bookmark_id]["exerciseAttempts"].append(exercise_data)
 
-    return practiced_dict
+    result = []
+    for key, value in practiced_dict.items():
+        result.append({"bookmark_id":key,
+                       "word":value["word"],
+                       "translation":value["translation"],
+                       "exerciseAttempts": value["exerciseAttempts"]})
+
+    return result
