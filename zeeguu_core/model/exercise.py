@@ -7,11 +7,13 @@ db = zeeguu_core.db
 
 
 class Exercise(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'exercise'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "exercise"
 
     id = db.Column(db.Integer, primary_key=True)
-    outcome_id = db.Column(db.Integer, db.ForeignKey(ExerciseOutcome.id), nullable=False)
+    outcome_id = db.Column(
+        db.Integer, db.ForeignKey(ExerciseOutcome.id), nullable=False
+    )
     outcome = db.relationship(ExerciseOutcome)
     source_id = db.Column(db.Integer, db.ForeignKey(ExerciseSource.id), nullable=False)
     source = db.relationship(ExerciseSource)
@@ -28,39 +30,42 @@ class Exercise(db.Model):
         return str(self.source.id) + self.outcome.outcome[0]
 
     def __str__(self):
-        return f'{self.source.source} ' + str(self.time) + f' {self.outcome.outcome}'
+        return f"{self.source.source} " + str(self.time) + f" {self.outcome.outcome}"
 
     def __repr__(self):
         return self.__str__()
 
     @classmethod
-    def find(cls,
-             user_id=None):
+    def find(cls, user_id=None):
         """
-            Find all the exercises for a particular or for all users 
+        Find all the exercises for a particular or for all users
 
-            Parameters:
-            user_id = user identifier
+        Parameters:
+        user_id = user identifier
 
-            return: list of exercises sorted by time in ascending order
+        return: list of exercises sorted by time in ascending order
         """
         from zeeguu_core.model.bookmark import Bookmark, bookmark_exercise_mapping
 
         query = cls.query
         if user_id is not None:
-            query = query.join(bookmark_exercise_mapping).join(Bookmark).filter(Bookmark.user_id == user_id)
-        query = query.order_by('time')
+            query = (
+                query.join(bookmark_exercise_mapping)
+                .join(Bookmark)
+                .filter(Bookmark.user_id == user_id)
+            )
+        query = query.order_by("time")
 
         return query.all()
 
     def find_user_id(self, db_session):
         """
-            Finds related user_id corresponding to the exercise
+        Finds related user_id corresponding to the exercise
 
-            Parameters:
-            db_session = database session
+        Parameters:
+        db_session = database session
 
-            returns: user_id or None when none is found
+        returns: user_id or None when none is found
         """
         from zeeguu_core.model.bookmark import Bookmark, bookmark_exercise_mapping
         import sqlalchemy
@@ -76,14 +81,15 @@ class Exercise(db.Model):
     def get_bookmark(self):
         from zeeguu_core.model.bookmark import Bookmark, bookmark_exercise_mapping
 
-        q = (Bookmark.query.
-             join(bookmark_exercise_mapping).
-             join(Exercise).
-             filter(Exercise.id == self.id))
+        q = (
+            Bookmark.query.join(bookmark_exercise_mapping)
+            .join(Exercise)
+            .filter(Exercise.id == self.id)
+        )
         return q.one()
 
     def is_too_easy(self):
-        return self.outcome.outcome == ExerciseOutcome.TOO_EASY
+        return self.outcome.outcome in ExerciseOutcome.too_easy_outcomes
 
     def is_correct(self):
-        return self.outcome.outcome == ExerciseOutcome.CORRECT
+        return self.outcome.outcome in ExerciseOutcome.correct_outcomes
