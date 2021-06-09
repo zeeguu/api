@@ -296,6 +296,9 @@ class Bookmark(db.Model):
 
         return bookmark
 
+    def sorted_exercise_log(self):
+        return SortedExerciseLog(self)
+
     @classmethod
     def find_by_specific_user(cls, user):
         return cls.query.filter_by(user=user).all()

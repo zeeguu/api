@@ -1,3 +1,4 @@
+from zeeguu_core.model import Bookmark
 from zeeguu_core.sql.query_building import list_of_dicts_from_query, datetime_format
 
 
@@ -70,7 +71,7 @@ def learned_words(user_id, language_id, from_date, to_date):
         order by b.learned_time
         """
 
-    return list_of_dicts_from_query(
+    results = list_of_dicts_from_query(
         query,
         {
             "user_id": user_id,
@@ -80,4 +81,13 @@ def learned_words(user_id, language_id, from_date, to_date):
         },
     )
 
+    for each in results:
+        bookmark = Bookmark.find(each["bookmark_id"])
+        each["self_reported"] = (
+            bookmark.sorted_exercise_log().last_exercise().is_too_easy()
+        )
+        each[
+            "most_recent_correct_dates"
+        ] = bookmark.sorted_exercise_log().str_most_recent_correct_dates()
 
+    return results
