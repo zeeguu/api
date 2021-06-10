@@ -1,24 +1,31 @@
 def bad_quality_bookmark(bookmark):
 
     return (
-
-            origin_same_as_translation(bookmark) or
-
-            origin_is_subsumed_in_other_bookmark(bookmark) or
-
-            origin_has_too_many_words(bookmark) or
-
-            origin_is_a_very_short_word(bookmark) or
-
-            context_is_too_long(bookmark) or
-
-            translation_already_in_context_bug(bookmark)
-
+        origin_same_as_translation(bookmark)
+        or origin_is_subsumed_in_other_bookmark(bookmark)
+        or origin_has_too_many_words(bookmark)
+        or origin_is_a_very_short_word(bookmark)
+        or context_is_too_long(bookmark)
+        or translation_already_in_context_bug(bookmark)
     )
 
 
+def split_words_from_context(bookmark):
+    import re
+
+    result = []
+    bookmark_content_words = re.findall(r"(?u)\w+", bookmark.text.content)
+    for word in bookmark_content_words:
+        if word.lower() != bookmark.origin.word.lower():
+            result.append(word)
+
+    return result
+
+
 def context_is_too_long(bookmark):
-    return bookmark.context_word_count() > 42
+    words = split_words_from_context(bookmark)
+
+    return len(words) > 42
 
 
 def origin_is_a_very_short_word(bookmark):
@@ -32,9 +39,10 @@ def origin_has_too_many_words(bookmark):
 
 def origin_is_subsumed_in_other_bookmark(self):
     """
-        if the user translates a superset of this sentence
+    if the user translates a superset of this sentence
     """
     from zeeguu_core.model.bookmark import Bookmark
+
     all_bookmarks_in_text = Bookmark.find_all_for_text_and_user(self.text, self.user)
 
     for each in all_bookmarks_in_text:

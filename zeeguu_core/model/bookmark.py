@@ -172,20 +172,6 @@ class Bookmark(db.Model):
         UserExerciseSession.update_exercise_session(exercise, db_session)
         BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
 
-    def split_words_from_context(self):
-
-        result = []
-        bookmark_content_words = re.findall(r"(?u)\w+", self.text.content)
-        for word in bookmark_content_words:
-            if word.lower() != self.origin.word.lower():
-                result.append(word)
-
-        return result
-
-    def context_word_count(self):
-        words = self.split_words_from_context()
-        return len(words)
-
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
             translation_word = self.translation.word
@@ -222,7 +208,7 @@ class Bookmark(db.Model):
             title=bookmark_title,
             url=self.text.url(),
             origin_importance=word_info.importance,
-            learned_datetime=SortedExerciseLog(self).str_most_recent_correct_dates(),
+            learned_datetime=learned_datetime,
             origin_rank=word_info.rank if word_info.rank != 100000 else "",
             starred=self.starred if self.starred is not None else False,
             article_id=self.text.article_id if self.text.article_id else "",
