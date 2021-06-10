@@ -1,6 +1,6 @@
-from zeeguu_core.sql.query_building import date_format
-import zeeguu_core
 from statistics import mean
+
+import zeeguu_core
 
 db = zeeguu_core.db
 
@@ -83,8 +83,8 @@ def reading_sessions(user_id, cohort_id, start_date, end_date):
         query,
         {
             "userId": user_id,
-            "startDate": date_format(start_date),
-            "endDate": date_format(end_date),
+            "startDate": start_date,
+            "endDate": end_date,
             "cohortId": cohort_id,
         },
     )

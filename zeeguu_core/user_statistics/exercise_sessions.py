@@ -1,6 +1,4 @@
-from zeeguu_core.sql.query_building import datetime_format
 import zeeguu_core
-from statistics import mean
 
 db = zeeguu_core.db
 
@@ -24,8 +22,8 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
         query,
         {
             "user_id": user_id,
-            "start_time": datetime_format(start_time),
-            "end_time": datetime_format(end_time),
+            "start_time": start_time,
+            "end_time": end_time,
         },
     )
     result = rows.first()[0]
@@ -34,4 +32,6 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
     if result:
         exercise_time_in_sec = int(result / 1000)
 
-    return {"exercise_time_in_sec": exercise_time_in_sec}
+    return {
+        "exercise_time_in_sec": exercise_time_in_sec
+    }

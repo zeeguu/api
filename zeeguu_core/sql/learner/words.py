@@ -1,5 +1,5 @@
 from zeeguu_core.model import Bookmark
-from zeeguu_core.sql.query_building import list_of_dicts_from_query, datetime_format
+from zeeguu_core.sql.query_building import list_of_dicts_from_query
 
 
 def words_not_studied(user_id, language_id, from_date, to_date):
@@ -39,8 +39,8 @@ def words_not_studied(user_id, language_id, from_date, to_date):
         query,
         {
             "user_id": user_id,
-            "from_date": datetime_format(from_date),
-            "to_date": datetime_format(to_date),
+            "from_date": from_date,
+            "to_date": to_date,
             "language_id": language_id,
         },
     )
@@ -75,8 +75,8 @@ def learned_words(user_id, language_id, from_date, to_date):
         query,
         {
             "user_id": user_id,
-            "from_date": datetime_format(from_date),
-            "to_date": datetime_format(to_date),
+            "from_date": from_date,
+            "to_date": to_date,
             "language_id": language_id,
         },
     )

@@ -1,7 +1,7 @@
 import functools
 import flask
 
-from .permissions import is_teacher
+from ._permissions import is_teacher
 
 
 def only_teachers(view):

@@ -11,8 +11,8 @@ import zeeguu_core
 from zeeguu_api.api.utils.abort_handling import make_error
 from zeeguu_core.model import Cohort, Language, Article, Url
 from zeeguu_core.model.cohort_article_map import CohortArticleMap
-from .decorator import only_teachers
-from .permissions import (
+from ._only_teachers_decorator import only_teachers
+from ._permissions import (
     check_permission_for_cohort,
 )
 from .. import api

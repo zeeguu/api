@@ -7,12 +7,12 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu_core
 from zeeguu_core.model import User, Cohort, Language, TeacherCohortMap
-from .decorator import only_teachers
+from ._only_teachers_decorator import only_teachers
 from .helpers import (
     all_user_info_from_cohort,
     get_cohort_info,
 )
-from .permissions import (
+from ._permissions import (
     check_permission_for_cohort,
     check_permission_for_user,
 )

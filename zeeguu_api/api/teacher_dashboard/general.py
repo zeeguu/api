@@ -3,10 +3,10 @@ import json
 
 import flask
 
-from .decorator import only_teachers
+from ._only_teachers_decorator import only_teachers
 from .helpers import all_user_info_from_cohort
 
-from .permissions import (
+from ._permissions import (
     has_permission_for_cohort,
     is_teacher,
     check_permission_for_user,

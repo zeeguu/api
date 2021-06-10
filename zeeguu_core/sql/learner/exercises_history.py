@@ -1,4 +1,4 @@
-from zeeguu_core.sql.query_building import list_of_dicts_from_query, datetime_format
+from zeeguu_core.sql.query_building import list_of_dicts_from_query
 
 
 def exercise_history(user_id, language_id, from_date, to_date):
@@ -39,8 +39,8 @@ def exercise_history(user_id, language_id, from_date, to_date):
         query,
         {
             "user_id": user_id,
-            "from_date": datetime_format(from_date),
-            "to_date": datetime_format(to_date),
+            "from_date": from_date,
+            "to_date": to_date,
             "language_id": language_id,
         },
     )
@@ -48,7 +48,6 @@ def exercise_history(user_id, language_id, from_date, to_date):
 
 def exercises_grouped_by_word(user_id, language_id, from_date, to_date):
     exercise_details_list = exercise_history(user_id, language_id, from_date, to_date)
-
 
     practiced_dict = {}
 
@@ -70,9 +69,13 @@ def exercises_grouped_by_word(user_id, language_id, from_date, to_date):
 
     result = []
     for key, value in practiced_dict.items():
-        result.append({"bookmark_id":key,
-                       "word":value["word"],
-                       "translation":value["translation"],
-                       "exerciseAttempts": value["exerciseAttempts"]})
+        result.append(
+            {
+                "bookmark_id": key,
+                "word": value["word"],
+                "translation": value["translation"],
+                "exerciseAttempts": value["exerciseAttempts"],
+            }
+        )
 
     return result
