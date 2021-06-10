@@ -15,10 +15,7 @@ def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, en
         correct_count = outcome_stats.get("C", 0) + outcome_stats.get("Correct", 0)
         correct_on_1st_try = int(correct_count / total * 100) / 100
 
-    r = {
-        "correct_on_1st_try": correct_on_1st_try,
-        "number_of_exercises": total
-    }
+    r = {"correct_on_1st_try": correct_on_1st_try, "number_of_exercises": total}
 
     return r
 
@@ -39,6 +36,8 @@ def number_of_words_translated_but_not_studied(
         
         -- left join practiced words on practiced_words.id = NULL will give
         -- us only those bookmarks that are not practiced
+        -- based on: https://stackoverflow.com/a/4076157/1200070
+        -- consider using EXISTS instead: https://stackoverflow.com/a/36694478/1200070
         left join         
         -- >> practiced_words 
             (select distinct(b.id), uw.word
@@ -115,9 +114,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
         },
     )
     number_of_practiced_words = rows.first()[0]
-    return {
-        "practiced_words_count": number_of_practiced_words
-    }
+    return {"practiced_words_count": number_of_practiced_words}
 
 
 def number_of_learned_words(user_id, cohort_id, start_date, end_date):
