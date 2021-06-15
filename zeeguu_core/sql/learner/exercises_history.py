@@ -1,7 +1,7 @@
 from zeeguu_core.sql.query_building import list_of_dicts_from_query
 
 
-def exercise_history(user_id, language_id, from_date, to_date):
+def exercise_history(user_id, language_id, from_date: str, to_date: str):
 
     query = """
         select e.id as exercise_id,
@@ -46,7 +46,7 @@ def exercise_history(user_id, language_id, from_date, to_date):
     )
 
 
-def exercises_grouped_by_word(user_id, language_id, from_date, to_date):
+def exercises_grouped_by_word(user_id, language_id, from_date: str, to_date: str):
     exercise_details_list = exercise_history(user_id, language_id, from_date, to_date)
 
     practiced_dict = {}

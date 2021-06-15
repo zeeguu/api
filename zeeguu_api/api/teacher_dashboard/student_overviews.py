@@ -1,6 +1,6 @@
 import zeeguu_core
 from zeeguu_core.user_statistics.student_overview import student_activity_overview
-from ._common_api_parameters import _parse__student_id__cohort_id__and__number_of_days
+from ._common_api_parameters import _get_student_cohort_and_period_from_POST_params
 from .. import api, with_session, json_result
 
 
@@ -29,7 +29,7 @@ def api_student_activity_overview():
             "learned_words_count": 0
         }
     """
-    user, cohort, then, now = _parse__student_id__cohort_id__and__number_of_days()
-    stats = student_activity_overview(user.id, cohort.id, then, now)
+    user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
+    stats = student_activity_overview(user.id, cohort.id, from_date, to_date)
 
     return json_result(stats)

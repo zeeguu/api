@@ -23,7 +23,7 @@ def summarize_reading_activity(user_id, cohort_id, start_date, end_date):
             text_difficulties.append(session["difficulty"])
             distinct_texts.add(session["title"])
 
-        reading_time += session["duration_in_sec"]
+        reading_time += int(session["duration_in_sec"])
 
     number_of_texts = len(distinct_texts)
 
@@ -48,7 +48,7 @@ def summarize_reading_activity(user_id, cohort_id, start_date, end_date):
 """
 
 
-def reading_sessions(user_id, cohort_id, start_date, end_date):
+def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
 
     query = """
             select  u.id as session_id, 
@@ -83,8 +83,8 @@ def reading_sessions(user_id, cohort_id, start_date, end_date):
         query,
         {
             "userId": user_id,
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": from_date,
+            "endDate": to_date,
             "cohortId": cohort_id,
         },
     )

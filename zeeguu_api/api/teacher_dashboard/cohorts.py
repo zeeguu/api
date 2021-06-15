@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu_core
 from zeeguu_core.model import User, Cohort, Language, TeacherCohortMap
+from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
 from .helpers import (
     all_user_info_from_cohort,
@@ -158,8 +159,9 @@ def users_from_cohort(id, duration):
     """
     check_permission_for_cohort(id)
 
+    from_date, to_date = _convert_number_of_days_to_date_interval(duration)
     try:
-        users_info = all_user_info_from_cohort(id, duration)
+        users_info = all_user_info_from_cohort(id, from_date, to_date)
 
         return json.dumps(users_info)
     except KeyError:

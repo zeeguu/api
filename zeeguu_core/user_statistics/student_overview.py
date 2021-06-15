@@ -11,7 +11,7 @@ from .reading_sessions import summarize_reading_activity
 db = zeeguu_core.db
 
 
-def student_activity_overview(user_id, cohort_id, start_date, end_date):
+def student_activity_overview(user_id, cohort_id, start_date: str, end_date: str):
 
     student_activity = {}
 

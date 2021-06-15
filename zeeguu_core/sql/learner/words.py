@@ -2,7 +2,7 @@ from zeeguu_core.model import Bookmark
 from zeeguu_core.sql.query_building import list_of_dicts_from_query
 
 
-def words_not_studied(user_id, language_id, from_date, to_date):
+def words_not_studied(user_id, language_id, from_date: str, to_date: str):
 
     query = """
         select  b.id as bookmark_id, 
@@ -46,7 +46,7 @@ def words_not_studied(user_id, language_id, from_date, to_date):
     )
 
 
-def learned_words(user_id, language_id, from_date, to_date):
+def learned_words(user_id, language_id, from_date: str, to_date: str):
     query = """
         select 
         b.id as bookmark_id,

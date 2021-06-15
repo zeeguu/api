@@ -144,7 +144,7 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
     return {"learned_words_count": rows.first()[0]}
 
 
-def exercise_outcome_stats(user_id, cohort_id, start_date, end_date):
+def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
 
     query = """
         select o.outcome, count(o.outcome)

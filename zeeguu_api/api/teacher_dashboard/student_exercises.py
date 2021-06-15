@@ -1,7 +1,9 @@
 import zeeguu_core
 from zeeguu_core.sql.learner.exercises_history import exercises_grouped_by_word
 from zeeguu_core.user_statistics.exercise_corectness import exercise_outcome_stats
-from ._common_api_parameters import _parse__student_id__cohort_id__and__number_of_days
+from ._common_api_parameters import (
+    _get_student_cohort_and_period_from_POST_params,
+)
 from .. import api, with_session
 from ..utils.json_result import json_result
 
@@ -21,14 +23,15 @@ def student_exercise_correctness():
             "Bad Example":1,
         }
     """
-    user, cohort, then, now = _parse__student_id__cohort_id__and__number_of_days()
-    stats = exercise_outcome_stats(user.id, cohort.id, then, now)
+    user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
+
+    stats = exercise_outcome_stats(user.id, cohort.id, from_date, to_date)
     return json_result(stats)
 
 
 @api.route("/student_exercise_history", methods=["POST"])
 @with_session
 def api_student_exercise_history():
-    user, cohort, then, now = _parse__student_id__cohort_id__and__number_of_days()
-    stats = exercises_grouped_by_word(user.id, cohort.language_id, then, now)
+    user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
+    stats = exercises_grouped_by_word(user.id, cohort.language_id, from_date, to_date)
     return json_result(stats)

@@ -1,6 +1,6 @@
 import zeeguu_core
 from zeeguu_core.user_statistics.reading_sessions import reading_sessions
-from ._common_api_parameters import _parse__student_id__cohort_id__and__number_of_days
+from ._common_api_parameters import _get_student_cohort_and_period_from_POST_params
 from .. import api, json_result, with_session
 
 db = zeeguu_core.db
@@ -59,7 +59,7 @@ def student_reading_sessions():
         ]
     """
 
-    user, cohort, then, now = _parse__student_id__cohort_id__and__number_of_days()
-    sessions = reading_sessions(user.id, cohort.id, then, now)
+    user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
+    sessions = reading_sessions(user.id, cohort.id, from_date, to_date)
 
     return json_result(sessions)

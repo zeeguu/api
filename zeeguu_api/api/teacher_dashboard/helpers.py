@@ -1,34 +1,46 @@
 import flask
 import sqlalchemy
 
-from zeeguu_core.model.student import Student
 
 from zeeguu_core.model import Cohort, User, Language
 from zeeguu_core.sql.teacher.teachers_for_cohort import teachers_for_cohort
+from zeeguu_core.user_statistics.exercise_corectness import (
+    exercise_count_and_correctness_percentage,
+)
+from zeeguu_core.user_statistics.exercise_sessions import (
+    total_time_in_exercise_sessions,
+)
+from zeeguu_core.user_statistics.reading_sessions import summarize_reading_activity
 
 
-def all_user_info_from_cohort(id, duration):
+def student_info_for_teacher_dashboard(user, cohort, from_date: str, to_date: str):
+
+    info = {"id": user.id, "name": user.name, "email": user.email}
+
+    info.update(summarize_reading_activity(user.id, cohort.id, from_date, to_date))
+    info.update(total_time_in_exercise_sessions(user.id, cohort.id, from_date, to_date))
+    info.update(
+        exercise_count_and_correctness_percentage(
+            user.id, cohort.id, from_date, to_date
+        )
+    )
+
+    return info
+
+
+def all_user_info_from_cohort(id, from_date: str, to_date: str):
     """
     Takes id for a cohort and returns all users belonging to that cohort.
     """
     c = Cohort.query.filter_by(id=id).one()
     users = User.query.filter_by(cohort_id=c.id).all()
     users_info = []
+
     for u in users:
-        info = student_info_for_teacher_dashboard(u.id, duration)
+        info = student_info_for_teacher_dashboard(u, c, from_date, to_date)
+
         users_info.append(info)
     return users_info
-
-
-def student_info_for_teacher_dashboard(id, duration):
-    """
-    Takes id for a cohort and returns a dictionary with
-    id,name,email,reading_time,exercises_done and last article
-
-    """
-
-    student = Student(id)
-    return student.info_for_teacher_dashboard(duration)
 
 
 def get_cohort_info(id):

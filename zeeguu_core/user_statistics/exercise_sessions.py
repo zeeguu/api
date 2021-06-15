@@ -33,5 +33,6 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
         exercise_time_in_sec = int(result / 1000)
 
     return {
-        "exercise_time_in_sec": exercise_time_in_sec
+        "exercise_time_in_sec": exercise_time_in_sec,
+        "exercise_time": exercise_time_in_sec,
     }
