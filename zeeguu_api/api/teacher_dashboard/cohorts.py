@@ -160,11 +160,6 @@ def users_from_cohort(id, duration):
 
     try:
         users_info = all_user_info_from_cohort(id, duration)
-        if flask.g.user.id in [2362]:
-            from faker import Faker
-
-            for each in users_info:
-                each["name"] = Faker().name()
 
         return json.dumps(users_info)
     except KeyError:

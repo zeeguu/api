@@ -160,6 +160,7 @@ def exercise_outcome_stats(user_id, cohort_id, start_date, end_date):
             on b.origin_id = uw.id
                     
         where b.user_id=:userid 
+            and e.time > '2021-05-24' -- before this date data is saved in a different format...
             and	e.time > :startDate
             and	e.time < :endDate
             and uw.language_id = (select language_id from cohort where cohort.id=:cohortId)            
