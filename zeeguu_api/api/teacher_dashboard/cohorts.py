@@ -159,7 +159,9 @@ def users_from_cohort(id, duration):
     """
     check_permission_for_cohort(id)
 
-    from_date, to_date = _convert_number_of_days_to_date_interval(duration)
+    from_date, to_date = _convert_number_of_days_to_date_interval(
+        duration, to_string=True
+    )
     try:
         users_info = all_user_info_from_cohort(id, from_date, to_date)
 

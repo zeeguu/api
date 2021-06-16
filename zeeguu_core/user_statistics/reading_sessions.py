@@ -55,7 +55,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
                 user_id, 
                 start_time, 
                 last_action_time as end_time,
-                truncate((duration / 1000),0) as duration_in_sec,
+                (duration / 1000) as duration_in_sec,
                 article_id, 
                 a.title,
                 a.word_count,
