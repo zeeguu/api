@@ -9,6 +9,13 @@ from zeeguu_api.api.utils.route_wrappers import cross_domain, with_session
 @with_session
 def is_feature_enabled(feature_name):
 
+    """
+    e.g.
+    /is_feature_enabled/ems_teacher_dashboard
+
+    will return YES or NO
+    """
+
     func = _feature_map().get(feature_name, None)
 
     if not func:
@@ -21,7 +28,19 @@ def is_feature_enabled(feature_name):
 
 
 def _feature_map():
-    return {"activity_dashboard": _activity_dashboard_enabled}
+    return {
+        "activity_dashboard": _activity_dashboard_enabled,
+        "ems_teacher_dashboard": _ems_teacher_dashboard_enabled,
+    }
+
+
+def _ems_teacher_dashboard_enabled(user):
+    ids_included = [
+        2308,
+        2671,
+        534,
+    ]
+    return user.id in ids_included
 
 
 def _activity_dashboard_enabled(user):
