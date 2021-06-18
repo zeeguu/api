@@ -35,11 +35,7 @@ def _feature_map():
 
 
 def _ems_teacher_dashboard_enabled(user):
-    ids_included = [
-        2308,
-        2671,
-        534,
-    ]
+    ids_included = [2308, 2671, 534, 2794, 2673, 2643, 1862, 1862]  # pv  # pv2
     return user.id in ids_included
 
 
