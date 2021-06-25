@@ -40,3 +40,15 @@ class CohortArticleMap(zeeguu_core.db.Model):
             for cohort_article_entry in cls.query.filter_by(article=article).all()
         ]
         return cohorts
+
+    @classmethod
+    def delete_all_for_article(cls, session, article_id):
+        for each in cls.query.filter_by(article_id=article_id).all():
+            session.delete(each)
+        session.commit()
+
+    @classmethod
+    def delete_all_for_cohort(cls, session, cohort_id):
+        for each in cls.query.filter_by(cohort_id=cohort_id).all():
+            session.delete(each)
+        session.commit()

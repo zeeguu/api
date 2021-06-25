@@ -2,7 +2,7 @@ import flask
 import sqlalchemy
 from flask import request
 
-from zeeguu_core.model import Article, Language
+from zeeguu_core.model import Article, Language, CohortArticleMap
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -45,6 +45,8 @@ def delete_own_text(id):
         a = Article.query.filter(Article.id == id).one()
         a.deleted = 1
         db_session.commit()
+
+        CohortArticleMap.delete_all_for_article(db_session, id)
 
         return "OK"
 

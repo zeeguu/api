@@ -46,14 +46,19 @@ class Cohort(zeeguu_core.db.Model):
     def get_students(self):
         from zeeguu_core.model.user import User
 
-        # compatibility reasons: if there is an associated invitation code
-        # use it; otherwise fallback on the cohort that's associated with the User
+        users = []
         if self.inv_code and len(self.inv_code) > 1:
-            zeeguu_core.log("we have an invitation code...")
-            return User.query.filter_by(invitation_code=self.inv_code).all()
+            # adding those users that are only assigned based on
+            # invitation code; this is for bacwards compatibility reasons
+            users.extend(
+                User.query.filter_by(
+                    invitation_code=self.inv_code, cohort_id=None
+                ).all()
+            )
 
-        zeeguu_core.log("falling back on filtering based on cohort")
-        return User.query.filter(User.cohort == self).all()
+        users.extend(User.query.filter(User.cohort == self).all())
+
+        return users
 
     def get_teachers(self):
         from zeeguu_core.model.teacher_cohort_map import TeacherCohortMap

@@ -6,7 +6,7 @@ from flask import request, jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu_core
-from zeeguu_core.model import User, Cohort, Language, TeacherCohortMap
+from zeeguu_core.model import User, Cohort, Language, TeacherCohortMap, CohortArticleMap
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
 from .helpers import (
@@ -45,6 +45,9 @@ def remove_cohort(cohort_id):
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
         for link in links:
             db.session.delete(link)
+
+        CohortArticleMap.delete_all_for_cohort(db.session, cohort_id)
+
         db.session.delete(selected_cohort)
         db.session.commit()
         return "OK"
