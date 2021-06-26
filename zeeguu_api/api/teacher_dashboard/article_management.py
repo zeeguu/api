@@ -36,7 +36,8 @@ def add_article_to_cohort():
     article = Article.find_by_id(request.form.get("article_id"))
 
     if not CohortArticleMap.find(cohort.id, article.id):
-        new_mapping = CohortArticleMap(cohort, article)
+        now = datetime.now()
+        new_mapping = CohortArticleMap(cohort, article, now)
         db.session.add(new_mapping)
         db.session.commit()
 
@@ -79,7 +80,8 @@ def upload_articles(cohort_id):
             db.session.refresh(new_article)
 
             cohort = Cohort.find(cohort_id)
-            new_cohort_article_map = CohortArticleMap(cohort, new_article)
+            now = datetime.now()
+            new_cohort_article_map = CohortArticleMap(cohort, new_article, now)
 
             db.session.add(new_cohort_article_map)
         db.session.commit()

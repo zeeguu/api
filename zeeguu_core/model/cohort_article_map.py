@@ -1,8 +1,10 @@
-import zeeguu_core
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, DateTime
 from sqlalchemy.orm import relationship
-from zeeguu_core.model.cohort import Cohort
+
+import zeeguu_core
 from zeeguu_core.model.article import Article
+from zeeguu_core.model.cohort import Cohort
+from zeeguu_core.util.encoding import datetime_to_json
 
 
 class CohortArticleMap(zeeguu_core.db.Model):
@@ -17,9 +19,12 @@ class CohortArticleMap(zeeguu_core.db.Model):
         {"mysql_collate": "utf8_bin"},
     )
 
-    def __init__(self, cohort, article):
+    published_time = Column(DateTime)
+
+    def __init__(self, cohort, article, published_time):
         self.cohort = cohort
         self.article = article
+        self.published_time = published_time
 
     @classmethod
     def find(cls, cohort_id, article_id):
@@ -27,8 +32,14 @@ class CohortArticleMap(zeeguu_core.db.Model):
 
     @classmethod
     def get_articles_info_for_cohort(cls, cohort):
+        def _adapted_article_info(relation):
+            article_info = relation.article.article_info()
+            if relation.published_time:
+                article_info["published"] = datetime_to_json(relation.published_time)
+            return article_info
+
         articles = [
-            relation.article.article_info()
+            _adapted_article_info(relation)
             for relation in cls.query.filter_by(cohort=cohort).all()
         ]
         return sorted(articles, key=lambda x: x["metrics"]["difficulty"])
