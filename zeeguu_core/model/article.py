@@ -1,17 +1,14 @@
 from datetime import datetime
 
 import sqlalchemy
+from langdetect import detect
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu_core
-
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
-
-from zeeguu_core.constants import JSON_TIME_FORMAT
 from zeeguu_core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from langdetect import detect
-
+from zeeguu_core.util.encoding import datetime_to_json
 
 db = zeeguu_core.db
 
@@ -161,7 +158,7 @@ class Article(db.Model):
             result_dict["url"] = self.url.as_string()
 
         if self.published_time:
-            result_dict["published"] = self.published_time.strftime(JSON_TIME_FORMAT)
+            result_dict["published"] = datetime_to_json(self.published_time)
 
         if self.rss_feed:
             result_dict["feed_id"] = (self.rss_feed.id,)

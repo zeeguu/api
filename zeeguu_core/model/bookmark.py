@@ -1,27 +1,24 @@
-import re
 from datetime import datetime
 
 import sqlalchemy
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu_core.constants import JSON_TIME_FORMAT
-from zeeguu_core.definition_of_learned import is_learned_based_on_exercise_outcomes
-from zeeguu_core.model import Article
-
 from wordstats import Word
 
 import zeeguu_core
+from zeeguu_core.bookmark_quality.fit_for_study import fit_for_study
+from zeeguu_core.definition_of_learned import is_learned_based_on_exercise_outcomes
+from zeeguu_core.model import Article
 from zeeguu_core.model.SortedExerciseLog import SortedExerciseLog
 from zeeguu_core.model.exercise import Exercise
 from zeeguu_core.model.exercise_outcome import ExerciseOutcome
 from zeeguu_core.model.exercise_source import ExerciseSource
 from zeeguu_core.model.language import Language
 from zeeguu_core.model.text import Text
-from zeeguu_core.model.url import Url
 from zeeguu_core.model.user import User
 from zeeguu_core.model.user_word import UserWord
-from zeeguu_core.bookmark_quality.fit_for_study import fit_for_study
+from zeeguu_core.util.encoding import datetime_to_json
 
 db = zeeguu_core.db
 
@@ -213,7 +210,7 @@ class Bookmark(db.Model):
             starred=self.starred if self.starred is not None else False,
             article_id=self.text.article_id if self.text.article_id else "",
             created_day=created_day,  # human readable stuff...
-            time=self.time.strftime(JSON_TIME_FORMAT),
+            time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
         )
 

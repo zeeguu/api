@@ -1,8 +1,5 @@
 from datetime import datetime
 
-from sqlalchemy.orm.exc import NoResultFound
-
-import zeeguu_core
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -13,9 +10,11 @@ from sqlalchemy import (
     or_,
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu_core.constants import JSON_TIME_FORMAT
+import zeeguu_core
 from zeeguu_core.model import Article, User
+from zeeguu_core.util.encoding import datetime_to_json
 
 
 class UserArticle(zeeguu_core.db.Model):
@@ -193,7 +192,7 @@ class UserArticle(zeeguu_core.db.Model):
                 url=each.article.url.as_string(),
                 title=each.article.title,
                 language=each.article.language.code,
-                starred_date=each.starred.strftime(JSON_TIME_FORMAT),
+                starred_date=datetime_to_json(each.starred),
                 starred=(each.starred is not None),
                 liked=each.liked,
             )
@@ -253,9 +252,7 @@ class UserArticle(zeeguu_core.db.Model):
         returned_info["opened"] = user_article_info.opened is not None
         returned_info["liked"] = user_article_info.liked
         if user_article_info.starred:
-            returned_info["starred_time"] = user_article_info.starred.strftime(
-                JSON_TIME_FORMAT
-            )
+            returned_info["starred_time"] = datetime_to_json(user_article_info.starred)
 
         if with_translations:
             translations = Bookmark.find_all_for_user_and_article(user, article)

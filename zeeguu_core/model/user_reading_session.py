@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from zeeguu_core.model import User, Article
 
 from zeeguu_core.constants import *
+from zeeguu_core.util.encoding import datetime_to_json
 
 db = zeeguu_core.db
 
@@ -396,8 +397,8 @@ class UserReadingSession(db.Model):
             "user_id": self.user_id,
             "duration": self.duration,
             "article_id": self.article_id,
-            "start_time": self.start_time.strftime(JSON_TIME_FORMAT),
-            "last_action_time": self.last_action_time.strftime(JSON_TIME_FORMAT),
+            "start_time": datetime_to_json(self.start_time),
+            "last_action_time": datetime_to_json(self.last_action_time),
             "is_active": self.is_active,
             "article_title": self.article.title
         }

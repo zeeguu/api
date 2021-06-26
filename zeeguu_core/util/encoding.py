@@ -3,6 +3,8 @@ import json
 
 from flask import make_response
 
+from zeeguu_core.constants import JSON_TIME_FORMAT
+
 
 class JSONSerializable(object):
     def serialize(self):
@@ -21,3 +23,7 @@ def encode(obj):
 
 def encode_error(code, error):
     return make_response(encode(error), code)
+
+
+def datetime_to_json(datetime):
+    return datetime.strftime(JSON_TIME_FORMAT)
