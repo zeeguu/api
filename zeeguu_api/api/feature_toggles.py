@@ -53,6 +53,7 @@ def _ems_teacher_dashboard_enabled(user):
         491,
         2820,
         2705,
+        2819,
     ]
     return user.id in ids_included
 
