@@ -54,7 +54,7 @@ def _ems_teacher_dashboard_enabled(user):
         2820,
         2705,
         2819,
-        2784
+        2784,
     ]
     return user.id in ids_included
 
@@ -71,7 +71,5 @@ def _activity_dashboard_enabled(user):
         2574,
         2568,
         2598,
-        534,
-        1911,
     ]
     return user.id not in ids_excluded_in_marias_experiment
