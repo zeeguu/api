@@ -42,19 +42,6 @@ def own_or_crowdsourced_translation(
     return None
 
 
-def own_translation(
-    user, word: str, from_lang_code: str, to_lang_code: str, context: str
-):
-
-    own_past_translation = get_own_past_translation(
-        user, word, from_lang_code, to_lang_code, context
-    )
-    print(">>>>>>>>>> !!!!!! <<<<<<<<<<")
-    print(own_past_translation)
-
-    return own_past_translation
-
-
 def crowdsourced_translation(user, word: str, from_lang_code: str, context: str):
 
     others_past_translation = get_others_past_translation(word, from_lang_code, context)
@@ -103,7 +90,7 @@ def _get_past_translation(
         ).filter(
             UserWord.language_id == to_language.id,
             Bookmark.origin_id == origin_word.id,
-            Bookmark.origin_id == origin_word.id,
+            # Bookmark.origin_id == origin_word.id,
             Bookmark.text_id == text.id,
         )
 

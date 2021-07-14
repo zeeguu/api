@@ -17,7 +17,7 @@ from . import feeds
 from . import sessions
 from . import smartwatch
 from . import system_languages
-from . import translate_and_bookmark
+from . import translation
 from . import activity_tracking
 from . import bookmarks_and_words
 from . import user

@@ -3,11 +3,11 @@ from datetime import datetime
 import flask
 from flask import request
 
+from zeeguu_core.bookmark_quality import top_bookmarks
 from zeeguu_core.model import User, Article
+from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
-from . import api
-from zeeguu_core.bookmark_quality import top_bookmarks
 
 
 @api.route("/user_words", methods=["GET"])
@@ -160,3 +160,54 @@ def bookmarks_for_article_2(article_id):
     """
 
     return bookmarks_for_article(article_id, flask.g.user.id)
+
+
+@api.route("/delete_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def delete_bookmark(bookmark_id):
+    try:
+        bookmark = Bookmark.find(bookmark_id)
+        db_session.delete(bookmark)
+        db_session.commit()
+    except NoResultFound:
+        return "Inexistent"
+
+    return "OK"
+
+
+@api.route("/report_correct_mini_exercise/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def report_learned_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.report_exercise_outcome(
+        ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
+        ExerciseOutcome.CORRECT,
+        -1,
+        db_session,
+    )
+
+    return "OK"
+
+
+@api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def star_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = True
+    bookmark.update_fit_for_study()
+    db_session.commit()
+    return "OK"
+
+
+@api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def unstar_bookmark(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.starred = False
+    bookmark.update_fit_for_study()
+    db_session.commit()
+    return "OK"
