@@ -6,7 +6,7 @@ from zeeguu_api_test.api_test_mixin import APITestMixin
 
 class TranslationTests(APITestMixin, TestCase):
     def test_minimize_context(self):
-        from zeeguu_api.api.translate_and_bookmark import minimize_context
+        from zeeguu_api.api.translation import minimize_context
 
         ctx = "Onderhandelaars ChristenUnie praten over positie homo-ouders"
         from_lang_code = "nl"

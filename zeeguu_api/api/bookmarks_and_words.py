@@ -2,9 +2,10 @@ from datetime import datetime
 
 import flask
 from flask import request
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu_core.bookmark_quality import top_bookmarks
-from zeeguu_core.model import User, Article
+from zeeguu_core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
