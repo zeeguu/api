@@ -27,11 +27,6 @@ from .utils.route_wrappers import cross_domain, with_session
 def get_one_translation(from_lang_code, to_lang_code):
     """
 
-    Addressing some of the problems with the
-    get_next_translations...
-    - it should be separated in get_first and get_alternatives
-    - alternatively it can be get one and get all
-
     To think about:
     - it would also make sense to separate translation from
     logging; or at least, allow for situations where a translation
@@ -39,7 +34,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     - jul 2021 - Bjorn would like to have the possibility of getting
     a translation without an article; can be done; allow for the
     articleID to be empty; what would be the downside of that?
-    - hmm. maybe he can simply work with get_next_translations?
+    - hmm. maybe he can simply work with get_multiple_translations
 
     :return: json array with translations
     """
@@ -111,10 +106,12 @@ def get_one_translation(from_lang_code, to_lang_code):
     )
 
 
-@api.route("/get_next_translations/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@api.route(
+    "/get_multiple_translations/<from_lang_code>/<to_lang_code>", methods=["POST"]
+)
 @cross_domain
 @with_session
-def get_next_translations(from_lang_code, to_lang_code):
+def get_multiple_translations(from_lang_code, to_lang_code):
     """
     Returns a list of possible translations in :param to_lang_code
     for :param word in :param from_lang_code except a translation
@@ -130,20 +127,23 @@ def get_next_translations(from_lang_code, to_lang_code):
 
     word_str = request.form["word"].strip(punctuation)
     title_str = request.form.get("title", "")
+    url = request.form.get("url")
     context = request.form.get("context", "")
     number_of_results = int(request.form.get("numberOfResults", -1))
-    current_translation = request.form.get("currentTranslation", "")
-    service_name = request.form.get("service", "")
+    translation_to_exclude = request.form.get("translationToExclude", "")
+    service_to_exclude = request.form.get("serviceToExclude", "")
 
-    exclude_services = [] if service_name == "" else [service_name]
-    exclude_results = [] if current_translation == "" else [current_translation.lower()]
+    exclude_services = [] if service_to_exclude == "" else [service_to_exclude]
+    exclude_results = (
+        [] if translation_to_exclude == "" else [translation_to_exclude.lower()]
+    )
 
     minimal_context, query = minimize_context(context, from_lang_code, word_str)
 
     data = {
         "from_lang_code": from_lang_code,
         "to_lang_code": to_lang_code,
-        "url": request.form.get("url"),
+        "url": url,
         "word": word_str,
         "title": title_str,
         "query": query,
