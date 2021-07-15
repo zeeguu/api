@@ -8,12 +8,12 @@
 """
 import sqlalchemy
 
-import zeeguu_core
+import zeeguu.core
 from faker import Faker
 fake = Faker()
-from zeeguu_core.model import User
+from zeeguu.core.model import User
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 for user in User.query.all():
     for _ in range(0,13):

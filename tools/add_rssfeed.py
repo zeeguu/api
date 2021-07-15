@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from zeeguu_core.model import RSSFeed, Url, Language
-import zeeguu_core
+from zeeguu.core.model import RSSFeed, Url, Language
+import zeeguu.core
 
 
 def test_feed(url: str):
@@ -33,10 +33,10 @@ print(f'= {description}')
 _language = input("Language code (e.g. en): ")
 print(f'= {_language}')
 
-feed_url = Url.find_or_create(zeeguu_core.db.session, _feed_url)
+feed_url = Url.find_or_create(zeeguu.core.db.session, _feed_url)
 language = Language.find_or_create(_language)
 
-rss_feed = RSSFeed.find_or_create(zeeguu_core.db.session,
+rss_feed = RSSFeed.find_or_create(zeeguu.core.db.session,
                                   feed_url,
                                   feed_name,
                                   description,

@@ -11,12 +11,12 @@
 
 """
 
-import zeeguu_core
-from zeeguu_core.model.topic import Topic
-from zeeguu_core.model.language import Language
-from zeeguu_core.model.localized_topic import LocalizedTopic
+import zeeguu.core
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.localized_topic import LocalizedTopic
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 count = 0
 TOPICS = ["Sport", "Health", "Technology", "Politics", "Science", "Culture", "Travel", "Food"]

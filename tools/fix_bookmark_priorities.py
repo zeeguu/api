@@ -9,9 +9,9 @@
 # - there were too few examples with contexts of
 #   20 words so we increased the context size to 42
 
-from zeeguu_core.model import User
-from zeeguu_core.word_scheduling.arts.bookmark_priority_updater import BookmarkPriorityUpdater
-from zeeguu_core import db
+from zeeguu.core.model import User
+from zeeguu.core.word_scheduling.arts.bookmark_priority_updater import BookmarkPriorityUpdater
+from zeeguu.core import db
 
 
 def fix_bookmark_priorities(USER_ID):

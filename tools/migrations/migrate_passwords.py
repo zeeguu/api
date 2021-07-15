@@ -1,9 +1,9 @@
 # script used to convert
 
-import zeeguu_core
-from zeeguu_core.model import User
+import zeeguu.core
+from zeeguu.core.model import User
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 for user in User.query.all():
     print (f'updating user {user}')

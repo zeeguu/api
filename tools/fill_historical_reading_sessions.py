@@ -1,7 +1,7 @@
-from zeeguu_core.model.user_activitiy_data import UserActivityData
-from zeeguu_core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.model.user_reading_session import UserReadingSession
 
-import zeeguu_core
+import zeeguu.core
 from datetime import datetime
 
 '''
@@ -15,7 +15,7 @@ EXCLUDED_IDS = [13787, 14215, 14217, 14218, 14222, 14223, 14224, 14225, 14226, 1
                 14230, 14231, 14232, 14233, 14234, 14235, 14236, 14237, 14238, 14239, 14240, 14241, \
                 14242, 14243, 14244, 14245, 14246, 14247, 14248, 14249, 14250, 20108, 20109]
 
-db_session = zeeguu_core.db.session
+db_session = zeeguu.core.db.session
 
 # Clear table before starting
 UserReadingSession.query.delete()

@@ -7,10 +7,10 @@
 
 """
 
-import zeeguu_core
-from zeeguu_core.model import User, UserLanguage, RSSFeedRegistration
+import zeeguu.core
+from zeeguu.core.model import User, UserLanguage, RSSFeedRegistration
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 counter = 0
 

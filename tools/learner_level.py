@@ -8,7 +8,7 @@
 
 """
 from sortedcontainers import SortedList
-from zeeguu_core.model import User, Bookmark
+from zeeguu.core.model import User, Bookmark
 
 from wordstats import Word
 

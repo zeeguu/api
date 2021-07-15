@@ -9,11 +9,11 @@
 
 import json
 
-import zeeguu_core
-from zeeguu_core.model.user_activitiy_data import UserActivityData
-from zeeguu_core.model.user_reading_session import *
+import zeeguu.core
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.model.user_reading_session import *
 
-db_session = zeeguu_core.db.session
+db_session = zeeguu.core.db.session
 
 
 def _fill_in_article_id(self, session):

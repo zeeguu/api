@@ -8,7 +8,7 @@
 
 """
 
-from zeeguu_core.model import User
+from zeeguu.core.model import User
 
 for user_id in User.all_recent_user_ids():
     user = User.find_by_id(user_id)

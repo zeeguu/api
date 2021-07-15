@@ -1,8 +1,8 @@
-from zeeguu_core.model import Text, Article
+from zeeguu.core.model import Text, Article
 
-import zeeguu_core
+import zeeguu.core
 
-texts = zeeguu_core.db.session.query(Text).order_by(Text.id.desc()).all()
+texts = zeeguu.core.db.session.query(Text).order_by(Text.id.desc()).all()
 
 not_found = 0
 found = 1
@@ -29,7 +29,7 @@ for text in texts:
         else:
             found += 1
             text.article = article
-            zeeguu_core.db.session.add(text)
+            zeeguu.core.db.session.add(text)
 
             # print(text)
             # print(article)
@@ -39,4 +39,4 @@ for text in texts:
 
         if found % 1500 == 0:
             print("committing 1500 at a time")
-            zeeguu_core.db.session.commit()
+            zeeguu.core.db.session.commit()

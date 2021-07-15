@@ -8,12 +8,12 @@
 
 """
 
-import zeeguu_core
-from zeeguu_core.content_recommender.mixed_recommender import _reading_preferences_hash, \
+import zeeguu.core
+from zeeguu.core.content_recommender.mixed_recommender import _reading_preferences_hash, \
     _recompute_recommender_cache_if_needed
-from zeeguu_core.model import User, ArticlesCache
+from zeeguu.core.model import User, ArticlesCache
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 
 def hashes_of_existing_cached_preferences():
@@ -71,16 +71,16 @@ def recompute_for_users():
             reading_pref_hash = _reading_preferences_hash(user)
             if reading_pref_hash not in already_done:
                 _recompute_recommender_cache_if_needed(user, session)
-                zeeguu_core.logp(f"Success for {reading_pref_hash} and {user}")
+                zeeguu.core.logp(f"Success for {reading_pref_hash} and {user}")
                 already_done.append(reading_pref_hash)
             else:
-                zeeguu_core.logp(f"nno need to do for {user}. hash {reading_pref_hash} already done")
+                zeeguu.core.logp(f"nno need to do for {user}. hash {reading_pref_hash} already done")
         except Exception as e:
-            zeeguu_core.logp(f"Failed for user {user}")
+            zeeguu.core.logp(f"Failed for user {user}")
 
 
 def recompute_for_topics_and_languages():
-    from zeeguu_core.model import Topic, Language
+    from zeeguu.core.model import Topic, Language
 
     for each in Topic.get_all_topics():
         each.all_articles()

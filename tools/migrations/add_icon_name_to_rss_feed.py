@@ -1,7 +1,7 @@
-import zeeguu_core
-from zeeguu_core.model import RSSFeed
+import zeeguu.core
+from zeeguu.core.model import RSSFeed
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 feeds = RSSFeed.query.all()
 

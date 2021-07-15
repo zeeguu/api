@@ -11,15 +11,15 @@
 
 """
 
-import zeeguu_core
-from zeeguu_core.model.article import Article
-from zeeguu_core.model.article_word import ArticleWord
+import zeeguu.core
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_word import ArticleWord
 from nltk.corpus import stopwords
 from urllib.parse import urlparse
 import time
 import re
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 word_count = 0
 article_count = 0
 filtered_general = 0
@@ -30,7 +30,7 @@ articles = Article.query.all()
 filter_general = ['www', '', ' ']
 starting_time = time.time()
 
-result = zeeguu_core.db.engine.execute("SELECT min(article_id) FROM article_word_map").fetchone()
+result = zeeguu.core.db.engine.execute("SELECT min(article_id) FROM article_word_map").fetchone()
 min_id = result[0] or 10000000
 restart_loop = True
 print(f'#### ID TO START AT: {min_id} ####')
@@ -103,7 +103,7 @@ while restart_loop is True:
             except Exception as e:
                 print(f'Exception during commit: {e}')
                 session.rollback()
-                result = zeeguu_core.db.engine.execute("SELECT min(article_id) FROM article_word_map").fetchone()
+                result = zeeguu.core.db.engine.execute("SELECT min(article_id) FROM article_word_map").fetchone()
                 min_id = result[0] - 1
                 restart_loop = True
                 break

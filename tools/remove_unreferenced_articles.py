@@ -4,7 +4,7 @@
 # references to them and are older than a number of days
 #
 # works with the db that is defined in the configuration
-# pointed by ZEEGUU_CORE_CONFIG
+# pointed by zeeguu.core_CONFIG
 #
 # takes as argument the number of days before which the
 # articles will be deleted.
@@ -19,9 +19,9 @@
 import sqlalchemy
 import traceback
 
-from zeeguu_core.model import Article, UserArticle, UserActivityData, UserReadingSession, CohortArticleMap, \
+from zeeguu.core.model import Article, UserArticle, UserActivityData, UserReadingSession, CohortArticleMap, \
     ArticlesCache
-from zeeguu_core import db
+from zeeguu.core import db
 
 import sys
 

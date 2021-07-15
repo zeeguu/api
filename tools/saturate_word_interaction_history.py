@@ -1,17 +1,17 @@
 from datetime import datetime
 
-import zeeguu_core
-from zeeguu_core.model import Bookmark, UserArticle, Text, \
+import zeeguu.core
+from zeeguu.core.model import Bookmark, UserArticle, Text, \
     UserWord, UserActivityData, Language, Exercise
 
-from zeeguu_core.model.bookmark import bookmark_exercise_mapping, Bookmark
+from zeeguu.core.model.bookmark import bookmark_exercise_mapping, Bookmark
 
-from zeeguu_core.model.word_knowledge.word_interaction_history import WordInteractionHistory,WordInteractionEvent
+from zeeguu.core.model.word_knowledge.word_interaction_history import WordInteractionHistory,WordInteractionEvent
 
-from zeeguu_core.constants import WIH_READ_NOT_CLICKED_IN_SENTENCE, WIH_READ_NOT_CLICKED_OUT_SENTENCE, \
+from zeeguu.core.constants import WIH_READ_NOT_CLICKED_IN_SENTENCE, WIH_READ_NOT_CLICKED_OUT_SENTENCE, \
     WIH_READ_CLICKED, UMR_USER_FEEDBACK_ACTION
 
-from zeeguu_core.util.text import split_words_from_text
+from zeeguu.core.util.text import split_words_from_text
 
 from nltk.stem.snowball import SnowballStemmer
 
@@ -19,7 +19,7 @@ LOG_CONTEXT = "FEED RETRIEVAL"
 ARTICLE_FULLY_READ = "finished%"
 LONG_TIME_IN_THE_PAST = "2000-01-01T00:00:00"
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 
 def extract_words_from_text(text, language:Language, stem: bool = True):  # Tokenize the words and create a set of unique words

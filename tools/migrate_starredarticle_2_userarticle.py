@@ -1,8 +1,8 @@
-import zeeguu_core
-from zeeguu_core.model import Article, UserArticle
-from zeeguu_core.model.starred_article import StarredArticle
+import zeeguu.core
+from zeeguu.core.model import Article, UserArticle
+from zeeguu.core.model.starred_article import StarredArticle
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 for sa in StarredArticle.query.all():
     try:

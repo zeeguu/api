@@ -1,8 +1,8 @@
 import datetime
 
-from zeeguu_core.model import User, Exercise, Bookmark
-from zeeguu_core.model.bookmark import bookmark_exercise_mapping
-from zeeguu_core import db
+from zeeguu.core.model import User, Exercise, Bookmark
+from zeeguu.core.model.bookmark import bookmark_exercise_mapping
+from zeeguu.core import db
 
 # USER_ID = 2162
 # USER_ID = 2145  # Fe

@@ -18,12 +18,12 @@
 """
 import traceback
 
-import zeeguu_core
-from zeeguu_core import log
-from zeeguu_core.content_retriever.article_downloader import download_from_feed
-from zeeguu_core.model import RSSFeed
+import zeeguu.core
+from zeeguu.core import log
+from zeeguu.core.content_retriever.article_downloader import download_from_feed
+from zeeguu.core.model import RSSFeed
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 
 def retrieve_articles_from_all_feeds():
@@ -37,7 +37,7 @@ def retrieve_articles_from_all_feeds():
             log("")
             log(f"{msg}")
 
-            download_from_feed(feed, zeeguu_core.db.session)
+            download_from_feed(feed, zeeguu.core.db.session)
 
         except Exception as e:
             traceback.print_exc()

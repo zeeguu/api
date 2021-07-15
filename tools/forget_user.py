@@ -6,9 +6,9 @@
 
 """
 
-import zeeguu_core
+import zeeguu.core
 from faker import Faker
-from zeeguu_core.model import User
+from zeeguu.core.model import User
 
 import sys
 
@@ -21,7 +21,7 @@ def forget_user(user):
     user.name = "Forgotten Learner"
     user.email = fake.email()
 
-    session = zeeguu_core.db.session
+    session = zeeguu.core.db.session
     session.add(user)
     session.commit()
 

@@ -1,7 +1,7 @@
-from zeeguu_core.model.exercise import Exercise
-from zeeguu_core.model.user_exercise_session import UserExerciseSession
+from zeeguu.core.model.exercise import Exercise
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
-import zeeguu_core
+import zeeguu.core
 
 '''
     Script that loops through all the exercises in the database, and recomputes the history of
@@ -10,7 +10,7 @@ import zeeguu_core
     NOTE: It clears and recreates the table
 '''
 
-db_session = zeeguu_core.db.session
+db_session = zeeguu.core.db.session
 
 #Clear table before starting
 UserExerciseSession.query.delete()

@@ -1,7 +1,7 @@
-import zeeguu_core
-from zeeguu_core.model import Bookmark
+import zeeguu.core
+from zeeguu.core.model import Bookmark
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 
 all_bs = Bookmark.query.filter_by(translation_id=None).all()
 fixed = []

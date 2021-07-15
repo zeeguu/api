@@ -13,8 +13,8 @@
 """
 import sys
 
-import zeeguu_core
-from zeeguu_core.model import Article, Language, LocalizedTopic
+import zeeguu.core
+from zeeguu.core.model import Article, Language, LocalizedTopic
 
 
 def update_particular_tag(language, loc_topic):
@@ -36,7 +36,7 @@ def update_particular_tag(language, loc_topic):
 
 if __name__=='__main__':
     try:
-        session = zeeguu_core.db.session
+        session = zeeguu.core.db.session
 
         language = Language.find(sys.argv[1])
         print(f"Tagging articles in {language}")

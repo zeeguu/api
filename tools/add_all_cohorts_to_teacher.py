@@ -7,10 +7,10 @@
    To be called from a cron job.
 
 """
-import zeeguu_core
-from zeeguu_core.model import User, Cohort, TeacherCohortMap
+import zeeguu.core
+from zeeguu.core.model import User, Cohort, TeacherCohortMap
 
-session = zeeguu_core.db.session
+session = zeeguu.core.db.session
 big_teacher = User.query.filter_by(id=534).one()
 
 for cohort in Cohort.query.all():

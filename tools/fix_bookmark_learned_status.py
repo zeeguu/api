@@ -1,6 +1,6 @@
-from zeeguu_core.definition_of_learned import is_learned_based_on_exercise_outcomes
-from zeeguu_core.model import Bookmark
-from zeeguu_core import db
+from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
+from zeeguu.core.model import Bookmark
+from zeeguu.core import db
 
 
 def print_bookmarks_that_are_learned_without_history(bookmarks):

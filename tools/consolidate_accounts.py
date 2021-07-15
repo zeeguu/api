@@ -7,8 +7,8 @@
 
 """
 
-import zeeguu_core
-from zeeguu_core.model import User, UserActivityData, Bookmark, UserArticle, UserReadingSession, UserExerciseSession
+import zeeguu.core
+from zeeguu.core.model import User, UserActivityData, Bookmark, UserArticle, UserReadingSession, UserExerciseSession
 from sys import argv
 
 if len(argv) < 3:
@@ -34,8 +34,8 @@ for each_table in tables_to_modify:
 
     for each in secondary_user_items:
         each.user = primary_user
-        zeeguu_core.db.session.add(each)
-    zeeguu_core.db.session.commit()
+        zeeguu.core.db.session.add(each)
+    zeeguu.core.db.session.commit()
 
     primary_user_items = each_table.query.filter_by(user_id=primary_user.id).all()
     secondary_user_items = each_table.query.filter_by(user_id=secondary_user.id).all()
