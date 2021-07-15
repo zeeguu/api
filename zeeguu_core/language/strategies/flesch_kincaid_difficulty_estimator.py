@@ -70,7 +70,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
 
     @classmethod
     def get_constants_for_language(cls, language: "language"):
-        if language.code in ["de", "pl"]:
+        if language.code in ["de", "pl", "da"]:
             return {"start": 180, "sentence": 1, "word": 58.5}
         else:
             return {"start": 206.835, "sentence": 1.015, "word": 84.6}
