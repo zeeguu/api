@@ -54,16 +54,16 @@ def delete_own_text(id):
         return "An article with that ID does not exist."
 
 
-@api.route("/update_own_text/<id>", methods=["POST"])
+@api.route("/update_own_text/<article_id>", methods=["POST"])
 @cross_domain
 @with_session
-def update_own_text(id):
+def update_own_text(article_id):
 
     language = Language.find_or_create(request.form.get("language", ""))
     content = request.form.get("content", "")
     title = request.form.get("title", "")
 
-    a = Article.query.filter(Article.id == id).one()
+    a = Article.query.filter(Article.id == article_id).one()
     a.update(language, content, title)
 
     db_session.add(a)
