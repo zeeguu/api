@@ -64,9 +64,7 @@ def update_own_text(id):
     title = request.form.get("title", "")
 
     a = Article.query.filter(Article.id == id).one()
-    a.language = language
-    a.content = content
-    a.title = title
+    a.update(language, content, title)
 
     db_session.add(a)
     db_session.commit()

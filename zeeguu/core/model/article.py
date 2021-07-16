@@ -124,6 +124,18 @@ class Article(db.Model):
                 return True
         return False
 
+    def update(self, language, content, title):
+        self.language = language
+        self.content = content
+        self.title = title
+
+        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
+        fk_difficulty = fk_estimator.estimate_difficulty(
+            self.content, self.language, None
+        )["grade"]
+
+        self.fk_difficulty = fk_difficulty
+
     def article_info(self, with_content=False):
         """
 
