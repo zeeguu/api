@@ -83,6 +83,10 @@ class Article(db.Model):
         broken=0,
         deleted=0,
     ):
+
+        if not summary:
+            summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
+
         self.url = url
         self.title = title
         self.authors = authors
@@ -128,6 +132,7 @@ class Article(db.Model):
         self.language = language
         self.content = content
         self.title = title
+        self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
