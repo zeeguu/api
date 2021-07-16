@@ -135,6 +135,7 @@ class Article(db.Model):
         )["grade"]
 
         self.fk_difficulty = fk_difficulty
+        self.word_count = len(self.content.split())
 
     def article_info(self, with_content=False):
         """
