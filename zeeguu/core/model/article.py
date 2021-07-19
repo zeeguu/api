@@ -229,6 +229,8 @@ class Article(db.Model):
             # by using > 0 we filter out both NULL and 0 values
             query = query.filter((cls.deleted == 0) | (cls.deleted.is_(None)))
 
+        query = query.order_by(cls.id.desc())
+
         return query.all()
 
     @classmethod
