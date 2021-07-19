@@ -20,6 +20,8 @@ from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
 
+punctuation_extended = "»«" + punctuation
+
 
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
@@ -39,7 +41,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     :return: json array with translations
     """
 
-    word_str = request.form["word"].strip(punctuation)
+    word_str = request.form["word"].strip(punctuation_extended)
     url = request.form.get("url")
     title_str = request.form.get("title", "")
     context = request.form.get("context", "")
@@ -125,7 +127,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     :return: json array with translations
     """
 
-    word_str = request.form["word"].strip(punctuation)
+    word_str = request.form["word"].strip(punctuation_extended)
     title_str = request.form.get("title", "")
     url = request.form.get("url")
     context = request.form.get("context", "")
