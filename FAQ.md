@@ -1,3 +1,7 @@
+### Q: What to add to FAQ.md?
+
+A: everything that might be useful for future developers for now. If the file grows too much, then we'll refactor it. 
+
 
 ### Q: pip install fails with
 
