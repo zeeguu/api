@@ -7,9 +7,11 @@
 	ERROR: No matching distribution found for mysqlclient
 ```
 
-Solution:
+A:
 
     brew install mysql
     
     
 
+### Q: ... 
+A: ...
