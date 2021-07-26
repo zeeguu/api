@@ -23,3 +23,5 @@ zeeguu_api/machine_specific.py
 
 machine_specific.py
 lu-mir-zeeguu-credentials.json
+
+zenv*
