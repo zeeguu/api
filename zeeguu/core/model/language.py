@@ -34,7 +34,7 @@ class Language(db.Model):
         "da",
         "pl",
     ]
-    CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = ["da", "en", "nl", "ro", "zh-CN"]
+    CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = ["da", "en", "nl", "ro", "zh-CN", "tr"]
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(5))
