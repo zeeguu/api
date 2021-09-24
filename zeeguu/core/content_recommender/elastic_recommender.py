@@ -126,7 +126,7 @@ def article_search_for_user(user, count, search_terms):
     return [
         UserArticle.user_article_info(user, article)
         for article in final_article_mix
-        if article is not None
+        if article is not None and not article.broken
     ]
 
 
