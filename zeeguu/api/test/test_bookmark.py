@@ -81,6 +81,32 @@ class BookmarkTest(APITestMixin, TestCase):
         bookmark1 = day1["bookmarks"][0]
         self.assertTrue("lamb" in str(bookmark1))
 
+    def test_update_bookmark(self):
+        # GIVEN
+        elements = self.json_from_api_get("/bookmarks_by_day/with_context")
+        day1 = elements[0]
+        bookmark1 = day1["bookmarks"][0]
+        bookmark1_id = bookmark1["id"]
+
+        # WHEN
+        data = dict(
+            word=bookmark1["from"],
+            url=bookmark1["url"],
+            title=bookmark1["title"],
+            context="a new context",
+            translation="lamb",
+        )
+
+        self.api_post(f"update_bookmark/{bookmark1_id}", data)
+
+        # THEN
+
+        elements = self.json_from_api_get("/bookmarks_by_day/with_context")
+        day1 = elements[0]
+        bookmark1 = day1["bookmarks"][0]
+        self.assertTrue("lamb" in str(bookmark1))
+        self.assertTrue("a new context" in str(bookmark1))
+
     def test_get_known_bookmarks_after_date(self):
         """
         The dates in which we have bookmarks in the test data are: 2014, 2011, 2001

@@ -173,6 +173,34 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     return json_result(dict(translations=translations))
 
 
+@api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def update_translation(bookmark_id):
+    """
+
+        User updates a bookmark
+
+    :return: in case of success, the bookmark_id
+
+    """
+
+    # All these POST params are mandatory
+    word_str = unquote_plus(request.form["word"])
+    translation_str = request.form["translation"]
+    context_str = request.form.get("context", "")
+
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.origin.word = word_str
+    bookmark.translation.word = translation_str
+    bookmark.text.update_content(context_str)
+
+    db_session.add(bookmark)
+    db_session.commit()
+
+    return bookmark_id
+
+
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @with_session

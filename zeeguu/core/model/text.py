@@ -40,6 +40,10 @@ class Text(db.Model):
     def __repr__(self):
         return "<Text %r>" % (self.content)
 
+    def update_content(self, new_content):
+        self.content = new_content
+        self.content_hash = text_hash(new_content)
+
     def url(self):
         # legacy; some texts don't have an article associated with them
         if not self.article:
