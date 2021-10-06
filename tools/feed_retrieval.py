@@ -27,10 +27,14 @@ session = zeeguu.core.db.session
 
 
 def retrieve_articles_from_all_feeds():
+
     counter = 0
     all_feeds = RSSFeed.query.all()
     all_feeds_count = len(all_feeds)
     for feed in all_feeds:
+        if feed.deactivated:
+            continue
+
         counter += 1
         try:
             msg = f"*** >>>>>>>>> {feed.title} ({counter}/{all_feeds_count}) <<<<<<<<<< "  # .encode('utf-8')
@@ -43,5 +47,5 @@ def retrieve_articles_from_all_feeds():
             traceback.print_exc()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     retrieve_articles_from_all_feeds()

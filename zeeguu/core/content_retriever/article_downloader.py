@@ -54,6 +54,17 @@ def _date_in_the_future(time):
     return time > datetime.now()
 
 
+def banned_url(url):
+    banned = [
+        "https://www.dr.dk/sporten/seneste-sport/",
+        "https://www.dr.dk/nyheder/seneste/",
+    ]
+    for each in banned:
+        if url.startswith(each):
+            return True
+    return False
+
+
 def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True):
     """
 
@@ -66,6 +77,8 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
 
 
     """
+
+    print(feed.url)
 
     downloaded = 0
     skipped_due_to_low_quality = 0
@@ -111,11 +124,29 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
                 f"+updated feed's last crawled time to {last_retrieval_time_seen_this_crawl}"
             )
 
+        try:
+            log("before redirects")
+            log(feed_item["url"])
+            url = _url_after_redirects(feed_item["url"])
+            log("after redirects")
+            log(url)
+
+        except requests.exceptions.TooManyRedirects:
+            raise Exception(f"- Too many redirects")
+        except Exception:
+            raise Exception(
+                f"- Could not get url after redirects for {feed_item['url']}"
+            )
+
+        if banned_url(url):
+            log("Banned Url")
+            continue
+
         session.add(feed)
         session.commit()
 
         try:
-            new_article = download_feed_item(session, feed, feed_item)
+            new_article = download_feed_item(session, feed, feed_item, url)
             downloaded += 1
         except SkippedForTooOld:
             log("- Article too old")
@@ -168,18 +199,8 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
     log(f"*** ")
 
 
-def download_feed_item(session, feed, feed_item):
+def download_feed_item(session, feed, feed_item, url):
     new_article = None
-
-    try:
-
-        url = _url_after_redirects(feed_item["url"])
-        log(url)
-
-    except requests.exceptions.TooManyRedirects:
-        raise Exception(f"- Too many redirects")
-    except Exception:
-        raise Exception(f"- Could not get url after redirects for {feed_item['url']}")
 
     title = feed_item["title"]
 

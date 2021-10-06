@@ -17,8 +17,8 @@ db = zeeguu.core.db
 
 
 class RSSFeed(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'rss_feed'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "rss_feed"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -38,7 +38,11 @@ class RSSFeed(db.Model):
 
     last_crawled_time = db.Column(db.DateTime)
 
-    def __init__(self, url, title, description, image_url=None, icon_name=None, language=None):
+    deactivated = db.Column(db.Integer)
+
+    def __init__(
+        self, url, title, description, image_url=None, icon_name=None, language=None
+    ):
         self.url = url
         self.image_url = image_url
         self.icon_name = icon_name
@@ -46,13 +50,14 @@ class RSSFeed(db.Model):
         self.language = language
         self.description = description
         self.last_crawled_time = datetime(2001, 1, 2)
+        self.deactivated = 0
 
     def __str__(self):
         language = "unknown"
         if self.language:
             language = self.language.code
 
-        return f'{self.title, language}'
+        return f"{self.title, language}"
 
     def __repr__(self):
         return str(self)
@@ -73,17 +78,15 @@ class RSSFeed(db.Model):
 
         try:
             image_url_string = data.feed.image.href
-            print(f'Found image url at: {image_url_string}')
+            print(f"Found image url at: {image_url_string}")
         except:
-            print('Could not find any image url.')
+            print("Could not find any image url.")
 
         feed_url = Url(url, title)
 
         return RSSFeed(feed_url, title, description)
 
-
     def as_dictionary(self):
-
 
         language = "unknown_lang"
         if self.language:
@@ -95,11 +98,11 @@ class RSSFeed(db.Model):
             url=self.url.as_string(),
             description=self.description,
             language=language,
-            image_url='',
-            icon_name=self.icon_name
+            image_url="",
+            icon_name=self.icon_name,
         )
 
-    def feed_items(self, last_retrieval_time_from_DB = None):
+    def feed_items(self, last_retrieval_time_from_DB=None):
         """
 
         :return: a dictionary with info about that feed
@@ -108,7 +111,7 @@ class RSSFeed(db.Model):
         """
 
         if not last_retrieval_time_from_DB:
-            last_retrieval_time_from_DB = datetime(1980,1,1)
+            last_retrieval_time_from_DB = datetime(1980, 1, 1)
 
         def publishing_date(item):
             # this used to be updated_parsed but cf the deprecation
@@ -120,7 +123,9 @@ class RSSFeed(db.Model):
                 # curious if this fixes the problem in some
                 # cases; to find out, we log
 
-                zeeguu.core.log(f'trying updated_parsed where published_parsed failed for {item.get("link", "")} in the context of {self.url.as_string()}')
+                zeeguu.core.log(
+                    f'trying updated_parsed where published_parsed failed for {item.get("link", "")} in the context of {self.url.as_string()}'
+                )
                 result = item.updated_parsed
                 return result
 
@@ -133,9 +138,13 @@ class RSSFeed(db.Model):
         zeeguu.core.log(f"** Articles in feed: {len(feed_data.entries)}")
         for item in feed_data.entries:
             try:
-                published_string = time.strftime(SIMPLE_TIME_FORMAT, publishing_date(item))
+                published_string = time.strftime(
+                    SIMPLE_TIME_FORMAT, publishing_date(item)
+                )
 
-                this_entry_time = datetime.strptime(published_string, SIMPLE_TIME_FORMAT)
+                this_entry_time = datetime.strptime(
+                    published_string, SIMPLE_TIME_FORMAT
+                )
                 this_entry_time = this_entry_time.replace(tzinfo=None)
 
                 new_item_data_dict = dict(
@@ -144,27 +153,34 @@ class RSSFeed(db.Model):
                     content=item.get("content", ""),
                     summary=item.get("summary", ""),
                     published=published_string,
-                    published_datetime=this_entry_time
+                    published_datetime=this_entry_time,
                 )
 
                 if this_entry_time > last_retrieval_time_from_DB:
                     feed_items.append(new_item_data_dict)
                 else:
-                    skipped_due_to_time+=1
+                    skipped_due_to_time += 1
                     skipped_items.append(new_item_data_dict)
 
             except AttributeError as e:
-                zeeguu.core.log(f'Exception {e} while trying to retrieve {item.get("link", "")}')
+                zeeguu.core.log(
+                    f'Exception {e} while trying to retrieve {item.get("link", "")}'
+                )
 
-
-        sorted_skipped_items = sorted(skipped_items, key= lambda x:x['published_datetime'])
+        sorted_skipped_items = sorted(
+            skipped_items, key=lambda x: x["published_datetime"]
+        )
         for each in sorted_skipped_items:
-            zeeguu.core.debug(f"- skipped: {each['published_datetime']} - {each['title']}")
+            zeeguu.core.debug(
+                f"- skipped: {each['published_datetime']} - {each['title']}"
+            )
 
         for each in feed_items:
-            zeeguu.core.debug(f"- to download: {each['published_datetime']} - {each['title']}")
+            zeeguu.core.debug(
+                f"- to download: {each['published_datetime']} - {each['title']}"
+            )
 
-        zeeguu.core.log(f'*** Skipped due to time: {len(skipped_items)} ')
+        zeeguu.core.log(f"*** Skipped due to time: {len(skipped_items)} ")
         zeeguu.core.log(f"*** To download: {len(feed_items)}")
 
         return feed_items
@@ -172,9 +188,7 @@ class RSSFeed(db.Model):
     @classmethod
     def exists(cls, rss_feed):
         try:
-            cls.query.filter(
-                cls.url == rss_feed.url
-            ).one()
+            cls.query.filter(cls.url == rss_feed.url).one()
             return True
         except NoResultFound:
             return False
@@ -186,6 +200,7 @@ class RSSFeed(db.Model):
             return result
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             return None
 
@@ -198,13 +213,17 @@ class RSSFeed(db.Model):
             return None
 
     @classmethod
-    def find_or_create(cls, session, url, title, description, icon_name, language: Language):
+    def find_or_create(
+        cls, session, url, title, description, icon_name, language: Language
+    ):
         try:
-            result = (cls.query.filter(cls.url == url)
-                      .filter(cls.title == title)
-                      .filter(cls.language == language)
-                      .filter(cls.description == description)
-                      .one())
+            result = (
+                cls.query.filter(cls.url == url)
+                .filter(cls.title == title)
+                .filter(cls.language == language)
+                .filter(cls.description == description)
+                .one()
+            )
             return result
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(url, title, description, icon_name=icon_name, language=language)
@@ -219,7 +238,9 @@ class RSSFeed(db.Model):
         language = Language.find(language_code)
         return cls.query.filter(cls.language == language).all()
 
-    def get_articles(self, limit=None, after_date=None, most_recent_first=False, easiest_first=False):
+    def get_articles(
+        self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
+    ):
         """
 
             Articles for this feed from the article DB
@@ -237,11 +258,12 @@ class RSSFeed(db.Model):
             after_date = datetime(2001, 1, 1)
 
         try:
-            q = (Article.query.
-                 filter(Article.rss_feed == self).
-                 filter(Article.broken == 0).
-                 filter(Article.published_time >= after_date).
-                 filter(Article.word_count > Article.MINIMUM_WORD_COUNT))
+            q = (
+                Article.query.filter(Article.rss_feed == self)
+                .filter(Article.broken == 0)
+                .filter(Article.published_time >= after_date)
+                .filter(Article.word_count > Article.MINIMUM_WORD_COUNT)
+            )
 
             if most_recent_first:
                 q = q.order_by(Article.published_time.desc())
