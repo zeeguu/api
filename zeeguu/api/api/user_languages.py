@@ -31,7 +31,7 @@ def modify_user_language():
 
     :return: "OK" in case of success
     """
-    language_id = int(request.form.get("language_id", ""))
+    language_code = request.form.get("language_id", "")
     try:
         language_reading = int(request.form.get("language_reading", ""))
     except:
@@ -45,7 +45,7 @@ def modify_user_language():
     except:
         language_level = None
 
-    language_object = Language.find_by_id(language_id)
+    language_object = Language.find(language_code)
     user_language = UserLanguage.find_or_create(session, flask.g.user, language_object)
     if language_reading is not None:
         user_language.reading_news = language_reading
