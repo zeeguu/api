@@ -129,7 +129,11 @@ class RSSFeed(db.Model):
                 result = item.updated_parsed
                 return result
 
-        response = requests.get(self.url.as_string())
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36"
+        }  # This is chrome, you can set whatever browser you like
+
+        response = requests.get(self.url.as_string(), headers=headers)
         feed_data = feedparser.parse(response.text)
 
         skipped_due_to_time = 0
