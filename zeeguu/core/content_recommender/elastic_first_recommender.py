@@ -49,7 +49,14 @@ def article_recommendations_for_user(
 def article_search_for_user(user, count, search_terms):
     try:
 
-        return elastic_article_search_for_user(user, count, search_terms)
+        return elastic_article_search_for_user(
+            user,
+            count,
+            search_terms,
+            es_scale="365d",
+            es_decay=0.8,
+            es_weight=4.2,
+        )
 
     except elasticsearch.exceptions.ConnectionError:
         log(ES_DOWN_MESSAGE)
