@@ -28,7 +28,13 @@ from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
 
-def article_recommendations_for_user(user, count):
+def article_recommendations_for_user(
+    user,
+    count,
+    es_scale="30d",
+    es_decay=0.8,
+    es_weight=4.2,
+):
     """
 
             Retrieve :param count articles which are equally distributed
@@ -40,13 +46,20 @@ def article_recommendations_for_user(user, count):
 
     """
 
-    articles = article_search_for_user(user, count, "")
+    articles = article_search_for_user(user, count, "", es_scale, es_decay, es_weight)
 
     return articles
 
 
 @time_this
-def article_search_for_user(user, count, search_terms):
+def article_search_for_user(
+    user,
+    count,
+    search_terms,
+    es_scale="30d",
+    es_decay=0.8,
+    es_weight=4.2,
+):
     """
     Handles searching.
     Find the relational values from the database and use them to search in elasticsearch for relative articles.
@@ -114,6 +127,9 @@ def article_search_for_user(user, count, search_terms):
             language,
             upper_bounds,
             lower_bounds,
+            es_scale,
+            es_decay,
+            es_weight,
         )
 
         es = Elasticsearch(ES_CONN_STRING)

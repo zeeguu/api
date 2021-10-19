@@ -39,6 +39,9 @@ def build_elastic_query(
     language,
     upper_bounds,
     lower_bounds,
+    es_scale="30d",
+    es_decay=0.8,
+    es_weight=4.2,
 ):
     """
 
@@ -133,8 +136,10 @@ def build_elastic_query(
         # original parameters by Simon & Marcus
         # "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
         # "weight": 1.2,
-        "gauss": {"published_time": {"origin": "now", "scale": "30d", "decay": 0.8}},
-        "weight": 4.2,
+        "gauss": {
+            "published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}
+        },
+        "weight": es_weight,
     }
 
     full_query["query"]["function_score"].update({"functions": [function1]})

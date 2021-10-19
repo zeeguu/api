@@ -22,10 +22,22 @@ from .mixed_recommender import (
 ES_DOWN_MESSAGE = ">>>>>>>>>>>>>> ElasticSearch seems to be down. Falling back on MySQL recommendations"
 
 
-def article_recommendations_for_user(user, count):
+def article_recommendations_for_user(
+    user,
+    count,
+    es_scale="30d",
+    es_decay=0.8,
+    es_weight=4.2,
+):
     try:
 
-        return elastic_article_recommendations_for_user(user, count)
+        return elastic_article_recommendations_for_user(
+            user,
+            count,
+            es_scale,
+            es_decay,
+            es_weight,
+        )
 
     except elasticsearch.exceptions.ConnectionError:
         log(ES_DOWN_MESSAGE)
