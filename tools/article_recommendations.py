@@ -18,10 +18,9 @@ for article in results:
 
     print(
         article["published"][0:16]
-        + "\n"
+        + " ["
         + article["topics"]
-        + "\n"
+        + "] "
         + article["title"][0:42]
-        + "\n"
         + "\n"
     )
