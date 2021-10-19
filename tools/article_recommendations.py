@@ -3,9 +3,6 @@ from zeeguu.core.model import User
 import sys
 
 
-if len(sys.argv) < 5:
-    exit(-1)
-
 user = User.find_by_id(2953)
 print(user.name)
 
