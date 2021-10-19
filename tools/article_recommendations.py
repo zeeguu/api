@@ -1,5 +1,10 @@
 from zeeguu.core.content_recommender import article_recommendations_for_user
 from zeeguu.core.model import User
+import sys
+
+
+if len(sys.argv) < 5:
+    exit(-1)
 
 user = User.find_by_id(2953)
 print(user.name)
@@ -7,9 +12,9 @@ print(user.name)
 results = article_recommendations_for_user(
     user,
     20,
-    "30d",
-    0.8,
-    4.2,
+    sys.argv[1],
+    sys.argv[2],
+    sys.argv[3],
 )
 
 for article in results:
