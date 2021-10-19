@@ -145,4 +145,5 @@ def build_elastic_query(
     full_query["query"]["function_score"].update({"functions": [function1]})
     full_query["query"]["function_score"].update(bool_query_body)
 
+    print(full_query)
     return full_query
