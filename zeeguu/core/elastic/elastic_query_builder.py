@@ -39,7 +39,7 @@ def build_elastic_query(
     language,
     upper_bounds,
     lower_bounds,
-    es_scale="30d",
+    es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
 ):

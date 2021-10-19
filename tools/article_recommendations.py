@@ -14,6 +14,8 @@ results = article_recommendations_for_user(
     sys.argv[3],
 )
 
+results.sort(key=lambda x: x["published"], reverse=True)
+
 for article in results:
 
     print(

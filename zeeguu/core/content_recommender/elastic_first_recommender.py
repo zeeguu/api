@@ -25,7 +25,7 @@ ES_DOWN_MESSAGE = ">>>>>>>>>>>>>> ElasticSearch seems to be down. Falling back o
 def article_recommendations_for_user(
     user,
     count,
-    es_scale="30d",
+    es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
 ):
