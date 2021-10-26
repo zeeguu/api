@@ -52,7 +52,7 @@ def modify_user_language():
     if language_exercises is not None:
         user_language.doing_exercises = language_exercises
     if language_level is not None:
-        user_language.declared_level = language_level
+        user_language.cefr_level = language_level
     session.add(user_language)
     session.commit()
 
