@@ -215,7 +215,7 @@ def add_colleague_to_cohort():
     cohort_id = request.form.get("cohort_id")
     colleague_email = request.form.get("colleague_email")
 
-    check_permission_for_cohort(id)
+    check_permission_for_cohort(cohort_id)
 
     colleague = User.find(colleague_email)
     cohort = Cohort.find(cohort_id)
