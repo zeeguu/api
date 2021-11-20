@@ -357,6 +357,19 @@ class Article(db.Model):
             return []
 
     @classmethod
+    def all_younger_than(cls, days):
+        import datetime
+
+        today = datetime.date.today()
+        some_time_ago = today - datetime.timedelta(days)
+        try:
+            return cls.query.filter(cls.published_time > some_time_ago).all()
+
+        except NoResultFound:
+            return []
+
+
+    @classmethod
     def exists(cls, article):
         try:
             cls.query.filter(cls.url == article.url).one()
