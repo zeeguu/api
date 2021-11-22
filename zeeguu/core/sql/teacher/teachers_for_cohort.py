@@ -13,6 +13,7 @@ def teachers_for_cohort(cohort_id):
                         on u.id = tcm.user_id 
     
                 where tcm.cohort_id = :cohort_id
+                    and tcm.is_dev is NULL
             """
 
     return list_of_dicts_from_query(
