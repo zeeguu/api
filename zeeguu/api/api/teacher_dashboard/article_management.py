@@ -37,7 +37,7 @@ def send_article_to_colleague():
         return make_error(401, "There is no user with that email")
 
     article = Article.find_by_id(request.form.get("article_id"))
-    new_id = Article.create_clone(db.session, article, flask.g.user)
+    new_id = Article.create_clone(db.session, article, receiving_user)
     print(f"send email confirmation to {receiving_user} ")
     mail = ZeeguuMailer(
         f"New Text from {flask.g.user.name}!",

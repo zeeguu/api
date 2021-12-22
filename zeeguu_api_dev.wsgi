@@ -17,11 +17,9 @@ application.logger.debug(application.instance_path)
 
 logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 
-
-if len(sys.argv) > 1 and sys.argv[1] == "run":
-    # Make sure to keep this in sync with zeeguu_api_dev.wsgi
-    application.run(
-        host=application.config.get("HOST", "localhost"),
-        port=application.config.get("PORT", 9001),
-        debug=True,
-    )
+# Make sure to keep this in sync with zeeguu_api_dev.wsgi
+application.run(
+    host=application.config.get("HOST", "localhost"),
+    port=application.config.get("PORT", 9001),
+    debug=True,
+)
