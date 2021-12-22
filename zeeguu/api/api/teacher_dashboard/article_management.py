@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.api.api.utils.abort_handling import make_error
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Cohort, Language, Article, Url, User
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from ._only_teachers_decorator import only_teachers
@@ -32,11 +33,19 @@ def send_article_to_colleague():
     try:
         receiving_user = User.find(request.form.get("email"))
     except sqlalchemy.orm.exc.NoResultFound:
+        print("about to error: There is no user with that email")
         return make_error(401, "There is no user with that email")
 
     article = Article.find_by_id(request.form.get("article_id"))
-    Article.create_clone(db.session, article, flask.g.user)
+    new_id = Article.create_clone(db.session, article, flask.g.user)
     print(f"send email confirmation to {receiving_user} ")
+    mail = ZeeguuMailer(
+        f"New Text from {flask.g.user.name}!",
+        f"https://zeeguu.org/teacher/texts/editText/{new_id}",
+        receiving_user.email,
+    )
+    mail.send()
+    print("email sent")
 
     return "OK"
 
