@@ -234,6 +234,26 @@ class Article(db.Model):
         return query.all()
 
     @classmethod
+    def create_clone(cls, session, source, uploader):
+
+        current_time = datetime.now()
+        new_article = Article(
+            None,
+            source.title,
+            None,
+            source.content,
+            None,
+            current_time,
+            None,
+            source.language,
+            uploader,
+        )
+        session.add(new_article)
+
+        session.commit()
+        return new_article.id
+
+    @classmethod
     def create_from_upload(cls, session, title, content, uploader, language):
 
         current_time = datetime.now()
