@@ -9,7 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.api.api.utils.abort_handling import make_error
-from zeeguu.core.model import Cohort, Language, Article, Url
+from zeeguu.core.model import Cohort, Language, Article, Url, User
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from ._only_teachers_decorator import only_teachers
 from ._permissions import (
@@ -19,6 +19,26 @@ from .. import api
 from ..utils.route_wrappers import with_session
 
 db = zeeguu.core.db
+
+
+@api.route("/send_article_to_colleague", methods=["POST"])
+@with_session
+@only_teachers
+def send_article_to_colleague():
+    """
+    Send article with a colleague;
+    Feature requested by Pernille and her colleagues
+    """
+    try:
+        receiving_user = User.find(request.form.get("email"))
+    except sqlalchemy.orm.exc.NoResultFound:
+        return make_error(401, "There is no user with that email")
+
+    article = Article.find_by_id(request.form.get("article_id"))
+    Article.create_clone(db.session, article, flask.g.user)
+    print(f"send email confirmation to {receiving_user} ")
+
+    return "OK"
 
 
 @api.route("/add_article_to_cohort", methods=["POST"])
