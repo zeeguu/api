@@ -40,8 +40,12 @@ def send_article_to_colleague():
     new_id = Article.create_clone(db.session, article, receiving_user)
     print(f"send email confirmation to {receiving_user} ")
     mail = ZeeguuMailer(
-        f"New Text from {flask.g.user.name}!",
-        f"https://zeeguu.org/teacher/texts/editText/{new_id}",
+        f"Shared with you: {article.title}",
+        f"Hi {receiving_user.name},\n\n"
+        + f"{flask.g.user.name} has shared with you a text entitled '{article.title}'\n"
+        + f"You can find it at:\n\n\t https://zeeguu.org/teacher/texts/editText/{new_id}\n\n"
+        + "Cheers,\n"
+        + "The Zeeguu Team",
         receiving_user.email,
     )
     mail.send()
