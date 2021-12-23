@@ -41,7 +41,7 @@ def send_article_to_colleague():
     print(f"send email confirmation to {receiving_user} ")
     mail = ZeeguuMailer(
         f"Shared with you: {article.title}",
-        f"Hi {receiving_user.name},\n\n"
+        f"Dear {receiving_user.name},\n\n"
         + f"{flask.g.user.name} has shared with you a text entitled '{article.title}'\n"
         + f"You can find it at:\n\n\t https://zeeguu.org/teacher/texts/editText/{new_id}\n\n"
         + "Cheers,\n"
