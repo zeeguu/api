@@ -42,7 +42,7 @@ def send_article_to_colleague():
     mail = ZeeguuMailer(
         f"Shared: {article.title}",
         f"Dear {receiving_user.name},\n\n"
-        + f'{flask.g.user.name} has shared with you a text entitled "{article.title}".\n\n'
+        + f'{flask.g.user.name} shared "{article.title}" with you.\n\n'
         + f"You can find it on the My Texts page, or at the link below:\n\n"
         + f"\t https://zeeguu.org/teacher/texts/editText/{new_id}\n\n"
         + "Cheers,\n"
