@@ -13,7 +13,6 @@ print("loading api endpionts...")
 # They enrich the api object
 from . import feature_toggles
 from . import exercises
-from . import feeds
 from . import sessions
 from . import smartwatch
 from . import system_languages
