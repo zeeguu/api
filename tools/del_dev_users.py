@@ -7,14 +7,22 @@ from sqlalchemy.orm.exc import NoResultFound
 session = zeeguu.core.db.session
 
 from zeeguu.core.model import SearchSubscription, TopicFilter, TopicSubscription, Teacher, TeacherCohortMap, Session, User, UserActivityData, Bookmark, UserArticle, UserReadingSession, UserExerciseSession
+from zeeguu.core.model import Article
 
 tables_to_modify = [SearchSubscription, TopicFilter, TopicSubscription, Session, Teacher, TeacherCohortMap, Bookmark, UserActivityData, UserArticle, UserReadingSession, UserExerciseSession]
 
 # users that are developer accounts
 # they should be deleted before doing data analysis
-user_ids_to_delete = [3416, 19, 20, 3011, 2945, 3405, 2838, 2230, 2231, 2232, 62, 1859, 154, 1]
+user_ids_to_delete = [3416, 19, 20, 3011, 2945, 3405, 2838, 2230, 2231, 2232, 62, 1859, 154, 1, 534, 2953, 2643]
 
 def delete_user(subject):
+
+    articles = Article.uploaded_by(subject.id)
+    print(f"articles to update uploaded id in:")
+    for a in articles:
+        a.uploader_id = None
+        session.add(a)
+    session.commit()
 
     print(f"Deleting user {subject.name}...")
     for each_table in tables_to_modify:

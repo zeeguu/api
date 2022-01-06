@@ -348,6 +348,10 @@ class Article(db.Model):
         return Article.query.filter(Article.id == id).first()
 
     @classmethod
+    def uploaded_by(cls, uploader_id: int):
+        return Article.query.filter(Article.uploader_id == uploader_id).all()
+
+    @classmethod
     def find(cls, url: str):
         """
 
