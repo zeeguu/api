@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from zeeguu.core.model import RSSFeed, Url, Language, RSSFeedRegistration
+from zeeguu.core.model import RSSFeed
 import zeeguu.core
 
 session = zeeguu.core.db.session
@@ -16,8 +16,3 @@ for feed in all_feeds:
         print (feed.language.code)
         print (feed.url.as_string())
         print (feed.image_url.as_string())
-
-        for reg in RSSFeedRegistration.query.all():
-            if reg.rss_feed_id == feed.id:
-                print("... registraion by user " + reg.user.name)
-        

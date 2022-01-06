@@ -45,7 +45,6 @@ from .article_word import ArticleWord
 from .articles_cache import ArticlesCache
 
 from .feed import RSSFeed
-from .feed_registrations import RSSFeedRegistration
 
 from .topic import Topic
 from .topic_subscription import TopicSubscription
