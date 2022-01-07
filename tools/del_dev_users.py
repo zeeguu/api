@@ -13,7 +13,7 @@ tables_to_modify = [SearchSubscription, TopicFilter, TopicSubscription, Session,
 
 # users that are developer accounts
 # they should be deleted before doing data analysis
-user_ids_to_delete = [3416, 19, 20, 3011, 2945, 3405, 2838, 2230, 2231, 2232, 62, 1859, 154, 1, 534, 2953, 2643]
+user_ids_to_delete = [3416, 19, 20, 3011, 2945, 3405, 2838, 2230, 2231, 2232, 62, 1859, 154, 1, 2643]
 
 def delete_user(subject):
 
