@@ -128,6 +128,7 @@ class UserActivityData(db.Model):
     def find(
         cls,
         user: User = None,
+        article: Article = None,
         extra_filter: str = None,
         extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
         event_filter: str = None,
@@ -140,6 +141,9 @@ class UserActivityData(db.Model):
         :return: object or None if not found
         """
         query = cls.query
+
+        if article is not None:
+            query = query.filter(cls.article == article)
         if event_filter is not None:
             query = query.filter(cls.event == event_filter)
         if user is not None:

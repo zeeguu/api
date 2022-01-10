@@ -13,6 +13,7 @@ from zeeguu.core import util, logger
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model import Language
 
+
 db = zeeguu.core.db
 
 CEFR_TO_DIFFICULTY_MAPPING = {
@@ -200,6 +201,11 @@ class User(db.Model):
         """
         return self.bookmarks_chronologically()[0].time
 
+    def liked_articles(self):
+        from zeeguu.core.model.user_article import UserArticle
+
+        return UserArticle.all_liked_articles_of_user(self)
+
     def active_during_recent(self, days: int = 30):
         if not self.has_bookmarks():
             return False
@@ -278,7 +284,7 @@ class User(db.Model):
         query = zeeguu.core.db.session.query(UserReadingSession)
         query = query.join(Article, Article.id == UserReadingSession.article_id)
         # TODO: join with Article on language_id
-        print(language_id)
+        # print(language_id)
 
         query = query.filter(UserReadingSession.user_id == self.id)
         query = query.filter(UserReadingSession.start_time >= after_date)

@@ -162,6 +162,13 @@ class UserArticle(zeeguu.core.db.Model):
         )
 
     @classmethod
+    def all_liked_articles_of_user(cls, user):
+        return (
+            cls.query.filter_by(user=user).filter(UserArticle.liked.isnot(False)).all()
+        )
+
+
+    @classmethod
     def all_starred_or_liked_articles_of_user(cls, user, limit=30):
         return (
             cls.query.filter_by(user=user)
