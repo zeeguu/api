@@ -22,6 +22,8 @@ class Language(db.Model):
         "pt": "Portuguese",
         "ro": "Romanian",
         "zh-CN": "Chinese",
+        "sv": "Swedish",
+        "ru": "Russian",
     }
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
@@ -33,6 +35,8 @@ class Language(db.Model):
         "it",
         "da",
         "pl",
+        "sv",
+        "ru",
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
