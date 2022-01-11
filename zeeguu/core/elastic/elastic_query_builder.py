@@ -42,6 +42,7 @@ def build_elastic_query(
     es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
+    second_try=False,
 ):
     """
 
@@ -118,13 +119,17 @@ def build_elastic_query(
 
     must.append(exists("published_time"))
     # add the must, must_not and should lists to the query body
-    bool_query_body["query"]["bool"].update(
-        {
-            "filter": {
-                "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
+
+    if not second_try:
+        # on the second try we do not add the range;
+        # because we didn't find anything with it
+        bool_query_body["query"]["bool"].update(
+            {
+                "filter": {
+                    "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
+                }
             }
-        }
-    )
+        )
 
     bool_query_body["query"]["bool"].update({"should": should})
     bool_query_body["query"]["bool"].update({"must": must})

@@ -138,6 +138,28 @@ def article_search_for_user(
         hit_list = res["hits"].get("hits")
         final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
+        if len(final_article_mix) == 0:
+            # build the query using elastic_query_builder
+            query_body = build_elastic_query(
+                per_language_article_count,
+                search_terms,
+                _list_to_string(topics_to_include),
+                _list_to_string(topics_to_exclude),
+                _list_to_string(wanted_user_topics),
+                _list_to_string(unwanted_user_topics),
+                language,
+                upper_bounds,
+                lower_bounds,
+                es_scale,
+                es_decay,
+                es_weight,
+                second_try=True,
+            )
+        res = es.search(index=ES_ZINDEX, body=query_body)
+
+        hit_list = res["hits"].get("hits")
+        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+
     # convert to article_info and return
     return [
         UserArticle.user_article_info(user, article)
