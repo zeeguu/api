@@ -40,6 +40,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
+    print(flask.g.user.id)
 
     word_str = request.form["word"].strip(punctuation_extended)
     url = request.form.get("url")
