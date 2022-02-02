@@ -35,9 +35,12 @@ def send_notification_article_feedback(
         for event in events:
             short_time = dt.strftime(event.time, "%H:%M")
             event_name = event.event.replace("UMR - ", "")
+            event_name = event_name.lower()
+            event_name = event.event.replace("translate text", "translate: ")
+            event_name = event.event.replace("speak text", "speak: ")
             if short_time != prev_short_time:
                 stream.append(f"  {short_time}")
-            stream.append(f"       {event_name.lower()} {event.value}")
+            stream.append(f"       {event_name} {event.value}")
 
             if event_name == "ARTICLE LOST FOCUS":
                 stream.append("")
