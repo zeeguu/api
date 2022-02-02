@@ -133,6 +133,7 @@ class UserActivityData(db.Model):
         extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
         event_filter: str = None,
         only_latest=False,
+        article_id: int = None,
     ):
         """
 
@@ -148,6 +149,8 @@ class UserActivityData(db.Model):
             query = query.filter(cls.event == event_filter)
         if user is not None:
             query = query.filter(cls.user == user)
+        if article_id is not None:
+            query = query.filter(cls.article_id == article_id)
         query = query.order_by("time")
 
         try:

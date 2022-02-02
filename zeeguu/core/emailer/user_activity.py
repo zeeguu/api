@@ -1,5 +1,6 @@
 from zeeguu.core.model import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.core.model.user_activitiy_data import UserActivityData
 
 cheers_your_server = "\n\rCheers,\n\rYour Zeeguu Server ;)"
 
@@ -27,11 +28,19 @@ def send_notification_article_feedback(
                 f"- {each.origin.word} => {each.translation.word} ({each.time})"
             )
 
+        # user activity data
+        stream.append("\n\nUser Interactions:\n\n")
+        events = UserActivityData.find(article_id=article_id)
+        for event in events:
+            stream.append(f"{event.value}\n")
+
+        stream.append("\n\n")
+
     content_lines = [feedback]
     detailed_article_info(content_lines, user, article_id)
 
     content_lines.append(
-        f"Detailed User Translations: https://www.zeeguu.org/bookmarks_for_article/{article_id}/{user.id}"
+        f"\n\nDetailed User Translations: https://www.zeeguu.org/bookmarks_for_article/{article_id}/{user.id}"
     )
     content_lines.append(cheers_your_server)
 
