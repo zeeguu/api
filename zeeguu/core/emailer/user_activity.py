@@ -15,14 +15,17 @@ def send_notification_article_feedback(
     feedback, user: User, article_title, article_url, article_id
 ):
     def detailed_article_info(stream, user, article_id):
-        stream.append("==Translations\n\n")
 
         bookmarks = user.bookmarks_for_article(
             article_id, with_context=True, with_title=True, json=False
         )
 
+        stream.append(f"\n\n{len(bookmarks.length)} Translations:\n")
+
         for each in bookmarks:
-            stream.append(f"{each.origin.word} = {each.translation.word}")
+            stream.append(
+                f"- {each.origin.word} => {each.translation.word} ({each.timestamp})"
+            )
 
     content_lines = [feedback]
     detailed_article_info(content_lines, user, article_id)
