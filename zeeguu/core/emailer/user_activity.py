@@ -18,7 +18,7 @@ def send_notification_article_feedback(
         info = "==Translations\n\n"
 
         bookmarks = user.bookmarks_for_article(
-            article_id, with_context=True, with_title=True
+            article_id, with_context=True, with_title=True, json=False
         )
 
         for each in bookmarks:

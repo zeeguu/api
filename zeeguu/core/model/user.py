@@ -481,15 +481,20 @@ class User(db.Model):
         return result
 
     def bookmarks_for_article(
-        self, article_id, with_context, with_title=False, good_for_study=False
+        self,
+        article_id,
+        with_context,
+        with_title=False,
+        good_for_study=False,
+        json=True,
     ):
 
         from zeeguu.core.model import Bookmark, Text
 
-        bookmarks = []
+        json_bookmarks = []
 
         query = zeeguu.core.db.session.query(Bookmark)
-        all_for_article = (
+        bookmarks = (
             query.join(Text)
             .filter(Bookmark.user_id == self.id)
             .filter(Text.article_id == article_id)
@@ -498,14 +503,15 @@ class User(db.Model):
         )
 
         if good_for_study:
-            all_for_article = [
-                each for each in all_for_article if each.should_be_studied()
-            ]
+            bookmarks = [each for each in bookmarks if each.should_be_studied()]
 
-        for each in all_for_article:
-            bookmarks.append(each.json_serializable_dict(with_context, with_title))
+        if not json:
+            return bookmarks
 
-        return bookmarks
+        for each in bookmarks:
+            json_bookmarks.append(each.json_serializable_dict(with_context, with_title))
+
+        return json_bookmarks
 
     def bookmarks_by_url_by_date(self, n_days=365):
         bookmarks_list, dates = self.bookmarks_by_date()
