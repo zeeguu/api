@@ -44,6 +44,8 @@ def send_notification_article_feedback(
             if event_name == "ARTICLE LOST FOCUS":
                 stream.append("")
 
+            prev_short_time = short_time
+
         stream.append("\n\n")
 
     content_lines = [feedback]
