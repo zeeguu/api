@@ -24,8 +24,6 @@ def send_notification_article_feedback(
         for each in bookmarks:
             stream.append(f"{each.origin.word} = {each.translation.word}")
 
-        return info
-
     content_lines = [feedback]
     detailed_article_info(content_lines, user, article_id)
 
