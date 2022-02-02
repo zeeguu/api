@@ -32,7 +32,7 @@ def send_notification_article_feedback(
         stream.append("\n\nUser Interactions:\n\n")
         events = UserActivityData.find(article_id=article_id)
         for event in events:
-            stream.append(f"{event.time} {event.event} {event.value}\n")
+            stream.append(f"{event.time} {event.event} {event.value}")
 
         stream.append("\n\n")
 
