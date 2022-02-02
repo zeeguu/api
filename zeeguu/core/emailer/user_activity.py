@@ -15,6 +15,8 @@ def send_new_user_account_email(username, invite_code="", cohort=""):
 def send_notification_article_feedback(
     feedback, user: User, article_title, article_url, article_id
 ):
+    from datetime import datetime as dt
+
     def detailed_article_info(stream, user, article_id):
 
         bookmarks = user.bookmarks_for_article(
@@ -32,7 +34,9 @@ def send_notification_article_feedback(
         stream.append("\n\nUser Interactions:\n\n")
         events = UserActivityData.find(article_id=article_id)
         for event in events:
-            stream.append(f"{event.time} {event.event} {event.value}")
+            short_time = dt.strftime(event.time, "%H:%M")
+            event_name = event.event.replace("UMR - ", "")
+            stream.append(f"{short_time} {event_name} {event.value}")
 
         stream.append("\n\n")
 
