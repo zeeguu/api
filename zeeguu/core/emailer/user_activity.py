@@ -26,19 +26,17 @@ def send_notification_article_feedback(
         stream.append(f"\n\n{len(bookmarks)} Translations:\n")
 
         for each in bookmarks:
-            stream.append(
-                f"- {each.origin.word} => {each.translation.word} ({each.time})"
-            )
+            stream.append(f"- {each.origin.word} => {each.translation.word}")
 
         # user activity data
-        stream.append("\n\nUser Interactions:")
+        stream.append("\n\nUser Interactions:\n")
         events = UserActivityData.find(article_id=article_id)
         prev_short_time = ""
         for event in events:
             short_time = dt.strftime(event.time, "%H:%M")
             event_name = event.event.replace("UMR - ", "")
             if short_time != prev_short_time:
-                stream.append(f" {short_time} {event_name.lower()} {event.value}")
+                stream.append(f"  {short_time} {event_name.lower()} {event.value}")
             else:
                 stream.append(f"       {event_name.lower()} {event.value}")
             if event_name == "ARTICLE LOST FOCUS":
