@@ -20,7 +20,7 @@ def send_notification_article_feedback(
             article_id, with_context=True, with_title=True, json=False
         )
 
-        stream.append(f"\n\n{len(bookmarks.length)} Translations:\n")
+        stream.append(f"\n\n{len(bookmarks)} Translations:\n")
 
         for each in bookmarks:
             stream.append(
