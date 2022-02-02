@@ -24,7 +24,7 @@ def send_notification_article_feedback(
 
         for each in bookmarks:
             stream.append(
-                f"- {each.origin.word} => {each.translation.word} ({each.timestamp})"
+                f"- {each.origin.word} => {each.translation.word} ({each.time})"
             )
 
     content_lines = [feedback]
