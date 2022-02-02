@@ -38,6 +38,7 @@ def send_notification_article_feedback(
             event_name = event_name.lower()
             event_name = event_name.replace("translate text", "tr: ")
             event_name = event_name.replace("speak text", "s: ")
+            event_name = event_name.replace("send suggestion", "suggest: ")
             if short_time != prev_short_time:
                 stream.append(f"  {short_time}")
             stream.append(f"       {event_name} {event.value}")
