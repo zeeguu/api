@@ -33,10 +33,14 @@ def send_notification_article_feedback(
         # user activity data
         stream.append("\n\nUser Interactions:")
         events = UserActivityData.find(article_id=article_id)
+        prev_short_time = ""
         for event in events:
             short_time = dt.strftime(event.time, "%H:%M")
             event_name = event.event.replace("UMR - ", "")
-            stream.append(f" - {short_time} {event_name.lower()} {event.value}")
+            if short_time != prev_short_time:
+                stream.append(f" {short_time} {event_name.lower()} {event.value}")
+            else:
+                stream.append(f"       {event_name.lower()} {event.value}")
             if event_name == "ARTICLE LOST FOCUS":
                 stream.append("")
 
