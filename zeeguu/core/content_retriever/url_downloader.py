@@ -25,4 +25,4 @@ def download_url(url, sleep_a_bit):
     if art.meta_lang == "":
         art.meta_lang = detect(art.text)
 
-    return art.title, art.text, art.summary, art.meta.lang, art.authors
+    return art.title, art.text, art.summary, art.meta_lang, art.authors
