@@ -330,6 +330,7 @@ class Article(db.Model):
         sleep_a_bit=False,
         htmlContent=None,
         title=None,
+        authors=[],
     ):
         """
 
