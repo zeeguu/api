@@ -12,6 +12,6 @@ class ArticleTests(APITestMixin, TestCase):
 
     def test_article_info_other_way(self):
         result = self.json_from_api_get(
-            "/article_id", other_args=dict(url=self.url_quoted)
+            "/find_or_create_article", other_args=dict(url=self.url_quoted)
         )
         assert result["article_id"]

@@ -16,7 +16,7 @@ class UserArticleTests(APITestMixin, TestCase):
 
     def test_article_info_other_way(self):
         json_result = self.json_from_api_get(
-            "/article_id", other_args=dict(url=self.url_quoted)
+            "/find_or_create_article", other_args=dict(url=self.url_quoted)
         )
         article_id = json_result["article_id"]
 
@@ -30,7 +30,7 @@ class UserArticleTests(APITestMixin, TestCase):
     def test_article_update(self):
         # Article is not starred initially
         json_result = self.json_from_api_get(
-            "/article_id", other_args=dict(url=self.url_quoted)
+            "/find_or_create_article", other_args=dict(url=self.url_quoted)
         )
         article_id = json_result["article_id"]
 
