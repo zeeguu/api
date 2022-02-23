@@ -19,10 +19,11 @@ def upload_own_text():
     db_session.rollback()
     language = Language.find_or_create(request.form.get("language", ""))
     content = request.form.get("content", "")
+    htmlContent = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
 
     new_article_id = Article.create_from_upload(
-        db_session, title, content, flask.g.user, language
+        db_session, title, content, htmlContent, flask.g.user, language
     )
 
     return str(new_article_id)
@@ -62,9 +63,10 @@ def update_own_text(article_id):
     language = Language.find_or_create(request.form.get("language", ""))
     content = request.form.get("content", "")
     title = request.form.get("title", "")
+    htmlContent = request.form.get("htmlContent", "")
 
     a = Article.query.filter(Article.id == article_id).one()
-    a.update(language, content, title)
+    a.update(language, content, htmlContent, title)
 
     db_session.add(a)
     db_session.commit()

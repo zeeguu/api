@@ -9,7 +9,7 @@ from . import api, db_session
 
 
 # ---------------------------------------------------------------------------
-@api.route("/article_id", methods=("GET",))
+@api.route("/find_or_create_article", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
@@ -17,21 +17,26 @@ def article_id():
     """
 
         returns the article at that URL or creates an article and returns it
+        - url of the article
+            NOTE!!!! url is encoded with quote_plus (Pyton) and encodeURIComponent(Javascript)
+        - htmlContent: str
+        - title: str
 
-        takes url as URL argument
-        NOTE: the url should be encoded with quote_plus (Pyton) and encodeURIComponent(Javascript)
-
-
-    :return: article id
+    :return: article id as json (e.g. {article_id: 123})
 
     """
 
-    url = request.args.get("url", "")
+    url = request.form.get("url", "")
+    htmlContent = request.form.get("htmlContent", "")
+    title = request.form.get("title", "")
+
     if not url:
         flask.abort(400)
 
     try:
-        article = Article.find_or_create(db_session, url)
+        article = Article.find_or_create(
+            db_session, url, htmlContent=htmlContent, title=title
+        )
         return json_result(dict(article_id=article.id))
     except Exception as e:
         from sentry_sdk import capture_exception

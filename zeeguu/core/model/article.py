@@ -1,4 +1,7 @@
+import re
+
 from datetime import datetime
+import time
 
 import sqlalchemy
 from langdetect import detect
@@ -7,6 +10,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
+from zeeguu.core.content_retriever.url_downloader import download_url
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -21,6 +25,24 @@ article_topic_map = Table(
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
+HTML_TAG_CLEANR = re.compile("<.*?>")
+
+
+"""
+    Wed 23, Feb
+    - added htmlContent - which should, from now on, be the favorite 
+    content to be used when possible ; by default this is going to be 
+    null; 
+    - added an is_personal_copy - field which is going to be used when 
+    we clone an article and make it a personal copy; by default this is
+    going to be null; 
+
+    April 15
+    - added uploader_id - is set in the case in which a user uploads 
+    their own text... 
+
+"""
+
 
 class Article(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -30,12 +52,14 @@ class Article(db.Model):
     title = Column(String(512))
     authors = Column(UnicodeText)
     content = Column(UnicodeText())
+    htmlContent = Column(UnicodeText())
     summary = Column(UnicodeText)
     word_count = Column(Integer)
     published_time = Column(DateTime)
     fk_difficulty = Column(Integer)
     broken = Column(Integer)
     deleted = Column(Integer)
+    is_personal_copy = Column(Integer)
 
     from zeeguu.core.model.url import Url
 
@@ -79,9 +103,12 @@ class Article(db.Model):
         published_time,
         rss_feed,
         language,
+        htmlContent="",
         uploader=None,
+        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
         broken=0,
         deleted=0,
+        is_personal_copy=0,
     ):
 
         if not summary:
@@ -91,13 +118,18 @@ class Article(db.Model):
         self.title = title
         self.authors = authors
         self.content = content
+        self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
         self.rss_feed = rss_feed
         self.language = language
         self.uploader = uploader
+        self.userFound = found_by_user
         self.broken = broken
         self.deleted = deleted
+        self.is_personal_copy = is_personal_copy
+
+        self.convertHTML2TextIfNeeded()
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
@@ -128,10 +160,21 @@ class Article(db.Model):
                 return True
         return False
 
-    def update(self, language, content, title):
+    def convertHTML2TextIfNeeded(self):
+        # why this? because in some cases we might have htmlContent
+        # but not content; and the following lines that compute
+        # difficulty and length work on content
+        if self.htmlContent and not self.content:
+            self.content = re.sub(HTML_TAG_CLEANR, "", self.htmlContent)
+
+    def update(self, language, content, htmlContent, title):
         self.language = language
         self.content = content
         self.title = title
+        self.htmlContent = htmlContent
+
+        self.convertHTML2TextIfNeeded()
+
         self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
@@ -189,6 +232,7 @@ class Article(db.Model):
 
         if with_content:
             result_dict["content"] = self.content
+            result_dict["htmlContent"] = self.htmlContent
 
         return result_dict
 
@@ -235,17 +279,18 @@ class Article(db.Model):
 
     @classmethod
     def create_clone(cls, session, source, uploader):
-
+        # TODO: Why does this NOP the url?
         current_time = datetime.now()
         new_article = Article(
             None,
             source.title,
             None,
             source.content,
-            None,
+            source.summary,
             current_time,
             None,
             source.language,
+            source.htmlContent,
             uploader,
         )
         session.add(new_article)
@@ -254,11 +299,22 @@ class Article(db.Model):
         return new_article.id
 
     @classmethod
-    def create_from_upload(cls, session, title, content, uploader, language):
+    def create_from_upload(
+        cls, session, title, content, htmlContent, uploader, language
+    ):
 
         current_time = datetime.now()
         new_article = Article(
-            None, title, None, content, None, current_time, None, language, uploader
+            None,
+            title,
+            None,
+            content,
+            None,
+            current_time,
+            None,
+            language,
+            htmlContent,
+            uploader,
         )
         session.add(new_article)
 
@@ -266,17 +322,28 @@ class Article(db.Model):
         return new_article.id
 
     @classmethod
-    def find_or_create(cls, session, _url: str, language=None, sleep_a_bit=False):
+    def find_or_create(
+        cls,
+        session,
+        _url: str,
+        language=None,
+        sleep_a_bit=False,
+        htmlContent=None,
+        title=None,
+    ):
         """
 
-            If not found, download and extract all
-            the required info for this article.
+            If article for url found, return ID
+
+            If not found,
+
+                - if htmlContent is present, create article for that
+                - if not, download and create article then return
 
         :param url:
         :return:
         """
         from zeeguu.core.model import Url, Article, Language
-        import newspaper
 
         url = Url.extract_canonical_url(_url)
 
@@ -285,48 +352,30 @@ class Article(db.Model):
             if found:
                 return found
 
-            art = newspaper.Article(url=url)
-            art.download()
-            art.parse()
+            if htmlContent:
+                text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
+                summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
+                lang = detect(text)
+            else:
+                title, text, summary, lang, authors = download_url(url, sleep_a_bit)
 
-            if art.text == "":
-                # raise Exception("Newspaper got empty article from: " + url)
-                art.text = "N/A"
-                # this is a temporary solution for allowing translations
-                # on pages that do not have "articles" downloadable by newspaper.
-
-            if sleep_a_bit:
-                import time
-                from random import randint
-
-                print("GOT: " + url)
-                sleep_time = randint(3, 33)
-                print(
-                    f"sleeping for {sleep_time}s... so we don't annoy our friendly servers"
-                )
-                time.sleep(sleep_time)
-
-            if not language:
-                if art.meta_lang == "":
-                    art.meta_lang = detect(art.text)
-                    zeeguu.core.log(f"langdetect: {art.meta_lang} for {url}")
-                language = Language.find_or_create(art.meta_lang)
+            language = Language.find(lang)
 
             # Create new article and save it to DB
             url_object = Url.find_or_create(session, url)
 
             new_article = Article(
                 url_object,
-                art.title,
-                ", ".join(art.authors),
-                art.text[0:32000],  # any article longer than this will be truncated...
-                art.summary,
+                title,
+                ", ".join(authors or []),
+                text[0:32000],  # any article longer than this will be truncated...
+                summary,
                 None,
                 None,
                 language,
+                htmlContent,
             )
             session.add(new_article)
-
             session.commit()
 
             return new_article
@@ -391,7 +440,6 @@ class Article(db.Model):
 
         except NoResultFound:
             return []
-
 
     @classmethod
     def exists(cls, article):
