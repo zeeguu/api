@@ -1,4 +1,5 @@
 beautifulsoup4
+markupsafe==2.0.1 # added this because of this stupid breaking change with minor version bump: https://github.com/pallets/markupsafe/issues/284
 blinker
 deprecated
 elasticsearch
