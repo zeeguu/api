@@ -6,7 +6,10 @@ import zeeguu.core
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.model import Topic, Article
-from zeeguu.core.test.test_data.mocking_the_web import url_plane_crashes, url_formation_professionnelle
+from zeeguu.core.test.test_data.mocking_the_web import (
+    url_plane_crashes,
+    url_spiegel_militar,
+)
 
 session = zeeguu.core.db.session
 
@@ -19,7 +22,7 @@ class ArticleTest(ModelTestMixIn, TestCase):
         self.language = LanguageRule.get_or_create_language("en")
 
     def test_articles_are_different(self):
-        assert (self.article1.title != self.article2.title)
+        assert self.article1.title != self.article2.title
 
     def test_article_representation_does_not_error(self):
         assert self.article1.article_info()
@@ -32,9 +35,9 @@ class ArticleTest(ModelTestMixIn, TestCase):
         assert len(self.article1.topics) == 2
 
     def test_find_or_create(self):
-        self.new_art = Article.find_or_create(session, url_formation_professionnelle)
-        assert (self.new_art.fk_difficulty)
+        self.new_art = Article.find_or_create(session, url_spiegel_militar)
+        assert self.new_art.fk_difficulty
 
     def test_load_article_without_language_information(self):
         art = Article.find_or_create(session, url_plane_crashes)
-        assert (art)
+        assert art

@@ -3,6 +3,7 @@ import zeeguu.core
 from flask import request
 from zeeguu.core.model import Article
 from zeeguu.api.api.utils.json_result import json_result
+from zeeguu.core.model.personal_copy import PersonalCopy
 
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
@@ -43,3 +44,20 @@ def article_id():
         capture_exception(e)
         zeeguu.core.log(e)
         flask.abort(500)
+
+
+# ---------------------------------------------------------------------------
+@api.route("/make_personal_copy", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def make_personal_copy():
+
+    article_id = request.form.get("article_id", "")
+    article = Article.find_by_id(article_id)
+    user = flask.g.user
+
+    if not PersonalCopy.exists_for(user, article):
+        PersonalCopy.make_for(user, article, db_session)
+
+    return "OK" if PersonalCopy.exists_for(user, article) else "Something went wrong!"

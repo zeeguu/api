@@ -25,7 +25,13 @@ class PersonalCopy(db.Model):
         self.article = article
 
     @classmethod
-    def exists_for(user_id, article_id):
+    def exists_for(cls, user, article):
         return len(
-            PersonalCopy.query.filter(user_id=user_id, article_id=article_id).all()
+            PersonalCopy.query.filter_by(user_id=user.id, article_id=article.id).all()
         )
+
+    @classmethod
+    def make_for(cls, user, article, session):
+        new_personal_copy = PersonalCopy(user, article)
+        session.add(new_personal_copy)
+        session.commit()
