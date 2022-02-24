@@ -77,6 +77,8 @@ from .user_exercise_session import UserExerciseSession
 # bookmark scheduling
 from zeeguu.core.model.bookmark_priority_arts import BookmarkPriorityARTS
 
+from .personal_copy import PersonalCopy
+
 # Creating the DB tables if needed
 # Note that this must be called after all the model classes are loaded
 zeeguu.core.db.init_app(zeeguu.core.app)
