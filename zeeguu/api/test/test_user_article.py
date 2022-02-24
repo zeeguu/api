@@ -3,7 +3,7 @@
 from unittest import TestCase
 
 from zeeguu.api.test.api_test_mixin import APITestMixin
-import urllib.parse
+
 
 URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
 
@@ -11,12 +11,10 @@ URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sin
 class UserArticleTests(APITestMixin, TestCase):
     def setUp(self):
         super(UserArticleTests, self).setUp()
-        self.url_quoted = urllib.parse.quote_plus(URL_1)
-        self.url = URL_1
 
     def test_article_info_other_way(self):
-        json_result = self.json_from_api_get(
-            "/find_or_create_article", other_args=dict(url=self.url_quoted)
+        json_result = self.json_from_api_post(
+            "/find_or_create_article", dict(url=URL_1)
         )
         article_id = json_result["article_id"]
 
@@ -29,8 +27,8 @@ class UserArticleTests(APITestMixin, TestCase):
 
     def test_article_update(self):
         # Article is not starred initially
-        json_result = self.json_from_api_get(
-            "/find_or_create_article", other_args=dict(url=self.url_quoted)
+        json_result = self.json_from_api_post(
+            "/find_or_create_article", dict(url=URL_1)
         )
         article_id = json_result["article_id"]
 

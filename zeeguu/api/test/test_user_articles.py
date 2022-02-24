@@ -10,7 +10,6 @@ URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sin
 class UserArticlesTests(APITestMixin, TestCase):
     def setUp(self):
         super(UserArticlesTests, self).setUp()
-        self.url = URL_1
 
     def test_starred_or_liked(self):
         # No article is starred initially
@@ -18,8 +17,8 @@ class UserArticlesTests(APITestMixin, TestCase):
         assert len(result) == 0
 
         # Star article
-        article_id = self.json_from_api_get(
-            "/find_or_create_article", other_args=dict(url=self.url)
+        article_id = self.json_from_api_post(
+            "/find_or_create_article", dict(url=URL_1)
         )["article_id"]
         self.api_post(
             f"/user_article", formdata=dict(starred="True", article_id=article_id)

@@ -17,8 +17,7 @@ def article_id():
     """
 
         returns the article at that URL or creates an article and returns it
-        - url of the article
-            NOTE!!!! url is encoded with quote_plus (Pyton) and encodeURIComponent(Javascript)
+        - url of the article: str
         - htmlContent: str
         - title: str
 

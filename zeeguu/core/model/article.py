@@ -351,20 +351,25 @@ class Article(db.Model):
         try:
             found = cls.find(url)
             if found:
+                print("found...")
                 return found
 
             if htmlContent:
+                print("found htmlContent...")
                 text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
+                print("downloading url...")
                 title, text, summary, lang, authors = download_url(url, sleep_a_bit)
 
             language = Language.find(lang)
 
             # Create new article and save it to DB
+            print("creating url object")
             url_object = Url.find_or_create(session, url)
 
+            print("creating new article...")
             new_article = Article(
                 url_object,
                 title,
