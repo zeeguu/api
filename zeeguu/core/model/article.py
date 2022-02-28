@@ -33,9 +33,6 @@ HTML_TAG_CLEANR = re.compile("<.*?>")
     - added htmlContent - which should, from now on, be the favorite 
     content to be used when possible ; by default this is going to be 
     null; 
-    - added an is_personal_copy - field which is going to be used when 
-    we clone an article and make it a personal copy; by default this is
-    going to be null; 
 
     April 15
     - added uploader_id - is set in the case in which a user uploads 
@@ -59,7 +56,6 @@ class Article(db.Model):
     fk_difficulty = Column(Integer)
     broken = Column(Integer)
     deleted = Column(Integer)
-    is_personal_copy = Column(Integer)
 
     from zeeguu.core.model.url import Url
 
@@ -108,7 +104,6 @@ class Article(db.Model):
         found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
         broken=0,
         deleted=0,
-        is_personal_copy=0,
     ):
 
         if not summary:
@@ -127,7 +122,6 @@ class Article(db.Model):
         self.userFound = found_by_user
         self.broken = broken
         self.deleted = deleted
-        self.is_personal_copy = is_personal_copy
 
         self.convertHTML2TextIfNeeded()
 
