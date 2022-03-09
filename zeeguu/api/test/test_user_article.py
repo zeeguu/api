@@ -16,7 +16,7 @@ class UserArticleTests(APITestMixin, TestCase):
         json_result = self.json_from_api_post(
             "/find_or_create_article", dict(url=URL_1)
         )
-        article_id = json_result["article_id"]
+        article_id = json_result["id"]
 
         result = self.json_from_api_get(
             "/user_article", other_args=dict(article_id=article_id)
@@ -30,7 +30,7 @@ class UserArticleTests(APITestMixin, TestCase):
         json_result = self.json_from_api_post(
             "/find_or_create_article", dict(url=URL_1)
         )
-        article_id = json_result["article_id"]
+        article_id = json_result["id"]
 
         result = self.json_from_api_get(
             "/user_article", other_args=dict(article_id=article_id)

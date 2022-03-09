@@ -29,15 +29,16 @@ def article_id():
     url = request.form.get("url", "")
     htmlContent = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
+    authors = request.form.get("authors", "")
 
     if not url:
         flask.abort(400)
 
     try:
         article = Article.find_or_create(
-            db_session, url, htmlContent=htmlContent, title=title
+            db_session, url, htmlContent=htmlContent, title=title, authors=authors
         )
-        return json_result(dict(article_id=article.id))
+        return json_result(article.article_info())
     except Exception as e:
         from sentry_sdk import capture_exception
 

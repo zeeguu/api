@@ -324,7 +324,7 @@ class Article(db.Model):
         sleep_a_bit=False,
         htmlContent=None,
         title=None,
-        authors=[],
+        authors:str = "",
     ):
         """
 
@@ -352,7 +352,8 @@ class Article(db.Model):
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
-                title, text, summary, lang, authors = download_url(url, sleep_a_bit)
+                title, text, summary, lang, author_list = download_url(url, sleep_a_bit)
+                authors = ", ".join(author_list or [])
 
             language = Language.find(lang)
 
@@ -362,7 +363,7 @@ class Article(db.Model):
             new_article = Article(
                 url_object,
                 title,
-                ", ".join(authors or []),
+                authors,
                 text[0:32000],  # any article longer than this will be truncated...
                 summary,
                 None,

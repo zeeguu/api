@@ -12,4 +12,4 @@ class ArticleTests(APITestMixin, TestCase):
         result = self.json_from_api_post(
             "/find_or_create_article", dict(url=url_spiegel_venezuela)
         )
-        assert result["article_id"]
+        assert result["id"]

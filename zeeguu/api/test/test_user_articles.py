@@ -19,7 +19,7 @@ class UserArticlesTests(APITestMixin, TestCase):
         # Star article
         article_id = self.json_from_api_post(
             "/find_or_create_article", dict(url=URL_1)
-        )["article_id"]
+        )["id"]
         self.api_post(
             f"/user_article", formdata=dict(starred="True", article_id=article_id)
         )
