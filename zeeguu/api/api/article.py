@@ -14,7 +14,7 @@ from . import api, db_session
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def article_id():
+def find_or_create_article():
     """
 
         returns the article at that URL or creates an article and returns it
@@ -43,7 +43,7 @@ def article_id():
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        zeeguu.core.log(e)
+        print(e)
         flask.abort(500)
 
 
