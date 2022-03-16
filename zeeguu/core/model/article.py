@@ -349,6 +349,7 @@ class Article(db.Model):
 
             if htmlContent:
                 text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
+                print(text)
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
