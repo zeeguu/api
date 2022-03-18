@@ -27,7 +27,7 @@ def main(starting_index, article_batch_size):
 
     for i in range(starting_index, max_id, article_batch_size):
 
-        print(i)
+        print(f"processing a batch of: {article_batch_size} starting at: {i}")
         for article in session.query(Article).order_by(Article.published_time.desc()).limit(article_batch_size).offset(
                 i):
             try:
