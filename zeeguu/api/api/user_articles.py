@@ -19,7 +19,10 @@ def user_articles_recommended(count: int = 20):
     recommendations for all languages
     """
 
-    return json_result(article_recommendations_for_user(flask.g.user, count))
+    articles = article_recommendations_for_user(flask.g.user, count)
+    article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
+
+    return json_result(article_infos)
 
 
 # ---------------------------------------------------------------------------

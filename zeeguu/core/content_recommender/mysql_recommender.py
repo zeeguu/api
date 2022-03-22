@@ -10,8 +10,6 @@ from sqlalchemy import not_, or_
 from zeeguu.core import info, logger
 from zeeguu.core.model import (
     Article,
-    UserArticle,
-    UserLanguage,
     TopicFilter,
     TopicSubscription,
     SearchFilter,
@@ -64,10 +62,7 @@ def article_recommendations_for_user(user, count):
     ]
     all_articles = SortedList(all_articles, lambda x: x.published_time)
 
-    return [
-        UserArticle.user_article_info(user, article)
-        for article in reversed(all_articles)
-    ]
+    return reversed(all_articles)
 
 
 def article_search_for_user(user, count, search):
@@ -98,7 +93,7 @@ def article_search_for_user(user, count, search):
     # Sort them, so the first 'count' articles will be the most recent ones
     final.sort(key=lambda each: each.published_time, reverse=True)
 
-    return [UserArticle.user_article_info(user, article) for article in final[:count]]
+    return final[:count]
 
 
 def _recompute_recommender_cache_if_needed(user, session):

@@ -1,5 +1,5 @@
 import flask
-from flask import request
+from flask import request, make_response
 from zeeguu.core.model import Session, User
 from zeeguu.api.api.utils.abort_handling import make_error
 
@@ -31,7 +31,9 @@ def get_session(email):
     session = Session.for_user(user)
     db_session.add(session)
     db_session.commit()
-    return str(session.id)
+    resp = make_response(str(session.id))
+    resp.set_cookie("chocolatechip", str(session.id))
+    return resp
 
 
 @api.route("/get_anon_session/<uuid>", methods=["POST"])

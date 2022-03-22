@@ -16,7 +16,6 @@ from zeeguu.core.model import (
     SearchFilter,
     SearchSubscription,
     UserArticle,
-    UserLanguage,
     Language,
 )
 
@@ -67,7 +66,7 @@ def article_search_for_user(
     :param user:
     :param count: max amount of articles to return
     :param search_terms: the inputed search string by the user
-    :return: articles
+    :return: list of articles
 
     """
 
@@ -160,12 +159,7 @@ def article_search_for_user(
         hit_list = res["hits"].get("hits")
         final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    # convert to article_info and return
-    return [
-        UserArticle.user_article_info(user, article)
-        for article in final_article_mix
-        if article is not None and not article.broken
-    ]
+    return [a for a in final_article_mix if a is not None and not a.broken]
 
 
 def more_like_this_article(user, count, article_id):

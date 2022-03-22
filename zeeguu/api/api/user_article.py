@@ -30,7 +30,7 @@ def user_article():
         so for now, we're just not putting it as part of the path
 
 
-    :return: json as prepared by content_recommender.mixed_recommender.user_article_info
+    :return: json as prepared by content_recommender.mysql_recommender.user_article_info
 
     """
 
@@ -84,7 +84,7 @@ def user_article_update():
         - liked=True|1|False|0
         - starred -ibidem-
 
-    :return: json as prepared by content_recommender.mixed_recommender.user_article_info
+    :return: json as prepared by content_recommender.mysql_recommender.user_article_info
 
     """
 
