@@ -17,14 +17,15 @@ if not hasattr(zeeguu.core, "app"):
         ["MAX_SESSION", "SQLALCHEMY_DATABASE_URI", "SQLALCHEMY_TRACK_MODIFICATIONS"],
     )
 
-zeeguu.core.app.config ['SQLALCHEMY_ENGINE_OPTIONS'] = {'encoding': 'utf8'}
+# if we don't specify the charset in the connection string 
+# we are not able to store emojis
+zeeguu.core.app.config ['SQLALCHEMY_DATABASE_URI']+='?charset=utf8mb4'
+
 # Create the zeeguu.core.db object, which will be the superclass
 # of all the model classes
 zeeguu.core.db = flask_sqlalchemy.SQLAlchemy(zeeguu.core.app)
 # Note, that if we pass the app here, then we don't need later
 # to push the app context
-print("DB ENGINE CONNECTION OPTIONS: ")
-print(zeeguu.core.app.config['SQLALCHEMY_ENGINE_OPTIONS'])
 
 # the core model
 from .language import Language
