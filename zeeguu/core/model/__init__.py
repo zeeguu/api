@@ -22,6 +22,7 @@ if not hasattr(zeeguu.core, "app"):
 zeeguu.core.db = flask_sqlalchemy.SQLAlchemy(zeeguu.core.app)
 # Note, that if we pass the app here, then we don't need later
 # to push the app context
+print("DB ENGINE CONNECTION OPTIONS: "+zeeguu.core.app.config['SQLALCHEMY_ENGINE_OPTIONS'])
 
 # the core model
 from .language import Language
