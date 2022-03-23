@@ -4,6 +4,7 @@ from flask import request
 from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
 from zeeguu.core.model.search_subscription import SearchSubscription
+from zeeguu.core.model.user_article import UserArticle
 
 from zeeguu.core.content_recommender import article_search_for_user
 
@@ -191,11 +192,15 @@ def get_filtered_searches():
 def search_for_search_terms(search_terms):
     """
     This endpoint is used for the standard search.
-    It passes the search terms to the mixed_recommender function
+    It passes the search terms to the mysql_recommender function
     and returns the articles in a json format as a list.
 
     :param search_terms:
     :return: json article list for the search term
 
     """
-    return json_result(article_search_for_user(flask.g.user, 20, search_terms))
+
+    articles = article_search_for_user(flask.g.user, 20, search_terms)
+    article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
+
+    return json_result(article_infos)

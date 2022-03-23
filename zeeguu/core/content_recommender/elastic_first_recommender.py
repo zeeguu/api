@@ -14,7 +14,7 @@ from .elastic_recommender import (
     article_search_for_user as elastic_article_search_for_user,
 )
 
-from .mixed_recommender import (
+from .mysql_recommender import (
     article_search_for_user as mixed_article_search_for_user,
     article_recommendations_for_user as mixed_article_recommendations_for_user,
 )

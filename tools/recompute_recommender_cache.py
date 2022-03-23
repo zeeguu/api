@@ -9,8 +9,10 @@
 """
 
 import zeeguu.core
-from zeeguu.core.content_recommender.mixed_recommender import _reading_preferences_hash, \
-    _recompute_recommender_cache_if_needed
+from zeeguu.core.content_recommender.mysql_recommender import (
+    _reading_preferences_hash,
+    _recompute_recommender_cache_if_needed,
+)
 from zeeguu.core.model import User, ArticlesCache
 
 session = zeeguu.core.db.session
@@ -74,7 +76,9 @@ def recompute_for_users():
                 zeeguu.core.logp(f"Success for {reading_pref_hash} and {user}")
                 already_done.append(reading_pref_hash)
             else:
-                zeeguu.core.logp(f"nno need to do for {user}. hash {reading_pref_hash} already done")
+                zeeguu.core.logp(
+                    f"nno need to do for {user}. hash {reading_pref_hash} already done"
+                )
         except Exception as e:
             zeeguu.core.logp(f"Failed for user {user}")
 
@@ -89,6 +93,6 @@ def recompute_for_topics_and_languages():
         each.get_articles()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     clean_the_cache()
     recompute_for_users()
