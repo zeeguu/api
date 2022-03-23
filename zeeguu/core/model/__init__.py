@@ -20,6 +20,7 @@ if not hasattr(zeeguu.core, "app"):
 # if we don't specify the charset in the connection string 
 # we are not able to store emojis
 zeeguu.core.app.config ['SQLALCHEMY_DATABASE_URI']+='?charset=utf8mb4'
+# inspired from: https://stackoverflow.com/a/47278172/1200070
 
 # Create the zeeguu.core.db object, which will be the superclass
 # of all the model classes
