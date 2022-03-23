@@ -17,6 +17,7 @@ if not hasattr(zeeguu.core, "app"):
         ["MAX_SESSION", "SQLALCHEMY_DATABASE_URI", "SQLALCHEMY_TRACK_MODIFICATIONS"],
     )
 
+zeeguu.core.app.config['SQLALCHEMY_ENGINE_OPTIONS']={'encoding': 'utf8mb4'}
 # Create the zeeguu.core.db object, which will be the superclass
 # of all the model classes
 zeeguu.core.db = flask_sqlalchemy.SQLAlchemy(zeeguu.core.app)
