@@ -10,34 +10,23 @@ from zeeguu.core.util.encoding import datetime_to_json
 
 db = zeeguu.core.db
 
-# Parameter that controls after how much time (in minutes) the session is expired
-READING_SESSION_TIMEOUT = 2
-VERY_FAR_IN_THE_PAST = '2000-01-01T00:00:00'
-VERY_FAR_IN_THE_FUTURE = '9999-12-31T23:59:59'
 
-OPENING_ACTIONS = [
-    UMR_OPEN_ARTICLE_ACTION,
-    UMR_OPEN_STARRED_ARTICLE_ACTION,
-    UMR_ARTICLE_FOCUSED_ACTION
-]
+VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
+VERY_FAR_IN_THE_FUTURE = "9999-12-31T23:59:59"
 
-INTERACTION_ACTIONS = [UMR_TRANSLATE_TEXT_ACTION,
-                       UMR_SPEAK_TEXT_ACTION,
-                       UMR_OPEN_ALTERMENU_ACTION,
-                       UMR_CLOSE_ALTERMENU_ACTION,
-                       UMR_UNDO_TEXT_TRANSLATION_ACTION,
-                       UMR_SEND_SUGGESTION_ACTION,
-                       UMR_CHANGE_ORIENTATION_ACTION,
-                       UMR_USER_SCROLL_ACTION,
-                       UMR_STAR_ARTICLE_ACTION,
-                       UMR_LIKE_ARTICLE_ACTION,
-                       UMR_USER_FEEDBACK_ACTION
-                       ]
 
-CLOSING_ACTIONS = [UMR_ARTICLE_CLOSED_ACTION,
-                   UMR_ARTICLES_REQUESTED_FROM_ZEEGUU]
+def is_opening_or_interactive_event(event):
 
-ALL_ARTICLE_INTERACTION_ACTIONS = OPENING_ACTIONS + INTERACTION_ACTIONS + [UMR_ARTICLE_CLOSED_ACTION]
+    opening_or_interactive = (
+        LEGACY_OPENING + OPENING_ACTIONS + LEGACY_INTERACTION + INTERACTION_ACTIONS
+    )
+
+    return event in opening_or_interactive
+
+
+def is_closing_event(event):
+
+    return event in CLOSING_ACTIONS or event in LEGACY_CLOSING
 
 
 class UserReadingSession(db.Model):
@@ -47,7 +36,7 @@ class UserReadingSession(db.Model):
     """
 
     __table_args__ = dict(mysql_collate="utf8_bin")
-    __tablename__ = 'user_reading_session'
+    __tablename__ = "user_reading_session"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -78,15 +67,19 @@ class UserReadingSession(db.Model):
         self.duration = 0
 
     def human_readable_duration(self):
-        return (str(round(self.duration / 1000 / 60, 1)) + "min")
+        return str(round(self.duration / 1000 / 60, 1)) + "min"
 
     def human_readable_date(self):
         return str(datetime.date(self.start_time))
 
     def events_in_this_session(self):
         from zeeguu.core.model import UserActivityData
-        return UserActivityData.query.filter(UserActivityData.time > self.start_time).filter(
-            UserActivityData.time < self.last_action_time).all()
+
+        return (
+            UserActivityData.query.filter(UserActivityData.time > self.start_time)
+            .filter(UserActivityData.time < self.last_action_time)
+            .all()
+        )
 
     @staticmethod
     def get_reading_session_timeout():
@@ -95,16 +88,16 @@ class UserReadingSession(db.Model):
     @classmethod
     def _find_most_recent_session(cls, user_id, article_id, db_session):
         """
-            Queries and returns if there is an open reading session for that user and article
+        Queries and returns if there is an open reading session for that user and article
 
-            parameters: 
-            user_id = user identifier
-            article_id = article identifier
-            db_session = database session
+        parameters:
+        user_id = user identifier
+        article_id = article identifier
+        db_session = database session
 
-            returns: the active reading_session record for the specific user and article or None if none is found
+        returns: the active reading_session record for the specific user and article or None if none is found
 
-            Note: if article_id is None, returns most recent session
+        Note: if article_id is None, returns most recent session
         """
         query = cls.query
         query = query.filter(cls.user_id == user_id)
@@ -131,14 +124,14 @@ class UserReadingSession(db.Model):
 
     def _is_still_active(self, current_time=datetime.now()):
         """
-            Validates if the reading session is still valid (according to the reading_session_timeout control variable)
+        Validates if the reading session is still valid (according to the reading_session_timeout control variable)
 
-            Parameters:
-            current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
-                        we use the provided value as the system time (only used for filling in historical data)
+        Parameters:
+        current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
+                    we use the provided value as the system time (only used for filling in historical data)
 
-            returns: True if the time between the reading session's last action and the current time
-                    is less or equal than the reading_session_timeout
+        returns: True if the time between the reading session's last action and the current time
+                is less or equal than the reading_session_timeout
         """
         time_difference = current_time - self.last_action_time
         w_reading_session_timeout = timedelta(minutes=READING_SESSION_TIMEOUT)
@@ -146,33 +139,37 @@ class UserReadingSession(db.Model):
         return time_difference <= w_reading_session_timeout
 
     @staticmethod
-    def _create_new_session(db_session, user_id, article_id, current_time=datetime.now()):
+    def _create_new_session(
+        db_session, user_id, article_id, current_time=datetime.now()
+    ):
         """
-            Creates a new reading session
+         Creates a new reading session
 
-            Parameters:
-            user_id = user identifier
-            article_id = article identifier
-           self.read_session.article_idis sent, instead of using the datetime.now() value for the current time
-           self.read_session.article_idue as the system time (only used for filling in historical data)
+         Parameters:
+         user_id = user identifier
+         article_id = article identifier
+        self.read_session.article_idis sent, instead of using the datetime.now() value for the current time
+        self.read_session.article_idue as the system time (only used for filling in historical data)
         """
         reading_session = UserReadingSession(user_id, article_id, current_time)
         db_session.add(reading_session)
         db_session.commit()
         return reading_session
 
-    def _update_last_action_time(self, db_session, add_grace_time=False, current_time=datetime.now()):
+    def _update_last_action_time(
+        self, db_session, add_grace_time=False, current_time=datetime.now()
+    ):
         """
-            Updates the last_action_time field. For sessions that were left open, since we cannot know exactly
-            when the user stopped using it, we give an additional (reading_session_timeout) time benefit
+        Updates the last_action_time field. For sessions that were left open, since we cannot know exactly
+        when the user stopped using it, we give an additional (reading_session_timeout) time benefit
 
-            Parameters:
-            db_session = database session
-            add_grace_time = True/False boolean value to add an extra reading_session_timeout minutes after the last_action_datetime
-            current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
-                        we use the provided value as the system time (only used for filling in historical data)
+        Parameters:
+        db_session = database session
+        add_grace_time = True/False boolean value to add an extra reading_session_timeout minutes after the last_action_datetime
+        current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
+                    we use the provided value as the system time (only used for filling in historical data)
 
-            returns: The reading session
+        returns: The reading session
         """
 
         if add_grace_time:
@@ -185,20 +182,21 @@ class UserReadingSession(db.Model):
             db_session.commit()
         except:
             import traceback
+
             traceback.print_exc()
             print(self.id)
         return self
 
     def _close_reading_session(self, db_session):
         """
-            Computes the duration of the reading session and sets the is_active field to False
+        Computes the duration of the reading session and sets the is_active field to False
 
-            Parameters:
-            db_session = database session
+        Parameters:
+        db_session = database session
 
-            returns: The reading session or None if none is found
+        returns: The reading session or None if none is found
 
-            Note: If duration is zero, the session is deleted
+        Note: If duration is zero, the session is deleted
         """
         time_diff = self.last_action_time - self.start_time
         if time_diff.total_seconds() == 0:
@@ -216,15 +214,15 @@ class UserReadingSession(db.Model):
     @classmethod
     def _close_user_reading_sessions(cls, db_session, user_id):
         """
-            Finds and closes all open sessions from a specific user
+        Finds and closes all open sessions from a specific user
 
-            Parameters:
-            db_session = database session
-            user_id = user identifier to close his sessions
+        Parameters:
+        db_session = database session
+        user_id = user identifier to close his sessions
 
-            returns: None
+        returns: None
 
-            Note: If duration is zero, the session is deleted
+        Note: If duration is zero, the session is deleted
         """
         query = cls.query
         query = query.filter(cls.user_id == user_id)
@@ -239,61 +237,74 @@ class UserReadingSession(db.Model):
                 db_session.delete(reading_session)
             else:
                 reading_session.is_active = False
-                reading_session.duration = time_diff.total_seconds() * 1000  # Convert to miliseconds
+                reading_session.duration = (
+                    time_diff.total_seconds() * 1000
+                )  # Convert to miliseconds
                 db_session.add(reading_session)
             db_session.commit()
         return None
 
     @classmethod
-    def update_reading_session(cls, db_session, event, user_id, article_id, current_time=datetime.now()):
+    def update_reading_session(
+        cls, db_session, event, user_id, article_id, current_time=datetime.now()
+    ):
         """
-            Main callable method that keeps track of the reading sessions.
-            Depending if the event belongs to the opening, interaction or closing list of events
-            the method creates, updates or closes a reading session
+        Main callable method that keeps track of the reading sessions.
+        Depending if the event belongs to the opening, interaction or closing list of events
+        the method creates, updates or closes a reading session
 
-            Parameters:
-            db_session = database session
-            event = event string (based on the user_activity_data events,
-                                    check list at the beginning of this python file)
-            user_id = user identifier
-            article_id = article identifier
-            current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
-                        we use the provided value as the system time (only used for filling in historical data)
+        Parameters:
+        db_session = database session
+        event = event string (based on the user_activity_data events,
+                                check list at the beginning of this python file)
+        user_id = user identifier
+        article_id = article identifier
+        current_time = when this parameter is sent, instead of using the datetime.now() value for the current time
+                    we use the provided value as the system time (only used for filling in historical data)
 
-            returns: The reading session  or None if none is found
+        returns: The reading session  or None if none is found
         """
-        most_recent_reading_session = cls._find_most_recent_session(user_id, article_id, db_session)
+        most_recent_reading_session = cls._find_most_recent_session(
+            user_id, article_id, db_session
+        )
 
-        # If the event is an opening or interaction type
-        if event in OPENING_ACTIONS or event in INTERACTION_ACTIONS:
+        if is_opening_or_interactive_event(event):
             if not most_recent_reading_session:  # If there is no active reading session
                 UserReadingSession._close_user_reading_sessions(db_session, user_id)
-                return cls._create_new_session(db_session, user_id, article_id, current_time)
+                return cls._create_new_session(
+                    db_session, user_id, article_id, current_time
+                )
 
             else:  # Is there an active reading session
                 # If the open reading session is still valid (within the reading_session_timeout window)
                 if most_recent_reading_session._is_still_active(current_time):
-                    return most_recent_reading_session._update_last_action_time(db_session, add_grace_time=False,
-                                                                                current_time=current_time)
+                    return most_recent_reading_session._update_last_action_time(
+                        db_session, add_grace_time=False, current_time=current_time
+                    )
                 # There is an open reading session but the elapsed time is larger than the reading_session_timeout
                 else:
-                    most_recent_reading_session._update_last_action_time(db_session, add_grace_time=True,
-                                                                         current_time=current_time)
+                    most_recent_reading_session._update_last_action_time(
+                        db_session, add_grace_time=True, current_time=current_time
+                    )
                     most_recent_reading_session._close_reading_session(db_session)
                     UserReadingSession._close_user_reading_sessions(db_session, user_id)
-                    return cls._create_new_session(db_session, user_id, article_id, current_time)
+                    return cls._create_new_session(
+                        db_session, user_id, article_id, current_time
+                    )
 
-        elif event in CLOSING_ACTIONS:  # If the event is of a closing type
+        elif is_closing_event(event):
             if most_recent_reading_session:  # If there is an open reading session
                 # If the elapsed time is shorter than the timeout parameter
                 if most_recent_reading_session._is_still_active(current_time):
-                    most_recent_reading_session._update_last_action_time(db_session, add_grace_time=False,
-                                                                         current_time=current_time)
-                # When the elapsed time is larger than the reading_session_timeout, 
+                    most_recent_reading_session._update_last_action_time(
+                        db_session, add_grace_time=False, current_time=current_time
+                    )
+                # When the elapsed time is larger than the reading_session_timeout,
                 # we add the grace time (which is n extra minutes where n=reading_session_timeout)
                 else:
-                    most_recent_reading_session._update_last_action_time(db_session, add_grace_time=True,
-                                                                         current_time=current_time)
+                    most_recent_reading_session._update_last_action_time(
+                        db_session, add_grace_time=True, current_time=current_time
+                    )
                 return most_recent_reading_session._close_reading_session(db_session)
             else:  # If there is no open reading session for the specified article,
                 # we close all the articles from the user
@@ -303,16 +314,18 @@ class UserReadingSession(db.Model):
             return None
 
     @classmethod
-    def find_by_user(cls,
-                     user_id,
-                     from_date: str = VERY_FAR_IN_THE_PAST,
-                     to_date: str = VERY_FAR_IN_THE_FUTURE,
-                     is_active: bool = None):
+    def find_by_user(
+        cls,
+        user_id,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
+        is_active: bool = None,
+    ):
         """
 
-            Get reading sessions by user
+        Get reading sessions by user
 
-            return: object or None if not found
+        return: object or None if not found
         """
         query = cls.query
         query = query.filter(cls.user_id == user_id)
@@ -321,20 +334,22 @@ class UserReadingSession(db.Model):
 
         if is_active is not None:
             query = query.filter(cls.is_active == is_active)
-        query = query.order_by('start_time')
+        query = query.order_by("start_time")
 
         sessions = query.all()
         return sessions
 
     @classmethod
-    def find_by_cohort(cls,
-                       cohort,
-                       from_date: str = VERY_FAR_IN_THE_PAST,
-                       to_date: str = VERY_FAR_IN_THE_FUTURE,
-                       is_active: bool = None):
+    def find_by_cohort(
+        cls,
+        cohort,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
+        is_active: bool = None,
+    ):
         """
-            Get reading sessions by cohort
-            return: object or None if not found
+        Get reading sessions by cohort
+        return: object or None if not found
         """
         query = cls.query.join(User).filter(User.cohort_id == cohort)
         query = query.filter(UserReadingSession.start_time >= from_date)
@@ -342,21 +357,23 @@ class UserReadingSession(db.Model):
 
         if is_active is not None:
             query = query.filter(cls.is_active == is_active)
-        query = query.order_by('start_time')
+        query = query.order_by("start_time")
 
         sessions = query.all()
         return sessions
 
     @classmethod
-    def find_by_article(cls,
-                        article,
-                        from_date: str = VERY_FAR_IN_THE_PAST,
-                        to_date: str = VERY_FAR_IN_THE_FUTURE,
-                        is_active: bool = None,
-                        cohort: bool = None):
+    def find_by_article(
+        cls,
+        article,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
+        is_active: bool = None,
+        cohort: bool = None,
+    ):
         """
-            Get reading sessions by article
-            return: object or None if not found
+        Get reading sessions by article
+        return: object or None if not found
         """
         if cohort is not None:
             query = cls.query.join(User).filter(User.cohort_id == cohort)
@@ -369,24 +386,22 @@ class UserReadingSession(db.Model):
         if is_active is not None:
             query = query.filter(cls.is_active == is_active)
 
-        query = query.order_by('start_time')
+        query = query.order_by("start_time")
 
         sessions = query.all()
         return sessions
 
     @classmethod
-    def find_by_user_and_article(cls,
-                                 user,
-                                 article):
+    def find_by_user_and_article(cls, user, article):
         """
-            Get reading sessions by user and article
-            return: object or None if not found
+        Get reading sessions by user and article
+        return: object or None if not found
         """
         query = cls.query
         query = query.filter(cls.user_id == user)
         query = query.filter(cls.article_id == article)
 
-        query = query.order_by('start_time')
+        query = query.order_by("start_time")
 
         sessions = query.all()
         return sessions
@@ -400,5 +415,5 @@ class UserReadingSession(db.Model):
             "start_time": datetime_to_json(self.start_time),
             "last_action_time": datetime_to_json(self.last_action_time),
             "is_active": self.is_active,
-            "article_title": self.article.title
+            "article_title": self.article.title,
         }
