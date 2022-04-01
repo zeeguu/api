@@ -1,10 +1,9 @@
 import flask
-import zeeguu.core
 from flask import request
 from zeeguu.core.model import Article
 from zeeguu.api.api.utils.json_result import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
-
+from sqlalchemy.orm.exc import NoResultFound
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
 
@@ -39,11 +38,11 @@ def find_or_create_article():
             db_session, url, htmlContent=htmlContent, title=title, authors=authors
         )
         return json_result(article.article_info())
+    except NoResultFound as e:
+        flask.abort(406, "Language not supported")
     except Exception as e:
         from sentry_sdk import capture_exception
-
         capture_exception(e)
-        print(e)
         flask.abort(500)
 
 

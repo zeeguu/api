@@ -42,6 +42,10 @@ url_spiegel_militar = (
     "machtkampf-gegen-juan-guaido-a-1249616.html"
 )
 
+url_turkish = "https://www.hurriyet.com.tr/gundem/istanbul-teravih-namazi-saati-istanbulda-teravih-namazi-bu-aksam-saat-kacta-kilinacak-istanbul-ramazan-imsakiyesi-42034212"
+
+
+
 
 url_plane_crashes = (
     "https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html"
@@ -66,6 +70,7 @@ test_urls = {
     url_pelosi_sperrt_president: "pelosi_sperrt_president.html",
     url_der_kleine_prinz: "der_kleine_prinz.html",
     url_blinden_und_elefant: "blinden_und_elefant.html",
+    url_turkish: "turkish_article.html"
 }
 
 

@@ -6,7 +6,7 @@ from zeeguu.api.test.api_test_mixin import APITestMixin
 
 
 URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
-
+URL_2 = "https://www.hurriyet.com.tr/gundem/istanbul-teravih-namazi-saati-istanbulda-teravih-namazi-bu-aksam-saat-kacta-kilinacak-istanbul-ramazan-imsakiyesi-42034212"
 
 class UserArticleTests(APITestMixin, TestCase):
     def setUp(self):
@@ -24,6 +24,15 @@ class UserArticleTests(APITestMixin, TestCase):
 
         assert "content" in result
         assert "translations" in result
+
+    def test_article_from_unsupported_language(self):
+        response = self.response_from_api_post(
+            "/find_or_create_article", dict(url=URL_2)
+        )
+        assert response.status == "406 NOT ACCEPTABLE"
+        print(response.data)
+        
+
 
     def test_article_update(self):
         # Article is not starred initially

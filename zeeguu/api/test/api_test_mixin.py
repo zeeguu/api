@@ -134,3 +134,9 @@ class APITestMixin(TestCase):
         url = self.in_session(test_data, other_args=other_args)
         rv = self.app.post(url, data=formdata, content_type=_content_type)
         return json.loads(rv.data)
+
+    def response_from_api_post(
+        self, test_data, formdata="None", _content_type=None, other_args=None
+    ):
+        url = self.in_session(test_data, other_args=other_args)
+        return self.app.post(url, data=formdata, content_type=_content_type)
