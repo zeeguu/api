@@ -93,7 +93,11 @@ def get_user_details():
     :param lang_code:
     :return:
     """
-    return json_result(flask.g.user.details_as_dictionary())
+    details_dict = flask.g.user.details_as_dictionary()
+    if flask.g.user.id > 3552:
+        details_dict["features"] = ["open_externally"]
+
+    return json_result(details_dict)
 
 
 @api.route("/user_settings", methods=["POST"])
