@@ -95,7 +95,7 @@ def get_user_details():
     """
     details_dict = flask.g.user.details_as_dictionary()
     if flask.g.user.id > 3552:
-        details_dict["features"] = ["open_externally"]
+        details_dict["features"] = ["extension_experiment_1"]
 
     return json_result(details_dict)
 
