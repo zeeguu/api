@@ -1,11 +1,15 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article
+from zeeguu.core.model import Article, Language
 from zeeguu.api.api.utils.json_result import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
 from .utils.route_wrappers import cross_domain, with_session
 from . import api, db_session
+from zeeguu.core.model.article import HTML_TAG_CLEANR
+
+import re
+from langdetect import detect
 
 
 # ---------------------------------------------------------------------------
@@ -42,6 +46,7 @@ def find_or_create_article():
         flask.abort(406, "Language not supported")
     except Exception as e:
         from sentry_sdk import capture_exception
+
         capture_exception(e)
         flask.abort(500)
 
@@ -61,3 +66,27 @@ def make_personal_copy():
         PersonalCopy.make_for(user, article, db_session)
 
     return "OK" if PersonalCopy.exists_for(user, article) else "Something went wrong!"
+
+
+# ---------------------------------------------------------------------------
+@api.route("/is_article_language_supported", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def is_article_language_supported():
+    """
+    Expects:
+        - htmlContent: str
+
+    :return: YES|NO: str
+
+    """
+
+    htmlContent = request.form.get("htmlContent", "")
+
+    text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
+    lang = detect(text)
+    if lang in Language.available_languages():
+        return "YES"
+    else:
+        return "NO"
