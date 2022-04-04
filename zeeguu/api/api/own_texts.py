@@ -2,7 +2,8 @@ import flask
 import sqlalchemy
 from flask import request
 
-from zeeguu.core.model import Article, Language, CohortArticleMap
+from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle
+from zeeguu.core.model.personal_copy import PersonalCopy
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -33,8 +34,16 @@ def upload_own_text():
 @cross_domain
 @with_session
 def own_texts():
-    r = [e.article_info() for e in Article.own_texts_for_user(flask.g.user)]
-    return json_result(r)
+    r = [
+        UserArticle.user_article_info(flask.g.user, e)
+        for e in Article.own_texts_for_user(flask.g.user)
+    ]
+    r2 = [
+        UserArticle.user_article_info(flask.g.user, e)
+        for e in PersonalCopy.all_for(flask.g.user)
+    ]
+
+    return json_result(r + r2)
 
 
 @api.route("/delete_own_text/<id>", methods=["GET"])
