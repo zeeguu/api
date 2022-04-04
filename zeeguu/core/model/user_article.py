@@ -14,6 +14,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.core.model import Article, User
+from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
 
 
@@ -167,7 +168,6 @@ class UserArticle(zeeguu.core.db.Model):
             cls.query.filter_by(user=user).filter(UserArticle.liked.isnot(False)).all()
         )
 
-
     @classmethod
     def all_starred_or_liked_articles_of_user(cls, user, limit=30):
         return (
@@ -266,5 +266,10 @@ class UserArticle(zeeguu.core.db.Model):
             returned_info["translations"] = [
                 each.serializable_dictionary() for each in translations
             ]
+
+        if PersonalCopy.exists_for(user, article):
+            returned_info["has_personal_copy"] = True
+        else:
+            returned_info["has_personal_copy"] = False
 
         return returned_info

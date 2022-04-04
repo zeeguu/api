@@ -31,6 +31,14 @@ class PersonalCopy(db.Model):
         )
 
     @classmethod
+    def all_for(cls, user):
+        return (
+            Article.query.join(PersonalCopy)
+            .filter(PersonalCopy.user_id == user.id)
+            .all()
+        )
+
+    @classmethod
     def make_for(cls, user, article, session):
         new_personal_copy = PersonalCopy(user, article)
         session.add(new_personal_copy)
