@@ -228,6 +228,8 @@ class Article(db.Model):
             result_dict["content"] = self.content
             result_dict["htmlContent"] = self.htmlContent
 
+        result_dict["has_uploader"] = True if self.uploader_id else False
+
         return result_dict
 
     def article_info_for_teacher(self):
@@ -324,7 +326,7 @@ class Article(db.Model):
         sleep_a_bit=False,
         htmlContent=None,
         title=None,
-        authors:str = "",
+        authors: str = "",
     ):
         """
 
