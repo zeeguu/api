@@ -86,7 +86,7 @@ def is_article_language_supported():
 
     text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
     lang = detect(text)
-    if lang in Language.available_languages():
+    if lang in Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED:
         return "YES"
     else:
         return "NO"
