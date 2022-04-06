@@ -39,7 +39,7 @@ class ZeeguuMailer(object):
         return message.as_string()
 
     @classmethod
-    def send_feedback(cls, subject, context, message, signed, user):
+    def send_feedback(cls, subject, context, message, user):
         mailer = ZeeguuMailer(
             subject,
             f"Dear Zeeguu Team,\n\nWrt. **{context}** I'd like to report that: \n\n"
