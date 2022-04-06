@@ -161,14 +161,4 @@ def send_feedback():
     context = flask.request.form.get("context", "")
     print(message)
     print(context)
-
-    mail = ZeeguuMailer(
-        f"Feedback",
-        f"Dear Zeeguu Team,\n\nWrt. {context} I'd like to report that: \n\n"
-        + message
-        + "\n\n"
-        + "Cheers,\n"
-        + f"{flask.g.user.name} ({flask.g.user.id})",
-        ZeeguuMailer.our_email,
-    )
-    mail.send()
+    ZeeguuMailer.send_feedback("Feedback", context, message, flask.g.user)

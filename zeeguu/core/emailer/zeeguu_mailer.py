@@ -5,20 +5,19 @@ from zeeguu.core import logger
 
 
 class ZeeguuMailer(object):
-
     def __init__(self, message_subject, message_body, to_email):
         self.message_body = message_body
         self.to_email = to_email
         self.message_subject = message_subject
-        self.server_name = app.config.get('SMTP_SERVER')
-        self.our_email = app.config.get('SMTP_USERNAME')
-        self.password = app.config.get('SMTP_PASSWORD')
+        self.server_name = app.config.get("SMTP_SERVER")
+        self.our_email = app.config.get("SMTP_USERNAME")
+        self.password = app.config.get("SMTP_PASSWORD")
 
     def send(self):
 
         # disable the mailer during unit testing
-        if not app.config.get('SEND_NOTIFICATION_EMAILS', False):
-           return
+        if not app.config.get("SEND_NOTIFICATION_EMAILS", False):
+            return
 
         message = self._content_of_email()
         # Send email
@@ -33,15 +32,29 @@ class ZeeguuMailer(object):
         from email.mime.text import MIMEText
 
         message = MIMEText(self.message_body)
-        message['From'] = self.our_email
-        message['To'] = self.to_email
-        message['Subject'] = self.message_subject
+        message["From"] = self.our_email
+        message["To"] = self.to_email
+        message["Subject"] = self.message_subject
 
         return message.as_string()
+
+    @classmethod
+    def send_feedback(cls, subject, context, message, signed, user):
+        mailer = ZeeguuMailer(
+            subject,
+            f"Dear Zeeguu Team,\n\nWrt. **{context}** I'd like to report that: \n\n"
+            + message
+            + "\n\n"
+            + "Cheers,\n"
+            + f"{user.name} ({user.id})",
+            ZeeguuMailer.our_email,
+        )
+
+        mailer.send()
 
     @classmethod
     def send_mail(cls, subject, content_lines):
         logger.info("Sending email...")
         body = "\r\n".join(content_lines)
-        mailer = ZeeguuMailer(subject, body, app.config.get('SMTP_USERNAME'))
+        mailer = ZeeguuMailer(subject, body, app.config.get("SMTP_USERNAME"))
         mailer.send()
