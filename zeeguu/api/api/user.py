@@ -2,6 +2,7 @@ import json
 
 import flask
 import zeeguu.core
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
@@ -149,3 +150,23 @@ def user_settings():
     zeeguu.core.db.session.add(flask.g.user)
     zeeguu.core.db.session.commit()
     return "OK"
+
+
+@api.route("/send_feedback", methods=["POST"])
+@cross_domain
+@with_session
+def send_feedback():
+
+    message = flask.request.form.get("message")
+    context = flask.request.form.get("context")
+
+    mail = ZeeguuMailer(
+        f"Feedback about {context}",
+        f"Dear Zeeguu Team,\n\nWrt. {context} I'd like to report that: \n\n"
+        + message
+        + "\n\n"
+        + "Cheers,\n"
+        + {flask.g.user},
+        ZeeguuMailer.our_email,
+    )
+    mail.send()
