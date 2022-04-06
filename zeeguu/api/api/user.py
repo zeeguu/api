@@ -168,7 +168,7 @@ def send_feedback():
         + message
         + "\n\n"
         + "Cheers,\n"
-        + {flask.g.user.name(flask.g.user.id)},
+        + f"{flask.g.user.name} ({flask.g.user.id})",
         ZeeguuMailer.our_email,
     )
     mail.send()
