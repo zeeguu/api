@@ -159,6 +159,8 @@ def send_feedback():
 
     message = flask.request.form.get("message", "")
     context = flask.request.form.get("context", "")
+    print(message)
+    print(context)
 
     mail = ZeeguuMailer(
         f"Feedback",
