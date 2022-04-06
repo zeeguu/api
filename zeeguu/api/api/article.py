@@ -9,7 +9,7 @@ from . import api, db_session
 from zeeguu.core.model.article import HTML_TAG_CLEANR
 
 import re
-from langdetect import detect, LangDetectException
+from langdetect import detect
 
 
 # ---------------------------------------------------------------------------
@@ -91,5 +91,5 @@ def is_article_language_supported():
             return "YES"
         else:
             return "NO"
-    except LangDetectException:
+    except:
         return "NO"
