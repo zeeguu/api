@@ -162,3 +162,4 @@ def send_feedback():
     print(message)
     print(context)
     ZeeguuMailer.send_feedback("Feedback", context, message, flask.g.user)
+    return "OK"
