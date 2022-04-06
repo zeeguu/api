@@ -157,16 +157,16 @@ def user_settings():
 @with_session
 def send_feedback():
 
-    message = flask.request.form.get("message")
-    context = flask.request.form.get("context")
+    message = flask.request.form.get("message", "")
+    context = flask.request.form.get("context", "")
 
     mail = ZeeguuMailer(
-        f"Feedback about {context}",
+        f"Feedback",
         f"Dear Zeeguu Team,\n\nWrt. {context} I'd like to report that: \n\n"
         + message
         + "\n\n"
         + "Cheers,\n"
-        + {flask.g.user},
+        + {flask.g.user.name(flask.g.user.id)},
         ZeeguuMailer.our_email,
     )
     mail.send()
