@@ -47,7 +47,7 @@ class ZeeguuMailer(object):
             + "\n\n"
             + "Cheers,\n"
             + f"{user.name} ({user.id})",
-            ZeeguuMailer.our_email,
+            app.config.get("SMTP_USERNAME"),
         )
 
         mailer.send()
