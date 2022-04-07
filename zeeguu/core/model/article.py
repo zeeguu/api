@@ -25,8 +25,8 @@ article_topic_map = Table(
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
-HTML_TAG_CLEANR = re.compile("<.*?>")
-
+# HTML_TAG_CLEANR = re.compile("<.*?>") # This one breaks if there're newlines inside of the tag
+HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
 """
     Wed 23, Feb
