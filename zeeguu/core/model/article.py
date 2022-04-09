@@ -28,6 +28,13 @@ MAX_CHAR_COUNT_IN_SUMMARY = 300
 # HTML_TAG_CLEANR = re.compile("<.*?>") # This one breaks if there're newlines inside of the tag
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
+
+MULTIPLE_NEWLINES = re.compile("\n\s*\n")
+# \n matches a line-feed (newline) character (ASCII 10)
+# \s matches any whitespace character (equivalent to [\r\n\t\f\v  ])
+# \n matches a line-feed (newline) character (ASCII 10)
+
+
 """
     Wed 23, Feb
     - added htmlContent - which should, from now on, be the favorite 
@@ -351,7 +358,11 @@ class Article(db.Model):
 
             if htmlContent:
                 text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
-                print(text)
+
+                # replace many newlines with max two; in some
+                # cases many newlines are left after stripping the html tags
+                text = re.sub(MULTIPLE_NEWLINES, "\n\n", text)
+
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
