@@ -378,7 +378,7 @@ class Article(db.Model):
                 url_object,
                 title,
                 authors,
-                text[0:32000],  # any article longer than this will be truncated...
+                text,  # any article longer than this will be truncated...
                 summary,
                 None,
                 None,
