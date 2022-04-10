@@ -34,16 +34,17 @@ def upload_own_text():
 @cross_domain
 @with_session
 def own_texts():
-    r = [
-        UserArticle.user_article_info(flask.g.user, e)
-        for e in Article.own_texts_for_user(flask.g.user)
-    ]
-    r2 = [
-        UserArticle.user_article_info(flask.g.user, e)
-        for e in PersonalCopy.all_for(flask.g.user)
+
+    r = Article.own_texts_for_user(flask.g.user)
+    r2 = PersonalCopy.all_for(flask.g.user)
+    all_articles = r + r2
+    all_articles.sort(key=lambda art: art.id, reverse=True)
+
+    article_infos = [
+        UserArticle.user_article_info(flask.g.user, e) for e in all_articles
     ]
 
-    return json_result(r + r2)
+    return json_result(article_infos)
 
 
 @api.route("/delete_own_text/<id>", methods=["GET"])
