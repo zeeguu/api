@@ -259,7 +259,6 @@ def download_feed_item(session, feed, feed_item, url):
             cleaned_up_text,
             summary,
             published_datetime,
-            None,
             feed,
             feed.language,
         )

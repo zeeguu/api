@@ -83,8 +83,6 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    upload_time = Column(DateTime)
-
     from zeeguu.core.model.topic import Topic
 
     topics = relationship(
@@ -105,7 +103,6 @@ class Article(db.Model):
         content,
         summary,
         published_time,
-        upload_time,
         rss_feed,
         language,
         htmlContent="",
@@ -125,7 +122,6 @@ class Article(db.Model):
         self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
-        self.upload_time = upload_time
         self.rss_feed = rss_feed
         self.language = language
         self.uploader = uploader
@@ -225,10 +221,6 @@ class Article(db.Model):
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
 
-        if self.upload_time:
-            result_dict["published"] = datetime_to_json(self.upload_time)
-            result_dict["saved"] = datetime_to_json(self.upload_time)
-
         if self.rss_feed:
             result_dict["feed_id"] = (self.rss_feed.id,)
             result_dict["icon_name"] = self.rss_feed.icon_name
@@ -298,7 +290,6 @@ class Article(db.Model):
             source.content,
             source.summary,
             current_time,
-            current_time,
             None,
             source.language,
             source.htmlContent,
@@ -321,7 +312,6 @@ class Article(db.Model):
             None,
             content,
             None,
-            current_time,
             current_time,
             None,
             language,
@@ -383,7 +373,6 @@ class Article(db.Model):
 
             # Create new article and save it to DB
             url_object = Url.find_or_create(session, url)
-            current_time = datetime.now()
 
             new_article = Article(
                 url_object,
@@ -392,7 +381,6 @@ class Article(db.Model):
                 text,  # any article longer than this will be truncated...
                 summary,
                 None,
-                current_time,
                 None,
                 language,
                 htmlContent,
