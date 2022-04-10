@@ -361,6 +361,7 @@ class Article(db.Model):
                 # replace many newlines with max two; in some
                 # cases many newlines are left after stripping the html tags
                 text = re.sub(MULTIPLE_NEWLINES, "\n\n", text)
+                text = text.strip()
 
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
