@@ -105,6 +105,7 @@ def upload_articles(cohort_id):
                 content,
                 summary,
                 published_time,
+                published_time,
                 None,  # rss feed
                 language,
             )

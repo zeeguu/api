@@ -12,7 +12,7 @@ from zeeguu.core.test.test_data.mocking_the_web import url_diesel_fahrverbote
 class ArticleRule(BaseRule):
     """
 
-        Creates an Article object with random data and saves it to the database.
+    Creates an Article object with random data and saves it to the database.
 
     """
 
@@ -20,11 +20,12 @@ class ArticleRule(BaseRule):
         super().__init__()
 
         if real:
-            self.article = Article.find_or_create(ArticleRule.db.session, url_diesel_fahrverbote)
+            self.article = Article.find_or_create(
+                ArticleRule.db.session, url_diesel_fahrverbote
+            )
         else:
             self.article = self._create_model_object()
             self.save(self.article)
-
 
     def _create_model_object(self):
         title = " ".join(self.faker.text().split()[:4])
@@ -36,7 +37,9 @@ class ArticleRule(BaseRule):
         language = LanguageRule().random
         url = UrlRule().url
 
-        article = Article(url, title, authors, content, summary, published, rss_feed, language)
+        article = Article(
+            url, title, authors, content, summary, published, None, rss_feed, language
+        )
 
         if self._exists_in_db(article):
             return self._create_model_object()
