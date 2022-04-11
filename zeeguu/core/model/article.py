@@ -83,6 +83,8 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
+    upload_time = Column(DateTime)
+
     from zeeguu.core.model.topic import Topic
 
     topics = relationship(
@@ -103,6 +105,7 @@ class Article(db.Model):
         content,
         summary,
         published_time,
+        upload_time,
         rss_feed,
         language,
         htmlContent="",
@@ -125,6 +128,7 @@ class Article(db.Model):
         self.rss_feed = rss_feed
         self.language = language
         self.uploader = uploader
+        self.upload_time = upload_time
         self.userFound = found_by_user
         self.broken = broken
         self.deleted = deleted
@@ -289,6 +293,7 @@ class Article(db.Model):
             None,
             source.content,
             source.summary,
+            None,
             current_time,
             None,
             source.language,
@@ -311,6 +316,7 @@ class Article(db.Model):
             title,
             None,
             content,
+            None,
             None,
             current_time,
             None,
@@ -381,6 +387,7 @@ class Article(db.Model):
                 text,  # any article longer than this will be truncated...
                 summary,
                 None,
+                datetime.now(),
                 None,
                 language,
                 htmlContent,

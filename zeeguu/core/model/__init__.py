@@ -17,9 +17,9 @@ if not hasattr(zeeguu.core, "app"):
         ["MAX_SESSION", "SQLALCHEMY_DATABASE_URI", "SQLALCHEMY_TRACK_MODIFICATIONS"],
     )
 
-# if we don't specify the charset in the connection string 
+# if we don't specify the charset in the connection string
 # we are not able to store emojis
-zeeguu.core.app.config ['SQLALCHEMY_DATABASE_URI']+='?charset=utf8mb4'
+zeeguu.core.app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
 # inspired from: https://stackoverflow.com/a/47278172/1200070
 
 # Create the zeeguu.core.db object, which will be the superclass
@@ -81,6 +81,7 @@ from .user_exercise_session import UserExerciseSession
 
 # bookmark scheduling
 from zeeguu.core.model.bookmark_priority_arts import BookmarkPriorityARTS
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .personal_copy import PersonalCopy
 

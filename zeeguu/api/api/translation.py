@@ -16,6 +16,7 @@ from zeeguu.core.model import (
     Bookmark,
     Article,
 )
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
@@ -97,7 +98,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         article_id,
     )
 
-    print(bookmark)
+    BasicSRSchedule.find_or_create(db_session, bookmark)
 
     return json_result(
         {

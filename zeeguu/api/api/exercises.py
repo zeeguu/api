@@ -4,9 +4,11 @@ import flask
 import zeeguu.core
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model import Bookmark
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.word_scheduling.arts.bookmark_priority_updater import (
     BookmarkPriorityUpdater,
 )
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -24,6 +26,10 @@ def bookmarks_to_study(bookmark_count):
     """
 
     int_count = int(bookmark_count)
+    to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user)
+    if to_study:
+        return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
+
     to_study = flask.g.user.bookmarks_to_study(int_count)
     if not to_study:
         # We might be in the situation of the priorities never having been
@@ -86,8 +92,12 @@ def report_exercise_outcome(
 
     try:
         bookmark = Bookmark.find(bookmark_id)
-        bookmark.report_exercise_outcome(
-            exercise_source, exercise_outcome, exercise_solving_speed, db_session
+        # bookmark.report_exercise_outcome(
+        #     exercise_source, exercise_outcome, exercise_solving_speed, db_session
+        # )
+        # print(exercise_outcome)
+        BasicSRSchedule.update(
+            db_session, bookmark, exercise_outcome == ExerciseOutcome.CORRECT
         )
 
         return "OK"
@@ -100,6 +110,8 @@ def report_exercise_outcome(
 @cross_domain
 @with_session
 def similar_words_api(bookmark_id):
-    
+
     bookmark = Bookmark.find(bookmark_id)
-    return json_result(similar_words(bookmark.origin.word, bookmark.origin.language, flask.g.user))
+    return json_result(
+        similar_words(bookmark.origin.word, bookmark.origin.language, flask.g.user)
+    )
