@@ -31,7 +31,13 @@ def _feature_map():
     return {
         "activity_dashboard": _activity_dashboard_enabled,
         "ems_teacher_dashboard": _ems_teacher_dashboard_enabled,
+        "audio_exercises": _audio_exercises,
     }
+
+
+def _audio_exercises(user):
+
+    return user.id in [3148, 3149, 534]  # jk  # gn
 
 
 def _ems_teacher_dashboard_enabled(user):
