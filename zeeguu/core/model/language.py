@@ -49,6 +49,11 @@ class Language(db.Model):
         "ar",  # arabic
         "so",  # somali
         "de",
+        "sv",
+        "es",
+        "it",
+        "pl",
+        "ru",
     ]
 
     id = db.Column(db.Integer, primary_key=True)
