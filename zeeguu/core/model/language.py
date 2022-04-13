@@ -41,7 +41,9 @@ class Language(db.Model):
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
         "en",
+        "fr",
         "nl",
+        "pl",
         "ro",
         "zh-CN",
         "tr",
@@ -50,10 +52,14 @@ class Language(db.Model):
         "so",  # somali
         "de",
         "sv",
+        "sq",  # albanian
         "es",
         "it",
         "pl",
+        "pt",
         "ru",
+        "uk",  # ukrainian
+        "vi"   # vietnamese
     ]
 
     id = db.Column(db.Integer, primary_key=True)
