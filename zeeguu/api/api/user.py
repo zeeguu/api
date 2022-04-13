@@ -95,7 +95,7 @@ def get_user_details():
     :return:
     """
     details_dict = flask.g.user.details_as_dictionary()
-    if flask.g.user.id in [3372, 3373, 2953]:
+    if flask.g.user.id in [3372, 3373, 2953] or flask.g.user.id > 3555:
         details_dict["features"] = ["extension_experiment_1"]
 
     return json_result(details_dict)
