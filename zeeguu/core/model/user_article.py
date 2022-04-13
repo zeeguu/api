@@ -253,19 +253,18 @@ class UserArticle(zeeguu.core.db.Model):
             returned_info["liked"] = None
             returned_info["translations"] = []
 
-            return returned_info
+        else:
+            returned_info["starred"] = user_article_info.starred is not None
+            returned_info["opened"] = user_article_info.opened is not None
+            returned_info["liked"] = user_article_info.liked
+            if user_article_info.starred:
+                returned_info["starred_time"] = datetime_to_json(user_article_info.starred)
 
-        returned_info["starred"] = user_article_info.starred is not None
-        returned_info["opened"] = user_article_info.opened is not None
-        returned_info["liked"] = user_article_info.liked
-        if user_article_info.starred:
-            returned_info["starred_time"] = datetime_to_json(user_article_info.starred)
-
-        if with_translations:
-            translations = Bookmark.find_all_for_user_and_article(user, article)
-            returned_info["translations"] = [
-                each.serializable_dictionary() for each in translations
-            ]
+            if with_translations:
+                translations = Bookmark.find_all_for_user_and_article(user, article)
+                returned_info["translations"] = [
+                    each.serializable_dictionary() for each in translations
+                ]
 
         if PersonalCopy.exists_for(user, article):
             returned_info["has_personal_copy"] = True
