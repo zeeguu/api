@@ -44,6 +44,8 @@ def own_texts():
         UserArticle.user_article_info(flask.g.user, e) for e in all_articles
     ]
 
+    print (article_infos)
+
     return json_result(article_infos)
 
 
