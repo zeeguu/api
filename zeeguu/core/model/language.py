@@ -19,6 +19,7 @@ class Language(db.Model):
         "en": "English",
         "fr": "French",
         "de": "German",
+        "hu": "Hungarian",
         "it": "Italian",
         "ku": "Kurdish",
         "no": "Norwegian",
@@ -31,7 +32,8 @@ class Language(db.Model):
         "sv": "Swedish",
         "tr": "Turkish",
         "uk": "Ukrainian",
-        "vi": "Vietnamese"
+        "vi": "Vietnamese",
+        "cym": "Welsh",
 
     }
 
