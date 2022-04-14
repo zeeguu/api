@@ -33,7 +33,6 @@ class Language(db.Model):
         "tr": "Turkish",
         "uk": "Ukrainian",
         "vi": "Vietnamese",
-        "cym": "Welsh",
 
     }
 
