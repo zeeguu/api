@@ -11,19 +11,28 @@ class Language(db.Model):
     __tablename__ = "language"
 
     LANGUAGE_NAMES = {
+        "sq": "Albanian",
+        "ar":"Arabic",
+        "zh-CN": "Chinese",
         "da": "Danish",
-        "de": "German",
-        "en": "English",
-        "es": "Spanish",
-        "fr": "French",
-        "it": "Italian",
         "nl": "Dutch",
+        "en": "English",
+        "fr": "French",
+        "de": "German",
+        "it": "Italian",
+        "ku": "Kurdish",
+        "no": "Norwegian",
         "pl": "Polish",
         "pt": "Portuguese",
         "ro": "Romanian",
-        "zh-CN": "Chinese",
-        "sv": "Swedish",
         "ru": "Russian",
+        "so": "Somali",
+        "es": "Spanish",
+        "sv": "Swedish",
+        "tr": "Turkish",
+        "uk": "Ukrainian",
+        "vi": "Vietnamese"
+
     }
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
@@ -38,7 +47,9 @@ class Language(db.Model):
         "sv",
         "ru",
         "no",
-        "hu"
+        "hu",
+        "uk",
+        "cym"
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
@@ -61,7 +72,8 @@ class Language(db.Model):
         "pt",
         "ru",
         "uk",  # ukrainian
-        "vi"   # vietnamese
+        "vi",   # vietnamese
+        "cym"
     ]
 
     id = db.Column(db.Integer, primary_key=True)
