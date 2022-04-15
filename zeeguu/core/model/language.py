@@ -48,8 +48,7 @@ class Language(db.Model):
         "sv",
         "ru",
         "no",
-        "hu",
-        "uk"
+        "hu"
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
