@@ -39,6 +39,7 @@ class Language(db.Model):
         "ind": "Indonesian",
         "ur": "Urdu",
         "ta": "Tamil",
+        "bn": "Bengali",
 
     }
 
@@ -86,6 +87,7 @@ class Language(db.Model):
         "ind",
         "ur",
         "ta",
+        "bn",
     ]
 
     id = db.Column(db.Integer, primary_key=True)
