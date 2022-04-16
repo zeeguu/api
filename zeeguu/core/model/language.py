@@ -22,6 +22,7 @@ class Language(db.Model):
         "hu": "Hungarian",
         "it": "Italian",
         "ku": "Kurdish",
+        "lv": "Latvian",
         "no": "Norwegian",
         "pl": "Polish",
         "pt": "Portuguese",
@@ -33,6 +34,11 @@ class Language(db.Model):
         "tr": "Turkish",
         "uk": "Ukrainian",
         "vi": "Vietnamese",
+        "ja": "Japanese",
+        "srp": "Serbian",
+        "ind": "Indonesian",
+        "ur": "Urdu",
+        "ta": "Tamil",
 
     }
 
@@ -69,10 +75,17 @@ class Language(db.Model):
         "es",
         "it",
         "pl",
+        "ja",
+        "srp", 
         "pt",
         "ru",
         "uk",  # ukrainian
         "vi",   # vietnamese
+        "hu",
+        "lv",
+        "ind",
+        "ur",
+        "ta",
     ]
 
     id = db.Column(db.Integer, primary_key=True)
