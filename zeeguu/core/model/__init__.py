@@ -80,7 +80,8 @@ from .user_reading_session import UserReadingSession
 from .user_exercise_session import UserExerciseSession
 
 # bookmark scheduling
-from zeeguu.core.model.bookmark_priority_arts import BookmarkPriorityARTS
+from .bookmark_priority_arts import BookmarkPriorityARTS
+from .word_to_study import WordToStudy
 
 from .personal_copy import PersonalCopy
 
