@@ -47,7 +47,8 @@ def _extension_experiment_1(user):
 
 
 def _audio_exercises(user):
-    return user.cohort.id==444
+
+    return user.cohort and user.cohort.id==444
 
 
 
