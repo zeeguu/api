@@ -26,7 +26,7 @@ def bookmarks_to_study(bookmark_count):
     int_count = int(bookmark_count)
 
     # the adaptive scheduler
-    if flask.g.user.id == 534:
+    if flask.g.user.id in [534, 2953, 3570] :
         from zeeguu.core.word_scheduling.adaptive.scheduling_algo import getWordsToStudy
         to_study = getWordsToStudy(flask.g.user, int_count)
     
