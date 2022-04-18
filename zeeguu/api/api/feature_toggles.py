@@ -47,8 +47,7 @@ def _extension_experiment_1(user):
 
 
 def _audio_exercises(user):
-
-    return user.id in [3148, 3149, 534]  # jk  # gn
+    return user.cohort.id==444 or user.id in [3148, 3149, 534]  # jk  # gn
 
 
 
