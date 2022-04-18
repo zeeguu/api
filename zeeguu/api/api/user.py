@@ -1,6 +1,7 @@
 import json
 
 import flask
+from zeeguu.api.api.feature_toggles import features_for_user
 import zeeguu.core
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
@@ -95,8 +96,7 @@ def get_user_details():
     :return:
     """
     details_dict = flask.g.user.details_as_dictionary()
-    if flask.g.user.id in [3372, 3373, 2953] or flask.g.user.id > 3555:
-        details_dict["features"] = ["extension_experiment_1"]
+    details_dict["features"] = features_for_user(flask.g.user)
 
     return json_result(details_dict)
 
