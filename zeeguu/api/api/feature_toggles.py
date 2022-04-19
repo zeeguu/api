@@ -38,17 +38,18 @@ def features_for_user(user):
 def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
-        "extension_experiment_1": _extension_experiment_1
+        "extension_experiment_1": _extension_experiment_1,
     }
 
 
 def _extension_experiment_1(user):
-    return user.id in [3372, 3373, 2953, 3427] or flask.g.user.id > 3555
+    return (
+        (user.cohort and user.cohort.id == 437)
+        or user.id in [3372, 3373, 2953, 3427]
+        or flask.g.user.id > 3555
+    )
 
 
 def _audio_exercises(user):
 
-    return user.cohort and user.cohort.id==444
-
-
-
+    return user.cohort and user.cohort.id == 444
