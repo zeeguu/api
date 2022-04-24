@@ -75,7 +75,3 @@ try:
     machine_specific_config(app)
 except ModuleNotFoundError as e:
     print("no machine specific code found")
-
-import logging
-
-logging.error("started the api", extra=dict(a="b"))
