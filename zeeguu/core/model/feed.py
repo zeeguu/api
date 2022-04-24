@@ -141,6 +141,13 @@ class RSSFeed(db.Model):
         skipped_items = []
         zeeguu.core.log(f"** Articles in feed: {len(feed_data.entries)}")
         for item in feed_data.entries:
+
+            if not item.published_parsed:
+                # we don't have a publishing time...
+                # happens rarely that the parser can't extract this
+                #
+                continue
+
             try:
                 published_string = time.strftime(
                     SIMPLE_TIME_FORMAT, publishing_date(item)
