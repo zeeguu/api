@@ -12,7 +12,7 @@ class Language(db.Model):
 
     LANGUAGE_NAMES = {
         "sq": "Albanian",
-        "ar":"Arabic",
+        "ar": "Arabic",
         "zh-CN": "Chinese",
         "da": "Danish",
         "nl": "Dutch",
@@ -40,7 +40,6 @@ class Language(db.Model):
         "ur": "Urdu",
         "ta": "Tamil",
         "bn": "Bengali",
-
     }
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
@@ -56,7 +55,7 @@ class Language(db.Model):
         "ru",
         "no",
         "hu",
-        "pt"
+        "pt",
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
@@ -77,11 +76,11 @@ class Language(db.Model):
         "it",
         "pl",
         "ja",
-        "srp", 
+        "srp",
         "pt",
         "ru",
         "uk",  # ukrainian
-        "vi",   # vietnamese
+        "vi",  # vietnamese
         "hu",
         "lv",
         "ind",
