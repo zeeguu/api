@@ -101,16 +101,21 @@ class Text(db.Model):
         :param url: Url (object)
         :return:
         """
-
+        # we ended up with a bunch of duplicates in the
+        # db because of some trailing spaces difference
+        # i guess the clients sometimes clean up the context
+        # and some other times don't.
+        # we fix it here now
+        clean_text = text.strip()
         try:
             return (
-                cls.query.filter(cls.content_hash == text_hash(text))
+                cls.query.filter(cls.content_hash == text_hash(clean_text))
                 .filter(cls.article == article)
-                .one()
+                .first()
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
-                new = cls(text, language, url, article)
+                new = cls(clean_text, language, url, article)
                 session.add(new)
                 session.commit()
                 return new
@@ -118,7 +123,9 @@ class Text(db.Model):
                 for i in range(10):
                     try:
                         session.rollback()
-                        t = cls.query.filter(cls.content_hash == text_hash(text)).one()
+                        t = cls.query.filter(
+                            cls.content_hash == text_hash(clean_text)
+                        ).one()
                         print("found text after recovering from race")
                         return t
                     except:
