@@ -1,5 +1,6 @@
 # -*- coding: utf8 -*-
 
+import logging
 import time
 from datetime import datetime
 
@@ -146,6 +147,9 @@ class RSSFeed(db.Model):
                 # we don't have a publishing time...
                 # happens rarely that the parser can't extract this
                 #
+                import logging
+
+                logging.error("item w/o published_parsed", extra=dict(item=item))
                 continue
 
             try:
