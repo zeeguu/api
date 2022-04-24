@@ -4,6 +4,7 @@ blinker
 deprecated
 elasticsearch
 Faker
+feedparser
 flask
 Flask-Assets
 flask_cors
