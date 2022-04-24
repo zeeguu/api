@@ -143,7 +143,7 @@ class RSSFeed(db.Model):
         zeeguu.core.log(f"** Articles in feed: {len(feed_data.entries)}")
         for item in feed_data.entries:
 
-            if not item.published_parsed:
+            if not item.get("published_parsed"):
                 # we don't have a publishing time...
                 # happens rarely that the parser can't extract this
                 #
