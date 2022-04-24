@@ -111,7 +111,7 @@ class Text(db.Model):
             return (
                 cls.query.filter(cls.content_hash == text_hash(clean_text))
                 .filter(cls.article == article)
-                .first()
+                .one()
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
