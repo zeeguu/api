@@ -31,7 +31,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     To think about:
     - it would also make sense to separate translation from
-    logging; or at least, allow for situations where a translation
+    "logging"; or at least, allow for situations where a translation
     is not associated with an url... or?
     - jul 2021 - Bjorn would like to have the possibility of getting
     a translation without an article; can be done; allow for the
@@ -40,7 +40,6 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-    print(flask.g.user.id)
 
     word_str = request.form["word"].strip(punctuation_extended)
     url = request.form.get("url")
@@ -55,14 +54,17 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     minimal_context, query = minimize_context(context, from_lang_code, word_str)
 
-    # if we have an own / teacher translation that is our first "best guess"
-    # ML: TODO: word translated in the same text / articleID / url should still be considered
-    # as an own translation; currently only if the "context" is the same counts;
-    # which means that translating afslore in a previous paragraph does not count
-    best_guess = get_own_past_translation(
+    # if we have an own translation that is our first "best guess"
+    # ML: TODO:
+    # - word translated in the same text / articleID / url should still be considered
+    # even if not exactly this context
+    # - a teacher's translation or a senior user's should still
+    # be considered here
+    bookmark = get_own_past_translation(
         flask.g.user, word_str, from_lang_code, to_lang_code, context
     )
-    if best_guess:
+    if bookmark:
+        best_guess = bookmark.translation.word
         likelihood = 1
         source = "Own past translation"
     else:
@@ -84,20 +86,18 @@ def get_one_translation(from_lang_code, to_lang_code):
         likelihood = translations[0].pop("quality")
         source = translations[0].pop("service_name")
 
-    bookmark = Bookmark.find_or_create(
-        db_session,
-        flask.g.user,
-        word_str,
-        from_lang_code,
-        best_guess,
-        to_lang_code,
-        minimal_context,
-        url,
-        title_str,
-        article_id,
-    )
-
-    print(bookmark)
+        bookmark = Bookmark.find_or_create(
+            db_session,
+            flask.g.user,
+            word_str,
+            from_lang_code,
+            best_guess,
+            to_lang_code,
+            minimal_context,
+            url,
+            title_str,
+            article_id,
+        )
 
     return json_result(
         {

@@ -94,6 +94,19 @@ class Text(db.Model):
         return Bookmark.find_all_for_text_and_user(self, user)
 
     @classmethod
+    def find_all(cls, text, language):
+        """
+        there could be multiple texts
+        in multiple articles actually...
+        """
+        hash = text_hash(text)
+        return (
+            cls.query.filter_by(content_hash=hash)
+            .filter_by(language_id=language.id)
+            .all()
+        )
+
+    @classmethod
     def find_or_create(cls, session, text, language, url, article):
         """
         :param text: string
