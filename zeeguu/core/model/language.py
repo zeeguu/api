@@ -35,7 +35,7 @@ class Language(db.Model):
         "uk": "Ukrainian",
         "vi": "Vietnamese",
         "ja": "Japanese",
-        "srp": "Serbian",
+        "sr": "Serbian",
         "ind": "Indonesian",
         "ur": "Urdu",
         "ta": "Tamil",
@@ -76,7 +76,7 @@ class Language(db.Model):
         "it",
         "pl",
         "ja",
-        "srp",
+        "sr",
         "pt",
         "ru",
         "uk",  # ukrainian
