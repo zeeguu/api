@@ -41,7 +41,7 @@ def upload_user_activity_data():
     if request.form.get("article_id", None):
         distill_article_interactions(db_session, flask.g.user, request.form)
 
-    if request.form.get("event") == "TRANSLATE TEXT":
+    if request.form.get("event") == "AUDIO_EXP":
         ZeeguuMailer.notify_audio_experiment(request.form, flask.g.user)
 
     return "OK"
