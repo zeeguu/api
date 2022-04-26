@@ -53,6 +53,26 @@ class ZeeguuMailer(object):
         mailer.send()
 
     @classmethod
+    def notify_audio_experiment(cls, data, user):
+        content = (
+            f"Dear Zeeguu Team,\n\nWrt. the ** audio exercises experiment** I'd like to report the following: \n\n"
+            + f"{user.name} ({user.email})\n"
+            + data.event
+            + "\n"
+            + data.value
+            + "\n\n"
+            + "Cheers,\n Your Friendly Zeeguu Server",
+        )
+
+        at = "@i"
+        for email in ["jkak", "gupe", "mlun"]:
+            ZeeguuMailer(
+                "Audio Experiment Event",
+                content,
+                email + at + "tu" + "." + "dk",
+            ).send()
+
+    @classmethod
     def send_mail(cls, subject, content_lines):
         logger.info("Sending email...")
         body = "\r\n".join(content_lines)
