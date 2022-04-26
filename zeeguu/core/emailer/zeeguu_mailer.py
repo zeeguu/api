@@ -54,15 +54,13 @@ class ZeeguuMailer(object):
 
     @classmethod
     def notify_audio_experiment(cls, data, user):
-        content = (
-            f"Dear Zeeguu Team,\n\nWrt. the ** audio exercises experiment** I'd like to report the following: \n\n"
-            + f"{user.name} ({user.email})\n"
-            + data.get("event", "")
-            + "\n"
-            + data.get("value", "")
-            + "\n\n"
-            + "Cheers,\n Your Friendly Zeeguu Server",
-        )
+        content = f"Dear Zeeguu Team,\n\nWrt. the ** audio exercises experiment** I'd like to report the following: \n\n"
+        content += f"{user.name} ({user.email})\n"
+        content += data.get("event", "")
+        content += "\n"
+        content += data.get("value", "")
+        content += "\n\n"
+        content += "Cheers,\n Your Friendly Zeeguu Server"
 
         at = "@i"
         for email in ["jkak", "gupe", "mlun"]:
