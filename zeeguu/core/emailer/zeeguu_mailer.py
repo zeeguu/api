@@ -57,9 +57,9 @@ class ZeeguuMailer(object):
         content = (
             f"Dear Zeeguu Team,\n\nWrt. the ** audio exercises experiment** I'd like to report the following: \n\n"
             + f"{user.name} ({user.email})\n"
-            + data.event
+            + data.get("event", "")
             + "\n"
-            + data.value
+            + data.get("value", "")
             + "\n\n"
             + "Cheers,\n Your Friendly Zeeguu Server",
         )
