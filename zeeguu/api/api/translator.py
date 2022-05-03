@@ -227,8 +227,3 @@ def contribute_trans(data):
     logger.debug(
         "Preferred service: %s" % json.dumps(data, ensure_ascii=False).encode("utf-8")
     )
-
-
-def minimize_context(context_str, from_lang_code, word_str):
-    _query = TranslationQuery.for_word_occurrence(word_str, context_str, 1, 7)
-    return context_str, _query
