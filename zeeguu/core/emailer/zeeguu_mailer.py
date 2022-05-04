@@ -65,12 +65,12 @@ class ZeeguuMailer(object):
         content += "\n\n"
         content += "Cheers,\n Your Friendly Zeeguu Server"
 
-        at = "@i"
-        for email in ["jkak", "gupe", "mlun"]:
+        prefix = "@i"
+        for handle in ["jkak", "gupe", "mlun"]:
             ZeeguuMailer(
                 "Audio Experiment Event",
                 content,
-                email + at + "tu" + "." + "dk",
+                handle + prefix + "tu" + ".d" + "k",
             ).send()
 
     @classmethod
