@@ -46,7 +46,7 @@ class ZeeguuMailer(object):
             + message
             + "\n\n"
             + "Cheers,\n"
-            + f"{user.name} ({user.id})",
+            + f"{user.name} ({user.id}, {user.email})",
             app.config.get("SMTP_USERNAME"),
         )
 
@@ -54,11 +54,14 @@ class ZeeguuMailer(object):
 
     @classmethod
     def notify_audio_experiment(cls, data, user):
-        content = f"Dear Zeeguu Team,\n\nWrt. the ** audio exercises experiment** I'd like to report the following: \n\n"
         content += f"{user.name} ({user.email})\n"
         content += data.get("event", "")
         content += "\n"
         content += data.get("value", "")
+        content += "\n"
+        content += data.get("extra_data", "")
+        content += "\n"
+        content += data.get("time", "")
         content += "\n\n"
         content += "Cheers,\n Your Friendly Zeeguu Server"
 
