@@ -54,7 +54,7 @@ class ZeeguuMailer(object):
 
     @classmethod
     def notify_audio_experiment(cls, data, user):
-        content += f"{user.name} ({user.email})\n"
+        content = f"{user.name} ({user.email})\n"
         content += data.get("event", "")
         content += "\n"
         content += data.get("value", "")
