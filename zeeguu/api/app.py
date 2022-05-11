@@ -50,24 +50,24 @@ from .api import api
 
 app.register_blueprint(api)
 
-try:
-    import flask_monitoringdashboard as dashboard
-    from .custom_fmd_graphs import daily_visitors
+# try:
+#     import flask_monitoringdashboard as dashboard
+#     from .custom_fmd_graphs import daily_visitors
 
-    dashboard.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
+#     dashboard.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
 
-    from zeeguu.core.model import Session
+#     from zeeguu.core.model import Session
 
-    dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
-    dashboard.bind(app=app)
-    daily_visitors(dashboard)
-    print("Started the Flask Monitoring Dashboard")
+#     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
+#     dashboard.bind(app=app)
+#     daily_visitors(dashboard)
+#     print("Started the Flask Monitoring Dashboard")
 
-except Exception as e:
-    import traceback
+# except Exception as e:
+#     import traceback
 
-    traceback.print_exc()
-    print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
+#     traceback.print_exc()
+#     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
 try:
     from zeeguu.api.machine_specific import machine_specific_config
