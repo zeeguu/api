@@ -1,11 +1,14 @@
 import json
 from datetime import datetime
+from time import sleep
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
 
 import zeeguu.core
+
+import sqlalchemy
 
 from zeeguu.core.model import Article, User, Url
 from zeeguu.core.model.user_reading_session import UserReadingSession
@@ -123,6 +126,32 @@ class UserActivityData(db.Model):
             if extradata_value == extra_value:
                 filtered_results.append(event)
         return filtered_results
+
+    @classmethod
+    def find_or_create(cls, session, user, time, event, value, extra_data, has_article_id, article_id):
+        try:
+            zeeguu.core.log("found existing event; returning it instead of creating a new one")
+            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            try:
+                new = cls(user, time, event, value, extra_data, has_article_id, article_id)
+                session.add(new)
+                session.commit()
+                return new
+            except:
+                for _ in range(10):
+                    try:
+                        session.rollback()
+                        ev = cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).one()
+                        print("successfully avoided race condition. nice! ")
+                        return ev
+                    except sqlalchemy.orm.exc.NoResultFound:
+                        sleep(0.3)
+                        continue
+                    
+
+
+
 
     @classmethod
     def find(
@@ -252,7 +281,6 @@ class UserActivityData(db.Model):
 
         event = data.get("event", "")
         value = data.get("value", "")
-
         extra_data = data.get("extra_data", "")
 
         article_id = None
@@ -265,8 +293,8 @@ class UserActivityData(db.Model):
             f"{event} value[:42]: {value[:42]} extra_data[:42]: {extra_data[:42]} art_id: {article_id}"
         )
 
-        new_entry = UserActivityData(
-            user, time, event, value, extra_data, has_article_id, article_id
+        new_entry = UserActivityData.find_or_create(
+           session, user, time, event, value, extra_data, has_article_id, article_id
         )
 
         session.add(new_entry)
