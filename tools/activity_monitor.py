@@ -24,7 +24,7 @@ def print_event(each):
     converted_time = datetime_from_utc_to_local(each.time)
     tago = timeago.format(converted_time, now)
     print(
-        f"{tago:>18} {each.user.name:>15}  {each.event:<30} {each.value:<30} {each.extra_data}"
+        f"{tago:>18} {each.user.name:>20}  {each.event:<30} {each.value:<30} {each.extra_data}"
     )
 
 
@@ -33,8 +33,6 @@ for each in reversed(list(most_recent_events)):
 
 most_recent_id = most_recent_events[0].id
 most_recent_object = most_recent_events[0]
-
-print(f"Looking for events after: {most_recent_id}")
 
 while True:
     db_session.commit()
