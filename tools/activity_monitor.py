@@ -8,7 +8,7 @@ import time
 db_session = zeeguu.core.db.session
 
 EVENTS_COUNT = 24
-SECONDS_BETWEEN_REFRESH = 30
+SECONDS_BETWEEN_REFRESH = 5
 
 def most_recent_events(): 
     return UserActivityData.query.order_by(UserActivityData.id.desc()).limit(EVENTS_COUNT)
@@ -33,6 +33,7 @@ def print_event(each):
 
 while True:
     import os
+    db_session.commit()
     os.system('cls' if os.name == 'nt' else 'clear')
     # print(chr(27) + "[2J")
 
