@@ -8,6 +8,7 @@ import time
 db_session = zeeguu.core.db.session
 
 EVENTS_COUNT = 24
+SECONDS_BETWEEN_REFRESH = 30
 
 def most_recent_events(): 
     return UserActivityData.query.order_by(UserActivityData.id.desc()).limit(EVENTS_COUNT)
@@ -40,4 +41,4 @@ while True:
     for each in reversed(list(most_recent_events())):
         print_event(each)
 
-    sleep(1)
+    sleep(SECONDS_BETWEEN_REFRESH)
