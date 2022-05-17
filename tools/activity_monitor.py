@@ -38,6 +38,7 @@ while True:
     # print(chr(27) + "[2J")
 
     print(f"Most recent {EVENTS_COUNT} user activity events")
+    print(f"Refreshed every {SECONDS_BETWEEN_REFRESH} seconds")
 
     for each in reversed(list(most_recent_events())):
         print_event(each)
