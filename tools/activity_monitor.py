@@ -2,15 +2,16 @@ from time import sleep
 from zeeguu.core.model import UserActivityData
 import zeeguu.core
 import timeago
+from datetime import datetime
+import time
 
 db_session = zeeguu.core.db.session
 
-most_recent_events = UserActivityData.query.order_by(UserActivityData.id.desc()).limit(
-    20
-)
+EVENTS_COUNT = 24
 
-from datetime import datetime
-import time
+def most_recent_events(): 
+    return UserActivityData.query.order_by(UserActivityData.id.desc()).limit(EVENTS_COUNT)
+
 
 def datetime_from_utc_to_local(utc_datetime):
     now_timestamp = time.time()
@@ -28,20 +29,15 @@ def print_event(each):
     )
 
 
-for each in reversed(list(most_recent_events)):
-    print_event(each)
-
-most_recent_id = most_recent_events[0].id
-most_recent_object = most_recent_events[0]
 
 while True:
-    db_session.commit()
-    query = UserActivityData.query.filter(UserActivityData.id > most_recent_id)
+    import os
+    os.system('cls' if os.name == 'nt' else 'clear')
+    # print(chr(27) + "[2J")
 
-    new_events = query.all()
-    for each in new_events:
+    print(f"Most recent {EVENTS_COUNT} user activity events")
+
+    for each in reversed(list(most_recent_events())):
         print_event(each)
-    if len(new_events) > 0:
-        most_recent_id = new_events[-1].id
-        most_recent_object = new_events[-1]
+
     sleep(1)
