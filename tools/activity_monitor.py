@@ -24,7 +24,7 @@ def print_event(each):
     converted_time = datetime_from_utc_to_local(each.time)
     tago = timeago.format(converted_time, now)
     print(
-        f"{tago:>18} {each.user.name:>20}  {each.event:<30} {each.article_id} {each.value:<30} {each.extra_data}"
+        f"{tago:>16} {str(converted_time):>28} {each.user.name:>20}  {each.event:<30} {each.article_id} {each.value:<30} {each.extra_data}"
     )
 
 
