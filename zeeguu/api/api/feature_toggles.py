@@ -46,7 +46,7 @@ def _extension_experiment_1(user):
     return (
         (user.cohort and user.cohort.id == 437)
         or user.id in [3372, 3373, 2953, 3427, 2705]
-        or flask.g.user.id > 3555
+        or user.id > 3555
     )
 
 
