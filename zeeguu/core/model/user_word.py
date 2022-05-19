@@ -5,22 +5,26 @@ from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
 import zeeguu.core
-from zeeguu.core import util
 
 db = zeeguu.core.db
 
 from zeeguu.core.model.language import Language
 
 
-class UserWord(db.Model, util.JSONSerializable):
+class UserWord(db.Model):
     __tablename__ = 'user_word'
     __table_args__ = {'mysql_collate': 'utf8_bin'}
 
     id = db.Column(db.Integer, primary_key=True)
-    word = db.Column(db.String(255), nullable=False)
+    
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
-    db.UniqueConstraint(word, language_id)
+
+    word = db.Column(db.String(255), nullable=False)
+    
+    rank = db.Column(db.Integer)
+
+    db.UniqueConstraint(word, language_id)    
 
     IMPORTANCE_LEVEL_STEP = 1000
     IMPOSSIBLE_RANK = 1000000
@@ -29,15 +33,13 @@ class UserWord(db.Model, util.JSONSerializable):
     def __init__(self, word, language):
         self.word = word
         self.language = language
+        self.rank = Word.stats(self.word, self.language.code).rank
 
     def __repr__(self):
-        return '<UserWord %r>' % (self.word)
+        return f'<@UserWord {self.word} {self.language_id} {self.rank}>'
 
     def __eq__(self, other):
         return self.word == other.word and self.language == other.language
-
-    def serialize(self):
-        return self.word
 
     def importance_level(self):
         """
