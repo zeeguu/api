@@ -38,7 +38,7 @@ class ArticleRule(BaseRule):
         url = UrlRule().url
 
         article = Article(
-            url, title, authors, content, summary, published, None, rss_feed, language
+            url, title, authors, content, summary, published, rss_feed, language
         )
 
         if self._exists_in_db(article):
