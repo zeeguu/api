@@ -5,38 +5,26 @@ db = zeeguu.core.db
 
 
 class ExerciseOutcome(db.Model):
-    __tablename__ = 'exercise_outcome'
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __tablename__ = "exercise_outcome"
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     outcome = db.Column(db.String(255), nullable=False)
     correct = db.Column(db.Boolean, nullable=False)
 
-    CORRECT = 'Correct'
-    TOO_EASY = 'Too easy'
-    SHOW_SOLUTION = 'Show solution'
-    RETRY = 'Retry'
-    WRONG = 'Wrong'
-    TYPO = 'Typo'
-    ASKED_FOR_HINT = 'asked_for_hint'
+    CORRECT = "C"
+    TOO_EASY = "Too easy"
+    SHOW_SOLUTION = "Show solution"
+    RETRY = "Retry"
+    WRONG = "Wrong"
+    TYPO = "Typo"
+    ASKED_FOR_HINT = "asked_for_hint"
 
-    correct_outcomes = [
-        CORRECT,
-        TOO_EASY,
-        'C'
-    ]
+    correct_outcomes = [CORRECT, TOO_EASY, "Correct"]
 
-    too_easy_outcomes = [
-        'too_easy',
-        TOO_EASY
-    ]
+    too_easy_outcomes = ["too_easy", TOO_EASY]
 
-    wrong_outcomes = [
-        'W',
-        WRONG,
-        SHOW_SOLUTION,
-        ASKED_FOR_HINT
-    ]
+    wrong_outcomes = ["W", WRONG, SHOW_SOLUTION, ASKED_FOR_HINT]
 
     def __init__(self, outcome):
         self.outcome = outcome
@@ -57,14 +45,16 @@ class ExerciseOutcome(db.Model):
 
     def free_text_feedback(self):
         """
-            this can happen since the user can provide any free
-            text feedback. in such a case it would probably be
-            safest not to show such a bookmark until somebody
-            manually verified the appropriateness of the
-            feedback """
-        return self.outcome not in self.correct_outcomes \
-               and self.outcome not in self.wrong_outcomes \
-               and self.outcome not in self.too_easy_outcomes
+        this can happen since the user can provide any free
+        text feedback. in such a case it would probably be
+        safest not to show such a bookmark until somebody
+        manually verified the appropriateness of the
+        feedback"""
+        return (
+            self.outcome not in self.correct_outcomes
+            and self.outcome not in self.wrong_outcomes
+            and self.outcome not in self.too_easy_outcomes
+        )
 
     @classmethod
     def find(cls, outcome: str):

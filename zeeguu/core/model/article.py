@@ -380,7 +380,7 @@ class Article(db.Model):
                 authors,
                 text,  # any article longer than this will be truncated...
                 summary,
-                None,
+                datetime.now(),
                 None,
                 language,
                 htmlContent,

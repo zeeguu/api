@@ -1,12 +1,10 @@
 import sqlalchemy
-import traceback
 
-import zeeguu.core
 from flask import request
 from zeeguu.core.model import Session
-from zeeguu.core.model import User, Cohort, Teacher
+from zeeguu.core.model import User
 from zeeguu.core.model.unique_code import UniqueCode
-from zeeguu.api.api.sessions import get_session, get_anon_session
+from zeeguu.api.api.sessions import get_anon_session
 from zeeguu.api.api.utils.abort_handling import make_error
 
 from .utils.route_wrappers import cross_domain
