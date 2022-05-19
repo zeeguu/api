@@ -26,30 +26,16 @@ def bookmarks_to_study(bookmark_count):
     """
 
     int_count = int(bookmark_count)
+
     to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+
     if len(to_study) < int_count:
         BasicSRSchedule.schedule_some_more_bookmarks(
             db_session, flask.g.user, int_count - len(to_study)
         )
         to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
 
-    if to_study:
-        return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
-
-    to_study = flask.g.user.bookmarks_to_study(int_count)
-    if not to_study:
-        # We might be in the situation of the priorities never having been
-        # computed since theuser never did an exercise, and currently only
-        # then are priorities recomputed; thus, in this case, we try to
-        # update, and maybe this will solve the problem
-        zeeguu.core.log(
-            "recomputting bookmark priorities since there seem to be no bookmarks to study"
-        )
-        BookmarkPriorityUpdater.update_bookmark_priority(zeeguu.core.db, flask.g.user)
-        to_study = flask.g.user.bookmarks_to_study(int_count)
-
-    as_json = [bookmark.json_serializable_dict() for bookmark in to_study]
-    return json_result(as_json)
+    return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
