@@ -5,11 +5,5 @@ from zeeguu.api.test.api_test_mixin import APITestMixin
 
 
 class TranslationTests(APITestMixin, TestCase):
-    def test_minimize_context(self):
-        from zeeguu.api.api.translation import minimize_context
-
-        ctx = "Onderhandelaars ChristenUnie praten over positie homo-ouders"
-        from_lang_code = "nl"
-        word_str = "Onderhandelaars"
-
-        assert minimize_context(ctx, from_lang_code, word_str)
+    def test_something(self):
+        pass

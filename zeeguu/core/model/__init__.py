@@ -82,6 +82,8 @@ from .user_exercise_session import UserExerciseSession
 # bookmark scheduling
 from zeeguu.core.model.bookmark_priority_arts import BookmarkPriorityARTS
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+from .word_to_study import WordToStudy
+
 
 from .personal_copy import PersonalCopy
 

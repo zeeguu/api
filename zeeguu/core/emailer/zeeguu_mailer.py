@@ -46,11 +46,32 @@ class ZeeguuMailer(object):
             + message
             + "\n\n"
             + "Cheers,\n"
-            + f"{user.name} ({user.id})",
+            + f"{user.name} ({user.id}, {user.email})",
             app.config.get("SMTP_USERNAME"),
         )
 
         mailer.send()
+
+    @classmethod
+    def notify_audio_experiment(cls, data, user):
+        content = f"{user.name} ({user.email})\n"
+        content += data.get("event", "")
+        content += "\n"
+        content += data.get("value", "")
+        content += "\n"
+        content += data.get("extra_data", "")
+        content += "\n"
+        content += data.get("time", "")
+        content += "\n\n"
+        content += "Cheers,\n Your Friendly Zeeguu Server"
+
+        prefix = "@i"
+        for handle in ["jkak", "gupe", "mlun"]:
+            ZeeguuMailer(
+                "Audio Experiment Event",
+                content,
+                handle + prefix + "tu" + ".d" + "k",
+            ).send()
 
     @classmethod
     def send_mail(cls, subject, content_lines):

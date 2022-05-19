@@ -40,11 +40,13 @@ def user_article():
 
     article_id = int(article_id)
 
+    print(article_id)
     article = Article.query.filter_by(id=article_id).one()
-
+    
     return json_result(
         UserArticle.user_article_info(flask.g.user, article, with_content=True)
     )
+
 
 
 # ---------------------------------------------------------------------------

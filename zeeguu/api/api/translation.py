@@ -5,21 +5,19 @@ import flask
 from flask import request
 
 from zeeguu.api.api.translator import (
-    minimize_context,
+    TranslationQuery,
     get_next_results,
     contribute_trans,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import (
-    Bookmark,
-    Article,
-)
-from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+from zeeguu.core.model import Bookmark, Article, Text
+from zeeguu.core.model.user_word import UserWord
 from . import api, db_session
 from .utils.json_result import json_result
 from .utils.route_wrappers import cross_domain, with_session
+
 
 punctuation_extended = "»«" + punctuation
 
@@ -32,7 +30,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     To think about:
     - it would also make sense to separate translation from
-    logging; or at least, allow for situations where a translation
+    "logging"; or at least, allow for situations where a translation
     is not associated with an url... or?
     - jul 2021 - Bjorn would like to have the possibility of getting
     a translation without an article; can be done; allow for the
@@ -41,12 +39,11 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-    print(flask.g.user.id)
 
     word_str = request.form["word"].strip(punctuation_extended)
     url = request.form.get("url")
     title_str = request.form.get("title", "")
-    context = request.form.get("context", "")
+    context = request.form.get("context", "").strip()
     article_id = request.form.get("articleID", None)
 
     if not article_id:
@@ -54,18 +51,23 @@ def get_one_translation(from_lang_code, to_lang_code):
         article = Article.find_or_create(db_session, url)
         article_id = article.id
 
-    minimal_context, query = minimize_context(context, from_lang_code, word_str)
+    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
-    # if we have an own / teacher translation that is our first "best guess"
-    # ML: TODO: word translated in the same text / articleID / url should still be considered
-    # as an own translation; currently only if the "context" is the same counts;
-    # which means that translating afslore in a previous paragraph does not count
-    best_guess = get_own_past_translation(
+    # if we have an own translation that is our first "best guess"
+    # ML: TODO:
+    # - word translated in the same text / articleID / url should still be considered
+    # even if not exactly this context
+    # - a teacher's translation or a senior user's should still
+    # be considered here
+    print("getting own past translation....")
+    bookmark = get_own_past_translation(
         flask.g.user, word_str, from_lang_code, to_lang_code, context
     )
-    if best_guess:
+    if bookmark:
+        best_guess = bookmark.translation.word
         likelihood = 1
         source = "Own past translation"
+        print(f"about to return {bookmark}")
     else:
 
         translations = get_next_results(
@@ -76,7 +78,7 @@ def get_one_translation(from_lang_code, to_lang_code):
                 "word": word_str,
                 "title": title_str,
                 "query": query,
-                "context": minimal_context,
+                "context": context,
             },
             number_of_results=1,
         ).translations
@@ -85,20 +87,18 @@ def get_one_translation(from_lang_code, to_lang_code):
         likelihood = translations[0].pop("quality")
         source = translations[0].pop("service_name")
 
-    bookmark = Bookmark.find_or_create(
-        db_session,
-        flask.g.user,
-        word_str,
-        from_lang_code,
-        best_guess,
-        to_lang_code,
-        minimal_context,
-        url,
-        title_str,
-        article_id,
-    )
-
-    BasicSRSchedule.find_or_create(db_session, bookmark)
+        bookmark = Bookmark.find_or_create(
+            db_session,
+            flask.g.user,
+            word_str,
+            from_lang_code,
+            best_guess,
+            to_lang_code,
+            context,
+            url,
+            title_str,
+            article_id,
+        )
 
     return json_result(
         {
@@ -132,7 +132,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     word_str = request.form["word"].strip(punctuation_extended)
     title_str = request.form.get("title", "")
     url = request.form.get("url")
-    context = request.form.get("context", "")
+    context = request.form.get("context", "").strip()
     number_of_results = int(request.form.get("numberOfResults", -1))
     translation_to_exclude = request.form.get("translationToExclude", "")
     service_to_exclude = request.form.get("serviceToExclude", "")
@@ -142,7 +142,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
         [] if translation_to_exclude == "" else [translation_to_exclude.lower()]
     )
 
-    minimal_context, query = minimize_context(context, from_lang_code, word_str)
+    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     data = {
         "from_lang_code": from_lang_code,
@@ -151,7 +151,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
         "word": word_str,
         "title": title_str,
         "query": query,
-        "context": minimal_context,
+        "context": context,
     }
 
     translations = get_next_results(
@@ -188,14 +188,26 @@ def update_translation(bookmark_id):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.form["word"])
+    word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
     translation_str = request.form["translation"]
-    context_str = request.form.get("context", "")
+    context_str = request.form.get("context", "").strip()
 
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.origin.word = word_str
-    bookmark.translation.word = translation_str
-    bookmark.text.update_content(context_str)
+
+    origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
+    translation = UserWord.find_or_create(
+        db_session, translation_str, bookmark.translation.language
+    )
+    text = Text.find_or_create(
+        db_session,
+        context_str,
+        bookmark.origin.language,
+        bookmark.text.url,
+        bookmark.text.article,
+    )
+    bookmark.origin = origin
+    bookmark.translation = translation
+    bookmark.text = text
 
     db_session.add(bookmark)
     db_session.commit()
@@ -232,6 +244,9 @@ def contribute_translation(from_lang_code, to_lang_code):
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")
 
+    print(request.form)
+    print(url)
+
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
@@ -251,8 +266,6 @@ def contribute_translation(from_lang_code, to_lang_code):
         "selected_from_predefined_choices", ""
     )
 
-    minimal_context, _ = minimize_context(context_str, from_lang_code, word_str)
-
     bookmark = Bookmark.find_or_create(
         db_session,
         flask.g.user,
@@ -260,11 +273,14 @@ def contribute_translation(from_lang_code, to_lang_code):
         from_lang_code,
         translation_str,
         to_lang_code,
-        minimal_context,
+        context_str,
         url,
         title_str,
         article_id,
     )
+
+    print(bookmark)
+
     # Inform apimux about translation selection
     data = {
         "word_str": word_str,

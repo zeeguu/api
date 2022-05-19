@@ -95,7 +95,9 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
                 syllables = len(word) / cls.AVERAGE_SYLLABLE_LENGTH
             return int(math.floor(syllables))  # Truncate the number of syllables
         else:
-            dic = pyphen.Pyphen(lang=language.code)
+            # pyphen can't hyphenate on 'no' - so we use 'nb' instead
+            code = 'nb' if language.code == 'no' else language.code
+            dic = pyphen.Pyphen(lang=code)
             syllables = len(dic.positions(word)) + 1
             return syllables
 

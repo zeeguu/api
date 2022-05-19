@@ -27,49 +27,29 @@ def is_feature_enabled(feature_name):
     return "NO"
 
 
+def features_for_user(user):
+    features = []
+    for name, detector_function in _feature_map().items():
+        if detector_function(user):
+            features.append(name)
+    return features
+
+
 def _feature_map():
     return {
-        "activity_dashboard": _activity_dashboard_enabled,
-        "ems_teacher_dashboard": _ems_teacher_dashboard_enabled,
+        "audio_exercises": _audio_exercises,
+        "extension_experiment_1": _extension_experiment_1,
     }
 
 
-def _ems_teacher_dashboard_enabled(user):
-    ids_included = [
-        2308,
-        2671,
-        534,
-        2794,
-        2673,
-        2643,
-        1862,
-        1862,
-        1865,
-        2126,
-        1863,
-        2383,
-        2970,
-        2690,
-        491,
-        2820,
-        2705,
-        2819,
-        2784,
-    ]
-    return user.id in ids_included
+def _extension_experiment_1(user):
+    return (
+        (user.cohort and user.cohort.id == 437)
+        or user.id in [3372, 3373, 2953, 3427, 2705]
+        or user.id > 3555
+    )
 
 
-def _activity_dashboard_enabled(user):
-    ids_excluded_in_marias_experiment = [
-        2052,
-        2133,
-        2042,
-        2652,
-        2616,
-        2650,
-        2612,
-        2574,
-        2568,
-        2598,
-    ]
-    return user.id not in ids_excluded_in_marias_experiment
+def _audio_exercises(user):
+
+    return user.cohort and user.cohort.id == 444

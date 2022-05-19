@@ -9,9 +9,9 @@ def quality_bookmark(bookmark):
 def quality_top_bookmark(bookmark):
     """
 
-        used in the top bookmarks
-        differs a bit from the exercises...
-        although it could be decided to merge them in the future
+    used in the top bookmarks
+    differs a bit from the exercises...
+    although it could be decided to merge them in the future
 
     """
     context = bookmark.text
@@ -23,7 +23,12 @@ def quality_top_bookmark(bookmark):
     # if there are other bookmarks in this context
     # it is not an ideal context, since the user
     # might not understand the context
-    if multiple_bookmarks_for_same_context(bookmark):
+    from zeeguu.core.model import Bookmark
+
+    other_bookmarks_in_this_context = Bookmark.find_all_for_text_and_user(
+        context, bookmark.user
+    )
+    if len(other_bookmarks_in_this_context) > 2:
         return False
 
     # context not too long
@@ -31,7 +36,3 @@ def quality_top_bookmark(bookmark):
         return False
 
     return True
-
-
-def multiple_bookmarks_for_same_context(self):
-    return len(self.text.all_bookmarks(self))

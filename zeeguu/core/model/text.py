@@ -94,6 +94,19 @@ class Text(db.Model):
         return Bookmark.find_all_for_text_and_user(self, user)
 
     @classmethod
+    def find_all(cls, text, language):
+        """
+        there could be multiple texts
+        in multiple articles actually...
+        """
+        hash = text_hash(text)
+        return (
+            cls.query.filter_by(content_hash=hash)
+            .filter_by(language_id=language.id)
+            .all()
+        )
+
+    @classmethod
     def find_or_create(cls, session, text, language, url, article):
         """
         :param text: string
@@ -101,16 +114,21 @@ class Text(db.Model):
         :param url: Url (object)
         :return:
         """
-
+        # we ended up with a bunch of duplicates in the
+        # db because of some trailing spaces difference
+        # i guess the clients sometimes clean up the context
+        # and some other times don't.
+        # we fix it here now
+        clean_text = text.strip()
         try:
             return (
-                cls.query.filter(cls.content_hash == text_hash(text))
+                cls.query.filter(cls.content_hash == text_hash(clean_text))
                 .filter(cls.article == article)
                 .one()
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
-                new = cls(text, language, url, article)
+                new = cls(clean_text, language, url, article)
                 session.add(new)
                 session.commit()
                 return new
@@ -118,7 +136,9 @@ class Text(db.Model):
                 for i in range(10):
                     try:
                         session.rollback()
-                        t = cls.query.filter(cls.content_hash == text_hash(text)).one()
+                        t = cls.query.filter(
+                            cls.content_hash == text_hash(clean_text)
+                        ).one()
                         print("found text after recovering from race")
                         return t
                     except:
