@@ -289,7 +289,6 @@ class Article(db.Model):
             None,
             source.content,
             source.summary,
-            None,
             current_time,
             None,
             source.language,
@@ -312,7 +311,6 @@ class Article(db.Model):
             title,
             None,
             content,
-            None,
             None,
             current_time,
             None,
@@ -382,7 +380,6 @@ class Article(db.Model):
                 authors,
                 text,  # any article longer than this will be truncated...
                 summary,
-                None,
                 datetime.now(),
                 None,
                 language,
