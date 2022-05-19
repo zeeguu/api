@@ -26,7 +26,13 @@ def bookmarks_to_study(bookmark_count):
     """
 
     int_count = int(bookmark_count)
-    to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user)
+    to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+    if len(to_study) < int_count:
+        BasicSRSchedule.schedule_some_more_bookmarks(
+            db_session, flask.g.user, int_count - len(to_study)
+        )
+        to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+
     if to_study:
         return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
 
