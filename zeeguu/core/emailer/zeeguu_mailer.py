@@ -28,6 +28,10 @@ class ZeeguuMailer(object):
 
 
     def send_with_yagmail(self):
+        with open('/Zeeguu-API/credentials.json') as file:
+            for line in file:
+                print(line.rstrip())
+
         yag = yagmail.SMTP(self.our_email, oauth2_file="/Zeeguu-API/credentials.json")
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
