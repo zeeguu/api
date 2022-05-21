@@ -36,6 +36,8 @@ load_configuration_or_abort(
     ],
 )
 
+print(app.config['SMTP_SERVER'])
+
 # The zeeguu.core.model  module relies on an app being injected from outside
 # ----------------------------------------------------------------------
 import zeeguu.core
