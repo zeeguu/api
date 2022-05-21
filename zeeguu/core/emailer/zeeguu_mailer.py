@@ -10,7 +10,8 @@ class ZeeguuMailer(object):
         self.to_email = to_email
         self.message_subject = message_subject
         self.server_name = app.config.get("SMTP_SERVER")
-        self.our_email = app.config.get("SMTP_USERNAME")
+        self.our_email = app.config.get("SMTP_EMAIL")
+        self.username = app.config.get("SMTP_USERNAME")
         self.password = app.config.get("SMTP_PASSWORD")
 
     def send(self):
@@ -24,7 +25,7 @@ class ZeeguuMailer(object):
         server = SMTP(self.server_name)
         server.ehlo()
         server.starttls()
-        server.login(user=self.our_email, password=self.password)
+        server.login(user=self.username, password=self.password)
         server.sendmail(from_addr=self.our_email, to_addrs=self.to_email, msg=message)
         server.quit()
 
