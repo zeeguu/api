@@ -31,3 +31,4 @@ git+https://github.com/zeeguu-ecosystem/Python-Wordstats.git@master#egg=wordstat
 google-cloud-texttospeech==2.3.0
 timeago
 pymysql
+yagmail
