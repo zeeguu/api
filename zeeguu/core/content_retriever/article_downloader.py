@@ -276,6 +276,9 @@ def download_feed_item(session, feed, feed_item, url):
     except SkippedForLowQuality as e:
         raise e
 
+    except newspaper.ArticleException as e:
+        zeeguu.core.log(g"can't download article at: {url}")
+
     except Exception as e:
         from sentry_sdk import capture_exception
 
