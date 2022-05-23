@@ -116,7 +116,7 @@ class UserPreference(db.Model):
                 session.commit()
                 zeeguu.core.log("Created new preference since original was missing")
                 return new_pref
-            except:
+            except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
                     try:
                         session.rollback()

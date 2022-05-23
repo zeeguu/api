@@ -73,7 +73,7 @@ class UserWord(db.Model):
                 session.add(new)
                 session.commit()
                 return new
-            except:
+            except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
                     try:
                         session.rollback()
