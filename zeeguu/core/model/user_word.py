@@ -1,5 +1,3 @@
-from datetime import time
-
 import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
@@ -83,6 +81,7 @@ class UserWord(db.Model):
                         print("successfully avoided race condition. nice! ")
                         return w
                     except sqlalchemy.orm.exc.NoResultFound:
+                        import time
                         time.sleep(0.3)
                         continue
                     break
