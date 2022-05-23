@@ -31,7 +31,12 @@ class UserWord(db.Model):
     def __init__(self, word, language):
         self.word = word
         self.language = language
-        self.rank = Word.stats(self.word, self.language.code).rank
+
+        # TODO: Performance
+        try:
+            self.rank = Word.stats(self.word, self.language.code).rank
+        except FileNotFoundError:
+            self.rank = None
 
     def __repr__(self):
         return f'<@UserWord {self.word} {self.language_id} {self.rank}>'
