@@ -1,6 +1,5 @@
 # -*- coding: utf8 -*-
 
-import logging
 import time
 from datetime import datetime
 
@@ -114,22 +113,6 @@ class RSSFeed(db.Model):
         if not last_retrieval_time_from_DB:
             last_retrieval_time_from_DB = datetime(1980, 1, 1)
 
-        def publishing_date(item):
-            # this used to be updated_parsed but cf the deprecation
-            # warning we changed to published_parsed instead.
-            try:
-                return item.published_parsed
-            except:
-                # March 8 -- added back in updated_parsed;
-                # curious if this fixes the problem in some
-                # cases; to find out, we log
-
-                zeeguu.core.log(
-                    f'trying updated_parsed where published_parsed failed for {item.get("link", "")} in the context of {self.url.as_string()}'
-                )
-                result = item.updated_parsed
-                return result
-
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36"
         }  # This is chrome, you can set whatever browser you like
@@ -146,15 +129,22 @@ class RSSFeed(db.Model):
             if not item.get("published_parsed"):
                 # we don't have a publishing time...
                 # happens rarely that the parser can't extract this
-                #
-                import logging
-
-                logging.error("item w/o published_parsed", extra=dict(item=item))
-                continue
-
+                # actually not so rarely - 400 times in the last 24 hours...
+                
+                zeeguu.core.log("Setting the time for the entry below to now() because can't get time from it")
+                zeeguu.core.log(item)
+                
+                # let's set the date to now; this will result in 
+                # an article published early morning w/o a date; 
+                # being considered on every crawl as it was published
+                # for that crawl; but it's not so bad; it won't be added
+                # to the DB because it's url will be detected as 
+                # existent anyway
+                item["published_parsed"]=datetime.now()
+                
             try:
                 published_string = time.strftime(
-                    SIMPLE_TIME_FORMAT, publishing_date(item)
+                    SIMPLE_TIME_FORMAT, item.get("published_parsed")
                 )
 
                 this_entry_time = datetime.strptime(
