@@ -9,6 +9,8 @@
 import newspaper
 import re
 
+from pymysql import DataError
+
 import zeeguu.core
 from zeeguu.core import log, debug
 
@@ -277,7 +279,10 @@ def download_feed_item(session, feed, feed_item, url):
         raise e
 
     except newspaper.ArticleException as e:
-        zeeguu.core.log(g"can't download article at: {url}")
+        zeeguu.core.log(f"can't download article at: {url}")
+
+    except DataError as e:
+        zeeguu.core.log(f"Data error for: {url}")
 
     except Exception as e:
         from sentry_sdk import capture_exception
