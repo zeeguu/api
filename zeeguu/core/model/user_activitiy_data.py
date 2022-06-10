@@ -131,14 +131,16 @@ class UserActivityData(db.Model):
     def find_or_create(cls, session, user, time, event, value, extra_data, has_article_id, article_id):
         try:
             zeeguu.core.log("found existing event; returning it instead of creating a new one")
-            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).one()
+            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(value=value).one()
+        except sqlalchemy.orm.exc.MultipleResultsFound:
+            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(value=value).first()
         except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(user, time, event, value, extra_data, has_article_id, article_id)
                 session.add(new)
                 session.commit()
                 return new
-            except:
+            except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
                     try:
                         session.rollback()

@@ -1,26 +1,28 @@
-from datetime import time
-
 import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
 import zeeguu.core
-from zeeguu.core import util
 
 db = zeeguu.core.db
 
 from zeeguu.core.model.language import Language
 
 
-class UserWord(db.Model, util.JSONSerializable):
+class UserWord(db.Model):
     __tablename__ = 'user_word'
     __table_args__ = {'mysql_collate': 'utf8_bin'}
 
     id = db.Column(db.Integer, primary_key=True)
-    word = db.Column(db.String(255), nullable=False)
+    
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
-    db.UniqueConstraint(word, language_id)
+
+    word = db.Column(db.String(255), nullable=False)
+    
+    rank = db.Column(db.Integer)
+
+    db.UniqueConstraint(word, language_id)    
 
     IMPORTANCE_LEVEL_STEP = 1000
     IMPOSSIBLE_RANK = 1000000
@@ -30,14 +32,17 @@ class UserWord(db.Model, util.JSONSerializable):
         self.word = word
         self.language = language
 
+        # TODO: Performance
+        try:
+            self.rank = Word.stats(self.word, self.language.code).rank
+        except FileNotFoundError:
+            self.rank = None
+
     def __repr__(self):
-        return '<UserWord %r>' % (self.word)
+        return f'<@UserWord {self.word} {self.language_id} {self.rank}>'
 
     def __eq__(self, other):
         return self.word == other.word and self.language == other.language
-
-    def serialize(self):
-        return self.word
 
     def importance_level(self):
         """
@@ -73,7 +78,7 @@ class UserWord(db.Model, util.JSONSerializable):
                 session.add(new)
                 session.commit()
                 return new
-            except:
+            except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
                     try:
                         session.rollback()
@@ -81,6 +86,7 @@ class UserWord(db.Model, util.JSONSerializable):
                         print("successfully avoided race condition. nice! ")
                         return w
                     except sqlalchemy.orm.exc.NoResultFound:
+                        import time
                         time.sleep(0.3)
                         continue
                     break

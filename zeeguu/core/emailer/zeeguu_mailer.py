@@ -3,6 +3,8 @@ from smtplib import SMTP
 from zeeguu.api.app import app
 from zeeguu.core import logger
 
+import yagmail
+
 
 class ZeeguuMailer(object):
     def __init__(self, message_subject, message_body, to_email):
@@ -10,8 +12,24 @@ class ZeeguuMailer(object):
         self.to_email = to_email
         self.message_subject = message_subject
         self.server_name = app.config.get("SMTP_SERVER")
-        self.our_email = app.config.get("SMTP_USERNAME")
+        self.our_email = app.config.get("SMTP_EMAIL")
+        self.username = app.config.get("SMTP_USERNAME")
         self.password = app.config.get("SMTP_PASSWORD")
+
+    def old_send_smtp(self):
+        message = self._content_of_email()
+        # Send email
+        server = SMTP(self.server_name)
+        server.ehlo()
+        server.starttls()
+        server.login(user=self.username, password=self.password)
+        server.sendmail(from_addr=self.our_email, to_addrs=self.to_email, msg=message)
+        server.quit()
+
+
+    def send_with_yagmail(self):
+        yag = yagmail.SMTP(self.our_email, oauth2_file="/Zeeguu-API/credentials.json")
+        yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
 
@@ -19,14 +37,8 @@ class ZeeguuMailer(object):
         if not app.config.get("SEND_NOTIFICATION_EMAILS", False):
             return
 
-        message = self._content_of_email()
-        # Send email
-        server = SMTP(self.server_name)
-        server.ehlo()
-        server.starttls()
-        server.login(user=self.our_email, password=self.password)
-        server.sendmail(from_addr=self.our_email, to_addrs=self.to_email, msg=message)
-        server.quit()
+        self.send_with_yagmail()
+
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
@@ -80,3 +92,4 @@ class ZeeguuMailer(object):
         body = "\r\n".join(content_lines)
         mailer = ZeeguuMailer(subject, body, app.config.get("SMTP_USERNAME"))
         mailer.send()
+

@@ -1,0 +1,1 @@
+recursive-include ./zeeguu/core/sql/queries/ *.sql

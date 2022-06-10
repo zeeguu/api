@@ -30,9 +30,7 @@ load_configuration_or_abort(
         # the following are required by the API
         # for user account creation & password recovery
         "INVITATION_CODES",
-        "SMTP_SERVER",
-        "SMTP_USERNAME",
-        "SMTP_PASSWORD",
+        "SMTP_EMAIL"
     ],
 )
 

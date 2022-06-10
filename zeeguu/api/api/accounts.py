@@ -1,17 +1,16 @@
 import sqlalchemy
-import traceback
 
-import zeeguu.core
 from flask import request
 from zeeguu.core.model import Session
-from zeeguu.core.model import User, Cohort, Teacher
+from zeeguu.core.model import User
 from zeeguu.core.model.unique_code import UniqueCode
-from zeeguu.api.api.sessions import get_session, get_anon_session
+from zeeguu.api.api.sessions import get_anon_session
 from zeeguu.api.api.utils.abort_handling import make_error
 
 from .utils.route_wrappers import cross_domain
 from . import api, db_session
 
+import zeeguu
 
 @api.route("/add_user/<email>", methods=["POST"])
 @cross_domain
@@ -53,9 +52,8 @@ def add_user(email):
         return str(new_session.id)
 
     except Exception as e:
-        from sentry_sdk import capture_exception
-
-        capture_exception(e)
+        zeeguu.core.log(f"Attemt to create user failed: {username} {password} {email}")
+        zeeguu.core.log(e)
         return make_error(400, str(e))
 
 
