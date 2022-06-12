@@ -2,7 +2,6 @@ import sqlalchemy
 import zeeguu.core
 
 from datetime import datetime, timedelta
-from zeeguu.core.emailer.user_activity import send_user_finished_exercise_session
 from zeeguu.core.model.user import User
 
 db = zeeguu.core.db
@@ -157,6 +156,7 @@ class UserExerciseSession(db.Model):
         self.is_active = False
         db_session.add(self)
         db_session.commit()
+        from zeeguu.core.emailer.user_activity import send_user_finished_exercise_session
         send_user_finished_exercise_session(self)
         return self
 
