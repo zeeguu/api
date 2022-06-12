@@ -35,6 +35,7 @@ def tts():
     if not os.path.isfile(DATA_FOLDER + audio_file_path):
         _save_speech_to_file(user_word, language_id, audio_file_path)
 
+    print(audio_file_path)
     return audio_file_path
 
 
