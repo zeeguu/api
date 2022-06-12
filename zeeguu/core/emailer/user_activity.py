@@ -15,10 +15,10 @@ def send_new_user_account_email(username, invite_code="", cohort=""):
 def send_user_finished_exercise_session(exercise_session):
     ZeeguuMailer.send_mail(
         f"Finished Exercise Session",
-        [f"User: {exercise_session.user.name} Duration: {exercise_session.duratoin / 1000}", 
+        [f"User: {exercise_session.user.name} Duration: {exercise_session.duration / 1000}", 
         cheers_your_server],
     )
-    
+
 
 def send_notification_article_feedback(
     feedback, user: User, article_title, article_url, article_id
