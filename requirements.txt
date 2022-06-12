@@ -32,4 +32,5 @@ google-cloud-texttospeech==2.3.0
 timeago
 pymysql
 yagmail
+google
 protobuf
