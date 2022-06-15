@@ -84,13 +84,10 @@ def report_exercise_outcome(
 
     try:
         bookmark = Bookmark.find(bookmark_id)
-        # bookmark.report_exercise_outcome(
-        #     exercise_source, exercise_outcome, exercise_solving_speed, db_session
-        # )
-        # print(exercise_outcome)
-        BasicSRSchedule.update(
-            db_session, bookmark, exercise_outcome == ExerciseOutcome.CORRECT
+        bookmark.report_exercise_outcome(
+            exercise_source, exercise_outcome, exercise_solving_speed, db_session
         )
+        print(exercise_outcome)
 
         return "OK"
     except:

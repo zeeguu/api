@@ -154,10 +154,6 @@ class Bookmark(db.Model):
     ):
 
         from zeeguu.core.model import UserExerciseSession
-        from zeeguu.core.word_scheduling.arts.bookmark_priority_updater import (
-            BookmarkPriorityUpdater,
-        )
-
 
         new_source = ExerciseSource.find_or_create(db_session, exercise_source)
         new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
@@ -169,14 +165,16 @@ class Bookmark(db.Model):
         db_session.commit()
 
         # plugging in the new scheduler
-        from zeeguu.core.word_scheduling.adaptive.scheduling_algo import updateSchedulingInfo
-        updateSchedulingInfo(db_session, self, exercise_outcome)
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        BasicSRSchedule.update(
+            db_session, self, exercise_outcome == ExerciseOutcome.CORRECT
+        )
 
         self.update_fit_for_study(db_session)
         self.update_learned_status(db_session)
 
         UserExerciseSession.update_exercise_session(exercise, db_session)
-        BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
+        # BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
 
 
     def json_serializable_dict(self, with_context=True, with_title=False):
