@@ -1,12 +1,11 @@
 from smtplib import SMTP
 
-from zeeguu.api.app import app
-from zeeguu.core import logger
 
 import yagmail
 
 
 class ZeeguuMailer(object):
+    from zeeguu.api.app import app
     def __init__(self, message_subject, message_body, to_email):
         self.message_body = message_body
         self.to_email = to_email
@@ -88,6 +87,7 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_mail(cls, subject, content_lines):
+        from zeeguu.core import logger
         logger.info("Sending email...")
         body = "\r\n".join(content_lines)
         mailer = ZeeguuMailer(subject, body, app.config.get("SMTP_USERNAME"))
