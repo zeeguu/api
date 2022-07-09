@@ -14,7 +14,7 @@ class ZeeguuMailer(object):
         self.server_name = app.config.get("SMTP_SERVER")
         self.our_email = app.config.get("SMTP_EMAIL")
         self.username = app.config.get("SMTP_USERNAME")
-        self.password = app.config.get("SMTP_PASSWORD")
+        self.password = app.config.get("SMTP_PASS")
 
     def old_send_smtp(self):
         message = self._content_of_email()
@@ -28,7 +28,7 @@ class ZeeguuMailer(object):
 
 
     def send_with_yagmail(self):
-        yag = yagmail.SMTP(self.our_email, oauth2_file="/Zeeguu-API/credentials.json")
+        yag = yagmail.SMTP(self.our_email, self.password)
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
