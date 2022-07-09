@@ -28,7 +28,6 @@ class ZeeguuMailer(object):
 
 
     def send_with_yagmail(self):
-        print(self.password)
         yag = yagmail.SMTP(self.our_email, self.password)
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
