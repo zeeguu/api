@@ -39,7 +39,15 @@ def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
         "extension_experiment_1": _extension_experiment_1,
+        "no_audio_exercises": _no_audio_exercises
     }
+
+def _no_audio_exercises(user):
+    return user.cohort and user.cohort.id == 447
+
+
+def _audio_exercises(user):
+    return user.cohort and user.cohort.id == 444
 
 
 def _extension_experiment_1(user):
@@ -48,8 +56,3 @@ def _extension_experiment_1(user):
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )
-
-
-def _audio_exercises(user):
-
-    return user.cohort and user.cohort.id == 444
