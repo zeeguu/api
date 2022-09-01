@@ -64,6 +64,7 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
     i = 0
     referenced_in_this_batch = 0
     deleted = []
+    deleted_from_es = 0
     for each in all_articles:
         i += 1
         if print_progress_for_every_article:
@@ -89,8 +90,7 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
             es = Elasticsearch(ES_CONN_STRING)
             if es.exists(index=ES_ZINDEX, id=each.id):
                 es.delete(index=ES_ZINDEX, id=each.id)
-            else:
-                print(">>> did not find the document in ES; so won't delete it")
+                deleted_from_es += 1
 
 
             if i % BATCH_COMMIT_SIZE == 0:
@@ -98,6 +98,8 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
                 dbs.commit()
                 print(f"... the rest of {BATCH_COMMIT_SIZE-referenced_in_this_batch} are now deleted!!!")
                 referenced_in_this_batch = 0
+                print(f"Deleted from ES index: {deleted_from_es}")
+                deleted_from_es = 0
 
         except sqlalchemy.exc.IntegrityError as e:
             traceback.print_exc()
