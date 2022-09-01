@@ -69,7 +69,7 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
         if print_progress_for_every_article:
             print(f"#{i} -- ID: {each.id}")
 
-        if is_the_article_referenced(each, True):
+        if is_the_article_referenced(each, print_progress_for_every_article):
             referenced_in_this_batch += 1
             continue
 
@@ -115,4 +115,4 @@ if __name__ == "__main__":
         print("\nOOOPS: you must provide a number of days before which the articles to be deleted\n")
         exit(-1)
 
-    delete_articles_older_than(DAYS)
+    delete_articles_older_than(DAYS, print_progress_for_every_article=False)
