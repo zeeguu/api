@@ -82,6 +82,13 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
 
             deleted.append(each.id)
             dbs.delete(each)
+            
+            # delete also from the ES index
+            from elasticsearch import Elasticsearch
+            from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+            es = Elasticsearch(ES_CONN_STRING)
+            es.delete(index=ES_ZINDEX, id=each.id)
+
 
             if i % BATCH_COMMIT_SIZE == 0:
                 print(f"Keeping {referenced_in_this_batch} articles from the last {BATCH_COMMIT_SIZE} batch...")
