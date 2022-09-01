@@ -87,7 +87,10 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
             from elasticsearch import Elasticsearch
             from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
             es = Elasticsearch(ES_CONN_STRING)
-            es.delete(index=ES_ZINDEX, id=each.id)
+            if es.exists(index=ES_ZINDEX, id=each.id):
+                es.delete(index=ES_ZINDEX, id=each.id)
+            else:
+                print(">>> did not find the document in ES; so won't delete it")
 
 
             if i % BATCH_COMMIT_SIZE == 0:
