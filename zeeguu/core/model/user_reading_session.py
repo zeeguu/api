@@ -176,6 +176,10 @@ class UserReadingSession(db.Model):
             self.last_action_time += timedelta(minutes=READING_SESSION_TIMEOUT)
         else:
             self.last_action_time = current_time
+            
+            # update the duration too
+            current_session_length = current_time - self.start_time
+            self.duration = current_session_length.total_seconds() * 1000  # Convert to miliseconds
 
         try:
             db_session.add(self)
