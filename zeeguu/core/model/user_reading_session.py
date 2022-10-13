@@ -272,7 +272,7 @@ class UserReadingSession(db.Model):
             if time_diff.total_seconds() == 0:
                 print(f"deleting session: {reading_session.id} because it's zero sized")
                 db_session.delete(reading_session)
-                db_session.commit()
+
             else:
                 reading_session.is_active = False
                 reading_session.duration = (
@@ -281,7 +281,7 @@ class UserReadingSession(db.Model):
                 print(f"closing session: {reading_session.id} with duration: {reading_session.duration} because it's too old")
             
                 db_session.add(reading_session)
-                db_session.commit()
+        db_session.commit()
 
 
     @classmethod
