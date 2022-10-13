@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.core.model import User, Cohort, Language, TeacherCohortMap, CohortArticleMap
+from zeeguu.core.model.user_reading_session import UserReadingSession
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
 from .helpers import (
@@ -162,6 +163,15 @@ def users_from_cohort(id, duration):
     """
     check_permission_for_cohort(id)
 
+    # The teacher is about to see the cohort info, so we close all the reading sessions
+    # that can be closed
+    # It's not clear if theres a better place to run this
+    # One could also run it before /student_activity_overview but that is too costly
+    # because that's called for every student
+    print("closing all reading sessions .... ")
+    UserReadingSession.close_all_stale_reading_sessions(db.session)
+
+
     from_date, to_date = _convert_number_of_days_to_date_interval(
         duration, to_string=True
     )
@@ -185,7 +195,7 @@ def cohorts_info():
     Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
 
     """
-
+    
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
     cohorts = []
     for m in mappings:
@@ -203,6 +213,7 @@ def wrapper_to_json_class(id):
     returns jsonified result of _get_cohort_info
     """
     check_permission_for_cohort(id)
+
 
     return jsonify(get_cohort_info(id))
 

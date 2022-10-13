@@ -245,6 +245,46 @@ class UserReadingSession(db.Model):
         return None
 
     @classmethod
+    def close_all_stale_reading_sessions(cls, db_session):
+        """
+        Finds and closes all open sessions 
+        that are older than the reading_session_timeout
+
+        Parameters:
+        db_session = database session
+
+        returns: None
+
+        Note: If duration is zero, the session is deleted
+        """
+        query = cls.query
+        query = query.filter(cls.is_active == True)
+        reading_sessions = query.with_for_update().all()
+        for reading_session in reading_sessions:
+            if reading_session._is_still_active():
+                print(f"skipping session: {reading_session.id} because it's too recent")
+                continue
+            
+            time_diff = reading_session.last_action_time - reading_session.start_time
+            # If the duration is zero, we delete the session
+            # This can happen when the user opens a session and does nothing afterwards,
+            # so the timeout closes the session with a duration of zero
+            if time_diff.total_seconds() == 0:
+                print(f"deleting session: {reading_session.id} because it's zero sized")
+                db_session.delete(reading_session)
+                db_session.commit()
+            else:
+                reading_session.is_active = False
+                reading_session.duration = (
+                    time_diff.total_seconds() * 1000
+                )
+                print(f"closing session: {reading_session.id} with duration: {reading_session.duration} because it's too old")
+            
+                db_session.add(reading_session)
+                db_session.commit()
+
+
+    @classmethod
     def update_reading_session(
         cls, db_session, event, user_id, article_id, current_time=datetime.now()
     ):
