@@ -8,6 +8,10 @@ JUNK_PATTERNS = [
     "Automatisk oplæsning\n",
     "Der er ikke oplæsning af denne artikel, så den oplæses derfor med maskinstemme. Kontakt os gerne på automatiskoplaesning@pol.dk, hvis du hører ord, hvis udtale kan forbedres. Du kan også hjælpe ved at udfylde spørgeskemaet herunder, hvor vi spørger, hvordan du har oplevet den automatiske oplæsning. Spørgeskema om automatisk oplæsning",
     "Som registreret bruger kan du overvåge emner og journalister og modtage nyhederne i din indbakke og følge din nyhedsstrøm på Finans.",
+    
+    # L'Express, October 19
+    "\nOffre limitée. 2 mois pour 1€ sans engagement\n",
+    "\nJe m'abonne\n"
 
 ]
 
