@@ -526,19 +526,6 @@ class User(db.Model):
                 texts_by_url.setdefault(bookmark.text.url, set()).add(bookmark.text)
         return most_recent_n_days, urls_by_date, texts_by_url
 
-    def bookmarks_to_study(self, bookmark_count=10):
-        """
-
-        :param bookmark_count: by default we recommend 10 words
-
-        :return:
-        """
-        from zeeguu.core.word_scheduling import arts
-
-        bookmarks = arts.bookmarks_to_study(self, bookmark_count, zeeguu.core.db)
-
-        return bookmarks
-
     def bookmark_counts_by_date(self):
         """returns array with added bookmark amount per each date for the last year
         this function is for the activity_graph, generates data

@@ -1,13 +1,9 @@
 import traceback
 import flask
 
-import zeeguu.core
+
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model import Bookmark
-from zeeguu.core.model.exercise_outcome import ExerciseOutcome
-from zeeguu.core.word_scheduling.arts.bookmark_priority_updater import (
-    BookmarkPriorityUpdater,
-)
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .utils.route_wrappers import cross_domain, with_session
