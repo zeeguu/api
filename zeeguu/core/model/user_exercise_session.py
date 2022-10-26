@@ -7,7 +7,7 @@ from zeeguu.core.model.user import User
 db = zeeguu.core.db
 
 # Parameter that controls after how much time (in seconds) the session is expired
-EXERCISE_SESSION_TIMEOUT = 21
+EXERCISE_SESSION_TIMEOUT = 30
 
 VERY_FAR_IN_THE_PAST = '2000-01-01T00:00:00'
 VERY_FAR_IN_THE_FUTURE = '9999-12-31T23:59:59'
