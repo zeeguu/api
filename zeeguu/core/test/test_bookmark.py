@@ -5,7 +5,7 @@ from zeeguu.core.definition_of_learned import (
     is_learned_based_on_exercise_outcomes,
     CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED,
 )
-from zeeguu.core.model.SortedExerciseLog import SortedExerciseLog
+from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 

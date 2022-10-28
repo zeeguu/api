@@ -10,7 +10,7 @@ import zeeguu.core
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model import Article
-from zeeguu.core.model.SortedExerciseLog import SortedExerciseLog
+from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
