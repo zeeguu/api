@@ -57,10 +57,11 @@ class ArticleDifficultyFeedback(zeeguu.core.db.Model):
         session,
         user: User,
         article: Article,
+        date: datetime,
         difficulty
     ):
         try:
-            return cls.query.filter_by(user=user, article=article).one()
+            return cls.query.filter_by(user=user, article=article, date=date).one()
         except NoResultFound:
             print("creating new article difficulty feedback")
             try:

@@ -1,11 +1,13 @@
 import flask
 from flask import request
 from zeeguu.core.model import Article, UserArticle
-from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback, DIFFICULTY_FEEDBACK
+from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api, db_session
+
+from datetime import datetime
 
 import newspaper
 
@@ -68,8 +70,8 @@ def post_article_difficulty_feedback():
     article = Article.query.filter_by(id=article_id).one()
     
     feedback = request.form.get("difficulty")
-
-    df = ArticleDifficultyFeedback.find_or_create(db_session, flask.g.user, article, feedback)
+    
+    df = ArticleDifficultyFeedback.find_or_create(db_session, flask.g.user, article, datetime.now(), feedback)
     db_session.add(df)
     db_session.commit()
     return "OK"
