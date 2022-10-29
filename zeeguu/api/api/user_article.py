@@ -1,12 +1,15 @@
 import flask
 from flask import request
 from zeeguu.core.model import Article, UserArticle
+from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback, DIFFICULTY_FEEDBACK
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api, db_session
 
 import newspaper
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +50,29 @@ def user_article():
         UserArticle.user_article_info(flask.g.user, article, with_content=True)
     )
 
+
+
+# ---------------------------------------------------------------------------
+@api.route("/article_difficulty_feedback", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def post_article_difficulty_feedback():
+    """
+
+        difficulty is expected to be: 1 (too easy), 3 (ok), 5 (too hard)
+    
+    """
+
+    article_id = int(request.form.get("article_id"))
+    article = Article.query.filter_by(id=article_id).one()
+    
+    feedback = request.form.get("difficulty")
+
+    df = ArticleDifficultyFeedback.find_or_create(db_session, flask.g.user, article, feedback)
+    db_session.add(df)
+    db_session.commit()
+    return "OK"
 
 
 # ---------------------------------------------------------------------------

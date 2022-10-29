@@ -48,6 +48,7 @@ from .topic import Topic
 from .user_article import UserArticle
 from .article_word import ArticleWord
 from .articles_cache import ArticlesCache
+from .article_difficulty_feedback import ArticleDifficultyFeedback
 
 from .feed import RSSFeed
 
