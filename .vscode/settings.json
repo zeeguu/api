@@ -1,3 +1,6 @@
 {
-  "workbench.colorTheme": "Quiet Light"
+  "workbench.colorTheme": "Quiet Light",
+  "python.testing.pytestArgs": ["zeeguu"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }
