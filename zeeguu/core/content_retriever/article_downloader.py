@@ -28,6 +28,9 @@ from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.elastic.converting_from_mysql import document_from_article
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 
+from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
+from sentry_sdk import capture_exception as capture_to_sentry
+
 LOG_CONTEXT = "FEED RETRIEVAL"
 
 
@@ -96,10 +99,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
     try:
         items = feed.feed_items(last_retrieval_time_from_DB)
     except Exception as e:
-        log(f"Failed to download feed ({e})")
-        from sentry_sdk import capture_exception
-
-        capture_exception(e)
+        capture_to_sentry(e)
         return
 
     for feed_item in items:
@@ -163,9 +163,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             continue
 
         except Exception as e:
-            from sentry_sdk import capture_exception
-
-            capture_exception(e)
+            capture_to_sentry(e)
 
             if hasattr(e, "message"):
                 log(e.message)
@@ -184,9 +182,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
                     res = es.index(index=ES_ZINDEX, id=new_article.id, body=doc)
                     print("elastic res: " + res["result"])
         except Exception as e:
-            from sentry_sdk import capture_exception
-
-            capture_exception(e)
+            capture_to_sentry(e)
 
             log("***OOPS***: ElasticSearch seems down?")
             if hasattr(e, "message"):
@@ -272,6 +268,20 @@ def download_feed_item(session, feed, feed_item, url):
         add_searches(title, url, new_article, session)
         debug(" Added keywords")
 
+        # compute extra difficulties for french articles
+        try:
+            if new_article.language.code == "fr":
+                from zeeguu.core.language.services.lingo_rank_service import (
+                    retrieve_lingo_rank,
+                )
+
+                df = DifficultyLingoRank(
+                    new_article, retrieve_lingo_rank(new_article.content)
+                )
+                session.add(df)
+        except Exception as e:
+            capture_to_sentry(e)
+
         session.commit()
         log(f"SUCCESS for: {new_article.title}")
 
@@ -285,9 +295,7 @@ def download_feed_item(session, feed, feed_item, url):
         zeeguu.core.log(f"Data error for: {url}")
 
     except Exception as e:
-        from sentry_sdk import capture_exception
-
-        capture_exception(e)
+        capture_to_sentry(e)
 
         log(
             f"* Rolling back session due to exception while creating article and attaching words/topics: {str(e)}"

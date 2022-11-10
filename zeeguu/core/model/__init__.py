@@ -88,6 +88,9 @@ from .word_to_study import WordToStudy
 
 from .personal_copy import PersonalCopy
 
+from .difficulty_lingo_rank import DifficultyLingoRank
+
+
 # Creating the DB tables if needed
 # Note that this must be called after all the model classes are loaded
 zeeguu.core.db.init_app(zeeguu.core.app)

@@ -4,13 +4,17 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import RSSFeed, Language, Url
-from zeeguu.core.test.test_data.mocking_the_web import url_spiegel_rss, icon_name_spiegel
+from zeeguu.core.test.test_data.mocking_the_web import (
+    url_spiegel_rss,
+    url_vols_americans,
+    icon_name_spiegel,
+)
 
 
 class RSSFeedRule(BaseRule):
     """
 
-        Creates a RSSFeed object with random data and saves it to the database
+    Creates a RSSFeed object with random data and saves it to the database
 
     """
 
@@ -21,20 +25,29 @@ class RSSFeedRule(BaseRule):
         self.feed = self.rss_feed
         self.save(self.rss_feed)
 
-        lang1 = Language.find_or_create('de')
+        lang_de = Language.find_or_create("de")
         url = Url.find_or_create(self.db.session, url_spiegel_rss)
 
-        self.feed1 = RSSFeed.find_or_create(self.db.session, url, "", "", icon_name_spiegel,
-                                            language=lang1)
+        self.feed1 = RSSFeed.find_or_create(
+            self.db.session, url, "", "", icon_name_spiegel, language=lang_de
+        )
         self.save(self.feed1)
+
+        lang_fr = Language.find_or_create("fr")
+        url = Url.find_or_create(self.db.session, url_vols_americans)
+
+        self.feed_fr = RSSFeed.find_or_create(
+            self.db.session, url, "", "", icon_name_spiegel, language=lang_fr
+        )
+        self.save(self.feed_fr)
 
     @staticmethod
     def _exists_in_db(obj):
         return RSSFeed.exists(obj)
 
     def _create_model_object(self):
-        title = " ".join(self.faker.text().split()[:(randint(1, 10))])
-        description = " ".join(self.faker.text().split()[:(randint(5, 20))])
+        title = " ".join(self.faker.text().split()[: (randint(1, 10))])
+        description = " ".join(self.faker.text().split()[: (randint(5, 20))])
         language = LanguageRule().random
         url = UrlRule().url
         image_url = UrlRule().url
