@@ -19,8 +19,14 @@
 import sqlalchemy
 import traceback
 
-from zeeguu.core.model import Article, UserArticle, UserActivityData, UserReadingSession, CohortArticleMap, \
-    ArticlesCache
+from zeeguu.core.model import (
+    Article,
+    UserArticle,
+    UserActivityData,
+    UserReadingSession,
+    CohortArticleMap,
+    ArticlesCache,
+)
 from zeeguu.core import db
 
 import sys
@@ -33,7 +39,9 @@ BATCH_COMMIT_SIZE = 5000
 def is_the_article_referenced(article, print_reference_info):
     info = UserArticle.find_by_article(article)
     interaction_data = UserActivityData.query.filter_by(article_id=article.id).all()
-    reading_session_info = UserReadingSession.query.filter_by(article_id=article.id).all()
+    reading_session_info = UserReadingSession.query.filter_by(
+        article_id=article.id
+    ).all()
     belongs_to_a_cohort = CohortArticleMap.query.filter_by(article_id=article.id).all()
 
     referenced = info or interaction_data or reading_session_info or belongs_to_a_cohort
@@ -78,25 +86,26 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
             articles_cache = ArticlesCache.query.filter_by(article_id=each.id).all()
             if articles_cache:
                 for each_cache_line in articles_cache:
-                    print(f"... ID: {each.id} deleting also cache line: {each_cache_line}")
+                    print(
+                        f"... ID: {each.id} deleting also cache line: {each_cache_line}"
+                    )
                     dbs.delete(each_cache_line)
 
             deleted.append(each.id)
             dbs.delete(each)
-            
-            # delete also from the ES index
-            from elasticsearch import Elasticsearch
-            from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-            es = Elasticsearch(ES_CONN_STRING)
-            if es.exists(index=ES_ZINDEX, id=each.id):
-                es.delete(index=ES_ZINDEX, id=each.id)
-                deleted_from_es += 1
 
+            from zeeguu.core.elastic.indexing import remove_from_index
+
+            remove_from_index(each)
 
             if i % BATCH_COMMIT_SIZE == 0:
-                print(f"Keeping {referenced_in_this_batch} articles from the last {BATCH_COMMIT_SIZE} batch...")
+                print(
+                    f"Keeping {referenced_in_this_batch} articles from the last {BATCH_COMMIT_SIZE} batch..."
+                )
                 dbs.commit()
-                print(f"... the rest of {BATCH_COMMIT_SIZE-referenced_in_this_batch} are now deleted!!!")
+                print(
+                    f"... the rest of {BATCH_COMMIT_SIZE-referenced_in_this_batch} are now deleted!!!"
+                )
                 referenced_in_this_batch = 0
                 print(f"Deleted from ES index: {deleted_from_es}")
                 deleted_from_es = 0
@@ -106,7 +115,7 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
             dbs.rollback()
             continue
 
-    print(f'Deleted: {deleted}')
+    print(f"Deleted: {deleted}")
 
 
 if __name__ == "__main__":
@@ -114,7 +123,9 @@ if __name__ == "__main__":
     try:
         DAYS = int(sys.argv[1])
     except:
-        print("\nOOOPS: you must provide a number of days before which the articles to be deleted\n")
+        print(
+            "\nOOOPS: you must provide a number of days before which the articles to be deleted\n"
+        )
         exit(-1)
 
     delete_articles_older_than(DAYS, print_progress_for_every_article=False)
