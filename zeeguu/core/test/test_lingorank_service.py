@@ -8,7 +8,7 @@ from zeeguu.core.test.test_data.mocking_the_web import (
     url_formation_professionelle,
     url_spiegel_militar,
 )
-from zeeguu.core.elastic.converting_from_mysql import document_from_article
+from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core.content_retriever.article_downloader import download_feed_item
 
 from datetime import datetime

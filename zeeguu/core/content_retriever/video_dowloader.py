@@ -6,7 +6,7 @@ from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from sentry_sdk import capture_exception as capture_to_sentry
-from zeeguu.core.elastic.converting_from_mysql import document_from_article
+from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core import log
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
@@ -49,13 +49,14 @@ def get_videos_from_local_csv(filename):
 def download(filename, fr, to):
     ai_videos = get_videos_from_local_csv(filename)
 
-    for each in list(ai_videos.keys())[fr:to]:
+    keys = list(ai_videos.keys())
+    for each in keys[fr:to]:
         video_info = ai_videos[each]
 
-        e = download_individual_video(video_info, core, model, video, index, document)
+        e = download_individual_video(video_info)
 
 
-def download_individual_video(video_info, core, model, video, index, document):
+def download_individual_video(video_info):
     print("Processing: " + video_info[URL])
 
     from zeeguu.core.model import Article
@@ -74,7 +75,8 @@ def download_individual_video(video_info, core, model, video, index, document):
 
     import datetime
 
-    dt = datetime.datetime.strptime(video_info[PUBLISHED_AT], SIMPLE_TIME_FORMAT)
+    print(video_info[PUBLISH_TIME])
+    dt = datetime.datetime.strptime(video_info[PUBLISH_TIME], SIMPLE_TIME_FORMAT)
     dt = datetime.datetime.now()
 
     fr = Language.find("fr")
@@ -94,7 +96,7 @@ def download_individual_video(video_info, core, model, video, index, document):
     session.add(new_article)
     session.commit()
 
-    index_in_elasticsearch(new_article)
+    index_in_elasticsearch(new_article, session)
 
 
 import sys
@@ -103,4 +105,7 @@ if __name__ == "__main__":
 
     print("run as main...")
     if len(sys.argv) > 3:
+        print("sufficiennt args...")
         download(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
+    else:
+        download("artificial_intelligence.csv", 44, 45)

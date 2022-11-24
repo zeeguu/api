@@ -25,11 +25,13 @@ import requests
 
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.elastic.converting_from_mysql import document_from_article
+from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
+from zeeguu.core.elastic.indexing import index_in_elasticsearch
+
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -171,25 +173,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
                 log(e)
             continue
 
-        # Saves the news article at ElasticSearch.
-        # We recommend that everything is stored both in SQL and Elasticsearch
-        # as ElasticSearch isn't persistent data
-        try:
-            if save_in_elastic:
-                if new_article:
-                    es = Elasticsearch(ES_CONN_STRING)
-                    doc = document_from_article(new_article, session)
-                    res = es.index(index=ES_ZINDEX, id=new_article.id, body=doc)
-                    print("elastic res: " + res["result"])
-        except Exception as e:
-            capture_to_sentry(e)
-
-            log("***OOPS***: ElasticSearch seems down?")
-            if hasattr(e, "message"):
-                log(e.message)
-            else:
-                log(e)
-            continue
+        if save_in_elastic:
+            if new_article:
+                index_in_elasticsearch(new_article, session)
 
     log(f"*** Downloaded: {downloaded} From: {feed.title}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")

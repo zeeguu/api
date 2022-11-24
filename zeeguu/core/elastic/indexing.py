@@ -1,6 +1,8 @@
 from zeeguu.core.model import Topic
 from zeeguu.core.model.article import article_topic_map
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
+from elasticsearch import Elasticsearch
+from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
 
 def find_topics(article_id, session):
@@ -57,20 +59,20 @@ def index_in_elasticsearch(new_article, session):
         continue
     """
 
-    try:
-        es = Elasticsearch(ES_CONN_STRING)
-        doc = document_from_article(new_article, session)
-        res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
-        print("elastic res: " + res["result"])
-    except Exception as e:
-        capture_to_sentry(e)
+    # try:
+    es = Elasticsearch(ES_CONN_STRING)
+    doc = document_from_article(new_article, session)
+    res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
+    print("elastic res: " + res["result"])
+    # except Exception as e:
+    #     capture_to_sentry(e)
 
-        print("***OOPS***: ElasticSearch seems down?")
-        if hasattr(e, "message"):
-            log(e.message)
-        else:
-            log(e)
-        return
+    #     print("***OOPS***: ElasticSearch seems down?")
+    #     if hasattr(e, "message"):
+    #         log(e.message)
+    #     else:
+    #         log(e)
+    #     return
 
 
 def remove_from_index(article):
