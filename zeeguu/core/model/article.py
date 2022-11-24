@@ -62,6 +62,7 @@ class Article(db.Model):
     fk_difficulty = Column(Integer)
     broken = Column(Integer)
     deleted = Column(Integer)
+    video = Column(Integer)
 
     from zeeguu.core.model.url import Url
 
@@ -110,6 +111,7 @@ class Article(db.Model):
         found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
         broken=0,
         deleted=0,
+        video=0,
     ):
 
         if not summary:
@@ -128,6 +130,7 @@ class Article(db.Model):
         self.userFound = found_by_user
         self.broken = broken
         self.deleted = deleted
+        self.video = video
 
         self.convertHTML2TextIfNeeded()
 
@@ -203,6 +206,7 @@ class Article(db.Model):
             summary=summary,
             language=self.language.code,
             topics=self.topics_as_string(),
+            video=self.video,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100, word_count=self.word_count
             ),
