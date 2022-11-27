@@ -9,6 +9,8 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core import log
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
+from zeeguu.core.model import Url, Article, Language
+import datetime
 
 session = zeeguu.core.db.session
 
@@ -32,18 +34,20 @@ def get_videos_from_local_csv(filename):
         os.path.join(os.getcwd(), os.path.dirname(__file__))
     )
 
-    reader = csv.reader(open(os.path.join(__location__, filename)))
+    with open(os.path.join(__location__, filename), "r", encoding="utf8") as f:
+        print(f)
+        reader = csv.reader(f)
 
-    result = {}
+        result = {}
 
-    for row in reader:
-        key = row[0]
-        if key in result:
-            # implement your duplicate row handling here
-            pass
-        result[key] = row[1:]
+        for row in reader:
+            key = row[0]
+            if key in result:
+                # implement your duplicate row handling here
+                pass
+            result[key] = row[1:]
 
-    return result
+        return result
 
 
 def download(filename, fr, to):
@@ -53,6 +57,9 @@ def download(filename, fr, to):
     for each in keys[fr:to]:
         video_info = ai_videos[each]
 
+        # stupid file format
+        video_info[TITLE] = video_info[TITLE].replace("&#39;", "'")
+
         e = download_individual_video(video_info)
 
 
@@ -61,38 +68,44 @@ def download_individual_video(video_info):
 
     from zeeguu.core.model import Article
 
-    found = Article.find(video_info[URL])
-    if found:
+    new_article = Article.find(video_info[URL])
+    if new_article:
         print("FOUND ARTICLE ALREADY")
         # session.delete(found)
         # session.commit()
-        return
 
-    print("not found... creating it")
-    from zeeguu.core.model import Url, Article, Language
-
-    url_object = Url.find_or_create(session, video_info[URL])
-
-    import datetime
-
-    print(video_info[PUBLISH_TIME])
     dt = datetime.datetime.strptime(video_info[PUBLISH_TIME], SIMPLE_TIME_FORMAT)
-    dt = datetime.datetime.now()
+    # dt = datetime.datetime.now()
 
     fr = Language.find("fr")
 
-    new_article = Article(
-        url_object,
-        video_info[TITLE],
-        "",
-        video_info[CAPTIONS],  # any article longer than this will be truncated...
-        video_info[DESCRIPTION],
-        dt,
-        None,
-        fr,
-        "",
-        video=1,
-    )
+    if new_article == None:
+        print("not found... creating it")
+
+        url_object = Url.find_or_create(session, video_info[URL])
+
+        print(video_info[PUBLISH_TIME])
+
+        new_article = Article(
+            url_object,
+            video_info[TITLE],
+            "",
+            video_info[CAPTIONS],  # any article longer than this will be truncated...
+            video_info[DESCRIPTION],
+            dt,
+            None,
+            fr,
+            "",
+            video=1,
+        )
+    else:
+        print(f"UPDATING ARTICLE ... {new_article.id}")
+        new_article.title = video_info[TITLE]
+        print(new_article.title)
+        new_article.summary = video_info[DESCRIPTION]
+        new_article.content = video_info[CAPTIONS]
+        new_article.publish_time = dt
+
     session.add(new_article)
     session.commit()
 
@@ -108,4 +121,4 @@ if __name__ == "__main__":
         print("sufficiennt args...")
         download(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
     else:
-        download("artificial_intelligence.csv", 44, 45)
+        download("artificial_intelligence.csv", 1, 50)
