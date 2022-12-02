@@ -202,13 +202,13 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+        to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
 
         if len(to_study) < int_count:
             BasicSRSchedule.schedule_some_more_bookmarks(
-                db_session, flask.g.user, int_count - len(to_study)
+                db_session, self, int_count - len(to_study)
             )
-            to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+            to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
 
         return bookmarks
 
