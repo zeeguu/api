@@ -195,6 +195,23 @@ class User(db.Model):
     def has_bookmarks(self):
         return self.bookmark_count() > 0
 
+    def bookmarks_to_study(self, bookmark_count=10):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return:
+        """
+        from zeeguu.core.word_scheduling.basicSR import BasicSRSchedule
+
+        to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+
+        if len(to_study) < int_count:
+            BasicSRSchedule.schedule_some_more_bookmarks(
+                db_session, flask.g.user, int_count - len(to_study)
+            )
+            to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
+
+        return bookmarks
+
     def date_of_last_bookmark(self):
         """
         assumes that there are bookmarks
