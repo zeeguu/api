@@ -204,9 +204,9 @@ class User(db.Model):
 
         to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
 
-        if len(to_study) < int_count:
+        if len(to_study) < bookmark_count:
             BasicSRSchedule.schedule_some_more_bookmarks(
-                db_session, self, int_count - len(to_study)
+                db_session, self, bookmark_count - len(to_study)
             )
             to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
 
