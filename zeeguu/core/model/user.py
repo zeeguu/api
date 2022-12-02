@@ -211,7 +211,7 @@ class User(db.Model):
             )
             to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
 
-        return bookmarks
+        return to_study
 
     def date_of_last_bookmark(self):
         """
