@@ -200,7 +200,7 @@ class User(db.Model):
         :param bookmark_count: by default we recommend 10 words
         :return:
         """
-        from zeeguu.core.word_scheduling.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         to_study = BasicSRSchedule.bookmarks_to_study(flask.g.user, bookmark_count)
 
