@@ -91,7 +91,7 @@ def build_elastic_query(
     must_not = []
     should = []
 
-    query = {"query": {"bool": {}}, "size": count}  # initial empty bool query
+    bool_query_body = {"query": {"bool": {}}}  # initial empty bool query
 
     if language:
         must.append(match("language", language.name))
@@ -123,7 +123,7 @@ def build_elastic_query(
     if not second_try:
         # on the second try we do not add the range;
         # because we didn't find anything with it
-        query["query"]["bool"].update(
+        bool_query_body["query"]["bool"].update(
             {
                 "filter": {
                     "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
@@ -131,8 +131,24 @@ def build_elastic_query(
             }
         )
 
-    query["query"]["bool"].update({"should": should})
-    query["query"]["bool"].update({"must": must})
-    query["query"]["bool"].update({"must_not": must_not})
+    bool_query_body["query"]["bool"].update({"should": should})
+    bool_query_body["query"]["bool"].update({"must": must})
+    bool_query_body["query"]["bool"].update({"must_not": must_not})
 
-    return query
+    full_query = {"size": count, "query": {"function_score": {}}}
+
+    function1 = {
+        # original parameters by Simon & Marcus
+        # "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
+        # "weight": 1.2,
+        "gauss": {
+            "published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}
+        },
+        "weight": es_weight,
+    }
+
+    full_query["query"]["function_score"].update({"functions": [function1]})
+    full_query["query"]["function_score"].update(bool_query_body)
+
+    print(full_query)
+    return full_query

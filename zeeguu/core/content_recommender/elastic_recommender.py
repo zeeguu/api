@@ -47,9 +47,7 @@ def article_recommendations_for_user(
 
     articles = article_search_for_user(user, count, "", es_scale, es_decay, es_weight)
 
-    sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
-
-    return sorted_articles
+    return articles
 
 
 @time_this
@@ -161,10 +159,7 @@ def article_search_for_user(
         hit_list = res["hits"].get("hits")
         final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    articles = [a for a in final_article_mix if a is not None and not a.broken]
-    # sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
-    # we're not searching because then the match is broken...
-    return articles
+    return [a for a in final_article_mix if a is not None and not a.broken]
 
 
 def more_like_this_article(user, count, article_id):
