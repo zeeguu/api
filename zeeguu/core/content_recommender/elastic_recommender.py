@@ -46,8 +46,9 @@ def article_recommendations_for_user(
     """
 
     articles = article_search_for_user(user, count, "", es_scale, es_decay, es_weight)
+    sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
 
-    return articles
+    return sorted_articles
 
 
 @time_this
