@@ -139,12 +139,10 @@ def build_elastic_query(
 
     function1 = {
         # original parameters by Simon & Marcus
-        # "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
-        # "weight": 1.2,
-        "gauss": {
-            "published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}
-        },
-        "weight": es_weight,
+        "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
+        "weight": 1.2,
+        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
+        # "weight": es_weight,
     }
 
     full_query["query"]["function_score"].update({"functions": [function1]})
