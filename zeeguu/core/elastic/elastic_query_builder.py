@@ -10,6 +10,10 @@ def add_to_dict(dict, key, value):
     dict.update({key: value})
 
 
+def array_of_lowercase_topics(topics):
+    return [topic.lower() for topic in topics.split()]
+
+
 def build_more_like_this_query(count, content, language):
     query_body = {"size": count, "query": {"bool": {}}}  # initial empty query
 
@@ -64,11 +68,6 @@ def build_elastic_query(
                          }
                     }
                 },
-            'should': [
-                {'match': {'topics': 'Sport'}},
-                {'match': {'content': 'soccer ronaldo'}},
-                {'match': {'title': 'soccer ronaldo'}}
-            ],
             'must': [
                 {'match': {'language': 'English'}}
             ],
@@ -118,7 +117,20 @@ def build_elastic_query(
         must_not.append(match("title", unwanted_user_topics))
 
     must.append(exists("published_time"))
-    # add the must, must_not and should lists to the query body
+    must.append({"terms": {"topics": array_of_lowercase_topics(topics)}})
+    """
+    How terms works: 
+    GET zeeguu/_search
+        {
+        "_source": ["title", "published_time", "topics", "_score"],
+        "size":20.0,
+        "query" : {
+                "terms" : {
+                    "topics" : ["music", "politics",  "business",  "food", "science", "technology"]
+                }
+            }
+        }
+    """
 
     if not second_try:
         # on the second try we do not add the range;
@@ -131,7 +143,6 @@ def build_elastic_query(
             }
         )
 
-    bool_query_body["query"]["bool"].update({"should": should})
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
 
