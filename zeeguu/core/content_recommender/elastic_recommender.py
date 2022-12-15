@@ -196,8 +196,6 @@ def article_search_for_user(
         es_weight,
     )
 
-    print(query_body)
-
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
 
