@@ -26,6 +26,9 @@ class BookmarkTest(ModelTestMixIn):
         self.user_rule.add_bookmarks(random.randint(3, 5))
         self.user = self.user_rule.user
 
+    def test_bookmarks_to_study_is_not_empty(self):
+        assert self.user.bookmarks_to_study() is not None
+
     def test_add_new_exercise(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         length_original_exercise_log = len(random_bookmark.exercise_log)
