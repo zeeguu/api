@@ -5,7 +5,6 @@ join user_word uw on b.origin_id  = uw.id
 join user_word tw on b.translation_id =tw.id
 left join basic_sr_schedule bss on b.id = bss.bookmark_id 
 where 
-# uw.rank_id >0 and 
 b.learned = 0 and b.fit_for_study 
 and bss.id is null
 
