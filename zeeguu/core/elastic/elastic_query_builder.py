@@ -14,28 +14,8 @@ def array_of_lowercase_topics(topics):
     return [topic.lower() for topic in topics.split()]
 
 
-def build_more_like_this_query(count, content, language):
-    query_body = {"size": count, "query": {"bool": {}}}  # initial empty query
-
-    must = []
-
-    if language:
-        more_like_this = {}
-        add_to_dict(more_like_this, "fields", ["content", "title"])
-        add_to_dict(more_like_this, "like", content)
-        add_to_dict(more_like_this, "min_term_freq", 1)
-        add_to_dict(more_like_this, "max_query_terms", 25)
-        must.append({"more_like_this": more_like_this})
-
-        must.append(match("language", language.name))
-
-    query_body["query"]["bool"].update({"must": must})
-    return query_body
-
-
-def build_elastic_query(
+def build_elastic_recommender_query(
     count,
-    search_terms,
     topics,
     unwanted_topics,
     user_topics,
@@ -95,17 +75,11 @@ def build_elastic_query(
     if language:
         must.append(match("language", language.name))
 
-    if topics:
-        should.append(match("topics", topics))
-
-    if not search_terms:
-        search_terms = ""
-
     if not user_topics:
         user_topics = ""
 
-    if search_terms or user_topics:
-        search_string = search_terms + " " + user_topics
+    if user_topics:
+        search_string = user_topics
         should.append(match("content", search_string))
         should.append(match("title", search_string))
 
@@ -118,19 +92,6 @@ def build_elastic_query(
 
     must.append(exists("published_time"))
     must.append({"terms": {"topics": array_of_lowercase_topics(topics)}})
-    """
-    How terms works: 
-    GET zeeguu/_search
-        {
-        "_source": ["title", "published_time", "topics", "_score"],
-        "size":20.0,
-        "query" : {
-                "terms" : {
-                    "topics" : ["music", "politics",  "business",  "food", "science", "technology"]
-                }
-            }
-        }
-    """
 
     if not second_try:
         # on the second try we do not add the range;
@@ -161,3 +122,28 @@ def build_elastic_query(
 
     print(full_query)
     return full_query
+
+
+def build_elastic_search_query(
+    count,
+    search_terms,
+    topics,
+    unwanted_topics,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+    es_scale="3d",
+    es_decay=0.8,
+    es_weight=4.2,
+    second_try=False,
+):
+    """
+    Builds an elastic search query for search terms.
+
+    """
+
+    query = {"size": count, "query": {"match": {"title": search_terms}}}
+
+    return query
