@@ -223,8 +223,8 @@ def article_search_for_user(
         )
         res = es.search(index=ES_ZINDEX, body=query_body)
 
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        hit_list = res["hits"].get("hits")
+        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
     return [a for a in final_article_mix if a is not None and not a.broken]
 
