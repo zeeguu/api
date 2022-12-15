@@ -145,5 +145,6 @@ def build_elastic_search_query(
     """
 
     query = {"size": count, "query": {"match": {"title": search_terms}}}
+    print(query)
 
     return query
