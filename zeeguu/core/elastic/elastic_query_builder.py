@@ -1,3 +1,6 @@
+from elasticsearch_dsl import Search, Q, SF
+
+
 def match(key, value):
     return {"match": {key: value}}
 
@@ -141,10 +144,31 @@ def build_elastic_search_query(
 ):
     """
     Builds an elastic search query for search terms.
+    If called with second_try it drops the difficulty constraints
+    It also weights more recent results higher
 
     """
 
-    query = {"size": count, "query": {"match": {"title": search_terms}}}
-    
+    s = (
+        Search()
+        .query(Q("match", title=search_terms) | Q("match", content=search_terms))
+        .filter("term", language=language.name.lower())
+        .exclude("match", description="pg15")
+    )
+
+    if not second_try:
+        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
+
+    # using function scores to weight more recent results higher
+    # https://github.com/elastic/elasticsearch-dsl-py/issues/608
+    weighted_query = Q(
+        "function_score",
+        query=s.query,
+        functions=[
+            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3})
+        ],
+    )
+
+    query = {"size": count, "query": weighted_query.to_dict()}
 
     return query
