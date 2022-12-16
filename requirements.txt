@@ -34,3 +34,4 @@ pymysql
 yagmail
 google
 protobuf
+elasticsearch_dsl
