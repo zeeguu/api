@@ -43,6 +43,7 @@ def tts():
 @cross_domain
 @with_session
 def mp3_of_full_article():
+    print("in mp3_of_full_article")
     import zeeguu.core
     from zeeguu.core.model import UserWord, Language
 
