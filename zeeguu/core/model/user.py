@@ -121,6 +121,7 @@ class User(db.Model):
             learned_language=self.learned_language.code,
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
+            cohort_id=self.cohort_id,
         )
 
         for each in UserLanguage.query.filter_by(user=self):
