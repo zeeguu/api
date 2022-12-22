@@ -39,14 +39,39 @@ def tts():
     return audio_file_path
 
 
-def _save_speech_to_file(user_word, language_id, audio_file_path):
+@api.route("/mp3_of_full_article", methods=("POST",))
+@cross_domain
+@with_session
+def mp3_of_full_article():
+    import zeeguu.core
+    from zeeguu.core.model import UserWord, Language
+
+    db_session = zeeguu.core.db.session
+
+    text_to_pronounce = request.form.get("text", "")
+    language_id = request.form.get("language_id", "")
+    article_id = request.form.get("article_id", "")
+
+    if not text_to_pronounce or not article_id:
+        return ""
+
+    audio_file_path = _file_name_for_full_article(language_id, article_id)
+
+    if not os.path.isfile(DATA_FOLDER + audio_file_path):
+        _save_speech_to_file(text_to_pronounce, language_id, audio_file_path)
+
+    print(audio_file_path)
+    return audio_file_path
+
+
+def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
     from google.cloud import texttospeech
 
     # Instantiates a client
     client = texttospeech.TextToSpeechClient()
 
     # Set the text input to be synthesized
-    synthesis_input = texttospeech.SynthesisInput(text=user_word.word)
+    synthesis_input = texttospeech.SynthesisInput(text=text_to_speak.word)
 
     # Build the voice request
     voice = texttospeech.VoiceSelectionParams(
@@ -71,9 +96,17 @@ def _save_speech_to_file(user_word, language_id, audio_file_path):
 
 
 def _file_name_for_user_word(user_word, language_id):
-
     word_without_special_chars = re.sub("[^A-Za-z0-9]+", "_", user_word.word)
     return f"/speech/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
+
+
+def _file_name_for_full_article(language_id, article_id):
+    # create md5 hash of the user_word and return it
+    import hashlib
+
+    m = hashlib.md5()
+    m.update(user_word.word.encode("utf-8"))
+    return f"/speech/art_id_{article_id}_langid_{lang.id}_md5{m.hexdigest()}.mp3"
 
 
 def _code_from_id(language_id):
