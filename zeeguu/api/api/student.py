@@ -53,6 +53,4 @@ def student_info():
 def cohort_name(id):
 
     cohort = Cohort.find(id)
-    return {
-        "name": cohort.name
-    }
+    return {"name": cohort.name}
