@@ -59,7 +59,9 @@ def mp3_of_full_article():
     if (not text_to_pronounce) or (not article_id) or (not language_id):
         return ""
 
-    audio_file_path = _file_name_for_full_article(language_id, article_id)
+    audio_file_path = _file_name_for_full_article(
+        text_to_pronounce, language_id, article_id
+    )
 
     if not os.path.isfile(DATA_FOLDER + audio_file_path):
         _save_speech_to_file(text_to_pronounce, language_id, audio_file_path)
@@ -104,12 +106,12 @@ def _file_name_for_user_word(user_word, language_id):
     return f"/speech/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
 
 
-def _file_name_for_full_article(language_id, article_id):
+def _file_name_for_full_article(full_article_text, language_id, article_id):
     # create md5 hash of the user_word and return it
     import hashlib
 
     m = hashlib.md5()
-    m.update(user_word.word.encode("utf-8"))
+    m.update(full_article_text.encode("utf-8"))
     return f"/speech/art_id_{article_id}_langid_{lang.id}_md5{m.hexdigest()}.mp3"
 
 
