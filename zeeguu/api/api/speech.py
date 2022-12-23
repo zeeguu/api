@@ -112,7 +112,7 @@ def _file_name_for_full_article(full_article_text, language_id, article_id):
 
     m = hashlib.md5()
     m.update(full_article_text.encode("utf-8"))
-    return f"/speech/art_id_{article_id}_langid_{lang.id}_md5{m.hexdigest()}.mp3"
+    return f"/speech/art_{article_id}_{language_id}_{m.hexdigest()}.mp3"
 
 
 def _code_from_id(language_id):
