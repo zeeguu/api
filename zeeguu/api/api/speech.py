@@ -33,7 +33,7 @@ def tts():
     audio_file_path = _file_name_for_user_word(user_word, language_id)
 
     if not os.path.isfile(DATA_FOLDER + audio_file_path):
-        _save_speech_to_file(user_word, language_id, audio_file_path)
+        _save_speech_to_file(user_word.word, language_id, audio_file_path)
 
     print(audio_file_path)
     return audio_file_path
@@ -77,7 +77,7 @@ def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
     client = texttospeech.TextToSpeechClient()
 
     # Set the text input to be synthesized
-    synthesis_input = texttospeech.SynthesisInput(text=text_to_speak.word)
+    synthesis_input = texttospeech.SynthesisInput(text=text_to_speak)
 
     # Build the voice request
     voice = texttospeech.VoiceSelectionParams(
