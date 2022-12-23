@@ -52,9 +52,9 @@ def mp3_of_full_article():
     text_to_pronounce = request.form.get("text", "")
     language_id = request.form.get("language_id", "")
     article_id = request.form.get("article_id", "")
-    print(text_to_pronounce)
-    print(article_id)
-    print(language_id)
+
+    print("ID:" + article_id)
+    print("LANG ID" + language_id)
 
     if (not text_to_pronounce) or (not article_id) or (not language_id):
         return ""
