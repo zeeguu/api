@@ -115,13 +115,26 @@ def _file_name_for_full_article(full_article_text, language_id, article_id):
     return f"/speech/art_{article_id}_{language_id}_{m.hexdigest()}.mp3"
 
 
+LANGUAGE_CODES = {
+    "da": "da-DK",
+    "fr": "fr-FR",
+    "en": "en-US",
+}
+
+VOICE_IDS = {
+    "da": "da-DK-Wavenet-D",
+    "fr": "fr-FR-Neural2-C",
+    "en": "en-US",
+}
+
+
 def _code_from_id(language_id):
-    if language_id == "da":
-        return "da-DK"
+    if LANGUAGE_CODES.get(language_id):
+        return LANGUAGE_CODES[language_id]
     return "en-US"
 
 
 def _voice_for_id(language_id):
-    if language_id == "da":
-        return "da-DK-Wavenet-D"
+    if VOICE_IDS.get(language_id):
+        return VOICE_IDS[language_id]
     return "en-US"
