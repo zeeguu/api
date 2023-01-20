@@ -119,12 +119,14 @@ LANGUAGE_CODES = {
     "da": "da-DK",
     "fr": "fr-FR",
     "en": "en-US",
+    "nl": "nl-NL",
 }
 
 VOICE_IDS = {
     "da": "da-DK-Wavenet-D",
     "fr": "fr-FR-Neural2-C",
     "en": "en-US",
+    "nl": "nl-NL-Wavenet-B",
 }
 
 
