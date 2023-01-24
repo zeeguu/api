@@ -61,6 +61,11 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
    `docker-compose up dev_test`
 
+### Note
+
+Running from a docker image, at least on my M1 Max from 2021, is terribly slow. The `_playground.py` script takes 1s natively and 6s in Docker. Tests natively are 22s and in Docker are 280s!
+So for running the development server this is ok, but for actual development, this might be quite annoying :(
+
 # With MySQL in Separate Container
 
 2. (Optional) Build docker images with the steps described [here](/docker/README.md).
