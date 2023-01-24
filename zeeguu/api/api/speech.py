@@ -8,7 +8,7 @@ from zeeguu.api.api.utils.route_wrappers import cross_domain, with_session
 
 from zeeguu.api.app import app
 
-DATA_FOLDER = app.config.get("ZEEGUU_DATA_FOLDER")
+DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
 
 
 @api.route("/text_to_speech", methods=("POST",))
