@@ -42,19 +42,20 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 - Import anonymized db data from ...
 
 1. Build the `zeguu_api_dev` development image
-   docker build -f Dockerfile.development -t zeeguu_api_dev .
+
+   `docker build -f Dockerfile.development -t zeeguu_api_dev .`
 
 2. Test the deployment
 
-   docker-compose up test
+   `docker-compose up test`
 
 3. Run the \_playground.py to ensure that you have something in the DB
 
-   docker-compose up playground
+   `docker-compose up playground`
 
 4. Run the development server inside of the container
 
-   docker-compose up devserver
+   `docker-compose up devserver`
 
 # With MySQL in Separate Container
 
