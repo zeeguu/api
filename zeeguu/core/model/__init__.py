@@ -109,6 +109,7 @@ zeeguu.core.warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_stri
 import nltk
 
 try:
+    nltk.data.path.append("/var/www/nltk_data")
     nltk.sent_tokenize("I am a berliner.")
 except LookupError as e:
     nltk.download("punkt")
