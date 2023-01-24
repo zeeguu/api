@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   dev_server:
-    image: zeeguu_api
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 
@@ -13,8 +13,8 @@ services:
       - /tmp:/zeeguu-data
     entrypoint: "python /Zeeguu-API/dev.py"
 
-  playground:
-    image: zeeguu_api
+  dev_play:
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 
@@ -23,8 +23,8 @@ services:
       - /tmp:/zeeguu-data
     entrypoint: "python tools/_playground.py"
 
-  test:
-    image: zeeguu_api
+  dev_test:
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 

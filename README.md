@@ -47,15 +47,15 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
 2. Test the deployment
 
-   `docker-compose up test`
+   `docker-compose up dev_test`
 
 3. Run the \_playground.py to ensure that you have something in the DB
 
-   `docker-compose up playground`
+   `docker-compose up dev_play`
 
 4. Run the development server inside of the container
 
-   `docker-compose up devserver`
+   `docker-compose up dev_server`
 
 # With MySQL in Separate Container
 
