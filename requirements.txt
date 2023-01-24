@@ -36,3 +36,4 @@ google
 protobuf
 elasticsearch_dsl
 wheel
+pytest
