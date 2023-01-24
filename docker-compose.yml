@@ -12,6 +12,8 @@ services:
       - .:/Zeeguu-API
       - /tmp:/zeeguu-data
     entrypoint: "python /Zeeguu-API/dev.py"
+    networks:
+      - zeeguu_backend
 
   dev_play:
     image: zeeguu_api_dev
@@ -22,6 +24,24 @@ services:
       - .:/Zeeguu-API
       - /tmp:/zeeguu-data
     entrypoint: "python tools/_playground.py"
+    networks:
+      - zeeguu_backend
+
+  # docker-compose run --rm dev_bash
+  dev_bash:
+    image: zeeguu_api_dev
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+
+    volumes:
+      - .:/Zeeguu-API
+      - /tmp:/zeeguu-data
+    entrypoint: "bash"
+    networks:
+      - zeeguu_backend
 
   dev_test:
     image: zeeguu_api_dev
@@ -32,3 +52,8 @@ services:
       - .:/Zeeguu-API
       - /tmp:/zeeguu-data
     entrypoint: "./run_tests.sh"
+    networks:
+      - zeeguu_backend
+
+networks:
+  zeeguu_backend:
