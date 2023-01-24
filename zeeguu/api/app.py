@@ -31,8 +31,6 @@ load_configuration_or_abort(
         # for user account creation & password recovery
         "INVITATION_CODES",
         "SMTP_EMAIL",
-        # next is for storing external data on disk
-        "ZEEGUU_DATA_FOLDER",
     ],
 )
 
