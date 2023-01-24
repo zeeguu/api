@@ -10,6 +10,6 @@ def lang_info(lang_code):
     return lang_cache[lang_code]
 
 
-lang_info("da")
-lang_info("de")
-lang_info("nl")
+# lang_info("da")
+# lang_info("de")
+# lang_info("nl")
