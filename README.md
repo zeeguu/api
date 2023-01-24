@@ -49,6 +49,8 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
    `docker-compose up dev_play`
 
+   To ensure that the changes to the files on your local dev machine are reflected inside the container try to modify something in the `tools\_playground.py` file and rerun this command. Do you see the changes? That's good.
+
 3. Run the development server inside of the container
 
    `docker-compose up dev_server`
