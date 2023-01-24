@@ -45,17 +45,19 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
    `docker build -f Dockerfile.development -t zeeguu_api_dev .`
 
-2. Test the deployment
-
-   `docker-compose up dev_test`
-
-3. Run the \_playground.py to ensure that you have something in the DB
+2. Run the \_playground.py to ensure that you have something in the DB
 
    `docker-compose up dev_play`
 
-4. Run the development server inside of the container
+3. Run the development server inside of the container
 
    `docker-compose up dev_server`
+
+   to test it open http://localhost:9001/available_languages in your browser and you should be able to see a list of language codes that are supported by the system
+
+4. Test the deployment
+
+   `docker-compose up dev_test`
 
 # With MySQL in Separate Container
 
