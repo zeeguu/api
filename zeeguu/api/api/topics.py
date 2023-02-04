@@ -19,7 +19,6 @@ session = zeeguu.core.db.session
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"
 SUBSCRIBED_TOPICS = "subscribed_topics"
-INTERESTING_TOPICS = "interesting_topics"
 FILTER_TOPIC = "filter_topic"
 UNFILTER_TOPIC = "unfilter_topic"
 FILTERED_TOPICS = "filtered_topics"
@@ -103,17 +102,17 @@ def get_subscribed_topics():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{INTERESTING_TOPICS}", methods=("GET",))
+@api.route("/available_topics", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_interesting_topics():
+def get_available_topics():
     """
     Get a list of interesting topics for the given language.
     Interesting topics are for now defined as:
+        - There are articles with that topic in the language
         - The topic is not followed yet
         - The topic is not in the filters list
-        - There are articles with that topic in the language
 
     :return:
     """
