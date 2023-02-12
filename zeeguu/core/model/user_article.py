@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import random
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -258,7 +258,13 @@ class UserArticle(zeeguu.core.db.Model):
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
             if user_article_info.starred:
-                returned_info["starred_time"] = datetime_to_json(user_article_info.starred)
+                returned_info["starred_time"] = datetime_to_json(
+                    user_article_info.starred
+                )
+
+            returned_info["relative_difficulty"] = random.choice(
+                ["easy", "moderate'", "hard"]
+            )
 
             if with_translations:
                 translations = Bookmark.find_all_for_user_and_article(user, article)
