@@ -1,0 +1,24 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Perlten/MT-diagrams/master/config.schema.json",
+    "name": "zeeguu",
+    "rootFolder": "zeeguu",
+    "github": {
+        "url": "https://github.com/Perlten/zeeguu-mt-test",
+        "branch": "master"
+    },
+    "saveLocation": "./diagrams/",
+    "views": {
+        "completeView": {
+            "packages": [],
+            "ignorePackages": []
+        },
+        "coreView": {
+            "packages": [
+                "core"
+            ],
+            "ignorePackages": [
+                "*test*"
+            ]
+        }
+    }
+}
