@@ -266,7 +266,8 @@ def topic_filter_for_user(user,
             "lte": upper_bounds})
 
     query = s.query
-    print(query)
+    
+    print(query.to_dict())
 
     query_with_size = {"size": count, "query":query.to_dict()}
 
