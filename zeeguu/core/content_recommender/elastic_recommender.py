@@ -274,9 +274,12 @@ def topic_filter_for_user(user,
     res = es.search(index=ES_ZINDEX, body=query_with_size)
 
     hit_list = res["hits"].get("hits")
-    print(hit_list)
+    
 
     final_article_mix  = _to_articles_from_ES_hits(hit_list)
+    for art in final_article_mix:
+        print(art.title)
+        print(art.broken)
 
     return [a for a in final_article_mix if a is not None and not a.broken]
 
