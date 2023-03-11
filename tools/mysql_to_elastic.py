@@ -33,6 +33,9 @@ def main(starting_index):
             print(res)
         except NoResultFound:
             print(f"fail for: {i}")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
