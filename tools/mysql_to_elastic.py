@@ -21,8 +21,8 @@ session = Session()
 def main(starting_index):
 
     max_id = session.query(func.max(Article.id)).first()[0]
+    print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
-    print(f"starting import at: {max_id - starting_index}")
 
     for i in range(starting_index, max_id):
 
