@@ -248,10 +248,10 @@ def topic_filter_for_user(user,
     AVERAGE_WORDS_PER_MINUTE = 70
 
     if max_duration:
-        s=s.filter("range", word_count={"lte": max_duration * AVERAGE_WORDS_PER_MINUTE})
+        s=s.filter("range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE})
 
     if min_duration:
-        s=s.filter("range", word_count={"gte": min_duration * AVERAGE_WORDS_PER_MINUTE})
+        s=s.filter("range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE})
 
     
     if media_type:
