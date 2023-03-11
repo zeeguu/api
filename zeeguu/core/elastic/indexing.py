@@ -56,12 +56,14 @@ def index_in_elasticsearch(new_article, session):
     # We recommend that everything is stored both in SQL and Elasticsearch
     # as ElasticSearch isn't persistent data
     """
-
-    es = Elasticsearch(ES_CONN_STRING)
-    doc = document_from_article(new_article, session)
-    res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
-    print("elastic res: " + res["result"])
-   
+    try:
+        es = Elasticsearch(ES_CONN_STRING)
+        doc = document_from_article(new_article, session)
+        res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
+        print("elastic res: " + res["result"])
+    except Exception as e: 
+        import traceback
+        traceback.print_exc()
 
 
 def remove_from_index(article):
