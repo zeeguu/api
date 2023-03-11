@@ -238,7 +238,7 @@ def topic_filter_for_user(user,
     topic):
 
     es = Elasticsearch(ES_CONN_STRING)
-        
+    
     s=Search().query(Q("term", language=user.learned_language.name.lower()))
     
     if newer_than:
@@ -266,6 +266,7 @@ def topic_filter_for_user(user,
             "lte": upper_bounds})
 
     query = s.query
+    print(query)
 
     query_with_size = {"size": count, "query":query.to_dict()}
 
