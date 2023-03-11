@@ -18,44 +18,29 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 
-def main(starting_index, article_batch_size):
-    # fetch article_batch_size articles at a time, to avoid to much loaded into memory
+def main(starting_index):
 
     max_id = session.query(func.max(Article.id)).first()[0]
     print(f"max id in db: {max_id}")
     print(f"starting import at: {max_id - starting_index}")
 
-    for i in range(starting_index, max_id, article_batch_size):
+    for i in range(starting_index, max_id):
 
-        print(f"processing a batch of: {article_batch_size} starting at: {i}")
-        for article in (
-            session.query(Article)
-            .order_by(Article.published_time.desc())
-            .limit(article_batch_size)
-            .offset(i)
-        ):
-            try:
+        article = Article.find_by_id(i)
+        res = create_or_update(article, session)
+        if article.id % 1000 == 0:
+            print(res["result"] + " " + str(article.id))
 
-                res = create_or_update(article, session)
-                if article.id % 1000 == 0:
-                    print(res["result"] + " " + str(article.id))
-                    
-            except Exception as e:
-                print(f"something went wrong with article id {article.id}")
-                print(str(e))
 
 
 if __name__ == "__main__":
 
     print(f"started at: {datetime.now()}")
     starting_index = 0
-    article_batch_size = 5000
+    
 
     if len(sys.argv) > 1:
         starting_index = int(sys.argv[1])
 
-    if len(sys.argv) > 2:
-        article_batch_size = int(sys.argv[2])
-
-    main(starting_index, article_batch_size)
+    main(starting_index)
     print(f"ended at: {datetime.now()}")
