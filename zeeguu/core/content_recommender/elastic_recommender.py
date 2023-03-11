@@ -266,7 +266,7 @@ def topic_filter_for_user(user,
             "lte": upper_bounds})
 
     query = s.query
-    
+
     print(query.to_dict())
 
     query_with_size = {"size": count, "query":query.to_dict()}
@@ -274,6 +274,7 @@ def topic_filter_for_user(user,
     res = es.search(index=ES_ZINDEX, body=query_with_size)
 
     hit_list = res["hits"].get("hits")
+    print(hit_list)
 
     final_article_mix  = _to_articles_from_ES_hits(hit_list)
 
