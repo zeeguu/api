@@ -32,6 +32,8 @@ def document_from_article(article, session):
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+        "url":article.url.as_string(),
+        "video":article.video
     }
     return doc
 
