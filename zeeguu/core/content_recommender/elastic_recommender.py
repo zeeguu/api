@@ -255,7 +255,10 @@ def topic_filter_for_user(user,
 
     
     if media_type:
-        s=s.filter("term", content=f"{media_type}")
+        if media_type == "video":
+            s=s.filter("term", video=1)
+        else: 
+            s=s.filter("term", video=0)
 
     if topic != None and topic != "all":
         s=s.filter("match", topics=topic.lower())
@@ -269,7 +272,9 @@ def topic_filter_for_user(user,
 
     print(query.to_dict())
 
-    query_with_size = {"size": count, "query":query.to_dict()}
+    query_with_size = {"size": count, 
+        "query":query.to_dict(),
+        "sort" : [{ "published_time" : "desc" }]}
 
     res = es.search(index=ES_ZINDEX, body=query_with_size)
 
@@ -277,9 +282,6 @@ def topic_filter_for_user(user,
     
 
     final_article_mix  = _to_articles_from_ES_hits(hit_list)
-    for art in final_article_mix:
-        print(art.title)
-        print(art.broken)
 
     return [a for a in final_article_mix if a is not None and not a.broken]
 
