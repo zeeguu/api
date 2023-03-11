@@ -38,51 +38,34 @@ def document_from_article(article, session):
     return doc
 
 
+def create_or_update(article, session):
+    es = Elasticsearch(ES_CONN_STRING)
+
+    doc = document_from_article(article, session)
+
+    if es.exists(index=ES_ZINDEX, id=article.id):
+        es.delete(index=ES_ZINDEX, id=article.id)
+
+    res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
+
+    return res
+
 def index_in_elasticsearch(new_article, session):
     """
     # Saves the news article at ElasticSearch.
     # We recommend that everything is stored both in SQL and Elasticsearch
     # as ElasticSearch isn't persistent data
-    try:
-        if save_in_elastic:
-            if new_article:
-                es = Elasticsearch(ES_CONN_STRING)
-                doc = document_from_article(new_article, session)
-                res = es.index(index=ES_ZINDEX, id=new_article.id, body=doc)
-                print("elastic res: " + res["result"])
-    except Exception as e:
-        capture_to_sentry(e)
-
-        log("***OOPS***: ElasticSearch seems down?")
-        if hasattr(e, "message"):
-            log(e.message)
-        else:
-            log(e)
-        continue
     """
 
-    # try:
     es = Elasticsearch(ES_CONN_STRING)
     doc = document_from_article(new_article, session)
     res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
     print("elastic res: " + res["result"])
-    # except Exception as e:
-    #     capture_to_sentry(e)
-
-    #     print("***OOPS***: ElasticSearch seems down?")
-    #     if hasattr(e, "message"):
-    #         log(e.message)
-    #     else:
-    #         log(e)
-    #     return
+   
 
 
 def remove_from_index(article):
-    # delete also from the ES index
-    from elasticsearch import Elasticsearch
-    from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-
     es = Elasticsearch(ES_CONN_STRING)
-    if es.exists(index=ES_ZINDEX, id=each.id):
-        es.delete(index=ES_ZINDEX, id=each.id)
+    if es.exists(index=ES_ZINDEX, id=article.id):
+        es.delete(index=ES_ZINDEX, id=article.id)
         deleted_from_es += 1

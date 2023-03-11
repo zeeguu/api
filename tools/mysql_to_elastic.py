@@ -1,6 +1,6 @@
 # coding=utf-8
 import sqlalchemy as database
-from zeeguu.core.elastic.indexing import document_from_article
+from zeeguu.core.elastic.indexing import create_or_update, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core
@@ -35,10 +35,11 @@ def main(starting_index, article_batch_size):
             .offset(i)
         ):
             try:
-                doc = document_from_article(article, session)
-                res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
+
+                res = create_or_update(article, session)
                 if article.id % 1000 == 0:
                     print(res["result"] + " " + str(article.id))
+                    
             except Exception as e:
                 print(f"something went wrong with article id {article.id}")
                 print(str(e))
