@@ -239,7 +239,7 @@ def topic_filter_for_user(user,
 
     es = Elasticsearch(ES_CONN_STRING)
     
-    s=Search().query(Q("term", language=user.learned_language.name.lower()))
+    s=Search().query(Q("term", language=user.learned_language.code()))
     
     if newer_than:
         s=s.filter("range", published_time={"gte": f"now-{newer_than}d/d"})
