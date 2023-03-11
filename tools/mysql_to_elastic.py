@@ -9,6 +9,7 @@ from zeeguu.core.model import Article
 import sys
 from datetime import datetime
 
+
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 
 es = Elasticsearch([ES_CONN_STRING])
@@ -30,7 +31,7 @@ def main(starting_index):
             article = Article.find_by_id(i)
             res = create_or_update(article, session)
             print(res)
-        except:
+        except NoResultFound:
             print(f"fail for: {i}")
 
 
