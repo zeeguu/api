@@ -27,11 +27,11 @@ def user_articles_recommended(count: int = 20):
 
 
 # ---------------------------------------------------------------------------
-@api.route("/user_articles/topic_filter", methods=("POST",))
+@api.route("/user_articles/topic_filtered", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def user_articles_filtered():
+def user_articles_topic_filtered():
     """
     recommendations based on filters coming from the UI
     """
