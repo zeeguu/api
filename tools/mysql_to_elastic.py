@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from zeeguu.core.model import Article
 import sys
 from datetime import datetime
-
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 
