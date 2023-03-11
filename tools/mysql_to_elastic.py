@@ -26,11 +26,12 @@ def main(starting_index):
 
     for i in range(starting_index, max_id):
 
-        article = Article.find_by_id(i)
-        res = create_or_update(article, session)
-        if article.id % 1000 == 0:
-            print(res["result"] + " " + str(article.id))
-
+        try:
+            article = Article.find_by_id(i)
+            res = create_or_update(article, session)
+            print(res)
+        except:
+            print(f"fail for: {i}")
 
 
 if __name__ == "__main__":
