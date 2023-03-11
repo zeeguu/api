@@ -270,8 +270,6 @@ def topic_filter_for_user(user,
 
     query = s.query
 
-    print(query.to_dict())
-
     query_with_size = {"size": count, 
         "query":query.to_dict(),
         "sort" : [{ "published_time" : "desc" }]}
