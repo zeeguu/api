@@ -5,7 +5,6 @@ from sqlalchemy.orm.exc import NoResultFound
 import zeeguu.core
 from sqlalchemy import Column, Integer, UnicodeText
 
-from zeeguu.core.model import User, UserWord, Language
 from sys import platform
 
 
