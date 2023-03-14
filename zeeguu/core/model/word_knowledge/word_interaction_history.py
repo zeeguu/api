@@ -5,7 +5,6 @@ from sqlalchemy.orm.exc import NoResultFound
 import zeeguu.core
 from sqlalchemy import Column, Integer, UnicodeText
 
-from zeeguu.core.model import User, UserWord, Language
 from sys import platform
 
 
@@ -14,22 +13,21 @@ db = zeeguu.core.db
 MAX_EVENT_HISTORY_LENGTH = 50
 
 from zeeguu.core.constants import (
-                        WIH_CORRECT_EX_RECOGNIZE,
-                        WIH_CORRECT_EX_TRANSLATE,
-                        WIH_CORRECT_EX_CHOICE,
-                        WIH_CORRECT_EX_MATCH,
-                        WIH_WRONG_EX_RECOGNIZE,
-                        WIH_WRONG_EX_TRANSLATE,
-                        WIH_WRONG_EX_CHOICE,
-                        WIH_WRONG_EX_MATCH,
-                        WIH_READ_CLICKED,
-                        WIH_READ_NOT_CLICKED_IN_SENTENCE,
-                        TIMEDELTA
+    WIH_CORRECT_EX_RECOGNIZE,
+    WIH_CORRECT_EX_TRANSLATE,
+    WIH_CORRECT_EX_CHOICE,
+    WIH_CORRECT_EX_MATCH,
+    WIH_WRONG_EX_RECOGNIZE,
+    WIH_WRONG_EX_TRANSLATE,
+    WIH_WRONG_EX_CHOICE,
+    WIH_WRONG_EX_MATCH,
+    WIH_READ_CLICKED,
+    WIH_READ_NOT_CLICKED_IN_SENTENCE,
+    TIMEDELTA,
 )
 
 
 class WordInteractionEvent(object):
-
     def __init__(self, event_type: int, seconds_since_epoch):
         self.event_type = event_type
         self.seconds_since_epoch = seconds_since_epoch
@@ -38,39 +36,40 @@ class WordInteractionEvent(object):
         return (self.event_type, self.seconds_since_epoch)
 
     def __repr__(self):
-        return f"(WordInteractionEvent: {self.event_type} - {self.seconds_since_epoch}) "
+        return (
+            f"(WordInteractionEvent: {self.event_type} - {self.seconds_since_epoch}) "
+        )
 
     @staticmethod
     def encodeExerciseResult(exercise_outcome, exercise_source):
         """
-            Matches the exercise type and result to a WordHistoryEvent code
+        Matches the exercise type and result to a WordHistoryEvent code
 
-            returns: an integer representing the type of event
+        returns: an integer representing the type of event
         """
-        if exercise_outcome in [3,5]:#Correct
-            if exercise_source in [1,4]: #Recognize
+        if exercise_outcome in [3, 5]:  # Correct
+            if exercise_source in [1, 4]:  # Recognize
                 return WIH_CORRECT_EX_RECOGNIZE
-            elif exercise_source == 2: #Translate
+            elif exercise_source == 2:  # Translate
                 return WIH_CORRECT_EX_TRANSLATE
-            elif exercise_source in [3,5,7]: #Choice
+            elif exercise_source in [3, 5, 7]:  # Choice
                 return WIH_CORRECT_EX_CHOICE
-            elif exercise_source == 6:#Match three
+            elif exercise_source == 6:  # Match three
                 return WIH_CORRECT_EX_MATCH
-        elif exercise_outcome in [1,2,4]: #Wrong
-            if exercise_source in [1,4]: #Recognize
+        elif exercise_outcome in [1, 2, 4]:  # Wrong
+            if exercise_source in [1, 4]:  # Recognize
                 return WIH_WRONG_EX_RECOGNIZE
-            elif exercise_source == 2: #Translate
+            elif exercise_source == 2:  # Translate
                 return WIH_WRONG_EX_TRANSLATE
-            elif exercise_source in [3,5,7]: #Choice
+            elif exercise_source in [3, 5, 7]:  # Choice
                 return WIH_WRONG_EX_CHOICE
-            elif exercise_source == 6:#Match three
+            elif exercise_source == 6:  # Match three
                 return WIH_WRONG_EX_MATCH
-        
+
 
 class WordInteractionHistory(db.Model):
-    __table_args__ = dict(mysql_collate='utf8_bin')
-    __tablename__ = 'word_interaction_history'
-
+    __table_args__ = dict(mysql_collate="utf8_bin")
+    __tablename__ = "word_interaction_history"
 
     id = db.Column(Integer, primary_key=True)
 
@@ -92,14 +91,14 @@ class WordInteractionHistory(db.Model):
 
     db.UniqueConstraint(user_id, word_id)
 
-    def __init__(self, user:User, word: UserWord):
+    def __init__(self, user: User, word: UserWord):
         # never work with the self._interaction_history itself
         # always, work with the method interaction_history()
         self.user = user
         self.word = word
         self.interaction_history = []
 
-    def insert_event(self, event_type, timestamp, timedelta = TIMEDELTA):
+    def insert_event(self, event_type, timestamp, timedelta=TIMEDELTA):
         """
             inserts the event in the sorted list
 
@@ -122,27 +121,36 @@ class WordInteractionHistory(db.Model):
             return
 
         if len(self.interaction_history) == 0:
-            self.interaction_history.append(WordInteractionEvent(event_type, seconds_since_epoch))
+            self.interaction_history.append(
+                WordInteractionEvent(event_type, seconds_since_epoch)
+            )
 
         # change event if latest event was already recorded within the timedelta
-        elif self.interaction_history[-1].seconds_since_epoch + timedelta >= seconds_since_epoch and\
-                (event_type == WIH_READ_CLICKED or event_type == WIH_READ_NOT_CLICKED_IN_SENTENCE):
+        elif self.interaction_history[
+            -1
+        ].seconds_since_epoch + timedelta >= seconds_since_epoch and (
+            event_type == WIH_READ_CLICKED
+            or event_type == WIH_READ_NOT_CLICKED_IN_SENTENCE
+        ):
             self.interaction_history[-1].seconds_since_epoch = seconds_since_epoch
             if event_type == WIH_READ_CLICKED:
                 self.interaction_history[-1].event_type = event_type
 
         # append if less than 50 events recorded
         elif len(self.interaction_history) < MAX_EVENT_HISTORY_LENGTH:
-            self.interaction_history.append(WordInteractionEvent(event_type, seconds_since_epoch))
+            self.interaction_history.append(
+                WordInteractionEvent(event_type, seconds_since_epoch)
+            )
             self.interaction_history.sort(key=lambda x: x.seconds_since_epoch)
 
         # otherwise only insert if oldest event is older than new event
         elif seconds_since_epoch > self.interaction_history[0].seconds_since_epoch:
-            self.interaction_history[0] = WordInteractionEvent(event_type, seconds_since_epoch)
+            self.interaction_history[0] = WordInteractionEvent(
+                event_type, seconds_since_epoch
+            )
             self.interaction_history.sort(key=lambda x: x.seconds_since_epoch)
 
-
-    def add_event(self, event_type, timestamp, timedelta = TIMEDELTA):
+    def add_event(self, event_type, timestamp, timedelta=TIMEDELTA):
         """
             add a new event, no comparison or duplication check involved, use
             only if an original event is certain
@@ -155,36 +163,47 @@ class WordInteractionHistory(db.Model):
         # json can't serialize timestamps, so we simply
         seconds_since_epoch = int(timestamp.strftime("%s"))
 
-        self.interaction_history.insert(0, WordInteractionEvent(event_type, seconds_since_epoch))
+        self.interaction_history.insert(
+            0, WordInteractionEvent(event_type, seconds_since_epoch)
+        )
         self.interaction_history = self.interaction_history[0:MAX_EVENT_HISTORY_LENGTH]
 
         # change event if an event was already recorded within the timedelta
-        if self.interaction_history[-1].seconds_since_epoch + timedelta >= seconds_since_epoch:
+        if (
+            self.interaction_history[-1].seconds_since_epoch + timedelta
+            >= seconds_since_epoch
+        ):
             self.interaction_history[-1].seconds_since_epoch = seconds_since_epoch
             if event_type == WIH_READ_CLICKED:
                 self.interaction_history[-1].event_type = event_type
 
         # append if less than 50 events recorded
         elif len(self.interaction_history) < MAX_EVENT_HISTORY_LENGTH:
-            self.interaction_history.append(WordInteractionEvent(event_type, seconds_since_epoch))
+            self.interaction_history.append(
+                WordInteractionEvent(event_type, seconds_since_epoch)
+            )
 
         # append new event and pop oldest event
         else:
-            self.interaction_history.append(WordInteractionEvent(event_type, seconds_since_epoch))
+            self.interaction_history.append(
+                WordInteractionEvent(event_type, seconds_since_epoch)
+            )
             self.interaction_history.pop(0)
-
-
 
     def time_exists(self, timestamp):
         """
-            Verifies if a timestamp exists in the history events
+        Verifies if a timestamp exists in the history events
 
-            return: True or False
+        return: True or False
         """
         if platform == "win32":
-            return int(timestamp.timestamp()) in [ih.seconds_since_epoch for ih in self.interaction_history]
+            return int(timestamp.timestamp()) in [
+                ih.seconds_since_epoch for ih in self.interaction_history
+            ]
         else:
-            return int(timestamp.strftime("%s")) in [ih.seconds_since_epoch for ih in self.interaction_history]
+            return int(timestamp.strftime("%s")) in [
+                ih.seconds_since_epoch for ih in self.interaction_history
+            ]
 
     def reify_interaction_history(self):
         """
@@ -194,7 +213,9 @@ class WordInteractionHistory(db.Model):
         :return:
         """
         list_of_tuples = json.loads(self.interaction_history_json)
-        self.interaction_history = [WordInteractionEvent(pair[0], pair[1]) for pair in list_of_tuples]
+        self.interaction_history = [
+            WordInteractionEvent(pair[0], pair[1]) for pair in list_of_tuples
+        ]
 
     def save_to_db(self, db_session):
         """
@@ -202,8 +223,10 @@ class WordInteractionHistory(db.Model):
             after this the interaction_history_json will be the result of converting  interaction_history to json
         :return:
         """
-        #self.interaction_history_json = "None"
-        self.interaction_history_json = json.dumps([e.to_json() for e in self.interaction_history])
+        # self.interaction_history_json = "None"
+        self.interaction_history_json = json.dumps(
+            [e.to_json() for e in self.interaction_history]
+        )
         db_session.add(self)
         db_session.commit()
 
@@ -274,7 +297,12 @@ class WordInteractionHistory(db.Model):
         :return:
         """
 
-        histories = cls.query.join(UserWord).filter(cls.user == user).filter(UserWord.language == language).all()
+        histories = (
+            cls.query.join(UserWord)
+            .filter(cls.user == user)
+            .filter(UserWord.language == language)
+            .all()
+        )
         for history in histories:
             history.reify_interaction_history()
         return histories
