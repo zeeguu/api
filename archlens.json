@@ -1,0 +1,34 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Perlten/MT-diagrams/master/config.schema.json",
+    "name": "zeeguu",
+    "rootFolder": "zeeguu",
+    "github": {
+        "url": "https://github.com/JesperRusbjerg/api",
+        "branch": "master"
+    },
+    "saveLocation": "./diagrams/",
+    "views": {
+        "completeView": {
+            "packages": [],
+            "ignorePackages": []
+        },
+        "coreView": {
+            "packages": [
+                {
+                    "packagePath": "core",
+                    "depth": 1
+                }
+            ],
+            "ignorePackages": [
+                "*test*"
+            ]
+        },
+        "wordKnowledgeStrategieseView": {
+            "packages": [
+                "core.language",
+                "core.model.word_knowledge"
+            ],
+            "ignorePackages": []
+        }
+    }
+}
