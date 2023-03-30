@@ -2,6 +2,8 @@ instance
 .idea/
 .cache/
 
+.diagrams/
+
 *.pyc
 *.egg-info
 *~
