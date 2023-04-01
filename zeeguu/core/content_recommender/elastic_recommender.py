@@ -8,6 +8,7 @@
 """
 
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search, Q, SF
 
 from zeeguu.core.model import (
     Article,
@@ -227,6 +228,62 @@ def article_search_for_user(
     return [a for a in final_article_mix if a is not None and not a.broken]
 
 
+def topic_filter_for_user(user, 
+    count,
+    newer_than, 
+    media_type, 
+    max_duration, 
+    min_duration, 
+    difficulty_level,
+    topic):
+
+    es = Elasticsearch(ES_CONN_STRING)
+    
+    s=Search().query(Q("term", language=user.learned_language.code()))
+    
+    if newer_than:
+        s=s.filter("range", published_time={"gte": f"now-{newer_than}d/d"})
+
+
+    AVERAGE_WORDS_PER_MINUTE = 70
+
+    if max_duration:
+        s=s.filter("range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE})
+
+    if min_duration:
+        s=s.filter("range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE})
+
+    
+    if media_type:
+        if media_type == "video":
+            s=s.filter("term", video=1)
+        else: 
+            s=s.filter("term", video=0)
+
+    if topic != None and topic != "all":
+        s=s.filter("match", topics=topic.lower())
+    
+    if difficulty_level:
+        lower_bounds, upper_bounds = _difficuty_level_bounds()
+        s = s.filter("range", fk_difficulty={"gte": lower_bounds, 
+            "lte": upper_bounds})
+
+    query = s.query
+
+    query_with_size = {"size": count, 
+        "query":query.to_dict(),
+        "sort" : [{ "published_time" : "desc" }]}
+
+    res = es.search(index=ES_ZINDEX, body=query_with_size)
+
+    hit_list = res["hits"].get("hits")
+    
+
+    final_article_mix  = _to_articles_from_ES_hits(hit_list)
+
+    return [a for a in final_article_mix if a is not None and not a.broken]
+
+
 def _list_to_string(input_list):
     return " ".join([each for each in input_list]) or ""
 
@@ -236,3 +293,17 @@ def _to_articles_from_ES_hits(hits):
     for hit in hits:
         articles.append(Article.find_by_id(hit.get("_id")))
     return articles
+
+def _difficuty_level_bounds(level):
+
+    lower_bounds = 1
+    upper_bounds = 10
+
+    if level=="easy":
+        upper_bounds = 5
+    elif level == "challenging":
+        lower_bounds = 5
+    else: 
+        lower_bounds = 4
+        upper_bounds = 8
+    return lower_bounds, upper_bounds

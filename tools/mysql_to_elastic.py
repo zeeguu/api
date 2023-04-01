@@ -1,6 +1,6 @@
 # coding=utf-8
 import sqlalchemy as database
-from zeeguu.core.elastic.indexing import document_from_article
+from zeeguu.core.elastic.indexing import create_or_update, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core
@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from zeeguu.core.model import Article
 import sys
 from datetime import datetime
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 
@@ -18,43 +19,33 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 
-def main(starting_index, article_batch_size):
-    # fetch article_batch_size articles at a time, to avoid to much loaded into memory
+def main(starting_index):
 
     max_id = session.query(func.max(Article.id)).first()[0]
+    print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
-    print(f"starting import at: {max_id - starting_index}")
 
-    for i in range(starting_index, max_id, article_batch_size):
+    for i in range(starting_index, max_id):
 
-        print(f"processing a batch of: {article_batch_size} starting at: {i}")
-        for article in (
-            session.query(Article)
-            .order_by(Article.published_time.desc())
-            .limit(article_batch_size)
-            .offset(i)
-        ):
-            try:
-                doc = document_from_article(article, session)
-                res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
-                if article.id % 1000 == 0:
-                    print(res["result"] + " " + str(article.id))
-            except Exception as e:
-                print(f"something went wrong with article id {article.id}")
-                print(str(e))
+        try:
+            article = Article.find_by_id(i)
+            res = create_or_update(article, session)
+            print(res)
+        except NoResultFound:
+            print(f"fail for: {i}")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
 
     print(f"started at: {datetime.now()}")
     starting_index = 0
-    article_batch_size = 5000
+    
 
     if len(sys.argv) > 1:
         starting_index = int(sys.argv[1])
 
-    if len(sys.argv) > 2:
-        article_batch_size = int(sys.argv[2])
-
-    main(starting_index, article_batch_size)
+    main(starting_index)
     print(f"ended at: {datetime.now()}")

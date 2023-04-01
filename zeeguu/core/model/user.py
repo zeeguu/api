@@ -121,7 +121,7 @@ class User(db.Model):
             learned_language=self.learned_language.code,
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
-            is_student=self.cohort_id and self.cohort_id != 93,
+            is_student=self.cohort_id and self.cohort_id not in [ 93, 459],
         )
 
         for each in UserLanguage.query.filter_by(user=self):
