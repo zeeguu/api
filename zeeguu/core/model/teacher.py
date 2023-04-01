@@ -18,6 +18,7 @@ class Teacher(zeeguu.core.db.Model):
     def get_cohorts(self):
         return TeacherCohortMap.get_cohorts_for(self.user)
 
+    @classmethod
     def find_by_user(cls, user):
         return cls.query.filter_by(user_id=user.id).first()
 
