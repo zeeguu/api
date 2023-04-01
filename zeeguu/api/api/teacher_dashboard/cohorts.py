@@ -230,6 +230,13 @@ def add_colleague_to_cohort():
 
     colleague = User.find(colleague_email)
     cohort = Cohort.find(cohort_id)
+
+    try:
+        Teacher.find_by_user(colleague)
+    except sqlalchemy.orm.exc.NoResultFound:        
+        teacher = Teacher (colleague)
+        db.session.add(teacher)
+        
     db.session.add(TeacherCohortMap(colleague, cohort))
     db.session.commit()
 
