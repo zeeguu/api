@@ -6,7 +6,7 @@ from flask import request, jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
-from zeeguu.core.model import User, Cohort, Language, TeacherCohortMap, CohortArticleMap
+from zeeguu.core.model import User, Cohort, Language, TeacherCohortMap, CohortArticleMap, Teacher
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
@@ -236,7 +236,7 @@ def add_colleague_to_cohort():
     except sqlalchemy.orm.exc.NoResultFound:        
         teacher = Teacher (colleague)
         db.session.add(teacher)
-        
+
     db.session.add(TeacherCohortMap(colleague, cohort))
     db.session.commit()
 
