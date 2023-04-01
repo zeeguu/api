@@ -20,7 +20,7 @@ class Teacher(zeeguu.core.db.Model):
 
     @classmethod
     def exists(cls, user):
-        return len(cls.query.filter_by(user_id=user.id))>0
+        return len(cls.query.filter_by(user_id=user.id).all())>0
 
     @classmethod
     def from_user(cls, user):
