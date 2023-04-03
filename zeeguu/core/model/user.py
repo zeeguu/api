@@ -323,7 +323,7 @@ class User(db.Model):
         before_date=datetime.date.today() + datetime.timedelta(days=1),
         language_id=None,
     ):
-        from zeeguu.core.model.bookmark import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord
 
         query = zeeguu.core.db.session.query(Bookmark)
 
@@ -354,7 +354,7 @@ class User(db.Model):
         return (query.filter_by(user_id=self.id).order_by(Bookmark.time.desc())).all()
 
     def starred_bookmarks(self, count):
-        from zeeguu.core.model.bookmark import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord
 
         query = zeeguu.core.db.session.query(Bookmark)
         return (
@@ -367,7 +367,7 @@ class User(db.Model):
         )
 
     def learned_bookmarks(self, count=50):
-        from zeeguu.core.model.bookmark import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord
 
         query = zeeguu.core.db.session.query(Bookmark)
         learned = (
