@@ -70,6 +70,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         print(f"about to return {bookmark}")
     else:
 
+        # TODO: must remove theurl, and title - they are not used in the calling method. 
         translations = get_next_results(
             {
                 "from_lang_code": from_lang_code,
@@ -292,3 +293,38 @@ def contribute_translation(from_lang_code, to_lang_code):
     contribute_trans(data)
 
     return json_result(dict(bookmark_id=bookmark.id))
+
+
+
+@api.route("/basic_translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@with_session
+def basic_translate(from_lang_code, to_lang_code):
+    phrase = request.form["phrase"].strip(punctuation_extended)
+
+    query = TranslationQuery.for_word_occurrence(phrase, "", 1, 7)
+
+
+    translations = get_next_results(
+        {
+            "from_lang_code": from_lang_code,
+            "to_lang_code": to_lang_code,
+            "word": phrase,
+            "query": query,
+            "context": "",
+        },
+        number_of_results=1,
+    ).translations
+
+    best_guess = translations[0]["translation"]
+    likelihood = translations[0].pop("quality")
+    source = translations[0].pop("service_name")
+
+    return json_result(
+        {
+            "translation": best_guess,
+            "source": source,
+            "likelihood": likelihood,
+        }
+    )
+
