@@ -22,24 +22,33 @@ session = Session()
 def main(starting_index):
 
     max_id = session.query(func.max(Article.id)).first()[0]
+    min_id = session.query(func.min(Article.id)).first()[0]
     print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
 
-    for i in range(starting_index, max_id):
-
+    for i in range(max_id, min_id,-1):
+        print("article id...")
+        print(i)
         try:
             article = Article.find_by_id(i)
-            res = create_or_update(article, session)
-            print(res)
+            if article:
+                print(article.title)
+                print(article.id)
+                res = create_or_update(article, session)
+                print(res)
         except NoResultFound:
             print(f"fail for: {i}")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        except:
+            print("fail for " + str(i))
+            # import traceback
+            # traceback.print_exc()
 
 
 if __name__ == "__main__":
 
+
+    print("waiting for the ES process to boot up")
+  
     print(f"started at: {datetime.now()}")
     starting_index = 0
     

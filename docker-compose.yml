@@ -14,6 +14,26 @@ services:
     entrypoint: "python /Zeeguu-API/dev.py"
     networks:
       - zeeguu_backend
+    depends_on:
+      - elasticsearch
+
+
+  elasticsearch:
+    image: elasticsearch:7.6.2
+    platform: linux/amd64
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - discovery.type=single-node
+      - network.host=0.0.0.0 # is this still needed? 
+    volumes:
+      - /Users/gh/zeeguu/api/dev_data_folder/elasticsearch_db/data:/usr/share/elasticsearch/data
+    networks:
+      - zeeguu_backend
+    restart: unless-stopped
+
+
 
   dev_play:
     image: zeeguu_api_dev
@@ -54,6 +74,23 @@ services:
     entrypoint: "./run_tests.sh"
     networks:
       - zeeguu_backend
+
+  dev_init_es:
+    image: zeeguu_api_dev
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+      ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
+
+    volumes:
+      - .:/Zeeguu-API
+      - /tmp:/zeeguu-data
+      - /Users:/userslalal
+    entrypoint: "python tools/mysql_to_elastic.py"
+    networks:
+      - zeeguu_backend
+    depends_on:
+      - elasticsearch
+
 
 networks:
   zeeguu_backend:

@@ -1,5 +1,6 @@
 {
   "hiddenFiles": [
-    "api/zeeguu/core/test/test_data"
+    "api/zeeguu/core/test/test_data",
+    "api/zeeguu/core/content_retriever"
   ]
 }

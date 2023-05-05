@@ -64,7 +64,7 @@ def is_the_article_referenced(article, print_reference_info):
     return referenced
 
 
-def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
+def delete_articles_older_than(DAYS, print_progress_for_every_article=False, delete_from_ES=True):
     print(f"Finding articles older than {DAYS} days...")
     all_articles = Article.all_older_than(days=DAYS)
     print(f" ... article count: {len(all_articles)}")
@@ -96,7 +96,8 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False):
 
             from zeeguu.core.elastic.indexing import remove_from_index
 
-            remove_from_index(each)
+            if delete_from_ES:
+                remove_from_index(each)
 
             if i % BATCH_COMMIT_SIZE == 0:
                 print(
@@ -128,4 +129,4 @@ if __name__ == "__main__":
         )
         exit(-1)
 
-    delete_articles_older_than(DAYS, print_progress_for_every_article=False)
+    delete_articles_older_than(DAYS, print_progress_for_every_article=False, delete_from_ES=False)
