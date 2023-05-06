@@ -1,4 +1,5 @@
 instance
+dev_data_folder*
 .idea/
 .cache/
 
