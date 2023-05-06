@@ -5,6 +5,8 @@ services:
     image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+      ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
+      PYTHONUNBUFFERED: 1
 
     ports:
       - 9001:9001
