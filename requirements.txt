@@ -1,18 +1,18 @@
 beautifulsoup4
-markupsafe==2.0.1 # added this because of this stupid breaking change with minor version bump: https://github.com/pallets/markupsafe/issues/284
+markupsafe # added this because of this stupid breaking change with minor version bump: https://github.com/pallets/markupsafe/issues/284
 blinker
 deprecated
 elasticsearch==7.17.3
 Faker
 feedparser
-flask
+flask==2.3.2
 Flask-Assets
 flask_cors
 flask_sqlalchemy
 git+https://github.com/zeeguu-ecosystem/apimux.git@master#egg=apimux
 git+https://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
 jieba3k
-jinja2==2.11.3
+jinja2
 langdetect
 lxml
 mysqlclient
@@ -37,3 +37,7 @@ protobuf
 elasticsearch_dsl
 wheel
 pytest
+# added with Tiago
+spacy==3.5.2
+rapidfuzz==3.0.0
+scipy==1.10.1
