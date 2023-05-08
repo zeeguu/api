@@ -3,6 +3,7 @@ from zeeguu.core.configuration.configuration import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask
 import flask
+import time
 
 # apimux is quite noisy; supress it's output
 import logging
@@ -73,3 +74,11 @@ try:
     machine_specific_config(app)
 except ModuleNotFoundError as e:
     print("no machine specific code found")
+
+
+start = time.time()
+
+from zeeguu.core.nlp_pipeline import SpacyWrappers
+
+end = time.time()
+print("Loaded the spacy models in " + str(end - start) + " seconds")

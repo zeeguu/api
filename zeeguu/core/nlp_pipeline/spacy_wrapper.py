@@ -81,9 +81,3 @@ class SpacyWrapper:
     def get_sent_list(self, lines):
         # Get tokenized sentences from spaCy.
         return [str(sent).strip() for sent in self.spacy_pipe(lines).sents]
-
-
-# Initialize the models, use the WV.
-SPACY_EN_MODEL = SpacyWrapper("english", False, True)
-SPACY_DK_MODEL = SpacyWrapper("danish", False, True)
-SPACY_DE_MODEL = SpacyWrapper("german", False, True)
