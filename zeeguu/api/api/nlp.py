@@ -14,8 +14,11 @@ from zeeguu.core.nlp_pipeline import SpacyWrappers
 def do_some_spacy():
 
     phrase = request.form.get("phrase", "")
+    language = request.form.get("language")
 
-    tokens = SpacyWrappers["en"].tokenize_sentence(phrase)
-    print(tokens)
+    if language not in SpacyWrappers.keys():
+        return "Language not supported"
+
+    tokens = SpacyWrappers[language].tokenize_sentence(phrase)
 
     return json_result(tokens)
