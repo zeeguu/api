@@ -1,8 +1,8 @@
 import numpy as np
 import heapq
-from spacy_wrapper import SpacyWrapper
-from confusion_set import LEMMA_CONFUSION_SET
-from automatic_gec_tagging import DICTIONARY_UD_MAP
+from .spacy_wrapper import SpacyWrapper
+from .confusion_set import LEMMA_CONFUSION_SET
+from .automatic_gec_tagging import DICTIONARY_UD_MAP
 
 NOISE_PROBABILITIES_DEFAULT = {
     "PREP": 0.1,
@@ -51,7 +51,22 @@ class NoiseGenerator():
         # Use lower to avoid casing comparisons
         return s1.lower() == s2.lower()
     
-    def _conf_generate_confusion_words(self, sentence, number_of_words, verbose):
+    def _get_random_word(self, student_words, number_of_words):
+        """
+            Returns confusion words, however, it prioritizes taking words
+            from the student word list before random words from corpora.
+        """
+        random_confusion_words = []
+        if len(student_words) > number_of_words:
+            random_confusion_words = list(np.random.choice(number_of_words, 2, replace=False))
+        else:
+            random_confusion_words = student_words
+        if len(random_confusion_words) < number_of_words:
+            random_confusion_words += list(np.random.choice(self.word_confusion_set, number_of_words-len(random_confusion_words), replace=False))
+
+        return random_confusion_words 
+    
+    def _conf_generate_confusion_words(self, sentence, number_of_words, student_words, verbose):
         og_split_sentence = self.spacy_pipe(sentence)
         # Get the probabilities 
         d_pos_map = dict()
@@ -75,9 +90,8 @@ class NoiseGenerator():
             random_word = np.random.choice(len(og_split_sentence))
             random_word_pos = og_split_sentence[random_word].pos_
             pos_pick = DICTIONARY_UD_MAP.get(random_word_pos,random_word_pos)
-            confusion_set = np.random.choice(self.word_confusion_set, number_of_words)
+            confusion_set = self._get_random_word(student_words, number_of_words)
             return list(confusion_set), pos_pick, random_word
-        
         else: 
             pos_pick = np.random.choice(pos_avl, p=pos_probs)
             id_to_add = np.random.choice(d_pos_map[pos_pick])
@@ -121,8 +135,8 @@ class NoiseGenerator():
 
         return list(confusion_set), pos_pick, id_to_add
     
-    def generate_confusion_words(self, sentence, number_of_words=2, verbose=False):
-        return self._conf_generate_confusion_words(sentence, number_of_words, verbose)
+    def generate_confusion_words(self, sentence, number_of_words=2, student_words=[], verbose=False):
+        return self._conf_generate_confusion_words(sentence, number_of_words, student_words, verbose)
   
     def replace_sent_with_noise(self, sentence, number_of_mistakes=1, number_of_words=2, verbose=False):
         id_used = dict()

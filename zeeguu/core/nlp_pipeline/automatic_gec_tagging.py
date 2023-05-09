@@ -1,9 +1,9 @@
-from alignment_errant import ERRANT_Alignment
+from .alignment_errant import ERRANT_Alignment
 import regex as re
 import numpy as np
 import json
 from rapidfuzz.fuzz import ratio
-from spacy_wrapper import SpacyWrapper
+from .spacy_wrapper import SpacyWrapper
 
 """
 ERRANT: Adaptation for general spaCy pipeline.
@@ -384,8 +384,8 @@ class AutoGECTagging():
                 if op_list[1] == "WO": return np.random.choice(FEEDBACK_DICT["R-WO"])
                 if pos_is_correct: return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS-CORRECT"]) + related_words_feedback
                 return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS"]) + related_words_feedback
-                
-        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list])
+        
+        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list]) 
         annotated_errors = self.generate_labels(sentence_to_correct, original_sentence, include_o_start_end=True, return_tokens=True,
                                                 return_err_pos=True, return_corr_pos=True, return_corrections=True, return_alignment=True)
         err = annotated_errors["return_tokens"][0]

@@ -1,7 +1,7 @@
 from itertools import groupby
 from rapidfuzz.distance import Indel
 import spacy.parts_of_speech as POS
-from edit_errant import Edit
+from .edit_errant import Edit
 
 """
 Code from https://github.com/chrisjbryant/errant/blob/master/errant/alignment.py

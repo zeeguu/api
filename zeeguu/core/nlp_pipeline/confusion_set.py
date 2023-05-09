@@ -4,7 +4,7 @@ import copy
 import os
 import json
 import pickle
-from spacy_wrapper import SpacyWrapper
+from .spacy_wrapper import SpacyWrapper
 from scipy.special import softmax
 import string
 
@@ -48,8 +48,6 @@ class ConfusionSet():
         self.unnecessary_POS = unnecessary_POS
         self.spacy_wrapper = spacy_wrapper
         self.nlp = self.spacy_wrapper.spacy_pipe
-        if self.spacy_wrapper.language != self.language:
-            print("WARNING: Language of spaCy pipe is different than confusion language.")
         self.filter_sentence_size = filter_sentence_size
         self.min_sent_size = min_sent_size
         self.max_sent_size = max_sent_size
@@ -263,7 +261,7 @@ class ConfusionSet():
                 pickle.dump(self, f)
     
     def load_confusionset_state(self, filepath):
-        assert ".json" in filepath or ".pkl" in filepath, f"Unsupported file extension."
+        assert ".json" in filepath or ".pkl" in filepath, f"Unsupported file extension. Found: '{filepath}'"
         if ".json" in filepath:
             json_state = dict()
             json_count = dict()
@@ -280,7 +278,6 @@ class ConfusionSet():
                 json_pos = json.load(f)
 
             self.language = json_state["language"]
-            self.spacy_wrapper = SpacyWrapper(self.language, False, True)
             self.unnecessary_POS = set(json_state["unnecessary_POS"])
             self.filter_sentence_size = json_state["filter_sentence_size"]
             self.min_sent_size = json_state["min_sent_size"]
