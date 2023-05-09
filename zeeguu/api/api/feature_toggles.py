@@ -39,8 +39,12 @@ def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
         "extension_experiment_1": _extension_experiment_1,
-        "no_audio_exercises": _no_audio_exercises
+        "no_audio_exercises": _no_audio_exercises,
+        "tiago_exercises": _tiago_exercises
     }
+
+def _tiago_exercises(user):
+    return user.invitation_code == "Tiago"
 
 def _no_audio_exercises(user):
     return user.cohort and user.cohort.id == 447
