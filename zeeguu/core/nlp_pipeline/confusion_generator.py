@@ -132,8 +132,13 @@ class NoiseGenerator():
                 word_to_add = heapq.heappop(heap)[1]
                 if word_to_add.lower() not in confusion_set:
                     confusion_set.append(word_to_add)
-
-        return list(confusion_set), pos_pick, id_to_add
+        
+        result = {
+            "confusion_words": list(confusion_set),
+            "pos_picked" : pos_pick,
+            "word_position" : str(t_confusion)
+        }
+        return result
     
     def generate_confusion_words(self, sentence, number_of_words=2, student_words=[], verbose=False):
         return self._conf_generate_confusion_words(sentence, number_of_words, student_words, verbose)

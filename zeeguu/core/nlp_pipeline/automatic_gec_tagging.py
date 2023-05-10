@@ -6,9 +6,12 @@ from rapidfuzz.fuzz import ratio
 from .spacy_wrapper import SpacyWrapper
 
 """
-ERRANT: Adaptation for general spaCy pipeline.
 
-Use the same labels:
+Automatic GEC (Grammatical Error Correction) Tagging
+
+Based on the ERRANT methodology, and using the alignment that ERRANT uses.
+
+The labels are inspired by those used in ERRANT as well:
 - M: Missing
 - U: Unnecessary
 - R: Replacement
@@ -493,7 +496,9 @@ class AutoGECTagging():
             if s_err != s_end and s_err != 0: wProps["correction"] = " ".join(annotated_errors["corrections"][s_err:s_end])
             else: wProps["correction"] = annotated_errors["corrections"][max(0, s_err-1)] # Avoid -1 (if s_err == 0)
             wProps["isCorrect"] = False
-            wProps["status"] = "incorrect"
+            # Only mark incorrect if not missing.
+            if operation[:2] != "M:":
+                wProps["status"] = "incorrect"
 
         return word_dictionary_list
             

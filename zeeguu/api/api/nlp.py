@@ -37,7 +37,7 @@ def create_confusion_words():
     if language not in SpacyWrappers.keys():
         return "Language not supported"
     
-    noise_words = NoiseWordsGenerator[language].generate_confusion_words(original_sent)[0]
+    noise_words = NoiseWordsGenerator[language].generate_confusion_words(original_sent)["confusion_words"]
     return json_result(noise_words)
 
 # ---------------------------------------------------------------------------
