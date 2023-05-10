@@ -44,7 +44,7 @@ def _feature_map():
     }
 
 def _tiago_exercises(user):
-    return user.invitation_code == "Tiago"
+    return user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
 
 def _no_audio_exercises(user):
     return user.cohort and user.cohort.id == 447
