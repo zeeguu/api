@@ -1,7 +1,8 @@
 from .spacy_wrapper import SpacyWrapper
 from .confusion_generator import NoiseGenerator
 from .automatic_gec_tagging import AutoGECTagging
-from .confusion_set import ConfusionSet
+import confusionwords
+from confusionwords import ConfusionSets
 from os.path import join
 import json
 
@@ -12,21 +13,13 @@ SPACY_DE_MODEL = SpacyWrapper("german", False, True)
 
 SpacyWrappers = {"en": SPACY_EN_MODEL, "da": SPACY_DK_MODEL, "de": SPACY_DE_MODEL}
 
-# Initialize the Different components
-confusion_set_dk = {}
-with open(join("pos_dictionaries", "dk_pos_dict_w_prob_filter_f1.json"), "r") as f:
-    confusion_set_dk = json.load(f)
-
-ConfusionSets = {
-    "da": ConfusionSet(SPACY_DK_MODEL, "danish")
-}
 NoiseWordsGenerator = {
-    "da": NoiseGenerator(SPACY_DK_MODEL, "danish")
+    "da": NoiseGenerator(SPACY_DK_MODEL, "danish", 
+                         confusionwords.ConfusionSets["da"].get_lemma_set(), 
+                         confusionwords.ConfusionSets["da"].get_filter_dictionary(),
+                         confusionwords.ConfusionSets["da"].word_list)
 }
 AutoGECTagger = {
     "da": AutoGECTagging(SPACY_DK_MODEL, "danish")
 }
 
-ConfusionSets["da"].load_confusionset_state(join("pos_dictionaries", "dk_small_sub_sample.json"))
-NoiseWordsGenerator["da"].pos_confusion_set = ConfusionSets["da"].pos_dictionary
-NoiseWordsGenerator["da"].word_confusion_set = ConfusionSets["da"].word_list

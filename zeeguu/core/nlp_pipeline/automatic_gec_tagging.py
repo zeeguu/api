@@ -339,9 +339,7 @@ class AutoGECTagging():
             pos_is_correct = op_list[1] == err_pos
             related_words_feedback = "" if related_words is None else f" It might relate to '{','.join(related_words)}'."
 
-            print(err_pos)
             article = "a" if err_pos[0].lower() not in "aeiou" else "an"
-            print(article)
 
             FEEDBACK_DICT = {
                 "U":[f"'{word}' is not necessary in this context.", 
@@ -497,8 +495,7 @@ class AutoGECTagging():
             else: wProps["correction"] = annotated_errors["corrections"][max(0, s_err-1)] # Avoid -1 (if s_err == 0)
             wProps["isCorrect"] = False
             # Only mark incorrect if not missing.
-            if operation[:2] != "M:":
-                wProps["status"] = "incorrect"
+            wProps["status"] = "incorrect" if operation[:2] != "M:" else ""
 
         return word_dictionary_list
             

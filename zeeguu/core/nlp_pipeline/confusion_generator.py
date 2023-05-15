@@ -1,7 +1,6 @@
 import numpy as np
 import heapq
 from .spacy_wrapper import SpacyWrapper
-from .confusion_set import LEMMA_CONFUSION_SET
 from .automatic_gec_tagging import DICTIONARY_UD_MAP
 
 NOISE_PROBABILITIES_DEFAULT = {
@@ -20,7 +19,8 @@ MAP_NOISE_PROB = {k:i for i, k in enumerate(NOISE_PROBABILITIES_DEFAULT.keys())}
 POS_ARRAY = np.array(list(NOISE_PROBABILITIES_DEFAULT.keys()))
 
 class NoiseGenerator():
-    def __init__(self, spacy_wrapper:SpacyWrapper, language:str, pos_confusion_set=None, word_confusion_set=None,
+    def __init__(self, spacy_wrapper:SpacyWrapper, language:str, lemma_set:set, 
+                 pos_confusion_set=None, word_confusion_set=None,
                  noise_probabilities=NOISE_PROBABILITIES_DEFAULT):
         """
             pos_confusion_set = Dictionary generated from confusion_set.pos_dictionary
@@ -28,6 +28,7 @@ class NoiseGenerator():
             noise_probabilities = Uses the default defined, but it could be tuned to students based on the feedback.
         """
         self.language = language
+        self.lemma_set = lemma_set
         self.spacy_pipe = spacy_wrapper.spacy_pipe
         self.pos_confusion_set = pos_confusion_set
         self.word_confusion_set = word_confusion_set
@@ -103,7 +104,7 @@ class NoiseGenerator():
         t_confusion = og_split_sentence[id_to_add]
         if verbose: print(f"WORD picked: '{t_confusion}'")
         pos_pick = t_confusion.pos_
-        if pos_pick in LEMMA_CONFUSION_SET:
+        if pos_pick in self.lemma_set:
             confusion_set = self.pos_confusion_set.get(pos_pick).get(t_confusion.lemma_, [])
             confusion_set = [conf_word for conf_word in confusion_set if not self._compare_string(conf_word, str(t_confusion))]
             if verbose: print(f"Confusion set: '{confusion_set}', in while.")

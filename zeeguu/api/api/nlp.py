@@ -4,7 +4,7 @@ from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from flask import request
 
-from zeeguu.core.nlp_pipeline import SpacyWrappers, ConfusionSets, NoiseWordsGenerator
+from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
 from zeeguu.core.nlp_pipeline import AutoGECTagging
 
 # ---------------------------------------------------------------------------
@@ -37,6 +37,7 @@ def create_confusion_words():
     if language not in SpacyWrappers.keys():
         return "Language not supported"
     
+    # We should pass the student bookmark words as a fallback when no words are found.
     noise_words = NoiseWordsGenerator[language].generate_confusion_words(original_sent)["confusion_words"]
     return json_result(noise_words)
 
