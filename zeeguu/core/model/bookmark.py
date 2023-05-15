@@ -160,7 +160,7 @@ class Bookmark(db.Model):
         new_source = ExerciseSource.find_or_create(db_session, exercise_source)
         new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
-        if other_feedback:
+        if len(other_feedback)>0:
             new_outcome = ExerciseOutcome.find_or_create(db_session, ExerciseOutcome.OTHER_FEEDBACK)
 
         exercise = self.add_new_exercise_result(
