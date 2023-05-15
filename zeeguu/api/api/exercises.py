@@ -9,6 +9,7 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
 from . import api, db_session
+from flask import request
 
 
 @api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
@@ -51,13 +52,11 @@ def get_exercise_log_for_bookmark(bookmark_id):
 
 
 @api.route(
-    "/report_exercise_outcome/<exercise_outcome>/<exercise_source>/<exercise_solving_speed>/<bookmark_id>",
+    "/report_exercise_outcome",
     methods=["POST"],
 )
 @with_session
-def report_exercise_outcome(
-    exercise_outcome, exercise_source, exercise_solving_speed, bookmark_id
-):
+def report_exercise_outcome():
     """
     In the model parlance, an exercise is an entry in a table that
     logs the performance of an exercise. Every such performance, has a source, and an outcome.
@@ -69,15 +68,20 @@ def report_exercise_outcome(
     :return:
     """
 
-    if not exercise_solving_speed.isdigit():
-        exercise_solving_speed = 0
+    outcome = request.form.get("outcome", "")
+    source = request.form.get("source")
+    solving_speed = request.form.get("solving_speed")
+    bookmark_id = request.form.get("bookmark_id")
+    other_feedback = request.form.get("other_feedback")
+
+    if not solving_speed.isdigit():
+        solving_speed = 0
 
     try:
         bookmark = Bookmark.find(bookmark_id)
         bookmark.report_exercise_outcome(
-            exercise_source, exercise_outcome, exercise_solving_speed, db_session
+            source, outcome, solving_speed, other_feedback, db_session
         )
-        print(exercise_outcome)
 
         return "OK"
     except:

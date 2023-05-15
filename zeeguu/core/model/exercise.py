@@ -19,12 +19,14 @@ class Exercise(db.Model):
     source = db.relationship(ExerciseSource)
     solving_speed = db.Column(db.Integer)
     time = db.Column(db.DateTime, nullable=False)
+    feedback = db.Column(db.String(255))
 
-    def __init__(self, outcome, source, solving_speed, time):
+    def __init__(self, outcome, source, solving_speed, time, feedback=""):
         self.outcome = outcome
         self.source = source
         self.solving_speed = solving_speed
         self.time = time
+        self.feedback = feedback
 
     def short_string_summary(self):
         return str(self.source.id) + self.outcome.outcome[0]

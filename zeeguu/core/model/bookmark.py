@@ -134,10 +134,11 @@ class Bookmark(db.Model):
         exercise_source: ExerciseSource,
         exercise_outcome: ExerciseOutcome,
         exercise_solving_speed,
+        other_feedback
     ):
 
         exercise = Exercise(
-            exercise_outcome, exercise_source, exercise_solving_speed, datetime.now()
+            exercise_outcome, exercise_source, exercise_solving_speed, datetime.now(), other_feedback
         )
 
         self.add_new_exercise(exercise)
@@ -150,6 +151,7 @@ class Bookmark(db.Model):
         exercise_source: str,
         exercise_outcome: str,
         exercise_solving_speed,
+        other_feedback,
         db_session,
     ):
 
@@ -158,8 +160,11 @@ class Bookmark(db.Model):
         new_source = ExerciseSource.find_or_create(db_session, exercise_source)
         new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
+        if other_feedback:
+            new_outcome = ExerciseOutcome.find_or_create(db_session, ExerciseOutcome.OTHER_FEEDBACK)
+
         exercise = self.add_new_exercise_result(
-            new_source, new_outcome, exercise_solving_speed
+            new_source, new_outcome, exercise_solving_speed, other_feedback
         )
         db_session.add(exercise)
         db_session.commit()
