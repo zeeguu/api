@@ -134,7 +134,7 @@ class Bookmark(db.Model):
         exercise_source: ExerciseSource,
         exercise_outcome: ExerciseOutcome,
         exercise_solving_speed,
-        other_feedback
+        other_feedback=""
     ):
 
         exercise = Exercise(
