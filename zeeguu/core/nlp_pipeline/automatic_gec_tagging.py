@@ -1,14 +1,17 @@
-from alignment_errant import ERRANT_Alignment
+from .alignment_errant import ERRANT_Alignment
 import regex as re
 import numpy as np
 import json
 from rapidfuzz.fuzz import ratio
-from spacy_wrapper import SpacyWrapper
+from .spacy_wrapper import SpacyWrapper
 
 """
-ERRANT: Adaptation for general spaCy pipeline.
 
-Use the same labels:
+Automatic GEC (Grammatical Error Correction) Tagging
+
+Based on the ERRANT methodology, and using the alignment that ERRANT uses.
+
+The labels are inspired by those used in ERRANT as well:
 - M: Missing
 - U: Unnecessary
 - R: Replacement
@@ -336,9 +339,7 @@ class AutoGECTagging():
             pos_is_correct = op_list[1] == err_pos
             related_words_feedback = "" if related_words is None else f" It might relate to '{','.join(related_words)}'."
 
-            print(err_pos)
             article = "a" if err_pos[0].lower() not in "aeiou" else "an"
-            print(article)
 
             FEEDBACK_DICT = {
                 "U":[f"'{word}' is not necessary in this context.", 
@@ -384,8 +385,8 @@ class AutoGECTagging():
                 if op_list[1] == "WO": return np.random.choice(FEEDBACK_DICT["R-WO"])
                 if pos_is_correct: return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS-CORRECT"]) + related_words_feedback
                 return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS"]) + related_words_feedback
-                
-        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list])
+        
+        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list]) 
         annotated_errors = self.generate_labels(sentence_to_correct, original_sentence, include_o_start_end=True, return_tokens=True,
                                                 return_err_pos=True, return_corr_pos=True, return_corrections=True, return_alignment=True)
         err = annotated_errors["return_tokens"][0]
@@ -493,7 +494,8 @@ class AutoGECTagging():
             if s_err != s_end and s_err != 0: wProps["correction"] = " ".join(annotated_errors["corrections"][s_err:s_end])
             else: wProps["correction"] = annotated_errors["corrections"][max(0, s_err-1)] # Avoid -1 (if s_err == 0)
             wProps["isCorrect"] = False
-            wProps["status"] = "incorrect"
+            # Only mark incorrect if not missing.
+            wProps["status"] = "incorrect" if operation[:2] != "M:" else ""
 
         return word_dictionary_list
             

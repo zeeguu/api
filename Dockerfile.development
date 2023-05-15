@@ -22,7 +22,6 @@ RUN apt-get install -y mysql\*
 #   https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
 RUN apt-get install -y default-libmysqlclient-dev
 
-
 # Zeeguu-Api
 # ----------
 
@@ -52,6 +51,3 @@ RUN ./install_spacy_models.sh
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data 
-
-
-
