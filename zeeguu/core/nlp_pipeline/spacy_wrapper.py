@@ -81,3 +81,6 @@ class SpacyWrapper:
     def get_sent_list(self, lines):
         # Get tokenized sentences from spaCy.
         return [str(sent).strip() for sent in self.spacy_pipe(lines).sents]
+    
+    def get_sent_similarity(self, sentence_a, sentence_b):
+        return self.spacy_pipe(sentence_a).similarity(self.spacy_pipe(sentence_b))

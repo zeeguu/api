@@ -7,6 +7,7 @@ from flask import request
 from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
 from zeeguu.core.nlp_pipeline import AutoGECTagging
 
+import heapq
 # ---------------------------------------------------------------------------
 @api.route("/do_some_spacy", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ def create_confusion_words():
         return "Language not supported"
     
     # We should pass the student bookmark words as a fallback when no words are found.
-    noise_words = NoiseWordsGenerator[language].generate_confusion_words(original_sent)["confusion_words"]
+    noise_words = NoiseWordsGenerator[language].generate_confusion_words(original_sent)
     return json_result(noise_words)
 
 # ---------------------------------------------------------------------------
@@ -58,3 +59,28 @@ def annotate_clues():
 
     return json_result(updated_words)
 
+# ---------------------------------------------------------------------------
+@api.route("/get_sentences_for_wo", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def get_sentences_for_wo():
+    article_text = request.form.get("article_text", "")
+    bookmark_context = request.form.get("bookmark_context", "")
+    language = request.form.get("language")
+
+    if language not in SpacyWrappers.keys():
+        return "Language not supported"
+    
+    nlp_pipe = SpacyWrappers[language]
+    sentences = nlp_pipe.get_sent_list(article_text)
+    filtered_sentences = [sent for sent in sentences if len(nlp_pipe.tokenize_sentence(sent)) <= 15]
+    
+    context_doc = nlp_pipe.spacy_pipe(bookmark_context)
+    heap = []
+    for f_sent in filtered_sentences:
+        sent_doc = nlp_pipe.spacy_pipe(f_sent)
+        heapq.heappush(heap, (-context_doc.similarity(sent_doc), f_sent))
+
+    _, most_similar_sent = heap.pop()
+    return json_result(heap)
