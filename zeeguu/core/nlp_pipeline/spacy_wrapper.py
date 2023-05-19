@@ -78,6 +78,9 @@ class SpacyWrapper:
         # Get tokens from spaCy.
         return [str(token) for token in self.spacy_pipe(sentence)]
 
+    def get_doc(self, sentence):
+        return self.spacy_pipe(sentence)
+
     def get_sent_list(self, lines):
         # Get tokenized sentences from spaCy.
         return [str(sent).strip() for sent in self.spacy_pipe(lines).sents]

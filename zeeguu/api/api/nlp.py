@@ -74,13 +74,20 @@ def get_sentences_for_wo():
     
     nlp_pipe = SpacyWrappers[language]
     sentences = nlp_pipe.get_sent_list(article_text)
-    filtered_sentences = [sent for sent in sentences if len(nlp_pipe.tokenize_sentence(sent)) <= 15]
+    short_sentences_in_article = [sent for sent in sentences if len(nlp_pipe.tokenize_sentence(sent)) <= 15]
     
-    context_doc = nlp_pipe.spacy_pipe(bookmark_context)
+    context_doc = nlp_pipe.get_doc(bookmark_context)
     heap = []
-    for f_sent in filtered_sentences:
-        sent_doc = nlp_pipe.spacy_pipe(f_sent)
-        heapq.heappush(heap, (-context_doc.similarity(sent_doc), f_sent))
+    for f_sent in short_sentences_in_article:
+        sent_doc = nlp_pipe.get_doc(f_sent)
+        heapq.heappush(heap, (context_doc.similarity(sent_doc), f_sent))
 
-    _, most_similar_sent = heap.pop()
-    return json_result(heap)
+    most_similar_sent = heapq.nlargest(1, heap)[0][1]
+    top_10_results = heapq.nlargest(10, heap)
+
+    result_json = {
+        "top_1_sent": most_similar_sent,
+        "top_10_sents_w_sim": top_10_results
+    }
+
+    return json_result(result_json)
