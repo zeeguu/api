@@ -332,14 +332,14 @@ class AutoGECTagging():
             op_list = op.split(":")
             # Allow for feedback dict to be prepared.
             while len(op_list) < 3: op_list.append("")
-
             pos_feedback = UD_TO_WORD_CLASS.get(op_list[1],"")
             morph_feedback = UD_TO_WORD_CLASS.get(op_list[2],"")
             
             pos_is_correct = op_list[1] == err_pos
             related_words_feedback = "" if related_words is None else f" It might relate to '{','.join(related_words)}'."
-
-            article = "a" if err_pos[0].lower() not in "aeiou" else "an"
+            article = "a"
+            if len(pos_feedback) > 0:
+                article = "an" if pos_feedback[0] in "aeiou" else "a"
 
             FEEDBACK_DICT = {
                 "U":[f"'{word}' is not necessary in this context.", 

@@ -137,7 +137,7 @@ class NoiseGenerator():
         result = {
             "confusion_words": list(confusion_set),
             "pos_picked" : pos_pick,
-            "word_position" : str(t_confusion)
+            "word_used" : str(t_confusion)
         }
         return result
     
