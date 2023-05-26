@@ -5,9 +5,9 @@ from .utils.json_result import json_result
 from flask import request
 
 from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
-from zeeguu.core.nlp_pipeline import AutoGECTagging
+from zeeguu.core.nlp_pipeline import AutoGECTagging, ContextReducer
 
-import heapq
+import numpy as np
 # ---------------------------------------------------------------------------
 @api.route("/do_some_spacy", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -73,21 +73,28 @@ def get_sentences_for_wo():
         return "Language not supported"
     
     nlp_pipe = SpacyWrappers[language]
-    sentences = nlp_pipe.get_sent_list(article_text)
-    short_sentences_in_article = [sent for sent in sentences if len(nlp_pipe.tokenize_sentence(sent)) <= 15]
-    
-    context_doc = nlp_pipe.get_doc(bookmark_context)
-    heap = []
-    for f_sent in short_sentences_in_article:
-        sent_doc = nlp_pipe.get_doc(f_sent)
-        heapq.heappush(heap, (context_doc.similarity(sent_doc), f_sent))
 
-    most_similar_sent = heapq.nlargest(1, heap)[0][1]
-    top_10_results = heapq.nlargest(10, heap)
-
-    result_json = {
-        "top_1_sent": most_similar_sent,
-        "top_10_sents_w_sim": top_10_results
-    }
+    result_json = ContextReducer.get_similar_sentences(nlp_pipe, article_text, bookmark_context)
 
     return json_result(result_json)
+
+# ---------------------------------------------------------------------------
+@api.route("/get_smaller_context", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def get_smaller_context():
+    bookmark_context = request.form.get("bookmark_context", "")
+    bookmark_word = request.form.get("bookmark_word", "")
+    language = request.form.get("language")
+    max_context = float(request.form.get("max_context_len"))
+
+    if language not in SpacyWrappers.keys():
+        return "Language not supported"
+    
+    nlp_pipe = SpacyWrappers[language]
+    new_context_max_len = np.max([10, max_context])
+    shorter_context = ContextReducer.reduce_context_for_bookmark(nlp_pipe, bookmark_context, 
+                                                                 bookmark_word, new_context_max_len)
+
+    return json_result(shorter_context)
