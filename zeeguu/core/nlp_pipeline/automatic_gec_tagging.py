@@ -368,12 +368,9 @@ class AutoGECTagging():
             if op_list[0] == "U":
                 return np.random.choice(FEEDBACK_DICT["U"])
             elif op_list[0] == "M":
-                if word_i == err_last_i and is_sent_shorter: feedback_message = np.random.choice(FEEDBACK_DICT["M-F-Not-Complete"])
-                elif word_i != 0 and word_i != err_last_i: feedback_message = np.random.choice(FEEDBACK_DICT["M"])
-                else:
-                    # Handle the first case.
-                    if first_missing_before: feedback_message = np.random.choice(FEEDBACK_DICT["M-B"])
-                    else: feedback_message = np.random.choice(FEEDBACK_DICT["M"])
+                if first_missing_before: feedback_message = np.random.choice(FEEDBACK_DICT["M-B"])
+                elif word_i == err_last_i and is_sent_shorter: feedback_message = np.random.choice(FEEDBACK_DICT["M-F-Not-Complete"])
+                else: feedback_message = np.random.choice(FEEDBACK_DICT["M"])
                 if op_list[1] != "OTHER" and op_list[1] != "":
                     feedback_message += " " + np.random.choice(FEEDBACK_DICT["POS"])
                 return feedback_message
@@ -394,7 +391,7 @@ class AutoGECTagging():
         # If the first is an error
         first_missing_before = False
         if ("M:" in annotated_errors["labels"][0][0] 
-            and annotated_errors["labels"][0][1] == (0,0)):
+            and (0,0) in annotated_errors["alignment"]):
             first_missing_before = True
 
         if len(word_dictionary_list) != len(err):
@@ -468,7 +465,8 @@ class AutoGECTagging():
                 and wProps["word"] not in original_sentence
                 and i+1 == len(annotated_errors["labels"])):
                 # Attempt to fix case where words are marked as uncesseary because of
-                # context cutoff
+                # context cutoff.
+                # In this situation, we don't know yet if it's correct.
                 wProps["isCorrect"] = False
                 wProps["status"] = ""
                 wProps["feedback"] = ""
@@ -507,19 +505,25 @@ class AutoGECTagging():
                 # Set the first label (from unmerged)
                 operation = unmerge_labels[(s_err,s_end)]
                 # Needs to check if there is 'C' means we have
-                # a merge of 2 M:  
+                # a merge of 2 M, then we set to the first.
                 if operation == "C":
                     operation = unmerge_labels[(s_end, s_end)]
 
             wProps["feedback"] = _write_feedback(operation, word_for_correction, word_i=i, err_last_i = err_last_i,
                                                  first_missing_before = first_missing_before,
                                                  is_sent_shorter=is_sent_shorter, err_pos=wProps["pos"], related_words=related_words)
+            wProps["missBefore"] = True if first_missing_before else False
             wProps["error_type"] = operation
             if s_err != s_end and s_err != 0: wProps["correction"] = " ".join(annotated_errors["corrections"][s_err:s_end])
             else: wProps["correction"] = annotated_errors["corrections"][max(0, s_err-1)] # Avoid -1 (if s_err == 0)
             wProps["isCorrect"] = False
             # Only mark incorrect if not missing.
-            wProps["status"] = "incorrect" if operation[:2] != "M:" else ""
-
+            # If it is missing, 
+            if (operation[:2] == "M:"):
+                # If the correction is in the correction, we know the token is correct
+                # Otherwise we can't mark it incorrect.
+                wProps["status"] = "correct" if wProps["word"] in wProps["correction"] else ""
+            else:
+                wProps["status"] = "incorrect"
         return word_dictionary_list
             
