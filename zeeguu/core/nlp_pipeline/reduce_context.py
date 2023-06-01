@@ -49,8 +49,9 @@ class ContextReducer():
             counter = 0
             heapq.heappush(heap, (counter, start_i))
             new_sub_context = []
+            context_no_punct = 0
             while(len(heap) != 0):
-                if len(new_sub_context) > max_context:
+                if context_no_punct > max_context:
                     break
                 _, current_i = heapq.heappop(heap)
                 if current_i in new_sub_context:
@@ -64,12 +65,13 @@ class ContextReducer():
                 counter += 1
                 heapq.heappush(heap, (counter, doc[current_i].head.i))
                 new_sub_context = list(set(new_sub_context))
+                context_no_punct = len([doc[i] for i in new_sub_context if doc[i].pos_ != "PUNCT"])
             new_sub_context.sort()
             filtered_new_context = filter_non_consecutive(new_sub_context, start_i)
             new_sent = "".join([doc[i].text_with_ws for i in filtered_new_context]).strip()
             return new_sent
         
         doc = nlp_pipe.get_doc(sentence)
-        smaller_context = get_context_for_word_heap(doc, bookmark)
+        smaller_context = get_context_for_word_heap(doc, bookmark, max_length)
         
         return smaller_context
