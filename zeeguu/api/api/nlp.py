@@ -7,7 +7,6 @@ from flask import request
 from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
 from zeeguu.core.nlp_pipeline import AutoGECTagging, ContextReducer
 
-import numpy as np
 # ---------------------------------------------------------------------------
 @api.route("/do_some_spacy", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -87,13 +86,13 @@ def get_smaller_context():
     bookmark_context = request.form.get("bookmark_context", "")
     bookmark_word = request.form.get("bookmark_word", "")
     language = request.form.get("language")
-    max_context = float(request.form.get("max_context_len"))
+    max_context = int(request.form.get("max_context_len"))
 
     if language not in SpacyWrappers.keys():
         return "Language not supported"
     
     nlp_pipe = SpacyWrappers[language]
-    new_context_max_len = np.max([10, max_context])
+    new_context_max_len = max_context
     shorter_context = ContextReducer.reduce_context_for_bookmark(nlp_pipe, bookmark_context, 
                                                                  bookmark_word, new_context_max_len)
 
