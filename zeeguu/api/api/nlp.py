@@ -59,11 +59,11 @@ def annotate_clues():
     return json_result(updated_words)
 
 # ---------------------------------------------------------------------------
-@api.route("/get_sentences_for_wo", methods=("POST",))
+@api.route("/get_shorter_similar_sents_in_article", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def get_sentences_for_wo():
+def get_shorter_similar_sents_in_article():
     article_text = request.form.get("article_text", "")
     bookmark_context = request.form.get("bookmark_context", "")
     language = request.form.get("language")
