@@ -483,9 +483,18 @@ class AutoGECTagging():
             wProps["pos"] = DICTIONARY_UD_MAP.get(token_err.pos_, token_err.pos_)
             if i == len(word_dictionary_list)-1 and (s_err,s_end) in umerge_labels:
                 # We check if the original operation was another error.
-                if (umerge_labels[(s_err,s_end)][:2] != "M:" 
-                    and umerge_labels[(s_err,s_end)][0] != "C"):
-                    operation = umerge_labels[(s_err,s_end)]
+                if (unmerge_labels[(s_err,s_end)][:2] != "M:" 
+                    and unmerge_labels[(s_err,s_end)][0] != "C"):
+                    operation = unmerge_labels[(s_err,s_end)]
+                    
+            if (operation == "M:OTHER"):
+                # Set the first label (from unmerged)
+                operation = unmerge_labels.get((s_err,s_end), "M:OTHER")
+                # Needs to check if there is 'C' means we have
+                # a merge of 2 M, then we set to the first.
+                if operation == "C":
+                    if first_missing_before: operation = unmerge_labels.get((s_err,s_err), "M:OTHER")
+                    else: operation = unmerge_labels.get((s_end, s_end), "M:OTHER")
 
             wProps["feedback"] = _write_feedback(operation, word_for_correction, word_i=i, err_last_i = err_last_i,
                                                  first_missing_before = first_missing_before,
