@@ -1,7 +1,7 @@
 import flask
 
 from zeeguu.core.content_recommender import article_recommendations_for_user, topic_filter_for_user
-from zeeguu.core.model import UserArticle
+from zeeguu.core.model import UserArticle, Article
 
 from .utils.route_wrappers import cross_domain, with_session
 from .utils.json_result import json_result
@@ -20,7 +20,13 @@ def user_articles_recommended(count: int = 20):
     recommendations for all languages
     """
 
-    articles = article_recommendations_for_user(flask.g.user, count)
+    try: 
+        articles = article_recommendations_for_user(flask.g.user, count)
+    except: 
+        # we failed to get recommendations from elastic
+        # return something 
+        articles = Article.query.filter_by(broken=0).filter_by(language_id=flask.g.user.learned_language_id).order_by(Article.published_time.desc()).limit(20)
+
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
     return json_result(article_infos)

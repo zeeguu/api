@@ -2,5 +2,9 @@
   "workbench.colorTheme": "Quiet Light",
   "python.testing.pytestArgs": ["zeeguu"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "python.formatting.provider": "none"
 }
