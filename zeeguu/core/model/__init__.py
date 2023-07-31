@@ -68,8 +68,6 @@ from .exercise_source import ExerciseSource
 
 # user logging
 from .user_activitiy_data import UserActivityData
-from .smartwatch.watch_event_type import WatchEventType
-from .smartwatch.watch_interaction_event import WatchInteractionEvent
 
 # teachers and cohorts
 from .cohort import Cohort

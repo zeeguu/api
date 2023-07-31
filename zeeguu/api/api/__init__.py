@@ -14,7 +14,6 @@ print("loading api endpionts...")
 from . import feature_toggles
 from . import exercises
 from . import sessions
-from . import smartwatch
 from . import system_languages
 from . import translation
 from . import activity_tracking
