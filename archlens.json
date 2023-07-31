@@ -1,0 +1,48 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Perlten/MT-diagrams/master/config.schema.json",
+    "name": "-",
+    "rootFolder": "zeeguu",
+    "github": {
+        "url": "",
+        "branch": "main"
+    },
+    "saveLocation": "./diagrams/",
+    "views": {
+
+        "top-level-view-depth-1": {
+            "packages": [
+                {
+                    "packagePath":"",
+                    "depth":1
+                }
+            ],
+
+            "ignorePackages": []
+        },     
+
+        "top-level-view-no-tests": {
+            "packages": [
+                {
+                    "packagePath":"",
+                    "depth":2
+                }
+            ],
+            "ignorePackages": ["*test*"]
+        },
+
+        "core-details": {
+            "packages": [
+                {"packagePath":"core","depth":2}
+            ],
+            "ignorePackages": []
+        },
+         "api-core-details": {
+            "packages": [
+                {"packagePath":"api", "depth":2},
+                {"packagePath":"core", "depth":0}
+            ],
+            "ignorePackages": ["*test*"]
+        }
+
+    }
+}
