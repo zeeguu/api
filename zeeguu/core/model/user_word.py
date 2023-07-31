@@ -4,9 +4,9 @@ from wordstats import Word
 
 import zeeguu.core
 
-db = zeeguu.core.db
-
 from zeeguu.core.model.language import Language
+
+db = zeeguu.core.db
 
 
 class UserWord(db.Model):
@@ -14,15 +14,15 @@ class UserWord(db.Model):
     __table_args__ = {'mysql_collate': 'utf8_bin'}
 
     id = db.Column(db.Integer, primary_key=True)
-    
+
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
 
     word = db.Column(db.String(255), nullable=False)
-    
+
     rank = db.Column(db.Integer)
 
-    db.UniqueConstraint(word, language_id)    
+    db.UniqueConstraint(word, language_id)
 
     IMPORTANCE_LEVEL_STEP = 1000
     IMPOSSIBLE_RANK = 1000000
