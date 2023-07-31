@@ -237,7 +237,7 @@ class RSSFeed(db.Model):
             return new
 
     # although it seems to not be used by anybody,
-    # this method is being used from the zeeguu-api
+    # this method is being used from the zeeguu-endpoints
     @classmethod
     def find_for_language_id(cls, language_code):
         language = Language.find(language_code)

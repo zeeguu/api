@@ -1,6 +1,6 @@
 import os
 
-os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser("<path-to-/api.cfg")
+os.environ["ZEEGUU_API_CONFIG"] = os.path.expanduser("<path-to-/endpoints.cfg")
 
 os.environ["FLASK_MONITORING_DASHBOARD_CONFIG"] = os.path.expanduser(
     "<path-to-/dashboard.cfg"
