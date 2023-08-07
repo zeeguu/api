@@ -12,6 +12,7 @@ DIFFICULTY_FEEDBACK = {
     "Too Hard": 5,
 }
 
+
 class ArticleDifficultyFeedback(zeeguu.core.db.Model):
     """
     
@@ -43,7 +44,6 @@ class ArticleDifficultyFeedback(zeeguu.core.db.Model):
     def __repr__(self):
         return f"{self.user} and {self.article}: Feedback: {self.difficulty_feedback}, Date: {self.date}"
 
-
     @classmethod
     def find(cls, user: User, article: Article):
         try:
@@ -53,12 +53,12 @@ class ArticleDifficultyFeedback(zeeguu.core.db.Model):
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        user: User,
-        article: Article,
-        date: datetime,
-        difficulty
+            cls,
+            session,
+            user: User,
+            article: Article,
+            date: datetime,
+            difficulty
     ):
         try:
             return cls.query.filter_by(user=user, article=article, date=date).one()
@@ -76,4 +76,3 @@ class ArticleDifficultyFeedback(zeeguu.core.db.Model):
                 print("seems we avoided a race condition")
                 session.rollback()
                 return cls.query.filter_by(user=user, article=article).one()
-
