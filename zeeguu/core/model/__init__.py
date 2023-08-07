@@ -46,8 +46,6 @@ from .user_language import UserLanguage
 
 from .topic import Topic
 from .user_article import UserArticle
-from .article_word import ArticleWord
-from .articles_cache import ArticlesCache
 from .article_difficulty_feedback import ArticleDifficultyFeedback
 
 from .feed import RSSFeed
@@ -83,11 +81,9 @@ from zeeguu.core.model.bookmark_priority_arts import BookmarkPriorityARTS
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .word_to_study import WordToStudy
 
-
 from .personal_copy import PersonalCopy
 
 from .difficulty_lingo_rank import DifficultyLingoRank
-
 
 # Creating the DB tables if needed
 # Note that this must be called after all the model classes are loaded
@@ -98,7 +94,6 @@ zeeguu.core.db.create_all(app=zeeguu.core.app)
 db_connection_string = zeeguu.core.app.config["SQLALCHEMY_DATABASE_URI"]
 anon_conn_string = re.sub(":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string)
 zeeguu.core.warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
-
 
 # install nltk punkt & tagger if missing
 # we can only do it here because the nltk loads in memory the unittest
