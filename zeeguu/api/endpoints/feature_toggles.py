@@ -8,7 +8,6 @@ from zeeguu.api.utils import cross_domain, with_session
 @cross_domain
 @with_session
 def is_feature_enabled(feature_name):
-
     """
     e.g.
     /is_feature_enabled/ems_teacher_dashboard
@@ -43,8 +42,10 @@ def _feature_map():
         "tiago_exercises": _tiago_exercises
     }
 
+
 def _tiago_exercises(user):
-    return user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
+    return (user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022) and user.learned_language_id in ["dk"]
+
 
 def _no_audio_exercises(user):
     return user.cohort and user.cohort.id == 447
@@ -56,7 +57,7 @@ def _audio_exercises(user):
 
 def _extension_experiment_1(user):
     return (
-        (user.cohort and user.cohort.id == 437)
-        or user.id in [3372, 3373, 2953, 3427, 2705]
-        or user.id > 3555
+            (user.cohort and user.cohort.id == 437)
+            or user.id in [3372, 3373, 2953, 3427, 2705]
+            or user.id > 3555
     )
