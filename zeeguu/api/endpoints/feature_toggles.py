@@ -44,7 +44,11 @@ def _feature_map():
 
 
 def _tiago_exercises(user):
-    return (user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022) and user.learned_language_id in ["dk"]
+    right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
+    right_language = user.learned_language.code in ["da"]
+    print(right_language)
+    print(right_user)
+    return right_user and right_language
 
 
 def _no_audio_exercises(user):
