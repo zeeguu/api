@@ -5,9 +5,9 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.content_retriever.content_cleaner import cleanup_non_content_bits
+from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
-from zeeguu.core.content_retriever.quality_filter import sufficient_quality
+from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.model import Topic, LocalizedTopic
 
 from zeeguu.core.test.test_data.mocking_the_web import *

@@ -12,8 +12,6 @@ from datetime import datetime
 import newspaper
 
 
-
-
 # ---------------------------------------------------------------------------
 @api.route("/user_article", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -47,11 +45,10 @@ def user_article():
 
     print(article_id)
     article = Article.query.filter_by(id=article_id).one()
-    
+
     return json_result(
         UserArticle.user_article_info(flask.g.user, article, with_content=True)
     )
-
 
 
 # ---------------------------------------------------------------------------
@@ -68,9 +65,9 @@ def post_article_difficulty_feedback():
 
     article_id = int(request.form.get("article_id"))
     article = Article.query.filter_by(id=article_id).one()
-    
+
     feedback = request.form.get("difficulty")
-    
+
     df = ArticleDifficultyFeedback.find_or_create(db_session, flask.g.user, article, datetime.now(), feedback)
     db_session.add(df)
     db_session.commit()
@@ -143,7 +140,6 @@ def user_article_update():
 @cross_domain
 @with_session
 def parse_html():
-
     article_html = request.form.get("html")
 
     art = newspaper.Article(url="")
@@ -166,19 +162,17 @@ def parse_html():
 @cross_domain
 @with_session
 def parse_url():
+    url = request.form.get("url")
 
-    article_url = request.form.get("url")
+    from zeeguu.core.content_retriever import download_and_parse
 
-    art = newspaper.Article(url=article_url)
-    art.download()
-
-    art.parse()
+    parsed = download_and_parse(url)
 
     return json_result(
         {
-            "title": art.title,
-            "text": art.text,
-            "top_image": art.top_image,
-            "language_code": art.meta_lang,
+            "title": parsed.title,
+            "text": parsed.text,
+            "top_image": parsed.top_image,
+            "language_code": parsed.meta_lang,
         }
     )

@@ -7,17 +7,16 @@
 """
 
 import newspaper
-import re
 
 from pymysql import DataError
 
 import zeeguu.core
-from zeeguu.core import log, debug
+from zeeguu.core import log
 
 from zeeguu.core import model
-from zeeguu.core.content_retriever.content_cleaner import cleanup_non_content_bits
-from zeeguu.core.content_retriever.quality_filter import sufficient_quality
-from zeeguu.core.content_retriever.unicode_normalization import (
+from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
+from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.content_cleaning.unicode_normalization import (
     flatten_composed_unicode_characters,
 )
 from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
@@ -201,11 +200,9 @@ def download_feed_item(session, feed, feed_item, url):
 
     try:
 
-        art = newspaper.Article(url)
-        art.download()
-        art.parse()
+        from .parse_with_newspaper import download_and_parse
 
-        debug("- Succesfully parsed")
+        art = download_and_parse(url)
 
         cleaned_up_text = cleanup_non_content_bits(art.text)
 
