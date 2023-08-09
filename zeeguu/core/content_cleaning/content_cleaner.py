@@ -1,7 +1,7 @@
 import zeeguu.core
 from zeeguu.core.model import Article, Language
 
-JUNK_PATTERNS = [
+JUNK_PATTERNS_TO_REMOVE = [
 
     "\nAdvertisement\n",
     "\ntrue\n",
@@ -29,7 +29,7 @@ def cleanup_non_content_bits(text: str):
     """
     new_text = text
 
-    for junk_pattern in JUNK_PATTERNS:
+    for junk_pattern in JUNK_PATTERNS_TO_REMOVE:
         cleaned = new_text.replace(junk_pattern, "")
 
         if cleaned != new_text:
