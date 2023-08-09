@@ -14,11 +14,7 @@ import zeeguu.core
 from zeeguu.core import log
 
 from zeeguu.core import model
-from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
-from zeeguu.core.content_cleaning.unicode_normalization import (
-    flatten_composed_unicode_characters,
-)
 from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
 import requests
 
@@ -27,6 +23,8 @@ from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
+
+from zeeguu.core.content_retriever import download_and_parse
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -200,15 +198,9 @@ def download_feed_item(session, feed, feed_item, url):
 
     try:
 
-        from .parse_with_newspaper import download_and_parse
+        parsed = download_and_parse(url)
 
-        art = download_and_parse(url)
-
-        cleaned_up_text = cleanup_non_content_bits(art.text)
-
-        cleaned_up_text = flatten_composed_unicode_characters(cleaned_up_text)
-
-        is_quality_article, reason = sufficient_quality(art)
+        is_quality_article, reason = sufficient_quality(parsed)
 
         if not is_quality_article:
             raise SkippedForLowQuality(reason)
@@ -226,14 +218,14 @@ def download_feed_item(session, feed, feed_item, url):
         # and if there is still no summary, we simply use the beginning of
         # the article
         if len(summary) < 10:
-            summary = cleaned_up_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
             # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
-            ", ".join(art.authors),
-            cleaned_up_text,
+            ", ".join(parsed.authors),
+            parsed.text,
             summary,
             published_datetime,
             feed,
@@ -271,6 +263,8 @@ def download_feed_item(session, feed, feed_item, url):
         zeeguu.core.log(f"Data error for: {url}")
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         capture_to_sentry(e)
 
         log(

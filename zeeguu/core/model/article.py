@@ -10,7 +10,6 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
-from zeeguu.core.content_retriever.parse_with_readabilipy import download_and_parse
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -270,6 +269,7 @@ class Article(db.Model):
         session.add(ua)
 
     def update_content(self, session):
+        from zeeguu.core.content_retriever import download_and_parse
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
         self.htmlContent = parsed.html
@@ -375,6 +375,7 @@ class Article(db.Model):
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
+                from zeeguu.core.content_retriever import download_and_parse
                 parsed = download_and_parse(url)
 
                 text = parsed.text
