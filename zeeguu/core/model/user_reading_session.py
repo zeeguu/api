@@ -10,22 +10,19 @@ from zeeguu.core.util.encoding import datetime_to_json
 
 db = zeeguu.core.db
 
-
 VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
 VERY_FAR_IN_THE_FUTURE = "9999-12-31T23:59:59"
 
 
 def is_opening_or_interactive_event(event):
-
     opening_or_interactive = (
-        LEGACY_OPENING + OPENING_ACTIONS + LEGACY_INTERACTION + INTERACTION_ACTIONS
+            LEGACY_OPENING + OPENING_ACTIONS + LEGACY_INTERACTION + INTERACTION_ACTIONS
     )
 
     return event in opening_or_interactive
 
 
 def is_closing_event(event):
-
     return event in CLOSING_ACTIONS or event in LEGACY_CLOSING
 
 
@@ -140,7 +137,7 @@ class UserReadingSession(db.Model):
 
     @staticmethod
     def _create_new_session(
-        db_session, user_id, article_id, current_time=datetime.now()
+            db_session, user_id, article_id, current_time=datetime.now()
     ):
         """
          Creates a new reading session
@@ -157,7 +154,7 @@ class UserReadingSession(db.Model):
         return reading_session
 
     def _update_last_action_time(
-        self, db_session, add_grace_time=False, current_time=datetime.now()
+            self, db_session, add_grace_time=False, current_time=datetime.now()
     ):
         """
         Updates the last_action_time field. For sessions that were left open, since we cannot know exactly
@@ -176,7 +173,7 @@ class UserReadingSession(db.Model):
             self.last_action_time += timedelta(minutes=READING_SESSION_TIMEOUT)
         else:
             self.last_action_time = current_time
-            
+
             # update the duration too
             current_session_length = current_time - self.start_time
             self.duration = current_session_length.total_seconds() * 1000  # Convert to miliseconds
@@ -242,7 +239,7 @@ class UserReadingSession(db.Model):
             else:
                 reading_session.is_active = False
                 reading_session.duration = (
-                    time_diff.total_seconds() * 1000
+                        time_diff.total_seconds() * 1000
                 )  # Convert to miliseconds
                 db_session.add(reading_session)
             db_session.commit()
@@ -268,7 +265,7 @@ class UserReadingSession(db.Model):
             if reading_session._is_still_active():
                 print(f"skipping session: {reading_session.id} because it's too recent")
                 continue
-            
+
             time_diff = reading_session.last_action_time - reading_session.start_time
             # If the duration is zero, we delete the session
             # This can happen when the user opens a session and does nothing afterwards,
@@ -280,17 +277,17 @@ class UserReadingSession(db.Model):
             else:
                 reading_session.is_active = False
                 reading_session.duration = (
-                    time_diff.total_seconds() * 1000
+                        time_diff.total_seconds() * 1000
                 )
-                print(f"closing session: {reading_session.id} with duration: {reading_session.duration} because it's too old")
-            
+                print(
+                    f"closing session: {reading_session.id} with duration: {reading_session.duration} because it's too old")
+
                 db_session.add(reading_session)
         db_session.commit()
 
-
     @classmethod
     def update_reading_session(
-        cls, db_session, event, user_id, article_id, current_time=datetime.now()
+            cls, db_session, event, user_id, article_id, current_time=datetime.now()
     ):
         """
         Main callable method that keeps track of the reading sessions.
@@ -359,11 +356,11 @@ class UserReadingSession(db.Model):
 
     @classmethod
     def find_by_user(
-        cls,
-        user_id,
-        from_date: str = VERY_FAR_IN_THE_PAST,
-        to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
+            cls,
+            user_id,
+            from_date: str = VERY_FAR_IN_THE_PAST,
+            to_date: str = VERY_FAR_IN_THE_FUTURE,
+            is_active: bool = None,
     ):
         """
 
@@ -385,11 +382,11 @@ class UserReadingSession(db.Model):
 
     @classmethod
     def find_by_cohort(
-        cls,
-        cohort,
-        from_date: str = VERY_FAR_IN_THE_PAST,
-        to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
+            cls,
+            cohort,
+            from_date: str = VERY_FAR_IN_THE_PAST,
+            to_date: str = VERY_FAR_IN_THE_FUTURE,
+            is_active: bool = None,
     ):
         """
         Get reading sessions by cohort
@@ -408,12 +405,12 @@ class UserReadingSession(db.Model):
 
     @classmethod
     def find_by_article(
-        cls,
-        article,
-        from_date: str = VERY_FAR_IN_THE_PAST,
-        to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
-        cohort: bool = None,
+            cls,
+            article,
+            from_date: str = VERY_FAR_IN_THE_PAST,
+            to_date: str = VERY_FAR_IN_THE_FUTURE,
+            is_active: bool = None,
+            cohort: bool = None,
     ):
         """
         Get reading sessions by article

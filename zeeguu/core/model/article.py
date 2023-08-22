@@ -10,7 +10,6 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
-from zeeguu.core.content_retriever.url_downloader import download_url
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -26,7 +25,6 @@ article_topic_map = Table(
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
-
 
 MULTIPLE_NEWLINES = re.compile("\n\s*\n")
 # \n matches a line-feed (newline) character (ASCII 10)
@@ -97,21 +95,21 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-        self,
-        url,
-        title,
-        authors,
-        content,
-        summary,
-        published_time,
-        rss_feed,
-        language,
-        htmlContent="",
-        uploader=None,
-        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-        broken=0,
-        deleted=0,
-        video=0,
+            self,
+            url,
+            title,
+            authors,
+            content,
+            summary,
+            published_time,
+            rss_feed,
+            language,
+            htmlContent="",
+            uploader=None,
+            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+            broken=0,
+            deleted=0,
+            video=0,
     ):
 
         if not summary:
@@ -270,6 +268,14 @@ class Article(db.Model):
         ua.set_starred(state)
         session.add(ua)
 
+    def update_content(self, session):
+        from zeeguu.core.content_retriever import download_and_parse
+        parsed = download_and_parse(self.url.as_string())
+        self.content = parsed.text
+        self.htmlContent = parsed.html
+        session.add(self)
+        session.commit()
+
     @classmethod
     def own_texts_for_user(cls, user, ignore_deleted=True):
 
@@ -306,7 +312,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language
+            cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -329,14 +335,13 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        _url: str,
-        language=None,
-        sleep_a_bit=False,
-        htmlContent=None,
-        title=None,
-        authors: str = "",
+            cls,
+            session,
+            _url: str,
+            language=None,
+            htmlContent=None,
+            title=None,
+            authors: str = "",
     ):
         """
 
@@ -370,8 +375,14 @@ class Article(db.Model):
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
-                title, text, summary, lang, author_list = download_url(url, sleep_a_bit)
-                authors = ", ".join(author_list or [])
+                from zeeguu.core.content_retriever import download_and_parse
+                parsed = download_and_parse(url)
+
+                text = parsed.text
+                summary = parsed.summary
+                title = parsed.title
+                authors = ", ".join(parsed.authors or [])
+                lang = parsed.meta_lang
 
             language = Language.find(lang)
 
@@ -382,7 +393,7 @@ class Article(db.Model):
                 url_object,
                 title,
                 authors,
-                text,  # any article longer than this will be truncated...
+                text,
                 summary,
                 datetime.now(),
                 None,

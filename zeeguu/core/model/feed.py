@@ -41,7 +41,7 @@ class RSSFeed(db.Model):
     deactivated = db.Column(db.Integer)
 
     def __init__(
-        self, url, title, description, image_url=None, icon_name=None, language=None
+            self, url, title, description, image_url=None, icon_name=None, language=None
     ):
         self.url = url
         self.image_url = image_url
@@ -130,18 +130,18 @@ class RSSFeed(db.Model):
                 # we don't have a publishing time...
                 # happens rarely that the parser can't extract this
                 # actually not so rarely - 400 times in the last 24 hours...
-                
+
                 zeeguu.core.log("Setting the time for the entry below to now() because can't get time from it")
                 zeeguu.core.log(item)
-                
+
                 # let's set the date to now; this will result in 
                 # an article published early morning w/o a date; 
                 # being considered on every crawl as it was published
                 # for that crawl; but it's not so bad; it won't be added
                 # to the DB because it's url will be detected as 
                 # existent anyway
-                item["published_parsed"]=datetime.now()
-                
+                item["published_parsed"] = datetime.now()
+
             try:
                 published_string = time.strftime(
                     SIMPLE_TIME_FORMAT, item.get("published_parsed")
@@ -219,7 +219,7 @@ class RSSFeed(db.Model):
 
     @classmethod
     def find_or_create(
-        cls, session, url, title, description, icon_name, language: Language
+            cls, session, url, title, description, icon_name, language: Language
     ):
         try:
             result = (
@@ -237,14 +237,14 @@ class RSSFeed(db.Model):
             return new
 
     # although it seems to not be used by anybody,
-    # this method is being used from the zeeguu-api
+    # this method is being used from the zeeguu-endpoints
     @classmethod
     def find_for_language_id(cls, language_code):
         language = Language.find(language_code)
         return cls.query.filter(cls.language == language).all()
 
     def get_articles(
-        self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
+            self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
     ):
         """
 

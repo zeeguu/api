@@ -5,10 +5,10 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.content_retriever.content_cleaner import cleanup_non_content_bits
-from zeeguu.core.content_retriever.article_downloader import download_from_feed, strip_article_title_word
-from zeeguu.core.content_retriever.quality_filter import sufficient_quality
-from zeeguu.core.model import Topic, LocalizedTopic, ArticleWord
+from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
+from zeeguu.core.content_retriever.article_downloader import download_from_feed
+from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.model import Topic, LocalizedTopic
 
 from zeeguu.core.test.test_data.mocking_the_web import *
 
@@ -38,30 +38,13 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         zeeguu.core.db.session.add(loc_topic)
         zeeguu.core.db.session.commit()
 
-        download_from_feed(feed, zeeguu.core.db.session, 3, False )
+        download_from_feed(feed, zeeguu.core.db.session, 3, False)
 
         article = feed.get_articles(limit=2)[0]
 
         assert (topic in article.topics)
 
-    def testDownloadWithWords(self):
-        feed = RSSFeedRule().feed1
-
-        download_from_feed(feed, zeeguu.core.db.session, 3, False)
-
-        article = feed.get_articles(limit=2)[0]
-
-        # Try two words, as one might be filtered out
-        word = strip_article_title_word(article.title.split()[0])
-        article_word = ArticleWord.find_by_word(word)
-
-        if word in ['www', ''] or word.isdigit() or len(word) < 3 or len(word) > 25:
-            assert (article_word is None)
-        else:
-            assert (article in article_word.articles)
-
     def test_sufficient_quality(self):
-
         art = newspaper.Article(url_investing_in_index_funds)
         art.download()
         art.parse()
@@ -69,7 +52,6 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert (sufficient_quality(art))
 
     def test_new_scientist_overlay(self):
-
         art = newspaper.Article(url_fish_will_be_gone)
         art.download()
         art.parse()
@@ -78,7 +60,6 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert (not is_quality)
 
     def test_le_monde_subscription(self):
-
         art = newspaper.Article(url_vols_americans)
         art.download()
         art.parse()
@@ -87,7 +68,6 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert (not is_quality)
 
     def test_fragment_removal(self):
-
         art = newspaper.Article(url_onion_us_military)
         art.download()
         art.parse()

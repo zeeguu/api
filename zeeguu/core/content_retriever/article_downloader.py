@@ -7,31 +7,24 @@
 """
 
 import newspaper
-import re
 
 from pymysql import DataError
 
 import zeeguu.core
-from zeeguu.core import log, debug
+from zeeguu.core import log
 
 from zeeguu.core import model
-from zeeguu.core.content_retriever.content_cleaner import cleanup_non_content_bits
-from zeeguu.core.content_retriever.quality_filter import sufficient_quality
-from zeeguu.core.content_retriever.unicode_normalization import (
-    flatten_composed_unicode_characters,
-)
-from zeeguu.core.model import Url, RSSFeed, LocalizedTopic, ArticleWord
+from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
 import requests
 
-from elasticsearch import Elasticsearch
-from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
+from zeeguu.core.content_retriever import download_and_parse
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -118,7 +111,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-            feed_item_timestamp > last_retrieval_time_seen_this_crawl
+                feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -205,17 +198,9 @@ def download_feed_item(session, feed, feed_item, url):
 
     try:
 
-        art = newspaper.Article(url)
-        art.download()
-        art.parse()
+        parsed = download_and_parse(url)
 
-        debug("- Succesfully parsed")
-
-        cleaned_up_text = cleanup_non_content_bits(art.text)
-
-        cleaned_up_text = flatten_composed_unicode_characters(cleaned_up_text)
-
-        is_quality_article, reason = sufficient_quality(art)
+        is_quality_article, reason = sufficient_quality(parsed)
 
         if not is_quality_article:
             raise SkippedForLowQuality(reason)
@@ -233,14 +218,14 @@ def download_feed_item(session, feed, feed_item, url):
         # and if there is still no summary, we simply use the beginning of
         # the article
         if len(summary) < 10:
-            summary = cleaned_up_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
             # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
-            ", ".join(art.authors),
-            cleaned_up_text,
+            ", ".join(parsed.authors),
+            parsed.text,
             summary,
             published_datetime,
             feed,
@@ -250,9 +235,6 @@ def download_feed_item(session, feed, feed_item, url):
 
         topics = add_topics(new_article, session)
         log(f" Topics ({topics})")
-
-        add_searches(title, url, new_article, session)
-        debug(" Added keywords")
 
         # compute extra difficulties for french articles
         try:
@@ -281,6 +263,8 @@ def download_feed_item(session, feed, feed_item, url):
         zeeguu.core.log(f"Data error for: {url}")
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         capture_to_sentry(e)
 
         log(
@@ -295,59 +279,9 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-            new_article
+                new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)
             session.add(new_article)
     return topics
-
-
-def add_searches(title, url, new_article, session):
-    """
-    This method takes the relevant keywords from the title
-    and URL, and tries to properly clean them.
-    It finally adds the ArticleWord to the session, to be committed as a whole.
-    :param title: The title of the article
-    :param url: The url of the article
-    :param new_article: The actual new article
-    :param session: The session to which it should be added.
-    """
-
-    # Split the title, path and url netloc (sub domain)
-    all_words = title.split()
-    from urllib.parse import urlparse
-
-    # Parse the URL so we can call netloc and path without a lot of regex
-    parsed_url = urlparse(url)
-    all_words += re.split(r"; |, |\*|-|%20|/", parsed_url.path)
-    all_words += parsed_url.netloc.split(".")[0]
-
-    for word in all_words:
-        # Strip the unwanted characters
-        word = strip_article_title_word(word)
-        # Check if the word is of proper length, not only digits and not empty or www
-        if (
-            word in ["www", "", " "]
-            or word.isdigit()
-            or len(word) < 3
-            or len(word) > 25
-        ):
-            continue
-        else:
-            # Find or create the ArticleWord and add it to the session
-            article_word_obj = ArticleWord.find_by_word(word)
-            if article_word_obj is None:
-                article_word_obj = ArticleWord(word)
-            article_word_obj.add_article(new_article)
-            session.add(article_word_obj)
-
-
-def strip_article_title_word(word: str):
-    """
-
-    Used when tokenizing the titles of articles
-    in order to index them for search
-
-    """
-    return word.strip("\":;?!<>'").lower()

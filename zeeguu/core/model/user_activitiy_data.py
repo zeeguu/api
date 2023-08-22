@@ -52,14 +52,14 @@ class UserActivityData(db.Model):
     article = relationship(Article)
 
     def __init__(
-        self,
-        user,
-        time,
-        event,
-        value,
-        extra_data,
-        has_article_id: Boolean = False,
-        article_id: int = None,
+            self,
+            user,
+            time,
+            event,
+            value,
+            extra_data,
+            has_article_id: Boolean = False,
+            article_id: int = None,
     ):
         self.user = user
         self.time = time
@@ -100,12 +100,12 @@ class UserActivityData(db.Model):
         :return: value of attribute
         """
         start = (
-            str(self.extra_data).find('"' + attribute_name + '":')
-            + len(attribute_name)
-            + 4
+                str(self.extra_data).find('"' + attribute_name + '":')
+                + len(attribute_name)
+                + 4
         )
         end = str(self.extra_data)[start:].find('"')
-        return str(self.extra_data)[start : end + start]
+        return str(self.extra_data)[start: end + start]
 
     @classmethod
     def _filter_by_extra_value(cls, events, extra_filter, extra_value):
@@ -131,9 +131,11 @@ class UserActivityData(db.Model):
     def find_or_create(cls, session, user, time, event, value, extra_data, has_article_id, article_id):
         try:
             zeeguu.core.log("found existing event; returning it instead of creating a new one")
-            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(value=value).one()
+            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(
+                value=value).one()
         except sqlalchemy.orm.exc.MultipleResultsFound:
-            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(value=value).first()
+            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(
+                value=value).first()
         except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(user, time, event, value, extra_data, has_article_id, article_id)
@@ -150,21 +152,17 @@ class UserActivityData(db.Model):
                     except sqlalchemy.orm.exc.NoResultFound:
                         sleep(0.3)
                         continue
-                    
-
-
-
 
     @classmethod
     def find(
-        cls,
-        user: User = None,
-        article: Article = None,
-        extra_filter: str = None,
-        extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
-        event_filter: str = None,
-        only_latest=False,
-        article_id: int = None,
+            cls,
+            user: User = None,
+            article: Article = None,
+            extra_filter: str = None,
+            extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
+            event_filter: str = None,
+            only_latest=False,
+            article_id: int = None,
     ):
         """
 
@@ -249,7 +247,7 @@ class UserActivityData(db.Model):
                 url = self.find_url_in_extra_data()
 
             if url:
-                return Article.find_or_create(db_session, url, sleep_a_bit=True).id
+                return Article.find_or_create(db_session, url).id
 
         return None
 
@@ -296,7 +294,7 @@ class UserActivityData(db.Model):
         )
 
         new_entry = UserActivityData.find_or_create(
-           session, user, time, event, value, extra_data, has_article_id, article_id
+            session, user, time, event, value, extra_data, has_article_id, article_id
         )
 
         session.add(new_entry)

@@ -94,7 +94,7 @@ If you see the above lines at the end of the output then you are ready to procee
 4. Start Zeeguu API and Core by running a container with `zeeguu/zeeguu-api-core` image:
 
 ```sh
-docker run --net=host --name=zeeguu-api-core -d zeeguu/zeeguu-api-core
+docker run --net=host --name=zeeguu-endpoints-core -d zeeguu/zeeguu-endpoints-core
 ```
 
 You can check that the zeeguu-api-core container is started by running `docker ps`. You should see the following:
@@ -102,7 +102,7 @@ You can check that the zeeguu-api-core container is started by running `docker p
 ```sh
 $ docker ps
 CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-31373fb67f01        zeeguu/zeeguu-api-core   "python zeeguu_api"      1 second ago        Up 1 second                             zeeguu-api-core
+31373fb67f01        zeeguu/zeeguu-endpoints-core   "python zeeguu_api"      1 second ago        Up 1 second                             zeeguu-endpoints-core
 0b988ad5956e        zeeguu/zeeguu-mysql      "docker-entrypoint.s…"   6 minutes ago       Up 6 minutes                            zeeguu-mysql
 ```
 

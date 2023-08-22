@@ -2,7 +2,6 @@
 from zeeguu.core.configuration.configuration import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask
-import flask
 import time
 
 # apimux is quite noisy; supress it's output
@@ -45,7 +44,7 @@ import zeeguu.core.model
 assert zeeguu.core.model
 # -----------------
 
-from .api import api
+from .endpoints import api
 
 app.register_blueprint(api)
 
