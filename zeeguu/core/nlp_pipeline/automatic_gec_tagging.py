@@ -4,7 +4,6 @@ import numpy as np
 import json
 from rapidfuzz.fuzz import ratio
 from .spacy_wrapper import SpacyWrapper
-
 """
 
 Automatic GEC (Grammatical Error Correction) Tagging
@@ -250,7 +249,8 @@ class AutoGECTagging():
                 corrections += [str(word) for word in ref[start_ref:end_ref]]
             elif case == "D":
                 token_err = error[start_err:end_err][0]
-                labels.append(_include_start_end("U", start_err, end_err, include_o_start_end))
+                err_pos_converted = DICTIONARY_UD_MAP.get(token_err.pos_, token_err.pos_)
+                labels.append(_include_start_end(f"U:{err_pos_converted}", start_err, end_err, include_o_start_end))
                 corrections.append("")
             elif case == "I":
                 token_ref = ref[start_ref:end_ref][0]
@@ -260,11 +260,11 @@ class AutoGECTagging():
             elif case == "S":
                 token_ref = ref[start_ref:end_ref][0]
                 token_err = error[start_err:end_err][0]
+                ref_pos_converted = DICTIONARY_UD_MAP.get(token_ref.pos_, token_ref.pos_)
                 corrections.append(str(token_ref))
                 if str(token_ref).lower() == str(token_err).lower():
                     labels.append(_include_start_end(f"R:SPELL/MORPH", start_err, end_err, include_o_start_end))
                     continue
-                ref_pos_converted = DICTIONARY_UD_MAP.get(token_ref.pos_, token_ref.pos_)
                 sim_weighted = self.word_lemma_token_sim(token_err, token_ref, verbose)
                 morph_ref = token_ref.morph.to_dict()
                 morph_err = token_err.morph.to_dict()
@@ -289,12 +289,14 @@ class AutoGECTagging():
                         continue
                     
                     if token_err.lemma_ == token_ref.lemma_:
-                        labels.append(_include_start_end(f"R:FORM/MORPH", start_err, end_err, include_o_start_end))
+                        labels.append(_include_start_end(f"R:{ref_pos_converted}:FORM/MORPH", start_err, end_err, include_o_start_end))
                         continue
 
                 if sim_weighted >= 0.6 and len(token_err) > 2:
                     labels.append(_include_start_end(f"R:SPELL/MORPH", start_err, end_err, include_o_start_end))
                 else:
+                    token_err = error[start_err:end_err][0]
+                    ref_pos_converted = DICTIONARY_UD_MAP.get(token_ref.pos_, token_ref.pos_)
                     labels.append(_include_start_end(f"R:{ref_pos_converted}", start_err, end_err, include_o_start_end))
         assert len(labels) == len(corrections), f"{len(labels)} <> {len(corrections)}"
         results = {}
@@ -314,7 +316,7 @@ class AutoGECTagging():
         if return_corrections: results["corrections"] = corrections
         return results
     
-    def anottate_clues(self, word_dictionary_list, original_sentence):
+    def anottate_clues(self, word_dictionary_list, original_sentence, verbose=False):
         """
             Call from the ZeeGuu App to provide the feedback.
             It uses the generate_labels to annotate the errors, with merging and start positions.
@@ -324,8 +326,9 @@ class AutoGECTagging():
         """
         if type(word_dictionary_list) is str: word_dictionary_list = json.loads(word_dictionary_list)
         assert type(word_dictionary_list) is list, f"Input in the wrong format, it needs to be a list of JSON or a JSON string. Found: {type(word_dictionary_list)}"
-        def _write_feedback(op, word, word_i, err_last_i, first_missing_before=None,
-                            is_sent_shorter=False, err_pos=None, related_words=None):
+        def _write_feedback(op, word, word_i, err_last_i, is_missing_before=None,
+                            is_in_sentence=False, is_sent_shorter=False, err_pos=None, 
+                            related_words=None):
             """
 
             """
@@ -364,117 +367,147 @@ class AutoGECTagging():
                 "R3":[f"'{word}' needs to change in {morph_feedback} to be correct.",
                       f"'{word}' doesn't have the correct {morph_feedback}.",]
             }
-
             if op_list[0] == "U":
                 return np.random.choice(FEEDBACK_DICT["U"])
             elif op_list[0] == "M":
-                if first_missing_before: feedback_message = np.random.choice(FEEDBACK_DICT["M-B"])
+                if is_missing_before: feedback_message = np.random.choice(FEEDBACK_DICT["M-B"])
                 elif word_i == err_last_i and is_sent_shorter: feedback_message = np.random.choice(FEEDBACK_DICT["M-F-Not-Complete"])
                 else: feedback_message = np.random.choice(FEEDBACK_DICT["M"])
+                if verbose: print(feedback_message)
                 if op_list[1] != "OTHER" and op_list[1] != "":
                     feedback_message += " " + np.random.choice(FEEDBACK_DICT["POS"])
                 return feedback_message
             else:
+                if op_list[1] == "SPELL/MORPH" or op_list[2] == "SPELL/MORPH": return np.random.choice(FEEDBACK_DICT["SPELL/MORPH"])
+                if op_list[1] == "FORM/MORPH" or op_list[2] == "FORM/MORPH": return np.random.choice(FEEDBACK_DICT["FORM/MORPH"]) + related_words_feedback
                 if op_list[2] != "": return np.random.choice(FEEDBACK_DICT["R3"]) + related_words_feedback
-                if op_list[1] == "SPELL/MORPH": return np.random.choice(FEEDBACK_DICT["SPELL/MORPH"])
-                if op_list[1] == "FORM/MORPH": return np.random.choice(FEEDBACK_DICT["FORM/MORPH"]) + related_words_feedback
                 if op_list[1] == "OTHER": return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + related_words_feedback
                 if op_list[1] == "WO": return np.random.choice(FEEDBACK_DICT["R-WO"])
                 if pos_is_correct: return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS-CORRECT"]) + related_words_feedback
                 return np.random.choice(FEEDBACK_DICT["R-WRONG"]) + " " + np.random.choice(FEEDBACK_DICT["POS"]) + related_words_feedback
         
-        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list]) 
+        # Prepare sentence for alignment
+        sentence_to_correct = " ".join([wProps["word"] for wProps in word_dictionary_list])
+
+        # Get labels and alignment annotations
         annotated_errors = self.generate_labels(sentence_to_correct, original_sentence, include_o_start_end=True, return_tokens=True,
                                                 return_err_pos=True, return_corr_pos=True, return_corrections=True, return_alignment=True)
-        err = annotated_errors["return_tokens"][0]
-        map_n_err_to_old_err = dict()
-        # If the first is an error
-        first_missing_before = False
-        if ("M:" in annotated_errors["labels"][0][0] 
-            and (0,0) in annotated_errors["alignment"]):
-            first_missing_before = True
 
-        if len(word_dictionary_list) != len(err):
+        # Get the error words from the alignment, and align with ZeeGuu tokenization
+        err_w = annotated_errors["return_tokens"][0]
+
+        map_zeeguu_to_spacy_i = dict()
+        map_spacy_to_zeeguu_i = dict()
+
+        if len(word_dictionary_list) != len(err_w):
             # Handle Cases where the tokenization wasn't the same.
             # The tokens in e_rr have a leading whitespace if they are tokenized
             # If we find cases where this isn't true, merge them.
-            n_err = []
-            n_corrections = []
-            n_operations = []
+            zeeguu_err_w = []
+            zeeguu_corrections = []
+            zeeguu_operations = []
             i_pos = 0
             prev_is_wo = False
-            new_alignment = {}
-            while i_pos < len(err):
-                map_n_err_to_old_err[len(n_err)] = i_pos
-                current_err = err[i_pos]
+            while i_pos < len(err_w):
+                map_spacy_to_zeeguu_i[i_pos] = len(zeeguu_err_w)
+                map_zeeguu_to_spacy_i[len(zeeguu_err_w)] = i_pos
+                current_err_w = err_w[i_pos]
                 operation, span = annotated_errors["labels"][i_pos]
-                correction = annotated_errors["corrections"][i_pos]
-                old_alignment = annotated_errors["alignment"][span]
-                while (current_err.strip() != word_dictionary_list[len(n_err)]["word"]):
-                    if i_pos != len(err)-1:
-                        current_err += err[i_pos+1]
-                        if operation == "C": operation = annotated_errors["labels"][i_pos+1][0]
-                        correction += annotated_errors["corrections"][i_pos+1]
+                zeeguu_correction = annotated_errors["corrections"][i_pos]
+                # The operations will match the first operation seen for that token
+                zeeguu_operations += [(operation, span)]
+                while (current_err_w.strip() != word_dictionary_list[len(zeeguu_err_w)]["word"]):
+                    if i_pos != len(err_w)-1:
+                        current_err_w += err_w[i_pos+1]
+                        zeeguu_correction += annotated_errors["corrections"][i_pos+1]
                         i_pos += 1
-                n_err.append(current_err)
-                if prev_is_wo and operation == "R:WO":
-                    prev_op, (start, end) = n_operations[-1]
-                    span = end - start
-                    for i in range(1, min(len(n_err), span)+1):
-                        n_operations[-i] = (prev_op, (start, len(n_err)))
-                    new_alignment[(start, len(n_err))] = old_alignment
-                    n_operations.append((operation, (start, len(n_err))))
-                else:
-                    n_operations.append((operation, (len(n_err)-1, len(n_err))))
-                    new_alignment[(len(n_err)-1, len(n_err))] = old_alignment
-                n_corrections.append(correction)
-                if operation == "R:WO":
-                    prev_is_wo = True
-                else:
-                    prev_is_wo = False
+                        map_spacy_to_zeeguu_i[i_pos] = len(zeeguu_err_w)
+                zeeguu_err_w.append(current_err_w)
+                zeeguu_corrections.append(zeeguu_correction)
                 i_pos += 1
-            err = n_err
-            annotated_errors["labels"] = n_operations
-            annotated_errors["corrections"] = n_corrections
-            annotated_errors["alignment"] = new_alignment
+
+            map_spacy_to_zeeguu_i[i_pos] = len(zeeguu_err_w)
+            err_w = zeeguu_err_w
+            zeeguu_labels = []
+
+            # In case there is operations, not Missing tokens which have
+            # the same start and end, it means we have merged the span.
+            # Update to reflect the change.
+            for operation, span in zeeguu_operations:
+                zeeguu_span = map_spacy_to_zeeguu_i[span[0]], map_spacy_to_zeeguu_i[span[1]]
+                if zeeguu_span[0] == zeeguu_span[1] and operation[:2] != "M:":
+                    zeeguu_labels.append((operation, (zeeguu_span[0], zeeguu_span[1]+1)))
+                else:
+                    zeeguu_labels.append((operation, (zeeguu_span)))
+            annotated_errors["labels"] = zeeguu_labels
+            annotated_errors["corrections"] = zeeguu_corrections
         
         # Check if the sentence is shorter (provide better feedback)
         is_sent_shorter = False
         if len(annotated_errors["corr_s_tokens"]) > len(annotated_errors["err_s_tokens"]): is_sent_shorter = True
+
+        # The last position where there is an error
         err_last_i = len(annotated_errors["err_s_tokens"]) - 1
+
+        # Keep Track of the WO errors (these won't get feedback if in the set.)
         seen_wo_err = set()
+
         # Create a reverse map of the unmerged tokens
-        # We keep the first Missing token as the feedback to give.
+        # Corresponds to a a dictionary containing the first
+        # label, for a particular span.
+        # This is used in the case there are M:OTHER, to return
+        # the first feedback to guide the user, rather than a generic
+        # missing something.
         unmerge_labels = {}
-        for k, v in annotated_errors["unmerged_labels"]:
-            if v not in unmerge_labels:
-                unmerge_labels[v] = k 
+        for k, span in annotated_errors["unmerged_labels"]:
+            zeeguu_span = map_spacy_to_zeeguu_i.get(span[0], span[0]), map_spacy_to_zeeguu_i.get(span[1], span[1])
+            if zeeguu_span not in unmerge_labels:
+                unmerge_labels[zeeguu_span] = k 
+                    # In case of a missing token, in the beggining or the end, we need to
+
+
+        assert len(word_dictionary_list) == len(err_w), "Input words and corrected words do not match."
 
         # Annotate the Feedback
-        assert len(word_dictionary_list) == len(err), "Input words and corrected words do not match."
         for i, ((operation, (s_err,s_end))) in enumerate(annotated_errors["labels"]):
-            token_err = annotated_errors["err_s_tokens"][map_n_err_to_old_err.get(s_err, s_err)]
-            wProps = word_dictionary_list[i] 
+            # Get the current spacy token
+            token_err = annotated_errors["err_s_tokens"][map_zeeguu_to_spacy_i.get(s_err, s_err)]
+            # Get the properties of the current word item
+            wProps = word_dictionary_list[i]
+            wProps["isCorrect"] = False
+            # Flag to see if the missing token is before (in case of last)
+            # and first, otherwise it's always after the current token
+            is_missing_before = False
+
+            # Get the string token
             word_for_correction = wProps["word"]
+            # Get the correction for the token
+            wProps["correction"] = annotated_errors["corrections"][i]
+
+            # If correct, mark token as right.
             if operation == "C":
                 wProps["isCorrect"] = True
                 wProps["status"] = "correct"
                 wProps["feedback"] = ""
                 continue
-            if (wProps["isInSentence"] and operation == "U"
-                and wProps["word"] not in original_sentence
-                and i+1 == len(annotated_errors["labels"])):
-                # Attempt to fix case where words are marked as uncesseary because of
-                # context cutoff.
-                # In this situation, we don't know yet if it's correct.
-                wProps["isCorrect"] = False
-                wProps["status"] = ""
-                wProps["feedback"] = ""
-                continue
-            if s_err in seen_wo_err: continue # Avoid Order errors. (Have the same start)
+
+            # Check if the token is missing before or after.
+            if ("M:" == operation[:2] and
+                (s_err, s_end) == (i,i)):
+                # Missing Operations are only used if in the first token
+                # or the last token
+                is_missing_before = True
+            
+            # Avoid Order errors. (Have the same start)
+            if s_err in seen_wo_err: 
+                continue 
+            
+            # In case of WO errors, only give feedback in the first token
+            # mark all others as incorrect.
             if operation == "R:WO":
                 seen_wo_err.add(s_err)
-                word_for_correction = "".join(err[s_err:s_end]).strip()
+                word_for_correction = "".join(err_w[s_err:s_end]).strip()
+                wProps["correction"] = " ".join(annotated_errors["corrections"][s_err:s_end])
                 for j in range(s_err, s_end):
                     word_dictionary_list[j]["isCorrect"] = False
                     word_dictionary_list[j]["status"] = "incorrect"
@@ -482,49 +515,52 @@ class AutoGECTagging():
                     # This needs to be in otherwise if there was a previous feedback
                     # the word will be still put in the latest status.
                     word_dictionary_list[j]["feedback"] = ""
-
+                    seen_wo_err.add(j)
+                    
             # Handle the Dependency parser clues.
             related_words = None
-            if "R:" in operation and operation != "R:WO":
+            if "R:" == operation[:2] and operation != "R:WO":
                 if token_err.text == token_err.head.text: related_words == [child for child in token_err.children]
                 else: related_words = [token_err.head.text]
                 # Avoid situations where the token is referring to itself.
                 if related_words is not None:
                     related_words = [rel_token for rel_token in related_words if rel_token not in word_for_correction]
                     if len(related_words) == 0: related_words = None
+            
+            # If the span is found in the unmerge labels, and the current token
+            # is considered to be correct or M:OTHER (missing more than 1 token)
+            # check the unmerged labels to add the first operation for the span.
+            if operation in ("C", "M:OTHER"):
+                if (s_err,s_err) in unmerge_labels:
+                    operation = unmerge_labels[(s_err,s_err)]
+                elif (s_end, s_end) in unmerge_labels:
+                    operation = unmerge_labels[(s_end, s_end)]
 
             # Prepare the Properties in the Dictionary.
             wProps["pos"] = DICTIONARY_UD_MAP.get(token_err.pos_, token_err.pos_)
-            if i == len(word_dictionary_list)-1 and (s_err,s_end) in unmerge_labels:
-                # We check if the original operation was another error.
-                if (unmerge_labels[(s_err,s_end)][:2] != "M:" 
-                    and unmerge_labels[(s_err,s_end)][0] != "C"):
-                    operation = unmerge_labels[(s_err,s_end)]
-                    
-            if (operation == "M:OTHER"):
-                # Set the first label (from unmerged)
-                operation = unmerge_labels.get((s_err,s_end), "M:OTHER")
-                # Needs to check if there is 'C' means we have
-                # a merge of 2 M, then we set to the first.
-                if operation == "C":
-                    if first_missing_before: operation = unmerge_labels.get((s_err,s_err), "M:OTHER")
-                    else: operation = unmerge_labels.get((s_end, s_end), "M:OTHER")
 
+            # Add the feedback based on the current operation
+            
             wProps["feedback"] = _write_feedback(operation, word_for_correction, word_i=i, err_last_i = err_last_i,
-                                                 first_missing_before = first_missing_before,
-                                                 is_sent_shorter=is_sent_shorter, err_pos=wProps["pos"], related_words=related_words)
-            wProps["missBefore"] = True if first_missing_before else False
+                                                is_missing_before = is_missing_before, is_in_sentence=wProps["isInSentence"],
+                                                is_sent_shorter=is_sent_shorter, err_pos=wProps["pos"], related_words=related_words)
+            
+            # Set the rest of the properties
+            wProps["missBefore"] = True if is_missing_before else False
             wProps["error_type"] = operation
-            if s_err != s_end and s_err != 0: wProps["correction"] = " ".join(annotated_errors["corrections"][s_err:s_end])
-            else: wProps["correction"] = annotated_errors["corrections"][max(0, s_err-1)] # Avoid -1 (if s_err == 0)
-            wProps["isCorrect"] = False
-            # Only mark incorrect if not missing.
-            # If it is missing, 
+            wProps["status"] = "incorrect"
+
+            # If it's a missing operation and the token is in the correction
+            # Then we mark the current token correct, otherwise, it remains incorerect.
             if (operation[:2] == "M:"):
                 # If the correction is in the correction, we know the token is correct
                 # Otherwise we can't mark it incorrect.
-                wProps["status"] = "correct" if wProps["word"] in wProps["correction"] else ""
-            else:
-                wProps["status"] = "incorrect"
-        return word_dictionary_list
+                wProps["status"] = "correct" if wProps["word"] in wProps["correction"].split(" ") else ""     
             
+            # If the word is unecessary, we mark it as incorrect, but we don't mark it
+            # as wrong if it's in the sentece, in this case the feedback
+            if (operation[:2] == "U:"):
+                wProps["status"] = "" if wProps["isInSentence"] else "incorrect"
+                if wProps["isInSentence"]: wProps["feedback"] = "Please look at the previous errors."
+
+        return word_dictionary_list
