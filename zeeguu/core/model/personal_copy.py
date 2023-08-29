@@ -1,6 +1,6 @@
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.user import User
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, desc
 from sqlalchemy.orm import relationship
 
 import zeeguu
@@ -35,6 +35,7 @@ class PersonalCopy(db.Model):
         return (
             Article.query.join(PersonalCopy)
             .filter(PersonalCopy.user_id == user.id)
+            .order_by(desc(PersonalCopy.id))
             .all()
         )
 

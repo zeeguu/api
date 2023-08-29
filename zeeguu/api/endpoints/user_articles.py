@@ -1,7 +1,7 @@
 import flask
 
 from zeeguu.core.content_recommender import article_recommendations_for_user, topic_filter_for_user
-from zeeguu.core.model import UserArticle, Article
+from zeeguu.core.model import UserArticle, Article, PersonalCopy
 
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
@@ -30,6 +30,21 @@ def user_articles_recommended(count: int = 20):
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
     return json_result(article_infos)
+
+
+@api.route("/saved_articles", methods=["GET"])
+@cross_domain
+@with_session
+def saved_articles():
+
+    saves = PersonalCopy.all_for(flask.g.user)
+
+    article_infos = [
+        UserArticle.user_article_info(flask.g.user, e) for e in saves
+    ]
+
+    return json_result(article_infos)
+
 
 
 # ---------------------------------------------------------------------------
