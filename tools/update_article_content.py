@@ -13,11 +13,11 @@ session = zeeguu.core.db.session
 def update_article(id):
     a = Article.find_by_id(id)
     old_content = a.content
-    print(">>>>>> BEFORE <<<<<<")
-    print(a.content)
+    # print(">>>>>> BEFORE <<<<<<")
+    # print(a.content)
     a.update_content(session)
-    print("\n\n>>>>>> AFTER <<<<<<\n")
-    print(a.content)
+    # print("\n\n>>>>>> AFTER <<<<<<\n")
+    # print(a.content)
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
