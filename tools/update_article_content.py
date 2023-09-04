@@ -30,6 +30,15 @@ def update_article_range(start_date, end_date, language_id):
         sleep(randint(10, 70))
 
 
+# fr = 7
+def update_articles_below(max_val, min_val, language_id):
+    all = Article.query.filter(Article.id <= max_val).filter(Article.id > min_val).filter(
+        Article.language_id == language_id).order_by(desc(Article.id)).all()
+    for each in all:
+        update_article(each.id)
+        sleep(randint(10, 70))
+
+
 if __name__ == '__main__':
     id = int(sys.argv[1])
     update_article(id)
