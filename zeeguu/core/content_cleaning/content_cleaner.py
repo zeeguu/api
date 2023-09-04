@@ -15,12 +15,13 @@ JUNK_PATTERNS_TO_REMOVE = [
     "À voir également sur le HuffPost :",
 
 #     Le Monde
-    "\nLe Monde avec AFP\n",
+    "Le Monde avec AFP",
     "Vous pouvez lire Le Monde sur un seul appareil à la fois",
     "Ce message s’affichera sur l’autre appareil.",
     "Découvrir les offres multicomptes",
     "Votre abonnement n’autorise pas la lecture de cet article",
     "Lecture restreinte",
+    "Pour plus d’informations, merci de contacter notre service commercial."
 
 ]
 
