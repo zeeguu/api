@@ -41,6 +41,7 @@ def update_articles_below(max_val, min_val, language_id):
         Article.language_id == language_id).order_by(desc(Article.id)).all()
     for each in all:
         try:
+            print(each.id)
             update_article(each.id)
             sleep(randint(10, 70))
         except Exception as e:

@@ -102,9 +102,11 @@ class ZeeguuMailer(object):
         title = f"[U] {a.title}"
         content = f"https://www.zeeguu.org/read/article?id={a.id}" + "\n\n"
         content += f"Original: {a.url.as_string()}" + "\n"
+        content += f"Published: {a.published_time}" + "\n"
         content += f"Difficulty: {a.fk_difficulty}" + "\n"
         content += f"Word Count: {a.word_count}" + "\n"
         content += f"Topics: {a.topics_as_string()}" + "\n"
+
         content += "\n\n" + a.title + "\n\n"
         content += a.content
         content += "\n\n\n\n\n\n\n\n\n\n\n\n"
