@@ -15,6 +15,9 @@ class ZeeguuMailer(object):
         self.our_email = app.config.get("SMTP_EMAIL")
         self.username = app.config.get("SMTP_USERNAME")
         self.password = app.config.get("SMTP_PASS")
+        print(self.username)
+        print(self.our_email)
+        print(self.password)
 
     def old_send_smtp(self):
         message = self._content_of_email()
@@ -116,5 +119,5 @@ class ZeeguuMailer(object):
             "zeeguu.team@gmail.com",
         )
         print("before send...")
-        mailer.send_with_yagmail()
+        mailer.send()
         print("after send...")
