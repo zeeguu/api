@@ -81,3 +81,5 @@ from zeeguu.core.nlp_pipeline import SpacyWrappers
 
 end = time.time()
 print("Loaded the spacy models in " + str(end - start) + " seconds")
+
+print(app.config)

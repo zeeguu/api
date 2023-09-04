@@ -3,6 +3,7 @@ import zeeguu
 from zeeguu.core.model import Article
 from zeeguu.api.app import app
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+print(app.config)
 print(app.config.get("SEND_NOTIFICATION_EMAILS", False))
 
 session = zeeguu.core.db.session

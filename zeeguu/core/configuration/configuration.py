@@ -22,9 +22,11 @@ def load_configuration_or_abort(app, environ_variable, mandatory_config_keys=[])
     else:
         try:
             config_file = _load_config_file(environ_variable, mandatory_config_keys)
+            print(f"config file: {config_file}")
             app.config.from_pyfile(config_file, silent=False)
             _assert_configs(app.config, mandatory_config_keys, config_file)
             print(("ZEEGUU: Loaded {0} config from {1}".format(app.name, config_file)))
+            print(app.config)
         except Exception as e:
             print(str(e))
             exit(-1)
