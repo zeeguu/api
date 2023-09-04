@@ -34,9 +34,11 @@ class ZeeguuMailer(object):
         from zeeguu.api.app import app
         # disable the mailer during unit testing
         if not app.config.get("SEND_NOTIFICATION_EMAILS", False):
+            print("returning without sending")
             return
 
         self.send_with_yagmail()
+        print("sent")
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
