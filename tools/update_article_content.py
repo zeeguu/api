@@ -13,6 +13,7 @@ session = zeeguu.core.db.session
 def update_article(id):
     a = Article.find_by_id(id)
     old_content = a.content
+    print(a.title)
     # print(">>>>>> BEFORE <<<<<<")
     # print(a.content)
     a.update_content(session)
