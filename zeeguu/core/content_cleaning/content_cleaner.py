@@ -14,8 +14,8 @@ JUNK_PATTERNS_TO_REMOVE = [
     "\nJe m'abonne\n",
 
     # Hoff Post
-    "À voir également sur le HuffPost :",
-    "À voir également sur Le HuffPost :",
+    "À voir également sur le HuffPost",
+    "À voir également sur Le HuffPost",
 
 #     Le Monde
     "Le Monde avec AFP",
