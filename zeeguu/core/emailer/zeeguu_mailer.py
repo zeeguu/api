@@ -115,5 +115,5 @@ class ZeeguuMailer(object):
             "zeeguu.team@gmail.com",
         )
         print("before send...")
-        mailer.send()
+        mailer.send_with_yagmail()
         print("after send...")
