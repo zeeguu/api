@@ -13,6 +13,7 @@ JUNK_PATTERNS_TO_REMOVE = [
     "\nOffre limitée. 2 mois pour 1€ sans engagement\n",
     "\nJe m'abonne\n",
     "À voir également sur le HuffPost",
+    "À voir également sur Le HuffPost",
 
 #     Le Monde
     "Le Monde avec AFP",
