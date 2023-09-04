@@ -15,20 +15,7 @@ def update_article(id):
     a.update_content(session)
     print("\n\n>>>>>> AFTER <<<<<<\n")
     print(a.content)
-
-    title = f"Updated Content for article {a.id}"
-    content = f"https://www.zeeguu.org/read/article?id={a.id}"
-    content += a.title + "\n"
-    content += a.content
-    content += "--------" + "\n"
-    content += "--------" + "\n"
-    content += "--------" + "\n"
-    content += "--------" + "\n"
-    content += "OLD CONTENT" + "\n"
-    content += old_content
-
-    mailer = ZeeguuMailer(title, content, "mircea.lungu@gmail.com")
-    mailer.send()
+    ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
 
