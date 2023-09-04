@@ -9,6 +9,7 @@ session = zeeguu.core.db.session
 
 def update_article(id):
     a = Article.find_by_id(id)
+    old_content = a.content
     print(">>>>>> BEFORE <<<<<<")
     print(a.content)
     a.update_content(session)
@@ -19,6 +20,12 @@ def update_article(id):
     content = f"https://www.zeeguu.org/read/article?id={a.id}"
     content += a.title + "\n"
     content += a.content
+    content += "--------" + "\n"
+    content += "--------" + "\n"
+    content += "--------" + "\n"
+    content += "--------" + "\n"
+    content += "OLD CONTENT" + "\n"
+    content += old_content
 
     ZeeguuMailer.send_mail(title, content, "mircea.lungu@gmail.com")
 
