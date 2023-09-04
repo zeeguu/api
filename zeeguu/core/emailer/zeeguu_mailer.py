@@ -32,6 +32,7 @@ class ZeeguuMailer(object):
 
     def send(self):
         from zeeguu.api.app import app
+        print(app.config.get("SEND_NOTIFICATION_EMAILS", False))
         # disable the mailer during unit testing
         if not app.config.get("SEND_NOTIFICATION_EMAILS", False):
             print("returning without sending")
