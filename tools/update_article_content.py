@@ -27,8 +27,12 @@ def update_article_range(start_date, end_date, language_id):
     all = Article.query.filter(Article.language_id == language_id).filter(Article.published_time >= start_date).filter(
         Article.published_time < end_date).order_by(desc(Article.id)).all()
     for each in all:
-        update_article(each.id)
-        sleep(randint(10, 70))
+        try:
+            update_article(each.id)
+            sleep(randint(10, 70))
+        except Exception as e:
+            import traceback
+            traceback.print_stack()
 
 
 # fr = 7
@@ -36,8 +40,12 @@ def update_articles_below(max_val, min_val, language_id):
     all = Article.query.filter(Article.id <= max_val).filter(Article.id > min_val).filter(
         Article.language_id == language_id).order_by(desc(Article.id)).all()
     for each in all:
-        update_article(each.id)
-        sleep(randint(10, 70))
+        try:
+            update_article(each.id)
+            sleep(randint(10, 70))
+        except Exception as e:
+            import traceback
+            traceback.print_stack()
 
 
 if __name__ == '__main__':
