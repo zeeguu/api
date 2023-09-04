@@ -12,8 +12,10 @@ JUNK_PATTERNS_TO_REMOVE = [
     # L'Express, October 19
     "\nOffre limitée. 2 mois pour 1€ sans engagement\n",
     "\nJe m'abonne\n",
-    "À voir également sur le HuffPost",
-    "À voir également sur Le HuffPost",
+
+    # Hoff Post
+    "À voir également sur le HuffPost :",
+    "À voir également sur Le HuffPost :",
 
 #     Le Monde
     "Le Monde avec AFP",
