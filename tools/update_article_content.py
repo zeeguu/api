@@ -24,7 +24,7 @@ def update_article(id):
 def update_article_range(start, end):
     for i in range(start, end):
         update_article(i)
-        sleep(randint(10, 100))
+        sleep(randint(10, 70))
 
 
 if __name__ == '__main__':
