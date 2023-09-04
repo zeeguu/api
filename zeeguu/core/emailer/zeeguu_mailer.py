@@ -106,6 +106,7 @@ class ZeeguuMailer(object):
         content += f"Word Count: {a.word_count}"+ "\n"
         content += "\n\n" + a.title + "\n\n"
         content += a.content
+        content += "\n\n\n\n\n\n\n\n\n\n\n\n"
         content += "--------" + "\n"
         content += "--------" + "\n"
         content += "--------" + "\n"
