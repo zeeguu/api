@@ -14,7 +14,7 @@ def load_configuration_or_abort(app, environ_variable, mandatory_config_keys=[])
     :return: Returns in case of success. Throws exception otherwise.
 
     """
-
+    print("loading configuration...")
     if _called_from_within_a_test():
         _load_core_testing_configuration(app)
         _load_api_testing_configuration(app)
