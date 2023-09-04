@@ -12,7 +12,15 @@ JUNK_PATTERNS_TO_REMOVE = [
     # L'Express, October 19
     "\nOffre limitée. 2 mois pour 1€ sans engagement\n",
     "\nJe m'abonne\n",
-    "À voir également sur le HuffPost :"
+    "À voir également sur le HuffPost :",
+
+#     Le Monde
+    "\nLe Monde avec AFP\n",
+    "Vous pouvez lire Le Monde sur un seul appareil à la fois",
+    "Ce message s’affichera sur l’autre appareil.",
+    "Découvrir les offres multicomptes",
+    "Votre abonnement n’autorise pas la lecture de cet article",
+    "Lecture restreinte",
 
 ]
 
