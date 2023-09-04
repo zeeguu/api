@@ -101,7 +101,10 @@ class ZeeguuMailer(object):
     def send_content_retrieved_notification(cls, a, old_content):
         title = f"{a.title} [Update]"
         content = f"https://www.zeeguu.org/read/article?id={a.id}" + "\n\n"
-        content += a.title + "\n\n"
+        content += f"Original: {a.url.as_string()}"
+        content += f"Difficulty: {a.fk_difficulty}"
+        content += f"Word Count: {a.word_count}"
+        content += "\n\n" + a.title + "\n\n"
         content += a.content
         content += "--------" + "\n"
         content += "--------" + "\n"
