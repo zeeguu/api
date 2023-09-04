@@ -26,7 +26,6 @@ class ZeeguuMailer(object):
         server.sendmail(from_addr=self.our_email, to_addrs=self.to_email, msg=message)
         server.quit()
 
-
     def send_with_yagmail(self):
         yag = yagmail.SMTP(self.our_email, self.password)
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
@@ -38,7 +37,6 @@ class ZeeguuMailer(object):
             return
 
         self.send_with_yagmail()
-
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
