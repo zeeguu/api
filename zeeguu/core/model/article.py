@@ -131,7 +131,9 @@ class Article(db.Model):
         self.video = video
 
         self.convertHTML2TextIfNeeded()
+        self.compute_fk_and_wordcount()
 
+    def compute_fk_and_wordcount(self):
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
             self.content, self.language, None
@@ -178,13 +180,7 @@ class Article(db.Model):
 
         self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(
-            self.content, self.language, None
-        )["grade"]
-
-        self.fk_difficulty = fk_difficulty
-        self.word_count = len(self.content.split())
+        self.compute_fk_and_wordcount()
 
     def article_info(self, with_content=False):
         """
@@ -273,6 +269,7 @@ class Article(db.Model):
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
         self.htmlContent = parsed.html
+        self.compute_fk_and_wordcount()
         session.add(self)
         session.commit()
 
