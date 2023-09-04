@@ -15,6 +15,7 @@ def update_article(id):
     a.update_content(session)
     print("\n\n>>>>>> AFTER <<<<<<\n")
     print(a.content)
+    print("before sending the mail")
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 

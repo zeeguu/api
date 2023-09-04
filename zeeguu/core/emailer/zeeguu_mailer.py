@@ -98,7 +98,6 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_content_retrieved_notification(cls, a, old_content):
-        from zeeguu.api.app import app
         title = f"Updated Content for article {a.id}"
         content = f"https://www.zeeguu.org/read/article?id={a.id}"
         content += a.title + "\n"
@@ -113,7 +112,8 @@ class ZeeguuMailer(object):
         mailer = ZeeguuMailer(
             title,
             content,
-            app.config.get("SMTP_USERNAME"),
+            "zeeguu.team@gmail.com",
         )
-
+        print("before send...")
         mailer.send()
+        print("after send...")
