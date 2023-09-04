@@ -27,7 +27,8 @@ def update_article(id):
     content += "OLD CONTENT" + "\n"
     content += old_content
 
-    ZeeguuMailer.send_mail(title, content, "mircea.lungu@gmail.com")
+    mailer = ZeeguuMailer(title, content, "mircea.lungu@gmail.com")
+    mailer.send()
 
 
 
