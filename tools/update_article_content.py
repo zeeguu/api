@@ -1,6 +1,6 @@
 import sys
 import zeeguu
-from zeeguu.core.model import Article, User
+from zeeguu.core.model import Article
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 
@@ -16,9 +16,7 @@ def update_article(id):
     print("\n\n>>>>>> AFTER <<<<<<\n")
     print(a.content)
     print("before sending the mail")
-    u = User.find_by_id(53)
-    ZeeguuMailer.send_feedback("Feedback", "lala", "lulu", u)
-
+    ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
 
