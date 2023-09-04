@@ -15,9 +15,6 @@ class ZeeguuMailer(object):
         self.our_email = app.config.get("SMTP_EMAIL")
         self.username = app.config.get("SMTP_USERNAME")
         self.password = app.config.get("SMTP_PASS")
-        print(self.username)
-        print(self.our_email)
-        print(self.password)
 
     def old_send_smtp(self):
         message = self._content_of_email()
@@ -42,7 +39,7 @@ class ZeeguuMailer(object):
             return
 
         self.send_with_yagmail()
-        print("sent")
+        print("sent :)")
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
@@ -102,15 +99,15 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_content_retrieved_notification(cls, a, old_content):
-        title = f"Updated Content for article {a.id}"
-        content = f"https://www.zeeguu.org/read/article?id={a.id}"
-        content += a.title + "\n"
+        title = f"{a.title} [Update]"
+        content = f"https://www.zeeguu.org/read/article?id={a.id}" + "\n\n"
+        content += a.title + "\n\n"
         content += a.content
         content += "--------" + "\n"
         content += "--------" + "\n"
         content += "--------" + "\n"
         content += "--------" + "\n"
-        content += "OLD CONTENT" + "\n"
+        content += "OLD CONTENT" + "\n\n"
         content += old_content
 
         mailer = ZeeguuMailer(
@@ -118,6 +115,5 @@ class ZeeguuMailer(object):
             content,
             "zeeguu.team@gmail.com",
         )
-        print("before send...")
         mailer.send()
-        print("after send...")
+
