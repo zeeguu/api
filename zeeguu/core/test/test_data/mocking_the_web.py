@@ -52,7 +52,7 @@ url_blinden_und_elefant = (
     "https://www.geschichten-netzwerk.de/geschichten/die-blinden-und-der-elefant/"
 )
 
-PLAIN_TEXT_ENDPOINT_PREFIX="http://16.171.148.98:3000/plain_text?url="
+from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI
 test_urls = {
     url_vols_americans: "vols_americans.html",
     url_onion_us_military: "onion_us_military.html",
@@ -67,12 +67,13 @@ test_urls = {
     url_blinden_und_elefant: "blinden_und_elefant.html",
     url_turkish: "turkish_article.html",
     url_formation_professionelle: "formation_professionnelle.html",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.derkleineprinz-online.de/text/2-kapitel/": "der_kleine_prinz.txt",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html": "leichtathletik.txt",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html": "kathmandu.txt",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html": "venezuela.txt",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.spiegel.de/politik/ausland/nancy-pelosi-trump-soll-erst-nach-beendigung-des-shutdowns-rede-halten-duerfen-a-1249611.html#ref=rss": "nancy_pelosi.txt",
-    PLAIN_TEXT_ENDPOINT_PREFIX+"https://www.lemonde.fr/idees/article/2018/02/21/formation-le-big-bang-attendra_5260297_3232.html":"formation.txt"
+    READABILITY_SERVER_CLEANUP_URI + "http://www.derkleineprinz-online.de/text/2-kapitel/": "der_kleine_prinz.txt",
+    READABILITY_SERVER_CLEANUP_URI + "https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html": "leichtathletik.txt",
+    READABILITY_SERVER_CLEANUP_URI + "https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html": "kathmandu.txt",
+    READABILITY_SERVER_CLEANUP_URI + "http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html": "venezuela.txt",
+    READABILITY_SERVER_CLEANUP_URI + "http://www.spiegel.de/politik/ausland/nancy-pelosi-trump-soll-erst-nach-beendigung-des-shutdowns-rede-halten-duerfen-a-1249611.html#ref=rss": "nancy_pelosi.txt",
+    READABILITY_SERVER_CLEANUP_URI + "https://www.lemonde.fr/idees/article/2018/02/21/formation-le-big-bang-attendra_5260297_3232.html": "formation.txt",
+    READABILITY_SERVER_CLEANUP_URI + url_turkish: "turkish.txt"
 }
 
 

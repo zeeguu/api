@@ -2,7 +2,7 @@ import newspaper
 from langdetect import detect
 import requests
 
-READABILITY_SERVER_CLEANUP_URI = "http://16.171.148.98:3000/plain_text"
+READABILITY_SERVER_CLEANUP_URI = "http://16.171.148.98:3000/plain_text?url="
 
 
 def download_and_parse(url):
@@ -16,7 +16,7 @@ def download_and_parse(url):
         # this is a temporary solution for allowing translations
         # on pages that do not have "articles" downloadable by newspaper.
 
-    result = requests.get(READABILITY_SERVER_CLEANUP_URI + "?url=" + url)
+    result = requests.get(READABILITY_SERVER_CLEANUP_URI + url)
     parsed.text = result.text
 
     if parsed.meta_lang == "":
