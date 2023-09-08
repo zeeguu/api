@@ -34,11 +34,6 @@ url_spiegel_png = "http://www.spiegel.de/spiegel.png"
 
 icon_name_spiegel = "spiegel.png"
 
-url_spiegel_venezuela = (
-    "http://www.spiegel.de/politik/ausland/venezuela-juan-guaido-und-sein-riskanter-konter-"
-    "gegen-nicolas-maduro-a-1249613.html"
-)
-
 url_spiegel_militar = (
     "http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-"
     "machtkampf-gegen-juan-guaido-a-1249616.html"
@@ -57,13 +52,13 @@ url_blinden_und_elefant = (
     "https://www.geschichten-netzwerk.de/geschichten/die-blinden-und-der-elefant/"
 )
 
+PLAIN_TEXT_ENDPOINT_PREFIX="http://16.171.148.98:3000/plain_text?url="
 test_urls = {
     url_vols_americans: "vols_americans.html",
     url_onion_us_military: "onion_us_military.html",
     url_fish_will_be_gone: "fish_will_be_gone.html",
     url_investing_in_index_funds: "investing_in_index_funds.html",
     url_spiegel_rss: "spiegel.rss",
-    url_spiegel_venezuela: "spiegel_venezuela.html",
     url_spiegel_militar: "spiegel_militar.html",
     url_leightathletik: "leichtathletik.html",
     url_plane_crashes: "plane_crashes.html",
@@ -72,10 +67,12 @@ test_urls = {
     url_blinden_und_elefant: "blinden_und_elefant.html",
     url_turkish: "turkish_article.html",
     url_formation_professionelle: "formation_professionnelle.html",
-    "http://16.171.148.98:3000/plain_text?url=http://www.derkleineprinz-online.de/text/2-kapitel/": "der_kleine_prinz.txt",
-    "http://16.171.148.98:3000/plain_text?url=https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html": "leichtathletik.txt",
-    "http://16.171.148.98:3000/plain_text?url=https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html": "kathmandu.txt",
-    "http://16.171.148.98:3000/plain_text?url=http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html": "venezuela.txt"
+    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.derkleineprinz-online.de/text/2-kapitel/": "der_kleine_prinz.txt",
+    PLAIN_TEXT_ENDPOINT_PREFIX+"https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html": "leichtathletik.txt",
+    PLAIN_TEXT_ENDPOINT_PREFIX+"https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html": "kathmandu.txt",
+    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html": "venezuela.txt",
+    PLAIN_TEXT_ENDPOINT_PREFIX+"http://www.spiegel.de/politik/ausland/nancy-pelosi-trump-soll-erst-nach-beendigung-des-shutdowns-rede-halten-duerfen-a-1249611.html#ref=rss": "nancy_pelosi.txt",
+    PLAIN_TEXT_ENDPOINT_PREFIX+"https://www.lemonde.fr/idees/article/2018/02/21/formation-le-big-bang-attendra_5260297_3232.html":"formation.txt"
 }
 
 
