@@ -27,7 +27,7 @@ url_investing_in_index_funds = (
     "-in-index-funds-but-many-of-his-employees-do-not-have-that-option"
 )
 
-url_diesel_fahrverbote = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
+url_leightathletik = "https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html"
 
 url_spiegel_rss = "http://www.spiegel.de/index.rss"
 url_spiegel_png = "http://www.spiegel.de/spiegel.png"
@@ -65,13 +65,17 @@ test_urls = {
     url_spiegel_rss: "spiegel.rss",
     url_spiegel_venezuela: "spiegel_venezuela.html",
     url_spiegel_militar: "spiegel_militar.html",
-    url_diesel_fahrverbote: "diesel_fahrverbote.html",
+    url_leightathletik: "leichtathletik.html",
     url_plane_crashes: "plane_crashes.html",
     url_pelosi_sperrt_president: "pelosi_sperrt_president.html",
     url_der_kleine_prinz: "der_kleine_prinz.html",
     url_blinden_und_elefant: "blinden_und_elefant.html",
     url_turkish: "turkish_article.html",
     url_formation_professionelle: "formation_professionnelle.html",
+    "http://16.171.148.98:3000/plain_text?url=http://www.derkleineprinz-online.de/text/2-kapitel/": "der_kleine_prinz.txt",
+    "http://16.171.148.98:3000/plain_text?url=https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html": "leichtathletik.txt",
+    "http://16.171.148.98:3000/plain_text?url=https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html": "kathmandu.txt",
+    "http://16.171.148.98:3000/plain_text?url=http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html": "venezuela.txt"
 }
 
 

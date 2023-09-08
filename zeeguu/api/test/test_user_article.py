@@ -5,7 +5,7 @@ from unittest import TestCase
 from zeeguu.api.test.api_test_mixin import APITestMixin
 
 
-URL_1 = "http://www.spiegel.de/politik/deutschland/diesel-fahrverbote-schuld-sind-die-grenzwerte-kolumne-a-1197123.html"
+URL_1 = "https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html"
 URL_2 = "https://www.hurriyet.com.tr/gundem/istanbul-teravih-namazi-saati-istanbulda-teravih-namazi-bu-aksam-saat-kacta-kilinacak-istanbul-ramazan-imsakiyesi-42034212"
 
 class UserArticleTests(APITestMixin, TestCase):
