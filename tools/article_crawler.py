@@ -1,5 +1,8 @@
 from datetime import datetime
 
+import zeeguu
+from zeeguu.api.app import app
+
 import zeeguu.core
 from feed_retrieval import retrieve_articles_from_all_feeds
 

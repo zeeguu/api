@@ -10,8 +10,6 @@ import newspaper
 
 from pymysql import DataError
 
-import zeeguu
-from zeeguu.api.app import app
 import zeeguu.core
 from zeeguu.core import log
 
