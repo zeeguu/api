@@ -7,6 +7,9 @@ from zeeguu.core.model.user import CEFR_TO_DIFFICULTY_MAPPING
 
 
 def valid_invite_code(invite_code):
+    if zeeguu.core.app.config["TESTING"]:
+        return True
+
     if zeeguu.core.app.config.get(
         "INVITATION_CODES"
     ) and invite_code in zeeguu.core.app.config.get("INVITATION_CODES"):
