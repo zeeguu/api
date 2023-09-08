@@ -32,7 +32,7 @@ def test_create_user_returns_400_if_password_too_short(client):
     assert response.status_code == 400
 
 
-def test_create_user_returns_400_if_password_too_short(client):
+def test_create_user_returns_400_if_password_absent(client):
     form_data = dict(username="gigi", invite_code="test")
     response = client.post("/add_user/i@i.la", data=form_data)
     assert response.status_code == 400
