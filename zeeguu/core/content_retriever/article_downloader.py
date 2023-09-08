@@ -146,6 +146,14 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
         try:
             new_article = download_feed_item(session, feed, feed_item, url)
             downloaded += 1
+            if save_in_elastic:
+                if new_article:
+                    index_in_elasticsearch(new_article, session)
+
+            if new_article:
+                print(">>><<<>>><<<>>><<< sending email")
+                ZeeguuMailer.send_content_retrieved_notification(new_article)
+
         except SkippedForTooOld:
             log("- Article too old")
             continue
@@ -166,13 +174,6 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             else:
                 log(e)
             continue
-
-        if save_in_elastic:
-            if new_article:
-                index_in_elasticsearch(new_article, session)
-
-        if new_article:
-            ZeeguuMailer.send_content_retrieved_notification(new_article)
 
     log(f"*** Downloaded: {downloaded} From: {feed.title}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
