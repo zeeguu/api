@@ -98,24 +98,26 @@ class ZeeguuMailer(object):
         mailer.send()
 
     @classmethod
-    def send_content_retrieved_notification(cls, a, old_content):
-        title = f"[U] {a.title}"
-        content = f"{a.url.as_string()}" + "\n"
-        content += f"Published: {a.published_time}" + "\n"
-        content += f"Difficulty: {a.fk_difficulty}" + "\n"
-        content += f"Word Count: {a.word_count}" + "\n"
-        content += f"Topics: {a.topics_as_string()}" + "\n"
-        content += f"https://www.zeeguu.org/read/article?id={a.id}" + "\n\n"
+    def send_content_retrieved_notification(cls, article, old_content=""):
+        title = f"[U] {article.title}"
+        content = f"{article.url.as_string()}" + "\n"
+        content += f"Published: {article.published_time}" + "\n"
+        content += f"Difficulty: {article.fk_difficulty}" + "\n"
+        content += f"Word Count: {article.word_count}" + "\n"
+        content += f"Topics: {article.topics_as_string()}" + "\n"
+        content += f"https://www.zeeguu.org/read/article?id={article.id}" + "\n\n"
 
-        content += "\n\n" + a.title + "\n\n"
-        content += a.content
-        content += "\n\n\n\n\n\n\n\n\n\n\n\n"
-        content += "--------" + "\n"
-        content += "--------" + "\n"
-        content += "--------" + "\n"
-        content += "--------" + "\n"
-        content += "OLD CONTENT" + "\n\n"
-        content += old_content
+        content += "\n\n" + article.title + "\n\n"
+        content += article.content
+
+        if old_content:
+            content += "\n\n\n\n\n\n\n\n\n\n\n\n"
+            content += "--------" + "\n"
+            content += "--------" + "\n"
+            content += "--------" + "\n"
+            content += "--------" + "\n"
+            content += "OLD CONTENT" + "\n\n"
+            content += old_content
 
         mailer = ZeeguuMailer(
             title,

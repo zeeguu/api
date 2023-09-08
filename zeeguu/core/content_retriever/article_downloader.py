@@ -15,6 +15,7 @@ from zeeguu.core import log
 
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
 import requests
 
@@ -169,6 +170,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
         if save_in_elastic:
             if new_article:
                 index_in_elasticsearch(new_article, session)
+
+        if new_article:
+            ZeeguuMailer.send_content_retrieved_notification(new_article)
 
     log(f"*** Downloaded: {downloaded} From: {feed.title}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
