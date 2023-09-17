@@ -1,10 +1,12 @@
 import re
 import flask_sqlalchemy
 
-import zeeguu.core
+
 from flask import Flask
 
-from zeeguu.core.configuration.configuration import load_configuration_or_abort
+from zeeguu.config.loader import load_configuration_or_abort
+from zeeguu.logging import warning
+import zeeguu
 
 # If zeeguu.core.app is already defined we use that object
 # as the app for the db_init that we do later. If not,
@@ -27,6 +29,7 @@ zeeguu.core.app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
 zeeguu.core.db = flask_sqlalchemy.SQLAlchemy(zeeguu.core.app)
 # Note, that if we pass the app here, then we don't need later
 # to push the app context
+
 
 # the core model
 from .language import Language
@@ -76,8 +79,8 @@ from .user_reading_session import UserReadingSession
 from .user_exercise_session import UserExerciseSession
 
 # bookmark scheduling
-from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .word_to_study import WordToStudy
+from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .personal_copy import PersonalCopy
 
@@ -91,7 +94,7 @@ zeeguu.core.db.create_all(app=zeeguu.core.app)
 # Log the DB connection string; after masking the password
 db_connection_string = zeeguu.core.app.config["SQLALCHEMY_DATABASE_URI"]
 anon_conn_string = re.sub(":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string)
-zeeguu.core.warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
+warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
 
 # install nltk punkt & tagger if missing
 # we can only do it here because the nltk loads in memory the unittest

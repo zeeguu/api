@@ -1,7 +1,8 @@
 import functools
 import flask
-import zeeguu.core
+from zeeguu.logging import log
 from zeeguu.core.model.session import Session
+import zeeguu
 
 
 def with_session(view):
@@ -26,7 +27,7 @@ def with_session(view):
         flask.g.user = session.user
         session.update_use_date()
 
-        zeeguu.core.log(str(flask.g.user.id) + " API CALL: " + str(view))
+        log(str(flask.g.user.id) + " API CALL: " + str(view))
 
         zeeguu.core.db.session.add(session)
         # TODO: remove this commit? and add it after such that the session can be added with the next commit?

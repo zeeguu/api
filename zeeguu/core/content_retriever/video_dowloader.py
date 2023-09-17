@@ -3,11 +3,7 @@ import os
 import zeeguu
 import zeeguu.core.model
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
-from elasticsearch import Elasticsearch
-from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from sentry_sdk import capture_exception as capture_to_sentry
-from zeeguu.core.elastic.indexing import document_from_article
-from zeeguu.core import log
+
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.model import Url, Article, Language
 import datetime

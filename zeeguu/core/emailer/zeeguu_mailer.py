@@ -88,7 +88,7 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_mail(cls, subject, content_lines):
-        from zeeguu.core import logger
+        from zeeguu.logging import logger
         from zeeguu.api.app import app
 
         logger.info("Sending email...")

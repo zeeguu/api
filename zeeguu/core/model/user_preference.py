@@ -5,25 +5,28 @@ from datetime import time
 
 from zeeguu.core.model import User
 
-import zeeguu.core
+from zeeguu.logging import log, logp
+
+import zeeguu
 
 db = zeeguu.core.db
 
 
 class UserPreference(db.Model):
     """
-            All preferences are saved in the DB as user_id - key - value triples.
-            Where the key and value are both Strings.
+    All preferences are saved in the DB as user_id - key - value triples.
+    Where the key and value are both Strings.
 
-            To avoid working with hardcoded strings add the constant for the keys
-            in this class, like DIFFICULTY_ESTIMATOR for example.
+    To avoid working with hardcoded strings add the constant for the keys
+    in this class, like DIFFICULTY_ESTIMATOR for example.
 
-            Better yet, add also corresponding set and get methods, like:
-                set_difficulty_estimator
-                get_difficulty_estimator
+    Better yet, add also corresponding set and get methods, like:
+        set_difficulty_estimator
+        get_difficulty_estimator
 
     """
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -48,7 +51,9 @@ class UserPreference(db.Model):
         return self.value
 
     def __str__(self):
-        return f'Preferences (uid: {self.user_id}, key:"{self.key}", value:"{self.value}")'
+        return (
+            f'Preferences (uid: {self.user_id}, key:"{self.key}", value:"{self.value}")'
+        )
 
     # Specific Getter / Setter Methods below
     # --------------------------------------
@@ -71,7 +76,7 @@ class UserPreference(db.Model):
     @classmethod
     def find(cls, user: User, key: str):
         """
-            :return: A UserPreference object, or None if none was found
+        :return: A UserPreference object, or None if none was found
         """
         try:
             return cls._find(user, key)
@@ -114,14 +119,14 @@ class UserPreference(db.Model):
                 new_pref = cls(user, key, value)
                 session.add(new_pref)
                 session.commit()
-                zeeguu.core.log("Created new preference since original was missing")
+                log("Created new preference since original was missing")
                 return new_pref
             except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
                     try:
                         session.rollback()
                         pref = cls._find(user, key)
-                        zeeguu.core.log("Successfully avoided race condition. Nice! ")
+                        log("Successfully avoided race condition. Nice! ")
                         return pref
                     except sqlalchemy.orm.exc.NoResultFound:
                         time.sleep(0.3)

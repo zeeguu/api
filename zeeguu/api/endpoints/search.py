@@ -1,5 +1,5 @@
 import flask
-import zeeguu.core
+from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
@@ -11,6 +11,8 @@ from zeeguu.core.content_recommender import article_search_for_user
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
+
+import zeeguu
 
 session = zeeguu.core.db.session
 
@@ -70,7 +72,7 @@ def unsubscribe_from_search():
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        zeeguu.core.log(str(e))
+        log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -98,7 +100,7 @@ def get_subscribed_searches():
         try:
             searches_list.append(subs.search.as_dictionary())
         except Exception as e:
-            zeeguu.core.log(str(e))
+            log(str(e))
             from sentry_sdk import capture_exception
 
             capture_exception(e)
@@ -145,7 +147,7 @@ def unfilter_search():
         session.commit()
 
     except Exception as e:
-        zeeguu.core.log(str(e))
+        log(str(e))
         from sentry_sdk import capture_exception
 
         capture_exception(e)
@@ -179,7 +181,7 @@ def get_filtered_searches():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(filtered_searches)
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
-import zeeguu.core
+from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model import Article
@@ -19,6 +19,8 @@ from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.util.encoding import datetime_to_json
+
+import zeeguu
 
 db = zeeguu.core.db
 
@@ -186,7 +188,7 @@ class Bookmark(db.Model):
         except AttributeError as e:
             translation_word = ""
             translation_language = ""
-            zeeguu.core.log(
+            log(
                 f"Exception caught: for some reason there was no translation for {self.id}"
             )
             print(str(e))
@@ -341,14 +343,12 @@ class Bookmark(db.Model):
         :return:
         """
 
-        log = SortedExerciseLog(self)
-        is_learned = is_learned_based_on_exercise_outcomes(log)
+        exercise_log = SortedExerciseLog(self)
+        is_learned = is_learned_based_on_exercise_outcomes(exercise_log)
         if is_learned:
-            zeeguu.core.log(f"Log: {log.summary()}: bookmark {self.id} learned!")
-            self.learned_time = log.last_exercise_time()
+            log(f"Log: {exercise_log.summary()}: bookmark {self.id} learned!")
+            self.learned_time = exercise_log.last_exercise_time()
             self.learned = True
             session.add(self)
         else:
-            zeeguu.core.log(
-                f"Log: {log.summary()}: bookmark {self.id} not learned yet."
-            )
+            log(f"Log: {exercise_log.summary()}: bookmark {self.id} not learned yet.")

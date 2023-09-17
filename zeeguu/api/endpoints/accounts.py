@@ -11,6 +11,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain
 from . import api, db_session
 
 import zeeguu
+from zeeguu.logging import log
 
 
 @api.route("/add_user/<email>", methods=["POST"])
@@ -53,8 +54,8 @@ def add_user(email):
         return str(new_session.id)
 
     except Exception as e:
-        zeeguu.core.log(f"Attemt to create user failed: {username} {password} {email}")
-        zeeguu.core.log(e)
+        log(f"Attemt to create user failed: {username} {password} {email}")
+        log(e)
         return make_error(400, str(e))
 
 

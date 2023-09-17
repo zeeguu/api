@@ -19,7 +19,7 @@
 import traceback
 
 import zeeguu.core
-from zeeguu.core import log
+from zeeguu.logging import log
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import RSSFeed, Language
 

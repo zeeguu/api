@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from zeeguu.core import log
+from zeeguu.logging import log
 from zeeguu.core.model import Article, UserArticle
 
 

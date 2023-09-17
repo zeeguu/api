@@ -1,5 +1,5 @@
 import flask
-import zeeguu.core
+from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model import (
     Topic,
@@ -12,6 +12,8 @@ from zeeguu.core.model import (
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
+
+import zeeguu
 
 session = zeeguu.core.db.session
 
@@ -95,7 +97,7 @@ def get_subscribed_topics():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(topic_list)
 
@@ -206,7 +208,7 @@ def get_subscribed_filters():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(filter_list)
 

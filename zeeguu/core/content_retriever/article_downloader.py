@@ -10,8 +10,7 @@ import newspaper
 
 from pymysql import DataError
 
-import zeeguu.core
-from zeeguu.core import log
+from zeeguu.logging import log
 
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
@@ -26,6 +25,8 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import download_and_parse
+
+import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -95,6 +96,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
     try:
         items = feed.feed_items(last_retrieval_time_from_DB)
     except Exception as e:
+        import traceback
+
+        traceback.print_stack()
         capture_to_sentry(e)
         return
 
@@ -112,7 +116,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-                feed_item_timestamp > last_retrieval_time_seen_this_crawl
+            feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -167,6 +171,10 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             continue
 
         except Exception as e:
+            import traceback
+
+            traceback.print_stack()
+
             capture_to_sentry(e)
 
             if hasattr(e, "message"):
@@ -262,13 +270,14 @@ def download_feed_item(session, feed, feed_item, url):
         raise e
 
     except newspaper.ArticleException as e:
-        zeeguu.core.log(f"can't download article at: {url}")
+        log(f"can't download article at: {url}")
 
     except DataError as e:
-        zeeguu.core.log(f"Data error for: {url}")
+        log(f"Data error for: {url}")
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         capture_to_sentry(e)
 
@@ -284,7 +293,7 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-                new_article
+            new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)

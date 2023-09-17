@@ -1,12 +1,26 @@
 # -*- coding: utf8 -*-
-from zeeguu.core.configuration.configuration import load_configuration_or_abort
+from zeeguu.config.loader import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask
 import time
+import os
 
 # apimux is quite noisy; supress it's output
 import logging
 from apimux.log import logger
+
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+
+if os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.environ.get("SENTRY_DSN"),
+        integrations=[FlaskIntegration()],
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=0.3,
+    )
 
 logger.setLevel(logging.CRITICAL)
 
@@ -76,8 +90,6 @@ except ModuleNotFoundError as e:
 
 
 start = time.time()
-
-from zeeguu.core.nlp_pipeline import SpacyWrappers
 
 end = time.time()
 print("Loaded the spacy models in " + str(end - start) + " seconds")
