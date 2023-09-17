@@ -9,7 +9,6 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Cohort, Language, Article, Url, User
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from ._only_teachers_decorator import only_teachers
@@ -39,6 +38,8 @@ def send_article_to_colleague():
     article = Article.find_by_id(request.form.get("article_id"))
     new_id = Article.create_clone(db.session, article, receiving_user)
     print(f"send email confirmation to {receiving_user} ")
+    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
     mail = ZeeguuMailer(
         f"Shared: {article.title}",
         f"Dear {receiving_user.name},\n\n"
