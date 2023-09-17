@@ -37,10 +37,10 @@ class ArticleDownloaderTest(ModelTestMixIn, TestCase):
         feed = RSSFeedRule().feed_fr
 
         art1 = download_feed_item(
-            session, feed, self.dummy_feed_item, url_formation_professionelle
+            db_session, feed, self.dummy_feed_item, url_formation_professionelle
         )
 
-        es_document = document_from_article(art1, session)
+        es_document = document_from_article(art1, db_session)
         assert es_document["lr_difficulty"] == 2.1
 
     def test_download_german_article(self):
@@ -48,8 +48,8 @@ class ArticleDownloaderTest(ModelTestMixIn, TestCase):
         feed = RSSFeedRule().feed1
 
         art1 = download_feed_item(
-            session, feed, self.dummy_feed_item, url_spiegel_militar
+            db_session, feed, self.dummy_feed_item, url_spiegel_militar
         )
 
-        es_document = document_from_article(art1, session)
+        es_document = document_from_article(art1, db_session)
         assert es_document["lr_difficulty"] == None

@@ -1,19 +1,21 @@
 from smtplib import SMTP
 
 import yagmail
+import zeeguu
+from zeeguu.logging import logger
 
 
 class ZeeguuMailer(object):
     def __init__(self, message_subject, message_body, to_email):
-        from zeeguu.api.app import app
 
         self.message_body = message_body
         self.to_email = to_email
         self.message_subject = message_subject
-        self.server_name = app.config.get("SMTP_SERVER")
-        self.our_email = app.config.get("SMTP_EMAIL")
-        self.username = app.config.get("SMTP_USERNAME")
-        self.password = app.config.get("SMTP_PASS")
+
+        self.server_name = zeeguu.core.app.config.get("SMTP_SERVER")
+        self.our_email = zeeguu.core.app.config.get("SMTP_EMAIL")
+        self.username = zeeguu.core.app.config.get("SMTP_USERNAME")
+        self.password = zeeguu.core.app.config.get("SMTP_PASS")
 
     def old_send_smtp(self):
         message = self._content_of_email()
@@ -30,11 +32,10 @@ class ZeeguuMailer(object):
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
-        from zeeguu.api.app import app
 
-        print(app.config.get("SEND_NOTIFICATION_EMAILS", False))
+        print(zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False))
         # disable the mailer during unit testing
-        if not app.config.get("SEND_NOTIFICATION_EMAILS", False):
+        if not zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False):
             print("returning without sending")
             return
 
@@ -53,7 +54,6 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_feedback(cls, subject, context, message, user):
-        from zeeguu.api.app import app
 
         print("sending feedback...")
         mailer = ZeeguuMailer(
@@ -63,7 +63,7 @@ class ZeeguuMailer(object):
             + "\n\n"
             + "Cheers,\n"
             + f"{user.name} ({user.id}, {user.email})",
-            app.config.get("SMTP_USERNAME"),
+            zeeguu.core.app.config.get("SMTP_USERNAME"),
         )
 
         mailer.send()
@@ -91,12 +91,12 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_mail(cls, subject, content_lines):
-        from zeeguu.logging import logger
-        from zeeguu.api.app import app
 
         logger.info("Sending email...")
         body = "\r\n".join(content_lines)
-        mailer = ZeeguuMailer(subject, body, app.config.get("SMTP_USERNAME"))
+        mailer = ZeeguuMailer(
+            subject, body, zeeguu.core.app.config.get("SMTP_USERNAME")
+        )
         mailer.send()
 
     @classmethod

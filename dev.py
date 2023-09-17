@@ -1,7 +1,5 @@
 #!/bin/env python
-import sys
 import logging
-import zeeguu
 
 # this is needed since when run as wsgi this script
 # can't access the systems' env vars. so we load them
@@ -16,8 +14,6 @@ from zeeguu.api.app import create_app
 
 application = create_app()
 
-# We're saving the zeeguu.core.app so we can refer to the config from deep in the code...
-zeeguu.core.app = application
 
 application.logger.debug(application.instance_path)
 

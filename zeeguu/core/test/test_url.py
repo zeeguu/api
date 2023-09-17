@@ -32,7 +32,7 @@ class UrlTest(ModelTestMixIn, TestCase):
         _url = self.url_rule.url.as_string()
         _title = self.url_rule.url.title
 
-        url = Url.find_or_create(session, _url, _title)
+        url = Url.find_or_create(db_session, _url, _title)
 
         self.assertEqual(url.title, _title)
 
@@ -42,7 +42,7 @@ class UrlTest(ModelTestMixIn, TestCase):
         _title = self.url_rule.url.title
 
         def threaded_create_url():
-            url = Url.find_or_create(session, _url, _title)
+            url = Url.find_or_create(db_session, _url, _title)
 
         threads = []
 
@@ -55,5 +55,5 @@ class UrlTest(ModelTestMixIn, TestCase):
         for t in threads:
             t.join()
 
-        url = Url.find_or_create(session, _url, _title)
+        url = Url.find_or_create(db_session, _url, _title)
         self.assertEqual(url.title, _title)

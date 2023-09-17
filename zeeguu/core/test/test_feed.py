@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from unittest import TestCase
 
+from zeeguu.core.model import db
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
@@ -12,7 +13,7 @@ class FeedTest(ModelTestMixIn, TestCase):
         super().setUp()
 
         self.spiegel = RSSFeedRule().feed1
-        download_from_feed(self.spiegel, self.db.session, 3, False)
+        download_from_feed(self.spiegel, db.session, 3, False)
 
     def test_feed_items(self):
         assert len(self.spiegel.get_articles()) == 2

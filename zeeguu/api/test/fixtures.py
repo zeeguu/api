@@ -1,48 +1,45 @@
-import json
-
 import pytest
 
-from zeeguu.api.app import app
+from zeeguu.api.app import create_app
 import zeeguu
 
 
 @pytest.fixture
 def client():
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["TESTING"] = True
+    app = create_app(testing=True)
 
     with app.test_client() as client:
         with app.app_context():
-            zeeguu.core.db.create_all()
+            zeeguu.core.model.db.create_all()
 
         yield client
 
-    zeeguu.core.model.db.session.remove()
-    zeeguu.core.db.drop_all()
+    with app.app_context():
+        zeeguu.core.model.db.session.remove()
+        zeeguu.core.model.db.drop_all()
 
 
 @pytest.fixture
 def test_app():
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["TESTING"] = True
+    app = create_app(testing=True)
 
     with app.app_context():
-        zeeguu.core.db.create_all()
+        zeeguu.core.model.db.create_all()
 
         yield app
 
-    zeeguu.core.model.db.session.remove()
-    zeeguu.core.db.drop_all()
+    with app.app_context():
+        zeeguu.core.model.db.session.remove()
+        zeeguu.core.model.db.drop_all()
 
 
 @pytest.fixture
 def client_with_new_user_and_session():
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["TESTING"] = True
+    app = create_app(testing=True)
 
     with app.test_client() as client:
         with app.app_context():
-            zeeguu.core.db.create_all()
+            zeeguu.core.model.db.create_all()
 
             # Creating a user and returning also the session
             test_user_data = dict(
@@ -58,5 +55,6 @@ def client_with_new_user_and_session():
 
         yield client, session, append_session
 
-    zeeguu.core.model.db.session.remove()
-    zeeguu.core.db.drop_all()
+    with app.app_context():
+        zeeguu.core.model.db.session.remove()
+        zeeguu.core.model.db.drop_all()

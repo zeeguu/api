@@ -25,9 +25,9 @@ class UserArticleTest(ModelTestMixIn, TestCase):
         assert not self.user_article.starred
 
     def test_all_starred_articles(self):
-        self.article.star_for_user(session, self.user)
+        self.article.star_for_user(db_session, self.user)
         assert 1 == len(UserArticle.all_starred_articles_of_user(self.user))
 
     def test_all_starred_or_liked_articles(self):
-        self.article.star_for_user(session, self.user)
+        self.article.star_for_user(db_session, self.user)
         assert 1 == len(UserArticle.all_starred_or_liked_articles_of_user(self.user))

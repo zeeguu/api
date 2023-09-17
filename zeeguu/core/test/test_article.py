@@ -11,7 +11,7 @@ from zeeguu.core.test.test_data.mocking_the_web import (
     url_spiegel_militar,
 )
 
-db_session = zeeguu.core.model.db.session
+session = zeeguu.core.model.db.session
 
 
 class ArticleTest(ModelTestMixIn, TestCase):

@@ -10,6 +10,7 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model.language import Language
+from zeeguu.core.model import db
 
 db_session = zeeguu.core.model.db.session
 
@@ -43,7 +44,7 @@ class LocalizedTopicTest(ModelTestMixIn, TestCase):
         localized_topic.keywords = keyword
 
         article = ArticleRule().article
-        url = Url.find_or_create(self.db.session, url)
+        url = Url.find_or_create(db.session, url)
         article.url = url
 
         assert localized_topic.matches_article(article)

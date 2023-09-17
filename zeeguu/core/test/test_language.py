@@ -38,7 +38,7 @@ class LanguageTest(ModelTestMixIn, TestCase):
     def test_user_set_language(self):
         language_should_be = LanguageRule().random
 
-        self.user.set_learned_language(language_should_be.code, session)
+        self.user.set_learned_language(language_should_be.code, db_session)
         assert self.user.learned_language.id == language_should_be.id
 
     def test_native_language(self):

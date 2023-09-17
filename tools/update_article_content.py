@@ -1,6 +1,5 @@
 import sys
 import zeeguu
-from zeeguu.api.app import app
 from zeeguu.core.model import Article
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from random import randint
@@ -16,7 +15,7 @@ def update_article(id):
     print(a.title)
     # print(">>>>>> BEFORE <<<<<<")
     # print(a.content)
-    a.update_content(session)
+    a.update_content(db_session)
     # print("\n\n>>>>>> AFTER <<<<<<\n")
     # print(a.content)
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)

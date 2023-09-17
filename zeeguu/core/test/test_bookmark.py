@@ -16,6 +16,7 @@ from zeeguu.core.test.rules.source_rule import SourceRule
 from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
+from zeeguu.core.model import db
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -214,7 +215,7 @@ class BookmarkTest(ModelTestMixIn):
             exercises += 1
             distinct_dates.add(correct_exercise.time.date())
 
-        correct_bookmark.update_learned_status(self.db.session)
+        correct_bookmark.update_learned_status(db.session)
 
         log = SortedExerciseLog(correct_bookmark)
         learned = is_learned_based_on_exercise_outcomes(log)

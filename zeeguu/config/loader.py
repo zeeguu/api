@@ -15,10 +15,10 @@ def load_configuration_or_abort(app, environ_variable, mandatory_config_keys=[])
 
     """
 
-    print(">>>>>>>> In load_configuration.......")
-    import traceback
-
-    traceback.print_stack()
+    # print(">>>>>>>> In load_configuration.......")
+    # import traceback
+    #
+    # traceback.print_stack()
 
     print("loading configuration...")
     if _called_from_within_a_test(app):
@@ -51,7 +51,8 @@ def _assert_configs(config, required_keys, config_file_name=None):
 
 
 def _called_from_within_a_test(app):
-    return app.config["TESTING"]
+    res = app.config["TESTING"]
+    return res
 
 
 def _load_core_testing_configuration(app):

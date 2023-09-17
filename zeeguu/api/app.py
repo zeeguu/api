@@ -5,6 +5,7 @@ from flask import Flask
 import time
 import os
 import re
+import zeeguu
 
 from zeeguu.logging import warning
 
@@ -34,54 +35,57 @@ def create_app(testing=False):
     CORS(app)
 
     if testing:
-        app.config.testing = True
-    else:
-        load_configuration_or_abort(
-            app,
-            "ZEEGUU_CONFIG",
-            [  # first three are required by core
-                "MAX_SESSION",
-                "SQLALCHEMY_DATABASE_URI",
-                "SQLALCHEMY_TRACK_MODIFICATIONS",
-                # next three are required by API when
-                # run locally
-                "DEBUG",
-                "HOST",
-                "SECRET_KEY",
-                # the following are required by the API
-                # for user account creation & password recovery
-                "INVITATION_CODES",
-                "SMTP_EMAIL",
-            ],
-        )
+        app.testing = True
 
-        # if we don't specify the charset in the connection string
-        # we are not able to store emojis
-        app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
-        # inspired from: https://stackoverflow.com/a/47278172/1200070
+    load_configuration_or_abort(
+        app,
+        "ZEEGUU_CONFIG",
+        [  # first three are required by core
+            "MAX_SESSION",
+            "SQLALCHEMY_DATABASE_URI",
+            "SQLALCHEMY_TRACK_MODIFICATIONS",
+            # next three are required by API when
+            # run locally
+            "DEBUG",
+            "HOST",
+            "SECRET_KEY",
+            # the following are required by the API
+            # for user account creation & password recovery
+            "INVITATION_CODES",
+            "SMTP_EMAIL",
+        ],
+    )
 
-        from zeeguu.core.model import db
+    # if we don't specify the charset in the connection string
+    # we are not able to store emojis
+    app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
+    # inspired from: https://stackoverflow.com/a/47278172/1200070
 
-        db.init_app(app)
+    from zeeguu.core.model import db
 
-        # Creating the DB tables if needed
-        # Note that this must be called after all the model classes are loaded
-        # And they are loaded above, in the import db... which implicitly loads the model package
-        db.create_all(app=app)
+    db.init_app(app)
 
-        from .endpoints import api
+    # Creating the DB tables if needed
+    # Note that this must be called after all the model classes are loaded
+    # And they are loaded above, in the import db... which implicitly loads the model package
+    db.create_all(app=app)
 
-        app.register_blueprint(api)
+    from .endpoints import api
 
-        print(app.config)
-        # Log the DB connection string; after masking the password
-        db_connection_string = app.config["SQLALCHEMY_DATABASE_URI"]
-        anon_conn_string = re.sub(
-            ":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string
-        )
-        warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
+    app.register_blueprint(api)
 
-        return app
+    # We're saving the zeeguu.core.app so we can refer to the config from deep in the code...
+    zeeguu.core.app = app
+
+    print(app.config)
+    # Log the DB connection string; after masking the password
+    db_connection_string = app.config["SQLALCHEMY_DATABASE_URI"]
+    anon_conn_string = re.sub(
+        ":([a-zA-Z_][a-zA-Z_0-9]*)@", ":****@", db_connection_string
+    )
+    warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
+
+    return app
 
 
 # # The zeeguu.core.model  module relies on an app being injected from outside
