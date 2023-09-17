@@ -51,7 +51,12 @@ def _assert_configs(config, required_keys, config_file_name=None):
 
 
 def _called_from_within_a_test():
-    return "unittest" in sys.modules
+    from zeeguu.api.app import app
+
+    if app.config["TESTING"] != False:
+        return "unittest" in sys.modules
+
+    return False
 
 
 def _load_core_testing_configuration(app):
