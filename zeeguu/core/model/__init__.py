@@ -1,11 +1,6 @@
 import re
 import flask_sqlalchemy
 
-print("IN __INIT__.py from zeeguu.core.model")
-import traceback
-
-traceback.print_stack()
-
 
 from flask import Flask
 
