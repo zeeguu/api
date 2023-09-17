@@ -13,7 +13,7 @@ import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 article_topic_map = Table(
     "article_topic_map",
@@ -95,21 +95,21 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-            self,
-            url,
-            title,
-            authors,
-            content,
-            summary,
-            published_time,
-            rss_feed,
-            language,
-            htmlContent="",
-            uploader=None,
-            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-            broken=0,
-            deleted=0,
-            video=0,
+        self,
+        url,
+        title,
+        authors,
+        content,
+        summary,
+        published_time,
+        rss_feed,
+        language,
+        htmlContent="",
+        uploader=None,
+        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+        broken=0,
+        deleted=0,
+        video=0,
     ):
 
         if not summary:
@@ -266,6 +266,7 @@ class Article(db.Model):
 
     def update_content(self, session):
         from zeeguu.core.content_retriever import download_and_parse
+
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
         self.htmlContent = parsed.html
@@ -309,7 +310,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-            cls, session, title, content, htmlContent, uploader, language
+        cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -332,13 +333,13 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            _url: str,
-            language=None,
-            htmlContent=None,
-            title=None,
-            authors: str = "",
+        cls,
+        session,
+        _url: str,
+        language=None,
+        htmlContent=None,
+        title=None,
+        authors: str = "",
     ):
         """
 
@@ -373,6 +374,7 @@ class Article(db.Model):
                 lang = detect(text)
             else:
                 from zeeguu.core.content_retriever import download_and_parse
+
                 parsed = download_and_parse(url)
 
                 text = parsed.text

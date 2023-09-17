@@ -1,6 +1,6 @@
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 def date_format(date_object):

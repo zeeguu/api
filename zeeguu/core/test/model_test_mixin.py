@@ -12,7 +12,7 @@ from zeeguu.core.test.test_data.mocking_the_web import mock_requests_get
 
 
 class ModelTestMixIn(TestCase):
-    db = zeeguu.core.db
+    from zeeguu.core.model import db
 
     def setUp(self):
         self.faker = Faker()

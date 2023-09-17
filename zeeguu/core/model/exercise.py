@@ -3,7 +3,7 @@ import zeeguu.core
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class Exercise(db.Model):

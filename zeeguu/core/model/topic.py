@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class Topic(db.Model):

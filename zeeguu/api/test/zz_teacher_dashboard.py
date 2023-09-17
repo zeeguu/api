@@ -250,7 +250,7 @@ class TeacherTest(APITestMixin, TestCase):
         def _upgrade_to_teacher(email):
             from zeeguu.core.model import User, Teacher
 
-            db = zeeguu.core.db
+            from zeeguu.core.model import db
 
             u = User.find(email)
             db.session.add(Teacher(u))

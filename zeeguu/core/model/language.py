@@ -5,7 +5,7 @@ from zeeguu.logging import logp
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class Language(db.Model):

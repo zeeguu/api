@@ -7,7 +7,7 @@ data = defaultdict(set)
 from zeeguu.core.model import Text, Bookmark
 import zeeguu.core
 
-texts = zeeguu.core.db.session.query(Text).all()
+texts = zeeguu.core.model.db.session.query(Text).all()
 
 for a in texts:
     data[a.content.strip()].add(a)
@@ -26,14 +26,18 @@ for content, _texts in data.items():
     # input("Press Enter to remove ...")
 
     for text in texts[1:]:
-        bookmarks = zeeguu.core.db.session.query(Bookmark).filter_by(text=text).all()
+        bookmarks = (
+            zeeguu.core.model.db.session.query(Bookmark).filter_by(text=text).all()
+        )
         for bookmark in bookmarks:
-            print("got bookmark {0} that points to text {1} ".format(bookmark.id, text.id))
+            print(
+                "got bookmark {0} that points to text {1} ".format(bookmark.id, text.id)
+            )
             print("will rewire it to point to " + str(first_text.id))
             bookmark.text = first_text
-            zeeguu.core.db.session.add(bookmark)
+            zeeguu.core.model.db.session.add(bookmark)
         print("text {0} should be deleted now".format(text.id))
-        zeeguu.core.db.session.delete(text)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.delete(text)
+        zeeguu.core.model.db.session.commit()
 
     print("dupe removed ")

@@ -9,7 +9,7 @@ from zeeguu.logging import log, logp
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UserPreference(db.Model):

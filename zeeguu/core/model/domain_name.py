@@ -8,12 +8,12 @@ import logging
 
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class DomainName(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'domain_name'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "domain_name"
 
     id = db.Column(db.Integer, primary_key=True)
     domain_name = db.Column(db.String(255), unique=True)
@@ -22,17 +22,17 @@ class DomainName(db.Model):
         self.domain_name = self.extract_domain_name(url)
 
     def extract_domain_name(self, url):
-        protocol_re = '(.*://)?'
-        domain_re = '([^/?]*)'
+        protocol_re = "(.*://)?"
+        domain_re = "([^/?]*)"
 
         domain = re.findall(protocol_re + domain_re, url)[0]
         return domain[0] + domain[1]
 
     @classmethod
     def get_domain(self, url):
-        protocol_re = '(.*://)?'
-        domain_re = '([^/?]*)'
-        path_re = '(.*)'
+        protocol_re = "(.*://)?"
+        domain_re = "([^/?]*)"
+        path_re = "(.*)"
 
         domain = re.findall(protocol_re + domain_re, url)[0]
         return domain[0] + domain[1]
@@ -41,8 +41,7 @@ class DomainName(db.Model):
     def for_url_string(cls, url_string):
         only_domain_str = DomainName.get_domain(url_string)
         try:
-            return (cls.query.filter(cls.domain_name == only_domain_str)
-                    .one())
+            return cls.query.filter(cls.domain_name == only_domain_str).one()
         except sqlalchemy.orm.exc.NoResultFound:
             # print "tried, but didn't find " + domain_url
             return cls(only_domain_str)
@@ -57,22 +56,22 @@ class DomainName(db.Model):
         try:
             return cls.find(_domain)
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
-        # except:
+            # except:
             try:
                 new = cls(_domain)
                 session.add(new)
                 session.commit()
                 return new
             except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
-            # except:
+                # except:
                 for i in range(10):
                     try:
                         session.rollback()
                         d = cls.find(_domain)
-                        logging.info ("found domain after recovering from race")
+                        logging.info("found domain after recovering from race")
                         return d
                     except:
-                        logging.info ("exception of second degree in domain..." + str(i))
+                        logging.info("exception of second degree in domain..." + str(i))
                         time.sleep(0.1)
                         continue
                     break

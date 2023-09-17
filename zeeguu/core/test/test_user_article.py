@@ -10,7 +10,7 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Topic
 from zeeguu.core.model.user_article import UserArticle
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class UserArticleTest(ModelTestMixIn, TestCase):

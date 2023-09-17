@@ -33,8 +33,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.core.db.session.add(code)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(code)
+        zeeguu.core.model.db.session.commit()
 
         form_data = dict(code=code, password="updated")
         rv = self.api_post("/reset_password/" + TEST_EMAIL, form_data)
@@ -42,8 +42,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_returns_400_invalid_code(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.core.db.session.add(code)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(code)
+        zeeguu.core.model.db.session.commit()
 
         form_data = dict(code="thiswontwork", password="updated")
         rv = self.api_post("/reset_password/" + TEST_EMAIL, form_data)
@@ -51,8 +51,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_returns_400_if_password_too_short(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.core.db.session.add(code)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(code)
+        zeeguu.core.model.db.session.commit()
 
         form_data = dict(code=code, password="2sh")
         rv = self.api_post("/reset_password/" + TEST_EMAIL, form_data)
@@ -60,8 +60,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_can_use_new_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.core.db.session.add(code)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(code)
+        zeeguu.core.model.db.session.commit()
 
         form_data = dict(code=code, password="updated")
         rv = self.api_post("/reset_password/" + TEST_EMAIL, form_data)
@@ -74,8 +74,8 @@ class SessionTests(APITestMixin, TestCase):
 
     def test_reset_password_cant_use_old_password(self):
         code = UniqueCode(TEST_EMAIL)
-        zeeguu.core.db.session.add(code)
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(code)
+        zeeguu.core.model.db.session.commit()
 
         form_data = dict(code=code, password="updated")
         rv = self.api_post("/reset_password/" + TEST_EMAIL, form_data)

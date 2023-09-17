@@ -5,18 +5,23 @@ import timeago
 from datetime import datetime
 import time
 
-db_session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 EVENTS_COUNT = 24
 SECONDS_BETWEEN_REFRESH = 5
 
-def most_recent_events(): 
-    return UserActivityData.query.order_by(UserActivityData.id.desc()).limit(EVENTS_COUNT)
+
+def most_recent_events():
+    return UserActivityData.query.order_by(UserActivityData.id.desc()).limit(
+        EVENTS_COUNT
+    )
 
 
 def datetime_from_utc_to_local(utc_datetime):
     now_timestamp = time.time()
-    offset = datetime.fromtimestamp(now_timestamp) - datetime.utcfromtimestamp(now_timestamp)
+    offset = datetime.fromtimestamp(now_timestamp) - datetime.utcfromtimestamp(
+        now_timestamp
+    )
     return utc_datetime + offset
 
 
@@ -30,11 +35,11 @@ def print_event(each):
     )
 
 
-
 while True:
     import os
+
     db_session.commit()
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
     # print(chr(27) + "[2J")
 
     print(f"Most recent {EVENTS_COUNT} user activity events")

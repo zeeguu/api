@@ -5,6 +5,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import Article, User
+from zeeguu.core.model import db
 
 DIFFICULTY_FEEDBACK = {
     "Too Easy": 1,
@@ -13,9 +14,9 @@ DIFFICULTY_FEEDBACK = {
 }
 
 
-class ArticleDifficultyFeedback(zeeguu.core.db.Model):
+class ArticleDifficultyFeedback(db.Model):
     """
-    
+
     Tuple (article, usr, feedback, date)
     Used for dificulty estimation
 
@@ -53,12 +54,7 @@ class ArticleDifficultyFeedback(zeeguu.core.db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            user: User,
-            article: Article,
-            date: datetime,
-            difficulty
+        cls, session, user: User, article: Article, date: datetime, difficulty
     ):
         try:
             return cls.query.filter_by(user=user, article=article, date=date).one()

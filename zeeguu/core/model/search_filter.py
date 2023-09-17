@@ -5,21 +5,22 @@ from zeeguu.core.model.user import User
 import sqlalchemy
 
 import zeeguu.core
-db = zeeguu.core.db
+
+from zeeguu.core.model import db
 
 
 class SearchFilter(db.Model):
     """
 
-            A search filter is created when the user
-            wants to filter out a particular search.
-            This is then taken into account in the
-            mixed recomemnder, when retrieving articles.
+    A search filter is created when the user
+    wants to filter out a particular search.
+    This is then taken into account in the
+    mixed recomemnder, when retrieving articles.
 
     """
 
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'search_filter'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "search_filter"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -38,16 +39,14 @@ class SearchFilter(db.Model):
         self.search = search
 
     def __str__(self):
-        return f'Search filter ({self.user.name}, {self.search})'
+        return f"Search filter ({self.user.name}, {self.search})"
 
     __repr__ = __str__
 
     @classmethod
     def find_or_create(cls, session, user, search):
         try:
-            return (cls.query.filter(cls.user == user)
-                    .filter(cls.search == search)
-                    .one())
+            return cls.query.filter(cls.user == user).filter(cls.search == search).one()
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(user, search)
             session.add(new)
@@ -60,8 +59,7 @@ class SearchFilter(db.Model):
 
     @classmethod
     def with_search_id(cls, i, user):
-        return (cls.query.filter(cls.search_id == i)
-                .filter(cls.user == user)).one()
+        return (cls.query.filter(cls.search_id == i).filter(cls.user == user)).one()
 
     @classmethod
     def with_search(cls, search_id):
@@ -69,5 +67,6 @@ class SearchFilter(db.Model):
             return (cls.query.filter(cls.search_id == search_id)).one()
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             return None

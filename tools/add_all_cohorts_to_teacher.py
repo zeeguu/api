@@ -10,7 +10,7 @@
 import zeeguu.core
 from zeeguu.core.model import User, Cohort, TeacherCohortMap
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 big_teacher = User.query.filter_by(id=534).one()
 
 for cohort in Cohort.query.all():

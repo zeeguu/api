@@ -6,7 +6,7 @@ from zeeguu.core.constants import EVENT_OPEN_ARTICLE, EVENT_ARTICLE_CLOSED
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from datetime import datetime, timedelta
 
-db_session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class UserReadingSessionTest(ModelTestMixIn, TestCase):

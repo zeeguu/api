@@ -18,7 +18,7 @@ from ._permissions import (
 from .. import api
 from zeeguu.api.utils.route_wrappers import with_session
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 @api.route("/send_article_to_colleague", methods=["POST"])

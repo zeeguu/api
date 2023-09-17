@@ -14,7 +14,7 @@ from faker import Faker
 fake = Faker()
 from zeeguu.core.model import User
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 for user in User.query.all():
     for _ in range(0, 13):

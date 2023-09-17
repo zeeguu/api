@@ -5,7 +5,7 @@ from zeeguu.core.test.rules.url_rule import UrlRule
 import zeeguu.core.model
 from zeeguu.core.model import Url, DomainName
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class UrlTest(ModelTestMixIn, TestCase):
@@ -25,7 +25,7 @@ class UrlTest(ModelTestMixIn, TestCase):
             session.add(url)
             session.commit()
 
-        self.assertTrue('Duplicate entry' or 'IntegrityError' in str(context.exception))
+        self.assertTrue("Duplicate entry" or "IntegrityError" in str(context.exception))
 
     def test_find_or_create_works(self):
 

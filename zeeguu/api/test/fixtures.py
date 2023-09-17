@@ -17,7 +17,7 @@ def client():
 
         yield client
 
-    zeeguu.core.db.session.remove()
+    zeeguu.core.model.db.session.remove()
     zeeguu.core.db.drop_all()
 
 
@@ -31,7 +31,7 @@ def test_app():
 
         yield app
 
-    zeeguu.core.db.session.remove()
+    zeeguu.core.model.db.session.remove()
     zeeguu.core.db.drop_all()
 
 
@@ -58,5 +58,5 @@ def client_with_new_user_and_session():
 
         yield client, session, append_session
 
-    zeeguu.core.db.session.remove()
+    zeeguu.core.model.db.session.remove()
     zeeguu.core.db.drop_all()

@@ -29,12 +29,12 @@ def with_session(view):
 
         log(str(flask.g.user.id) + " API CALL: " + str(view))
 
-        zeeguu.core.db.session.add(session)
+        zeeguu.core.model.db.session.add(session)
         # TODO: remove this commit? and add it after such that the session can be added with the next commit?
-        zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.commit()
         return view(*args, **kwargs)
 
-        zeeguu.core.db.session.close()
+        zeeguu.core.model.db.session.close()
 
     return wrapped_view
 

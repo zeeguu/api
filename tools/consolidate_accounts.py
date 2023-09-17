@@ -8,7 +8,14 @@
 """
 
 import zeeguu.core
-from zeeguu.core.model import User, UserActivityData, Bookmark, UserArticle, UserReadingSession, UserExerciseSession
+from zeeguu.core.model import (
+    User,
+    UserActivityData,
+    Bookmark,
+    UserArticle,
+    UserReadingSession,
+    UserExerciseSession,
+)
 from sys import argv
 
 if len(argv) < 3:
@@ -18,7 +25,13 @@ if len(argv) < 3:
 PRIMARY_ID = argv[1]
 SECONDARY_ID = argv[2]
 
-tables_to_modify = [Bookmark, UserActivityData, UserArticle, UserReadingSession, UserExerciseSession]
+tables_to_modify = [
+    Bookmark,
+    UserActivityData,
+    UserArticle,
+    UserReadingSession,
+    UserExerciseSession,
+]
 
 primary_user = User.find_by_id(PRIMARY_ID)
 secondary_user = User.find_by_id(SECONDARY_ID)
@@ -34,8 +47,8 @@ for each_table in tables_to_modify:
 
     for each in secondary_user_items:
         each.user = primary_user
-        zeeguu.core.db.session.add(each)
-    zeeguu.core.db.session.commit()
+        zeeguu.core.model.db.session.add(each)
+    zeeguu.core.model.db.session.commit()
 
     primary_user_items = each_table.query.filter_by(user_id=primary_user.id).all()
     secondary_user_items = each_table.query.filter_by(user_id=secondary_user.id).all()

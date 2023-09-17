@@ -26,7 +26,7 @@ def _time_by_day(user, table_name):
         + f" FROM {table_name}"
         + " WHERE user_id = :uid GROUP BY date;"
     )
-    result_raw = zeeguu.core.db.session.execute(
+    result_raw = zeeguu.core.model.db.session.execute(
         query,
         {"uid": user.id, "table_name": table_name},
     )

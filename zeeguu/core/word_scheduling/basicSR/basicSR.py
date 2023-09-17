@@ -4,7 +4,7 @@ import zeeguu.core
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 from datetime import datetime, timedelta
 

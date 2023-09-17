@@ -21,7 +21,7 @@ def load_configuration_or_abort(app, environ_variable, mandatory_config_keys=[])
     traceback.print_stack()
 
     print("loading configuration...")
-    if _called_from_within_a_test():
+    if _called_from_within_a_test(app):
         _load_core_testing_configuration(app)
         _load_api_testing_configuration(app)
         print("ZEEGUU: Loaded testing configuration.")
@@ -50,13 +50,8 @@ def _assert_configs(config, required_keys, config_file_name=None):
             exit(-1)
 
 
-def _called_from_within_a_test():
-    from zeeguu.api.app import app
-
-    if app.config["TESTING"] != False:
-        return "unittest" in sys.modules
-
-    return False
+def _called_from_within_a_test(app):
+    return app.config["TESTING"]
 
 
 def _load_core_testing_configuration(app):

@@ -8,7 +8,7 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.model import Url, Article, Language
 import datetime
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 TITLE = 0
 DESCRIPTION = 1

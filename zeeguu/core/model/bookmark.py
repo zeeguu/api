@@ -22,7 +22,7 @@ from zeeguu.core.util.encoding import datetime_to_json
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 CORRECTS_IN_A_ROW_FOR_LEARNED = 4
 

@@ -15,7 +15,7 @@ from zeeguu.core.model.url import Url
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class RSSFeed(db.Model):

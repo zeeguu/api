@@ -14,7 +14,7 @@ from . import api
 
 import zeeguu
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 SEARCH = "search"
 SUBSCRIBE_SEARCH = "subscribe_search"

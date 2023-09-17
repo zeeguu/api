@@ -19,7 +19,7 @@ from zeeguu.core.constants import (
 )
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UserActivityData(db.Model):

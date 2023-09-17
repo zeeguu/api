@@ -15,7 +15,7 @@ from . import api
 
 import zeeguu
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"

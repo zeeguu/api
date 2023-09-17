@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 
 import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class PersonalCopy(db.Model):

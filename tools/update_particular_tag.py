@@ -19,7 +19,11 @@ from zeeguu.core.model import Article, Language, LocalizedTopic
 
 def update_particular_tag(language, loc_topic):
     counter = 0
-    articles = Article.query.filter(Article.language == language).order_by(Article.id.desc()).all()
+    articles = (
+        Article.query.filter(Article.language == language)
+        .order_by(Article.id.desc())
+        .all()
+    )
 
     total_articles = len(articles)
     for article in articles:
@@ -30,13 +34,15 @@ def update_particular_tag(language, loc_topic):
         session.add(article)
         if counter % 1000 == 0:
             percentage = (100 * counter / total_articles) / 100
-            print(f"{counter} articles done ({percentage}%). last article id: {article.id}. comitting... ")
+            print(
+                f"{counter} articles done ({percentage}%). last article id: {article.id}. comitting... "
+            )
             session.commit()
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     try:
-        session = zeeguu.core.db.session
+        db_session = zeeguu.core.model.db.session
 
         language = Language.find(sys.argv[1])
         print(f"Tagging articles in {language}")
@@ -44,7 +50,9 @@ if __name__=='__main__':
         loc_topics = LocalizedTopic.all_for_language(language)
         loc_topic = next(t for t in loc_topics if t.topic_translated == sys.argv[2])
 
-        print(f"Updating info about localized_topic: {loc_topic.topic_translated, loc_topic.id}")
+        print(
+            f"Updating info about localized_topic: {loc_topic.topic_translated, loc_topic.id}"
+        )
 
     except IndexError:
         print(f"usage: {sys.argv[0]} lang_code localized_topic_name")

@@ -5,7 +5,7 @@ import zeeguu.core
 from zeeguu.core import util
 from zeeguu.core.model import Text
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 texts = session.query(Text).all()
 for t in texts:

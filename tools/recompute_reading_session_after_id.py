@@ -7,7 +7,7 @@ import zeeguu.core
     Script that recomputes reading sessions after a certain UserActivityData ID 
 
 """
-db_session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 STARTING_ID = 1048627
 

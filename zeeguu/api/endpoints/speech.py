@@ -16,7 +16,7 @@ def tts():
     import zeeguu.core
     from zeeguu.core.model import UserWord, Language
 
-    db_session = zeeguu.core.db.session
+    db_session = zeeguu.core.model.db.session
 
     text_to_pronounce = request.form.get("text", "")
     language_id = request.form.get("language_id", "")
@@ -44,7 +44,7 @@ def mp3_of_full_article():
     print("in mp3_of_full_article")
     import zeeguu.core
 
-    db_session = zeeguu.core.db.session
+    db_session = zeeguu.core.model.db.session
 
     text_to_pronounce = request.form.get("text", "")
     language_id = request.form.get("language_id", "")

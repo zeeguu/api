@@ -1,15 +1,19 @@
 import zeeguu.core
 from zeeguu.core.model import Article, Language, LocalizedTopic
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 counter = 0
 
 languages = Language.available_languages()
-languages = [Language.find('da')]
+languages = [Language.find("da")]
 
 for language in languages:
-    articles = Article.query.filter(Article.language == language).order_by(Article.id.desc()).all()
+    articles = (
+        Article.query.filter(Article.language == language)
+        .order_by(Article.id.desc())
+        .all()
+    )
 
     loc_topics = LocalizedTopic.all_for_language(language)
 
@@ -27,9 +31,13 @@ for language in languages:
 
         if counter % 1000 == 0:
             percentage = (100 * counter / total_articles) / 100
-            print(f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... ")
+            print(
+                f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... "
+            )
             session.commit()
 
 percentage = (100 * counter / total_articles) / 100
-print(f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... ")
+print(
+    f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... "
+)
 session.commit()

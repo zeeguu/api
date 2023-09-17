@@ -4,7 +4,7 @@ from .language import Language
 
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class WordToStudy(db.Model):
@@ -13,7 +13,7 @@ class WordToStudy(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = db.relationship(User)
 
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id, ondelete='CASCADE'))
+    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id, ondelete="CASCADE"))
     # bookmark = defined as a backref
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))

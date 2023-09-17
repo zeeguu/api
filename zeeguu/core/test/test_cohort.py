@@ -7,7 +7,7 @@ from zeeguu.core.test.rules.cohort_rule import CohortRule
 from zeeguu.core.model.teacher import Teacher
 from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class CohortTest(ModelTestMixIn, TestCase):
@@ -15,10 +15,10 @@ class CohortTest(ModelTestMixIn, TestCase):
         super().setUp()
         self.cohort_rule = CohortRule()
         self.cohort = self.cohort_rule.cohort
-        self.cohort.inv_code = '123'
+        self.cohort.inv_code = "123"
         self.user_t = self.cohort_rule.teacher
         self.student1 = self.cohort_rule.student1
-        self.student1.invitation_code = '123'
+        self.student1.invitation_code = "123"
 
     def test_teacher_has_students(self):
         self.assertTrue(self.user_t in self.cohort.get_teachers())

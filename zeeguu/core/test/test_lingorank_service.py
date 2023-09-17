@@ -16,7 +16,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class ArticleDownloaderTest(ModelTestMixIn, TestCase):

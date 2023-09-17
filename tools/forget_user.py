@@ -21,7 +21,7 @@ def forget_user(user):
     user.name = "Forgotten Learner"
     user.email = fake.email()
 
-    session = zeeguu.core.db.session
+    db_session = zeeguu.core.model.db.session
     session.add(user)
     session.commit()
 

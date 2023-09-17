@@ -10,7 +10,7 @@ import zeeguu.core
 import time
 import random
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 from zeeguu.core.model.domain_name import DomainName
 
@@ -25,8 +25,10 @@ class Url(db.Model):
     domain = db.relationship(DomainName)
 
     __table_args__ = (
-        UniqueConstraint('path', 'domain_name_id', name='_path_domain_unique_constraint'),
-        {'mysql_collate': 'utf8_bin'}
+        UniqueConstraint(
+            "path", "domain_name_id", name="_path_domain_unique_constraint"
+        ),
+        {"mysql_collate": "utf8_bin"},
     )
 
     def __init__(self, url: str, title: str = "", domain: DomainName = None):
@@ -58,7 +60,7 @@ class Url(db.Model):
         else:
             _title = link_text
         if self.as_string() != "":
-            return '<a href="' + self.as_string() + '">' + _title + '</a>'
+            return '<a href="' + self.as_string() + '">' + _title + "</a>"
         else:
             return ""
 
@@ -67,24 +69,24 @@ class Url(db.Model):
 
     @classmethod
     def get_domain(cls, url):
-        protocol_re = '(.*://)?'
-        domain_re = '([^/?]*)'
-        path_re = '(.*)'
+        protocol_re = "(.*://)?"
+        domain_re = "([^/?]*)"
+        path_re = "(.*)"
 
         domain = re.findall(protocol_re + domain_re, url)[0]
         return domain[0] + domain[1]
 
     @classmethod
     def get_path(cls, url: str):
-        protocol_re = '(.*://)?'
-        domain_re = '([^/?]*)'
-        path_re = '(.*)'
+        protocol_re = "(.*://)?"
+        domain_re = "([^/?]*)"
+        path_re = "(.*)"
 
         domain = re.findall(protocol_re + domain_re + path_re, url)[0]
         return domain[2]
 
     @classmethod
-    def find_or_create(cls, session: 'Session', _url: str, title: str = ""):
+    def find_or_create(cls, session: "Session", _url: str, title: str = ""):
 
         domain = DomainName.find_or_create(session, _url)
         path = Url.get_path(_url)
@@ -104,15 +106,24 @@ class Url(db.Model):
                         session.rollback()
                         domain = DomainName.find_or_create(session, _url)
                         path = Url.get_path(_url)
-                        print(f"after rollback trying to find again: {domain.domain_name} + {path}")
-                        u = cls.query.filter(cls.path == path).filter(cls.domain == domain).first()
+                        print(
+                            f"after rollback trying to find again: {domain.domain_name} + {path}"
+                        )
+                        u = (
+                            cls.query.filter(cls.path == path)
+                            .filter(cls.domain == domain)
+                            .first()
+                        )
                         print("Found url after recovering from race")
                         return u
                     except Exception as e:
                         print("Exception of second degree in url..." + str(i) + str(e))
                         time.sleep(random.randrange(1, 10) * 0.1)
                         from sentry_sdk import capture_message
-                        capture_message("Exception of second degree in url..." + str(i) + str(e))
+
+                        capture_message(
+                            "Exception of second degree in url..." + str(i) + str(e)
+                        )
 
                         continue
                     break
@@ -120,9 +131,11 @@ class Url(db.Model):
     @classmethod
     def find(cls, url, title=""):
         d = DomainName.find(Url.get_domain(url))
-        return (cls.query.filter(cls.path == Url.get_path(url))
-                .filter(cls.domain == d)
-                .one())
+        return (
+            cls.query.filter(cls.path == Url.get_path(url))
+            .filter(cls.domain == d)
+            .one()
+        )
 
     # To delete... nobody seems to use this.
     # @classmethod
@@ -159,6 +172,7 @@ class Url(db.Model):
     def extract_canonical_url(self, url: str):
 
         from urllib.parse import urlparse
+
         u = urlparse(url)
 
         return f"{u.scheme}://{u.netloc}{u.path}"

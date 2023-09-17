@@ -12,13 +12,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
 from zeeguu.core.model import Article, User
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
 
+from zeeguu.core.model import db
 
-class UserArticle(zeeguu.core.db.Model):
+
+class UserArticle(db.Model):
     """
 
     A user and an article.

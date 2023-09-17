@@ -23,7 +23,7 @@ from zeeguu.logging import log
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import RSSFeed, Language
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 def download_for_feeds(list_of_feeds):
@@ -39,7 +39,7 @@ def download_for_feeds(list_of_feeds):
             log("")
             log(f"{msg}")
 
-            download_from_feed(feed, zeeguu.core.db.session)
+            download_from_feed(feed, zeeguu.core.model.db.session)
 
         except:
             traceback.print_exc()

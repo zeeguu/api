@@ -8,11 +8,13 @@ print("starting...")
 for article in Article.query.filter_by(language_id=13).all():
     print(f"Difficulty before: {article.fk_difficulty} for {article.title} ")
     fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-    fk_difficulty = fk_estimator.estimate_difficulty(article.content, article.language, None)['grade']
+    fk_difficulty = fk_estimator.estimate_difficulty(
+        article.content, article.language, None
+    )["grade"]
 
     article.fk_difficulty = fk_difficulty
     print(f"Difficulty after: {article.fk_difficulty} for {article.title} ")
     print(" ")
 
-    zeeguu.core.db.session.add(article)
-    zeeguu.core.db.session.commit()
+    zeeguu.core.model.db.session.add(article)
+    zeeguu.core.model.db.session.commit()
