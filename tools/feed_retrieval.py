@@ -35,13 +35,13 @@ def download_for_feeds(list_of_feeds):
 
         counter += 1
         try:
-            msg = f"*** >>>>>>>>> {feed.title} ({counter}/{all_feeds_count}) <<<<<<<<<< "  # .encode('utf-8')
+            msg = f">>>>>>>>> {feed.title} ({counter}/{all_feeds_count}) <<<<<<<<<< "  # .encode('utf-8')
             log("")
             log(f"{msg}")
 
             download_from_feed(feed, zeeguu.core.db.session)
 
-        except Exception as e:
+        except:
             traceback.print_exc()
 
 
