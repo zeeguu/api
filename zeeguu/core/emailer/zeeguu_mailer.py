@@ -1,11 +1,12 @@
 from smtplib import SMTP
-from zeeguu.api.app import app
 
 import yagmail
 
 
 class ZeeguuMailer(object):
     def __init__(self, message_subject, message_body, to_email):
+        from zeeguu.api.app import app
+
         self.message_body = message_body
         self.to_email = to_email
         self.message_subject = message_subject
@@ -29,6 +30,7 @@ class ZeeguuMailer(object):
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
+        from zeeguu.api.app import app
 
         print(app.config.get("SEND_NOTIFICATION_EMAILS", False))
         # disable the mailer during unit testing
@@ -51,6 +53,7 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_feedback(cls, subject, context, message, user):
+        from zeeguu.api.app import app
 
         print("sending feedback...")
         mailer = ZeeguuMailer(
