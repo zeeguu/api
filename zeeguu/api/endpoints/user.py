@@ -3,7 +3,6 @@ import json
 import flask
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 import zeeguu.core
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
@@ -161,5 +160,7 @@ def send_feedback():
     context = flask.request.form.get("context", "")
     print(message)
     print(context)
+    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
     ZeeguuMailer.send_feedback("Feedback", context, message, flask.g.user)
     return "OK"
