@@ -29,6 +29,11 @@ logger.setLevel(logging.CRITICAL)
 app = Flask("Zeeguu-API")
 CORS(app)
 
+
+print("IN __INIT__.py from zeeguu.core.model")
+import traceback
+
+traceback.print_stack()
 load_configuration_or_abort(
     app,
     "ZEEGUU_CONFIG",
@@ -55,7 +60,7 @@ import zeeguu.core
 zeeguu.core.app = app
 import zeeguu.core.model
 
-assert zeeguu.core.model
+
 # -----------------
 
 from .endpoints import api
