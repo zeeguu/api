@@ -53,7 +53,9 @@ def update_articles_below(max_val, min_val, language_id):
         try:
             print(each.id)
             update_article(each.id)
-            sleep(randint(10, 70))
+            sleep_interval = randint(10, 70)
+            print(f"sleeping...{sleep_interval}")
+            sleep(sleep_interval)
         except Exception as e:
             import traceback
 
