@@ -2,26 +2,27 @@ import zeeguu.core
 import newspaper
 from zeeguu.core.model import Article
 
-html_read_more_patterns = [
-    "To continue reading this premium"  # New Scientist
-    , "Cet article est réservé aux abonnés"  # Le Figaro
-    , "L’accès à la totalité de l’article est protégé"  # Le Monde
-    , "Ces informations sont destinées au groupe Bayard"  # 1jour1actu
-    , "Article réservé aux abonnés"
-
+HTML_READ_MORE_PATTERNS = [
+    "To continue reading this premium",  # New Scientist
+    "Cet article est réservé aux abonnés",  # Le Figaro
+    "L’accès à la totalité de l’article est protégé",  # Le Monde
+    "Ces informations sont destinées au groupe Bayard",  # 1jour1actu
+    "Article réservé aux abonnés"
     # der spiegel
-    , "Sie haben keinen Zugang? Jetzt gratis testen!."
-    , "Jetzt Gratismonat beginnen"
+    ,
+    "Sie haben keinen Zugang? Jetzt gratis testen!.",
+    "Jetzt Gratismonat beginnen",
 ]
 
 plain_text_read_more_patterns = [
     "Create an account for free access to:",  # New Scientist
-    "édition abonné"  # /www.lemonde.fr
+    "édition abonné",  # /www.lemonde.fr
+    # Politiken
+    "Allerede abonnent? Login",
+    "FOR ABONNENTER",
 ]
 
-incomplete_suggesting_terminations = (
-    "Read More"
-)
+incomplete_suggesting_terminations = "Read More"
 
 
 def sufficient_quality(art: newspaper.Article) -> (bool, str):
@@ -33,9 +34,12 @@ def sufficient_quality(art: newspaper.Article) -> (bool, str):
         bool: True/False
         str: reason if false
     """
-    for each in html_read_more_patterns:
+    for each in HTML_READ_MORE_PATTERNS:
         if art.html.find(each) > 0:
-            return False, f"Incomplete Article (based on HTML analysis). Contains: {each}"
+            return (
+                False,
+                f"Incomplete Article (based on HTML analysis). Contains: {each}",
+            )
 
     word_count = len(art.text.split(" "))
 
