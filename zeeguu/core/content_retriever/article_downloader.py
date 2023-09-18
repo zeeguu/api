@@ -155,7 +155,6 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
                     index_in_elasticsearch(new_article, session)
 
             if new_article:
-                print(">>><<<>>><<<>>><<< sending email")
                 ZeeguuMailer.send_content_retrieved_notification(new_article)
 
         except SkippedForTooOld:

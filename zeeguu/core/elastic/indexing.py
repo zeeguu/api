@@ -32,8 +32,8 @@ def document_from_article(article, session):
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
-        "url":article.url.as_string(),
-        "video":article.video
+        "url": article.url.as_string(),
+        "video": article.video,
     }
     return doc
 
@@ -50,6 +50,7 @@ def create_or_update(article, session):
 
     return res
 
+
 def index_in_elasticsearch(new_article, session):
     """
     # Saves the news article at ElasticSearch.
@@ -60,9 +61,10 @@ def index_in_elasticsearch(new_article, session):
         es = Elasticsearch(ES_CONN_STRING)
         doc = document_from_article(new_article, session)
         res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
-        print("elastic res: " + res["result"])
-    except Exception as e: 
+
+    except Exception as e:
         import traceback
+
         traceback.print_exc()
 
 

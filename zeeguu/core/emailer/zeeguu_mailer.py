@@ -32,15 +32,11 @@ class ZeeguuMailer(object):
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
-
-        print(zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False))
-        # disable the mailer during unit testing
+        # this next line disables the mailer also during unit testing
         if not zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False):
             print("returning without sending")
             return
-
         self.send_with_yagmail()
-        print("sent :)")
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
