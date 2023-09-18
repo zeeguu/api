@@ -5,6 +5,10 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from random import randint
 from time import sleep
 from sqlalchemy import desc
+from zeeguu.api.app import create_app
+
+app = create_app()
+app.app_context().push()
 
 db_session = zeeguu.core.model.db.session
 

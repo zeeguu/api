@@ -574,7 +574,7 @@ class User(db.Model):
         """
 
         # compute learner_stats_data
-        from tools.learner_stats import compute_learner_stats
+        from tools import compute_learner_stats
 
         learner_stats_data = compute_learner_stats(self)
 
