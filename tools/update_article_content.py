@@ -65,8 +65,8 @@ def update_articles_below(max_val, min_val, language_id):
 
 def articles_in_interval(from_date, to_date, language_id):
     return (
-        Article.query.filter(Article.published_time >= from_date)
-        .filter(Article.published_time <= to_date)
+        Article.query.filter(Article.published_time > from_date)
+        .filter(Article.published_time < to_date)
         .filter(Article.language_id == language_id)
         .order_by(desc(Article.id))
         .all()
@@ -75,6 +75,8 @@ def articles_in_interval(from_date, to_date, language_id):
 
 def update_artices_in_time_interval(from_date, to_date, language_id):
     selected_articles = articles_in_interval(from_date, to_date, language_id)
+    print("Selected articles...")
+    print(selected_articles)
     update_articles(selected_articles)
 
 
@@ -82,5 +84,19 @@ def update_artices_in_time_interval(from_date, to_date, language_id):
 
 
 if __name__ == "__main__":
-    article_id = int(sys.argv[1])
-    update_article(article_id)
+    if len(sys.argv) == 2:
+        article_id = int(sys.argv[1])
+        update_article(article_id)
+    elif len(sys.argv) == 5:
+        if sys.argv[1] == "time_interval":
+            from datetime import datetime
+
+            from_date = datetime.strptime(sys.argv[2], "%Y-%m-%d")
+            print(from_date)
+            to_date = datetime.strptime(sys.argv[3], "%Y-%m-%d")
+            print(to_date)
+            lang_id = sys.argv[4]
+            print(lang_id)
+            update_artices_in_time_interval(from_date, to_date, lang_id)
+    else:
+        print("parse error")
