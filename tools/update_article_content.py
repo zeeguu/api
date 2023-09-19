@@ -25,6 +25,19 @@ def update_article(id):
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
+def update_articles(all_articles):
+    for each in all_articles:
+        try:
+            print(each.id)
+            update_article(each.id)
+            sleep_interval = randint(10, 70)
+            print(f"sleeping...{sleep_interval}")
+            sleep(sleep_interval)
+        except Exception as e:
+            import traceback
+            traceback.print_stack()
+
+
 # fr = 7
 def update_article_range(start_date, end_date, language_id):
     all = (
@@ -34,14 +47,8 @@ def update_article_range(start_date, end_date, language_id):
         .order_by(desc(Article.id))
         .all()
     )
-    for each in all:
-        try:
-            update_article(each.id)
-            sleep(randint(10, 70))
-        except Exception as e:
-            import traceback
 
-            traceback.print_stack()
+    update_articles(all)
 
 
 # fr = 7
@@ -53,17 +60,21 @@ def update_articles_below(max_val, min_val, language_id):
         .order_by(desc(Article.id))
         .all()
     )
-    for each in all:
-        try:
-            print(each.id)
-            update_article(each.id)
-            sleep_interval = randint(10, 70)
-            print(f"sleeping...{sleep_interval}")
-            sleep(sleep_interval)
-        except Exception as e:
-            import traceback
+    update_articles(all)
 
-            traceback.print_stack()
+
+def update_artices_in_time_interval(from_date, to_date, language_id):
+    all = (
+        Article.query.filter(Article.published_time >= from_date)
+        .filter(Article.published_time <= to_date)
+        .filter(Article.language_id == language_id)
+        .order_by(desc(Article.id))
+        .all()
+    )
+    update_articles(all)
+
+
+# datetime(2001, 1, 1)
 
 
 if __name__ == "__main__":
