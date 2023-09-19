@@ -25,8 +25,8 @@ def update_article(id):
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
-def update_articles(all_articles):
-    for each in all_articles:
+def update_articles(selected_articles):
+    for each in selected_articles:
         try:
             print(each.id)
             update_article(each.id)
@@ -40,7 +40,7 @@ def update_articles(all_articles):
 
 # fr = 7
 def update_article_range(start_date, end_date, language_id):
-    all = (
+    selected_articles = (
         Article.query.filter(Article.language_id == language_id)
         .filter(Article.published_time >= start_date)
         .filter(Article.published_time < end_date)
@@ -48,35 +48,39 @@ def update_article_range(start_date, end_date, language_id):
         .all()
     )
 
-    update_articles(all)
+    update_articles(selected_articles)
 
 
 # fr = 7
 def update_articles_below(max_val, min_val, language_id):
-    all = (
+    selected_articles = (
         Article.query.filter(Article.id <= max_val)
         .filter(Article.id > min_val)
         .filter(Article.language_id == language_id)
         .order_by(desc(Article.id))
         .all()
     )
-    update_articles(all)
+    update_articles(selected_articles)
 
 
-def update_artices_in_time_interval(from_date, to_date, language_id):
-    all = (
+def articles_in_interval(from_date, to_date, language_id):
+    return (
         Article.query.filter(Article.published_time >= from_date)
         .filter(Article.published_time <= to_date)
         .filter(Article.language_id == language_id)
         .order_by(desc(Article.id))
         .all()
     )
-    update_articles(all)
+
+
+def update_artices_in_time_interval(from_date, to_date, language_id):
+    selected_articles = articles_in_interval(from_date, to_date, language_id)
+    update_articles(selected_articles)
 
 
 # datetime(2001, 1, 1)
 
 
 if __name__ == "__main__":
-    id = int(sys.argv[1])
-    update_article(id)
+    article_id = int(sys.argv[1])
+    update_article(article_id)
