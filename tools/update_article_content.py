@@ -33,6 +33,8 @@ def update_articles(selected_articles):
             sleep_interval = randint(10, 70)
             print(f"sleeping...{sleep_interval}")
             sleep(sleep_interval)
+            print("\n\n")
+
         except Exception as e:
             import traceback
             traceback.print_stack()
