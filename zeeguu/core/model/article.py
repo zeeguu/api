@@ -9,8 +9,6 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeTex
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
-from zeeguu.core.elastic.indexing import remove_from_index
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -268,6 +266,7 @@ class Article(db.Model):
     def mark_as_low_quality_and_remove_from_index(self):
         self.broken = 100
         # if it was in ES, we delete it
+        from zeeguu.core.elastic.indexing import remove_from_index
         remove_from_index(self)
 
     def update_content(self, session):
