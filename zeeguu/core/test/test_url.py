@@ -22,8 +22,8 @@ class UrlTest(ModelTestMixIn, TestCase):
         with self.assertRaises(Exception) as context:
             domain = DomainName.find(_domain)
             url = Url(_url, _title, domain)
-            session.add(url)
-            session.commit()
+            db_session.add(url)
+            db_session.commit()
 
         self.assertTrue("Duplicate entry" or "IntegrityError" in str(context.exception))
 

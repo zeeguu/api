@@ -31,13 +31,13 @@ def update_particular_tag(language, loc_topic):
         if loc_topic.matches_article(article):
             article.add_topic(loc_topic.topic)
             print(f" #{loc_topic.topic_translated}: {article.url.as_string()}")
-        session.add(article)
+        db_session.add(article)
         if counter % 1000 == 0:
             percentage = (100 * counter / total_articles) / 100
             print(
                 f"{counter} articles done ({percentage}%). last article id: {article.id}. comitting... "
             )
-            session.commit()
+            db_session.commit()
 
 
 if __name__ == "__main__":

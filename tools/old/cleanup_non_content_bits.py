@@ -1,7 +1,7 @@
 from zeeguu.core.model import Article
 from zeeguu.core.model import RSSFeed
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
-from zeeguu.core import db
+from zeeguu.core.model import db
 
 SOURCE = 'www.theonion.com'
 

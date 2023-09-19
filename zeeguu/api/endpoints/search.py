@@ -41,8 +41,8 @@ def subscribe_to_search(search_terms):
              This is used to display it in the UI.
 
     """
-    search = Search.find_or_create(session, search_terms)
-    SearchSubscription.find_or_create(session, flask.g.user, search)
+    search = Search.find_or_create(db_session, search_terms)
+    SearchSubscription.find_or_create(db_session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
 
@@ -63,10 +63,10 @@ def unsubscribe_from_search():
 
     try:
         to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
-        session.delete(to_delete)
+        db_session.delete(to_delete)
         to_delete2 = Search.find_by_id(search_id)
-        session.delete(to_delete2)
-        session.commit()
+        db_session.delete(to_delete2)
+        db_session.commit()
 
     except Exception as e:
         from sentry_sdk import capture_exception
@@ -120,8 +120,8 @@ def filter_search(search_terms):
     :return: the search as a dictionary
     """
 
-    search = Search.find_or_create(session, search_terms)
-    SearchFilter.find_or_create(session, flask.g.user, search)
+    search = Search.find_or_create(db_session, search_terms)
+    SearchFilter.find_or_create(db_session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
 
@@ -141,10 +141,10 @@ def unfilter_search():
 
     try:
         to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
-        session.delete(to_delete)
+        db_session.delete(to_delete)
         to_delete = Search.find_by_id(search_id)
-        session.delete(to_delete)
-        session.commit()
+        db_session.delete(to_delete)
+        db_session.commit()
 
     except Exception as e:
         log(str(e))

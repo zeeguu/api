@@ -101,13 +101,13 @@ ITALIAN_TOPICS = [
 
 def add_topic(title):
     new_topic = Topic(title)
-    session.add(new_topic)
+    db_session.add(new_topic)
     return new_topic
 
 
 def add_localized_topic(topic: Topic, language: Language, name, keywords):
     new_loc_topic = LocalizedTopic(topic, language, name, keywords)
-    session.add(new_loc_topic)
+    db_session.add(new_loc_topic)
     return new_loc_topic
 
 
@@ -132,4 +132,4 @@ for topic_name in TOPICS:
         topic, LANGUAGES[5], ITALIAN_TOPICS[count][0], ITALIAN_TOPICS[count][1]
     )
     count += 1
-    session.commit()
+    db_session.commit()

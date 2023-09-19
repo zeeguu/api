@@ -1,6 +1,6 @@
 # coding=utf-8
 
-import json
+
 from unittest import TestCase
 
 from zeeguu.api.test.api_test_mixin import APITestMixin

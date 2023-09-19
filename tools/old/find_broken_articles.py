@@ -1,6 +1,6 @@
 from zeeguu.core.model import Article
 from zeeguu.core.model import RSSFeed
-from zeeguu.core import db
+from zeeguu.core.model import db
 
 SOURCE = 'www.newscientist.com'
 TERMINATOR = '…'

@@ -25,9 +25,9 @@ from zeeguu.core.model import (
     UserActivityData,
     UserReadingSession,
     CohortArticleMap,
-    ArticlesCache,
+    
 )
-from zeeguu.core import db
+from zeeguu.core.model import db
 
 import sys
 
@@ -105,7 +105,7 @@ def delete_articles_older_than(DAYS, print_progress_for_every_article=False, del
                 )
                 dbs.commit()
                 print(
-                    f"... the rest of {BATCH_COMMIT_SIZE-referenced_in_this_batch} are now deleted!!!"
+                    f"... the rest of {BATCH_COMMIT_SIZE - referenced_in_this_batch} are now deleted!!!"
                 )
                 referenced_in_this_batch = 0
                 print(f"Deleted from ES index: {deleted_from_es}")

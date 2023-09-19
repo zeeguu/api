@@ -1,10 +1,7 @@
-import re
 import flask_sqlalchemy
-
 
 db = flask_sqlalchemy.SQLAlchemy()
 
-from zeeguu.logging import warning
 import zeeguu
 
 # If zeeguu.core.app is already defined we use that object

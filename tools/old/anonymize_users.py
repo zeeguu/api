@@ -21,11 +21,11 @@ for user in User.query.all():
         try:
             user.name = fake.name()
             user.email = fake.email()
-            session.add(user)
-            session.commit()
+            db_session.add(user)
+            db_session.commit()
             print(f"anonymized user id {user.id} to {user.name}")
             break
         except sqlalchemy.exc.IntegrityError as e:
-            session.rollback()
+            db_session.rollback()
             print(f"retrying...")
             continue

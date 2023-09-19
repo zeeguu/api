@@ -27,17 +27,17 @@ for language in languages:
                 article.add_topic(loc_topic.topic)
                 print(f" #{loc_topic.topic_translated}")
         print("")
-        session.add(article)
+        db_session.add(article)
 
         if counter % 1000 == 0:
             percentage = (100 * counter / total_articles) / 100
             print(
                 f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... "
             )
-            session.commit()
+            db_session.commit()
 
 percentage = (100 * counter / total_articles) / 100
 print(
     f"{counter} dorticles done ({percentage}%). last article id: {article.id}. Comitting... "
 )
-session.commit()
+db_session.commit()

@@ -10,7 +10,6 @@ from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.route_wrappers import cross_domain
 from . import api, db_session
 
-import zeeguu
 from zeeguu.logging import log
 
 

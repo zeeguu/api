@@ -1,6 +1,6 @@
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model import Bookmark
-from zeeguu.core import db
+from zeeguu.core.model import db
 
 
 def print_bookmarks_that_are_learned_without_history(bookmarks):
@@ -31,7 +31,6 @@ def print_bookmarks_that_are_wrongly_learned(bookmarks):
 
     print("committing all the changes to the DB")
     db.session.commit()
-
 
 
 bookmarks = Bookmark.query.filter_by(user_id=534)

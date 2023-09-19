@@ -6,12 +6,12 @@ db_session = zeeguu.core.model.db.session
 
 for sa in StarredArticle.query.all():
     try:
-        article = Article.find_or_create(session, sa.url.as_string())
+        article = Article.find_or_create(db_session, sa.url.as_string())
         ua = UserArticle.find_or_create(
-            session, sa.user, article, starred=sa.starred_date
+            db_session, sa.user, article, starred=sa.starred_date
         )
-        session.add(ua)
-        session.commit()
+        db_session.add(ua)
+        db_session.commit()
         print(f"{sa.starred_date} x {ua.user.name} x {ua.article.title}")
     except Exception as ex:
         print(f"could not import {sa.url.as_string()}")

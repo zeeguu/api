@@ -1,8 +1,7 @@
-from datetime import datetime, time
+from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -10,13 +9,14 @@ from sqlalchemy import (
     ForeignKey,
     String,
     DateTime,
-    Boolean,
+
 )
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from zeeguu.core.model import Url, User
 from zeeguu.core.model.language import Language
+from zeeguu.core.model import db
 
 
 class StarredArticle(db.Model):

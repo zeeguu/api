@@ -1,4 +1,3 @@
-from asyncore import dispatcher_with_send
 from datetime import datetime
 import zeeguu.core.model
 from zeeguu.core.model.user_word import UserWord
@@ -43,7 +42,6 @@ for word in words:
         if res[1] not in unsupported_languages:
             unsupported_languages.add(res[1])
             print(res[1])
-
 
 db_session.commit()
 print(f"updated {i} words")

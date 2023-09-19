@@ -118,19 +118,6 @@ def create_app(testing=False):
 #     traceback.print_exc()
 #     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
-try:
-    from zeeguu.api.machine_specific import machine_specific_config
-
-    machine_specific_config(app)
-except ModuleNotFoundError as e:
-    print("no machine specific code found")
-
-
-start = time.time()
-
-end = time.time()
-print("Loaded the spacy models in " + str(end - start) + " seconds")
-
 
 # install nltk punkt & tagger if missing
 # we can only do it here because the nltk loads in memory the unittest

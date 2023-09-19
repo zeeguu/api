@@ -5,7 +5,7 @@ from sys import argv
 
 from zeeguu.core.content_cleaning.unicode_normalization import flatten_composed_unicode_characters
 from zeeguu.core.model import Article, Language
-from zeeguu.core import db
+from zeeguu.core.model import db
 
 
 def flatten_the_unicode_characters(language):

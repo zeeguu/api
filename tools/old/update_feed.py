@@ -16,7 +16,7 @@ for feed in all_feeds:
         feed.title = input(f"Title ({feed.title}): ") or feed.title
         print(f"new title is: {feed.title}")
         _image_url = input("Icon file: ")
-        feed.image_url = Url.find_or_create(session, RESOURCES_FOLDER + _image_url)
+        feed.image_url = Url.find_or_create(db_session, RESOURCES_FOLDER + _image_url)
         print("new image url: " + feed.image_url.as_string())
-        session.add(feed)
-        session.commit()
+        db_session.add(feed)
+        db_session.commit()
