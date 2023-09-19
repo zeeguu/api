@@ -23,6 +23,10 @@ plain_text_read_more_patterns = [
 
 incomplete_suggesting_terminations = "Read More"
 
+LIVE_BLOG_KIND_OF_PATTERNS = [
+    "Lees hier het hele verhaal"
+]
+
 
 def sufficient_quality_html(html):
     for each in HTML_READ_MORE_PATTERNS:
@@ -46,6 +50,10 @@ def sufficient_quality_plain_text(text):
 
     if text.endswith(incomplete_suggesting_terminations):
         return False, 'Ends with "Read More" or similar'
+
+    for each in LIVE_BLOG_KIND_OF_PATTERNS:
+        if text.find(each) >= 0:
+            return False, "Live blog kind of article"
 
     return True, ""
 
