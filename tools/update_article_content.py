@@ -32,7 +32,7 @@ def update_articles(selected_articles):
         try:
             print(each.id)
             update_article(each.id)
-            sleep_interval = randint(10, 70)
+            sleep_interval = randint(10, 30)
             print(f"sleeping...{sleep_interval}")
             sleep(sleep_interval)
             print("\n\n")
