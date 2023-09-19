@@ -36,7 +36,11 @@ class ZeeguuMailer(object):
         if not zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False):
             print("returning without sending")
             return
-        self.send_with_yagmail()
+        try:
+            self.send_with_yagmail()
+        except Exception as e:
+            from sentry_sdk import capture_exception
+            capture_exception(e)
 
     def _content_of_email(self):
         from email.mime.text import MIMEText
