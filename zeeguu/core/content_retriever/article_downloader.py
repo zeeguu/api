@@ -10,7 +10,7 @@ import newspaper
 
 from pymysql import DataError
 
-from zeeguu.logging import log
+from zeeguu.logging import log, logp
 
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
@@ -116,7 +116,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-            feed_item_timestamp > last_retrieval_time_seen_this_crawl
+                feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -130,8 +130,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             log("before redirects")
             log(feed_item["url"])
             url = _url_after_redirects(feed_item["url"])
-            log("after redirects")
-            log(url)
+            logp("===============================> ")
+            logp("after redirects")
+            logp(url)
 
         except requests.exceptions.TooManyRedirects:
             raise Exception(f"- Too many redirects")
@@ -158,15 +159,15 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
                 ZeeguuMailer.send_content_retrieved_notification(new_article)
 
         except SkippedForTooOld:
-            log("- Article too old")
+            logp("- Article too old")
             continue
         except SkippedForLowQuality as e:
-            log(f" - Low quality: {e.reason}")
+            logp(f" - Low quality: {e.reason}")
             skipped_due_to_low_quality += 1
             continue
         except SkippedAlreadyInDB:
             skipped_already_in_db += 1
-            log(" - Already in DB")
+            logp(" - Already in DB")
             continue
 
         except Exception as e:
@@ -292,7 +293,7 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-            new_article
+                new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)
