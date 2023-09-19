@@ -1,4 +1,3 @@
-import zeeguu.core
 import newspaper
 from zeeguu.core.model import Article
 
@@ -25,32 +24,38 @@ plain_text_read_more_patterns = [
 incomplete_suggesting_terminations = "Read More"
 
 
-def sufficient_quality(art: newspaper.Article) -> (bool, str):
-    """
-
-        :param art:
-
-    :return:
-        bool: True/False
-        str: reason if false
-    """
+def sufficient_quality_html(html):
     for each in HTML_READ_MORE_PATTERNS:
-        if art.html.find(each) > 0:
+        if html.find(each) > 0:
             return (
                 False,
                 f"Incomplete Article (based on HTML analysis). Contains: {each}",
             )
+    return True, ""
 
-    word_count = len(art.text.split(" "))
+
+def sufficient_quality_plain_text(text):
+    word_count = len(text.split(" "))
 
     if word_count < Article.MINIMUM_WORD_COUNT:
-        return False, f"Too Short ({word_count} words) {art.text}"
+        return False, f"Too Short ({word_count} words) {text}"
 
     for each in plain_text_read_more_patterns:
-        if art.text.find(each) >= 0:
+        if text.find(each) >= 0:
             return False, f"Incomplete pattern in text: {each}"
 
-    if art.text.endswith(incomplete_suggesting_terminations):
+    if text.endswith(incomplete_suggesting_terminations):
         return False, 'Ends with "Read More" or similar'
+
+    return True, ""
+
+
+def sufficient_quality(art: newspaper.Article) -> (bool, str):
+    res, reason = sufficient_quality_html(art.html)
+    if not res:
+        return False, reason
+    res, reason = sufficient_quality_plain_text(art.text)
+    if not res:
+        return False, reason
 
     return True, ""

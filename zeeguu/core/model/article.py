@@ -95,21 +95,21 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-        self,
-        url,
-        title,
-        authors,
-        content,
-        summary,
-        published_time,
-        rss_feed,
-        language,
-        htmlContent="",
-        uploader=None,
-        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-        broken=0,
-        deleted=0,
-        video=0,
+            self,
+            url,
+            title,
+            authors,
+            content,
+            summary,
+            published_time,
+            rss_feed,
+            language,
+            htmlContent="",
+            uploader=None,
+            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+            broken=0,
+            deleted=0,
+            video=0,
     ):
 
         if not summary:
@@ -271,6 +271,11 @@ class Article(db.Model):
         self.content = parsed.text
         self.htmlContent = parsed.html
         self.compute_fk_and_wordcount()
+
+        from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
+        if not sufficient_quality_plain_text(self.content):
+            self.broken = 100
+
         session.add(self)
         session.commit()
 
@@ -310,7 +315,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language
+            cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -333,13 +338,13 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        _url: str,
-        language=None,
-        htmlContent=None,
-        title=None,
-        authors: str = "",
+            cls,
+            session,
+            _url: str,
+            language=None,
+            htmlContent=None,
+            title=None,
+            authors: str = "",
     ):
         """
 
