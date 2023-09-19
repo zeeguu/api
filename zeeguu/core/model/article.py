@@ -273,8 +273,10 @@ class Article(db.Model):
         self.compute_fk_and_wordcount()
 
         from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
-        if not sufficient_quality_plain_text(self.content):
+        quality, reason = sufficient_quality_plain_text(self.content)
+        if not quality:
             self.broken = 100
+            print("Marking as broken. Reason: " + reason)
 
         session.add(self)
         session.commit()
