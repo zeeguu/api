@@ -24,7 +24,8 @@ plain_text_read_more_patterns = [
 incomplete_suggesting_terminations = "Read More"
 
 LIVE_BLOG_KIND_OF_PATTERNS = [
-    "Lees hier het hele verhaal"
+    "Lees hier het hele verhaal",
+    "Lees hier het hele verhaal"
 ]
 
 
