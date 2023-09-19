@@ -71,5 +71,6 @@ def index_in_elasticsearch(new_article, session):
 def remove_from_index(article):
     es = Elasticsearch(ES_CONN_STRING)
     if es.exists(index=ES_ZINDEX, id=article.id):
+        print("Found in ES Index")
         es.delete(index=ES_ZINDEX, id=article.id)
-        deleted_from_es += 1
+        print("After deletion from the index.")

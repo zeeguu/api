@@ -10,6 +10,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
+from zeeguu.core.elastic.indexing import remove_from_index
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -264,6 +265,11 @@ class Article(db.Model):
         ua.set_starred(state)
         session.add(ua)
 
+    def mark_as_low_quality_and_remove_from_index(self):
+        self.broken = 100
+        # if it was in ES, we delete it
+        remove_from_index(self)
+
     def update_content(self, session):
         from zeeguu.core.content_retriever import download_and_parse
 
@@ -275,8 +281,8 @@ class Article(db.Model):
         from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
         quality, reason = sufficient_quality_plain_text(self.content)
         if not quality:
-            self.broken = 100
             print("Marking as broken. Reason: " + reason)
+            self.mark_as_low_quality_and_remove_from_index()
 
         session.add(self)
         session.commit()
