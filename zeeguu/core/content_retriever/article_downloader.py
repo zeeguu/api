@@ -142,7 +142,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             )
 
         if banned_url(url):
-            log("Banned Url")
+            logp("Banned Url")
             continue
 
         session.add(feed)
@@ -178,15 +178,15 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             capture_to_sentry(e)
 
             if hasattr(e, "message"):
-                log(e.message)
+                logp(e.message)
             else:
-                log(e)
+                logp(e)
             continue
 
-    log(f"*** Downloaded: {downloaded} From: {feed.title}")
-    log(f"*** Low Quality: {skipped_due_to_low_quality}")
-    log(f"*** Already in DB: {skipped_already_in_db}")
-    log(f"*** ")
+    logp(f"*** Downloaded: {downloaded} From: {feed.title}")
+    logp(f"*** Low Quality: {skipped_due_to_low_quality}")
+    logp(f"*** Already in DB: {skipped_already_in_db}")
+    logp(f"*** ")
 
 
 def download_feed_item(session, feed, feed_item, url):
@@ -247,7 +247,7 @@ def download_feed_item(session, feed, feed_item, url):
         session.add(new_article)
 
         topics = add_topics(new_article, session)
-        log(f" Topics ({topics})")
+        logp(f" Topics ({topics})")
 
         # compute extra difficulties for french articles
         try:
@@ -264,16 +264,16 @@ def download_feed_item(session, feed, feed_item, url):
             capture_to_sentry(e)
 
         session.commit()
-        log(f"SUCCESS for: {new_article.title}")
+        logp(f"SUCCESS for: {new_article.title}")
 
     except SkippedForLowQuality as e:
         raise e
 
     except newspaper.ArticleException as e:
-        log(f"can't download article at: {url}")
+        logp(f"can't download article at: {url}")
 
     except DataError as e:
-        log(f"Data error for: {url}")
+        logp(f"Data error for: {url}")
 
     except Exception as e:
         import traceback

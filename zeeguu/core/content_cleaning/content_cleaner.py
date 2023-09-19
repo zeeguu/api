@@ -20,12 +20,13 @@ JUNK_PATTERNS_TO_REMOVE = [
     "Votre abonnement n’autorise pas la lecture de cet article",
     "Lecture restreinte",
     "Pour plus d’informations, merci de contacter notre service commercial.",
+    #     dk
+    "Artiklen fortsætter efter annoncen"
 ]
 
 JUNK_PREFIXES = [
     "Der er ikke oplæsning af denne artikel, så den oplæses derfor med maskinstemme."
 ]
-
 
 """
 

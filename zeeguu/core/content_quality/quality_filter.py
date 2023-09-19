@@ -13,12 +13,15 @@ HTML_READ_MORE_PATTERNS = [
     "Jetzt Gratismonat beginnen",
 ]
 
-plain_text_read_more_patterns = [
+PLAIN_TEXT_PAYWALL_PATTERNS = [
     "Create an account for free access to:",  # New Scientist
     "édition abonné",  # /www.lemonde.fr
     # Politiken
     "Allerede abonnent? Login",
     "FOR ABONNENTER",
+    # Ing
+    "Alternativt kan du købe et abonnement",
+
 ]
 
 incomplete_suggesting_terminations = "Read More"
@@ -45,7 +48,7 @@ def sufficient_quality_plain_text(text):
     if word_count < Article.MINIMUM_WORD_COUNT:
         return False, f"Too Short ({word_count} words) {text}"
 
-    for each in plain_text_read_more_patterns:
+    for each in PLAIN_TEXT_PAYWALL_PATTERNS:
         if text.find(each) >= 0:
             return False, f"Incomplete pattern in text: {each}"
 
