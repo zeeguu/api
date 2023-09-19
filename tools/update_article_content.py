@@ -16,7 +16,9 @@ db_session = zeeguu.core.model.db.session
 def update_article(id):
     a = Article.find_by_id(id)
     old_content = a.content
+    print("====================================")
     print(a.title)
+    print("====================================")
     # print(">>>>>> BEFORE <<<<<<")
     # print(a.content)
     a.update_content(db_session)
