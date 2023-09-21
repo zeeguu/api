@@ -38,7 +38,7 @@ JUNK_PREFIXES = [
 :return:
 """
 
-
+print("-------->>>>> at the beginning of content_cleaner.py")
 def cleanup_non_content_bits(text: str):
     new_text = text
 
