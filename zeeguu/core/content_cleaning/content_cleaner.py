@@ -55,7 +55,6 @@ def cleanup_non_content_bits(text: str):
             if each.startswith(junk_prefix):
                 print(">>>> dropping the Paragraph: " + each)
                 continue
-            print("appending the pragraph: " + each)
             clean_text += each + "\n"
 
     return clean_text
