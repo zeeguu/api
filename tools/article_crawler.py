@@ -16,6 +16,7 @@ logging.getLogger("zeeguu.core").setLevel(logging.INFO)
 
 start = datetime.now()
 log(f"started at: {datetime.now()}")
+print("LAST VERSION!!!")
 
 from zeeguu.api.app import create_app
 
