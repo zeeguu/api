@@ -10,7 +10,7 @@ from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.model import Topic, LocalizedTopic
 
-from zeeguu.core.test.test_data.mocking_the_web import *
+from zeeguu.core.test.mocking_the_web import *
 
 
 class TestRetrieveAndCompute(ModelTestMixIn):
@@ -45,14 +45,14 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert topic in article.topics
 
     def test_sufficient_quality(self):
-        art = newspaper.Article(URL_INVESTING)
+        art = newspaper.Article(URL_PROPUBLICA_INVESTING)
         art.download()
         art.parse()
 
         assert sufficient_quality(art)
 
     def test_new_scientist_overlay(self):
-        art = newspaper.Article(URL_FISH_WILL_BE_GONE)
+        art = newspaper.Article(URL_NEWSCIENTIST_FISH)
         art.download()
         art.parse()
 
@@ -68,7 +68,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert not is_quality
 
     def test_fragment_removal(self):
-        art = newspaper.Article(URL_ONION_ARTICLE1)
+        art = newspaper.Article(URL_ONION_US_MILITARY)
         art.download()
         art.parse()
 

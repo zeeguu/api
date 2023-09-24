@@ -4,9 +4,9 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 import zeeguu.core
 from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
-from zeeguu.core.test.test_data.mocking_the_web import (
+from zeeguu.core.test.mocking_the_web import (
     URL_LEMONDE_FORMATION,
-    URL_SPIEGEL_VENEZUELA_MILITAER,
+    URL_SPIEGEL_VENEZUELA,
 )
 from zeeguu.core.elastic.indexing import document_from_article
 from zeeguu.core.content_retriever.article_downloader import download_feed_item
@@ -45,7 +45,7 @@ class ArticleDownloaderTest(ModelTestMixIn, TestCase):
         feed = RSSFeedRule().feed1
 
         art1 = download_feed_item(
-            db_session, feed, self.dummy_feed_item, URL_SPIEGEL_VENEZUELA_MILITAER
+            db_session, feed, self.dummy_feed_item, URL_SPIEGEL_VENEZUELA
         )
 
         es_document = document_from_article(art1, db_session)

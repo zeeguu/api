@@ -4,7 +4,7 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import RSSFeed, Language, Url
-from zeeguu.core.test.test_data.mocking_the_web import (
+from zeeguu.core.test.mocking_the_web import (
     URL_SPIEGEL_RSS,
     URL_LEMONDE_VOLS_AMERICAINS
 )

@@ -1,4 +1,4 @@
-from zeeguu.core.test.test_data.mocking_the_web import URL_BLINDEN_UND_ELEPHANT
+from zeeguu.core.test.mocking_the_web import URL_BLINDEN_UND_ELEPHANT
 
 EASIEST_STORY_URL = 'http://www.tyskopgaver.dk/kuechenuhr.htm'
 VERY_EASY_STORY_URL = URL_BLINDEN_UND_ELEPHANT

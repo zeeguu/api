@@ -1,7 +1,6 @@
 import json
-
-from zeeguu.api.test.fixtures import client_with_new_user_and_session
-from zeeguu.core.test.test_data.mocking_the_web import URL_SPIEGEL_VENEZUELA_MILITAER
+from fixtures import client_with_new_user_and_session
+from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
 def test_create_and_delete_bookmark(client_with_new_user_and_session):
@@ -13,7 +12,7 @@ def test_create_and_delete_bookmark(client_with_new_user_and_session):
             word="Freund",
             translation="friend",
             context="Mein Freund lächelte",
-            url=URL_SPIEGEL_VENEZUELA_MILITAER,
+            url=URL_SPIEGEL_VENEZUELA,
         ),
     )
 

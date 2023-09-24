@@ -3,7 +3,7 @@ import requests_mock
 
 from zeeguu.api.app import create_app
 import zeeguu
-from zeeguu.core.test.test_data.mocking_the_web import mock_requests_get
+from zeeguu.core.test.mocking_the_web import mock_requests_get
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ from faker import Faker
 from unittest import TestCase
 
 from zeeguu.api.app import create_app
-from zeeguu.core.test.test_data.mocking_the_web import mock_requests_get
+from zeeguu.core.test.mocking_the_web import mock_requests_get
 
 
 class ModelTestMixIn(TestCase):
@@ -29,7 +29,6 @@ class ModelTestMixIn(TestCase):
         db.drop_all()
 
     def run(self, result=None):
-
         # For the unit tests we use several HTML documents
         # that are stored locally so we don't have to download
         # them for every test
