@@ -21,7 +21,7 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     "FOR ABONNENTER",
     # Ing
     "Alternativt kan du købe et abonnement",
-
+    "Zugang zu allen F+ Artikeln"
 ]
 
 incomplete_suggesting_terminations = "Read More"
