@@ -1,7 +1,6 @@
 from zeeguu.core.bookmark_quality import quality_bookmark
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-from zeeguu.core.util.timer_logging_decorator import time_this
 
 
 def fit_for_study(bookmark):

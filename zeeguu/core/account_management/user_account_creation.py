@@ -3,7 +3,6 @@ import sqlalchemy
 import zeeguu.core
 from zeeguu.core.emailer.user_activity import send_new_user_account_email
 from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
-from zeeguu.core.model.user import CEFR_TO_DIFFICULTY_MAPPING
 
 
 def valid_invite_code(invite_code):
@@ -11,7 +10,7 @@ def valid_invite_code(invite_code):
         return True
 
     if zeeguu.core.app.config.get(
-        "INVITATION_CODES"
+            "INVITATION_CODES"
     ) and invite_code in zeeguu.core.app.config.get("INVITATION_CODES"):
         return True
 
@@ -22,14 +21,14 @@ def valid_invite_code(invite_code):
 
 
 def create_account(
-    db_session,
-    username,
-    password,
-    invite_code,
-    email,
-    learned_language_code,
-    native_language_code,
-    learned_cefr_level,
+        db_session,
+        username,
+        password,
+        invite_code,
+        email,
+        learned_language_code,
+        native_language_code,
+        learned_cefr_level,
 ):
     cohort_name = ""
     if password is None or len(password) < 4:
