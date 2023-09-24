@@ -7,8 +7,8 @@ from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.model import Topic, Article
 from zeeguu.core.test.test_data.mocking_the_web import (
-    url_plane_crashes,
-    url_spiegel_militar,
+    URL_PLANE_CRASHES_KATHMANDU,
+    URL_SPIEGEL_VENEZUELA_MILITAER,
 )
 
 session = zeeguu.core.model.db.session
@@ -35,9 +35,9 @@ class ArticleTest(ModelTestMixIn, TestCase):
         assert len(self.article1.topics) == 2
 
     def test_find_or_create(self):
-        self.new_art = Article.find_or_create(session, url_spiegel_militar)
+        self.new_art = Article.find_or_create(session, URL_SPIEGEL_VENEZUELA_MILITAER)
         assert self.new_art.fk_difficulty
 
     def test_load_article_without_language_information(self):
-        art = Article.find_or_create(session, url_plane_crashes)
+        art = Article.find_or_create(session, URL_PLANE_CRASHES_KATHMANDU)
         assert art

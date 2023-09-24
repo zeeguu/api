@@ -45,14 +45,14 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert topic in article.topics
 
     def test_sufficient_quality(self):
-        art = newspaper.Article(url_investing_in_index_funds)
+        art = newspaper.Article(URL_INVESTING)
         art.download()
         art.parse()
 
         assert sufficient_quality(art)
 
     def test_new_scientist_overlay(self):
-        art = newspaper.Article(url_fish_will_be_gone)
+        art = newspaper.Article(URL_FISH_WILL_BE_GONE)
         art.download()
         art.parse()
 
@@ -60,7 +60,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert not is_quality
 
     def test_le_monde_subscription(self):
-        art = newspaper.Article(url_vols_americans)
+        art = newspaper.Article(URL_LEMONDE_VOLS_AMERICAINS)
         art.download()
         art.parse()
 
@@ -68,7 +68,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert not is_quality
 
     def test_fragment_removal(self):
-        art = newspaper.Article(url_onion_us_military)
+        art = newspaper.Article(URL_ONION_ARTICLE1)
         art.download()
         art.parse()
 

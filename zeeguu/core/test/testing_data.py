@@ -1,7 +1,7 @@
-from zeeguu.core.test.test_data.mocking_the_web import url_blinden_und_elefant
+from zeeguu.core.test.test_data.mocking_the_web import URL_BLINDEN_UND_ELEPHANT
 
 EASIEST_STORY_URL = 'http://www.tyskopgaver.dk/kuechenuhr.htm'
-VERY_EASY_STORY_URL = url_blinden_und_elefant
+VERY_EASY_STORY_URL = URL_BLINDEN_UND_ELEPHANT
 EASY_STORY_URL = 'http://www.heimatverein-boesel.de/dit-un-dat-7-72-4.htm'
 
 DE_SAMPLE_FEED_1_URL = 'http://www.spiegel.de/index.rss'
