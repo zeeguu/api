@@ -90,17 +90,27 @@ def client_with_new_user_bookmark_and_session():
                 def append_session(url):
                     return url + "?session=" + str(session)
 
+                def client_get(endpoint):
+                    return json.loads(client.get(append_session(endpoint)).data)
+
+                def client_post(endpoint, payload=dict()):
+                    result = client.post(append_session(endpoint), data=payload).data
+                    try:
+                        return json.loads(result)
+                    except:
+                        return result
+
                 # Create one bookmark too
-                response = client.post(append_session("/contribute_translation/de/en"), data=dict(
+                bookmark = client_post("/contribute_translation/de/en", dict(
                     word="Freund",
                     translation="friend",
                     context="Mein Freund lächelte",
                     url="http://www.derkleineprinz-online.de/text/2-kapitel/",
                 ))
 
-                bookmark_id = json.loads(response.data)["bookmark_id"]
+                bookmark_id = bookmark["bookmark_id"]
 
-        yield client, bookmark_id, session, append_session
+        yield client_get, client_post, bookmark_id
 
     with app.app_context():
         zeeguu.core.model.db.session.remove()
