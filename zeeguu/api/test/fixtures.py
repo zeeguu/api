@@ -16,7 +16,7 @@ def client():
         with app.app_context():
             zeeguu.core.model.db.create_all()
 
-        yield client
+            yield client
 
     with app.app_context():
         zeeguu.core.model.db.session.remove()
@@ -38,7 +38,7 @@ def test_app():
 
 
 @pytest.fixture
-def client_with_new_user_and_session():
+def logged_in_client():
     app = create_app(testing=True)
 
     with requests_mock.Mocker() as m:
@@ -48,70 +48,59 @@ def client_with_new_user_and_session():
             with app.app_context():
                 zeeguu.core.model.db.create_all()
 
-                # Creating a user and returning also the session
-                test_user_data = dict(
-                    password="test", username="test", learned_language="de"
-                )
-                response = client.post(f"/add_user/test@test.es", data=test_user_data)
-                assert response.status_code == 200
+                logged_in_client = LoggedInClient(client)
 
-                session = int(response.data)
-
-                def append_session(url):
-                    return url + "?session=" + str(session)
-
-        yield client, session, append_session
+                yield logged_in_client
 
     with app.app_context():
         zeeguu.core.model.db.session.remove()
         zeeguu.core.model.db.drop_all()
 
 
-@pytest.fixture
-def client_with_new_user_bookmark_and_session():
-    app = create_app(testing=True)
+class LoggedInClient():
+    def __init__(self, client):
+        self.client = client
 
-    with requests_mock.Mocker() as m:
-        mock_requests_get(m)
+        # Creating a user and returning also the session
+        test_user_data = dict(
+            password="test", username="test", learned_language="de"
+        )
+        response = self.client.post(f"/add_user/i@mir.lu", data=test_user_data)
+        assert response.status_code == 200
 
-        with app.test_client() as client:
-            with app.app_context():
-                zeeguu.core.model.db.create_all()
+        self.session = int(response.data)
 
-                # Creating a user and returning also the session
-                test_user_data = dict(
-                    password="test", username="test", learned_language="de"
-                )
-                response = client.post(f"/add_user/test@test.es", data=test_user_data)
-                assert response.status_code == 200
+    def append_session(self, url):
+        if "?" in url:
+            return url + "&session=" + str(self.session)
+        return url + "?session=" + str(self.session)
 
-                session = int(response.data)
+    def get(self, endpoint):
+        url = self.append_session(endpoint)
+        result = self.client.get(url).data
+        try:
+            return json.loads(result)
+        except:
+            return result
 
-                def append_session(url):
-                    return url + "?session=" + str(session)
+    def post(self, endpoint, data=dict()):
 
-                def client_get(endpoint):
-                    return json.loads(client.get(append_session(endpoint)).data)
+        result = self.client.post(self.append_session(endpoint), data=data).data
+        try:
+            return json.loads(result)
+        except:
+            return result
 
-                def client_post(endpoint, payload=dict()):
-                    result = client.post(append_session(endpoint), data=payload).data
-                    try:
-                        return json.loads(result)
-                    except:
-                        return result
 
-                # Create one bookmark too
-                bookmark = client_post("/contribute_translation/de/en", dict(
-                    word="Freund",
-                    translation="friend",
-                    context="Mein Freund lächelte",
-                    url="http://www.derkleineprinz-online.de/text/2-kapitel/",
-                ))
+def add_one_bookmark(logged_in_client):
+    # Create one bookmark too
+    bookmark = logged_in_client.post("/contribute_translation/de/en", data=dict(
+        word="Freund",
+        translation="friend",
+        context="Mein Freund lächelte",
+        url="http://www.derkleineprinz-online.de/text/2-kapitel/",
+    ))
 
-                bookmark_id = bookmark["bookmark_id"]
+    bookmark_id = bookmark["bookmark_id"]
 
-        yield client_get, client_post, bookmark_id
-
-    with app.app_context():
-        zeeguu.core.model.db.session.remove()
-        zeeguu.core.model.db.drop_all()
+    return bookmark_id

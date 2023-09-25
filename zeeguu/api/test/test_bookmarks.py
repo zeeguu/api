@@ -1,13 +1,10 @@
-import json
-from fixtures import client_with_new_user_and_session
+from fixtures import logged_in_client as client
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
-def test_create_and_delete_bookmark(client_with_new_user_and_session):
-    client, _, append_session = client_with_new_user_and_session
-
-    response = client.post(
-        append_session("/contribute_translation/de/en"),
+def test_create_and_delete_bookmark(client):
+    new_bookmark = client.post(
+        "/contribute_translation/de/en",
         data=dict(
             word="Freund",
             translation="friend",
@@ -15,14 +12,11 @@ def test_create_and_delete_bookmark(client_with_new_user_and_session):
             url=URL_SPIEGEL_VENEZUELA,
         ),
     )
+    assert new_bookmark
+    new_bookmark_id = new_bookmark["bookmark_id"]
 
-    response_data = json.loads(response.data)
-    assert response_data
-    new_bookmark_id = response_data["bookmark_id"]
+    bookmarks_by_day = client.get("/bookmarks_by_day/with_context")
+    assert len(bookmarks_by_day) == 1
 
-    response = client.get(append_session("/bookmarks_by_day/with_context"))
-    response_data = json.loads(response.data)
-    assert len(response_data) == 1
-
-    response = client.get(append_session(f"/delete_bookmark/{new_bookmark_id}"))
-    print(response.data)
+    response = client.post(f"/delete_bookmark/{new_bookmark_id}")
+    assert response == b"OK"
