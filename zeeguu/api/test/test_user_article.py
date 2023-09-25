@@ -30,12 +30,11 @@ def test_article_update(client):
     client.post(f"/user_article", data=dict(article_id=article_id, liked="True"))
 
     # Article should be both liked and starred
-    # Article should be starred
     article_info = client.get(f"/user_article?article_id={article_id}")
     assert article_info["starred"]
     assert article_info["liked"]
 
-    # Article un-starred
+    # Un-star
     client.post(f"/user_article", data=dict(article_id=article_id, starred="False"))
 
     # Article is not starred anymore
