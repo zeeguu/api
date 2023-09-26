@@ -101,7 +101,7 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_content_retrieved_notification(cls, article, old_content=""):
-        title = f"[U] {article.title}"
+        title = f"NEW ({article.language.code}) {article.title}"
         content = f"{article.url.as_string()}" + "\n"
         content += f"Published: {article.published_time}" + "\n"
         content += f"Difficulty: {article.fk_difficulty}" + "\n"
