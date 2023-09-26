@@ -101,7 +101,17 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_content_retrieved_notification(cls, article, old_content=""):
-        title = f"NEW ({article.language.code}) {article.title}"
+        def flag(lang_code):
+            flag_map = {
+                "fr": "🇫🇷",
+                "da": "🇩🇰",
+                "de": "🇩🇪",
+                "nl": "🇳🇱"
+            }
+
+            return flag_map[lang_code]
+
+        title = f"NEW ({flag(article.language.code)}) {article.title}"
         content = f"{article.url.as_string()}" + "\n"
         content += f"Published: {article.published_time}" + "\n"
         content += f"Difficulty: {article.fk_difficulty}" + "\n"
