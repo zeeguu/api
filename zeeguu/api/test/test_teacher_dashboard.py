@@ -8,7 +8,7 @@ def test_is_teacher(client):
 
 def test_add_cohort(client):
     result = client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
-    assert result == b'OK'
+    assert result.decode('utf-8') == 'OK'
 
 
 def test_cohort_invite_code_already_in_use(client):
