@@ -60,16 +60,13 @@ class Exercise(db.Model):
 
         return query.all()
 
-    def find_user_id(self, db_session):
+    def get_user_id(self):
         """
         Finds related user_id corresponding to the exercise
 
-        Parameters:
-        db_session = database session
-
         returns: user_id or None when none is found
         """
-        from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
+        from zeeguu.core.model.bookmark import Bookmark
         import sqlalchemy
 
         query = Bookmark.query.filter(Bookmark.exercise_log.any(id=self.id))

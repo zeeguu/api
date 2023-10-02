@@ -49,6 +49,17 @@ class UserExerciseSession(db.Model):
         duration = self.last_action_time - self.start_time
         self.duration = duration.total_seconds() * 1000
 
+    def exercises_in_session_string(self):
+        from zeeguu.core.sql.learner.exercises_history import exercise_history
+        exercise_details_list = exercise_history(self.user_id, self.start_time, self.last_action_time,
+                                                 self.user.learned_language_id)
+
+        res = ""
+        for each in exercise_details_list:
+            res += f"{each['time'].time()} {int(each['solving_speed'] / 1000):>6} {each['outcome']:>6} {each['word']:<15} {each['source']}   \n"
+
+        return res
+
     @classmethod
     def get_exercise_session_timeout(cls):
         return EXERCISE_SESSION_TIMEOUT
@@ -138,7 +149,7 @@ class UserExerciseSession(db.Model):
         # Update duration
         current_session_length = current_time - self.start_time
         self.duration = (
-            current_session_length.total_seconds() * 1000
+                current_session_length.total_seconds() * 1000
         )  # Convert to miliseconds
 
         self.last_action_time = current_time
@@ -180,7 +191,7 @@ class UserExerciseSession(db.Model):
 
         returns: The exercise session or None when no user is found
         """
-        user_id = exercise.find_user_id(db.session)
+        user_id = exercise.get_user_id()
         if user_id:
             current_time = exercise.time
             start_time = current_time - timedelta(
@@ -193,7 +204,7 @@ class UserExerciseSession(db.Model):
 
             if most_recent_exercise_session:
                 if most_recent_exercise_session._is_still_active(
-                    current_time
+                        current_time
                 ):  # Verify if the session is not expired (according to session timeout)
                     return most_recent_exercise_session._update_last_action_time(
                         db_session, current_time=current_time
@@ -212,11 +223,11 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def find_by_user(
-        cls,
-        user_id,
-        from_date: str = VERY_FAR_IN_THE_PAST,
-        to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
+            cls,
+            user_id,
+            from_date: str = VERY_FAR_IN_THE_PAST,
+            to_date: str = VERY_FAR_IN_THE_FUTURE,
+            is_active: bool = None,
     ):
         """
 
@@ -238,11 +249,11 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def find_by_cohort(
-        cls,
-        cohort_id,
-        from_date: str = VERY_FAR_IN_THE_PAST,
-        to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
+            cls,
+            cohort_id,
+            from_date: str = VERY_FAR_IN_THE_PAST,
+            to_date: str = VERY_FAR_IN_THE_FUTURE,
+            is_active: bool = None,
     ):
         """
         Get exercise sessions by cohort
