@@ -56,6 +56,7 @@ def get_exercise_log_for_bookmark(bookmark_id):
 @with_session
 def report_exercise_session_end():
     UserExerciseSession.close_last_session(flask.g.user.id, db_session)
+    return "OK"
 
 
 @api.route(
