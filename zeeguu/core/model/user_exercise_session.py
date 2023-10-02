@@ -86,7 +86,7 @@ class UserExerciseSession(db.Model):
             query.order_by(cls.last_action_time)
             open_sessions = query.with_for_update().all()
             for exercise_session in open_sessions[:-1]:
-                exercise_session._close_exercise_session(db_session)
+                exercise_session.close_exercise_session(db_session)
 
             return open_sessions[-1]
 
@@ -157,7 +157,15 @@ class UserExerciseSession(db.Model):
         db_session.commit()
         return self
 
-    def _close_exercise_session(self, db_session):
+    @classmethod
+    def close_last_session(cls, user_id, db_session):
+        last_session = cls._find_most_recent_session(
+            user_id, db_session
+        )
+
+        last_session.close_exercise_session(db_session)
+
+    def close_exercise_session(self, db_session):
         """
         Sets the is_active field to False
 

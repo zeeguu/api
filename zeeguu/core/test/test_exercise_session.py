@@ -73,7 +73,7 @@ class UserExerciseSessionTest(ModelTestMixIn, TestCase):
 
     # Closing a session returns it in case everything went well
     def test__close_session(self):
-        assert self.ex_session1 == self.ex_session1._close_exercise_session(db_session)
+        assert self.ex_session1 == self.ex_session1.close_exercise_session(db_session)
 
     # Scenario 1 = There is an active and still valid session
     def test__update_exercise_session_scenario1(self):
