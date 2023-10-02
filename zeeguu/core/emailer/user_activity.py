@@ -14,7 +14,8 @@ def send_new_user_account_email(username, invite_code="", cohort=""):
 
 def send_user_finished_exercise_session(exercise_session):
     details = exercise_session.exercises_in_session_string()
-    main_body = f"User: {exercise_session.user.name} Duration: {exercise_session.duration / 1000} \n {details}"
+    main_body = f"User: {exercise_session.user.name} Duration: {exercise_session.duration / 1000} \n"
+    main_body += "<html><body><pre>{details}</pre></body></html>"
     ZeeguuMailer.send_mail(
         f"Finished Exercise Session",
         [main_body,
