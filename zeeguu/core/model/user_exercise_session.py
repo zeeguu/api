@@ -218,7 +218,7 @@ class UserExerciseSession(db.Model):
                         db_session, current_time=current_time
                     )
                 else:  # If the session is expired, close it and create a new one
-                    most_recent_exercise_session._close_exercise_session(db_session)
+                    most_recent_exercise_session.close_exercise_session(db_session)
                     return cls._create_new_session(
                         db_session, user_id, start_time, current_time=current_time
                     )
