@@ -50,11 +50,11 @@ def get_exercise_log_for_bookmark(bookmark_id):
 
 
 @api.route(
-    "/report_exercise_session_over",
+    "/report_exercise_session_end",
     methods=["POST"],
 )
 @with_session
-def report_exercise_session_over():
+def report_exercise_session_end():
     UserExerciseSession.close_last_session(flask.g.user.id, db_session)
 
 
