@@ -17,7 +17,7 @@ def send_user_finished_exercise_session(exercise_session):
     main_body = f"User: {exercise_session.user.name} Duration: {exercise_session.duration / 1000} \n\n"
     main_body += f"<html><body><pre>{details}</pre></body></html>"
     ZeeguuMailer.send_mail(
-        f"Finished Exercise Session",
+        f"{exercise_session.user.name}: Finished Exercise Session",
         [main_body,
          cheers_your_server],
     )
