@@ -111,7 +111,7 @@ class BasicSRSchedule(db.Model):
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time.date() < datetime.now().date())
+            .filter(cls.next_practice_time < datetime.now().date())
             .limit(required_count)
             .all()
         )
