@@ -111,7 +111,7 @@ class BasicSRSchedule(db.Model):
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < datetime.now())
+            .filter(cls.next_practice_time.date() < datetime.now().date())
             .limit(required_count)
             .all()
         )
@@ -143,3 +143,20 @@ class BasicSRSchedule(db.Model):
             session.add(n)
 
         session.commit()
+
+    @classmethod
+    def schedule_for_user(cls, user_id):
+        schedule = (
+            BasicSRSchedule.query.join(Bookmark)
+            .filter(Bookmark.user_id == user_id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .all()
+        )
+        return schedule
+
+    @classmethod
+    def print_schedule_for_user(cls, user_id):
+        schedule = cls.schedule_for_user(user_id)
+        res = ""
+        for each in schedule:
+            res += each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
