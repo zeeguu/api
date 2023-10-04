@@ -106,7 +106,7 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        tomorrow = datetime.now().date() + datetime.timedelta(days=1)
+        tomorrow = datetime.now().date() + timedelta(days=1)
         scheduled = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
