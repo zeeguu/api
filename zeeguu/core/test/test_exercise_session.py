@@ -113,7 +113,7 @@ class UserExerciseSessionTest(ModelTestMixIn, TestCase):
 
     def test__find_by_user_only_one_active(self):
         user = self.ex_session1.user
-        active_sessions = UserExerciseSession.find_by_user(
+        active_sessions = UserExerciseSession.find_by_user_id(
             user.id,
             self.VERY_FAR_IN_THE_PAST,
             self.VERY_FAR_IN_THE_FUTURE,
@@ -132,7 +132,7 @@ class UserExerciseSessionTest(ModelTestMixIn, TestCase):
         self.ex_session2.is_active = False
 
         # THEN: we find both of them
-        all_sessions = UserExerciseSession.find_by_user(
+        all_sessions = UserExerciseSession.find_by_user_id(
             user.id, self.VERY_FAR_IN_THE_PAST, self.VERY_FAR_IN_THE_FUTURE
         )
         assert len(all_sessions) == 2

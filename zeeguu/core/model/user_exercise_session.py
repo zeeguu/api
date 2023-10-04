@@ -230,7 +230,7 @@ class UserExerciseSession(db.Model):
             return None
 
     @classmethod
-    def find_by_user(
+    def find_by_user_id(
             cls,
             user_id,
             from_date: str = VERY_FAR_IN_THE_PAST,
