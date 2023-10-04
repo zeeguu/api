@@ -106,12 +106,13 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
         scheduled = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < datetime.now().date())
+            .filter(cls.next_practice_time < tomorrow)
             .limit(required_count)
             .all()
         )
