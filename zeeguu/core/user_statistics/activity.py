@@ -2,20 +2,14 @@ import json
 
 import zeeguu.core
 from zeeguu.core.constants import SIMPLE_DATE_FORMAT
-from zeeguu.core.sql.learner.exercise_duration_by_day import get_exercise_duration_by_day
 
 
 def reading_duration_by_day(user):
     return _time_by_day(user, "user_reading_session", "start_time", "duration")
 
 
-def exercises_duration_by_day(user, based_on_ues=True):
-    if based_on_ues:
-        return convert_to_date_seconds(_time_by_day(user, "user_exercise_session", "start_time", "duration"))
-    # the alternative would have been more precise... but we forget that it does not include the time
-    # to look at the result... so it's less that what the students perceive
-    # TODO: To remove this...
-    return get_exercise_duration_by_day(user.id, user.learned_language_id)
+def exercises_duration_by_day(user):
+    return _time_by_day(user, "user_exercise_session", "start_time", "duration")
 
 
 def activity_duration_by_day(user):
