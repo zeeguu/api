@@ -10,6 +10,7 @@ print("loading endpoints endpionts...")
 # They enrich the endpoints object
 from . import feature_toggles
 from . import exercises
+from . import exercise_sessions
 from . import sessions
 from . import system_languages
 from . import translation
