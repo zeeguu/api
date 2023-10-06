@@ -70,12 +70,12 @@ class Bookmark(db.Model):
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
-        self,
-        origin: UserWord,
-        translation: UserWord,
-        user: "User",
-        text: str,
-        time: datetime,
+            self,
+            origin: UserWord,
+            translation: UserWord,
+            user: "User",
+            text: str,
+            time: datetime,
     ):
         self.origin = origin
         self.translation = translation
@@ -130,17 +130,19 @@ class Bookmark(db.Model):
             session.add(self)
 
     def add_new_exercise_result(
-        self,
-        exercise_source: ExerciseSource,
-        exercise_outcome: ExerciseOutcome,
-        exercise_solving_speed,
-        other_feedback="",
+            self,
+            exercise_source: ExerciseSource,
+            exercise_outcome: ExerciseOutcome,
+            exercise_solving_speed,
+            session_id: int,
+            other_feedback="",
     ):
         exercise = Exercise(
             exercise_outcome,
             exercise_source,
             exercise_solving_speed,
             datetime.now(),
+            session_id,
             other_feedback,
         )
 
@@ -150,20 +152,21 @@ class Bookmark(db.Model):
         return exercise
 
     def report_exercise_outcome(
-        self,
-        exercise_source: str,
-        exercise_outcome: str,
-        exercise_solving_speed,
-        other_feedback,
-        db_session,
+            self,
+            exercise_source: str,
+            exercise_outcome: str,
+            solving_speed,
+            session_id,
+            other_feedback,
+            db_session,
     ):
         from zeeguu.core.model import UserExerciseSession
 
-        new_source = ExerciseSource.find_or_create(db_session, exercise_source)
-        new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
+        source = ExerciseSource.find_or_create(db_session, exercise_source)
+        outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
         exercise = self.add_new_exercise_result(
-            new_source, new_outcome, exercise_solving_speed, other_feedback
+            source, outcome, solving_speed, session_id, other_feedback
         )
         db_session.add(exercise)
         db_session.commit()
@@ -178,7 +181,7 @@ class Bookmark(db.Model):
         self.update_fit_for_study(db_session)
         self.update_learned_status(db_session)
 
-        UserExerciseSession.update_exercise_session(exercise, db_session)
+        # UserExerciseSession.update_exercise_session(exercise, db_session)
         # BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
 
     def json_serializable_dict(self, with_context=True, with_title=False):
@@ -236,17 +239,17 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        user,
-        _origin: str,
-        _origin_lang: str,
-        _translation: str,
-        _translation_lang: str,
-        _context: str,
-        _url: str,
-        _url_title: str,
-        article_id: int,
+            cls,
+            session,
+            user,
+            _origin: str,
+            _origin_lang: str,
+            _translation: str,
+            _translation_lang: str,
+            _context: str,
+            _url: str,
+            _url_title: str,
+            article_id: int,
     ):
         """
             if the bookmark does not exist, it creates it and returns it

@@ -158,14 +158,14 @@ class UserExerciseSession(db.Model):
         return self
 
     @classmethod
-    def close_last_session(cls, user_id, db_session):
+    def close_last_session(cls, user_id, db_session, duration):
         last_session = cls._find_most_recent_session(
             user_id, db_session
         )
 
-        last_session.close_exercise_session(db_session)
+        last_session.close_exercise_session(db_session, duration)
 
-    def close_exercise_session(self, db_session):
+    def close_exercise_session(self, db_session, duration):
         """
         Sets the is_active field to False
 
@@ -175,6 +175,7 @@ class UserExerciseSession(db.Model):
          returns: The exercise session if everything went well otherwise probably exceptions related to the DB
         """
         self.is_active = False
+        self.duration = duration
         db_session.add(self)
         db_session.commit()
         from zeeguu.core.emailer.user_activity import (
@@ -254,6 +255,12 @@ class UserExerciseSession(db.Model):
 
         sessions = query.all()
         return sessions
+
+    @classmethod
+    def find_by_id(cls, id):
+        query = cls.query
+        query = query.filter(cls.id == id)
+        return query.one()
 
     @classmethod
     def find_by_cohort(

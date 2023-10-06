@@ -2,6 +2,7 @@ import zeeguu.core
 
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
 from zeeguu.core.model import db
 
@@ -21,12 +22,16 @@ class Exercise(db.Model):
     time = db.Column(db.DateTime, nullable=False)
     feedback = db.Column(db.String(255))
 
-    def __init__(self, outcome, source, solving_speed, time, feedback=""):
+    session_id = db.Column(db.Integer, db.ForeignKey(UserExerciseSession.id), nullable=True)
+    session = db.relationship(UserExerciseSession)
+
+    def __init__(self, outcome, source, solving_speed, time, session_id, feedback=""):
         self.outcome = outcome
         self.source = source
         self.solving_speed = solving_speed
         self.time = time
         self.feedback = feedback
+        self.session_id = session_id
 
     def short_string_summary(self):
         return str(self.source.id) + self.outcome.outcome[0]

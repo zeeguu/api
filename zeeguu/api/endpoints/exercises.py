@@ -2,7 +2,7 @@ import traceback
 import flask
 
 from zeeguu.core.exercises.similar_words import similar_words
-from zeeguu.core.model import Bookmark, UserExerciseSession
+from zeeguu.core.model import Bookmark
 
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
@@ -50,16 +50,6 @@ def get_exercise_log_for_bookmark(bookmark_id):
 
 
 @api.route(
-    "/report_exercise_session_end",
-    methods=["POST"],
-)
-@with_session
-def report_exercise_session_end():
-    UserExerciseSession.close_last_session(flask.g.user.id, db_session)
-    return "OK"
-
-
-@api.route(
     "/report_exercise_outcome",
     methods=["POST"],
 )
@@ -73,6 +63,7 @@ def report_exercise_outcome():
     :param exercise_source: has been assigned to your app by zeeguu
     :param exercise_solving_speed: in milliseconds
     :param bookmark_id: the bookmark for which the data is reported
+    :param session_id: assuming that the exercise submitter knows which session is this exercise part of
     :return:
     """
 
@@ -81,7 +72,7 @@ def report_exercise_outcome():
     solving_speed = request.form.get("solving_speed")
     bookmark_id = request.form.get("bookmark_id")
     other_feedback = request.form.get("other_feedback")
-    print(request.form)
+    session_id = request.form.get("session_id")
 
     if not solving_speed.isdigit():
         solving_speed = 0
@@ -89,7 +80,7 @@ def report_exercise_outcome():
     try:
         bookmark = Bookmark.find(bookmark_id)
         bookmark.report_exercise_outcome(
-            source, outcome, solving_speed, other_feedback, db_session
+            source, outcome, solving_speed, session_id, other_feedback, db_session
         )
 
         return "OK"
