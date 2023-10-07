@@ -23,6 +23,17 @@ def start_new_exercise_session():
 
 
 @api.route(
+    "/get_exercise_session/<id>",
+    methods=["GET"],
+)
+@with_session
+def get_exercise_session(id):
+    session = UserExerciseSession.find_by_id(id)
+
+    return json_result(dict(id=session.id, duration=session.duration))
+
+
+@api.route(
     "/update_exercise_session",
     methods=["POST"],
 )
@@ -41,11 +52,15 @@ def update_exercise_session():
 
 
 @api.route(
-    "/get_exercise_session/<id>",
-    methods=["GET"],
+    "/report_exercise_session_end",
+    methods=["POST"],
 )
 @with_session
-def get_exercise_session(id):
+def report_exercise_session_end():
+    id = request.form.get("id", "")
+    duration = request.form.get("duration", "")
+
     session = UserExerciseSession.find_by_id(id)
 
-    return json_result(dict(id=session.id, duration=session.duration))
+    session.close_exercise_session(db_session, duration)
+    return "OK"
