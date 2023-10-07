@@ -12,20 +12,20 @@ class ExerciseRule(BaseRule):
     Creates a Exercise object with random data and saves it to the database.
     """
 
-    def __init__(self):
+    def __init__(self, session):
         super().__init__()
 
-        self.exercise = self._create_model_object()
+        self.exercise = self._create_model_object(session.id)
 
         self.save(self.exercise)
 
-    def _create_model_object(self):
+    def _create_model_object(self, session_id):
         random_outcome = OutcomeRule().random
         random_source = SourceRule().random
         random_speed = random.randint(500, 5000)
         random_time = self.faker.date_time_this_year()
 
-        new_exercise = Exercise(random_outcome, random_source, random_speed, random_time)
+        new_exercise = Exercise(random_outcome, random_source, random_speed, random_time, session_id)
 
         if self._exists_in_db(new_exercise):
             return self._create_model_object()

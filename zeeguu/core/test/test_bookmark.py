@@ -11,6 +11,7 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.exercise_rule import ExerciseRule
+from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.source_rule import SourceRule
 from zeeguu.core.test.rules.text_rule import TextRule
@@ -33,8 +34,9 @@ class BookmarkTest(ModelTestMixIn):
     def test_add_new_exercise(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         length_original_exercise_log = len(random_bookmark.exercise_log)
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_exercise = ExerciseRule(exercise_session).exercise
 
-        random_exercise = ExerciseRule().exercise
         random_bookmark.add_new_exercise(random_exercise)
         length_new_exercise_log = len(random_bookmark.exercise_log)
 
@@ -61,11 +63,13 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_add_exercise_outcome(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        random_exercise = ExerciseRule().exercise
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_exercise = ExerciseRule(exercise_session).exercise
         random_bookmark.add_new_exercise_result(
             random_exercise.source,
             random_exercise.outcome,
             random_exercise.solving_speed,
+            exercise_session.id
         )
         latest_exercise = random_bookmark.exercise_log[-1]
 
@@ -91,7 +95,9 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_fit_for_study(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 2)]
-        random_exercise = ExerciseRule().exercise
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_exercise = ExerciseRule(exercise_session).exercise
+
         random_exercise.outcome = OutcomeRule().wrong
 
         random_bookmarks[0].starred = True
@@ -105,8 +111,10 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         exercise_count_before = len(random_bookmark.exercise_log)
 
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+
         random_bookmark.add_new_exercise_result(
-            SourceRule().random, OutcomeRule().random, random.randint(100, 1000)
+            SourceRule().random, OutcomeRule().random, random.randint(100, 1000), exercise_session.id
         )
 
         exercise_count_after = len(random_bookmark.exercise_log)
@@ -167,12 +175,14 @@ class BookmarkTest(ModelTestMixIn):
         exercise_log = SortedExerciseLog(random_bookmark)
         assert exercise_log.latest_exercise_outcome() is None
 
-        random_exercise = ExerciseRule().exercise
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_exercise = ExerciseRule(exercise_session).exercise
+
         random_bookmark.add_new_exercise(random_exercise)
 
         assert (
-            random_exercise.outcome
-            == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
+                random_exercise.outcome
+                == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
         )
 
     def test_is_learned_based_on_exercise_outcomes(self):
@@ -185,7 +195,10 @@ class BookmarkTest(ModelTestMixIn):
         assert not learned
 
         # An exercise with Outcome equal to TOO EASY results in True, and time of last exercise
-        random_exercise = ExerciseRule().exercise
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+
+        random_exercise = ExerciseRule(exercise_session).exercise
+
         random_exercise.outcome = OutcomeRule().too_easy
         random_bookmarks[1].add_new_exercise(random_exercise)
         learned = is_learned_based_on_exercise_outcomes(
@@ -206,10 +219,10 @@ class BookmarkTest(ModelTestMixIn):
         exercises = 0
         distinct_dates = set()
         while not (
-            exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
-            and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
+                exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
+                and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
         ):
-            correct_exercise = ExerciseRule().exercise
+            correct_exercise = ExerciseRule(exercise_session).exercise
             correct_exercise.outcome = OutcomeRule().correct
             correct_bookmark.add_new_exercise(correct_exercise)
             exercises += 1
@@ -227,7 +240,7 @@ class BookmarkTest(ModelTestMixIn):
         assert result_time == learned_time_from_log
 
         # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
-        wrong_exercise = ExerciseRule().exercise
+        wrong_exercise = ExerciseRule(exercise_session).exercise
         wrong_exercise.outcome = OutcomeRule().wrong
         random_bookmarks[3].add_new_exercise(wrong_exercise)
 
