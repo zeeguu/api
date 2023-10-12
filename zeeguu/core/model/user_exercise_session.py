@@ -50,9 +50,9 @@ class UserExerciseSession(db.Model):
         self.duration = duration.total_seconds() * 1000
 
     def exercises_in_session_string(self):
-        from zeeguu.core.sql.learner.exercises_history import exercise_history
-        exercise_details_list = exercise_history(self.user_id, self.start_time, self.last_action_time,
-                                                 self.user.learned_language_id)
+        from zeeguu.core.sql.learner.exercises_history import exercises_in_session
+
+        exercise_details_list = exercises_in_session(self.id)
 
         res = ""
         for each in exercise_details_list:
@@ -149,7 +149,7 @@ class UserExerciseSession(db.Model):
         # Update duration
         current_session_length = current_time - self.start_time
         self.duration = (
-                current_session_length.total_seconds() * 1000
+            current_session_length.total_seconds() * 1000
         )  # Convert to miliseconds
 
         self.last_action_time = current_time
@@ -159,9 +159,7 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def close_last_session(cls, user_id, db_session, duration):
-        last_session = cls._find_most_recent_session(
-            user_id, db_session
-        )
+        last_session = cls._find_most_recent_session(user_id, db_session)
 
         last_session.close_exercise_session(db_session, duration)
 
@@ -213,7 +211,7 @@ class UserExerciseSession(db.Model):
 
             if most_recent_exercise_session:
                 if most_recent_exercise_session._is_still_active(
-                        current_time
+                    current_time
                 ):  # Verify if the session is not expired (according to session timeout)
                     return most_recent_exercise_session._update_last_action_time(
                         db_session, current_time=current_time
@@ -232,11 +230,11 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def find_by_user_id(
-            cls,
-            user_id,
-            from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE,
-            is_active: bool = None,
+        cls,
+        user_id,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
+        is_active: bool = None,
     ):
         """
 
@@ -264,11 +262,11 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def find_by_cohort(
-            cls,
-            cohort_id,
-            from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE,
-            is_active: bool = None,
+        cls,
+        cohort_id,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
+        is_active: bool = None,
     ):
         """
         Get exercise sessions by cohort

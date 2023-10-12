@@ -72,7 +72,7 @@ def report_exercise_outcome():
     solving_speed = request.form.get("solving_speed")
     bookmark_id = request.form.get("bookmark_id")
     other_feedback = request.form.get("other_feedback")
-    session_id = request.form.get("session_id")
+    session_id = int(request.form.get("session_id"))
 
     if not solving_speed.isdigit():
         solving_speed = 0

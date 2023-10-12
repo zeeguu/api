@@ -1,6 +1,39 @@
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
 
+def exercises_in_session(session_id: int):
+    query = """
+        select e.id as exercise_id,
+                b.user_id,
+                es.source,
+                eo.outcome, 
+                e.time,
+                e.solving_speed,
+                o_uw.word,
+                t_uw.word as translation,
+                b.id as bookmark_id,
+                b.`learned`
+
+        from exercise as e 
+            join exercise_outcome as eo on e.outcome_id = eo.id
+            join exercise_source as es on e.source_id = es.id
+            join bookmark_exercise_mapping as bem on e.`id`=bem.exercise_id
+            join bookmark as b on b.id = bem.bookmark_id
+            join user_word as o_uw on o_uw.id = b.origin_id
+            join user_word as t_uw on t_uw.id = b.translation_id
+            join user_exercise_session ues on ues.id = e.session_id
+        where 
+            ues.id = :session_id
+        order by e.time
+        """
+
+    return list_of_dicts_from_query(
+        query,
+        {"session_id": session_id},
+    )
+
+
+# Deprecated: The old query for when exercises were not associated with sessions
 def exercise_history(user_id, from_date: str, to_date: str, language_id):
     query = """
         select e.id as exercise_id,
