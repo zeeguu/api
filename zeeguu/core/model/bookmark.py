@@ -181,9 +181,6 @@ class Bookmark(db.Model):
         self.update_fit_for_study(db_session)
         self.update_learned_status(db_session)
 
-        # UserExerciseSession.update_exercise_session(exercise, db_session)
-        # BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
-
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
             translation_word = self.translation.word
