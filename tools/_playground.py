@@ -1,6 +1,7 @@
 from zeeguu.core.model import UserExerciseSession, User
-from zeeguu.api.app import create_app
 from zeeguu.core.user_statistics.activity import exercises_duration_by_day
+
+from zeeguu.api.app import create_app
 
 app = create_app()
 app.app_context().push()
