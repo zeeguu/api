@@ -16,10 +16,6 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
             and ues.last_action_time < :end_time
             and user_id = :user_id
     """
-    # this used to have
-    #             and ues.is_active = 0
-    # but this is not needed; if somebody wants to see the time
-    # who cares that the user is active? just report all the time including the last session
 
     rows = db.session.execute(
         query,

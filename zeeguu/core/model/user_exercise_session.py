@@ -59,14 +59,11 @@ class UserExerciseSession(db.Model):
 
     def close_exercise_session(self, db_session, duration):
         """
-        Sets the is_active field to False
-
          Parameters:
          db_session = database session
 
          returns: The exercise session if everything went well otherwise probably exceptions related to the DB
         """
-        self.is_active = False
         self.duration = duration
         db_session.add(self)
         db_session.commit()
@@ -82,8 +79,7 @@ class UserExerciseSession(db.Model):
             cls,
             user_id,
             from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE,
-            is_active: bool = None,
+            to_date: str = VERY_FAR_IN_THE_FUTURE
     ):
         """
 
@@ -96,8 +92,6 @@ class UserExerciseSession(db.Model):
         query = query.filter(cls.start_time >= from_date)
         query = query.filter(cls.start_time <= to_date)
 
-        if is_active is not None:
-            query = query.filter(cls.is_active == is_active)
         query = query.order_by("start_time")
 
         sessions = query.all()
@@ -114,8 +108,7 @@ class UserExerciseSession(db.Model):
             cls,
             cohort_id,
             from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE,
-            is_active: bool = None,
+            to_date: str = VERY_FAR_IN_THE_FUTURE
     ):
         """
         Get exercise sessions by cohort
@@ -125,8 +118,6 @@ class UserExerciseSession(db.Model):
         query = query.filter(cls.start_time >= from_date)
         query = query.filter(cls.start_time <= to_date)
 
-        if is_active is not None:
-            query = query.filter(cls.is_active == is_active)
         query = query.order_by("start_time")
 
         sessions = query.all()
