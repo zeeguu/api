@@ -1,14 +1,11 @@
 from time import sleep
 from zeeguu.core.model import UserActivityData
-import zeeguu.core
+
 import timeago
 from datetime import datetime
 import time
 
-from zeeguu.api.app import create_app
-
-app = create_app()
-app.app_context().push()
+import zeeguu.cl
 
 db_session = zeeguu.core.model.db.session
 
