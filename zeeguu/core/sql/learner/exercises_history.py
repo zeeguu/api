@@ -33,8 +33,7 @@ def exercises_in_session(session_id: int):
     )
 
 
-# Deprecated: The old query for when exercises were not associated with sessions
-def exercise_history(user_id, from_date: str, to_date: str, language_id):
+def exercise_history(user_id: int, language_id: int, from_date: str, to_date: str):
     query = """
         select e.id as exercise_id,
                 b.user_id,
@@ -74,7 +73,7 @@ def exercise_history(user_id, from_date: str, to_date: str, language_id):
     )
 
 
-def exercises_grouped_by_word(user_id, language_id, from_date: str, to_date: str):
+def exercises_grouped_by_word(user_id: int, language_id: int, from_date: str, to_date: str):
     exercise_details_list = exercise_history(user_id, language_id, from_date, to_date)
 
     practiced_dict = {}
