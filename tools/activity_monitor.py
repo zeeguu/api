@@ -5,6 +5,11 @@ import timeago
 from datetime import datetime
 import time
 
+from zeeguu.api.app import create_app
+
+app = create_app()
+app.app_context().push()
+
 db_session = zeeguu.core.model.db.session
 
 EVENTS_COUNT = 24
@@ -26,7 +31,6 @@ def datetime_from_utc_to_local(utc_datetime):
 
 
 def print_event(each):
-
     now = datetime.now()
     converted_time = datetime_from_utc_to_local(each.time)
     tago = timeago.format(converted_time, now)
