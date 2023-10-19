@@ -132,7 +132,8 @@ class BasicSRSchedule(db.Model):
 
         # we return the shuffled list of words because otherwise they'll
         # always appear in the same order
-        return shuffle(scheduled)
+        shuffle(scheduled)
+        return scheduled
 
     @classmethod
     def schedule_some_more_bookmarks(cls, session, user, required_count):
