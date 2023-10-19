@@ -87,6 +87,7 @@ class BasicSRSchedule(db.Model):
             in [
                 "TC",
                 "TTC",
+                "TTTC",
             ]  # allow for a few translations before hitting the correct; they work like hints
             or outcome == "HC"  # if it's correct after hint it should still be fine
         )
