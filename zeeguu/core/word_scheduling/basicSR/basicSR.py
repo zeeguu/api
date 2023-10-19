@@ -1,4 +1,4 @@
-from zeeguu.core.model import Bookmark, UserWord
+from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
 import zeeguu.core
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
@@ -79,7 +79,18 @@ class BasicSRSchedule(db.Model):
         db_session.commit()
 
     @classmethod
-    def update(cls, db_session, bookmark, correctness):
+    def update(cls, db_session, bookmark, outcome):
+
+        correctness = (
+            outcome == ExerciseOutcome.CORRECT
+            or outcome
+            in [
+                "TC",
+                "TTC",
+            ]  # allow for a few translations before hitting the correct; they work like hints
+            or outcome == "HC"  # if it's correct after hint it should still be fine
+        )
+
         schedule = cls.find_or_create(db_session, bookmark)
         schedule.update_schedule(db_session, correctness)
 
@@ -117,7 +128,11 @@ class BasicSRSchedule(db.Model):
             .all()
         )
 
-        return scheduled
+        from random import shuffle
+
+        # we return the shuffled list of words because otherwise they'll
+        # always appear in the same order
+        return shuffle(scheduled)
 
     @classmethod
     def schedule_some_more_bookmarks(cls, session, user, required_count):
@@ -160,4 +175,6 @@ class BasicSRSchedule(db.Model):
         schedule = cls.schedule_for_user(user_id)
         res = ""
         for each in schedule:
-            res += each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+            res += (
+                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+            )
