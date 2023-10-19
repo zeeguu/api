@@ -23,8 +23,8 @@ def bookmarks_to_study(bookmark_count):
     int_count = int(bookmark_count)
 
     to_study = flask.g.user.bookmarks_to_study(int_count)
-
-    return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
+    json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    return json_result(json_bookmarks)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
