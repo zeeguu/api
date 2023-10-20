@@ -18,6 +18,7 @@ from . import activity_tracking
 from . import bookmarks_and_words
 from . import user
 from . import user_statistics
+from . import user_preferences
 from . import user_article
 from . import user_articles
 from . import user_languages

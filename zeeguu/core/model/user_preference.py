@@ -38,6 +38,7 @@ class UserPreference(db.Model):
 
     # Key Names Below
     DIFFICULTY_ESTIMATOR = "difficulty_estimator"
+    AUDIO_EXERCISES = "audio_exercises"
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user
@@ -72,6 +73,11 @@ class UserPreference(db.Model):
     @classmethod
     def _find(cls, user: User, key: str):
         return cls.query.filter_by(user=user, key=key).one()
+
+    @classmethod
+    def all_for_user(cls, user: User):
+        all_preferences = cls.query.filter_by(user=user).all()
+        return all_preferences
 
     @classmethod
     def find(cls, user: User, key: str):

@@ -7,6 +7,7 @@ import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from . import api
+from ...core.model import UserPreference
 
 
 @api.route("/learned_language", methods=["GET"])
