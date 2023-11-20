@@ -2,7 +2,7 @@ from statistics import mean
 
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 def summarize_reading_activity(user_id, cohort_id, start_date, end_date):

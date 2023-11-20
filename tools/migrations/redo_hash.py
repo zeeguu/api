@@ -5,11 +5,11 @@ import zeeguu.core
 from zeeguu.core import util
 from zeeguu.core.model import Text
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
-texts = session.query(Text).all()
+texts = db_session.query(Text).all()
 for t in texts:
     t.content_hash = util.text_hash(t.content)
-    session.add(t)
-    session.commit()
+    db_session.add(t)
+    db_session.commit()
 # input ("next?/")

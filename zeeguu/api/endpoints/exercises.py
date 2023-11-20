@@ -1,7 +1,6 @@
 import traceback
 import flask
 
-
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model import Bookmark
 
@@ -24,8 +23,8 @@ def bookmarks_to_study(bookmark_count):
     int_count = int(bookmark_count)
 
     to_study = flask.g.user.bookmarks_to_study(int_count)
-
-    return json_result([bookmark.json_serializable_dict() for bookmark in to_study])
+    json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    return json_result(json_bookmarks)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
@@ -64,6 +63,7 @@ def report_exercise_outcome():
     :param exercise_source: has been assigned to your app by zeeguu
     :param exercise_solving_speed: in milliseconds
     :param bookmark_id: the bookmark for which the data is reported
+    :param session_id: assuming that the exercise submitter knows which session is this exercise part of
     :return:
     """
 
@@ -72,15 +72,15 @@ def report_exercise_outcome():
     solving_speed = request.form.get("solving_speed")
     bookmark_id = request.form.get("bookmark_id")
     other_feedback = request.form.get("other_feedback")
-    print(request.form)
-    
+    session_id = int(request.form.get("session_id"))
+
     if not solving_speed.isdigit():
         solving_speed = 0
 
     try:
         bookmark = Bookmark.find(bookmark_id)
         bookmark.report_exercise_outcome(
-            source, outcome, solving_speed, other_feedback, db_session
+            source, outcome, solving_speed, session_id, other_feedback, db_session
         )
 
         return "OK"
@@ -93,7 +93,6 @@ def report_exercise_outcome():
 @cross_domain
 @with_session
 def similar_words_api(bookmark_id):
-
     bookmark = Bookmark.find(bookmark_id)
     return json_result(
         similar_words(bookmark.origin.word, bookmark.origin.language, flask.g.user)

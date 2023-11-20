@@ -1,9 +1,11 @@
 from sqlalchemy.orm.exc import NoResultFound
 from datetime import datetime
 
-import zeeguu.core
+from zeeguu.logging import logp
 
-db = zeeguu.core.db
+import zeeguu
+
+from zeeguu.core.model import db
 
 
 class Language(db.Model):
@@ -170,7 +172,7 @@ class Language(db.Model):
         if hasattr(Language, "cached_articles") and (
             self.cached_articles.get(self.id, None)
         ):
-            zeeguu.core.logp(
+            logp(
                 f"found {len(Language.cached_articles[self.id])} cached articles for {self.name}"
             )
             all_ids = Language.cached_articles[self.id]
@@ -179,9 +181,7 @@ class Language(db.Model):
         if not hasattr(Language, "cached_articles"):
             Language.cached_articles = {}
 
-        zeeguu.core.logp(
-            "computing and caching the articles for language: " + self.name
-        )
+        logp("computing and caching the articles for language: " + self.name)
         Language.cached_articles[self.id] = [
             each.id
             for each in self._get_articles(after_date, most_recent_first, easiest_first)

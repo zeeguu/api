@@ -1,5 +1,4 @@
 #!/bin/env python
-import sys
 import logging
 
 # this is needed since when run as wsgi this script
@@ -11,7 +10,10 @@ try:
 except:
     print("didn't find env_var_defs. hopefully there's envvars defined")
 
-from zeeguu.api.app import app as application
+from zeeguu.api.app import create_app
+
+application = create_app()
+
 
 application.logger.debug(application.instance_path)
 

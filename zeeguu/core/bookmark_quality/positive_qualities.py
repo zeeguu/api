@@ -1,4 +1,3 @@
-import zeeguu.core
 from zeeguu.core.bookmark_quality.negative_qualities import bad_quality_bookmark
 
 

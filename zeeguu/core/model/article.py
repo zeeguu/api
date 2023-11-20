@@ -9,11 +9,10 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeTex
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 article_topic_map = Table(
     "article_topic_map",
@@ -131,7 +130,9 @@ class Article(db.Model):
         self.video = video
 
         self.convertHTML2TextIfNeeded()
+        self.compute_fk_and_wordcount()
 
+    def compute_fk_and_wordcount(self):
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
             self.content, self.language, None
@@ -178,13 +179,7 @@ class Article(db.Model):
 
         self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(
-            self.content, self.language, None
-        )["grade"]
-
-        self.fk_difficulty = fk_difficulty
-        self.word_count = len(self.content.split())
+        self.compute_fk_and_wordcount()
 
     def article_info(self, with_content=False):
         """
@@ -268,11 +263,26 @@ class Article(db.Model):
         ua.set_starred(state)
         session.add(ua)
 
+    def mark_as_low_quality_and_remove_from_index(self):
+        self.broken = 100
+        # if it was in ES, we delete it
+        from zeeguu.core.elastic.indexing import remove_from_index
+        remove_from_index(self)
+
     def update_content(self, session):
         from zeeguu.core.content_retriever import download_and_parse
+
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
         self.htmlContent = parsed.html
+        self.compute_fk_and_wordcount()
+
+        from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
+        quality, reason = sufficient_quality_plain_text(self.content)
+        if not quality:
+            print("Marking as broken. Reason: " + reason)
+            self.mark_as_low_quality_and_remove_from_index()
+
         session.add(self)
         session.commit()
 
@@ -376,6 +386,7 @@ class Article(db.Model):
                 lang = detect(text)
             else:
                 from zeeguu.core.content_retriever import download_and_parse
+
                 parsed = download_and_parse(url)
 
                 text = parsed.text

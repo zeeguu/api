@@ -10,11 +10,11 @@ import newspaper
 
 from pymysql import DataError
 
-import zeeguu.core
-from zeeguu.core import log
+from zeeguu.logging import log, logp
 
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
 import requests
 
@@ -25,6 +25,8 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import download_and_parse
+
+import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -94,6 +96,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
     try:
         items = feed.feed_items(last_retrieval_time_from_DB)
     except Exception as e:
+        import traceback
+
+        traceback.print_stack()
         capture_to_sentry(e)
         return
 
@@ -125,8 +130,9 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             log("before redirects")
             log(feed_item["url"])
             url = _url_after_redirects(feed_item["url"])
-            log("after redirects")
-            log(url)
+            logp("===============================> ")
+            logp("after redirects")
+            logp(url)
 
         except requests.exceptions.TooManyRedirects:
             raise Exception(f"- Too many redirects")
@@ -136,7 +142,7 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
             )
 
         if banned_url(url):
-            log("Banned Url")
+            logp("Banned Url")
             continue
 
         session.add(feed)
@@ -145,35 +151,42 @@ def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True)
         try:
             new_article = download_feed_item(session, feed, feed_item, url)
             downloaded += 1
+            if save_in_elastic:
+                if new_article:
+                    index_in_elasticsearch(new_article, session)
+
+            if new_article:
+                ZeeguuMailer.send_content_retrieved_notification(new_article)
+
         except SkippedForTooOld:
-            log("- Article too old")
+            logp("- Article too old")
             continue
         except SkippedForLowQuality as e:
-            log(f" - Low quality: {e.reason}")
+            logp(f" - Low quality: {e.reason}")
             skipped_due_to_low_quality += 1
             continue
         except SkippedAlreadyInDB:
             skipped_already_in_db += 1
-            log(" - Already in DB")
+            logp(" - Already in DB")
             continue
 
         except Exception as e:
+            import traceback
+
+            traceback.print_stack()
+
             capture_to_sentry(e)
 
             if hasattr(e, "message"):
-                log(e.message)
+                logp(e.message)
             else:
-                log(e)
+                logp(e)
             continue
 
-        if save_in_elastic:
-            if new_article:
-                index_in_elasticsearch(new_article, session)
-
-    log(f"*** Downloaded: {downloaded} From: {feed.title}")
-    log(f"*** Low Quality: {skipped_due_to_low_quality}")
-    log(f"*** Already in DB: {skipped_already_in_db}")
-    log(f"*** ")
+    logp(f"*** Downloaded: {downloaded} From: {feed.title}")
+    logp(f"*** Low Quality: {skipped_due_to_low_quality}")
+    logp(f"*** Already in DB: {skipped_already_in_db}")
+    logp(f"*** ")
 
 
 def download_feed_item(session, feed, feed_item, url):
@@ -234,7 +247,7 @@ def download_feed_item(session, feed, feed_item, url):
         session.add(new_article)
 
         topics = add_topics(new_article, session)
-        log(f" Topics ({topics})")
+        logp(f" Topics ({topics})")
 
         # compute extra difficulties for french articles
         try:
@@ -251,19 +264,20 @@ def download_feed_item(session, feed, feed_item, url):
             capture_to_sentry(e)
 
         session.commit()
-        log(f"SUCCESS for: {new_article.title}")
+        logp(f"SUCCESS for: {new_article.title}")
 
     except SkippedForLowQuality as e:
         raise e
 
     except newspaper.ArticleException as e:
-        zeeguu.core.log(f"can't download article at: {url}")
+        logp(f"can't download article at: {url}")
 
     except DataError as e:
-        zeeguu.core.log(f"Data error for: {url}")
+        logp(f"Data error for: {url}")
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         capture_to_sentry(e)
 

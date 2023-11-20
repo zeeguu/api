@@ -5,7 +5,7 @@ from zeeguu.core.test.rules.url_rule import UrlRule
 import zeeguu.core.model
 from zeeguu.core.model import Url, DomainName
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class UrlTest(ModelTestMixIn, TestCase):
@@ -22,17 +22,17 @@ class UrlTest(ModelTestMixIn, TestCase):
         with self.assertRaises(Exception) as context:
             domain = DomainName.find(_domain)
             url = Url(_url, _title, domain)
-            session.add(url)
-            session.commit()
+            db_session.add(url)
+            db_session.commit()
 
-        self.assertTrue('Duplicate entry' or 'IntegrityError' in str(context.exception))
+        self.assertTrue("Duplicate entry" or "IntegrityError" in str(context.exception))
 
     def test_find_or_create_works(self):
 
         _url = self.url_rule.url.as_string()
         _title = self.url_rule.url.title
 
-        url = Url.find_or_create(session, _url, _title)
+        url = Url.find_or_create(db_session, _url, _title)
 
         self.assertEqual(url.title, _title)
 
@@ -42,7 +42,7 @@ class UrlTest(ModelTestMixIn, TestCase):
         _title = self.url_rule.url.title
 
         def threaded_create_url():
-            url = Url.find_or_create(session, _url, _title)
+            url = Url.find_or_create(db_session, _url, _title)
 
         threads = []
 
@@ -55,5 +55,5 @@ class UrlTest(ModelTestMixIn, TestCase):
         for t in threads:
             t.join()
 
-        url = Url.find_or_create(session, _url, _title)
+        url = Url.find_or_create(db_session, _url, _title)
         self.assertEqual(url.title, _title)

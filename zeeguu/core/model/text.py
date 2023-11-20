@@ -10,7 +10,7 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.user_word import UserWord
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class Text(db.Model):

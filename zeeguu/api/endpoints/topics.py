@@ -1,5 +1,5 @@
 import flask
-import zeeguu.core
+from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model import (
     Topic,
@@ -13,7 +13,9 @@ from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
-session = zeeguu.core.db.session
+import zeeguu
+
+db_session = zeeguu.core.model.db.session
 
 SUBSCRIBE_TOPIC = "subscribe_topic"
 UNSUBSCRIBE_TOPIC = "unsubscribe_topic"
@@ -39,7 +41,7 @@ def subscribe_to_topic_with_id():
     topic_id = int(request.form.get("topic_id", ""))
 
     topic_object = Topic.find_by_id(topic_id)
-    TopicSubscription.find_or_create(session, flask.g.user, topic_object)
+    TopicSubscription.find_or_create(db_session, flask.g.user, topic_object)
 
     return "OK"
 
@@ -60,8 +62,8 @@ def unsubscribe_from_topic():
 
     try:
         to_delete = TopicSubscription.with_topic_id(topic_id, flask.g.user)
-        session.delete(to_delete)
-        session.commit()
+        db_session.delete(to_delete)
+        db_session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
 
@@ -95,7 +97,7 @@ def get_subscribed_topics():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(topic_list)
 
@@ -151,7 +153,7 @@ def subscribe_to_filter_with_id():
     filter_id = int(request.form.get("filter_id", ""))
 
     filter_object = Topic.find_by_id(filter_id)
-    TopicFilter.find_or_create(session, flask.g.user, filter_object)
+    TopicFilter.find_or_create(db_session, flask.g.user, filter_object)
 
     return "OK"
 
@@ -171,8 +173,8 @@ def unsubscribe_from_filter():
 
     try:
         to_delete = TopicFilter.with_topic_id(filter_id, flask.g.user)
-        session.delete(to_delete)
-        session.commit()
+        db_session.delete(to_delete)
+        db_session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
 
@@ -206,7 +208,7 @@ def get_subscribed_filters():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(filter_list)
 

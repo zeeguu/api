@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
 
-import zeeguu.core
+from zeeguu.logging import log
 
 import sqlalchemy
 
@@ -17,8 +17,9 @@ from zeeguu.core.constants import (
     EVENT_LIKE_ARTICLE,
     EVENT_USER_FEEDBACK,
 )
+import zeeguu
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UserActivityData(db.Model):
@@ -52,14 +53,14 @@ class UserActivityData(db.Model):
     article = relationship(Article)
 
     def __init__(
-            self,
-            user,
-            time,
-            event,
-            value,
-            extra_data,
-            has_article_id: Boolean = False,
-            article_id: int = None,
+        self,
+        user,
+        time,
+        event,
+        value,
+        extra_data,
+        has_article_id: Boolean = False,
+        article_id: int = None,
     ):
         self.user = user
         self.time = time
@@ -100,12 +101,12 @@ class UserActivityData(db.Model):
         :return: value of attribute
         """
         start = (
-                str(self.extra_data).find('"' + attribute_name + '":')
-                + len(attribute_name)
-                + 4
+            str(self.extra_data).find('"' + attribute_name + '":')
+            + len(attribute_name)
+            + 4
         )
         end = str(self.extra_data)[start:].find('"')
-        return str(self.extra_data)[start: end + start]
+        return str(self.extra_data)[start : end + start]
 
     @classmethod
     def _filter_by_extra_value(cls, events, extra_filter, extra_value):
@@ -128,17 +129,31 @@ class UserActivityData(db.Model):
         return filtered_results
 
     @classmethod
-    def find_or_create(cls, session, user, time, event, value, extra_data, has_article_id, article_id):
+    def find_or_create(
+        cls, session, user, time, event, value, extra_data, has_article_id, article_id
+    ):
         try:
-            zeeguu.core.log("found existing event; returning it instead of creating a new one")
-            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(
-                value=value).one()
+            log("found existing event; returning it instead of creating a new one")
+            return (
+                cls.query.filter_by(user=user)
+                .filter_by(time=time)
+                .filter_by(event=event)
+                .filter_by(value=value)
+                .one()
+            )
         except sqlalchemy.orm.exc.MultipleResultsFound:
-            return cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).filter_by(
-                value=value).first()
+            return (
+                cls.query.filter_by(user=user)
+                .filter_by(time=time)
+                .filter_by(event=event)
+                .filter_by(value=value)
+                .first()
+            )
         except sqlalchemy.orm.exc.NoResultFound:
             try:
-                new = cls(user, time, event, value, extra_data, has_article_id, article_id)
+                new = cls(
+                    user, time, event, value, extra_data, has_article_id, article_id
+                )
                 session.add(new)
                 session.commit()
                 return new
@@ -146,7 +161,12 @@ class UserActivityData(db.Model):
                 for _ in range(10):
                     try:
                         session.rollback()
-                        ev = cls.query.filter_by(user=user).filter_by(time=time).filter_by(event=event).one()
+                        ev = (
+                            cls.query.filter_by(user=user)
+                            .filter_by(time=time)
+                            .filter_by(event=event)
+                            .one()
+                        )
                         print("successfully avoided race condition. nice! ")
                         return ev
                     except sqlalchemy.orm.exc.NoResultFound:
@@ -155,14 +175,14 @@ class UserActivityData(db.Model):
 
     @classmethod
     def find(
-            cls,
-            user: User = None,
-            article: Article = None,
-            extra_filter: str = None,
-            extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
-            event_filter: str = None,
-            only_latest=False,
-            article_id: int = None,
+        cls,
+        user: User = None,
+        article: Article = None,
+        extra_filter: str = None,
+        extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
+        event_filter: str = None,
+        only_latest=False,
+        article_id: int = None,
     ):
         """
 
@@ -289,7 +309,7 @@ class UserActivityData(db.Model):
             article_id = int(data["article_id"])
             has_article_id = True
 
-        zeeguu.core.log(
+        log(
             f"{event} value[:42]: {value[:42]} extra_data[:42]: {extra_data[:42]} art_id: {article_id}"
         )
 

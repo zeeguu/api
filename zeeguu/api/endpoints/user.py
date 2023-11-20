@@ -3,11 +3,11 @@ import json
 import flask
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 import zeeguu.core
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from . import api
+from ...core.model import UserPreference
 
 
 @api.route("/learned_language", methods=["GET"])
@@ -46,8 +46,10 @@ def learned_language_set(language_code):
     :param language_code: one of the ISO language codes
     :return: "OK" for success
     """
-    flask.g.user.set_learned_language(language_code, session=zeeguu.core.db.session)
-    zeeguu.core.db.session.commit()
+    flask.g.user.set_learned_language(
+        language_code, session=zeeguu.core.model.db.session
+    )
+    zeeguu.core.model.db.session.commit()
     return "OK"
 
 
@@ -67,7 +69,7 @@ def native_language_set(language_code):
     :return: OK for success
     """
     flask.g.user.set_native_language(language_code)
-    zeeguu.core.db.session.commit()
+    zeeguu.core.model.db.session.commit()
     return "OK"
 
 
@@ -132,7 +134,7 @@ def user_settings():
 
     if submitted_learned_language_code:
         flask.g.user.set_learned_language(
-            submitted_learned_language_code, zeeguu.core.db.session
+            submitted_learned_language_code, zeeguu.core.model.db.session
         )
 
     language_level = data.get("language_level_data", None)
@@ -140,15 +142,15 @@ def user_settings():
         submitted_learned_language_data = json.loads(language_level)
         for language_level in submitted_learned_language_data:
             flask.g.user.set_learned_language_level(
-                language_level[0], language_level[1], zeeguu.core.db.session
+                language_level[0], language_level[1], zeeguu.core.model.db.session
             )
 
     submitted_email = data.get("email", None)
     if submitted_email:
         flask.g.user.email = submitted_email
 
-    zeeguu.core.db.session.add(flask.g.user)
-    zeeguu.core.db.session.commit()
+    zeeguu.core.model.db.session.add(flask.g.user)
+    zeeguu.core.model.db.session.commit()
     return "OK"
 
 
@@ -161,5 +163,7 @@ def send_feedback():
     context = flask.request.form.get("context", "")
     print(message)
     print(context)
+    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
     ZeeguuMailer.send_feedback("Feedback", context, message, flask.g.user)
     return "OK"

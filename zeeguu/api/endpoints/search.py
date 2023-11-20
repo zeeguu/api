@@ -1,5 +1,5 @@
 import flask
-import zeeguu.core
+from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
@@ -12,7 +12,9 @@ from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
-session = zeeguu.core.db.session
+import zeeguu
+
+db_session = zeeguu.core.model.db.session
 
 SEARCH = "search"
 SUBSCRIBE_SEARCH = "subscribe_search"
@@ -39,8 +41,8 @@ def subscribe_to_search(search_terms):
              This is used to display it in the UI.
 
     """
-    search = Search.find_or_create(session, search_terms)
-    SearchSubscription.find_or_create(session, flask.g.user, search)
+    search = Search.find_or_create(db_session, search_terms)
+    SearchSubscription.find_or_create(db_session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
 
@@ -61,16 +63,16 @@ def unsubscribe_from_search():
 
     try:
         to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
-        session.delete(to_delete)
+        db_session.delete(to_delete)
         to_delete2 = Search.find_by_id(search_id)
-        session.delete(to_delete2)
-        session.commit()
+        db_session.delete(to_delete2)
+        db_session.commit()
 
     except Exception as e:
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        zeeguu.core.log(str(e))
+        log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
     return "OK"
@@ -98,7 +100,7 @@ def get_subscribed_searches():
         try:
             searches_list.append(subs.search.as_dictionary())
         except Exception as e:
-            zeeguu.core.log(str(e))
+            log(str(e))
             from sentry_sdk import capture_exception
 
             capture_exception(e)
@@ -118,8 +120,8 @@ def filter_search(search_terms):
     :return: the search as a dictionary
     """
 
-    search = Search.find_or_create(session, search_terms)
-    SearchFilter.find_or_create(session, flask.g.user, search)
+    search = Search.find_or_create(db_session, search_terms)
+    SearchFilter.find_or_create(db_session, flask.g.user, search)
 
     return json_result(search.as_dictionary())
 
@@ -139,13 +141,13 @@ def unfilter_search():
 
     try:
         to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
-        session.delete(to_delete)
+        db_session.delete(to_delete)
         to_delete = Search.find_by_id(search_id)
-        session.delete(to_delete)
-        session.commit()
+        db_session.delete(to_delete)
+        db_session.commit()
 
     except Exception as e:
-        zeeguu.core.log(str(e))
+        log(str(e))
         from sentry_sdk import capture_exception
 
         capture_exception(e)
@@ -179,7 +181,7 @@ def get_filtered_searches():
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            zeeguu.core.log(str(e))
+            log(str(e))
 
     return json_result(filtered_searches)
 

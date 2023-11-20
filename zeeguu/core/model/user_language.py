@@ -7,7 +7,7 @@ from zeeguu.core.model import User
 
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UserLanguage(db.Model):
@@ -45,16 +45,16 @@ class UserLanguage(db.Model):
     cefr_level = Column(Integer)
 
     def __init__(
-            self,
-            user,
-            language,
-            declared_level_min=0,
-            declared_level_max=10,
-            inferred_level_min=0,
-            inferred_level_max=10,
-            reading_news=False,
-            doing_exercises=False,
-            cefr_level=0,
+        self,
+        user,
+        language,
+        declared_level_min=0,
+        declared_level_max=10,
+        inferred_level_min=0,
+        inferred_level_max=10,
+        reading_news=False,
+        doing_exercises=False,
+        cefr_level=0,
     ):
         self.user = user
         self.language = language

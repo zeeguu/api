@@ -1,9 +1,8 @@
 from unittest import TestCase
 
-import zeeguu.core
+from zeeguu.logging import log
 
 
-class LanguageTest(TestCase):
-
-    def test_languages_exists(self):
-        zeeguu.core.log("tüst")
+class LoggingTest(TestCase):
+    def test_logging(self):
+        log("tüst")

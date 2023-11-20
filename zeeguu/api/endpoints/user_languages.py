@@ -9,7 +9,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 USER_LANGUAGES = "user_languages"
 MODIFY_USER_LANGUAGE = "user_languages/modify"
@@ -46,15 +46,17 @@ def modify_user_language():
         language_level = None
 
     language_object = Language.find(language_code)
-    user_language = UserLanguage.find_or_create(session, flask.g.user, language_object)
+    user_language = UserLanguage.find_or_create(
+        db_session, flask.g.user, language_object
+    )
     if language_reading is not None:
         user_language.reading_news = language_reading
     if language_exercises is not None:
         user_language.doing_exercises = language_exercises
     if language_level is not None:
         user_language.cefr_level = language_level
-    session.add(user_language)
-    session.commit()
+    db_session.add(user_language)
+    db_session.commit()
 
     return "OK"
 
@@ -75,8 +77,8 @@ def delete_user_language(language_id):
 
     try:
         to_delete = UserLanguage.with_language_id(language_id, flask.g.user)
-        session.delete(to_delete)
-        session.commit()
+        db_session.delete(to_delete)
+        db_session.commit()
     except Exception as e:
         from sentry_sdk import capture_exception
 

@@ -1,10 +1,10 @@
-from zeeguu.core.model import Bookmark, UserWord
+from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
 import zeeguu.core
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 from datetime import datetime, timedelta
 
@@ -79,7 +79,19 @@ class BasicSRSchedule(db.Model):
         db_session.commit()
 
     @classmethod
-    def update(cls, db_session, bookmark, correctness):
+    def update(cls, db_session, bookmark, outcome):
+
+        correctness = (
+            outcome == ExerciseOutcome.CORRECT
+            or outcome
+            in [
+                "TC",
+                "TTC",
+                "TTTC",
+            ]  # allow for a few translations before hitting the correct; they work like hints
+            or outcome == "HC"  # if it's correct after hint it should still be fine
+        )
+
         schedule = cls.find_or_create(db_session, bookmark)
         schedule.update_schedule(db_session, correctness)
 
@@ -106,16 +118,22 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
+        tomorrow = datetime.now().date() + timedelta(days=1)
         scheduled = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < datetime.now())
+            .filter(cls.next_practice_time < tomorrow)
             .limit(required_count)
             .all()
         )
 
+        from random import shuffle
+
+        # we return the shuffled list of words because otherwise they'll
+        # always appear in the same order
+        shuffle(scheduled)
         return scheduled
 
     @classmethod
@@ -143,3 +161,22 @@ class BasicSRSchedule(db.Model):
             session.add(n)
 
         session.commit()
+
+    @classmethod
+    def schedule_for_user(cls, user_id):
+        schedule = (
+            BasicSRSchedule.query.join(Bookmark)
+            .filter(Bookmark.user_id == user_id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .all()
+        )
+        return schedule
+
+    @classmethod
+    def print_schedule_for_user(cls, user_id):
+        schedule = cls.schedule_for_user(user_id)
+        res = ""
+        for each in schedule:
+            res += (
+                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+            )

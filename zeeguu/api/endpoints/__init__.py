@@ -2,7 +2,7 @@ import flask
 import zeeguu.core
 
 api = flask.Blueprint("endpoints", __name__)
-db_session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 print("loading endpoints endpionts...")
 
@@ -10,6 +10,7 @@ print("loading endpoints endpionts...")
 # They enrich the endpoints object
 from . import feature_toggles
 from . import exercises
+from . import exercise_sessions
 from . import sessions
 from . import system_languages
 from . import translation
@@ -17,6 +18,7 @@ from . import activity_tracking
 from . import bookmarks_and_words
 from . import user
 from . import user_statistics
+from . import user_preferences
 from . import user_article
 from . import user_articles
 from . import user_languages

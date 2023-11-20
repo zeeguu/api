@@ -6,21 +6,22 @@ from zeeguu.core.model.user import User
 import sqlalchemy
 
 import zeeguu.core
-db = zeeguu.core.db
+
+from zeeguu.core.model import db
 
 
 class TopicSubscription(db.Model):
     """
 
-            A topic subscription is created when
-            the user subscribed to a particular topic.
-            This is then taken into account in the
-            mixed recomemmder, when retrieving articles.
+    A topic subscription is created when
+    the user subscribed to a particular topic.
+    This is then taken into account in the
+    mixed recomemmder, when retrieving articles.
 
     """
 
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
-    __tablename__ = 'topic_subscription'
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __tablename__ = "topic_subscription"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -37,16 +38,14 @@ class TopicSubscription(db.Model):
         self.topic = topic
 
     def __str__(self):
-        return f'Topic subscription ({self.user.name}, {self.topic})'
+        return f"Topic subscription ({self.user.name}, {self.topic})"
 
     __repr__ = __str__
 
     @classmethod
     def find_or_create(cls, session, user, topic):
         try:
-            return (cls.query.filter(cls.user == user)
-                    .filter(cls.topic == topic)
-                    .one())
+            return cls.query.filter(cls.user == user).filter(cls.topic == topic).one()
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(user, topic)
             session.add(new)
@@ -67,5 +66,6 @@ class TopicSubscription(db.Model):
 
     @classmethod
     def with_topic_id(cls, i, user):
-        return (cls.query.filter(cls.topic_id == i)) \
-            .filter(cls.user_id == user.id).one()
+        return (
+            (cls.query.filter(cls.topic_id == i)).filter(cls.user_id == user.id).one()
+        )

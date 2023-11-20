@@ -2,17 +2,21 @@
 
 from zeeguu.core.model import RSSFeed
 import zeeguu.core
+from zeeguu.api.app import create_app
 
-session = zeeguu.core.db.session
+app = create_app()
+app.app_context().push()
 
-name = input("Feed name: " )
+db_session = zeeguu.core.model.db.session
+
+url = input("Feed Url (or partof); leave empty if you don't search by it: ")
+name = input("Feed Name (or partof) leave empty if you don't search by it: ")
 
 all_feeds = RSSFeed.query.all()
 for feed in all_feeds:
-    if feed.title == name:
-
-        print (feed.title)
-        print (feed.description)
-        print (feed.language.code)
-        print (feed.url.as_string())
-        print (feed.image_url.as_string())
+    if (url and url in feed.url.as_string()) or (name and name in feed.title):
+        print(f"id: {feed.id}")
+        print(feed.title)
+        print(feed.description)
+        print(feed.language.code)
+        print(feed.url.as_string())

@@ -4,8 +4,6 @@ from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
     distill_article_interactions,
 )
 
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-
 from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.core.model import UserActivityData
@@ -32,7 +30,6 @@ def upload_user_activity_data():
         All these four elements have to be submitted as POST
         arguments
 
-    :param self:
     :return: OK if all went well
     """
 
@@ -42,6 +39,8 @@ def upload_user_activity_data():
         distill_article_interactions(db_session, flask.g.user, request.form)
 
     if request.form.get("event") == "AUDIO_EXP":
+        from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
         ZeeguuMailer.notify_audio_experiment(request.form, flask.g.user)
 
     return "OK"

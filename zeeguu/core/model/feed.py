@@ -8,12 +8,14 @@ import requests
 import sqlalchemy.orm.exc
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
+from zeeguu.logging import log, debug
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 
-db = zeeguu.core.db
+import zeeguu
+
+from zeeguu.core.model import db
 
 
 class RSSFeed(db.Model):
@@ -41,7 +43,7 @@ class RSSFeed(db.Model):
     deactivated = db.Column(db.Integer)
 
     def __init__(
-            self, url, title, description, image_url=None, icon_name=None, language=None
+        self, url, title, description, image_url=None, icon_name=None, language=None
     ):
         self.url = url
         self.image_url = image_url
@@ -123,7 +125,7 @@ class RSSFeed(db.Model):
         skipped_due_to_time = 0
         feed_items = []
         skipped_items = []
-        zeeguu.core.log(f"** Articles in feed: {len(feed_data.entries)}")
+        log(f"** Articles in feed: {len(feed_data.entries)}")
         for item in feed_data.entries:
 
             if not item.get("published_parsed"):
@@ -131,14 +133,16 @@ class RSSFeed(db.Model):
                 # happens rarely that the parser can't extract this
                 # actually not so rarely - 400 times in the last 24 hours...
 
-                zeeguu.core.log("Setting the time for the entry below to now() because can't get time from it")
-                zeeguu.core.log(item)
+                log(
+                    "Setting the time for the entry below to now() because can't get time from it"
+                )
+                log(item)
 
-                # let's set the date to now; this will result in 
-                # an article published early morning w/o a date; 
+                # let's set the date to now; this will result in
+                # an article published early morning w/o a date;
                 # being considered on every crawl as it was published
                 # for that crawl; but it's not so bad; it won't be added
-                # to the DB because it's url will be detected as 
+                # to the DB because it's url will be detected as
                 # existent anyway
                 item["published_parsed"] = datetime.now()
 
@@ -168,25 +172,19 @@ class RSSFeed(db.Model):
                     skipped_items.append(new_item_data_dict)
 
             except AttributeError as e:
-                zeeguu.core.log(
-                    f'Exception {e} while trying to retrieve {item.get("link", "")}'
-                )
+                log(f'Exception {e} while trying to retrieve {item.get("link", "")}')
 
         sorted_skipped_items = sorted(
             skipped_items, key=lambda x: x["published_datetime"]
         )
         for each in sorted_skipped_items:
-            zeeguu.core.debug(
-                f"- skipped: {each['published_datetime']} - {each['title']}"
-            )
+            debug(f"- skipped: {each['published_datetime']} - {each['title']}")
 
         for each in feed_items:
-            zeeguu.core.debug(
-                f"- to download: {each['published_datetime']} - {each['title']}"
-            )
+            debug(f"- to download: {each['published_datetime']} - {each['title']}")
 
-        zeeguu.core.log(f"*** Skipped due to time: {len(skipped_items)} ")
-        zeeguu.core.log(f"*** To download: {len(feed_items)}")
+        log(f"*** Skipped due to time: {len(skipped_items)} ")
+        log(f"*** To download: {len(feed_items)}")
 
         return feed_items
 
@@ -219,7 +217,7 @@ class RSSFeed(db.Model):
 
     @classmethod
     def find_or_create(
-            cls, session, url, title, description, icon_name, language: Language
+        cls, session, url, title, description, icon_name, language: Language
     ):
         try:
             result = (
@@ -244,7 +242,7 @@ class RSSFeed(db.Model):
         return cls.query.filter(cls.language == language).all()
 
     def get_articles(
-            self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
+        self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
     ):
         """
 

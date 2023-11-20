@@ -3,8 +3,8 @@
     "name": "-",
     "rootFolder": "zeeguu",
     "github": {
-        "url": "",
-        "branch": "main"
+        "url": "https://github.com/zeeguu/api",
+        "branch": "master"
     },
     "saveLocation": "./diagrams/",
     "views": {
@@ -18,30 +18,6 @@
             ],
 
             "ignorePackages": []
-        },     
-
-        "top-level-view-no-tests": {
-            "packages": [
-                {
-                    "packagePath":"",
-                    "depth":2
-                }
-            ],
-            "ignorePackages": ["*test*"]
-        },
-
-        "core-details": {
-            "packages": [
-                {"packagePath":"core","depth":2}
-            ],
-            "ignorePackages": []
-        },
-         "api-core-details": {
-            "packages": [
-                {"packagePath":"api", "depth":2},
-                {"packagePath":"core", "depth":0}
-            ],
-            "ignorePackages": ["*test*"]
         }
 
     }

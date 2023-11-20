@@ -8,7 +8,7 @@ from .exercise_corectness import (
 from .exercise_sessions import total_time_in_exercise_sessions
 from .reading_sessions import summarize_reading_activity
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 def student_activity_overview(user_id, cohort_id, start_date: str, end_date: str):

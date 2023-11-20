@@ -6,12 +6,12 @@ import zeeguu.core
 
 from zeeguu.core.model.language import Language
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UserWord(db.Model):
-    __tablename__ = 'user_word'
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __tablename__ = "user_word"
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -39,7 +39,7 @@ class UserWord(db.Model):
             self.rank = None
 
     def __repr__(self):
-        return f'<@UserWord {self.word} {self.language_id} {self.rank}>'
+        return f"<@UserWord {self.word} {self.language_id} {self.rank}>"
 
     def __eq__(self, other):
         return self.word == other.word and self.language == other.language
@@ -64,9 +64,9 @@ class UserWord(db.Model):
 
     @classmethod
     def find(cls, _word: str, language: Language):
-        return (cls.query.filter(cls.word == _word)
-                .filter(cls.language == language)
-                .one())
+        return (
+            cls.query.filter(cls.word == _word).filter(cls.language == language).one()
+        )
 
     @classmethod
     def find_or_create(cls, session, _word: str, language: Language):
@@ -87,6 +87,7 @@ class UserWord(db.Model):
                         return w
                     except sqlalchemy.orm.exc.NoResultFound:
                         import time
+
                         time.sleep(0.3)
                         continue
                     break
@@ -98,10 +99,7 @@ class UserWord(db.Model):
     @classmethod
     def exists(cls, word, language):
         try:
-            cls.query.filter_by(
-                language=language,
-                word=word
-            ).one()
+            cls.query.filter_by(language=language, word=word).one()
             return True
         except NoResultFound:
             return False

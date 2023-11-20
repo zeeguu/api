@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class DifficultyLingoRank(db.Model):

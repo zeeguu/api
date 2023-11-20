@@ -1,6 +1,6 @@
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, end_date):

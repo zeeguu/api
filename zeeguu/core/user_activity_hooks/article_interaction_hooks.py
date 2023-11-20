@@ -1,6 +1,11 @@
 from datetime import datetime
 
-from zeeguu.core import log
+from zeeguu.core.constants import (
+    EVENT_USER_FEEDBACK,
+    EVENT_LIKE_ARTICLE,
+    EVENT_OPEN_ARTICLE,
+)
+from zeeguu.logging import log
 from zeeguu.core.model import Article, UserArticle
 
 
@@ -21,13 +26,11 @@ def distill_article_interactions(session, user, data):
 
     log(f"event is: {event}")
 
-    if "UMR - OPEN ARTICLE" in event:
+    if EVENT_OPEN_ARTICLE in event:
         article_opened(session, article_id, user)
-    elif "UMR - LIKE ARTICLE" in event:
+    elif EVENT_LIKE_ARTICLE in event:
         article_liked(session, article_id, user, True)
-    elif "UMR - UNLIKE ARTICLE" in event:
-        article_liked(session, article_id, user, False)
-    elif "UMR - USER FEEDBACK" in event:
+    elif EVENT_USER_FEEDBACK in event:
         article_feedback(session, article_id, user, value)
 
 

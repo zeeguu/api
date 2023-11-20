@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
-import zeeguu.core
+from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model import Article
@@ -20,7 +20,9 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.util.encoding import datetime_to_json
 
-db = zeeguu.core.db
+import zeeguu
+
+from zeeguu.core.model import db
 
 CORRECTS_IN_A_ROW_FOR_LEARNED = 4
 
@@ -132,6 +134,7 @@ class Bookmark(db.Model):
         exercise_source: ExerciseSource,
         exercise_outcome: ExerciseOutcome,
         exercise_solving_speed,
+        session_id: int,
         other_feedback="",
     ):
         exercise = Exercise(
@@ -139,6 +142,7 @@ class Bookmark(db.Model):
             exercise_source,
             exercise_solving_speed,
             datetime.now(),
+            session_id,
             other_feedback,
         )
 
@@ -151,17 +155,18 @@ class Bookmark(db.Model):
         self,
         exercise_source: str,
         exercise_outcome: str,
-        exercise_solving_speed,
+        solving_speed,
+        session_id,
         other_feedback,
         db_session,
     ):
         from zeeguu.core.model import UserExerciseSession
 
-        new_source = ExerciseSource.find_or_create(db_session, exercise_source)
-        new_outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
+        source = ExerciseSource.find_or_create(db_session, exercise_source)
+        outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
         exercise = self.add_new_exercise_result(
-            new_source, new_outcome, exercise_solving_speed, other_feedback
+            source, outcome, solving_speed, session_id, other_feedback
         )
         db_session.add(exercise)
         db_session.commit()
@@ -169,15 +174,10 @@ class Bookmark(db.Model):
         # plugging in the new scheduler
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        BasicSRSchedule.update(
-            db_session, self, exercise_outcome == ExerciseOutcome.CORRECT
-        )
+        BasicSRSchedule.update(db_session, self, exercise_outcome)
 
         self.update_fit_for_study(db_session)
         self.update_learned_status(db_session)
-
-        UserExerciseSession.update_exercise_session(exercise, db_session)
-        # BookmarkPriorityUpdater.update_bookmark_priority(db, self.user)
 
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
@@ -186,7 +186,7 @@ class Bookmark(db.Model):
         except AttributeError as e:
             translation_word = ""
             translation_language = ""
-            zeeguu.core.log(
+            log(
                 f"Exception caught: for some reason there was no translation for {self.id}"
             )
             print(str(e))
@@ -341,14 +341,12 @@ class Bookmark(db.Model):
         :return:
         """
 
-        log = SortedExerciseLog(self)
-        is_learned = is_learned_based_on_exercise_outcomes(log)
+        exercise_log = SortedExerciseLog(self)
+        is_learned = is_learned_based_on_exercise_outcomes(exercise_log)
         if is_learned:
-            zeeguu.core.log(f"Log: {log.summary()}: bookmark {self.id} learned!")
-            self.learned_time = log.last_exercise_time()
+            log(f"Log: {exercise_log.summary()}: bookmark {self.id} learned!")
+            self.learned_time = exercise_log.last_exercise_time()
             self.learned = True
             session.add(self)
         else:
-            zeeguu.core.log(
-                f"Log: {log.summary()}: bookmark {self.id} not learned yet."
-            )
+            log(f"Log: {exercise_log.summary()}: bookmark {self.id} not learned yet.")

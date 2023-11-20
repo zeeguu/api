@@ -3,10 +3,10 @@ from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.language import Language
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
-class Cohort(zeeguu.core.db.Model):
+class Cohort(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)

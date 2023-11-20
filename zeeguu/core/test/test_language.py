@@ -8,10 +8,10 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model.language import Language
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
+
 
 class LanguageTest(ModelTestMixIn, TestCase):
-
     def setUp(self):
         super().setUp()
         self.user = UserRule().user
@@ -24,8 +24,10 @@ class LanguageTest(ModelTestMixIn, TestCase):
         except NoResultFound:
             assert False, "No Language found in database"
 
-        assert language_should_be.code == language_to_check.code \
-               and language_should_be.name == language_to_check.name
+        assert (
+            language_should_be.code == language_to_check.code
+            and language_should_be.name == language_to_check.name
+        )
 
     def test_get_all_languages(self):
         languages = LanguageRule.languages
@@ -36,7 +38,7 @@ class LanguageTest(ModelTestMixIn, TestCase):
     def test_user_set_language(self):
         language_should_be = LanguageRule().random
 
-        self.user.set_learned_language(language_should_be.code, session)
+        self.user.set_learned_language(language_should_be.code, db_session)
         assert self.user.learned_language.id == language_should_be.id
 
     def test_native_language(self):

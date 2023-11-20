@@ -1,23 +1,32 @@
-from datetime import datetime, time
+from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
-from sqlalchemy import Column, UniqueConstraint, Integer, ForeignKey, String, DateTime, Boolean
+from sqlalchemy import (
+    Column,
+    UniqueConstraint,
+    Integer,
+    ForeignKey,
+    String,
+    DateTime,
+
+)
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from zeeguu.core.model import Url, User
 from zeeguu.core.model.language import Language
+from zeeguu.core.model import db
 
 
-class StarredArticle(zeeguu.core.db.Model):
+class StarredArticle(db.Model):
     """
 
-        This keeps track of information regarding a user's starred articles.
+    This keeps track of information regarding a user's starred articles.
 
     """
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True)
 
@@ -46,7 +55,7 @@ class StarredArticle(zeeguu.core.db.Model):
         self.starred_date = datetime.now()
 
     def __repr__(self):
-        return f'{self.user} has starred: {self.title}'
+        return f"{self.user} has starred: {self.title}"
 
     def as_dict(self):
         return dict(
@@ -54,28 +63,25 @@ class StarredArticle(zeeguu.core.db.Model):
             url=self.url.as_string(),
             title=self.title,
             language=self.language.code,
-            starred_date=self.starred_date.strftime(SIMPLE_TIME_FORMAT)
+            starred_date=self.starred_date.strftime(SIMPLE_TIME_FORMAT),
         )
 
     @classmethod
     def find_or_create(cls, session, user: User, _url, _title: str, _language):
         """
 
-            create a new object and add it to the db if it's not already there
-            otherwise retrieve the existing object and update
+                    create a new object and add it to the db if it's not already there
+                    otherwise retrieve the existing object and update
 
-            in case of creation, the created object is incomplete
+                    in case of creation, the created object is incomplete
 
-\        """
+        \ """
 
         language = Language.find(_language)
         url = Url.find_or_create(session, _url, _title)
 
         try:
-            return cls.query.filter_by(
-                user=user,
-                url=url
-            ).one()
+            return cls.query.filter_by(user=user, url=url).one()
         except NoResultFound:
             try:
                 new = cls(user, url, _title, language)
@@ -84,29 +90,23 @@ class StarredArticle(zeeguu.core.db.Model):
                 return new
             except Exception as e:
                 from sentry_sdk import capture_exception
+
                 capture_exception(e)
-                print ("seems we avoided a race condition")
+                print("seems we avoided a race condition")
                 session.rollback()
-                return cls.query.filter_by(
-                    user=user,
-                    url=url
-                ).one()
-
-
+                return cls.query.filter_by(user=user, url=url).one()
 
     @classmethod
     def delete(cls, session, user, _url):
 
         try:
             url = Url.find(_url)
-            item = cls.query.filter_by(
-                user=user,
-                url=url
-            ).one()
+            item = cls.query.filter_by(user=user, url=url).one()
             session.delete(item)
             session.commit()
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
 
     @classmethod

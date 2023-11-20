@@ -4,10 +4,9 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import RSSFeed, Language, Url
-from zeeguu.core.test.test_data.mocking_the_web import (
-    url_spiegel_rss,
-    url_vols_americans,
-    icon_name_spiegel,
+from zeeguu.core.test.mocking_the_web import (
+    URL_SPIEGEL_RSS,
+    URL_LEMONDE_VOLS_AMERICAINS
 )
 
 
@@ -26,18 +25,18 @@ class RSSFeedRule(BaseRule):
         self.save(self.rss_feed)
 
         lang_de = Language.find_or_create("de")
-        url = Url.find_or_create(self.db.session, url_spiegel_rss)
+        url = Url.find_or_create(self.db.session, URL_SPIEGEL_RSS)
 
         self.feed1 = RSSFeed.find_or_create(
-            self.db.session, url, "", "", icon_name_spiegel, language=lang_de
+            self.db.session, url, "", "", "spiegel.png", language=lang_de
         )
         self.save(self.feed1)
 
         lang_fr = Language.find_or_create("fr")
-        url = Url.find_or_create(self.db.session, url_vols_americans)
+        url = Url.find_or_create(self.db.session, URL_LEMONDE_VOLS_AMERICAINS)
 
         self.feed_fr = RSSFeed.find_or_create(
-            self.db.session, url, "", "", icon_name_spiegel, language=lang_fr
+            self.db.session, url, "", "", "spiegel.png", language=lang_fr
         )
         self.save(self.feed_fr)
 

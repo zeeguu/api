@@ -1,7 +1,7 @@
 import json
 import os
 
-import zeeguu.core
+from zeeguu.logging import log
 
 from apimux.api_base import BaseThirdPartyAPIService
 from apimux.mux import APIMultiplexer
@@ -189,7 +189,7 @@ def get_next_results(
         translator_results = api_mux.get_next_results(
             translator_data, number_of_results=-1, exclude_services=exclude_services
         )
-    zeeguu.core.log(f"Got results get_next_results: {translator_results}")
+    log(f"Got results get_next_results: {translator_results}")
     json_translator_results = [(x, y.to_json()) for x, y in translator_results]
     logger.debug(
         "get_next_results Zeeguu-API - Got results: %s" % json_translator_results
@@ -213,9 +213,9 @@ def get_next_results(
         # Disabling order by quality when A/B testing is enabled
         translations = order_by_quality(translations, translator_data["query"])
 
-    zeeguu.core.log(f"Translations get_next_results: {translations}")
+    log(f"Translations get_next_results: {translations}")
     response = TranslationResponse(translations=translations)
-    zeeguu.core.log(f"Returning response get_next_results: {response}")
+    log(f"Returning response get_next_results: {response}")
     return response
 
 

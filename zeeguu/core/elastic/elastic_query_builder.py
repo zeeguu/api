@@ -18,18 +18,18 @@ def array_of_lowercase_topics(topics):
 
 
 def build_elastic_recommender_query(
-    count,
-    topics,
-    unwanted_topics,
-    user_topics,
-    unwanted_user_topics,
-    language,
-    upper_bounds,
-    lower_bounds,
-    es_scale="3d",
-    es_decay=0.8,
-    es_weight=4.2,
-    second_try=False,
+        count,
+        topics,
+        unwanted_topics,
+        user_topics,
+        unwanted_user_topics,
+        language,
+        upper_bounds,
+        lower_bounds,
+        es_scale="3d",
+        es_decay=0.8,
+        es_weight=4.2,
+        second_try=False,
 ):
     """
 
@@ -94,7 +94,8 @@ def build_elastic_recommender_query(
         must_not.append(match("title", unwanted_user_topics))
 
     must.append(exists("published_time"))
-    must.append({"terms": {"topics": array_of_lowercase_topics(topics)}})
+    if user_topics:
+        must.append({"terms": {"topics": array_of_lowercase_topics(topics)}})
 
     if not second_try:
         # on the second try we do not add the range;
@@ -128,19 +129,19 @@ def build_elastic_recommender_query(
 
 
 def build_elastic_search_query(
-    count,
-    search_terms,
-    topics,
-    unwanted_topics,
-    user_topics,
-    unwanted_user_topics,
-    language,
-    upper_bounds,
-    lower_bounds,
-    es_scale="3d",
-    es_decay=0.8,
-    es_weight=4.2,
-    second_try=False,
+        count,
+        search_terms,
+        topics,
+        unwanted_topics,
+        user_topics,
+        unwanted_user_topics,
+        language,
+        upper_bounds,
+        lower_bounds,
+        es_scale="3d",
+        es_decay=0.8,
+        es_weight=4.2,
+        second_try=False,
 ):
     """
     Builds an elastic search query for search terms.

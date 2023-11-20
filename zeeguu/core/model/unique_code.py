@@ -4,11 +4,11 @@ from random import randint
 import zeeguu.core
 from sqlalchemy import func
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class UniqueCode(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(4))
@@ -25,7 +25,9 @@ class UniqueCode(db.Model):
 
     @classmethod
     def last_code(cls, email):
-        return (cls.query.filter(cls.email == email).order_by(cls.time.desc()).first()).code
+        return (
+            cls.query.filter(cls.email == email).order_by(cls.time.desc()).first()
+        ).code
 
     @classmethod
     def all_codes_for(cls, email):

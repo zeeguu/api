@@ -2,17 +2,17 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class ExerciseSource(db.Model):
-    __tablename__ = 'exercise_source'
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __tablename__ = "exercise_source"
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     source = db.Column(db.String(255), nullable=False)
 
-    TOP_BOOKMARKS_MINI_EXERCISE = 'Top Bookmarks Mini-Exercise'
+    TOP_BOOKMARKS_MINI_EXERCISE = "Top Bookmarks Mini-Exercise"
 
     def __init__(self, source):
         self.source = source

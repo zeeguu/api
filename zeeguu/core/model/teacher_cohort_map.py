@@ -1,13 +1,13 @@
-import zeeguu.core
 from sqlalchemy import Column, Integer, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import User
 from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model import db
 
 
-class TeacherCohortMap(zeeguu.core.db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+class TeacherCohortMap(db.Model):
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True)
 
@@ -30,11 +30,16 @@ class TeacherCohortMap(zeeguu.core.db.Model):
 
     @classmethod
     def get_cohorts_for(cls, user):
-        return [teacher_role.cohort for teacher_role in cls.query.filter_by(user=user).all()]
+        return [
+            teacher_role.cohort for teacher_role in cls.query.filter_by(user=user).all()
+        ]
 
     @classmethod
     def get_teachers_for(cls, cohort):
-        return [teacher_role.user for teacher_role in cls.query.filter_by(cohort=cohort).all()]
+        return [
+            teacher_role.user
+            for teacher_role in cls.query.filter_by(cohort=cohort).all()
+        ]
 
     @classmethod
     def find_or_create(cls, user, cohort, session):

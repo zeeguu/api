@@ -10,7 +10,7 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Topic
 from zeeguu.core.model.user_article import UserArticle
 
-session = zeeguu.core.db.session
+db_session = zeeguu.core.model.db.session
 
 
 class UserArticleTest(ModelTestMixIn, TestCase):
@@ -25,9 +25,9 @@ class UserArticleTest(ModelTestMixIn, TestCase):
         assert not self.user_article.starred
 
     def test_all_starred_articles(self):
-        self.article.star_for_user(session, self.user)
+        self.article.star_for_user(db_session, self.user)
         assert 1 == len(UserArticle.all_starred_articles_of_user(self.user))
 
     def test_all_starred_or_liked_articles(self):
-        self.article.star_for_user(session, self.user)
+        self.article.star_for_user(db_session, self.user)
         assert 1 == len(UserArticle.all_starred_or_liked_articles_of_user(self.user))

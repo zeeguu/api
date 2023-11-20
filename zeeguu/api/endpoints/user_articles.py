@@ -1,13 +1,14 @@
 import flask
 
 from zeeguu.core.content_recommender import article_recommendations_for_user, topic_filter_for_user
-from zeeguu.core.model import UserArticle, Article
+from zeeguu.core.model import UserArticle, Article, PersonalCopy
 
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
 from flask import request
+
 
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
@@ -20,14 +21,28 @@ def user_articles_recommended(count: int = 20):
     recommendations for all languages
     """
 
-    try: 
+    try:
         articles = article_recommendations_for_user(flask.g.user, count)
-    except: 
+    except:
         # we failed to get recommendations from elastic
         # return something 
-        articles = Article.query.filter_by(broken=0).filter_by(language_id=flask.g.user.learned_language_id).order_by(Article.published_time.desc()).limit(20)
+        articles = Article.query.filter_by(broken=0).filter_by(language_id=flask.g.user.learned_language_id).order_by(
+            Article.published_time.desc()).limit(20)
 
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
+
+    return json_result(article_infos)
+
+
+@api.route("/user_articles/saved", methods=["GET"])
+@cross_domain
+@with_session
+def saved_articles():
+    saves = PersonalCopy.all_for(flask.g.user)
+
+    article_infos = [
+        UserArticle.user_article_info(flask.g.user, e) for e in saves
+    ]
 
     return json_result(article_infos)
 
@@ -49,10 +64,9 @@ def user_articles_topic_filtered():
     max_duration = request.form.get("max_duration", None)
     min_duration = request.form.get("min_duration", None)
     difficulty_level = request.form.get("difficulty_level", None)
-    
-    
-    articles = topic_filter_for_user(flask.g.user, MAX_ARTICLES_PER_TOPIC, newer_than, 
-    media_type, max_duration, min_duration, difficulty_level,topic)
+
+    articles = topic_filter_for_user(flask.g.user, MAX_ARTICLES_PER_TOPIC, newer_than,
+                                     media_type, max_duration, min_duration, difficulty_level, topic)
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
     return json_result(article_infos)

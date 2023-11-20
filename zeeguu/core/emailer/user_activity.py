@@ -13,15 +13,19 @@ def send_new_user_account_email(username, invite_code="", cohort=""):
 
 
 def send_user_finished_exercise_session(exercise_session):
+    details = exercise_session.exercises_in_session_string()
+    user = exercise_session.user
+    main_body = f"User: {user.name} ({user.id}) Duration: {exercise_session.duration / 1000} \n\n"
+    main_body += f"<html><body><pre>{details}</pre></body></html>"
     ZeeguuMailer.send_mail(
-        f"Finished Exercise Session",
-        [f"User: {exercise_session.user.name} Duration: {exercise_session.duration / 1000}", 
-        cheers_your_server],
+        f"{exercise_session.user.name}: Finished Exercise Session",
+        [main_body,
+         cheers_your_server],
     )
 
 
 def send_notification_article_feedback(
-    feedback, user: User, article_title, article_url, article_id
+        feedback, user: User, article_title, article_url, article_id
 ):
     from datetime import datetime as dt
 

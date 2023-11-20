@@ -9,8 +9,6 @@ from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
-print("loading endpoints/owntexts")
-
 
 @api.route("/upload_own_text", methods=["POST"])
 @cross_domain

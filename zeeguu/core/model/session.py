@@ -9,11 +9,11 @@ from sqlalchemy import desc
 
 from zeeguu.core.model.user import User
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class Session(db.Model):
-    __table_args__ = {'mysql_collate': 'utf8_bin'}
+    __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
@@ -44,7 +44,7 @@ class Session(db.Model):
         if id:
             session_id = int(id)
         elif request:
-            session_id = int(request.args['session'])
+            session_id = int(request.args["session"])
         else:
             return None
 
@@ -78,9 +78,12 @@ class Session(db.Model):
 
     @classmethod
     def find_for_user(cls, user):
-        s = cls.query.filter(cls.user == user). \
-            filter(cls.id < zeeguu.core.app.config.get("MAX_SESSION")). \
-            order_by(desc(cls.last_use)).first()
+        s = (
+            cls.query.filter(cls.user == user)
+            .filter(cls.id < zeeguu.core.app.config.get("MAX_SESSION"))
+            .order_by(desc(cls.last_use))
+            .first()
+        )
         if not s:
             s = cls.for_user(user)
         return s

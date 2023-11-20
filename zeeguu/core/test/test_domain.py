@@ -3,14 +3,13 @@ from unittest import TestCase
 
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
-import zeeguu.core
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model.domain_name import DomainName
 from zeeguu.core.model.url import Url
 
-db = zeeguu.core.db
+from zeeguu.core.model import db
 
 
 class DomainTest(ModelTestMixIn, TestCase):
@@ -28,13 +27,13 @@ class DomainTest(ModelTestMixIn, TestCase):
         """
         url_random = UrlRule().url.as_string()
 
-        url_parts = url_random.split('//', 1)
-        domain_should_be = url_parts[0] + '//' + url_parts[1].split('/', 1)[0]
+        url_parts = url_random.split("//", 1)
+        domain_should_be = url_parts[0] + "//" + url_parts[1].split("/", 1)[0]
 
         domain_to_check = Url(url_random, self.faker.word()).domain_name()
 
         assert domain_to_check == domain_should_be, (
-            domain_should_be + " should be " + domain_to_check
+                domain_should_be + " should be " + domain_to_check
         )
 
     def test_one_domain_multiple_urls(self):

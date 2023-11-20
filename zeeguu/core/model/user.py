@@ -9,11 +9,15 @@ import zeeguu.core
 from sqlalchemy import Column, ForeignKey, Integer, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core import util, logger
+
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model import Language
 
-db = zeeguu.core.db
+from zeeguu.logging import log
+from zeeguu.core.util import password_hash
+
+from zeeguu.core.model import db
+from zeeguu.logging import warning
 
 CEFR_TO_DIFFICULTY_MAPPING = {
     1: (1, 5.5),
@@ -146,7 +150,7 @@ class User(db.Model):
                 UserPreference.get_difficulty_estimator(self)
                 or "FleschKincaidDifficultyEstimator"
         )
-        logger.debug(f"Difficulty estimator for user {self.id}: {preference}")
+        log(f"Difficulty estimator for user {self.id}: {preference}")
         return preference
 
     def text_difficulty(self, text, language):
@@ -200,7 +204,7 @@ class User(db.Model):
         :param bookmark_count: by default we recommend 10 words
         :return:
         """
-        db_session = zeeguu.core.db.session
+        db_session = zeeguu.core.model.db.session
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
@@ -287,7 +291,7 @@ class User(db.Model):
             "utf-8"
         )
 
-        self.password = util.password_hash(password, salt_bytes)
+        self.password = password_hash(password, salt_bytes)
         self.password_salt = salt_bytes.hex()
 
     def all_reading_sessions(
@@ -299,7 +303,7 @@ class User(db.Model):
         from zeeguu.core.model.user_reading_session import UserReadingSession
         from zeeguu.core.model.article import Article
 
-        query = zeeguu.core.db.session.query(UserReadingSession)
+        query = zeeguu.core.model.db.session.query(UserReadingSession)
         query = query.join(Article, Article.id == UserReadingSession.article_id)
         # TODO: join with Article on language_id
         # print(language_id)
@@ -324,7 +328,7 @@ class User(db.Model):
     ):
         from zeeguu.core.model import Bookmark, UserWord
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
 
         query = query.join(UserWord, Bookmark.origin_id == UserWord.id)
 
@@ -343,19 +347,19 @@ class User(db.Model):
     def all_bookmarks_fit_for_study(self):
         from zeeguu.core.model.bookmark import Bookmark
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
         return (query.filter_by(user_id=self.id).filter_by(fit_for_study=True)).all()
 
     def bookmarks_chronologically(self):
         from zeeguu.core.model.bookmark import Bookmark
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
         return (query.filter_by(user_id=self.id).order_by(Bookmark.time.desc())).all()
 
     def starred_bookmarks(self, count):
         from zeeguu.core.model import Bookmark, UserWord
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
         return (
             query.join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
@@ -368,7 +372,7 @@ class User(db.Model):
     def learned_bookmarks(self, count=50):
         from zeeguu.core.model import Bookmark, UserWord
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
             query.join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
@@ -511,7 +515,7 @@ class User(db.Model):
 
         json_bookmarks = []
 
-        query = zeeguu.core.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
             query.join(Text)
             .filter(Bookmark.user_id == self.id)
@@ -571,7 +575,7 @@ class User(db.Model):
         """
 
         # compute learner_stats_data
-        from tools.learner_stats import compute_learner_stats
+        from tools import compute_learner_stats
 
         learner_stats_data = compute_learner_stats(self)
 
@@ -642,17 +646,17 @@ class User(db.Model):
 
     @classmethod
     def find_all(cls):
-        query = zeeguu.core.db.session.query(User)
+        query = zeeguu.core.model.db.session.query(User)
         return query.all()
 
     @classmethod
     def find(cls, email):
-        query = zeeguu.core.db.session.query(User)
+        query = zeeguu.core.model.db.session.query(User)
         return query.filter(func.lower(User.email) == email.lower()).one()
 
     @classmethod
     def email_exists(cls, email):
-        query = zeeguu.core.db.session.query(User)
+        query = zeeguu.core.model.db.session.query(User)
         try:
             query.filter(func.lower(User.email) == email.lower()).one()
             return True
@@ -669,7 +673,7 @@ class User(db.Model):
 
         sometime_ago = datetime.datetime.now() - datetime.timedelta(days=days)
 
-        query = zeeguu.core.db.session.query(UserActivityData)
+        query = zeeguu.core.model.db.session.query(UserActivityData)
         recent_activities = query.filter(UserActivityData.time > sometime_ago).all()
         user_ids = set([each.user_id for each in recent_activities])
         return user_ids
@@ -677,7 +681,7 @@ class User(db.Model):
     @classmethod
     def exists(cls, user):
 
-        query = zeeguu.core.db.session.query(User)
+        query = zeeguu.core.model.db.session.query(User)
         try:
             query.filter_by(email=user.email, id=user.id).one()
             return True
@@ -688,12 +692,12 @@ class User(db.Model):
     def authorize(cls, email, password):
         try:
             user = cls.find(email)
-            if user.password == util.password_hash(
+            if user.password == password_hash(
                     password, bytes.fromhex(user.password_salt)
             ):
                 return user
         except sqlalchemy.orm.exc.NoResultFound:
-            zeeguu.core.warning(f"Login attempt with wrong email: {email}")
+            warning(f"Login attempt with wrong email: {email}")
             return None
 
     @classmethod
