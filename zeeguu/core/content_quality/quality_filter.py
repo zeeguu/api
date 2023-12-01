@@ -19,6 +19,7 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     # Politiken
     "Allerede abonnent? Login",
     "FOR ABONNENTER",
+    "abonnent",
     # Ing
     "Alternativt kan du købe et abonnement",
     "Zugang zu allen F+ Artikeln"
