@@ -393,6 +393,8 @@ class AutoGECTagging():
         annotated_errors = self.generate_labels(sentence_to_correct, original_sentence, include_o_start_end=True, return_tokens=True,
                                                 return_err_pos=True, return_corr_pos=True, return_corrections=True, return_alignment=True)
 
+        # Get solution words
+        sol_words = [str(w) for w in annotated_errors["corr_s_tokens"]]
         # Get the error words from the alignment, and align with ZeeGuu tokenization
         err_w = annotated_errors["return_tokens"][0]
 
@@ -558,9 +560,13 @@ class AutoGECTagging():
                 wProps["status"] = "correct" if wProps["word"] in wProps["correction"].split(" ") else ""     
             
             # If the word is unecessary, we mark it as incorrect, but we don't mark it
-            # as wrong if it's in the sentece, in this case the feedback
-            if (operation[:2] == "U:"):
-                wProps["status"] = "" if wProps["isInSentence"] else "incorrect"
-                if wProps["isInSentence"]: wProps["feedback"] = "Please look at the previous errors."
+            # as wrong if it's in the sentece given it doesn't show up elsewhere in the solution.
+            # We should not edit it in case of a Word Order Error.
+            # The feedback instead is highlighting the previous errors.
+            print(operation,sol_words, word_for_correction)
+            if ((operation[:2] == "U:" or operation[:2] == "R:") and operation != "R:WO"):
+                if wProps["isInSentence"] and word_for_correction not in sol_words:
+                    wProps["status"] = ""
+                    wProps["feedback"] = "Please look at the other errors."
 
         return word_dictionary_list
