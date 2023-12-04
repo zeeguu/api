@@ -465,12 +465,9 @@ class AutoGECTagging():
             zeeguu_span = map_spacy_to_zeeguu_i.get(span[0], span[0]), map_spacy_to_zeeguu_i.get(span[1], span[1])
             if zeeguu_span not in unmerge_labels:
                 unmerge_labels[zeeguu_span] = k 
-                    # In case of a missing token, in the beggining or the end, we need to
-
-
-        assert len(word_dictionary_list) == len(err_w), "Input words and corrected words do not match."
 
         # Annotate the Feedback
+        assert len(word_dictionary_list) == len(err_w), "Input words and corrected words do not match."
         for i, ((operation, (s_err,s_end))) in enumerate(annotated_errors["labels"]):
             # Get the current spacy token
             token_err = annotated_errors["err_s_tokens"][map_zeeguu_to_spacy_i.get(s_err, s_err)]
