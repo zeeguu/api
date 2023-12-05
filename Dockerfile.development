@@ -46,7 +46,6 @@ RUN python setup.py develop
 # (this is done after the requirements are installed, so that the cache is not invalidated)
 WORKDIR /Zeeguu-API
 COPY . /Zeeguu-API
-RUN ./install_spacy_models.sh
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
