@@ -126,4 +126,4 @@ class ZeeguuMailer(object):
             content,
             "zeeguu.team@gmail.com",
         )
-        mailer.send()
+        # mailer.send()
