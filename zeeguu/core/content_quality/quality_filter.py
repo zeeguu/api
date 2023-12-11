@@ -1,5 +1,6 @@
 import newspaper
 from zeeguu.core.model import Article
+from zeeguu.core.ml_models import is_paywalled, ID_TO_LABEL_PAYWALL, PAYWALL_TFIDF_MODEL
 
 HTML_READ_MORE_PATTERNS = [
     "To continue reading this premium",  # New Scientist
@@ -58,7 +59,13 @@ def sufficient_quality_plain_text(text):
     for each in LIVE_BLOG_KIND_OF_PATTERNS:
         if text.find(each) >= 0:
             return False, "Live blog kind of article"
-
+    
+    paywall_pred = is_paywalled(text, PAYWALL_TFIDF_MODEL)[0]
+    if paywall_pred > 0:
+        # 0 is Normal Text
+        label_found = ID_TO_LABEL_PAYWALL[paywall_pred]
+        return False, f"ML Prediction was '{label_found}'."
+    
     return True, ""
 
 
