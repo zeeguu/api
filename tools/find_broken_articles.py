@@ -7,7 +7,12 @@ from zeeguu.api.app import create_app
 app = create_app()
 app.app_context().push()
 
-all_articles = Article.query.filter_by(broken=0).order_by(Article.id.desc()).limit(50000)
+article_count = input("How many articles to clean?  ")
+article_count = int(article_count)
+
+all_articles = Article.query.filter_by(broken=0).order_by(Article.id.desc()).limit(article_count)
+print(
+    f"evaluating articles that are not already marked as broken between {all_articles[0].id} and {all_articles[-1].id}")
 
 for each in all_articles:
     sufficient_quality, reason = sufficient_quality_plain_text(each.content)
