@@ -16,12 +16,14 @@ HTML_READ_MORE_PATTERNS = [
 PLAIN_TEXT_PAYWALL_PATTERNS = [
     "Create an account for free access to:",  # New Scientist
     "édition abonné",  # /www.lemonde.fr
-    # Politiken
-    "Allerede abonnent? Login",
+    # Politiken, JP
+    "Allerede abonnent?",
     "FOR ABONNENTER",
     # Ing
     "Alternativt kan du købe et abonnement",
-    "Zugang zu allen F+ Artikeln"
+    "Zugang zu allen F+ Artikeln",
+    # JP
+    "For abonnenter",
 ]
 
 incomplete_suggesting_terminations = "Read More"
