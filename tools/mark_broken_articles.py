@@ -14,6 +14,7 @@ all_articles = Article.query.filter_by(broken=0).order_by(Article.id.desc()).lim
 print(
     f"evaluating articles that are not already marked as broken between {all_articles[0].id} and {all_articles[-1].id}")
 
+broken = 0
 for each in all_articles:
     sufficient_quality, reason = sufficient_quality_plain_text(each.content)
     if not sufficient_quality:
@@ -21,4 +22,7 @@ for each in all_articles:
         db.session.add(each)
         print("found broken article: " + str(each.id) + " " + each.url.as_string())
         print("reason: " + reason)
+        broken += 1
+
 db.session.commit()
+print(f"Marked {broken} articles as broken")
