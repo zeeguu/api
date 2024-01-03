@@ -14,3 +14,9 @@ def pre_process(s:str, language:str):
     s = re.sub(r" {2,}", " ", s)
     stemmer = LANGUAGE_STEMMER.get(language, "")
     return " ".join([stemmer.stem(w) for w in s.split(" ")]).strip() if stemmer != "" else s
+
+def remove_non_alphanumeric(s:str):
+    s = s.lower()
+    s = re.sub(r"(\d|[^A-Za-zÀ-ÖØ-öø-ÿ])+", " ", s)
+    s = re.sub(r" {2,}", " ", s)
+    return s
