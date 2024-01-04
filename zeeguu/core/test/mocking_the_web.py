@@ -27,6 +27,8 @@ URL_KLEINE_PRINZ = "http://www.derkleineprinz-online.de/text/2-kapitel/"
 
 URL_BLINDEN_UND_ELEPHANT = "https://www.geschichten-netzwerk.de/geschichten/die-blinden-und-der-elefant/"
 
+URL_JP_PAYWALL = "https://jyllands-posten.dk/sport/ECE16495753/engang-fik-mads-laudrup-at-vide-at-han-ikke-maatte-smadre-det-efternavn-hans-familie-har-bygget-op-nu-har-han-svaret-igen/"
+
 URLS_TO_MOCK = {
     URL_BLINDEN_UND_ELEPHANT: "blinden_und_elefant.html",
     URL_CNN_KATHMANDU: "cnn_kathmandu.html",
@@ -41,6 +43,7 @@ URLS_TO_MOCK = {
     URL_SPIEGEL_RSS: "spiegel.rss",
     URL_SPIEGEL_NANCY: "spiegel_nancy.html",
     URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.html",
+    URL_JP_PAYWALL: "jp_article_example.html",
 
     # these are needed for mocking the readability cleanup server
     READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
@@ -49,7 +52,8 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_NANCY: "spiegel_nancy.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_LEMONDE_FORMATION: "lemonde_formation.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt"
+    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
+    READABILITY_SERVER_CLEANUP_URI + URL_JP_PAYWALL: "jp_article_example.txt"
 }
 
 

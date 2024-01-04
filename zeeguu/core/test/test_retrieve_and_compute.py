@@ -74,3 +74,11 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
         cleaned_up_text = cleanup_non_content_bits(art.text)
         assert "Advertisement" not in cleaned_up_text
+    
+    def test_ml_classification(self):
+        art = newspaper.Article(URL_JP_PAYWALL)
+        art.download()
+        art.parse()
+
+        is_quality, _ = sufficient_quality(art)
+        assert not is_quality
