@@ -7,7 +7,7 @@ from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
-from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.content_quality.quality_filter import sufficient_quality, sufficient_quality_plain_text
 from zeeguu.core.model import Topic, LocalizedTopic
 
 from zeeguu.core.test.mocking_the_web import *
@@ -76,9 +76,8 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert "Advertisement" not in cleaned_up_text
     
     def test_ml_classification(self):
-        art = newspaper.Article(URL_JP_PAYWALL)
-        art.download()
-        art.parse()
+        db_content = db_content_get(URL_ML_JP_PAYWALL)
 
-        is_quality, _ = sufficient_quality(art)
+        is_quality, reason = sufficient_quality_plain_text(db_content)
         assert not is_quality
+        assert reason == "ML Prediction was 'Paywalled'."
