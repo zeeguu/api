@@ -1,8 +1,13 @@
 
+import os
 from langdetect import detect
 from .utils import pre_process
+from joblib import load
 
-def is_paywalled(article_txt:str, model):
+ml_models_path = os.path.dirname(__file__)
+PAYWALL_TFIDF_MODEL = load(os.path.join(ml_models_path,'binary', 'tfidf_multi_paywall_detect.joblib'))
+
+def is_paywalled(article_txt:str):
     lang = detect(article_txt)
     #print("Language detected was: ", lang)
-    return model.predict([pre_process(article_txt, lang)])
+    return PAYWALL_TFIDF_MODEL.predict([pre_process(article_txt, lang)])[0]

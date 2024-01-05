@@ -1,5 +1,5 @@
 import os
-from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI
+from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI, download_and_parse
 
 TESTDATA_FOLDER = os.path.join(os.path.dirname(__file__), "test_data")
 
@@ -67,6 +67,5 @@ def mock_requests_get(m):
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
 
-def db_content_get(url):
-    with open(os.path.join(TESTDATA_FOLDER, URLS_TO_MOCK[READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL])) as f:
-        return f.read()
+def mock_readibility_call(url):
+    return download_and_parse(url)
