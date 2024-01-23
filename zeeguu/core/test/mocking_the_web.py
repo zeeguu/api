@@ -67,5 +67,5 @@ def mock_requests_get(m):
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
 
-def mock_readibility_call(url):
+def mock_readability_call(url):
     return download_and_parse(url)

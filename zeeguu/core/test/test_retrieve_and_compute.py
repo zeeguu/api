@@ -76,7 +76,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert "Advertisement" not in cleaned_up_text
     
     def test_ml_classification(self):
-        db_content = mock_readibility_call(URL_ML_JP_PAYWALL)
+        db_content = mock_readability_call(URL_ML_JP_PAYWALL)
 
         is_quality, reason = sufficient_quality(db_content)
         assert not is_quality

@@ -1,0 +1,9 @@
+{
+  "n_cv_splits": "5",
+  "cv_test_results": "{\"acc_avg\": 0.9876923076923078, \"acc_std\": 0.007844645405527364, \"f1_w_avg\": 0.9875812261128958, \"f1_w_std\": 0.007905047332756848}",
+  "model_name": "tfidf_multi_paywall_detect",
+  "sklearn_version": "1.4.0",
+  "model_creation_timestamp": "2024-01-23 13:42:07.249847",
+  "model_filename": "tfidf_multi_paywall_detect_2024_01_23",
+  "notes": "This model was trained on mostly paywalled danish and german articles."
+}
