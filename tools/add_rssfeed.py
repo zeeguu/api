@@ -7,7 +7,7 @@ app = create_app()
 app.app_context().push()
 
 
-def test_feed(url: str):
+def create_and_test_feed(url: str):
     feed = RSSFeed.from_url(url)
 
     feed_items = feed.feed_items()
@@ -22,7 +22,7 @@ def test_feed(url: str):
 
 def main():
     _feed_url = input("Feed url:  ")
-    test_feed = test_feed(_feed_url)
+    test_feed = create_and_test_feed(_feed_url)
 
     feed_name = input(f"Feed name (Enter for: {test_feed.title}):  ") or test_feed.title
     print(f"= {feed_name}")
