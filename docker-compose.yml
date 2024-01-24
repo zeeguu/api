@@ -14,7 +14,7 @@ services:
       - 9001:9001
     volumes:
       - .:/Zeeguu-API
-      - /tmp:/zeeguu-data
+      - ./data/zeeguu:/zeeguu-data
     entrypoint: "python /Zeeguu-API/dev.py"
     networks:
       - zeeguu_backend
@@ -32,7 +32,7 @@ services:
       - discovery.type=single-node
       - network.host=0.0.0.0 # is this still needed? 
     volumes:
-      - ./Users/gh/zeeguu/endpoints/dev_data_folder/elasticsearch_db/data:/usr/share/elasticsearch/data
+      - ./data/elasticsearch_db/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
@@ -46,7 +46,7 @@ services:
 
     volumes:
       - .:/Zeeguu-API
-      - /tmp:/zeeguu-data
+      - ./data/zeeguu:/zeeguu-data
     entrypoint: "python tools/_playground.py"
     networks:
       - zeeguu_backend
@@ -62,7 +62,7 @@ services:
 
     volumes:
       - .:/Zeeguu-API
-      - /tmp:/zeeguu-data
+      - ./data/zeeguu:/zeeguu-data
     entrypoint: "bash"
     networks:
       - zeeguu_backend
@@ -74,7 +74,7 @@ services:
 
     volumes:
       - .:/Zeeguu-API
-      - /tmp:/zeeguu-data
+      - ./data/zeeguu:/zeeguu-data
     entrypoint: "./run_tests.sh"
     networks:
       - zeeguu_backend
@@ -87,7 +87,7 @@ services:
 
     volumes:
       - .:/Zeeguu-API
-      - /tmp:/zeeguu-data
+      - ./data/zeeguu:/zeeguu-data
       - /Users:/userslalal
     entrypoint: "python tools/mysql_to_elastic.py"
     networks:
