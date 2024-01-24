@@ -32,7 +32,7 @@ services:
       - discovery.type=single-node
       - network.host=0.0.0.0 # is this still needed? 
     volumes:
-      - /Users/gh/zeeguu/endpoints/dev_data_folder/elasticsearch_db/data:/usr/share/elasticsearch/data
+      - ./Users/gh/zeeguu/endpoints/dev_data_folder/elasticsearch_db/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped

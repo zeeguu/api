@@ -74,3 +74,10 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
         cleaned_up_text = cleanup_non_content_bits(art.text)
         assert "Advertisement" not in cleaned_up_text
+    
+    def test_ml_classification(self):
+        db_content = mock_readability_call(URL_ML_JP_PAYWALL)
+
+        is_quality, reason = sufficient_quality(db_content)
+        assert not is_quality
+        assert reason == "ML Prediction was 'Paywalled'."

@@ -46,3 +46,4 @@ rapidfuzz==3.0.0
 scipy==1.10.1
 git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 readabilipy
+scikit-learn==1.4.0

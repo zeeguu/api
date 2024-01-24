@@ -1,5 +1,5 @@
 import os
-from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI
+from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI, download_and_parse
 
 TESTDATA_FOLDER = os.path.join(os.path.dirname(__file__), "test_data")
 
@@ -27,6 +27,8 @@ URL_KLEINE_PRINZ = "http://www.derkleineprinz-online.de/text/2-kapitel/"
 
 URL_BLINDEN_UND_ELEPHANT = "https://www.geschichten-netzwerk.de/geschichten/die-blinden-und-der-elefant/"
 
+URL_ML_JP_PAYWALL = "https://jyllands-posten.dk/kultur/ECE16582800/puk-damsgaard-leverer-voldsom-kritik-af-vestens-krig-i-afghanistan/#:~:text=Man%20kommer%20ikke%20i%20godt,og%20ligestilling%20i%20al%20evighed."
+
 URLS_TO_MOCK = {
     URL_BLINDEN_UND_ELEPHANT: "blinden_und_elefant.html",
     URL_CNN_KATHMANDU: "cnn_kathmandu.html",
@@ -41,6 +43,7 @@ URLS_TO_MOCK = {
     URL_SPIEGEL_RSS: "spiegel.rss",
     URL_SPIEGEL_NANCY: "spiegel_nancy.html",
     URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.html",
+    URL_ML_JP_PAYWALL: "jp_article_example.html",
 
     # these are needed for mocking the readability cleanup server
     READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
@@ -49,9 +52,9 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_NANCY: "spiegel_nancy.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_LEMONDE_FORMATION: "lemonde_formation.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt"
+    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
+    READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt"
 }
-
 
 def mock_requests_get(m):
     def mock_requests_get_for_url(m, url):
@@ -63,3 +66,6 @@ def mock_requests_get(m):
 
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
+
+def mock_readability_call(url):
+    return download_and_parse(url)
