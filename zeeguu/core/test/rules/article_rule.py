@@ -3,7 +3,7 @@ from random import randint
 
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
-from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
+from zeeguu.core.test.rules.rss_feed_rule import FeedRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import Article
 from zeeguu.core.test.mocking_the_web import URL_FAZ_LEIGHTATHLETIK
@@ -33,7 +33,7 @@ class ArticleRule(BaseRule):
         content = self.faker.text()
         summary = self.faker.text()
         published = datetime.now() - timedelta(minutes=randint(0, 7200))
-        rss_feed = RSSFeedRule().feed
+        rss_feed = FeedRule().feed
         language = LanguageRule().random
         url = UrlRule().url
 

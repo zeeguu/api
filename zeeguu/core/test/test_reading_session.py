@@ -13,13 +13,14 @@ class UserReadingSessionTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
         self.read_session = ReadingSessionRule().w_session
+        self.TIME_CREATED = datetime.now()
         self.reading_session_timeout = UserReadingSession.get_reading_session_timeout()
         self.VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
         self.VERY_FAR_IN_THE_FUTURE = "2030-01-01T00:00:00"
-        self.TIMEOUT_MINUTES_IN_THE_PAST = datetime.now() - timedelta(
+        self.TIMEOUT_MINUTES_IN_THE_PAST = self.TIME_CREATED - timedelta(
             minutes=self.reading_session_timeout
         )
-        self.TWICE_TIMEOUT_MINUTES_IN_THE_PAST = datetime.now() - timedelta(
+        self.TWICE_TIMEOUT_MINUTES_IN_THE_PAST = self.TIME_CREATED - timedelta(
             minutes=self.reading_session_timeout * 2
         )
 
@@ -45,7 +46,7 @@ class UserReadingSessionTest(ModelTestMixIn, TestCase):
 
     def test__is_not_same_reading_session(self):
         self.read_session.last_action_time = self.TWICE_TIMEOUT_MINUTES_IN_THE_PAST
-        assert False == self.read_session._is_still_active()
+        assert False == self.read_session._is_still_active(self.TIME_CREATED)
 
     # One result scenario (add grace time)
     def test__update_last_use1(self):
@@ -90,7 +91,7 @@ class UserReadingSessionTest(ModelTestMixIn, TestCase):
         event = EVENT_OPEN_ARTICLE
         self.read_session.last_action_time = self.TWICE_TIMEOUT_MINUTES_IN_THE_PAST
         resulting_reading_session = UserReadingSession.update_reading_session(
-            db_session, event, self.read_session.user_id, self.read_session.article_id
+            db_session, event, self.read_session.user_id, self.read_session.article_id, current_time=self.TIME_CREATED
         )
         assert resulting_reading_session != self.read_session
 

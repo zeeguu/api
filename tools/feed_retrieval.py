@@ -21,7 +21,7 @@ import traceback
 import zeeguu.core
 from zeeguu.logging import log
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
-from zeeguu.core.model import RSSFeed, Language
+from zeeguu.core.model import Feed, Language
 
 db_session = zeeguu.core.model.db.session
 
@@ -49,7 +49,7 @@ def retrieve_articles_for_language(language_code):
 
     language = Language.find(language_code)
     all_language_feeds = (
-        RSSFeed.query.filter_by(language_id=language.id)
+        Feed.query.filter_by(language_id=language.id)
         .filter_by(deactivated=False)
         .all()
     )
@@ -60,7 +60,7 @@ def retrieve_articles_for_language(language_code):
 def retrieve_articles_from_all_feeds():
 
     counter = 0
-    all_feeds = RSSFeed.query.all()
+    all_feeds = Feed.query.all()
     download_for_feeds(all_feeds)
 
 
