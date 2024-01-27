@@ -57,29 +57,12 @@ class UserExerciseSession(db.Model):
 
         return res
 
-    def close_exercise_session(self, db_session, duration):
-        """
-         Parameters:
-         db_session = database session
-
-         returns: The exercise session if everything went well otherwise probably exceptions related to the DB
-        """
-        self.duration = duration
-        db_session.add(self)
-        db_session.commit()
-        from zeeguu.core.emailer.user_activity import (
-            send_user_finished_exercise_session,
-        )
-
-        send_user_finished_exercise_session(self)
-        return self
-
     @classmethod
     def find_by_user_id(
-            cls,
-            user_id,
-            from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE
+        cls,
+        user_id,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
     ):
         """
 
@@ -105,10 +88,10 @@ class UserExerciseSession(db.Model):
 
     @classmethod
     def find_by_cohort(
-            cls,
-            cohort_id,
-            from_date: str = VERY_FAR_IN_THE_PAST,
-            to_date: str = VERY_FAR_IN_THE_FUTURE
+        cls,
+        cohort_id,
+        from_date: str = VERY_FAR_IN_THE_PAST,
+        to_date: str = VERY_FAR_IN_THE_FUTURE,
     ):
         """
         Get exercise sessions by cohort

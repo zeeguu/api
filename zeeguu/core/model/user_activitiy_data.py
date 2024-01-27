@@ -319,8 +319,3 @@ class UserActivityData(db.Model):
 
         session.add(new_entry)
         session.commit()
-
-        if has_article_id:
-            UserReadingSession.update_reading_session(
-                session, event, user.id, article_id, current_time=time
-            )
