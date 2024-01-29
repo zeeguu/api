@@ -1,4 +1,4 @@
-# Zeeguu-API ![Build Status](https://github.com/zeeguu-ecosystem/Zeeguu-API/actions/workflows/test.yml/badge.svg)
+# Zeeguu-API ![Python package](https://github.com/zeeguu/api/actions/workflows/test.yml/badge.svg)
 
 Zeeguu-API is an open API that allows tracking and modeling the progress of a learner in a foreign language with the goal of recommending paths to accelerate vocabulary acquisition.
 
