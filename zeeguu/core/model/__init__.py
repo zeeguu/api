@@ -75,6 +75,5 @@ from .word_to_study import WordToStudy
 from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .personal_copy import PersonalCopy
-from .feed import Feed
 
 from .difficulty_lingo_rank import DifficultyLingoRank

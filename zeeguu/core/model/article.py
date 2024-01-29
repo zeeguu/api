@@ -219,7 +219,8 @@ class Article(db.Model):
             result_dict["published"] = datetime_to_json(self.published_time)
 
         if self.feed:
-            result_dict["feed_id"] = (self.feed.id)
+            # Is this supposed to be a tuple?
+            result_dict["feed_id"] = (self.feed.id,)
             result_dict["icon_name"] = self.feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
