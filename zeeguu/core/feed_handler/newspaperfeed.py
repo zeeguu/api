@@ -5,7 +5,7 @@ from zeeguu.logging import log
 
 
 class NewspaperFeed(FeedHandler):
-    def __init__(self, url: str, feed_type: int):
+    def __init__(self, url: str, feed_type: int, use_cache: bool = True):
         super()
         print("Created Newspaper Source")
         self.url = url
@@ -14,6 +14,7 @@ class NewspaperFeed(FeedHandler):
         self.title = data.brand
         self.description = data.description
         self.image_url_string = data.favicon
+        self.use_cache = use_cache
 
     def get_feed_articles(self) -> list[dict]:
         """
@@ -24,7 +25,10 @@ class NewspaperFeed(FeedHandler):
             summary:str, the summary of the article if available
             published_datetime:datetime, date time of the article
         """
-        news_feed = newspaper.build(self.url)
+        if self.use_cache:
+            news_feed = newspaper.build(self.url)
+        else:
+            news_feed = newspaper.build(self.url, memoize_articles=False)
         feed_data = news_feed.articles
 
         feed_items = []
@@ -42,5 +46,5 @@ class NewspaperFeed(FeedHandler):
                 published_datetime=publish_date,
             )
             feed_items.append(new_item_data_dict)
-        
+
         return feed_items

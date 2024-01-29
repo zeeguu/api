@@ -91,7 +91,8 @@ class Feed(db.Model):
         )
     
     def initializeFeedHandler(self):
-        self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](str(self.url), self.feed_type)
+        if self.feed_handler is None:
+            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](str(self.url), self.feed_type)
 
     def as_dictionary(self):
         language = "unknown_lang"
@@ -115,8 +116,8 @@ class Feed(db.Model):
         extracted by feedparser
         and including: title, url, content, summary, time
         """
-        ## The newspaper library has a caching mechanism, so only
-        ## articles that haven't been cralled are picked up
+        # Since loading this from the DB will cause the file
+        # handler to be set to none, we initialize it here.
         self.initializeFeedHandler()
 
         if not last_retrieval_time_from_DB:

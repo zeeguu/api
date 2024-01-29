@@ -4,7 +4,7 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import Feed, Language, Url
-from zeeguu.core.feed_handler import FEED_TYPE
+from zeeguu.core.feed_handler import FEED_TYPE, NewspaperFeed
 from zeeguu.core.test.mocking_the_web import (
     URL_SPIEGEL_RSS,
     URL_LEMONDE_VOLS_AMERICAINS,
@@ -65,6 +65,8 @@ class FeedRule(BaseRule):
             lang_da,
             FEED_TYPE["newspaper"]
         )
+        # For testing, we create an object that doens't cache the articles.
+        self.feed_newspaper_da.feed_handler = NewspaperFeed(str(self.feed_newspaper_da.url), FEED_TYPE["newspaper"], False)
         self.save(self.feed_newspaper_da)
         
 

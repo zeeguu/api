@@ -23,6 +23,12 @@ URL_SPIEGEL_VENEZUELA = "http://www.spiegel.de/politik/ausland/venezuela-militae
 
 URL_VERDENS_BEDSTE = "https://verdensbedstenyheder.dk"
 
+URL_VERDENS_BEDSTE_RSS = "https://verdensbedstenyheder.dk/rss"
+
+URL_VERDENS_BEDSTE_FEED = "https://verdensbedstenyheder.dk/feed"
+
+URL_VERDENS_BEDSTE_FEEDS = "https://verdensbedstenyheder.dk/feeds"
+
 URL_VERDENS_INDONESIA = "https://verdensbedstenyheder.dk/nyheder/hajstoev-afsloerer-illegalt-fiskeri-i-indonesien/"
 
 URL_VERDENS_JORD = "https://verdensbedstenyheder.dk/nyheder/foer-ryddede-de-markerne-nu-dyrker-smaaboender-paa-tvaers-af-afrika-millioner-af-traeer-paa-deres-jorde/"
@@ -53,6 +59,9 @@ URLS_TO_MOCK = {
     URL_VERDENS_BEDSTE: "verdensbedste.html",
     URL_VERDENS_INDONESIA: "verdensbedste_indonesien.html",
     URL_VERDENS_JORD: "verdensbedste_jorde.html",
+    URL_VERDENS_BEDSTE_RSS: "verdensbedste.html",
+    URL_VERDENS_BEDSTE_FEED: "verdensbedste.html",
+    URL_VERDENS_BEDSTE_FEEDS: "verdensbedste.html",
 
     # these are needed for mocking the readability cleanup server
     READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
