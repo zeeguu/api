@@ -6,4 +6,7 @@ FEED_TYPE_TO_FEED_HANDLER = {
     1: NewspaperFeed,
 }
 
-STANDARD_FEED_HANDLER = 0
+FEED_TYPE = {
+    "rss": 0,
+    "newspaper": 1,
+}

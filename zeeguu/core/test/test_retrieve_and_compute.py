@@ -3,7 +3,7 @@ import newspaper
 import zeeguu.core
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
-from zeeguu.core.test.rules.rss_feed_rule import FeedRule
+from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed

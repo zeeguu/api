@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from zeeguu.api.app import create_app
 from zeeguu.core.model import Feed, Url, Language
-from zeeguu.core.feed_handler import FEED_TYPE_TO_FEED_HANDLER
+from zeeguu.core.feed_handler import FEED_TYPE
 import zeeguu.core
 
 app = create_app()
@@ -22,9 +22,8 @@ def create_and_test_feed(url: str, feed_type: int):
 
 
 def main():
-    available_feed_types = FEED_TYPE_TO_FEED_HANDLER
     _feed_url = input("Feed url:  ")
-    print(f"Available feed types: '{available_feed_types}'")
+    print(f"Available feed types: '{FEED_TYPE}'")
     feed_type = int(input("What feed type is it? : "))
     test_feed = create_and_test_feed(_feed_url, feed_type)
 

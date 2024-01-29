@@ -4,17 +4,18 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import Feed, Language, Url
-from zeeguu.core.feed_handler import STANDARD_FEED_HANDLER
+from zeeguu.core.feed_handler import FEED_TYPE
 from zeeguu.core.test.mocking_the_web import (
     URL_SPIEGEL_RSS,
     URL_LEMONDE_VOLS_AMERICAINS,
+    URL_VERDENS_BEDSTE
 )
 
 
 class FeedRule(BaseRule):
     """
 
-    Creates a RSSFeed object with random data and saves it to the database
+    Creates a Feed object with random data and saves it to the database
 
     """
 
@@ -35,7 +36,7 @@ class FeedRule(BaseRule):
             "",
             "spiegel.png",
             language=lang_de,
-            feed_type=STANDARD_FEED_HANDLER,
+            feed_type=FEED_TYPE["rss"],
         )
         self.save(self.feed1)
 
@@ -49,9 +50,23 @@ class FeedRule(BaseRule):
             "",
             "spiegel.png",
             language=lang_fr,
-            feed_type=STANDARD_FEED_HANDLER,
+            feed_type=FEED_TYPE["rss"],
         )
         self.save(self.feed_fr)
+
+        lang_da = Language.find_or_create("da")
+        url = Url.find_or_create(self.db.session, URL_VERDENS_BEDSTE)
+        self.feed_newspaper_da = Feed.find_or_create(
+            self.db.session,
+            url,
+            "",
+            "",
+            "verdensbedstenyheder.png",
+            lang_da,
+            FEED_TYPE["newspaper"]
+        )
+        self.save(self.feed_newspaper_da)
+        
 
     @staticmethod
     def _exists_in_db(obj):

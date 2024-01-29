@@ -3,7 +3,7 @@ from unittest import TestCase
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 import zeeguu.core
-from zeeguu.core.test.rules.rss_feed_rule import FeedRule
+from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.mocking_the_web import (
     URL_LEMONDE_FORMATION,
     URL_SPIEGEL_VENEZUELA,

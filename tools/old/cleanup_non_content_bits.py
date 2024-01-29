@@ -7,7 +7,7 @@ SOURCE = 'www.theonion.com'
 
 feed = [each for each in Feed.query.all() if SOURCE in each.url.as_string()][0]
 
-all_articles = Article.query.filter_by(broken=0).filter_by(rss_feed_id=feed.id).order_by(
+all_articles = Article.query.filter_by(broken=0).filter_by(feed_id=feed.id).order_by(
     Article.published_time.desc()).all()
 
 user_selected_all = False
