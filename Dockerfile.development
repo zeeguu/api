@@ -1,29 +1,10 @@
 FROM python:3.9.2-buster
 
-RUN apt-get update
-RUN apt-get upgrade -y
-
-
-# Git
-# ---
-# required by github dependencies in requirements.txt
-RUN apt-get -y install git
-
-
-# mysql CL client
-# -------------------------
-# - good for debugging sometimes
-RUN apt-get install -y mysql\*
-
-
-# libmysqlclient
-# --------------
-# - required to be able to install mysqlclient with pip
-#   https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
-RUN apt-get install -y default-libmysqlclient-dev
-
-# Zeeguu-Api
-# ----------
+RUN apt-get update -y && apt-get install -y \
+    git \
+    mysql\* \
+    default-libmysqlclient-dev \
+    && apt-get clean
 
 # Declare that this will be mounted from a volume
 VOLUME /Zeeguu-API
