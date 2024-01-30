@@ -2,6 +2,8 @@ instance
 dev_data_folder*
 .idea/
 .cache/
+.vscode/
+.data/
 
 *.pyc
 *.egg-info
