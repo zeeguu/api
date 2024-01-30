@@ -52,6 +52,7 @@ class Feed(db.Model):
         icon_name=None,
         language=None,
         feed_type=0,
+        feed_handler=None,
     ):
         self.url = url
         self.image_url = image_url
@@ -62,6 +63,7 @@ class Feed(db.Model):
         self.last_crawled_time = datetime(2001, 1, 2)
         self.deactivated = 0
         self.feed_type = feed_type
+        self.feed_handler = feed_handler
 
     def __str__(self):
         language = "unknown"

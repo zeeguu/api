@@ -5,7 +5,7 @@ from zeeguu.logging import log
 
 
 class NewspaperFeed(FeedHandler):
-    def __init__(self, url: str, feed_type: int, use_cache: bool = True):
+    def __init__(self, url: str, feed_type: int, use_cache: bool = False):
         super()
         print("Created Newspaper Source")
         self.url = url
@@ -25,6 +25,10 @@ class NewspaperFeed(FeedHandler):
             summary:str, the summary of the article if available
             published_datetime:datetime, date time of the article
         """
+        print("Newspaper Built!")
+        # Not sure if we should use cache (as currently the crawler checks if the article is in)
+        # This makes it complicated to assign a feed and download the articles found at that time.
+        # Currently, it ignores the newspaper's cache and justs uses ours.
         if self.use_cache:
             news_feed = newspaper.build(self.url)
         else:
