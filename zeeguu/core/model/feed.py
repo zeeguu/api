@@ -62,7 +62,6 @@ class Feed(db.Model):
         self.last_crawled_time = datetime(2001, 1, 2)
         self.deactivated = 0
         self.feed_type = feed_type
-        self.feed_handler = self.initializeFeedHandler()
 
     def __str__(self):
         language = "unknown"
