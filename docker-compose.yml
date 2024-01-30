@@ -75,7 +75,7 @@ services:
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu:/zeeguu-data
-    entrypoint: "./run_tests.sh"
+    entrypoint: "sh run_tests.sh"
     networks:
       - zeeguu_backend
 
