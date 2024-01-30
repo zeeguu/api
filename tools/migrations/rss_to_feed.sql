@@ -10,7 +10,7 @@ ADD COLUMN `feed_type` INT NOT NULL DEFAULT 0 AFTER `deactivated`, RENAME TO  `z
 ALTER TABLE `zeeguu_test`.`article` 
 DROP FOREIGN KEY `article_ibfk_1`;
 ALTER TABLE `zeeguu_test`.`article` 
-CHANGE COLUMN `rssfeed_id` `feed_id` INT NULL DEFAULT NULL ;
+CHANGE COLUMN `rss_feed_id` `feed_id` INT NULL DEFAULT NULL ;
 ALTER TABLE `zeeguu_test`.`article` 
 ADD CONSTRAINT `article_ibfk_1`
   FOREIGN KEY (`feed_id`)
