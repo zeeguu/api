@@ -170,14 +170,6 @@ def users_from_cohort(id, duration):
     """
     check_permission_for_cohort(id)
 
-    # The teacher is about to see the cohort info, so we close all the reading sessions
-    # that can be closed
-    # It's not clear if theres a better place to run this
-    # One could also run it before /student_activity_overview but that is too costly
-    # because that's called for every student
-    print("closing all reading sessions .... ")
-    UserReadingSession.close_all_stale_reading_sessions(db.session)
-
     from_date, to_date = _convert_number_of_days_to_date_interval(
         duration, to_string=True
     )

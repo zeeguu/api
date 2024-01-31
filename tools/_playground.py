@@ -1,4 +1,4 @@
-from zeeguu.core.model import UserExerciseSession, User
+from zeeguu.core.model import User
 from zeeguu.core.user_statistics.activity import exercises_duration_by_day
 
 from zeeguu.api.app import create_app
