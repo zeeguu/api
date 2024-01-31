@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from unittest import TestCase
 
 from zeeguu.core.model import db
