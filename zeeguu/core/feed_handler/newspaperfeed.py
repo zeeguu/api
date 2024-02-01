@@ -5,7 +5,7 @@ from zeeguu.logging import log
 
 
 class NewspaperFeed(FeedHandler):
-    def __init__(self, url: str, feed_type: int, use_cache: bool = False):
+    def __init__(self, url: str, feed_type: int, use_cache: bool = True):
         super()
         print("Created Newspaper Source")
         self.url = url
