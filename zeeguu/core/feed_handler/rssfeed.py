@@ -10,7 +10,10 @@ class RSSFeed(FeedHandler):
         super()
         self.url = url
         self.feed_type = feed_type
-        data = feedparser.parse(url)
+        self.extract_feed_metadata()
+
+    def extract_feed_metadata(self) -> None:
+        data = feedparser.parse(self.url)
         try:
             title = data.feed.title
         except:
@@ -18,7 +21,7 @@ class RSSFeed(FeedHandler):
         try:
             description = data.feed.subtitle
         except:
-            description = ""        
+            description = ""
         self.title = title
         self.description = description
         self.image_url_string = ""

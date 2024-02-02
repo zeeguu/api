@@ -10,11 +10,14 @@ class NewspaperFeed(FeedHandler):
         print("Created Newspaper Source")
         self.url = url
         self.feed_type = feed_type
-        data = newspaper.Source(url)
+        self.use_cache = use_cache
+        self.extract_feed_metadata()
+
+    def extract_feed_metadata(self) -> None:
+        data = newspaper.Source(self.url)
         self.title = data.brand
         self.description = data.description
         self.image_url_string = data.favicon
-        self.use_cache = use_cache
 
     def get_feed_articles(self) -> list[dict]:
         """
