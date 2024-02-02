@@ -9,11 +9,10 @@ class FeedHandler():
         self.description = ""
         self.image_url_string = ""
 
-    def get_utc_time(self, article_date) -> datetime:
+    def get_server_time(self, article_date) -> datetime:
         if type(article_date) is datetime:
             return normalize_to_server_time(article_date)
         return datetime.now()
-
     def get_feed_articles(self) -> list[dict]:
         """
             Returns a list[dictionary] containing the following fields:

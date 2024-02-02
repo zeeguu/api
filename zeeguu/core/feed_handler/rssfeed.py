@@ -48,7 +48,7 @@ class RSSFeed(FeedHandler):
         feed_items = []
         log(f"** Articles in feed: {len(feed_data.entries)}")
         for item in feed_data.entries:
-            publish_time = self.get_utc_time(item.get("published_parsed"))
+            publish_time = self.get_server_time(item.get("published_parsed"))
             new_item_data_dict = dict(
                 title=item.get("title", ""),
                 url=item.get("link", ""),

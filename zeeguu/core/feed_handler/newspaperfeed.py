@@ -40,7 +40,7 @@ class NewspaperFeed(FeedHandler):
         for article in feed_data:
             article.download()
             article.parse()
-            publish_date = self.get_utc_time(article.publish_date)
+            publish_date = self.get_server_time(article.publish_date)
 
             new_item_data_dict = dict(
                 title=article.title,
