@@ -6,12 +6,10 @@ from zeeguu.logging import log
 
 class NewspaperFeed(FeedHandler):
     def __init__(self, url: str, feed_type: int, use_cache: bool = True):
-        super()
-        print("Created Newspaper Source")
-        self.url = url
-        self.feed_type = feed_type
+        super().__init__(url, feed_type)
         self.use_cache = use_cache
         self.extract_feed_metadata()
+        logp(f"Created Newspaper Source ({self.url})")
 
     def extract_feed_metadata(self) -> None:
         data = newspaper.Source(self.url)
