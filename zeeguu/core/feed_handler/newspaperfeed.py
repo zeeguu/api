@@ -1,14 +1,13 @@
 import newspaper
 from .feed_handler import FeedHandler
 
-from zeeguu.logging import log
+from zeeguu.logging import log, logp
 
 
 class NewspaperFeed(FeedHandler):
     def __init__(self, url: str, feed_type: int, use_cache: bool = True):
-        super().__init__(url, feed_type)
         self.use_cache = use_cache
-        self.extract_feed_metadata()
+        super().__init__(url, feed_type)
         logp(f"Created Newspaper Source ({self.url})")
 
     def extract_feed_metadata(self) -> None:

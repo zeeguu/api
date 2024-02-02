@@ -9,6 +9,7 @@ class FeedHandler:
         self.title = ""
         self.description = ""
         self.image_url_string = ""
+        self.extract_feed_metadata()
 
     def get_server_time(self, article_date) -> datetime:
         if type(article_date) is datetime:
