@@ -17,6 +17,13 @@ NEXT_COOLING_INTERVAL_ON_SUCCESS = {
     4 * ONE_DAY: 8 * ONE_DAY,
 }
 
+# Reverse the process
+DECREASE_COOLING_INTERVAL_ON_FAIL = {
+    v: k for k, v in NEXT_COOLING_INTERVAL_ON_SUCCESS.items()
+}
+# If at 0, we don't decrease it further.
+DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
+
 
 class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -42,7 +49,7 @@ class BasicSRSchedule(db.Model):
 
     def update_schedule(self, db_session, correctness):
         if correctness:
-
+            # Why have CORRECTS_IN_A_ROW_FOR_LEARNED = 4 rather than 3? 
             if self.consecutive_correct_answers == CORRECTS_IN_A_ROW_FOR_LEARNED - 1:
                 self.bookmark.learned = True
                 self.bookmark.learned_time = datetime.now()
@@ -50,31 +57,40 @@ class BasicSRSchedule(db.Model):
                 db.session.commit()
                 db.session.delete(self)
                 db.session.commit()
+                print("Set to learned!")
                 return
 
-            if datetime.now() < self.next_practice_time:
+            # Compare the dates, to avoid situations where a user is scheduled
+            # to learn the word at 01-01-2024 11:00 and they do it at
+            # 01-01-2024 10:00 and then they are shown it again.
+            if datetime.now().date() < self.next_practice_time.date():
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
                 # cooldown perio, they might have arrived to do
                 # the exercise again; but it should not count
                 return
-
-            new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS[
-                self.cooling_interval
-            ]
+            # Since we can now loose the streak on day 8, 
+            # we might have to repeat it a few times to learn it.
+            new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
+                self.cooling_interval, 8 * ONE_DAY
+            )
+            self.cooling_interval = new_cooling_interval
             next_practice_date = datetime.now() + timedelta(
                 minutes=new_cooling_interval
             )
-            self.cooling_interval = new_cooling_interval
-            self.next_practice_time = next_practice_date
             self.consecutive_correct_answers += 1
-
         else:
-            self.next_practice_time = datetime.now()
-            self.cooling_interval = 0
+            # Decrease the cooling interval to the previous bucket
+            # Essentially, this will allow the user to recover
+            # their cooling interval if they have forgotten the word.
+            self.cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
+                self.cooling_interval
+            ]
+            next_practice_date = datetime.now()
             self.consecutive_correct_answers = 0
 
+        self.next_practice_time = next_practice_date
         db_session.add(self)
         db_session.commit()
 
