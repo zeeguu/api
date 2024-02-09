@@ -40,6 +40,12 @@ class PersonalCopy(db.Model):
         )
 
     @classmethod
+    def remove_for(cls, user, article, session):
+        article_copy = PersonalCopy.find(user_id=user.id, article_id=article.id)
+        session.delete(article_copy)
+        session.commit()
+
+    @classmethod
     def make_for(cls, user, article, session):
         new_personal_copy = PersonalCopy(user, article)
         session.add(new_personal_copy)
