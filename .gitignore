@@ -3,7 +3,7 @@ dev_data_folder*
 .idea/
 .cache/
 .vscode/
-.data/
+/data
 
 *.pyc
 *.egg-info
@@ -29,3 +29,5 @@ lu-mir-zeeguu-credentials.json
 
 zenv*
 tools/_playground.py
+
+zeeguu-anonymized-zeeguu_test-*
