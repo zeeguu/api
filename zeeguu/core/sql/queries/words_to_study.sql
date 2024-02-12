@@ -1,6 +1,6 @@
-"""
+/*
 Find words that aren't scheduled for the users but they have seen them in the past.
-"""
+*/
 select
     b.id bookmark_id,
     b.starred,
