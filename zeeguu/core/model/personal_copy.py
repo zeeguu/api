@@ -41,7 +41,11 @@ class PersonalCopy(db.Model):
 
     @classmethod
     def remove_for(cls, user, article, session):
-        article_copy = PersonalCopy.find(user_id=user.id, article_id=article.id)
+        article_copy = (
+            cls.query.filter(PersonalCopy.user_id == user.id)
+            .filter(PersonalCopy.article_id == article.id)
+            .one()
+        )
         session.delete(article_copy)
         session.commit()
 

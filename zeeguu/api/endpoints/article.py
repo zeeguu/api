@@ -67,6 +67,7 @@ def make_personal_copy():
 
     return "OK" if PersonalCopy.exists_for(user, article) else "Something went wrong!"
 
+
 # ---------------------------------------------------------------------------
 @api.route("/remove_personal_copy", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -78,7 +79,12 @@ def remove_personal_copy():
     article = Article.find_by_id(article_id)
     user = flask.g.user
 
-    return "OK" if PersonalCopy.remove_for(user, article, db_session) else "Something went wrong!"
+    if PersonalCopy.exists_for(user, article):
+        PersonalCopy.remove_for(user, article, db_session)
+
+    return (
+        "OK" if not PersonalCopy.exists_for(user, article) else "Something went wrong!"
+    )
 
 
 # ---------------------------------------------------------------------------
