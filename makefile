@@ -23,8 +23,7 @@ populatedb:
 	@echo "Populating the database, this will take a while ⌛⌛⌛⌛"
 	@echo "$(SQL_FILE)" to populate the database
 	@docker cp $(SQL_FILE) $(DOCKER_CONTAINER):/$(SQL_FILE)
-	@docker exec -i $(DOCKER_CONTAINER) bash -c ' \
-		mysql -u $(MYSQL_USER) -p$(MYSQL_PASSWORD) zeeguu_test < /$(SQL_FILE);
+	@docker exec -i $(DOCKER_CONTAINER) bash -c 'mysql -u $(MYSQL_USER) -p$(MYSQL_PASSWORD) zeeguu_test < /$(SQL_FILE)'
 
 
 shell:
