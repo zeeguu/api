@@ -48,4 +48,4 @@ source zeeguu-anonymized-zeeguu_test-202401300908.sql
 
 ````
 # ER-diagram
-![ER-diagram](https://github.com/zeeguu-api/)
+![ER-diagram](https://github.com/Mlth/zeeguu-api/blob/master/ER-diagram.svg)
