@@ -1,0 +1,457 @@
+%% Should be used with Mermaid.live
+
+erDiagram
+    %% No data
+    algo_stats {
+        int exercise_source_id fk
+        decimal mean
+        decimal sd
+        datetime datetime
+    }
+    
+    article { 
+        int id pk
+        string title
+        string authors
+        string content
+        string htmlContent
+        string summary
+        int word_count
+        datetime published_time
+        int fk_difficulty
+        int broken
+        int deleted
+        int video
+    }
+    
+    user ||--o{ article_difficulty_feedback : has
+    article ||--o{ article_difficulty_feedback : has
+    article_difficulty_feedback {
+        int id pk 
+        int user_id fk 
+        int article_id fk
+        datetime date
+        int difficulty_feedback
+    }
+
+    article ||--o{ article_topic_map : maps
+    topic ||--o{ article_topic_map : maps
+    article_topic_map {
+        int article_id
+        int topic_id
+    }
+    
+    article_word{
+        int id pk 
+        varchar word
+    }
+
+    user_word }|--|{ article_word_map : maps
+    article }|--|{ article_word_map : maps
+    article_word_map{
+        int word_id fk
+        int article_id fk
+    }
+
+    article ||--o{ articles_cache : caches
+    articles_cache{
+        int id pk
+        int article_id fk
+        varchar content_hash
+    }
+
+    bookmark ||--o{ basic_sr_schedule : has
+    basic_sr_schedule {
+        int id pk
+        int bookmark_id fk
+        int consecutive_correct_answers 
+        int cooling_interval 
+    }
+
+    user ||--o| bookmark : has
+    user_word ||--|{ bookmark : "originates from"
+    user_word ||--|{ bookmark : "translates to"
+    text ||--o{ bookmark : from
+    bookmark {
+        int id
+        int user_id
+        int origin_id
+        int translation_id
+        int text_id
+        datetime time
+        tinyint starred
+        tinyint fit_for_study
+        datetime learned_time
+        tinyint learned
+    }
+
+    exercise ||--o| bookmark_exercise_mapping : has
+    bookmark ||--|{ bookmark_exercise_mapping : has
+    bookmark_exercise_mapping {
+        int exercise_id fk
+        int bookmark_id fk
+    }
+
+    bookmark ||--o| bookmark_priority_arts : has
+    bookmark_priority_arts {
+        int bookmark_id fk
+        float priority
+        datetime updated
+    }
+
+    %% Almost no data
+    bookmark_translation_mapping {
+        int bookmark_id fk
+        int translation_id fk
+    }
+
+    language |o--o{ cohort : "is in"
+    cohort {
+        int id pk
+        int language_id fk
+        varchar name 
+        varchar inv_code 
+        int max_students
+        int declared_level_min 
+        int declared_level_max 
+        tinyint is_cohort_of_teachers
+    }
+
+    cohort ||--o{ cohort_article_map : has
+    article ||--o{ cohort_article_map : has
+    cohort_article_map {
+        int cohort_id fk
+        int article_id fk
+        datetime published_time
+    }
+
+    article ||--o{ difficulty_lingo_rank : has
+    difficulty_lingo_rank {
+        int id pk
+        int article_id fk
+        float difficulty 
+    }
+
+    domain_name {
+        int id pk 
+        varchar domain_name
+    }
+
+    exercise_source ||--|| exercise : has
+    exercise_outcome |o--|| exercise : has
+    exercise {
+        int id pk
+        int source_id fk
+        int outcome_id fk
+        int solving_speed
+        datetime time
+        varchar feedback
+        int session_id
+    }
+
+    exercise_outcome {
+        int id pk
+        varchar outcome 
+    }
+
+    exercise_source {
+        int id pk
+        varchar source 
+    }
+    
+    language{
+        int id
+        varchar name
+        varchar code
+    }
+    
+    topic ||--o{ localized_topic : has
+    language ||--o{ localized_topic : "is in"
+    localized_topic{
+        int id pk
+        int topic_id fk
+        int language_id fk
+        varchar topic_translated
+        varchar keywords
+    }
+
+    user ||--o{ personal_copy : has
+    article ||--o{ personal_copy : "copy of"
+    personal_copy{
+        int id pk
+        int user_id fk
+        int article fk
+    }
+
+    language ||--o{ rss_feed : "is in"
+    url ||--o{ rss_feed : has    
+    url ||--o{ rss_feed : "has image"
+    rss_feed {
+        int id pk
+        int language_id fk
+        int url_id fk
+        int image_url fk
+        varchar title
+        varchar description
+        datetime last_crawled_time
+        varchar icon_name 
+        int deactivated 
+    }
+
+    search {
+        int id pk
+        varchar keywords 
+    }
+
+    user ||--o{ search_filter : for
+    search ||--o{ search_filter : filters
+    search_filter {
+        int id pk
+        int user_id fk
+        int search_id fk
+    }
+
+    user ||--o{ search_subscription : by
+    search ||--o{ search_subscription : "subscribed to"
+    search_subscription {
+        int id pk 
+        int user_id fk
+        int search_id fk
+    }
+
+    user ||--o{ session : has
+    search 
+    session {
+        int id pk 
+        int user_id fk 
+        datetime last_use
+    }
+
+    url ||--o{ starred_article : has
+    user ||--o{ starred_article : has
+    language ||--o{ starred_article : has
+    starred_article {
+        int id pk
+        int url_id fk
+        int user_id fk
+        int language_id fk
+        varchar title 
+        datetime starred_date
+    }
+
+    %% No data
+    starred_words_association {
+        int user_id fk
+        int starred_word_id fk
+    }
+
+    user ||--o| teacher : is
+    teacher {
+        int id pk
+        int user_id fk
+    }
+
+    user ||--o{ teacher_cohort_map : "has teacher"
+    cohort ||--|{ teacher_cohort_map : "for cohort"
+    teacher_cohort_map {
+        int id pk
+        int user_id fk
+        int cohort_id fk
+        tinyint is_dev
+    }
+    
+    language ||--o{ text : has
+    url ||--|{ text : has
+    article ||--o{ text : has
+    text {
+        int id
+        int language_id
+        int url_id
+        int article_id
+        varchar content
+        varchar content_hash
+    }
+
+    topic {
+        int id
+        varchar title
+    }
+
+    user ||--o{ topic_filter : has
+    topic ||--o{ topic_filter : has
+    topic_filter {
+        int id pk
+        int user_id fk
+        int topic_id fk
+    }
+
+    user ||--o{ topic_subscription : has
+    topic ||--o{ topic_subscription : has
+    topic_subscription {
+        int id
+        int user_id
+        int topic_id
+    }
+
+    user ||--o{ topic_filter : "filters for"
+    topic ||--o{ topic_filter : filters
+    topic_filter {
+        int id pk
+        int user_id fk
+        int topic_id fk
+    }
+    
+    user_word ||--|{ translation : "originates from"
+    user_word ||--|{ translation : "translates to"
+    user ||--o{ translation : "translated by"
+    text ||--o{ translation : "translated in"
+    translation{
+        int id pk
+        int origin_id fk
+        int translation_id fk
+        int user_id fk
+        int text_id fk
+        datetime time
+        tinyint starred
+        tinyint learned
+        tinyint fit_for_study
+        datetime learned_time
+    }
+
+    unique_code {
+        int id pk 
+        varchar code
+        varchar email
+        datetime time
+    }
+    
+    domain_name ||--|{ url : has
+    url {
+        int id pk
+        int domain_name_id fk
+        varchar url
+        varchar title
+        varchar path
+    }
+
+    language ||--o{ user : "has native"
+    language ||--o{ user : "has learned"
+    cohort ||--o{ user : "is part of"
+    user {
+        int id pk
+        int native_language_id fk
+        int learned_language_id fk
+        int cohort_id fk
+        varchar email
+        varchar name
+        varchar password_salt
+        varchar password
+        varchar invitation_code
+    }
+
+    user ||--o{ user_activity_data : has
+    article |o--o{ user_activity_data : has
+    user_activity_data {
+        int id pk
+        int user_id fk
+        int article_id fk 
+        datetime time
+        varchar time
+        varchar event
+        varchar value
+        varchar extra_data
+        tinyint has_article_id
+    }
+
+    user ||--o{ user_article : has
+    article |o--o{ user_article : has
+    user_article {
+        int id  pk
+        int user_id fk
+        int article_id fk
+        datetime opened
+        datetime starred
+        tinyint liked
+    }
+
+    user ||--o{ user_exercise_session : has
+    user_exercise_session {
+        int id pk
+        int user_id fk
+        datetime start_time 
+        int duration 
+        datetime last_action_time
+        tinyint is_active
+    }
+    
+    user ||--o{ user_language : "learned by"
+    language ||--o{ user_language : "is learning"
+    user_language {
+        int id pk 
+        int user_id fk 
+        int language_id fk 
+        int declared_level_min
+        int declared_level_max
+        int inferred_level_min
+        int inferred_level_max
+        tinyint reading_news
+        tinyint doing_exercises
+        int cefr_level
+    }
+
+    user ||--o{ user_preference : has
+    user_preference {
+        int id pk
+        int user_id fk
+        varchar key
+        varchar value 
+    }
+
+    user ||--o{ user_reading_session : has
+    article |o--o{ user_reading_session : has
+    user_reading_session {
+        int id pk
+        int user_id fk
+        int article_id fk
+        datetime start_time
+        int duration
+        datetime last_action_time
+        tinyint is_active
+    }
+
+    language ||--o{ user_word : "is in"
+    user_word {
+        int id pk
+        int language_id fk
+        varchar word
+        int rank 
+    }
+
+    %% No data
+    word_form {
+        int id pk
+        int language_id fk
+        varchar word 
+    }
+
+    %% No data
+    word_interaction_history {
+        int id pk
+        int user_id fk
+        int word_id fk
+        int known_probability
+        text interaction_history_json
+    }
+
+    user ||--o{ word_to_study : has
+    bookmark ||--o| word_to_study : has
+    language ||--o{ word_to_study : has
+    word_to_study {
+        int id pk 
+        int user_id fk
+        int bookmark_id fk
+        int language_id fk
+        datetime nextDueDate 
+        int coolingInterval
+        int consecutiveCorrects 
+    }
