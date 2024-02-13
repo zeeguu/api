@@ -1,5 +1,6 @@
 import os
-from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI, download_and_parse
+from zeeguu.core.content_retriever.parse_with_readability_server import READABILITY_SERVER_CLEANUP_URI, \
+    download_and_parse
 
 TESTDATA_FOLDER = os.path.join(os.path.dirname(__file__), "test_data")
 
@@ -74,7 +75,10 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_INDONESIA: "verdensbedste_indonesien.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_JORD: "verdensbedste_jorde.txt",
+    # some
+    "https://publicsuffix.org/list/public_suffix_list.dat": "public_suffix_list.dat"
 }
+
 
 def mock_requests_get(m):
     def mock_requests_get_for_url(m, url):
@@ -86,6 +90,7 @@ def mock_requests_get(m):
 
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
+
 
 def mock_readability_call(url):
     return download_and_parse(url)
