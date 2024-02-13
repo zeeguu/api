@@ -28,7 +28,6 @@ RUN python setup.py develop
 WORKDIR /Zeeguu-API
 COPY dev.py /Zeeguu-API/
 COPY setup.py /Zeeguu-API/
-COPY data/** /Zeeguu-API/
 COPY tools/** /Zeeguu-API/
 COPY zeeguu/** /Zeeguu-API/
 
