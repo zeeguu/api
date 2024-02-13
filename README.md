@@ -127,7 +127,7 @@ On Mac, if you want to run mysql locally, and not from within Docker, you need t
 brew install mysql-client
 ```
 
-Mircea: On my M2 mac the `pip instal mysqlclient` still fails till I define the following: 
+Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following: 
 
 ```
 export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
