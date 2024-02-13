@@ -30,3 +30,20 @@ Go to this URL to check that the server is running
 Should get an input similar to 
 
 `` ["de", "es", "fr", "nl", "en", "it", "da", "pl", "sv", "ru", "no", "hu", "pt"] ``
+
+
+# Back for database if makefile does not work
+
+````
+
+docker cp zeeguu-anonymized-zeeguu_test-202401300908.sql zeeguu-mysql:zeeguu-anonymized-zeeguu_test-202401300908.sql
+
+docker exec -it zeeguu-mysql /bin/bash
+
+mysql -u zeeguu_test -p zeeguu_test
+
+USE zeeguu_test
+
+source zeeguu-anonymized-zeeguu_test-202401300908.sql
+
+````
