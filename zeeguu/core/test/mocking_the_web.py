@@ -21,6 +21,18 @@ URL_SPIEGEL_RSS = "http://www.spiegel.de/index.rss"
 
 URL_SPIEGEL_VENEZUELA = "http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html"
 
+URL_VERDENS_BEDSTE = "https://verdensbedstenyheder.dk"
+
+URL_VERDENS_BEDSTE_RSS = "https://verdensbedstenyheder.dk/rss"
+
+URL_VERDENS_BEDSTE_FEED = "https://verdensbedstenyheder.dk/feed"
+
+URL_VERDENS_BEDSTE_FEEDS = "https://verdensbedstenyheder.dk/feeds"
+
+URL_VERDENS_INDONESIA = "https://verdensbedstenyheder.dk/nyheder/hajstoev-afsloerer-illegalt-fiskeri-i-indonesien/"
+
+URL_VERDENS_JORD = "https://verdensbedstenyheder.dk/nyheder/foer-ryddede-de-markerne-nu-dyrker-smaaboender-paa-tvaers-af-afrika-millioner-af-traeer-paa-deres-jorde/"
+
 URL_CNN_KATHMANDU = "https://edition.cnn.com/2018/03/12/asia/kathmandu-plane-crash/index.html"
 
 URL_KLEINE_PRINZ = "http://www.derkleineprinz-online.de/text/2-kapitel/"
@@ -44,6 +56,12 @@ URLS_TO_MOCK = {
     URL_SPIEGEL_NANCY: "spiegel_nancy.html",
     URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.html",
     URL_ML_JP_PAYWALL: "jp_article_example.html",
+    URL_VERDENS_BEDSTE: "verdensbedste.html",
+    URL_VERDENS_INDONESIA: "verdensbedste_indonesien.html",
+    URL_VERDENS_JORD: "verdensbedste_jorde.html",
+    URL_VERDENS_BEDSTE_RSS: "verdensbedste.html",
+    URL_VERDENS_BEDSTE_FEED: "verdensbedste.html",
+    URL_VERDENS_BEDSTE_FEEDS: "verdensbedste.html",
 
     # these are needed for mocking the readability cleanup server
     READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
@@ -53,7 +71,9 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_NANCY: "spiegel_nancy.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_LEMONDE_FORMATION: "lemonde_formation.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt"
+    READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt",
+    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_INDONESIA: "verdensbedste_indonesien.txt",
+    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_JORD: "verdensbedste_jorde.txt",
 }
 
 def mock_requests_get(m):

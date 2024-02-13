@@ -42,7 +42,7 @@ from .topic import Topic
 from .user_article import UserArticle
 from .article_difficulty_feedback import ArticleDifficultyFeedback
 
-from .feed import RSSFeed
+from .feed import Feed
 
 from .topic import Topic
 from .topic_subscription import TopicSubscription
