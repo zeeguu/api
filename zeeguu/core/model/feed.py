@@ -1,26 +1,23 @@
 # -*- coding: utf8 -*-
 
-import time
 from datetime import datetime
 
-import feedparser
-import requests
 import sqlalchemy.orm.exc
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.logging import log, debug
-from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
+from zeeguu.core.feed_handler import FEED_TYPE_TO_FEED_HANDLER
+
 
 import zeeguu
 
 from zeeguu.core.model import db
 
-
-class RSSFeed(db.Model):
+class Feed(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "rss_feed"
+    __tablename__ = "feed"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -42,8 +39,20 @@ class RSSFeed(db.Model):
 
     deactivated = db.Column(db.Integer)
 
+    feed_type = db.Column(db.Integer)
+
+    feed_handler = None
+    
     def __init__(
-        self, url, title, description, image_url=None, icon_name=None, language=None
+        self,
+        url,
+        title,
+        description,
+        image_url=None,
+        icon_name=None,
+        language=None,
+        feed_type=0,
+        feed_handler=None,
     ):
         self.url = url
         self.image_url = image_url
@@ -53,6 +62,8 @@ class RSSFeed(db.Model):
         self.description = description
         self.last_crawled_time = datetime(2001, 1, 2)
         self.deactivated = 0
+        self.feed_type = feed_type
+        self.feed_handler = feed_handler
 
     def __str__(self):
         language = "unknown"
@@ -65,31 +76,26 @@ class RSSFeed(db.Model):
         return str(self)
 
     @classmethod
-    def from_url(cls, url: str):
-        data = feedparser.parse(url)
-
+    def from_url(cls, url: str, feed_type: int):
         try:
-            title = data.feed.title
-        except:
-            title = ""
+            feed_handler = FEED_TYPE_TO_FEED_HANDLER[feed_type](url, feed_type)
+            feed_url = Url(feed_handler.url, feed_handler.title)
+        except KeyError as e:
+            log(f"Feed Handler not defined for type '{feed_type}'.")
 
-        try:
-            description = data.feed.subtitle
-        except:
-            description = None
-
-        try:
-            image_url_string = data.feed.image.href
-            print(f"Found image url at: {image_url_string}")
-        except:
-            print("Could not find any image url.")
-
-        feed_url = Url(url, title)
-
-        return RSSFeed(feed_url, title, description)
+        return Feed(
+            feed_url,
+            feed_handler.title,
+            feed_handler.description,
+            feed_type=feed_type,
+            feed_handler=feed_handler,
+        )
+    
+    def initializeFeedHandler(self):
+        if self.feed_handler is None:
+            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](str(self.url), self.feed_type)
 
     def as_dictionary(self):
-
         language = "unknown_lang"
         if self.language:
             language = self.language.code
@@ -102,96 +108,54 @@ class RSSFeed(db.Model):
             language=language,
             image_url="",
             icon_name=self.icon_name,
+            feed_type=self.feed_type,
         )
 
     def feed_items(self, last_retrieval_time_from_DB=None):
         """
-
         :return: a dictionary with info about that feed
         extracted by feedparser
         and including: title, url, content, summary, time
         """
+        # Since loading this from the DB will cause the file
+        # handler to be set to none, we initialize it here.
+        self.initializeFeedHandler()
 
         if not last_retrieval_time_from_DB:
-            last_retrieval_time_from_DB = datetime(1980, 1, 1)
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36"
-        }  # This is chrome, you can set whatever browser you like
-
-        response = requests.get(self.url.as_string(), headers=headers)
-        feed_data = feedparser.parse(response.text)
+                last_retrieval_time_from_DB = datetime(1980, 1, 1)
+        
+        feed_candidates = self.feed_handler.get_feed_articles()
 
         skipped_due_to_time = 0
         feed_items = []
         skipped_items = []
-        log(f"** Articles in feed: {len(feed_data.entries)}")
-        for item in feed_data.entries:
+        for item in feed_candidates:
+            this_entry_time = item["published_datetime"]
+            this_entry_time = this_entry_time.replace(tzinfo=None)
+            if this_entry_time > last_retrieval_time_from_DB:
+                feed_items.append(item)
+            else:
+                skipped_due_to_time += 1
+                skipped_items.append(item)
+                
+            sorted_skipped_items = sorted(
+                skipped_items, key=lambda x: x["published_datetime"]
+            )
+            for each in sorted_skipped_items:
+                debug(f"- skipped: {each['published_datetime']} - {each['title']}")
 
-            if not item.get("published_parsed"):
-                # we don't have a publishing time...
-                # happens rarely that the parser can't extract this
-                # actually not so rarely - 400 times in the last 24 hours...
+            for each in feed_items:
+                debug(f"- to download: {each['published_datetime']} - {each['title']}")
 
-                log(
-                    "Setting the time for the entry below to now() because can't get time from it"
-                )
-                log(item)
-
-                # let's set the date to now; this will result in
-                # an article published early morning w/o a date;
-                # being considered on every crawl as it was published
-                # for that crawl; but it's not so bad; it won't be added
-                # to the DB because it's url will be detected as
-                # existent anyway
-                item["published_parsed"] = datetime.now()
-
-            try:
-                published_string = time.strftime(
-                    SIMPLE_TIME_FORMAT, item.get("published_parsed")
-                )
-
-                this_entry_time = datetime.strptime(
-                    published_string, SIMPLE_TIME_FORMAT
-                )
-                this_entry_time = this_entry_time.replace(tzinfo=None)
-
-                new_item_data_dict = dict(
-                    title=item.get("title", ""),
-                    url=item.get("link", ""),
-                    content=item.get("content", ""),
-                    summary=item.get("summary", ""),
-                    published=published_string,
-                    published_datetime=this_entry_time,
-                )
-
-                if this_entry_time > last_retrieval_time_from_DB:
-                    feed_items.append(new_item_data_dict)
-                else:
-                    skipped_due_to_time += 1
-                    skipped_items.append(new_item_data_dict)
-
-            except AttributeError as e:
-                log(f'Exception {e} while trying to retrieve {item.get("link", "")}')
-
-        sorted_skipped_items = sorted(
-            skipped_items, key=lambda x: x["published_datetime"]
-        )
-        for each in sorted_skipped_items:
-            debug(f"- skipped: {each['published_datetime']} - {each['title']}")
-
-        for each in feed_items:
-            debug(f"- to download: {each['published_datetime']} - {each['title']}")
-
-        log(f"*** Skipped due to time: {len(skipped_items)} ")
-        log(f"*** To download: {len(feed_items)}")
+            log(f"*** Skipped due to time: {len(skipped_items)} ")
+            log(f"*** To download: {len(feed_items)}")
 
         return feed_items
-
+        
     @classmethod
-    def exists(cls, rss_feed):
+    def exists(cls, feed):
         try:
-            cls.query.filter(cls.url == rss_feed.url).one()
+            cls.query.filter(cls.url == feed.url).one()
             return True
         except NoResultFound:
             return False
@@ -217,7 +181,14 @@ class RSSFeed(db.Model):
 
     @classmethod
     def find_or_create(
-        cls, session, url, title, description, icon_name, language: Language
+        cls,
+        session,
+        url,
+        title,
+        description,
+        icon_name,
+        language: Language,
+        feed_type,
     ):
         try:
             result = (
@@ -225,11 +196,19 @@ class RSSFeed(db.Model):
                 .filter(cls.title == title)
                 .filter(cls.language == language)
                 .filter(cls.description == description)
+                .filter(cls.feed_type == feed_type)
                 .one()
             )
             return result
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(url, title, description, icon_name=icon_name, language=language)
+            new = cls(
+                url,
+                title,
+                description,
+                icon_name=icon_name,
+                language=language,
+                feed_type=feed_type,
+            )
             session.add(new)
             session.commit()
             return new
@@ -262,7 +241,7 @@ class RSSFeed(db.Model):
 
         try:
             q = (
-                Article.query.filter(Article.rss_feed == self)
+                Article.query.filter(Article.feed == self)
                 .filter(Article.broken == 0)
                 .filter(Article.published_time >= after_date)
                 .filter(Article.word_count > Article.MINIMUM_WORD_COUNT)

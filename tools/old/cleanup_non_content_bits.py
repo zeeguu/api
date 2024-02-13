@@ -1,13 +1,13 @@
 from zeeguu.core.model import Article
-from zeeguu.core.model import RSSFeed
+from zeeguu.core.model import Feed
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.model import db
 
 SOURCE = 'www.theonion.com'
 
-feed = [each for each in RSSFeed.query.all() if SOURCE in each.url.as_string()][0]
+feed = [each for each in Feed.query.all() if SOURCE in each.url.as_string()][0]
 
-all_articles = Article.query.filter_by(broken=0).filter_by(rss_feed_id=feed.id).order_by(
+all_articles = Article.query.filter_by(broken=0).filter_by(feed_id=feed.id).order_by(
     Article.published_time.desc()).all()
 
 user_selected_all = False

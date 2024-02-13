@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from zeeguu.core.model import RSSFeed, Url, Language
+from zeeguu.core.model import Feed, Url, Language
 import zeeguu.core
 
 RESOURCES_FOLDER = "https://zeeguu.unibe.ch/api/resources/"
@@ -9,7 +9,7 @@ name = input("Name of feed to update: ")
 
 db_session = zeeguu.core.model.db.session
 
-all_feeds = RSSFeed.query.all()
+all_feeds = Feed.query.all()
 for feed in all_feeds:
     if feed.title == name:
         print("Updating ... " + name)

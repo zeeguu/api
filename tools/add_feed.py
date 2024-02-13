@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 from zeeguu.api.app import create_app
-from zeeguu.core.model import RSSFeed, Url, Language
+from zeeguu.core.model import Feed, Url, Language
+from zeeguu.core.feed_handler import FEED_TYPE
 import zeeguu.core
 
 app = create_app()
 app.app_context().push()
 
 
-def create_and_test_feed(url: str):
-    feed = RSSFeed.from_url(url)
+def create_and_test_feed(url: str, feed_type: int):
+    feed = Feed.from_url(url, feed_type=feed_type)
 
     feed_items = feed.feed_items()
     if not feed_items:
@@ -22,7 +23,9 @@ def create_and_test_feed(url: str):
 
 def main():
     _feed_url = input("Feed url:  ")
-    test_feed = create_and_test_feed(_feed_url)
+    print(f"Available feed types: '{FEED_TYPE}'")
+    feed_type = int(input("What feed type is it? : "))
+    test_feed = create_and_test_feed(_feed_url, feed_type)
 
     feed_name = input(f"Feed name (Enter for: {test_feed.title}):  ") or test_feed.title
     print(f"= {feed_name}")
@@ -31,8 +34,8 @@ def main():
     print(f"= {icon_name}")
 
     description = (
-            input(f"Description (Enter for: {test_feed.description}): ")
-            or test_feed.description
+        input(f"Description (Enter for: {test_feed.description}): ")
+        or test_feed.description
     )
     print(f"= {description}")
 
@@ -42,20 +45,21 @@ def main():
     feed_url = Url.find_or_create(zeeguu.core.model.db.session, _feed_url)
     language = Language.find_or_create(_language)
 
-    rss_feed = RSSFeed.find_or_create(
+    feed = Feed.find_or_create(
         zeeguu.core.model.db.session,
         feed_url,
         feed_name,
         description,
         icon_name=icon_name,
         language=language,
+        feed_type=feed_type
     )
 
     print("Done: ")
-    print(rss_feed.title)
-    print(rss_feed.description)
-    print(rss_feed.language_id)
-    print(rss_feed.url.as_string())
+    print(feed.title)
+    print(feed.description)
+    print(feed.language_id)
+    print(feed.url.as_string())
 
 
 if __name__ == "__main__":

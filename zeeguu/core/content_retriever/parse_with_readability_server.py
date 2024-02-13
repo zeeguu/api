@@ -6,6 +6,8 @@ READABILITY_SERVER_CLEANUP_URI = "http://16.171.148.98:3000/plain_text?url="
 
 
 def download_and_parse(url):
+    # This code will be run twice when using a newspaper source
+    # Maybe add a flag to avoid running this if the feed type == newspaper
     parsed = newspaper.Article(url=url)
     print("newspaper.download for " + url)
     parsed.download()

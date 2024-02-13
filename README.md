@@ -110,6 +110,26 @@ CONTAINER ID        IMAGE                    COMMAND                  CREATED   
 
    `curl 127.0.0.1:9001/available_languages`
 
-6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
+
+7. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
 Go have fun!
+
+
+# Further Notes
+## Running MySQL locally, not in a container on a mac
+
+_(Mircea, Feb 2024)_
+
+On Mac, if you want to run mysql locally, and not from within Docker, you need to install mysql-client with brew:  
+
+```
+brew install mysql-client
+```
+
+Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following: 
+
+```
+export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
+export MYSQLCLIENT_LDFLAGS="-L/opt/homebrew/opt/mysql-client/lib -lmysqlclient"
+```

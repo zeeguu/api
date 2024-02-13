@@ -63,12 +63,12 @@ class Article(db.Model):
 
     from zeeguu.core.model.url import Url
 
-    from zeeguu.core.model.feed import RSSFeed
+    from zeeguu.core.model.feed import Feed
 
     from zeeguu.core.model.language import Language
 
-    rss_feed_id = Column(Integer, ForeignKey(RSSFeed.id))
-    rss_feed = relationship(RSSFeed)
+    feed_id = Column(Integer, ForeignKey(Feed.id))
+    feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
     url = relationship(Url)
@@ -101,7 +101,7 @@ class Article(db.Model):
             content,
             summary,
             published_time,
-            rss_feed,
+            feed,
             language,
             htmlContent="",
             uploader=None,
@@ -121,7 +121,7 @@ class Article(db.Model):
         self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
-        self.rss_feed = rss_feed
+        self.feed = feed
         self.language = language
         self.uploader = uploader
         self.userFound = found_by_user
@@ -218,14 +218,15 @@ class Article(db.Model):
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
 
-        if self.rss_feed:
-            result_dict["feed_id"] = (self.rss_feed.id,)
-            result_dict["icon_name"] = self.rss_feed.icon_name
+        if self.feed:
+            # Is this supposed to be a tuple?
+            result_dict["feed_id"] = (self.feed.id,)
+            result_dict["icon_name"] = self.feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
             # until the codebase is moved to zorg.
-            if self.rss_feed.image_url:
-                result_dict["feed_image_url"] = self.rss_feed.image_url.as_string()
+            if self.feed.image_url:
+                result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
             result_dict["content"] = self.content
