@@ -153,6 +153,14 @@ class BasicSRSchedule(db.Model):
             1. Words that are closest to being learned (indicated by `consecutive_correct_answers`)
             2. Words that are most common in the language (utilizing the word rank in the db)
         """
+        def sorting_properties(bookmark):
+            consecutive_answers = cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
+            user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
+            word_rank = user_word.rank
+            if word_rank is None:
+                word_rank = 10000
+            return (-consecutive_answers, word_rank)
+
         tomorrow = cls.get_current_study_window()
         # Get the candidates, words that are to practice
         scheduled_candidates = (
@@ -163,22 +171,9 @@ class BasicSRSchedule(db.Model):
             .filter(cls.next_practice_time < tomorrow)
             .all()
         )
-        # Sorting Logic
-        properties_to_sort = []
-        for bookmark in scheduled_candidates:
-            consecutive_answers = cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
-            user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
-            word_rank = user_word.rank
-            text = user_word.word
-            if word_rank is None:
-                word_rank = 10000
-            # We need to make this an int as it might be a string from sql alchemy?
-            word_rank = int(word_rank)
-            # Prioritize, the consecutive answers, followed by the word_rank
-            properties_to_sort.append((-consecutive_answers, word_rank, bookmark))
-            
-        sorted_candidates = sorted(properties_to_sort, key=lambda x: (x[0], x[1]))
-        return [sorted_candidates[i][-1] for i in range(required_count)]
+
+        sorted_candidates = sorted(scheduled_candidates, key=lambda x: sorting_properties(x))
+        return sorted_candidates[:required_count]
     
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
