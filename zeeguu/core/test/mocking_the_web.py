@@ -75,7 +75,7 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_INDONESIA: "verdensbedste_indonesien.txt",
     READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_JORD: "verdensbedste_jorde.txt",
-    # some
+    # tldextract, dependency of newspaper reaches out for this and makes our tests fail if we don't have net
     "https://publicsuffix.org/list/public_suffix_list.dat": "public_suffix_list.dat"
 }
 
