@@ -1,6 +1,5 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
-import zeeguu.core
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
@@ -49,7 +48,7 @@ class BasicSRSchedule(db.Model):
 
     def update_schedule(self, db_session, correctness):
         if correctness:
-            # Why have CORRECTS_IN_A_ROW_FOR_LEARNED = 4 rather than 3? 
+            # Why have CORRECTS_IN_A_ROW_FOR_LEARNED = 4 rather than 3?
             if self.consecutive_correct_answers == CORRECTS_IN_A_ROW_FOR_LEARNED - 1:
                 self.bookmark.learned = True
                 self.bookmark.learned_time = datetime.now()
@@ -60,36 +59,39 @@ class BasicSRSchedule(db.Model):
                 print("Set to learned!")
                 return
 
-            # Compare the dates, to avoid situations where a user is scheduled
-            # to learn the word at 01-01-2024 11:00 and they do it at
-            # 01-01-2024 10:00 and then they are shown it again.
-            if datetime.now().date() < self.next_practice_time.date():
+            # Use the same logic as when selecting bookmarks
+            # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
+            # 01-01-2024 10:00 the status is not updated.
+            if self.get_current_study_window() < self.next_practice_time:
+                print("Not updated, before schedule!")
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
                 # cooldown perio, they might have arrived to do
                 # the exercise again; but it should not count
                 return
-            # Since we can now loose the streak on day 8, 
+            # Since we can now loose the streak on day 8,
             # we might have to repeat it a few times to learn it.
+            print("Updated to new schedule!")
             new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                 self.cooling_interval, 8 * ONE_DAY
             )
             self.cooling_interval = new_cooling_interval
-            next_practice_date = datetime.now() + timedelta(
-                minutes=new_cooling_interval
-            )
+
             self.consecutive_correct_answers += 1
         else:
             # Decrease the cooling interval to the previous bucket
             # Essentially, this will allow the user to recover
             # their cooling interval if they have forgotten the word.
-            self.cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
-                self.cooling_interval
-            ]
-            next_practice_date = datetime.now()
+            new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[self.cooling_interval]
+            self.cooling_interval = new_cooling_interval
+            # next_practice_date = datetime.now()
             self.consecutive_correct_answers = 0
 
+        next_practice_date = datetime.now() + timedelta(
+                minutes=new_cooling_interval
+            )
+        
         self.next_practice_time = next_practice_date
         db_session.add(self)
         db_session.commit()
@@ -112,6 +114,12 @@ class BasicSRSchedule(db.Model):
         schedule.update_schedule(db_session, correctness)
 
     @classmethod
+    def get_current_study_window(cls):
+        # Ensure we use the same timeframe both when updating
+        # and retrieving new bookmarks.
+        return datetime.now() + timedelta(days=1)
+    
+    @classmethod
     def find_or_create(cls, db_session, bookmark):
 
         results = cls.query.filter_by(bookmark=bookmark).all()
@@ -133,8 +141,49 @@ class BasicSRSchedule(db.Model):
         return b
 
     @classmethod
+    def priority_bookmarks_to_study(cls, user, required_count):
+        """
+            Prioritizes the bookmarks to study. To randomize the 
+            exercise order utilize the Frontend assignBookmarksToExercises.js
+
+            The original logic is kept in bookmarks_to_study as it is called to
+            get similar_words to function as distractors in the exercises.
+
+            Currently, we prioritize bookmarks in the following way:
+            1. Words that are closest to being learned (indicated by `consecutive_correct_answers`)
+            2. Words that are most common in the language (utilizing the word rank in the db)
+        """
+        tomorrow = cls.get_current_study_window()
+        # Get the candidates, words that are to practice
+        scheduled_candidates = (
+            Bookmark.query.join(cls)
+            .filter(Bookmark.user_id == user.id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == user.learned_language_id)
+            .filter(cls.next_practice_time < tomorrow)
+            .all()
+        )
+        # Sorting Logic
+        properties_to_sort = []
+        for bookmark in scheduled_candidates:
+            consecutive_answers = cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
+            user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
+            word_rank = user_word.rank
+            text = user_word.word
+            if word_rank is None:
+                word_rank = 10000
+            # We need to make this an int as it might be a string from sql alchemy?
+            word_rank = int(word_rank)
+            # Prioritize, the consecutive answers, followed by the word_rank
+            properties_to_sort.append((-consecutive_answers, word_rank, bookmark))
+            
+        sorted_candidates = sorted(properties_to_sort, key=lambda x: (x[0], x[1]))
+        return [sorted_candidates[i][-1] for i in range(required_count)]
+    
+    @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        tomorrow = datetime.now().date() + timedelta(days=1)
+        tomorrow = cls.get_current_study_window()
+        # Get the candidates, words that are to practice
         scheduled = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
@@ -144,12 +193,6 @@ class BasicSRSchedule(db.Model):
             .limit(required_count)
             .all()
         )
-
-        from random import shuffle
-
-        # we return the shuffled list of words because otherwise they'll
-        # always appear in the same order
-        shuffle(scheduled)
         return scheduled
 
     @classmethod

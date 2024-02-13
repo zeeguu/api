@@ -5,7 +5,7 @@ from zeeguu.core.word_stats import lang_info
 
 def similar_words(word, language, user):
 
-    words_the_user_must_study = user.bookmarks_to_study(10)
+    words_the_user_must_study = user.scheduled_bookmarks(10)
 
     if len(words_the_user_must_study) == 10:
         candidates = [each.origin.word for each in words_the_user_must_study]

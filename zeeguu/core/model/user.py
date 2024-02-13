@@ -201,21 +201,35 @@ class User(db.Model):
 
     def bookmarks_to_study(self, bookmark_count=10):
         """
+        We now use a logic to sort the words, if we call this everytime
+        we want similar words it might bottleneck the application.
+
         :param bookmark_count: by default we recommend 10 words
         :return:
         """
         db_session = zeeguu.core.model.db.session
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
+        to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
 
         if len(to_study) < bookmark_count:
             BasicSRSchedule.schedule_some_more_bookmarks(
                 db_session, self, bookmark_count - len(to_study)
             )
-            to_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
+            to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
 
         return to_study
+    
+    def scheduled_bookmarks(self, bookmark_count=10):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return: a list of 10 words that are scheduled to be learned.
+        """
+        db_session = zeeguu.core.model.db.session
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
+        return word_for_study
 
     def date_of_last_bookmark(self):
         """
