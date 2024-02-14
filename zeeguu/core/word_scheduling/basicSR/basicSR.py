@@ -56,14 +56,12 @@ class BasicSRSchedule(db.Model):
                 db.session.commit()
                 db.session.delete(self)
                 db.session.commit()
-                print("Set to learned!")
                 return
 
             # Use the same logic as when selecting bookmarks
             # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
             # 01-01-2024 10:00 the status is not updated.
             if self.get_current_study_window() < self.next_practice_time:
-                print("Not updated, before schedule!")
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
@@ -72,27 +70,24 @@ class BasicSRSchedule(db.Model):
                 return
             # Since we can now loose the streak on day 8,
             # we might have to repeat it a few times to learn it.
-            print("Updated to new schedule!")
             new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                 self.cooling_interval, 8 * ONE_DAY
             )
-            self.cooling_interval = new_cooling_interval
-
             self.consecutive_correct_answers += 1
         else:
             # Decrease the cooling interval to the previous bucket
-            # Essentially, this will allow the user to recover
-            # their cooling interval if they have forgotten the word.
             new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
                 self.cooling_interval
             ]
-            self.cooling_interval = new_cooling_interval
+            # Should we allow the user to "recover" their schedule
+            # in the same day?
             # next_practice_date = datetime.now()
             self.consecutive_correct_answers = 0
 
+        self.cooling_interval = new_cooling_interval
         next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
-
         self.next_practice_time = next_practice_date
+
         db_session.add(self)
         db_session.commit()
 
