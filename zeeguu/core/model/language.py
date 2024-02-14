@@ -76,6 +76,7 @@ class Language(db.Model):
         "es",
         "it",
         "ja",
+        "pl",
         "sr",
         "pt",
         "ru",
