@@ -19,8 +19,8 @@ def download_and_parse(url, request_timeout):
         # this is a temporary solution for allowing translations
         # on pages that do not have "articles" downloadable by newspaper.
 
-    # Is there a timeout? 
-    # When using the tool to download artiles, this got stuck 
+    # Is there a timeout?
+    # When using the tool to download artiles, this got stuck
     # in this line of code.
     result = requests.get(READABILITY_SERVER_CLEANUP_URI + url, timeout=request_timeout)
     parsed.text = result.text

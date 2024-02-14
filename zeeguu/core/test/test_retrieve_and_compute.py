@@ -3,7 +3,7 @@ import newspaper
 import zeeguu.core
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
-from zeeguu.core.test.rules.rss_feed_rule import RSSFeedRule
+from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
@@ -21,7 +21,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         self.lan = LanguageRule().de
 
     def testDifficultyOfFeedItems(self):
-        feed = RSSFeedRule().feed1
+        feed = FeedRule().feed1
         download_from_feed(feed, zeeguu.core.model.db.session, 3, False)
 
         articles = feed.get_articles(limit=2)
@@ -30,7 +30,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         assert articles[0].fk_difficulty
 
     def testDownloadWithTopic(self):
-        feed = RSSFeedRule().feed1
+        feed = FeedRule().feed1
         topic = Topic("Spiegel")
         zeeguu.core.model.db.session.add(topic)
         zeeguu.core.model.db.session.commit()

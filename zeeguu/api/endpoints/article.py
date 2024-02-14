@@ -69,6 +69,25 @@ def make_personal_copy():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/remove_personal_copy", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@with_session
+def remove_personal_copy():
+
+    article_id = request.form.get("article_id", "")
+    article = Article.find_by_id(article_id)
+    user = flask.g.user
+
+    if PersonalCopy.exists_for(user, article):
+        PersonalCopy.remove_for(user, article, db_session)
+
+    return (
+        "OK" if not PersonalCopy.exists_for(user, article) else "Something went wrong!"
+    )
+
+
+# ---------------------------------------------------------------------------
 @api.route("/is_article_language_supported", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain

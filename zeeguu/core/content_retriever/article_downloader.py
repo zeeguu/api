@@ -15,7 +15,7 @@ from zeeguu.logging import log, logp
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
+from zeeguu.core.model import Url, Feed, LocalizedTopic
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -67,7 +67,7 @@ def banned_url(url):
     return False
 
 
-def download_from_feed(feed: RSSFeed, session, limit=1000, save_in_elastic=True):
+def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
     """
 
     Session is needed because this saves stuff to the DB.
