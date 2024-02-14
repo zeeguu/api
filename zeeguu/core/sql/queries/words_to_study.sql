@@ -1,6 +1,6 @@
 /*
-Find words that aren't scheduled for the users but they have seen them in the past.
-*/
+ Find words for the user that are fit for study, but haven't been scheduled yet.
+ */
 select
     b.id bookmark_id,
     b.starred,
