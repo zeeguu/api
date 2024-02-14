@@ -133,7 +133,7 @@ VOICE_IDS = {
 def _code_from_id(language_id):
     if LANGUAGE_CODES.get(language_id):
         return LANGUAGE_CODES[language_id]
-    return language_id + language_id.upper()
+    return f"{language_id}-{language_id.upper()}"
 
 
 def _voice_for_id(language_id):
