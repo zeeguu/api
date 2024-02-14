@@ -16,7 +16,6 @@ from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Url, RSSFeed, LocalizedTopic
-from langdetect import detect
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -40,8 +39,6 @@ class SkippedForLowQuality(Exception):
     def __init__(self, reason):
         self.reason = reason
 
-class SkippedForLanguageMismatch(Exception):
-    pass
 
 class SkippedAlreadyInDB(Exception):
     pass
@@ -217,11 +214,7 @@ def download_feed_item(session, feed, feed_item, url):
         parsed = download_and_parse(url)
 
         is_quality_article, reason = sufficient_quality(parsed)
-        article_detected_lang = detect(parsed)
 
-        if article_detected_lang != feed.language.code:
-            raise SkippedForLanguageMismatch
-        
         if not is_quality_article:
             raise SkippedForLowQuality(reason)
 
