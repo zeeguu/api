@@ -8,6 +8,22 @@ from zeeguu.api.utils import cross_domain, with_session
 
 DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
 
+# See: https://cloud.google.com/text-to-speech/docs/voices
+PREFERRED_VOICES = {
+    "da": "da-DK-Wavenet-D",
+    "fr": "fr-FR-Neural2-C",
+    "en": "en-US",
+    "nl": "nl-NL-Wavenet-B",
+    "de": "de-DE-Neural2-C",
+    "it": "it-IT-Neural2-A"
+}
+
+
+def voice_for_language(language_id):
+    if PREFERRED_VOICES.get(language_id):
+        return PREFERRED_VOICES[language_id]
+    return _code_from_id(language_id) + "-Standard-A"
+
 
 @api.route("/text_to_speech", methods=("POST",))
 @cross_domain
@@ -78,7 +94,7 @@ def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
 
     # Build the voice request
     voice = texttospeech.VoiceSelectionParams(
-        language_code=_code_from_id(language_id), name=_voice_for_id(language_id)
+        language_code=_code_from_id(language_id), name=voice_for_language(language_id)
     )
 
     # Select the type of audio file you want returned
@@ -112,17 +128,6 @@ def _file_name_for_full_article(full_article_text, language_id, article_id):
     return f"/speech/art_{article_id}_{language_id}_{m.hexdigest()}.mp3"
 
 
-# See: https://cloud.google.com/text-to-speech/docs/voices
-VOICE_IDS = {
-    "da": "da-DK-Wavenet-D",
-    "fr": "fr-FR-Neural2-C",
-    "en": "en-US",
-    "nl": "nl-NL-Wavenet-B",
-    "de": "de-DE-Neural2-C",
-    "it": "it-IT-Neural2-A"
-}
-
-
 def _code_from_id(language_id):
     # If they're not here, we assume the xy-XY form
     irregular_language_codes = {
@@ -132,9 +137,3 @@ def _code_from_id(language_id):
     if irregular_language_codes.get(language_id):
         return irregular_language_codes[language_id]
     return f"{language_id}-{language_id.upper()}"
-
-
-def _voice_for_id(language_id):
-    if VOICE_IDS.get(language_id):
-        return VOICE_IDS[language_id]
-    return _code_from_id(language_id) + "-Standard-A"
