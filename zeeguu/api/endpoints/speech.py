@@ -139,4 +139,4 @@ def _code_from_id(language_id):
 def _voice_for_id(language_id):
     if VOICE_IDS.get(language_id):
         return VOICE_IDS[language_id]
-    return _code_from_id + "-Standard-A"
+    return _code_from_id(language_id) + "-Standard-A"
