@@ -83,15 +83,15 @@ class BasicSRSchedule(db.Model):
             # Decrease the cooling interval to the previous bucket
             # Essentially, this will allow the user to recover
             # their cooling interval if they have forgotten the word.
-            new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[self.cooling_interval]
+            new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
+                self.cooling_interval
+            ]
             self.cooling_interval = new_cooling_interval
             # next_practice_date = datetime.now()
             self.consecutive_correct_answers = 0
 
-        next_practice_date = datetime.now() + timedelta(
-                minutes=new_cooling_interval
-            )
-        
+        next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
+
         self.next_practice_time = next_practice_date
         db_session.add(self)
         db_session.commit()
@@ -115,10 +115,16 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def get_current_study_window(cls):
-        # Ensure we use the same timeframe both when updating
-        # and retrieving new bookmarks.
-        return datetime.now() + timedelta(days=1)
-    
+        """
+        Retrieves midnight date of the following date,
+        essentially ensures we get all the bookmarks
+        scheduled for the current day. < (cur_day+1)
+        """
+        # Get tomorrow date
+        tomorrows_date = (datetime.now() + timedelta(days=1)).date()
+        # Create an object that matches midnight of next day
+        return datetime.combine(tomorrows_date, datetime.min.time())
+
     @classmethod
     def find_or_create(cls, db_session, bookmark):
 
@@ -143,18 +149,21 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def priority_bookmarks_to_study(cls, user, required_count):
         """
-            Prioritizes the bookmarks to study. To randomize the 
-            exercise order utilize the Frontend assignBookmarksToExercises.js
+        Prioritizes the bookmarks to study. To randomize the
+        exercise order utilize the Frontend assignBookmarksToExercises.js
 
-            The original logic is kept in bookmarks_to_study as it is called to
-            get similar_words to function as distractors in the exercises.
+        The original logic is kept in bookmarks_to_study as it is called to
+        get similar_words to function as distractors in the exercises.
 
-            Currently, we prioritize bookmarks in the following way:
-            1. Words that are closest to being learned (indicated by `consecutive_correct_answers`)
-            2. Words that are most common in the language (utilizing the word rank in the db)
+        Currently, we prioritize bookmarks in the following way:
+        1. Words that are closest to being learned (indicated by `consecutive_correct_answers`)
+        2. Words that are most common in the language (utilizing the word rank in the db)
         """
+
         def sorting_properties(bookmark):
-            consecutive_answers = cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
+            consecutive_answers = (
+                cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
+            )
             user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
             word_rank = user_word.rank
             if word_rank is None:
@@ -172,9 +181,11 @@ class BasicSRSchedule(db.Model):
             .all()
         )
 
-        sorted_candidates = sorted(scheduled_candidates, key=lambda x: sorting_properties(x))
+        sorted_candidates = sorted(
+            scheduled_candidates, key=lambda x: sorting_properties(x)
+        )
         return sorted_candidates[:required_count]
-    
+
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
         tomorrow = cls.get_current_study_window()
