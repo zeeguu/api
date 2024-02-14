@@ -113,26 +113,24 @@ def _file_name_for_full_article(full_article_text, language_id, article_id):
 
 
 # See: https://cloud.google.com/text-to-speech/docs/voices
-LANGUAGE_CODES = {
-    "da": "da-DK",
-    "fr": "fr-FR",
-    "en": "en-US",
-    "nl": "nl-NL",
-    "de": "de-DE"
-}
-
 VOICE_IDS = {
     "da": "da-DK-Wavenet-D",
     "fr": "fr-FR-Neural2-C",
     "en": "en-US",
     "nl": "nl-NL-Wavenet-B",
-    "de": "de-DE-Neural2-C"
+    "de": "de-DE-Neural2-C",
+    "it": "it-IT-Neural2-A"
 }
 
 
 def _code_from_id(language_id):
-    if LANGUAGE_CODES.get(language_id):
-        return LANGUAGE_CODES[language_id]
+    # If they're not here, we assume the xy-XY form
+    irregular_language_codes = {
+        "da": "da-DK",
+        "en": "en-US",
+    }
+    if irregular_language_codes.get(language_id):
+        return irregular_language_codes[language_id]
     return f"{language_id}-{language_id.upper()}"
 
 
