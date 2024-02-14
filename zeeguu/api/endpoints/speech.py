@@ -15,7 +15,8 @@ PREFERRED_VOICES = {
     "en": "en-US",
     "nl": "nl-NL-Wavenet-B",
     "de": "de-DE-Neural2-C",
-    "it": "it-IT-Neural2-A"
+    "it": "it-IT-Neural2-A",
+    "pt": "pt-PT-Wavenet-A "
 }
 
 
