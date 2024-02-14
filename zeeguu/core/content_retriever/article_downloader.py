@@ -24,7 +24,8 @@ from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
-from zeeguu.core.content_retriever import download_and_parse, TIMEOUT_SECONDS
+from zeeguu.core.content_retriever import download_and_parse
+from zeeguu.core.content_retriever.parse_with_readability_server import TIMEOUT_SECONDS
 
 import zeeguu
 
