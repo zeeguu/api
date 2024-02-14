@@ -112,11 +112,13 @@ def _file_name_for_full_article(full_article_text, language_id, article_id):
     return f"/speech/art_{article_id}_{language_id}_{m.hexdigest()}.mp3"
 
 
+# See: https://cloud.google.com/text-to-speech/docs/voices
 LANGUAGE_CODES = {
     "da": "da-DK",
     "fr": "fr-FR",
     "en": "en-US",
     "nl": "nl-NL",
+    "de": "de-DE"
 }
 
 VOICE_IDS = {
@@ -124,6 +126,7 @@ VOICE_IDS = {
     "fr": "fr-FR-Neural2-C",
     "en": "en-US",
     "nl": "nl-NL-Wavenet-B",
+    "de": "de-DE-Neural2-C"
 }
 
 
@@ -136,4 +139,4 @@ def _code_from_id(language_id):
 def _voice_for_id(language_id):
     if VOICE_IDS.get(language_id):
         return VOICE_IDS[language_id]
-    return "en-US"
+    return _code_from_id + "-Standard-A"
