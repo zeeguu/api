@@ -67,7 +67,6 @@ regenerate:
         fi \
     done
 	@docker build -f Dockerfile.development -t zeeguu_api_dev .
-	@docker run --name=$(DOCKER_CONTAINER) -p 8080:3306 -d zeeguu/${DOCKER_CONTAINER}
 
 
 
