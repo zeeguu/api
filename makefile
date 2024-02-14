@@ -57,6 +57,20 @@ cleanup:
         docker rm -f -v $$CONTAINER_ID; \
     fi
 
+
+regenerate:
+	@echo "Regenerating the API" 
+	@CONTAINER_IDS=$$(docker ps -a --filter "name=api" --format "{{.ID}}"); \
+    for CONTAINER_ID in $$CONTAINER_IDS; do \
+        if [ ! -z "$$CONTAINER_ID" ]; then \
+            docker rm -f -v $$CONTAINER_ID; \
+        fi \
+    done
+	@docker build -f Dockerfile.development -t zeeguu_api_dev .
+	@docker run --name=$(DOCKER_CONTAINER) -p 8080:3306 -d zeeguu/${DOCKER_CONTAINER}
+
+
+
 clearDB:
 	@echo "running dbCleanup"
 	@CONTAINER_ID=$$(docker ps -a --filter "ancestor=zeeguu/zeeguu-mysql" --format "{{.ID}}" | head -n 1); \
