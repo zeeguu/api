@@ -225,7 +225,6 @@ class User(db.Model):
         :param bookmark_count: by default we recommend 10 words
         :return: a list of 10 words that are scheduled to be learned.
         """
-        db_session = zeeguu.core.model.db.session
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
