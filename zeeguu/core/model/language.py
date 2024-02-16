@@ -75,7 +75,6 @@ class Language(db.Model):
         "sq",  # albanian
         "es",
         "it",
-        "pl",
         "ja",
         "sr",
         "pt",

@@ -25,6 +25,7 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import download_and_parse
+from zeeguu.core.content_retriever.parse_with_readability_server import TIMEOUT_SECONDS
 
 import zeeguu
 
@@ -275,6 +276,9 @@ def download_feed_item(session, feed, feed_item, url):
     except DataError as e:
         logp(f"Data error for: {url}")
 
+    except requests.exceptions.Timeout:
+        logp(f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds.")
+        
     except Exception as e:
         import traceback
 
