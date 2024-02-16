@@ -8,6 +8,7 @@ from zeeguu.core.model import db
 from datetime import datetime, timedelta
 
 ONE_DAY = 60 * 24
+MAX_INTERVAL_8_DAY = 8 * ONE_DAY
 
 NEXT_COOLING_INTERVAL_ON_SUCCESS = {
     0: ONE_DAY,
@@ -48,8 +49,9 @@ class BasicSRSchedule(db.Model):
 
     def update_schedule(self, db_session, correctness):
         if correctness:
-            # Why have CORRECTS_IN_A_ROW_FOR_LEARNED = 4 rather than 3?
-            if self.consecutive_correct_answers == CORRECTS_IN_A_ROW_FOR_LEARNED - 1:
+            # Use the cooldown to check if the user has learned
+            # the word.
+            if self.cooling_interval == MAX_INTERVAL_8_DAY:
                 self.bookmark.learned = True
                 self.bookmark.learned_time = datetime.now()
                 db.session.add(self.bookmark)
@@ -71,7 +73,7 @@ class BasicSRSchedule(db.Model):
             # Since we can now loose the streak on day 8,
             # we might have to repeat it a few times to learn it.
             new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
-                self.cooling_interval, 8 * ONE_DAY
+                self.cooling_interval, MAX_INTERVAL_8_DAY
             )
             self.consecutive_correct_answers += 1
         else:
@@ -151,19 +153,19 @@ class BasicSRSchedule(db.Model):
         get similar_words to function as distractors in the exercises.
 
         Currently, we prioritize bookmarks in the following way:
-        1. Words that are closest to being learned (indicated by `consecutive_correct_answers`)
+        1. Words that are closest to being learned (indicated by `cooling_interval`, the highest the closest it is)
         2. Words that are most common in the language (utilizing the word rank in the db)
         """
 
         def sorting_properties(bookmark):
-            consecutive_answers = (
-                cls.query.filter_by(bookmark=bookmark).one().consecutive_correct_answers
+            cooling_interval = (
+                cls.query.filter_by(bookmark=bookmark).one().cooling_interval
             )
             user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
             word_rank = user_word.rank
             if word_rank is None:
                 word_rank = 10000
-            return (-consecutive_answers, word_rank)
+            return (-cooling_interval, word_rank)
 
         tomorrow = cls.get_current_study_window()
         # Get the candidates, words that are to practice
