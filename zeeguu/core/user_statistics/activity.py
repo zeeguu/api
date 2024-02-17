@@ -1,5 +1,7 @@
 import json
 
+from sqlalchemy import text
+
 import zeeguu.core
 from zeeguu.core.constants import SIMPLE_DATE_FORMAT
 
@@ -22,8 +24,8 @@ def activity_duration_by_day(user):
 def convert_to_date_seconds(result_raw):
     result_array = [
         {
-            "date": (each["date"]).strftime(SIMPLE_DATE_FORMAT),
-            "seconds": (int(each["duration"])),
+            "date": (each._mapping["date"]).strftime(SIMPLE_DATE_FORMAT),
+            "seconds": (int(each._mapping["duration"])),
         }
         for each in result_raw
     ]
@@ -39,7 +41,7 @@ def _time_by_day(user, table_name, date_field, duration_field):
             + " WHERE user_id = :uid GROUP BY date;"
     )
     result_raw = zeeguu.core.model.db.session.execute(
-        query,
+        text(query),
         {"uid": user.id, "table_name": table_name},
     )
 

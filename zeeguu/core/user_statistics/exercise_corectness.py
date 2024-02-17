@@ -1,3 +1,5 @@
+from sqlalchemy import text
+
 import zeeguu.core
 
 from zeeguu.core.model import db
@@ -21,7 +23,7 @@ def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, en
 
 
 def number_of_words_translated_but_not_studied(
-    user_id, cohort_id, start_date, end_date
+        user_id, cohort_id, start_date, end_date
 ):
     query = """
 
@@ -146,7 +148,6 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
 
 
 def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
-
     query = """
         select o.outcome, count(o.outcome)
             
@@ -170,7 +171,7 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "userid": user_id,
             "startDate": start_date,

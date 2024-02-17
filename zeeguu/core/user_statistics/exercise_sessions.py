@@ -1,3 +1,5 @@
+from sqlalchemy import text
+
 import zeeguu.core
 
 from zeeguu.core.model import db
@@ -18,7 +20,7 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "user_id": user_id,
             "start_time": start_time,
