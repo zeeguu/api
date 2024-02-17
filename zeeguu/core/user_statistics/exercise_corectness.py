@@ -73,7 +73,7 @@ def number_of_words_translated_but_not_studied(
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "userid": user_id,
             "startDate": start_date,
@@ -108,7 +108,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "userid": user_id,
             "startDate": start_date,
@@ -135,7 +135,7 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "userid": user_id,
             "startDate": start_date,

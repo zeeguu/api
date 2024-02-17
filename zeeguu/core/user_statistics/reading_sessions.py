@@ -141,7 +141,7 @@ def translations_in_interval(start_time, end_time, user_id):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {"start_time": start_time, "end_time": end_time, "user_id": user_id},
     )
 
