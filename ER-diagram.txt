@@ -1,5 +1,7 @@
 %% Should be used with Mermaid.live
 
+%% Should be used with Mermaid.live
+
 erDiagram
     %% No data
     algo_stats {
@@ -11,6 +13,10 @@ erDiagram
     
     article { 
         int id pk
+        int rss_feed_id fk 
+        int url_id fk 
+        int language_id fk 
+        int uploader_id fk 
         string title
         string authors
         string content
@@ -66,6 +72,7 @@ erDiagram
         int bookmark_id fk
         int consecutive_correct_answers 
         int cooling_interval 
+        datetime next_practice_time
     }
 
     user ||--o| bookmark : has
