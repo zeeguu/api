@@ -48,4 +48,5 @@ git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 readabilipy
 scikit-learn==1.4.0
 pandas
+pyarrow
 matplotlib

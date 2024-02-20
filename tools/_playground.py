@@ -7,9 +7,11 @@ import pandas as pd
 from zeeguu.core.model import db
 import matplotlib.pyplot as plt
 import numpy as np
+import pyarrow as pa # needed for pandas 
 
 from zeeguu.api.app import create_app
 from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.elastic.elastic_query_builder import ElasticQueryBuilder
 
 app = create_app()
 app.app_context().push()
@@ -87,7 +89,27 @@ plt.savefig('test.png')
 print("Has been saved")
 plt.show()
 
+ElasticQueryBuilder.build_elastic_search_query(
+    10,
+    "search_terms",
+    "topics",
+    "unwanted_topics",
+    "user_topics",
+    "unwanted_user_topics",
+    "language",
+    100,
+    10,
+    "3d",
+    0.8,
+    4.2,
+    False
+)
+
+
 conn.close()
+
+
+
 
 print("after test")
 
