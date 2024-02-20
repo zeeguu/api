@@ -168,6 +168,7 @@ class BasicSRSchedule(db.Model):
             return (-cooling_interval, word_rank)
 
         tomorrow = cls.get_current_study_window()
+
         # Get the candidates, words that are to practice
         scheduled_candidates = (
             Bookmark.query.join(cls)
@@ -178,9 +179,21 @@ class BasicSRSchedule(db.Model):
             .all()
         )
 
+        # Remove possible duplicated words from the list
+        # - The user might have multiple repeated words.
+        # - In a session, it should just show up once.
+        bookmark_set = set()
+        candidates_no_duplicates = []
+        for bookmark in scheduled_candidates:
+            b_word = bookmark.origin.word
+            if not (b_word in bookmark_set):
+                candidates_no_duplicates.append(bookmark)
+                bookmark_set.add(b_word)
+
         sorted_candidates = sorted(
-            scheduled_candidates, key=lambda x: sorting_properties(x)
+            candidates_no_duplicates, key=lambda x: sorting_properties(x)
         )
+
         return sorted_candidates[:required_count]
 
     @classmethod
