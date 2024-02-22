@@ -164,10 +164,10 @@ class BasicSRSchedule(db.Model):
             user_word = UserWord.query.filter_by(id=bookmark.origin_id).one()
             word_rank = user_word.rank
             if word_rank is None:
-                word_rank = 10000
+                word_rank = UserWord.IMPOSSIBLE_RANK
             return (-cooling_interval, word_rank)
 
-        tomorrow = cls.get_current_study_window()
+        end_of_day = cls.get_current_study_window()
 
         # Get the candidates, words that are to practice
         scheduled_candidates = (
@@ -175,13 +175,14 @@ class BasicSRSchedule(db.Model):
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < tomorrow)
+            .filter(cls.next_practice_time < end_of_day)
             .all()
         )
 
         # Remove possible duplicated words from the list
-        # - The user might have multiple repeated words.
-        # - In a session, it should just show up once.
+        # - The user might have multiple translations of the same word in different
+        # contexts that are saved as different bookmarks
+        # - In a session, a word should only show up once.
         bookmark_set = set()
         candidates_no_duplicates = []
         for bookmark in scheduled_candidates:
@@ -198,14 +199,14 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        tomorrow = cls.get_current_study_window()
+        end_of_day = cls.get_current_study_window()
         # Get the candidates, words that are to practice
         scheduled = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < tomorrow)
+            .filter(cls.next_practice_time < end_of_day)
             .limit(required_count)
             .all()
         )
