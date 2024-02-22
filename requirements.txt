@@ -48,3 +48,6 @@ git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 readabilipy
 scikit-learn==1.4.0
 flask_monitoringdashboard
+
+# spacy sometimes pulls an older version of pydantic that breaks stuff; adding the following line to prevent this
+pydantic>=1.10.8
