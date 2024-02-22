@@ -68,7 +68,8 @@ def create_app(testing=False):
     # Creating the DB tables if needed
     # Note that this must be called after all the model classes are loaded
     # And they are loaded above, in the import db... which implicitly loads the model package
-    db.create_all(app=app)
+    with app.app_context():
+        db.create_all()
 
     from .endpoints import api
 

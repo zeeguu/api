@@ -14,7 +14,6 @@ from zeeguu.api.app import create_app
 
 application = create_app()
 
-
 application.logger.debug(application.instance_path)
 
 logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)

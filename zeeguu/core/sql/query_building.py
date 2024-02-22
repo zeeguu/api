@@ -1,4 +1,4 @@
-import zeeguu.core
+from sqlalchemy import text
 
 from zeeguu.core.model import db
 
@@ -12,9 +12,9 @@ def datetime_format(date_object):
 
 
 def list_of_dicts_from_query(query, values):
-    rows = db.session.execute(query, values)
+    rows = db.session.execute(text(query), values)
 
     result = []
     for row in rows:
-        result.append(dict(row))
+        result.append(dict(row._mapping))
     return result
