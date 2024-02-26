@@ -92,7 +92,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         session["translations"] = translations_in_interval(
             session["start_time"], session["end_time"], user_id
         )
@@ -147,7 +147,7 @@ def translations_in_interval(start_time, end_time, user_id):
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         result.append(session)
 
     return result
