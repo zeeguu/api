@@ -1,5 +1,7 @@
 from statistics import mean
 
+from sqlalchemy import text
+
 import zeeguu.core
 
 from zeeguu.core.model import db
@@ -49,7 +51,6 @@ def summarize_reading_activity(user_id, cohort_id, start_date, end_date):
 
 
 def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
-
     query = """
             select  u.id as session_id, 
                 user_id, 
@@ -80,7 +81,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {
             "userId": user_id,
             "startDate": from_date,
@@ -91,7 +92,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         session["translations"] = translations_in_interval(
             session["start_time"], session["end_time"], user_id
         )
@@ -111,7 +112,6 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
 
 
 def translations_in_interval(start_time, end_time, user_id):
-
     query = """
         select 
             b.id, 
@@ -141,13 +141,13 @@ def translations_in_interval(start_time, end_time, user_id):
     """
 
     rows = db.session.execute(
-        query,
+        text(query),
         {"start_time": start_time, "end_time": end_time, "user_id": user_id},
     )
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         result.append(session)
 
     return result

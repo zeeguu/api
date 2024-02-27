@@ -64,6 +64,7 @@ class Language(db.Model):
         "en",
         "fr",
         "nl",
+        "pl",
         "ro",
         "zh-CN",
         "tr",

@@ -219,7 +219,6 @@ def wrapper_to_json_class(id):
 @with_session
 @only_teachers
 def add_colleague_to_cohort():
-
     cohort_id = request.form.get("cohort_id")
     colleague_email = request.form.get("colleague_email")
 
@@ -243,7 +242,6 @@ def add_colleague_to_cohort():
 @with_session
 @only_teachers
 def remove_user_from_cohort(user_id):
-
     check_permission_for_user(user_id)
 
     u = User.find_by_id(user_id)

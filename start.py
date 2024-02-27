@@ -1,4 +1,4 @@
-#!/bin/env python
+#!python3
 import logging
 
 # this is needed since when run as wsgi this script
@@ -13,7 +13,6 @@ except:
 from zeeguu.api.app import create_app
 
 application = create_app()
-
 
 application.logger.debug(application.instance_path)
 
