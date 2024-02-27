@@ -10,7 +10,10 @@ import numpy as np
 import pyarrow as pa # needed for pandas 
 
 from zeeguu.api.app import create_app
-from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.candidate_pool_generator.candidate_generator import build_candidate_pool_for_lang
+from zeeguu.core.content_recommender.elastic_recommender import article_recommendations_for_user, article_search_for_user
+from zeeguu.core.elastic.indexing import index_all_articles
+from zeeguu.core.model import Language
 
 app = create_app()
 app.app_context().push()
@@ -27,9 +30,48 @@ for id in User.all_recent_user_ids(150):
         print(duration_old)
         print("new way")
         print(duration_new)
-'''
+
 
 print("before test")
+u = User.find_by_id(534)
+print(u.name)
+lan = u.learned_language
+'''
+'''
+res = ElasticQuery(
+    10,
+    "cake",
+    "sports, politics",
+    "",
+    "",
+    "",
+    lan,
+    10,
+    1
+)
+print (res)
+'''
+
+res = build_candidate_pool_for_lang("en")
+print(len(res))
+
+'''
+#es2 = article_recommendations_for_user(u, 10)
+term = "Ukraine"
+
+res = article_search_for_user(u,20,term)
+print(f"\nSearching for {term}\n")
+for r in res: 
+    print(r.topics)
+
+print("\nSearching for standard recommendations\n The ones you see on the zeeguu main page\n")
+res2 = article_recommendations_for_user(u,4)
+
+for r in res2:
+    print(r)
+
+#print(res2)
+
 
 conn = db.engine.raw_connection()
 
@@ -61,6 +103,7 @@ query = """
         AND urs.duration / 60 / 60 >= 2
         AND a.word_count < 2000
 """
+
 
 upper_bound = True
 lower_bound = True
@@ -96,7 +139,8 @@ conn.close()
 
 print("after test")
 
-'''
+
+
 def initialize_all_focused_durations():
     for session in db['user_reading_session'].all():
 
@@ -105,3 +149,4 @@ def initialize_all_focused_durations():
 def initialize_focused_duration(user_id, article_id):
     return
 '''
+

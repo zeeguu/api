@@ -464,6 +464,14 @@ class Article(db.Model):
 
         except NoResultFound:
             return []
+        
+    @classmethod
+    def find_by_language(cls,lang):
+        try:
+            return cls.query.filter(cls.language == lang).all()
+
+        except NoResultFound:
+            return []
 
     @classmethod
     def all_younger_than(cls, days):
