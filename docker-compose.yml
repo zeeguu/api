@@ -15,7 +15,7 @@ services:
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu:/zeeguu-data
-    entrypoint: "python /Zeeguu-API/dev.py"
+    entrypoint: "python /Zeeguu-API/start.py"
     networks:
       - zeeguu_backend
     depends_on:
