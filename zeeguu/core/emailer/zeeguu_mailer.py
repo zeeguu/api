@@ -30,6 +30,7 @@ class ZeeguuMailer(object):
             self.send_with_yagmail()
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
 
     def _content_of_email(self):
@@ -92,14 +93,9 @@ class ZeeguuMailer(object):
     @classmethod
     def send_content_retrieved_notification(cls, article, old_content=""):
         def flag(lang_code):
-            flag_map = {
-                "fr": "🇫🇷",
-                "da": "🇩🇰",
-                "de": "🇩🇪",
-                "nl": "🇳🇱"
-            }
+            flag_map = {"fr": "🇫🇷", "da": "🇩🇰", "de": "🇩🇪", "nl": "🇳🇱", "es": "🇪🇸"}
 
-            return flag_map[lang_code]
+            return flag_map.get(lang_code, "")
 
         title = f"NEW ({flag(article.language.code)}) {article.title}"
         content = f"{article.url.as_string()}" + "\n"
