@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import User
@@ -17,12 +17,9 @@ class TeacherCohortMap(db.Model):
     cohort_id = Column(Integer, ForeignKey(Cohort.id))
     cohort = relationship(Cohort)
 
-    is_dev = Column(Boolean)
-
     def __init__(self, user, cohort):
         self.user = user
         self.cohort = cohort
-        self.is_dev = None
 
     @classmethod
     def is_teacher(cls, user):
