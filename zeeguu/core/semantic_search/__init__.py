@@ -1,0 +1,1 @@
+from .elastic_semantic_search import article_semantic_search_for_article

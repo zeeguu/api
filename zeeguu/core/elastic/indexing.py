@@ -3,6 +3,7 @@ from zeeguu.core.model.article import article_topic_map
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+from zeeguu.core.semantic_vector import semantic_embedding_model
 
 
 def find_topics(article_id, session):
@@ -20,7 +21,7 @@ def find_topics(article_id, session):
 
 def document_from_article(article, session):
     topics = find_topics(article.id, session)
-
+    # Add the vector here
     doc = {
         "title": article.title,
         "author": article.authors,
@@ -34,6 +35,7 @@ def document_from_article(article, session):
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
         "url": article.url.as_string(),
         "video": article.video,
+        "semantic_embedding": semantic_embedding_model.get_vector(article.content),
     }
     return doc
 

@@ -80,12 +80,12 @@ def _prepare_user_constraints(user):
 
 
 def article_recommendations_for_user(
-        user,
-        count,
-        es_scale="30d",
-        es_offset="1d",
-        es_decay=0.6,
-        es_weight=4.2,
+    user,
+    count,
+    es_scale="30d",
+    es_offset="1d",
+    es_decay=0.6,
+    es_weight=4.2,
 ):
     """
 
@@ -162,12 +162,12 @@ def article_recommendations_for_user(
 
 @time_this
 def article_search_for_user(
-        user,
-        count,
-        search_terms,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
+    user,
+    count,
+    search_terms,
+    es_scale="3d",
+    es_decay=0.8,
+    es_weight=4.2,
 ):
     final_article_mix = []
 
@@ -228,14 +228,16 @@ def article_search_for_user(
     return [a for a in final_article_mix if a is not None and not a.broken]
 
 
-def topic_filter_for_user(user,
-                          count,
-                          newer_than,
-                          media_type,
-                          max_duration,
-                          min_duration,
-                          difficulty_level,
-                          topic):
+def topic_filter_for_user(
+    user,
+    count,
+    newer_than,
+    media_type,
+    max_duration,
+    min_duration,
+    difficulty_level,
+    topic,
+):
     es = Elasticsearch(ES_CONN_STRING)
 
     s = Search().query(Q("term", language=user.learned_language.code()))
@@ -246,10 +248,14 @@ def topic_filter_for_user(user,
     AVERAGE_WORDS_PER_MINUTE = 70
 
     if max_duration:
-        s = s.filter("range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE})
+        s = s.filter(
+            "range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE}
+        )
 
     if min_duration:
-        s = s.filter("range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE})
+        s = s.filter(
+            "range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE}
+        )
 
     if media_type:
         if media_type == "video":
@@ -262,14 +268,15 @@ def topic_filter_for_user(user,
 
     if difficulty_level:
         lower_bounds, upper_bounds = _difficuty_level_bounds()
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds,
-                                             "lte": upper_bounds})
+        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
 
     query = s.query
 
-    query_with_size = {"size": count,
-                       "query": query.to_dict(),
-                       "sort": [{"published_time": "desc"}]}
+    query_with_size = {
+        "size": count,
+        "query": query.to_dict(),
+        "sort": [{"published_time": "desc"}],
+    }
 
     res = es.search(index=ES_ZINDEX, body=query_with_size)
 
