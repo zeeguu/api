@@ -96,22 +96,22 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-            self,
-            url,
-            title,
-            authors,
-            content,
-            summary,
-            published_time,
-            feed,
-            language,
-            htmlContent="",
-            uploader=None,
-            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-            broken=0,
-            deleted=0,
-            video=0,
-            img_url=None,
+        self,
+        url,
+        title,
+        authors,
+        content,
+        summary,
+        published_time,
+        feed,
+        language,
+        htmlContent="",
+        uploader=None,
+        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+        broken=0,
+        deleted=0,
+        video=0,
+        img_url=None,
     ):
 
         if not summary:
@@ -333,7 +333,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-            cls, session, title, content, htmlContent, uploader, language
+        cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -356,20 +356,20 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            url: str,
-            html_content=None,
-            title=None,
-            authors: str = "",
+        cls,
+        session,
+        url: str,
+        html_content=None,
+        title=None,
+        authors: str = "",
     ):
         """
 
-            If article for url found, return ID
+        If article for url found, return ID
 
-            If not found,
-                - if htmlContent is present, create article for that
-                - if not, download and create article then return
+        If not found,
+            - if htmlContent is present, create article for that
+            - if not, download and create article then return
         """
         from zeeguu.core.model import Url, Article, Language
 

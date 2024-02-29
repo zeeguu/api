@@ -44,6 +44,20 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
+  elasticsearch_v8:
+    image: elasticsearch:8.12.2
+    platform: linux/amd64
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
+    networks:
+      - zeeguu_backend
+    restart: unless-stopped
 
 
   dev_play:
@@ -102,6 +116,20 @@ services:
     depends_on:
       - elasticsearch
 
+  dev_init_es_v8:
+    image: zeeguu_api_dev
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+      ZEEGUU_ES_CONN_STRING: "elasticsearch_v8:9200"
+    volumes:
+      - .:/Zeeguu-API
+      - ./data/zeeguu:/zeeguu-data
+      - ./Users:/userslalal
+    entrypoint: "python tools/mysql_to_elastic.py"
+    networks:
+      - zeeguu_backend
+    depends_on:
+      - elasticsearch_v8
 
 networks:
   zeeguu_backend:
