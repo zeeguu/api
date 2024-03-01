@@ -25,7 +25,9 @@ WHERE
             zeeguu_test.teacher_cohort_map
         WHERE
             is_dev = 1
-    );
+    )
+    /* Tiago's Test user*/
+    OR id = 4089;
 
 ALTER TABLE
     `zeeguu_test`.`teacher_cohort_map` DROP COLUMN `is_dev`;
