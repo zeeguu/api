@@ -132,7 +132,7 @@ class UserArticle(db.Model):
         user: User,
         article: Article,
         opened=None,
-        liked=False,
+        liked=None,
         starred=None,
     ):
         """
