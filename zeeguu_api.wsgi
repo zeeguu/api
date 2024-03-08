@@ -42,6 +42,7 @@ logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 try:
     import flask_monitoringdashboard as fmd
     import flask
+    from zeeguu.core.model import Session
 
     fmd.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
     fmd.config.get_group_by = lambda: Session.find(request=flask.request).user_id
