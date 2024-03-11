@@ -195,36 +195,112 @@ def build_elastic_semantic_sim_query(
     upper_bounds,
     lower_bounds,
     article_sem_vec,
+    article,
     es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
     second_try=False,
-    k=5,
+    n_candidates=100,
 ):
     """
     Builds an elastic search based on the KNN semantic embeddings, the filter can be a query object.
+    https://elasticsearch-dsl.readthedocs.io/en/latest/search_dsl.html#k-nearest-neighbor-searches
+    # Filter: Top k documents will have to fit this criteria. This is applied during the search.
+    # Providing a Query means that the two are combined. These can take a boost to score how much it consideres of each.
+    kNN search API finds a num_candidates number of approximate nearest neighbor candidates on each shard.
+    The search computes the similarity of these candidate vectors to the query vector, selecting the k most
+    similar results from each shard. The search then merges the results from each shard to return the global
+    top k nearest neighbors.
+
+    {'mappings': {'properties': {'author': {'fields': {'keyword': {'ignore_above': 256,
+                                                               'type': 'keyword'}},
+                                        'type': 'text'},
+                             'content': {'fields': {'keyword': {'ignore_above': 256,
+                                                                'type': 'keyword'}},
+                                         'type': 'text'},
+                             'fk_difficulty': {'type': 'long'},
+                             'language': {'fields': {'keyword': {'ignore_above': 256,
+                                                                 'type': 'keyword'}},
+                                          'type': 'text'},
+                             'published_time': {'type': 'date'},
+                             'semantic_embedding': {'dims': 512,
+                                                    'index': True,
+                                                    'similarity': 'cosine',
+                                                    'type': 'dense_vector'},
+                             'summary': {'fields': {'keyword': {'ignore_above': 256,
+                                                                'type': 'keyword'}},
+                                         'type': 'text'},
+                             'title': {'fields': {'keyword': {'ignore_above': 256,
+                                                              'type': 'keyword'}},
+                                       'type': 'text'},
+                             'topics': {'fields': {'keyword': {'ignore_above': 256,
+                                                               'type': 'keyword'}},
+                                        'type': 'text'},
+                             'url': {'fields': {'keyword': {'ignore_above': 256,
+                                                            'type': 'keyword'}},
+                                     'type': 'text'},
+                             'video': {'type': 'long'},
+                             'word_count': {'type': 'long'}}}}
+
     """
-    s = Search().knn(
-        field="semantic_embedding",
-        k=k,
-        num_candidates=count,
+    s = Search()
+    # s = s.exclude("match", id=article.id)
+    if unwanted_topics is None:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=article_sem_vec,
+            filter=(
+                Q("match", **{"language.keyword": language.name})
+                & ~Q("term", ids=article.id)
+            ),
+        )
+    else:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=article_sem_vec,
+            filter=(
+                Q("match", language__keyword=language.name)
+                & ~Q("match", **{"topics.keyword": ""})
+                & ~Q("term", ids=article.id)
+            ),
+        )
+
+    query = s.to_dict()
+    print(query)
+    return query
+
+
+def build_elastic_semantic_sim_query_for_topic_cls(
+    count,
+    search_terms,
+    topics,
+    unwanted_topics,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+    article_sem_vec,
+    article,
+    es_scale="3d",
+    es_decay=0.8,
+    es_weight=4.2,
+    second_try=False,
+    n_candidates=100,
+):
+    s = Search()
+    s = s.knn(
+        field="sem_vec",
+        k=count,
+        num_candidates=n_candidates,
         query_vector=article_sem_vec,
-        filter=Q("term", language=language.name.lower()),
+        filter=(
+            ~Q("term", ids=article.id) & ~Q("match", **{"topic_keywords.keyword": ""})
+        ),
     )
-
-    if not second_try:
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
-
-    # using function scores to weight more recent results higher
-    # https://github.com/elastic/elasticsearch-dsl-py/issues/608
-    weighted_query = Q(
-        "function_score",
-        query=s.query,
-        functions=[
-            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3})
-        ],
-    )
-
-    query = {"size": count, "query": weighted_query.to_dict()}
-
+    query = s.to_dict()
     return query

@@ -3,6 +3,7 @@
 import setuptools
 from setuptools.command.develop import develop
 from setuptools.command.install import install
+from sentence_transformers import SentenceTransformer
 
 
 class DevelopScript(develop):
@@ -15,6 +16,13 @@ class InstallScript(install):
     def run(self):
         install.run(self)
         ntlk_install_packages()
+        install_hugging_face_models()
+
+
+def install_hugging_face_models():
+    model = SentenceTransformer(
+        "sentence-transformers/distiluse-base-multilingual-cased-v2"
+    )
 
 
 def ntlk_install_packages():

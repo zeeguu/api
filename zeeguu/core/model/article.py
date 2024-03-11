@@ -21,6 +21,13 @@ article_topic_map = Table(
     Column("topic_id", Integer, ForeignKey("topic.id")),
 )
 
+article_topic_keyword_map = Table(
+    "article_topic_keyword_map",
+    db.Model.metadata,
+    Column("article_id", Integer, ForeignKey("article.id")),
+    Column("topic_keyword_id", Integer, ForeignKey("topic_keyword.id")),
+)
+
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
@@ -67,6 +74,8 @@ class Article(db.Model):
 
     from zeeguu.core.model.language import Language
 
+    from zeeguu.core.model.topic_keyword import TopicKeyword
+
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
 
@@ -89,6 +98,9 @@ class Article(db.Model):
         Topic, secondary="article_topic_map", backref=backref("articles")
     )
 
+    topic_keywords = relationship(
+        TopicKeyword, secondary="article_topic_keyword_map", backref=backref("articles")
+    )
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
     # Or maybe an article that's behind a paywall and
@@ -255,6 +267,12 @@ class Article(db.Model):
 
     def add_topic(self, topic):
         self.topics.append(topic)
+
+    def add_topic_keywords(self, topic_keyword):
+        self.topic_keywords.append(topic_keyword)
+
+    def set_topic_keywords(self, topic_keywords):
+        self.topic_keywords = topic_keywords
 
     def add_search(self, search):
         self.searches.append(search)

@@ -48,6 +48,7 @@ from .topic import Topic
 from .topic_subscription import TopicSubscription
 from .topic_filter import TopicFilter
 from .localized_topic import LocalizedTopic
+from .topic_keyword import TopicKeyword
 
 from .search import Search
 from .search_filter import SearchFilter

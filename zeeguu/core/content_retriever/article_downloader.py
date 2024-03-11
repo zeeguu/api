@@ -16,7 +16,7 @@ from zeeguu.logging import log, logp
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, LocalizedTopic
+from zeeguu.core.model import Url, Feed, LocalizedTopic, TopicKeyword
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -27,6 +27,7 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.content_retriever import download_and_parse
 
 TIMEOUT_SECONDS = 10
+
 
 import zeeguu
 
@@ -105,7 +106,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-                feed_item_timestamp > last_retrieval_time_seen_this_crawl
+            feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -181,6 +182,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
         except Exception as e:
             import traceback
+
             traceback.print_stack()
             capture_to_sentry(e)
             if hasattr(e, "message"):
@@ -237,7 +239,7 @@ def download_feed_item(session, feed, feed_item, url):
         published_datetime,
         feed,
         feed.language,
-        htmlContent=np_article.htmlContent
+        htmlContent=np_article.htmlContent,
     )
 
     if np_article.top_image != "":
@@ -246,7 +248,45 @@ def download_feed_item(session, feed, feed_item, url):
 
     topics = add_topics(new_article, session)
     logp(f" Topics ({topics})")
+    topic_keywords = add_topic_keywords(new_article, session)
+    logp(f" Topic Keywords: ({topic_keywords})")
+    # compute extra difficulties for french articles
+    try:
+        if new_article.language.code == "fr":
+            from zeeguu.core.language.services.lingo_rank_service import (
+                retrieve_lingo_rank,
+            )
 
+            df = DifficultyLingoRank(
+                new_article, retrieve_lingo_rank(new_article.content)
+            )
+            session.add(df)
+    except SkippedForLowQuality as e:
+        raise e
+
+    except newspaper.ArticleException as e:
+        logp(f"can't download article at: {url}")
+
+    except DataError as e:
+        logp(f"Data error for: {url}")
+
+    except requests.exceptions.Timeout:
+        logp(
+            f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
+        )
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        capture_to_sentry(e)
+
+        log(
+            f"* Rolling back session due to exception while creating article and attaching words/topics: {str(e)}"
+        )
+        session.rollback()
+    session.commit()
+    logp(f"SUCCESS for: {new_article.title}")
     return new_article
 
 
@@ -254,9 +294,19 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-                new_article
+            new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)
             session.add(new_article)
     return topics
+
+
+def add_topic_keywords(new_article, session):
+    topic_keywords = [
+        TopicKeyword.find_or_create(session, keyword)
+        for keyword in TopicKeyword.get_topic_keywords_from_url(new_article.url)
+        if keyword is not None
+    ]
+    new_article.set_topic_keywords(topic_keywords)
+    return topic_keywords

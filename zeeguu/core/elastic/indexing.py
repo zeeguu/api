@@ -1,9 +1,11 @@
-from zeeguu.core.model import Topic
-from zeeguu.core.model.article import article_topic_map
+from zeeguu.core.model import Topic, TopicKeyword
+from zeeguu.core.model.article import article_topic_map, article_topic_keyword_map
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.semantic_vector import semantic_embedding_model
+
+from pprint import pprint
 
 
 def find_topics(article_id, session):
@@ -19,9 +21,22 @@ def find_topics(article_id, session):
     return topics.rstrip()
 
 
-def document_from_article(article, session):
-    topics = find_topics(article.id, session)
-    # Add the vector here
+def find_topic_keywords(article_id, session):
+    article_topic_keywords = (
+        session.query(TopicKeyword)
+        .join(article_topic_keyword_map)
+        .filter(article_topic_keyword_map.c.article_id == article_id)
+    )
+    topic_kewyords = []
+    for t_key in article_topic_keywords:
+        topic_kewyords.append(str(t_key.keyword))
+    return topic_kewyords
+
+
+def document_from_article(article, session, topics=None):
+    if topics is None:
+        topics = find_topics(article.id, session)
+    topic_keywords = find_topic_keywords(article.id, session)
     doc = {
         "title": article.title,
         "author": article.authors,
@@ -30,12 +45,13 @@ def document_from_article(article, session):
         "word_count": article.word_count,
         "published_time": article.published_time,
         "topics": topics,
+        "topic_keywords": topic_keywords,
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+        "sem_vec": semantic_embedding_model.get_vector(article.content),
         "url": article.url.as_string(),
         "video": article.video,
-        "semantic_embedding": semantic_embedding_model.get_vector(article.content),
     }
     return doc
 
@@ -51,6 +67,22 @@ def create_or_update(article, session):
     res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
 
     return res
+
+
+def create_or_update_bulk_docs(article, session, topics=None):
+    es = Elasticsearch(ES_CONN_STRING)
+
+    doc_data = document_from_article(article, session, topics)
+    doc = {}
+    doc["_id"] = article.id
+    doc["_index"] = ES_ZINDEX
+    doc["doc"] = doc_data
+    if es.exists(index=ES_ZINDEX, id=article.id):
+        doc["_op_type"] = "update"
+    else:
+        doc["_op_type"] = "create"
+
+    return doc
 
 
 def index_in_elasticsearch(new_article, session):

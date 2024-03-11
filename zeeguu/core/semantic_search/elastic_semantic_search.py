@@ -3,16 +3,11 @@ from elasticsearch_dsl import Search, Q, SF
 
 from zeeguu.core.model import (
     Article,
-    TopicFilter,
-    TopicSubscription,
-    SearchFilter,
-    SearchSubscription,
-    UserArticle,
-    Language,
 )
 
 from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_semantic_sim_query,
+    build_elastic_semantic_sim_query_for_topic_cls,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -66,35 +61,63 @@ def article_semantic_search_for_user(
 
 
 @time_this
-def article_semantic_search_for_article(article: Article):
+def semantic_search_from_article(article: Article):
     query_body = build_elastic_semantic_sim_query(
-        20,
+        11,
         "",
         "",
-        "",
+        None,
         "",
         "",
         article.language,
         100,
         0,
         semantic_embedding_model.get_vector(article.content),
+        article,
         es_scale="3d",
         es_decay=0.8,
         es_weight=4.2,
         second_try=False,
-        k=5,
     )
     final_article_mix = []
 
-    print(ES_CONN_STRING)
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
 
-    print(res)
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    return [a for a in final_article_mix if a is not None and not a.broken]
+    return [a for a in final_article_mix if a is not None and not a.broken], hit_list
+
+
+@time_this
+def semantic_search_add_topics_based_on_neigh(article: Article):
+    query_body = build_elastic_semantic_sim_query_for_topic_cls(
+        7,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        100,
+        0,
+        semantic_embedding_model.get_vector(article.content),
+        article,
+        es_scale="3d",
+        es_decay=0.8,
+        es_weight=4.2,
+        second_try=False,
+    )
+    final_article_mix = []
+
+    es = Elasticsearch(ES_CONN_STRING)
+    res = es.search(index=ES_ZINDEX, body=query_body)
+
+    hit_list = res["hits"].get("hits")
+    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+
+    return [a for a in final_article_mix if a is not None and not a.broken], hit_list
 
 
 def _to_articles_from_ES_hits(hits):

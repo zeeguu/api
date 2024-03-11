@@ -117,15 +117,35 @@ services:
       - elasticsearch
 
   dev_init_es_v8:
-    image: zeeguu_api_dev
+    image: zeeguu_api_dev_es_v8
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "elasticsearch_v8:9200"
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
     volumes:
       - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
+      - ./data/zeeguu/esV8:/zeeguu-data
       - ./Users:/userslalal
     entrypoint: "python tools/mysql_to_elastic.py"
+    networks:
+      - zeeguu_backend
+    depends_on:
+      - elasticsearch_v8
+    
+  dev_server_v8:
+    image: zeeguu_api_dev_es_v8
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      PYTHONUNBUFFERED: 1
+      MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
+      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
+
+    ports:
+      - 9001:9001
+    volumes:
+      - .:/Zeeguu-API
+      - ./data/zeeguu/esV8:/zeeguu-data
+    entrypoint: "python /Zeeguu-API/start.py"
     networks:
       - zeeguu_backend
     depends_on:
