@@ -5,8 +5,6 @@ from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.semantic_vector import semantic_embedding_model
 
-from pprint import pprint
-
 
 def find_topics(article_id, session):
     article_topic = (
@@ -21,22 +19,24 @@ def find_topics(article_id, session):
     return topics.rstrip()
 
 
-def find_topic_keywords(article_id, session):
+def find_filter_topic_keywords(article_id, session):
     article_topic_keywords = (
         session.query(TopicKeyword)
         .join(article_topic_keyword_map)
         .filter(article_topic_keyword_map.c.article_id == article_id)
     )
-    topic_kewyords = []
-    for t_key in article_topic_keywords:
-        topic_kewyords.append(str(t_key.keyword))
+    topic_kewyords = [
+        str(t_key.keyword)
+        for t_key in article_topic_keywords
+        if t_key not in TopicKeyword.EXCLUDE_TOPICS
+    ]
     return topic_kewyords
 
 
 def document_from_article(article, session, topics=None):
     if topics is None:
         topics = find_topics(article.id, session)
-    topic_keywords = find_topic_keywords(article.id, session)
+    topic_keywords = find_filter_topic_keywords(article.id, session)
     doc = {
         "title": article.title,
         "author": article.authors,
@@ -76,7 +76,7 @@ def create_or_update_bulk_docs(article, session, topics=None):
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
-    doc["doc"] = doc_data
+    doc["_source"] = doc_data
     if es.exists(index=ES_ZINDEX, id=article.id):
         doc["_op_type"] = "update"
     else:
