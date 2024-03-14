@@ -6,7 +6,7 @@ from zeeguu.core.elastic.indexing import (
 )
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk, parallel_bulk
+from elasticsearch.helpers import bulk
 import zeeguu.core
 from zeeguu.core.model import Article
 import sys
@@ -41,7 +41,14 @@ def find_topics(article_id, session):
     return topics.rstrip()
 
 
-def main(starting_index):
+def main(starting_index, delete_index=False):
+    if delete_index:
+        try:
+            es.options(ignore_status=[400, 404]).indices.delete(index="zeeguu")
+            print("Deleted index 'zeeguu'!")
+        except Exception as e:
+            print(f"Failed to delete: {e}")
+
     def fetch_articles(max_id, min_id):
         for i in range(max_id, min_id, -1):
             print(f"Article '{i}'")
@@ -72,7 +79,6 @@ def main(starting_index):
 
     def gen_docs(articles_w_topics):
         for article, topics in articles_w_topics:
-
             try:
                 yield create_or_update_bulk_docs(article, db_session, topics)
             except Exception as e:
@@ -81,9 +87,10 @@ def main(starting_index):
     # max_id = db_session.query(func.max(Article.id)).first()[0]
     # min_id = db_session.query(func.min(Article.id)).first()[0]
     sample_ids = np.array([a_id[0] for a_id in db_session.query(Article.id).all()])
+    # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
-    for i in range(1):
-        sub_sample = np.random.choice(sample_ids, 100, replace=False)
+    for _ in range(100):
+        sub_sample = np.random.choice(sample_ids, 50, replace=False)
         print(f"starting import at: {sub_sample[0]}")
         # print(f"max id in db: {sample_ids}")
         # fetch_db_articles = list(gen_docs(fetch_articles(max_id, max_id - 200)))
@@ -92,6 +99,10 @@ def main(starting_index):
         #    if not success:
         #        print("A document failed:", info)
         # fetch_db_articles = fetch_articles(max_id, max_id - 200)
+        # for i in sub_sample:
+        #    res = create_or_update(Article.find_by_id(i), db_session)
+        #    print(res)
+        #    total_added += 1
         res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
         total_added += res
     print(total_added)

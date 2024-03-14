@@ -1,5 +1,6 @@
 from zeeguu.core.model import Topic, TopicKeyword
-from zeeguu.core.model.article import article_topic_map, article_topic_keyword_map
+from zeeguu.core.model.article import article_topic_map
+from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -22,8 +23,8 @@ def find_topics(article_id, session):
 def find_filter_topic_keywords(article_id, session):
     article_topic_keywords = (
         session.query(TopicKeyword)
-        .join(article_topic_keyword_map)
-        .filter(article_topic_keyword_map.c.article_id == article_id)
+        .join(ArticleTopicKeywordMap)
+        .filter(ArticleTopicKeywordMap.article_id == article_id)
     )
     topic_kewyords = [
         str(t_key.keyword)

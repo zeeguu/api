@@ -21,12 +21,6 @@ article_topic_map = Table(
     Column("topic_id", Integer, ForeignKey("topic.id")),
 )
 
-article_topic_keyword_map = Table(
-    "article_topic_keyword_map",
-    db.Model.metadata,
-    Column("article_id", Integer, ForeignKey("article.id")),
-    Column("topic_keyword_id", Integer, ForeignKey("topic_keyword.id")),
-)
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
@@ -97,10 +91,7 @@ class Article(db.Model):
     topics = relationship(
         Topic, secondary="article_topic_map", backref=backref("articles")
     )
-
-    topic_keywords = relationship(
-        TopicKeyword, secondary="article_topic_keyword_map", backref=backref("articles")
-    )
+    topic_keywords = relationship("ArticleTopicKeywordMap", back_populates="article")
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
     # Or maybe an article that's behind a paywall and
@@ -268,11 +259,20 @@ class Article(db.Model):
     def add_topic(self, topic):
         self.topics.append(topic)
 
-    def add_topic_keywords(self, topic_keyword):
-        self.topic_keywords.append(topic_keyword)
+    def add_topic_keywords(self, topic_keyword, rank):
+        from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+
+        a = ArticleTopicKeywordMap(rank=rank)
+        a.topic_keyword = topic_keyword
+        self.topic_keywords.append(a)
 
     def set_topic_keywords(self, topic_keywords):
-        self.topic_keywords = topic_keywords
+        from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+
+        for rank, t in enumerate(topic_keywords):
+            a = ArticleTopicKeywordMap(rank=rank)
+            a.topic_keyword = t
+            self.topic_keywords.append(a)
 
     def add_search(self, search):
         self.searches.append(search)

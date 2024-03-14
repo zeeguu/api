@@ -24,6 +24,7 @@ import zeeguu
 
 
 # the core model
+from .article_topic_keyword_map import ArticleTopicKeywordMap
 from .language import Language
 from .url import Url
 from .domain_name import DomainName

@@ -16,6 +16,34 @@ class TopicKeyword(db.Model):
 
     """
 
+    EXCLUDE_TOPICS = set(
+        [
+            "news",
+            "i",
+            "nyheter",
+            "article",
+            "nieuws",
+            "aktuell",
+            "artikel",
+            "wiadomosci",
+            "actualites",
+            "cronaca",
+            "nyheder",
+            "jan",
+            "feb",
+            "mar",
+            "apr",
+            "may",
+            "jun",
+            "jul",
+            "aug",
+            "sep",
+            "oct",
+            "nov",
+            "dec",
+        ]
+    )
+
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "topic_keyword"
 
@@ -26,6 +54,7 @@ class TopicKeyword(db.Model):
 
     keyword = db.Column(db.String(45))
     type = db.Column(db.Integer)
+    articles = relationship("ArticleTopicKeywordMap", back_populates="topic_keyword")
 
     def __init__(
         self, keyword: str, localized_topic: LocalizedTopic = None, type: int = None

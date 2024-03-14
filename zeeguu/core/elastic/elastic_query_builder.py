@@ -1,4 +1,5 @@
 from elasticsearch_dsl import Search, Q, SF
+from elasticsearch_dsl.query import MoreLikeThis
 
 
 def match(key, value):
@@ -184,6 +185,56 @@ def build_elastic_search_query(
     return query
 
 
+def more_like_this_query(
+    count,
+    article_text,
+    language,
+    upper_bounds,
+    lower_bounds,
+    es_scale="3d",
+    es_offset="1d",
+    es_decay=0.8,
+    es_weight=4.2,
+    second_try=False,
+):
+    """
+    Builds an elastic search query for search terms.
+    If called with second_try it drops the difficulty constraints
+    It also weights more recent results higher
+
+    """
+
+    s = (
+        Search()
+        .query(MoreLikeThis(like=article_text, fields=["title", "content"]))
+        .filter("term", language=language.name.lower())
+    )
+
+    if not second_try:
+        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
+
+    # using function scores to weight more recent results higher
+    # https://github.com/elastic/elasticsearch-dsl-py/issues/608
+    weighted_query = Q(
+        "function_score",
+        query=s.query,
+        functions=[
+            SF(
+                "gauss",
+                published_time={
+                    "scale": es_scale,
+                    "offset": es_offset,
+                    "decay": es_decay,
+                },
+            )
+        ],
+    )
+
+    query = {"size": count, "query": weighted_query.to_dict()}
+
+    return s.to_dict()
+
+
 def build_elastic_semantic_sim_query(
     count,
     search_terms,
@@ -252,8 +303,8 @@ def build_elastic_semantic_sim_query(
             num_candidates=n_candidates,
             query_vector=article_sem_vec,
             filter=(
-                Q("match", **{"language.keyword": language.name})
-                & ~Q("term", ids=article.id)
+                ~Q("ids", values=[article.id])
+                & Q("match", **{"language.keyword": language.name})
             ),
         )
     else:
@@ -263,9 +314,11 @@ def build_elastic_semantic_sim_query(
             num_candidates=n_candidates,
             query_vector=article_sem_vec,
             filter=(
-                Q("match", language__keyword=language.name)
-                & ~Q("match", **{"topics.keyword": ""})
-                & ~Q("term", ids=article.id)
+                ~Q("ids", values=[article.id])
+                & (
+                    Q("match", language__keyword=language.name)
+                    & ~Q("match", **{"topics.keyword": ""})
+                )
             ),
         )
 
@@ -299,8 +352,12 @@ def build_elastic_semantic_sim_query_for_topic_cls(
         num_candidates=n_candidates,
         query_vector=article_sem_vec,
         filter=(
-            ~Q("term", ids=article.id) & ~Q("match", **{"topic_keywords.keyword": ""})
+            ~Q("ids", values=[article.id])
+            & ~Q("match", **{"topic_keywords.keyword": ""})
+            & Q("exists", field="topic_keywords")
         ),
     )
+
     query = s.to_dict()
+    print(query)
     return query

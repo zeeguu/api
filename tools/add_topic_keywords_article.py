@@ -29,15 +29,17 @@ total_articles = len(all_article_id)
 for a_id in tqdm(all_article_id):
     counter += 1
     try:
+
         article = Article.find_by_id(a_id)
         topic_keywords = [
             TopicKeyword.find_or_create(db_session, keyword)
-            for keyword in get_topic_keywords_from_article(article)
+            for i, keyword in enumerate(get_topic_keywords_from_article(article))
             if keyword is not None
         ]
         article.set_topic_keywords(topic_keywords)
         db_session.add(article)
     except Exception as e:
+        counter -= 1
         print(f"Failed for article id: {a_id}, with: {e}")
     if counter % 1000 == 0:
         percentage = (100 * counter / total_articles) / 100

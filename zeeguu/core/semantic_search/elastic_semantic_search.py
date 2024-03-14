@@ -8,6 +8,7 @@ from zeeguu.core.model import (
 from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_semantic_sim_query,
     build_elastic_semantic_sim_query_for_topic_cls,
+    more_like_this_query,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -58,6 +59,18 @@ def article_semantic_search_for_user(
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+
+
+@time_this
+def like_this_from_article(article: Article):
+    query_body = more_like_this_query(10, article.content, article.language, 100, 0)
+    es = Elasticsearch(ES_CONN_STRING)
+    res = es.search(index=ES_ZINDEX, body=query_body)
+    final_article_mix = []
+    hit_list = res["hits"].get("hits")
+    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+
+    return [a for a in final_article_mix if a is not None and not a.broken], hit_list
 
 
 @time_this
