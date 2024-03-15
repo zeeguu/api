@@ -48,7 +48,7 @@ class ArticleDifficultyFeedback(db.Model):
     @classmethod
     def find(cls, user: User, article: Article):
         try:
-            return cls.query.filter_by(user=user, article=article).one()
+            return cls.query.filter_by(user=user, article=article).order_by(cls.date.desc()).first()        
         except NoResultFound:
             return None
 
