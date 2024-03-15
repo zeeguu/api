@@ -5,7 +5,7 @@ ADD
 AFTER
     `deleted`,
 ADD
-    UNIQUE INDEX `img_url_id_UNIQUE` (`img_url_id` ASC) VISIBLE;
+    UNIQUE INDEX `img_url_id_UNIQUE` (`img_url_id` ASC);
 
 ;
 
