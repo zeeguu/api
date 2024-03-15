@@ -227,7 +227,7 @@ class Article(db.Model):
         if self.feed:
             # Is this supposed to be a tuple?
             result_dict["feed_id"] = (self.feed.id,)
-            result_dict["icon_name"] = self.feed.icon_name
+            result_dict["feed_icon_name"] = self.feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
             # until the codebase is moved to zorg.
