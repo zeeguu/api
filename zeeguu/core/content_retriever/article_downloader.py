@@ -117,7 +117,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-                feed_item_timestamp > last_retrieval_time_seen_this_crawl
+            feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -234,7 +234,7 @@ def download_feed_item(session, feed, feed_item, url):
         if len(summary) < 10:
             summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-            # Create new article and save it to DB
+        # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
@@ -245,6 +245,8 @@ def download_feed_item(session, feed, feed_item, url):
             feed,
             feed.language,
         )
+        if parsed.top_image != "":
+            new_article.img_url = Url.find_or_create(session, parsed.top_image)
         session.add(new_article)
 
         topics = add_topics(new_article, session)
@@ -277,8 +279,10 @@ def download_feed_item(session, feed, feed_item, url):
         logp(f"Data error for: {url}")
 
     except requests.exceptions.Timeout:
-        logp(f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds.")
-        
+        logp(
+            f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
+        )
+
     except Exception as e:
         import traceback
 
@@ -297,7 +301,7 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-                new_article
+            new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)

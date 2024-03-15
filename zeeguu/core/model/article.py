@@ -71,7 +71,9 @@ class Article(db.Model):
     feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
-    url = relationship(Url)
+    img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
+    url = relationship(Url, foreign_keys="Article.url_id")
+    img_url = relationship(Url, foreign_keys="Article.img_url_id")
 
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
@@ -94,21 +96,22 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-            self,
-            url,
-            title,
-            authors,
-            content,
-            summary,
-            published_time,
-            feed,
-            language,
-            htmlContent="",
-            uploader=None,
-            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-            broken=0,
-            deleted=0,
-            video=0,
+        self,
+        url,
+        title,
+        authors,
+        content,
+        summary,
+        published_time,
+        feed,
+        language,
+        htmlContent="",
+        uploader=None,
+        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+        broken=0,
+        deleted=0,
+        video=0,
+        img_url=None,
     ):
 
         if not summary:
@@ -128,6 +131,7 @@ class Article(db.Model):
         self.broken = broken
         self.deleted = deleted
         self.video = video
+        self.img_url = img_url
 
         self.convertHTML2TextIfNeeded()
         self.compute_fk_and_wordcount()
@@ -214,6 +218,8 @@ class Article(db.Model):
 
         if self.url:
             result_dict["url"] = self.url.as_string()
+        if self.img_url:
+            result_dict["img_url"] = self.img_url.as_string()
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
@@ -221,7 +227,7 @@ class Article(db.Model):
         if self.feed:
             # Is this supposed to be a tuple?
             result_dict["feed_id"] = (self.feed.id,)
-            result_dict["icon_name"] = self.feed.icon_name
+            result_dict["feed_icon_name"] = self.feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
             # until the codebase is moved to zorg.
@@ -268,6 +274,7 @@ class Article(db.Model):
         self.broken = 100
         # if it was in ES, we delete it
         from zeeguu.core.elastic.indexing import remove_from_index
+
         remove_from_index(self)
 
     def update_content(self, session):
@@ -278,7 +285,10 @@ class Article(db.Model):
         self.htmlContent = parsed.html
         self.compute_fk_and_wordcount()
 
-        from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
+        from zeeguu.core.content_quality.quality_filter import (
+            sufficient_quality_plain_text,
+        )
+
         quality, reason = sufficient_quality_plain_text(self.content)
         if not quality:
             print("Marking as broken. Reason: " + reason)
@@ -323,7 +333,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-            cls, session, title, content, htmlContent, uploader, language
+        cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -346,13 +356,13 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            _url: str,
-            language=None,
-            htmlContent=None,
-            title=None,
-            authors: str = "",
+        cls,
+        session,
+        _url: str,
+        language=None,
+        htmlContent=None,
+        title=None,
+        authors: str = "",
     ):
         """
 
