@@ -6,7 +6,7 @@ import re
 
 import sqlalchemy.orm
 import zeeguu.core
-from sqlalchemy import Column, ForeignKey, Integer, func
+from sqlalchemy import Column, ForeignKey, Integer, Boolean, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -52,6 +52,8 @@ class User(db.Model):
     cohort_id = Column(Integer, ForeignKey(Cohort.id))
     cohort = relationship(Cohort)
 
+    is_dev = Column(Boolean)
+
     def __init__(
         self,
         email,
@@ -61,6 +63,7 @@ class User(db.Model):
         native_language=None,
         invitation_code=None,
         cohort=None,
+        is_dev=0,
     ):
         self.email = email
         self.name = name
@@ -69,6 +72,7 @@ class User(db.Model):
         self.native_language = native_language or Language.default_native_language()
         self.invitation_code = invitation_code
         self.cohort = cohort
+        self.is_dev = is_dev
 
     @classmethod
     def create_anonymous(

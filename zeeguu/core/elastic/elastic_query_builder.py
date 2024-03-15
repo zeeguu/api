@@ -26,9 +26,10 @@ def build_elastic_recommender_query(
         language,
         upper_bounds,
         lower_bounds,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
+        es_scale="30d",
+        es_offset="1d",
+        es_decay=0.5,
+        es_weight=2.1,
         second_try=False,
 ):
     """
@@ -115,8 +116,8 @@ def build_elastic_recommender_query(
 
     function1 = {
         # original parameters by Simon & Marcus
-        "gauss": {"published_time": {"scale": "365d", "offset": "7d", "decay": 0.3}},
-        "weight": 1.2,
+        "gauss": {"published_time": {"scale": es_scale, "offset": es_offset, "decay": es_decay}},
+        "weight": es_weight,
         # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
         # "weight": es_weight,
     }

@@ -89,37 +89,6 @@ def create_app(testing=False):
     return app
 
 
-# # The zeeguu.core.model  module relies on an app being injected from outside
-# # ----------------------------------------------------------------------
-# import zeeguu.core
-#
-# zeeguu.core.app = app
-# import zeeguu.core.model
-
-
-# -----------------
-
-
-# try:
-#     import flask_monitoringdashboard as dashboard
-#     from .custom_fmd_graphs import daily_visitors
-
-#     dashboard.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
-
-#     from zeeguu.core.model import Session
-
-#     dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
-#     dashboard.bind(app=app)
-#     daily_visitors(dashboard)
-#     print("Started the Flask Monitoring Dashboard")
-
-# except Exception as e:
-#     import traceback
-
-#     traceback.print_exc()
-#     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
-
-
 # install nltk punkt & tagger if missing
 # we can only do it here because the nltk loads in memory the unittest
 # and when that is detected, the configuration of the system is set to
