@@ -12,7 +12,7 @@ from zeeguu.core.elastic.elastic_query_builder import (
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.semantic_vector import semantic_embedding_model
+from zeeguu.core.semantic_vector_api import get_embedding_from_article
 
 
 @time_this
@@ -85,7 +85,7 @@ def semantic_search_from_article(article: Article):
         article.language,
         100,
         0,
-        semantic_embedding_model.get_vector(article.content),
+        get_embedding_from_article(article),
         article,
         es_scale="3d",
         es_decay=0.8,

@@ -136,6 +136,7 @@ services:
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
       ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:8000"
       PYTHONUNBUFFERED: 1
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
       GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
@@ -150,6 +151,16 @@ services:
       - zeeguu_backend
     depends_on:
       - elasticsearch_v8
+      - embedding_api
+  
+  embedding_api:
+    image: zeeguu_api_sem_emb
+    entrypoint: "python ./app/app.py"
+    networks:
+      - zeeguu_backend
+    ports:
+      - 8000:8000
+    
 
 networks:
   zeeguu_backend:

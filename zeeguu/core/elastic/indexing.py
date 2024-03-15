@@ -4,7 +4,7 @@ from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.semantic_vector import semantic_embedding_model
+from zeeguu.core.semantic_vector_api import get_embedding_from_article
 
 
 def find_topics(article_id, session):
@@ -50,7 +50,7 @@ def document_from_article(article, session, topics=None):
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
-        "sem_vec": semantic_embedding_model.get_vector(article.content),
+        "sem_vec": get_embedding_from_article(article),
         "url": article.url.as_string(),
         "video": article.video,
     }
