@@ -28,10 +28,10 @@ def distill_article_interactions(session, user, data):
 
     if EVENT_OPEN_ARTICLE in event:
         article_opened(session, article_id, user)
-    elif EVENT_LIKE_ARTICLE in event:
-        article_liked(session, article_id, user, True)
     elif EVENT_USER_FEEDBACK in event:
         article_feedback(session, article_id, user, value)
+    """ elif EVENT_LIKE_ARTICLE in event:
+        article_liked(session, article_id, user, value == "true") """
 
 
 def article_feedback(session, article_id, user, event_value):
