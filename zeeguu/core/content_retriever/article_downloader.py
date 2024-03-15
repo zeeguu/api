@@ -244,7 +244,6 @@ def download_feed_item(session, feed, feed_item, url):
             published_datetime,
             feed,
             feed.language,
-            img_url=Url.find_or_create(session, parsed.top_image),
         )
         if parsed.top_image != "":
             new_article.img_url = Url.find_or_create(session, parsed.top_image)
