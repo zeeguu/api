@@ -20,7 +20,6 @@ from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
 
-
 punctuation_extended = "»«" + punctuation
 
 
@@ -43,15 +42,8 @@ def get_one_translation(from_lang_code, to_lang_code):
     """
 
     word_str = request.form["word"].strip(punctuation_extended)
-    url = request.form.get("url")
-    title_str = request.form.get("title", "")
     context = request.form.get("context", "").strip()
     article_id = request.form.get("articleID", None)
-
-    if not article_id:
-        # the url comes from elsewhere not from the reader, so we find or create the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
 
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -77,9 +69,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             {
                 "from_lang_code": from_lang_code,
                 "to_lang_code": to_lang_code,
-                "url": url,
                 "word": word_str,
-                "title": title_str,
                 "query": query,
                 "context": context,
             },
@@ -98,8 +88,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             best_guess,
             to_lang_code,
             context,
-            url,
-            title_str,
             article_id,
         )
 
