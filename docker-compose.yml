@@ -121,6 +121,7 @@ services:
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
       ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:8000"
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu/esV8:/zeeguu-data
@@ -130,6 +131,7 @@ services:
       - zeeguu_backend
     depends_on:
       - elasticsearch_v8
+      - embedding_api
     
   dev_server_v8:
     image: zeeguu_api_dev_es_v8
