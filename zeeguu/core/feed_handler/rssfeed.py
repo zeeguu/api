@@ -39,13 +39,16 @@ class RSSFeed(FeedHandler):
             summary:str, the summary of the article if available
             published_datetime:datetime, date time of the article
         """
+        connect_timeout_seconds = 10
+        read_timeout_seconds = 10
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36"
         }  # This is chrome, you can set whatever browser you like
 
         feed_items = []
         try:
-            response = requests.get(self.url, headers=headers, timeout=(10, 10))
+            response = requests.get(self.url, headers=headers, timeout=(connect_timeout_seconds, read_timeout_seconds))
             feed_data = feedparser.parse(response.text)
 
             log(f"** Articles in feed: {len(feed_data.entries)}")

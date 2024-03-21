@@ -10,7 +10,7 @@ app.app_context().push()
 
 def create_and_test_feed(url: str, feed_type: int):
     feed = Feed.from_url(url, feed_type=feed_type)
-    feed.print_feed_health_info()
+    print(feed.feed_health_info())
 
     return feed
 

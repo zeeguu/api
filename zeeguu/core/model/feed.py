@@ -160,13 +160,13 @@ class Feed(db.Model):
         except NoResultFound:
             return False
 
-    def print_feed_health_info(self):
+    def feed_health_info(self):
         feed_items = self.feed_items()
         if not feed_items:
-            print("Feed seems broken. No items found.")
+            return "Feed seems broken. No items found."
         else:
             count = len(feed_items)
-            print(f"Feed seems healthy: {count} items found. ")
+            return f"Feed seems healthy: {count} items found. "
 
     @classmethod
     def find_by_id(cls, i):
