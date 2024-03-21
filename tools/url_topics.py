@@ -1,5 +1,5 @@
 from zeeguu.core.model.article import Article
-from zeeguu.core.model.url import Url
+from zeeguu.core.util import remove_duplciates_keeping_order
 from zeeguu.api.app import create_app
 import zeeguu.core
 
@@ -69,7 +69,7 @@ def get_topic_keywords_from_article(a: Article):
     except Exception as e:
         print(f"Failed for article '{a.id}', with: '{e}'")
         return None
-    return list(set(topic_k))
+    return remove_duplciates_keeping_order(topic_k)
 
 
 def main():
