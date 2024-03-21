@@ -11,8 +11,7 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, TopicKeyword
-from url_topics import get_topic_keywords_from_article
+from zeeguu.core.model import Article, NewTopic
 from tqdm import tqdm
 
 app = create_app()
@@ -29,14 +28,17 @@ total_articles = len(all_article_id)
 for a_id in tqdm(all_article_id):
     counter += 1
     try:
-
         article = Article.find_by_id(a_id)
-        topic_keywords = [
-            TopicKeyword.find_or_create(db_session, keyword)
-            for i, keyword in enumerate(get_topic_keywords_from_article(article))
-            if keyword is not None
-        ]
-        article.set_topic_keywords(topic_keywords)
+        topics = []
+        topics_added = set()
+        for topic_key in article.topic_keywords:
+            topic = topic_key.topic_keyword.topic
+            if topic is not None:
+                if topic.id in topics_added:
+                    continue
+                topics_added.add(topic.id)
+                topics.append(topic)
+        article.set_new_topics(topics)
         db_session.add(article)
     except Exception as e:
         counter -= 1
