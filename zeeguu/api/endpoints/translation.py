@@ -261,8 +261,6 @@ def contribute_translation(from_lang_code, to_lang_code):
         translation_str,
         to_lang_code,
         context_str,
-        url,
-        title_str,
         article_id,
     )
 
