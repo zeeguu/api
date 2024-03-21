@@ -39,24 +39,33 @@ class RSSFeed(FeedHandler):
             summary:str, the summary of the article if available
             published_datetime:datetime, date time of the article
         """
+        connect_timeout_seconds = 10
+        read_timeout_seconds = 10
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36"
         }  # This is chrome, you can set whatever browser you like
 
-        response = requests.get(self.url, headers=headers)
-        feed_data = feedparser.parse(response.text)
-
         feed_items = []
-        log(f"** Articles in feed: {len(feed_data.entries)}")
-        for item in feed_data.entries:
-            publish_time = self.get_server_time(item.get("published_parsed"))
-            new_item_data_dict = dict(
-                title=item.get("title", ""),
-                url=item.get("link", ""),
-                content=item.get("content", ""),
-                summary=item.get("summary", ""),
-                published_datetime=publish_time,
-            )
-            feed_items.append(new_item_data_dict)
+        try:
+            response = requests.get(self.url, headers=headers, timeout=(connect_timeout_seconds, read_timeout_seconds))
+            feed_data = feedparser.parse(response.text)
+
+            log(f"** Articles in feed: {len(feed_data.entries)}")
+            for item in feed_data.entries:
+                publish_time = self.get_server_time(item.get("published_parsed"))
+                new_item_data_dict = dict(
+                    title=item.get("title", ""),
+                    url=item.get("link", ""),
+                    content=item.get("content", ""),
+                    summary=item.get("summary", ""),
+                    published_datetime=publish_time,
+                )
+                feed_items.append(new_item_data_dict)
+        except requests.exceptions.ConnectTimeout as e:
+            msg = f"Connection timeout when trying to connect to {self.url}"
+            from sentry_sdk import capture_message
+            print(msg)
+            capture_message(msg)
 
         return feed_items
