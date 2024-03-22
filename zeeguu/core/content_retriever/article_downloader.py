@@ -41,6 +41,11 @@ class SkippedForLowQuality(Exception):
         self.reason = reason
 
 
+class FailedToParseWithReadabiiltyServer(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
+
 class SkippedAlreadyInDB(Exception):
     pass
 
@@ -170,14 +175,14 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             skipped_already_in_db += 1
             logp(" - Already in DB")
             continue
+        except FailedToParseWithReadabiiltyServer as e:
+            logp(f" - failed to parse with readability server (server said: {e})")
+            continue
 
         except Exception as e:
             import traceback
-
             traceback.print_stack()
-
             capture_to_sentry(e)
-
             if hasattr(e, "message"):
                 logp(e.message)
             else:
@@ -253,28 +258,11 @@ def download_feed_item(session, feed, feed_item, url):
         topics = add_topics(new_article, session)
         logp(f" Topics ({topics})")
 
-        # compute extra difficulties for french articles
-        try:
-            if new_article.language.code == "fr":
-                from zeeguu.core.language.services.lingo_rank_service import (
-                    retrieve_lingo_rank,
-                )
-
-                df = DifficultyLingoRank(
-                    new_article, retrieve_lingo_rank(new_article.content)
-                )
-                session.add(df)
-        except Exception as e:
-            capture_to_sentry(e)
-
-        session.commit()
-        logp(f"SUCCESS for: {new_article.title}")
-
     except SkippedForLowQuality as e:
         raise e
 
     except newspaper.ArticleException as e:
-        logp(f"can't download article at: {url}")
+        logp(f"Newspaper can't download article at: {url}")
 
     except DataError as e:
         logp(f"Data error for: {url}")
