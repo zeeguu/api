@@ -117,7 +117,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-            feed_item_timestamp > last_retrieval_time_seen_this_crawl
+                feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -212,9 +212,9 @@ def download_feed_item(session, feed, feed_item, url):
 
     try:
 
-        parsed = download_and_parse(url)
+        np_article = download_and_parse(url)
 
-        is_quality_article, reason = sufficient_quality(parsed)
+        is_quality_article, reason = sufficient_quality(np_article)
 
         if not is_quality_article:
             raise SkippedForLowQuality(reason)
@@ -232,21 +232,22 @@ def download_feed_item(session, feed, feed_item, url):
         # and if there is still no summary, we simply use the beginning of
         # the article
         if len(summary) < 10:
-            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
-            ", ".join(parsed.authors),
-            parsed.text,
+            ", ".join(np_article.authors),
+            np_article.text,
             summary,
             published_datetime,
             feed,
             feed.language,
+            htmlContent=np_article.htmlContent
         )
-        if parsed.top_image != "":
-            new_article.img_url = Url.find_or_create(session, parsed.top_image)
+        if np_article.top_image != "":
+            new_article.img_url = Url.find_or_create(session, np_article.top_image)
         session.add(new_article)
 
         topics = add_topics(new_article, session)
@@ -301,7 +302,7 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-            new_article
+                new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)

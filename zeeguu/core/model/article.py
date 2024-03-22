@@ -96,22 +96,22 @@ class Article(db.Model):
     MINIMUM_WORD_COUNT = 90
 
     def __init__(
-        self,
-        url,
-        title,
-        authors,
-        content,
-        summary,
-        published_time,
-        feed,
-        language,
-        htmlContent="",
-        uploader=None,
-        found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
-        broken=0,
-        deleted=0,
-        video=0,
-        img_url=None,
+            self,
+            url,
+            title,
+            authors,
+            content,
+            summary,
+            published_time,
+            feed,
+            language,
+            htmlContent="",
+            uploader=None,
+            found_by_user=0,  # tracks whether the user found this article (as opposed to us recommending it)
+            broken=0,
+            deleted=0,
+            video=0,
+            img_url=None,
     ):
 
         if not summary:
@@ -282,7 +282,7 @@ class Article(db.Model):
 
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
-        self.htmlContent = parsed.html
+        self.htmlContent = parsed.htmlContent
         self.compute_fk_and_wordcount()
 
         from zeeguu.core.content_quality.quality_filter import (
@@ -333,7 +333,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language
+            cls, session, title, content, htmlContent, uploader, language
     ):
 
         current_time = datetime.now()
@@ -356,37 +356,36 @@ class Article(db.Model):
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        _url: str,
-        language=None,
-        htmlContent=None,
-        title=None,
-        authors: str = "",
+            cls,
+            session,
+            url: str,
+            html_content=None,
+            title=None,
+            authors: str = "",
     ):
         """
 
             If article for url found, return ID
 
             If not found,
-
                 - if htmlContent is present, create article for that
                 - if not, download and create article then return
-
-        :param url:
-        :return:
         """
         from zeeguu.core.model import Url, Article, Language
 
-        url = Url.extract_canonical_url(_url)
+        canonical_url = Url.extract_canonical_url(url)
 
         try:
-            found = cls.find(url)
+            found = cls.find(canonical_url)
             if found:
                 return found
 
-            if htmlContent:
-                text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
+            if html_content:
+                # TODO: Why is this code here?
+                # it seems that we are sometimes creating a new article from the extension
+                # by sending the html from there. but don't we clean it up before? Must check!
+                # This code looks ugly here
+                text = re.sub(HTML_TAG_CLEANR, "", html_content)
 
                 # replace many newlines with max two; in some
                 # cases many newlines are left after stripping the html tags
@@ -396,20 +395,24 @@ class Article(db.Model):
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
+                # TODO: consequently, as above, this is probably not called because
+                # the only place where we call the endpoint is from the extension
+                # and there we have to htmlContent
                 from zeeguu.core.content_retriever import download_and_parse
 
-                parsed = download_and_parse(url)
+                np_article = download_and_parse(canonical_url)
 
-                text = parsed.text
-                summary = parsed.summary
-                title = parsed.title
-                authors = ", ".join(parsed.authors or [])
-                lang = parsed.meta_lang
+                text = np_article.text
+                html_content = np_article.htmlContent
+                summary = np_article.summary
+                title = np_article.title
+                authors = ", ".join(np_article.authors or [])
+                lang = np_article.meta_lang
 
             language = Language.find(lang)
 
             # Create new article and save it to DB
-            url_object = Url.find_or_create(session, url)
+            url_object = Url.find_or_create(session, canonical_url)
 
             new_article = Article(
                 url_object,
@@ -420,7 +423,7 @@ class Article(db.Model):
                 datetime.now(),
                 None,
                 language,
-                htmlContent,
+                html_content,
             )
             session.add(new_article)
             session.commit()
@@ -430,7 +433,7 @@ class Article(db.Model):
             for i in range(10):
                 try:
                     session.rollback()
-                    u = cls.find(url)
+                    u = cls.find(canonical_url)
                     print("Found article by url after recovering from race")
                     return u
                 except:

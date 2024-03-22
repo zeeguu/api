@@ -172,6 +172,7 @@ def parse_url():
         {
             "title": parsed.title,
             "text": parsed.text,
+            "htmlContent": parsed.htmlContent,
             "top_image": parsed.top_image,
             "language_code": parsed.meta_lang,
         }
