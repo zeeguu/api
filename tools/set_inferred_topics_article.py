@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 
 """
-
     goes through all the articles in the DB 
     by language and associates them with the
     corresponding topics
-    
-
 """
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, TopicKeyword
-from url_topics import get_topic_keywords_from_article
+from zeeguu.core.content_retriever.article_downloader import add_new_topics
+from zeeguu.core.model import Article
 from tqdm import tqdm
 
 app = create_app()
@@ -23,20 +20,25 @@ db_session = zeeguu.core.model.db.session
 counter = 0
 
 # languages = Language.available_languages()
-print("Adding topics keywords to articles!")
+print("Adding inferred topics to articles!")
 all_article_id = [a_id[0] for a_id in db_session.query(Article.id).all()]
 total_articles = len(all_article_id)
 for a_id in tqdm(all_article_id):
     counter += 1
     try:
         article = Article.find_by_id(a_id)
-        topic_keywords = [
-            TopicKeyword.find_or_create(db_session, keyword, article.language)
-            for keyword in get_topic_keywords_from_article(article)
-            if keyword is not None
-        ]
-        article.set_topic_keywords(topic_keywords)
-        db_session.add(article)
+        if article is None:
+            print("Skipping null article")
+            continue
+        if len(article.new_topics) > 0:
+            print("This article already has topics!")
+            continue
+        add_new_topics(
+            article,
+            article.feed,
+            [atk.topic_keyword for atk in article.topic_keywords],
+            db_session,
+        )
     except Exception as e:
         counter -= 1
         print(f"Failed for article id: {a_id}, with: {e}")

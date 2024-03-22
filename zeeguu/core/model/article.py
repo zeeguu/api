@@ -8,6 +8,7 @@ from langdetect import detect
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
+from zeeguu.core.model.new_article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.util.encoding import datetime_to_json
@@ -20,7 +21,6 @@ article_topic_map = Table(
     Column("article_id", Integer, ForeignKey("article.id")),
     Column("topic_id", Integer, ForeignKey("topic.id")),
 )
-
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
@@ -91,6 +91,9 @@ class Article(db.Model):
     topics = relationship(
         Topic, secondary="article_topic_map", backref=backref("articles")
     )
+
+    new_topics = relationship("NewArticleTopicMap", back_populates="article")
+
     topic_keywords = relationship("ArticleTopicKeywordMap", back_populates="article")
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
@@ -160,6 +163,12 @@ class Article(db.Model):
     def topics_as_string(self):
         topics = ""
         for topic in self.topics:
+            topics += topic.title + " "
+        return topics
+
+    def new_topics_as_string(self):
+        topics = ""
+        for topic in self.new_topics:
             topics += topic.title + " "
         return topics
 
@@ -259,6 +268,18 @@ class Article(db.Model):
     def add_topic(self, topic):
         self.topics.append(topic)
 
+    def add_new_topic(self, new_topic, origin_type: TopicOriginType):
+        from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+
+        t = NewArticleTopicMap(origin_type=origin_type)
+        t.new_topic = new_topic
+        self.new_topics.append(t)
+
+    def set_new_topics(self, topics):
+
+        for t in topics:
+            self.add_new_topic(t, TopicOriginType.URL_PARSED.value)
+
     def add_topic_keywords(self, topic_keyword, rank):
         from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
 
@@ -267,12 +288,9 @@ class Article(db.Model):
         self.topic_keywords.append(a)
 
     def set_topic_keywords(self, topic_keywords):
-        from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
 
         for rank, t in enumerate(topic_keywords):
-            a = ArticleTopicKeywordMap(rank=rank)
-            a.topic_keyword = t
-            self.topic_keywords.append(a)
+            self.add_topic_keywords(t, rank)
 
     def add_search(self, search):
         self.searches.append(search)

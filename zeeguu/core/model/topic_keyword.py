@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
-
-from zeeguu.core.model.localized_topic import LocalizedTopic
 from zeeguu.core.model.url import Url
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.new_topic import NewTopic
 import sqlalchemy
 import string
 from collections import Counter
@@ -49,19 +49,20 @@ class TopicKeyword(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    localized_topic_id = db.Column(db.Integer, db.ForeignKey(LocalizedTopic.id))
-    localized_topic = relationship(LocalizedTopic)
+    language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
+    language = relationship(Language)
+
+    topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
+    topic = relationship(NewTopic)
 
     keyword = db.Column(db.String(45))
-    type = db.Column(db.Integer)
     articles = relationship("ArticleTopicKeywordMap", back_populates="topic_keyword")
 
-    def __init__(
-        self, keyword: str, localized_topic: LocalizedTopic = None, type: int = None
-    ):
-        self.localized_topic = localized_topic
+    def __init__(self, keyword: str, language: Language, new_topic: NewTopic = None):
+
+        self.language = language
+        self.topic = new_topic
         self.keyword = keyword
-        self.type = type
 
     def __str__(self):
         return f"Topic keyword ({self.keyword})"
@@ -72,19 +73,28 @@ class TopicKeyword(db.Model):
     __repr__ = __str__
 
     @classmethod
-    def find_or_create(cls, session, keyword, localized_topic=None, type=None):
+    def find_or_create(
+        cls, session, keyword, language: Language, new_topic: NewTopic = None
+    ):
         try:
             return (
                 cls.query.filter(cls.keyword == keyword)
-                .filter(cls.localized_topic == localized_topic)
-                .filter(cls.type == type)
+                .filter(cls.language_id == language.id)
                 .one()
             )
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(keyword, localized_topic, type)
+            new = cls(keyword, language, new_topic)
             session.add(new)
             session.commit()
             return new
+
+    @classmethod
+    def find_first_by_keyword(cls, keyword):
+        return cls.query.filter(cls.keyword == keyword).all()[0]
+
+    @classmethod
+    def find_all_by_keyword(cls, keyword):
+        return cls.query.filter(cls.keyword == keyword).all()
 
     @classmethod
     def with_id(cls, i):

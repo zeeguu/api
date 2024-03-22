@@ -25,6 +25,7 @@ import zeeguu
 
 # the core model
 from .article_topic_keyword_map import ArticleTopicKeywordMap
+from .new_article_topic_map import NewArticleTopicMap
 from .language import Language
 from .url import Url
 from .domain_name import DomainName
@@ -68,6 +69,7 @@ from .cohort import Cohort
 from .teacher_cohort_map import TeacherCohortMap
 from .teacher import Teacher
 from .cohort_article_map import CohortArticleMap
+from .new_topic import NewTopic
 
 from .user_reading_session import UserReadingSession
 from .user_exercise_session import UserExerciseSession

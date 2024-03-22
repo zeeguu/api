@@ -14,9 +14,11 @@ from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
+from zeeguu.core.semantic_search import semantic_search_add_topics_based_on_neigh
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, LocalizedTopic, TopicKeyword
+from zeeguu.core.model import Url, Feed, LocalizedTopic, TopicKeyword, NewTopic
+from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -261,6 +263,48 @@ def download_feed_item(session, feed, feed_item, url):
                 new_article, retrieve_lingo_rank(new_article.content)
             )
             session.add(df)
+        parsed = download_and_parse(url)
+
+        is_quality_article, reason = sufficient_quality(parsed)
+
+        if not is_quality_article:
+            raise SkippedForLowQuality(reason)
+
+        summary = feed_item["summary"]
+        # however, this is not so easy... there have been cases where
+        # the summary is just malformed HTML... thus we try to extract
+        # the text:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(summary, "lxml")
+        summary = soup.get_text()
+        # then there are cases where the summary is huge... so we clip it
+        summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
+        # and if there is still no summary, we simply use the beginning of
+        # the article
+        if len(summary) < 10:
+            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
+
+            # Create new article and save it to DB
+        new_article = zeeguu.core.model.Article(
+            Url.find_or_create(session, url),
+            title,
+            ", ".join(parsed.authors),
+            parsed.text,
+            summary,
+            published_datetime,
+            feed,
+            feed.language,
+        )
+        session.add(new_article)
+
+        # Update topics based on the keywords:
+        old_topics = add_topics(new_article, session)
+        logp(f"Old Topics ({old_topics})")
+        topic_keywords = add_topic_keywords(new_article, session)
+        logp(f"Topic Keywords: ({topic_keywords})")
+        origin_type, topics = add_new_topics(new_article, feed, topic_keywords, session)
+        logp(f"New Topics ({topics})")
     except SkippedForLowQuality as e:
         raise e
 
@@ -302,9 +346,50 @@ def add_topics(new_article, session):
     return topics
 
 
+def add_new_topics(new_article, feed, topic_keywords, session):
+    HARDCODED_FEEDS = {102: 8}
+    # Handle Hard coded Feeds
+    if feed.id in HARDCODED_FEEDS:
+        print("Used HARDCODED feed")
+        topic = NewTopic.find_by_id(HARDCODED_FEEDS[feed.id])
+        new_article.add_new_topic(topic, TopicOriginType.HARDSET.value)
+        return TopicOriginType.HARDSET, [topic.title]
+    # Try setting the Topics based on URLs
+    topics = []
+    topics_added = set()
+    for topic_key in topic_keywords:
+        topic = topic_key.topic
+        print(topic_key, topic)
+        if topic is not None:
+            if topic.id in topics_added:
+                continue
+            topics_added.add(topic.id)
+            topics.append(topic)
+            new_article.add_new_topic(topic, TopicOriginType.URL_PARSED.value)
+            session.add(new_article)
+    if len(topics) > 0:
+        print("Used URL PARSED")
+        return TopicOriginType.URL_PARSED, [t.title for t in topics]
+
+    from collections import Counter
+
+    # Add based on KK neighbours:
+    a_found_t, _ = semantic_search_add_topics_based_on_neigh(new_article)
+    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
+    topics_counter = Counter(neighbouring_topics)
+    top_topic, count = topics_counter.most_common(1)[0]
+    print(topics_counter)
+    if count >= 3:
+        print("Used INFERRED")
+        new_article.add_new_topic(top_topic, TopicOriginType.INFERRED.value)
+        session.add(new_article)
+        return TopicOriginType.INFERRED, [top_topic.title]
+    return None, []
+
+
 def add_topic_keywords(new_article, session):
     topic_keywords = [
-        TopicKeyword.find_or_create(session, keyword)
+        TopicKeyword.find_or_create(session, keyword, new_article.language)
         for keyword in TopicKeyword.get_topic_keywords_from_url(new_article.url)
         if keyword is not None
     ]

@@ -12,5 +12,4 @@ def get_embedding_from_article(a: Article):
         url=f"{EMB_API_CONN_STRING}/get_article_embedding",
         json={"article_content": a.content},
     )
-    print(r)
     return r.json()

@@ -104,18 +104,18 @@ def semantic_search_from_article(article: Article):
 
 
 @time_this
-def semantic_search_add_topics_based_on_neigh(article: Article):
+def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 7):
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
-        7,
+        k,
         "",
         "",
         "",
         "",
         "",
         "",
-        100,
+        200,
         0,
-        semantic_embedding_model.get_vector(article.content),
+        get_embedding_from_article(article),
         article,
         es_scale="3d",
         es_decay=0.8,

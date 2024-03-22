@@ -353,11 +353,11 @@ def build_elastic_semantic_sim_query_for_topic_cls(
         query_vector=article_sem_vec,
         filter=(
             ~Q("ids", values=[article.id])
-            & ~Q("match", **{"topic_keywords.keyword": ""})
-            & Q("exists", field="topic_keywords")
+            # & ~Q("match", **{"topic_keywords.keyword": ""})
+            & ~Q("match", **{"topics.keyword": ""})
         ),
     )
 
     query = s.to_dict()
-    print(query)
+    # print(query)
     return query
