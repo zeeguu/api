@@ -2,7 +2,7 @@ import newspaper
 from langdetect import detect
 import requests
 
-READABILITY_SERVER_CLEANUP_URI = "readability_server:3000/plain_text?url="
+READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3000/plain_text?url="
 TIMEOUT_SECONDS = 60  # 1 Minutes Timeout ?
 
 
