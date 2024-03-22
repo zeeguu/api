@@ -7,7 +7,7 @@ import requests
 from zeeguu.core.content_retriever.article_downloader import FailedToParseWithReadabiiltyServer
 
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
-TIMEOUT_SECONDS = 60  # 1 Minutes Timeout ?
+TIMEOUT_SECONDS = 20
 
 
 def download_and_parse(url, request_timeout=TIMEOUT_SECONDS):
@@ -30,7 +30,6 @@ def download_and_parse(url, request_timeout=TIMEOUT_SECONDS):
     if result.status_code == 500:
         raise FailedToParseWithReadabiiltyServer(result.text)
 
-    print(result)
     result_dict = json.loads(result.text)
     np_article.text = result_dict['text']
     np_article.htmlContent = result_dict['html']

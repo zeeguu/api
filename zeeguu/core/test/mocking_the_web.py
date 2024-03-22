@@ -16,7 +16,7 @@ URL_NEWSCIENTIST_FISH = "https://www.newscientist.com/article/2164774-in-30-year
 
 URL_PROPUBLICA_INVESTING = "https://www.propublica.org/article/warren-buffett-recommends-investing-in-index-funds-but-many-of-his-employees-do-not-have-that-option"
 
-URL_FAZ_LEIGHTATHLETIK = "https://www.faz.net/aktuell/sport/mehr-sport/leichtathletik-deutsche-beim-istaf-mit-bestleistungen-nach-der-wm-19150019.html"
+URL_FAZ_LEIGHTATHLETIK = "https://www.faz.net/aktuell/sport/fussball-em/polen-und-ukraine-nur-noch-einen-schritt-von-em-qualifikation-entfernt-19603993.html"
 
 URL_SPIEGEL_RSS = "http://www.spiegel.de/index.rss"
 
@@ -65,16 +65,16 @@ URLS_TO_MOCK = {
     URL_VERDENS_BEDSTE_FEEDS: "verdensbedste.html",
 
     # these are needed for mocking the readability cleanup server
-    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_FAZ_LEIGHTATHLETIK: "faz_leichtathletik.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_CNN_KATHMANDU: "cnn_kathmandu.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_NANCY: "spiegel_nancy.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_LEMONDE_FORMATION: "lemonde_formation.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_INDONESIA: "verdensbedste_indonesien.txt",
-    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_JORD: "verdensbedste_jorde.txt",
+    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_FAZ_LEIGHTATHLETIK: "faz_leichtathletik.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_CNN_KATHMANDU: "cnn_kathmandu.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_SPIEGEL_NANCY: "spiegel_nancy.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_INDONESIA: "verdensbedste_indonesien.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_VERDENS_JORD: "verdensbedste_jorde.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_LEMONDE_FORMATION: "lemonde_formation.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_KLEINE_PRINZ: "der_kleine_prinz.json",
+    READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.json",
     # tldextract, dependency of newspaper reaches out for this and makes our tests fail if we don't have net
     "https://publicsuffix.org/list/public_suffix_list.dat": "public_suffix_list.dat"
 }
