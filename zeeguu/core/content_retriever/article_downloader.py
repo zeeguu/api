@@ -10,6 +10,7 @@ import newspaper
 
 from pymysql import DataError
 
+from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
@@ -20,7 +21,6 @@ import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 
-from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
@@ -31,24 +31,6 @@ TIMEOUT_SECONDS = 10
 import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
-
-
-class SkippedForTooOld(Exception):
-    pass
-
-
-class SkippedForLowQuality(Exception):
-    def __init__(self, reason):
-        self.reason = reason
-
-
-class FailedToParseWithReadabiiltyServer(Exception):
-    def __init__(self, reason):
-        self.reason = reason
-
-
-class SkippedAlreadyInDB(Exception):
-    pass
 
 
 def _url_after_redirects(url):
@@ -176,7 +158,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             skipped_already_in_db += 1
             logp(" - Already in DB")
             continue
-        except FailedToParseWithReadabiiltyServer as e:
+        except FailedToParseWithReadabilityServer as e:
             logp(f" - failed to parse with readability server (server said: {e})")
             continue
 
