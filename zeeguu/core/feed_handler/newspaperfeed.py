@@ -13,10 +13,11 @@ class NewspaperFeed(FeedHandler):
         is_stored_db: bool = False,
     ):
         self.use_cache = use_cache
-        super().__init__(url, feed_type, is_stored_db)
-        logp(f"Created Newspaper Source ({self.url})")
+        super().__init__(url, feed_type)
+        logp(f"Using Newspaper Handler ({self.url})")
 
     def extract_feed_metadata(self) -> None:
+        print("Extracting Feed Metadata.")
         data = newspaper.Source(self.url)
         self.title = data.brand
         self.description = data.description

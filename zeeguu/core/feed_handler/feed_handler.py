@@ -3,15 +3,12 @@ from zeeguu.core.util.time import normalize_to_server_time
 
 
 class FeedHandler:
-    def __init__(self, url: str, feed_type: int, is_stored_db: bool = False):
+    def __init__(self, url: str, feed_type: int):
         self.url = url
         self.feed_type = feed_type
         self.title = ""
         self.description = ""
         self.image_url_string = ""
-        if not is_stored_db:
-            print("Extracting Feed Metadata.")
-            self.extract_feed_metadata()
 
     def get_server_time(self, article_date) -> datetime:
         if type(article_date) is datetime:

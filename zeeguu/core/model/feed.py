@@ -79,6 +79,7 @@ class Feed(db.Model):
     def from_url(cls, url: str, feed_type: int):
         try:
             feed_handler = FEED_TYPE_TO_FEED_HANDLER[feed_type](url, feed_type)
+            feed_handler.extract_feed_metadata()
             feed_url = Url(feed_handler.url, feed_handler.title)
         except KeyError as e:
             log(f"Feed Handler not defined for type '{feed_type}'.")
@@ -94,7 +95,7 @@ class Feed(db.Model):
     def initializeFeedHandler(self):
         if self.feed_handler is None:
             self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](
-                str(self.url), self.feed_type, is_stored_db=True
+                str(self.url), self.feed_type
             )
 
     def as_dictionary(self):
