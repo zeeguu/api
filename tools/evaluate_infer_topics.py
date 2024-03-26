@@ -40,7 +40,7 @@ data_collected = []
 # With English and Danish Data
 # Using k = 5 , 80% Predictions Acc, 40% Total Acc
 
-np.random.seed(1)
+np.random.seed(0)
 ALL_IDS = [
     a.id
     for a in Article.query.filter(Article.language != Language.find_by_id(19))
