@@ -58,6 +58,7 @@ services:
     networks:
       - zeeguu_backend
     restart: unless-stopped
+    mem_limit: 2048m
 
 
   dev_play:
@@ -154,6 +155,7 @@ services:
     depends_on:
       - elasticsearch_v8
       - embedding_api
+      - readability_server
   
   embedding_api:
     image: zeeguu_api_sem_emb
