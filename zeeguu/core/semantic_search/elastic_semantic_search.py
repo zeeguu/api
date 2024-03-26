@@ -113,7 +113,7 @@ def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 7):
         "",
         "",
         "",
-        200,
+        100,
         0,
         get_embedding_from_article(article),
         article,
