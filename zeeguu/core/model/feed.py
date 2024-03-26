@@ -44,15 +44,15 @@ class Feed(db.Model):
     feed_handler = None
 
     def __init__(
-            self,
-            url,
-            title,
-            description,
-            image_url=None,
-            icon_name=None,
-            language=None,
-            feed_type=0,
-            feed_handler=None,
+        self,
+        url,
+        title,
+        description,
+        image_url=None,
+        icon_name=None,
+        language=None,
+        feed_type=0,
+        feed_handler=None,
     ):
         self.url = url
         self.image_url = image_url
@@ -93,7 +93,9 @@ class Feed(db.Model):
 
     def initializeFeedHandler(self):
         if self.feed_handler is None:
-            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](str(self.url), self.feed_type)
+            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](
+                str(self.url), self.feed_type, is_stored_db=True
+            )
 
     def as_dictionary(self):
         language = "unknown_lang"
@@ -175,6 +177,7 @@ class Feed(db.Model):
             return result
         except Exception as e:
             import traceback
+
             traceback.print_exc()
             from sentry_sdk import capture_exception
 
@@ -191,14 +194,14 @@ class Feed(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            url,
-            title,
-            description,
-            icon_name,
-            language: Language,
-            feed_type,
+        cls,
+        session,
+        url,
+        title,
+        description,
+        icon_name,
+        language: Language,
+        feed_type,
     ):
         try:
             result = (
@@ -231,7 +234,7 @@ class Feed(db.Model):
         return cls.query.filter(cls.language == language).all()
 
     def get_articles(
-            self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
+        self, limit=None, after_date=None, most_recent_first=False, easiest_first=False
     ):
         """
 

@@ -5,9 +5,15 @@ from zeeguu.logging import log, logp
 
 
 class NewspaperFeed(FeedHandler):
-    def __init__(self, url: str, feed_type: int, use_cache: bool = True):
+    def __init__(
+        self,
+        url: str,
+        feed_type: int,
+        use_cache: bool = True,
+        is_stored_db: bool = False,
+    ):
         self.use_cache = use_cache
-        super().__init__(url, feed_type)
+        super().__init__(url, feed_type, is_stored_db)
         logp(f"Created Newspaper Source ({self.url})")
 
     def extract_feed_metadata(self) -> None:

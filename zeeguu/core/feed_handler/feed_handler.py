@@ -3,13 +3,15 @@ from zeeguu.core.util.time import normalize_to_server_time
 
 
 class FeedHandler:
-    def __init__(self, url: str, feed_type: int):
+    def __init__(self, url: str, feed_type: int, is_stored_db: bool = False):
         self.url = url
         self.feed_type = feed_type
         self.title = ""
         self.description = ""
         self.image_url_string = ""
-        self.extract_feed_metadata()
+        if not is_stored_db:
+            print("Extracting Feed Metadata.")
+            self.extract_feed_metadata()
 
     def get_server_time(self, article_date) -> datetime:
         if type(article_date) is datetime:
@@ -18,8 +20,8 @@ class FeedHandler:
 
     def extract_feed_metadata() -> None:
         """
-            Performs the logic to fill the properties of the 
-            object. These are accessed from the other classes.
+        Performs the logic to fill the properties of the
+        object. These are accessed from the other classes.
         """
         NotImplementedError
 
