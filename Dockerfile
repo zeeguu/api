@@ -82,6 +82,7 @@ RUN /bin/bash -c 'mod_wsgi-express install-module | tee /etc/apache2/mods-availa
 RUN a2enmod wsgi
 RUN a2enmod headers
 
+# ML: maybe better to map this file from outside?
 RUN echo '\n\
 <VirtualHost *:8080>\n\
     WSGIDaemonProcess zeeguu_api home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
@@ -102,6 +103,9 @@ RUN echo '\n\
 
 RUN a2dissite 000-default.conf
 RUN a2ensite zeeguu-api
+
+RUN chown -R www-data:www-data /var/www
+
 
 # have apache listen on port 8080
 RUN sed -i "s,Listen 80,Listen 8080,g" /etc/apache2/ports.conf
