@@ -49,4 +49,58 @@ COPY . /Zeeguu-API
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
-VOLUME /zeeguu-data 
+VOLUME /zeeguu-data
+
+
+# mysql CL client
+# -------------------------
+# - good for debugging sometimes
+RUN apt-get install -y mysql\*
+
+
+# libmysqlclient
+# --------------
+# - required to be able to install mysqlclient with pip
+#   https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
+RUN apt-get install -y default-libmysqlclient-dev
+
+
+# Apache
+# ------
+RUN apt-get install -y \
+    apache2 \
+    apache2-dev \
+    vim
+
+
+# mod_wsgi
+# --------
+RUN pip install mod_wsgi
+
+RUN /bin/bash -c 'mod_wsgi-express install-module | tee /etc/apache2/mods-available/wsgi.{load,conf}'
+RUN a2enmod wsgi
+RUN a2enmod headers
+
+
+RUN echo '\n\
+<VirtualHost *:8080>\n\
+    WSGIDaemonProcess zeeguu_api home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
+    WSGIScriptAlias / /Zeeguu-API/zeeguu_api.wsgi\n\
+    <Location />\n\
+        WSGIProcessGroup zeeguu_api\n\
+    </Location>\n\
+    <Directory "/Zeeguu-API">\n\
+        <Files "zeeguu_api.wsgi">\n\
+            Require all granted\n\
+        </Files>\n\
+    </Directory>\n\
+    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+    LogLevel info\n\
+    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>' > /etc/apache2/sites-available/zeeguu-api.conf
+
+RUN a2dissite 000-default.conf
+RUN a2ensite zeeguu-api
+
+# have apache listen on port 8080
+RUN sed -i "s,Listen 80,Listen 8080,g" /etc/apache2/ports.conf
