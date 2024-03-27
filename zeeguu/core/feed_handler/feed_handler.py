@@ -9,7 +9,6 @@ class FeedHandler:
         self.title = ""
         self.description = ""
         self.image_url_string = ""
-        self.extract_feed_metadata()
 
     def get_server_time(self, article_date) -> datetime:
         if type(article_date) is datetime:
@@ -18,8 +17,8 @@ class FeedHandler:
 
     def extract_feed_metadata() -> None:
         """
-            Performs the logic to fill the properties of the 
-            object. These are accessed from the other classes.
+        Performs the logic to fill the properties of the
+        object. These are accessed from the other classes.
         """
         NotImplementedError
 

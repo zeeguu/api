@@ -8,8 +8,10 @@ from zeeguu.logging import log, logp
 class RSSFeed(FeedHandler):
     def __init__(self, url: str, feed_type: int):
         super().__init__(url, feed_type)
+        logp(f"Using RSS Handler ({self.url})")
 
     def extract_feed_metadata(self) -> None:
+        print("Extracting Feed Metadata.")
         data = feedparser.parse(self.url)
         try:
             title = data.feed.title
@@ -47,7 +49,11 @@ class RSSFeed(FeedHandler):
 
         feed_items = []
         try:
-            response = requests.get(self.url, headers=headers, timeout=(connect_timeout_seconds, read_timeout_seconds))
+            response = requests.get(
+                self.url,
+                headers=headers,
+                timeout=(connect_timeout_seconds, read_timeout_seconds),
+            )
             feed_data = feedparser.parse(response.text)
 
             log(f"** Articles in feed: {len(feed_data.entries)}")
@@ -64,6 +70,7 @@ class RSSFeed(FeedHandler):
         except requests.exceptions.ConnectTimeout as e:
             msg = f"Connection timeout when trying to connect to {self.url}"
             from sentry_sdk import capture_message
+
             print(msg)
             capture_message(msg)
 
