@@ -1,8 +1,9 @@
 FROM python:3.9.2-buster
 
+RUN apt-get clean all
 RUN apt-get update
 RUN apt-get upgrade -y
-
+RUN apt-get dist-upgrade -y
 
 # Git
 # ---
@@ -81,13 +82,13 @@ RUN /bin/bash -c 'mod_wsgi-express install-module | tee /etc/apache2/mods-availa
 RUN a2enmod wsgi
 RUN a2enmod headers
 
-
 RUN echo '\n\
 <VirtualHost *:8080>\n\
     WSGIDaemonProcess zeeguu_api home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
     WSGIScriptAlias / /Zeeguu-API/zeeguu_api.wsgi\n\
     <Location />\n\
         WSGIProcessGroup zeeguu_api\n\
+	    WSGIApplicationGroup %{GLOBAL}\n\
     </Location>\n\
     <Directory "/Zeeguu-API">\n\
         <Files "zeeguu_api.wsgi">\n\
