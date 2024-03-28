@@ -29,7 +29,7 @@ def available_languages():
     available_language_codes = list(
         map((lambda x: x.code), Language.available_languages())
     )
-    available_language_codes.append("xy")
+    
     return json.dumps(available_language_codes)
 
 
