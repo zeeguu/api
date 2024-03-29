@@ -1,4 +1,4 @@
-name: Publish Docker image
+name: Publish Docker Image
 
 on:
   release:
@@ -32,3 +32,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+
