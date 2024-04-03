@@ -40,6 +40,7 @@ class BasicSRSchedule(db.Model):
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
+    learning_cycle = db.Column(Enum(LearningCycle))
 
     def __init__(self, bookmark=None, bookmark_id=None):
         if bookmark_id:
@@ -49,6 +50,15 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
+        self.learning_cycle = LearningCycle.RECEPTIVE
+
+    def set_bookmark_as_learned(self, db_session):
+        self.bookmark.learned = True
+        self.bookmark.learned_time = datetime.now()
+        db_session.add(self.bookmark)
+        db_session.commit()
+        db_session.delete(self)
+        db_session.commit()
 
     def set_bookmark_as_learned(self, db_session):
         self.bookmark.learned = True
@@ -61,11 +71,18 @@ class BasicSRSchedule(db.Model):
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
 
-        productive_exercises_enabled = UserPreference.is_productive_exercises_preference_enabled(self.bookmark.user)
+        productive_exercises_enabled = (
+            UserPreference.is_productive_exercises_preference_enabled(
+                self.bookmark.user
+            )
+        )
 
         if correctness:
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
-                if learning_cycle == LearningCycle.RECEPTIVE and productive_exercises_enabled:
+                if (
+                    learning_cycle == LearningCycle.RECEPTIVE
+                    and productive_exercises_enabled
+                ):
                     # Switch learning_cycle to productive knowledge and reset cooling interval
                     self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                     self.cooling_interval = 0
@@ -92,7 +109,6 @@ class BasicSRSchedule(db.Model):
                 self.cooling_interval, MAX_INTERVAL_8_DAY
             )
             self.consecutive_correct_answers += 1
-
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
@@ -114,14 +130,14 @@ class BasicSRSchedule(db.Model):
     def update(cls, db_session, bookmark, outcome):
 
         correctness = (
-                outcome == ExerciseOutcome.CORRECT
-                or outcome
-                in [
-                    "TC",
-                    "TTC",
-                    "TTTC",
-                ]  # allow for a few translations before hitting the correct; they work like hints
-                or outcome == "HC"  # if it's correct after hint it should still be fine
+            outcome == ExerciseOutcome.CORRECT
+            or outcome
+            in [
+                "TC",
+                "TTC",
+                "TTTC",
+            ]  # allow for a few translations before hitting the correct; they work like hints
+            or outcome == "HC"  # if it's correct after hint it should still be fine
         )
 
         schedule = cls.find_or_create(db_session, bookmark)
@@ -198,7 +214,8 @@ class BasicSRSchedule(db.Model):
         # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
         if not UserPreference.is_productive_exercises_preference_enabled(user):
             scheduled_candidates_query = scheduled_candidates_query.filter(
-                Bookmark.learning_cycle == LearningCycle.RECEPTIVE)
+                Bookmark.learning_cycle == LearningCycle.RECEPTIVE
+            )
 
         scheduled_candidates = scheduled_candidates_query.all()
 
@@ -279,5 +296,5 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                    each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
             )
