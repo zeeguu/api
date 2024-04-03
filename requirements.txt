@@ -48,6 +48,8 @@ git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 readabilipy
 scikit-learn==1.4.0
 flask_monitoringdashboard
+
+# the following two were required when deploying the API on Mac OS with Python 3.12.1
 cryptography
 lxml_html_clean 
 
