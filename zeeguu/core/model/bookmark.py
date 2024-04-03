@@ -5,6 +5,7 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
+from sqlalchemy import Enum
 
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
@@ -19,6 +20,7 @@ from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.model.learning_cycle import LearningCycle
 
 import zeeguu
 
@@ -67,6 +69,8 @@ class Bookmark(db.Model):
 
     learned_time = db.Column(db.DateTime)
 
+    learning_cycle = db.Column(db.Enum(LearningCycle))
+
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
@@ -84,6 +88,7 @@ class Bookmark(db.Model):
         self.text = text
         self.stared = False
         self.fit_for_study = fit_for_study(self)
+        self.learned = LearningCycle.RECEPTIVE
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(

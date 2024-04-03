@@ -2,6 +2,8 @@ from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
+from sqlalchemy import Enum
+from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.core.model import db
 
@@ -24,7 +26,6 @@ DECREASE_COOLING_INTERVAL_ON_FAIL = {
 # If at 0, we don't decrease it further.
 DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
-
 class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "basic_sr_schedule"
@@ -37,6 +38,7 @@ class BasicSRSchedule(db.Model):
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
+    learning_cycle = db.Column(Enum(LearningCycle))
 
     def __init__(self, bookmark=None, bookmark_id=None):
         if bookmark_id:
@@ -46,18 +48,33 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
+        self.learning_cycle = LearningCycle.RECEPTIVE
+    
+    def set_bookmark_as_learned(self, db_session):
+        self.bookmark.learned = True
+        self.bookmark.learned_time = datetime.now()
+        db_session.add(self.bookmark)
+        db_session.commit()
+        db_session.delete(self)
+        db_session.commit()
 
     def update_schedule(self, db_session, correctness):
-        if correctness:
-            # Use the cooldown to check if the user has learned
-            # the word.
-            if self.cooling_interval == MAX_INTERVAL_8_DAY:
-                self.bookmark.learned = True
-                self.bookmark.learned_time = datetime.now()
-                db.session.add(self.bookmark)
+        if correctness and self.cooling_interval == MAX_INTERVAL_8_DAY:
+            if self.learning_cycle == LearningCycle.NOT_SET:
+                self.set_bookmark_as_learned(db_session)
+                return
+            elif self.learning_cycle == LearningCycle.RECEPTIVE:
+                # Switch learning_cycle to productive knowledge
+                self.learning_cycle = LearningCycle.PRODUCTIVE
+                self.cooling_interval = 0
+                # Update learning_cycle in bookmark table
+                bookmark = self.bookmark
+                bookmark.learning_cycle = LearningCycle.PRODUCTIVE
+                db.session.add(bookmark)
+                db.session.add(self)
                 db.session.commit()
-                db.session.delete(self)
-                db.session.commit()
+            elif self.learning_cycle == LearningCycle.PRODUCTIVE:
+                self.set_bookmark_as_learned(db_session)
                 return
 
             # Use the same logic as when selecting bookmarks
@@ -76,6 +93,7 @@ class BasicSRSchedule(db.Model):
                 self.cooling_interval, MAX_INTERVAL_8_DAY
             )
             self.consecutive_correct_answers += 1
+            
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
