@@ -87,8 +87,9 @@ def build_elastic_recommender_query(
         should.append(match("content", search_string))
         should.append(match("title", search_string))
 
-    if unwanted_topics:
-        must_not.append(match("topics", unwanted_topics))
+    unwanted_topics_arr = array_of_lowercase_topics(unwanted_topics)
+    if len(unwanted_topics_arr) > 0:
+        must_not.append({"terms": {"topics": unwanted_topics_arr}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
