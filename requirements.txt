@@ -43,10 +43,10 @@ en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_
 de_core_news_md @ https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.7.0/de_core_news_md-3.7.0-py3-none-any.whl
 da_core_news_md @ https://github.com/explosion/spacy-models/releases/download/da_core_news_md-3.7.0/da_core_news_md-3.7.0-py3-none-any.whl
 rapidfuzz==3.0.0
-scipy==1.10.1
+scipy==1.13.0
 git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 readabilipy
-scikit-learn==1.4.0
+scikit-learn==1.4.1.post1
 flask_monitoringdashboard
 
 # spacy sometimes pulls an older version of pydantic that breaks stuff; adding the following line to prevent this
