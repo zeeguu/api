@@ -1,8 +1,8 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
-from sqlalchemy import Enum
 from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.core.model import db
@@ -38,7 +38,6 @@ class BasicSRSchedule(db.Model):
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
-    learning_cycle = db.Column(Enum(LearningCycle))
 
     def __init__(self, bookmark=None, bookmark_id=None):
         if bookmark_id:
@@ -48,7 +47,6 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
-        self.learning_cycle = LearningCycle.RECEPTIVE
     
     def set_bookmark_as_learned(self, db_session):
         self.bookmark.learned = True
@@ -59,21 +57,18 @@ class BasicSRSchedule(db.Model):
         db_session.commit()
 
     def update_schedule(self, db_session, correctness):
+        learning_cycle = self.bookmark.learning_cycle
         if correctness and self.cooling_interval == MAX_INTERVAL_8_DAY:
-            if self.learning_cycle == LearningCycle.NOT_SET:
+            if learning_cycle == LearningCycle.NOT_SET:
                 self.set_bookmark_as_learned(db_session)
                 return
-            elif self.learning_cycle == LearningCycle.RECEPTIVE:
+            elif learning_cycle == LearningCycle.RECEPTIVE:
                 # Switch learning_cycle to productive knowledge
-                self.learning_cycle = LearningCycle.PRODUCTIVE
+                self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                 self.cooling_interval = 0
-                # Update learning_cycle in bookmark table
-                bookmark = self.bookmark
-                bookmark.learning_cycle = LearningCycle.PRODUCTIVE
-                db.session.add(bookmark)
-                db.session.add(self)
+                db.session.add(self.bookmark)
                 db.session.commit()
-            elif self.learning_cycle == LearningCycle.PRODUCTIVE:
+            elif learning_cycle == LearningCycle.PRODUCTIVE:
                 self.set_bookmark_as_learned(db_session)
                 return
 

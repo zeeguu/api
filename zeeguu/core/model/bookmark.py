@@ -69,7 +69,7 @@ class Bookmark(db.Model):
 
     learned_time = db.Column(db.DateTime)
 
-    learning_cycle = db.Column(db.Enum(LearningCycle))
+    learning_cycle = db.Column(db.Integer)
 
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
@@ -86,9 +86,9 @@ class Bookmark(db.Model):
         self.user = user
         self.time = time
         self.text = text
-        self.stared = False
+        self.starred = False
         self.fit_for_study = fit_for_study(self)
-        self.learned = LearningCycle.RECEPTIVE
+        self.learned = False
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -227,6 +227,7 @@ class Bookmark(db.Model):
             created_day=created_day,  # human readable stuff...
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
+            learning_cycle=self.learning_cycle,
         )
 
         if self.text.article:

@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import IntEnum
 
-class LearningCycle(Enum):
-    NOT_SET = "not set"
-    RECEPTIVE = "receptive"
-    PRODUCTIVE = "productive"
+class LearningCycle(IntEnum):
+    NOT_SET = 0
+    RECEPTIVE = 1
+    PRODUCTIVE = 2
