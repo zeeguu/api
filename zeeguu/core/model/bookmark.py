@@ -202,6 +202,11 @@ class Bookmark(db.Model):
 
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
+        # Fetch the BasicSRSchedule instance associated with the current bookmark
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        basic_sr_schedule = BasicSRSchedule.query.filter_by(bookmark=self).one()
+        cooling_interval = basic_sr_schedule.cooling_interval
+
         bookmark_title = ""
         if with_title:
             try:
@@ -228,6 +233,7 @@ class Bookmark(db.Model):
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
             learning_cycle=self.learning_cycle,
+            cooling_interval=cooling_interval,
         )
 
         if self.text.article:
