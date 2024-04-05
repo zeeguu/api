@@ -40,7 +40,6 @@ class BasicSRSchedule(db.Model):
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
-    learning_cycle = db.Column(Enum(LearningCycle))
 
     def __init__(self, bookmark=None, bookmark_id=None):
         if bookmark_id:
