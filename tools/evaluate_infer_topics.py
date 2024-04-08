@@ -47,10 +47,11 @@ ALL_IDS = [
     .filter(Article.new_topics.any())
     .all()
 ]
-SAMPLED_IDS = np.random.choice(ALL_IDS, 5000)
 
-for i in SAMPLED_IDS:
-    doc_to_search = i
+TOTAL_EXAMPLES = 5000
+SAMPLED_IDS = np.random.choice(ALL_IDS, TOTAL_EXAMPLES)
+
+for i, doc_to_search in enumerate(SAMPLED_IDS):
     article_to_search = Article.find_by_id(doc_to_search)
     k_to_use = 9
     a_found_t, hits_t = semantic_search_add_topics_based_on_neigh(
@@ -76,7 +77,7 @@ for i in SAMPLED_IDS:
         top_topic, count = topics_counter.most_common(1)[0]
         prediction = str(top_topic.title) if count >= ((k_to_use // 2)) else ""
         print(
-            f"Prediction: '{prediction}', Original: '{og_topics}', Pred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh."
+            f"Prediction: '{prediction}', Original: '{og_topics}'.\nPred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh.\nProgress: {i+1}/{TOTAL_EXAMPLES}"
         )
         data_collected.append(
             [
