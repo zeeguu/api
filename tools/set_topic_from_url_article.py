@@ -33,11 +33,12 @@ for a_id in tqdm(all_article_id):
         topics_added = set()
         for topic_key in article.topic_keywords:
             topic = topic_key.topic_keyword.topic
-            if topic is not None:
-                if topic.id in topics_added:
-                    continue
-                topics_added.add(topic.id)
-                topics.append(topic)
+            if topic is None:
+                continue
+            if topic.id in topics_added:
+                continue
+            topics_added.add(topic.id)
+            topics.append(topic)
         article.set_new_topics(topics)
         db_session.add(article)
     except Exception as e:
