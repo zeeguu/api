@@ -10,7 +10,7 @@ app.app_context().push()
 db_session = zeeguu.core.model.db.session
 
 
-df = pd.read_json("url_topics_count_with_pred_to_db.json")
+df = pd.read_csv("url_topics_count_with_pred_to_db.csv", index_col=0)
 
 for row_i, row in tqdm(df.iterrows()):
     keyword = row["keyword"]
