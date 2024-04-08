@@ -169,8 +169,24 @@ class Article(db.Model):
     def new_topics_as_string(self):
         topics = ""
         for topic in self.new_topics:
-            topics += topic.title + " "
+            topics += topic.new_topic.title + ", "
         return topics
+
+    def new_topics_as_tuple(self):
+        topics = []
+        for topic in self.new_topics:
+            if topic.new_topic.title == "" or topic.new_topic.title is None:
+                continue
+            topics.append((topic.new_topic.title, topic.origin_type))
+        return topics
+
+    def contains_new_topic_from_url(self):
+        from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+
+        topics_from_url = NewArticleTopicMap.query.filter(
+            NewArticleTopicMap.article_id == self.id
+        ).all()
+        return len(topics_from_url) > 0
 
     def contains_any_of(self, keywords: list):
         for each in keywords:
@@ -215,6 +231,8 @@ class Article(db.Model):
             summary=summary,
             language=self.language.code,
             topics=self.topics_as_string(),
+            new_topics=self.new_topics_as_string(),
+            new_topics_list=self.new_topics_as_tuple(),
             video=self.video,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100, word_count=self.word_count
