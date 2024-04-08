@@ -1,10 +1,10 @@
 from zeeguu.core.model import db
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from enum import Enum
+from enum import IntEnum
 
 
-class TopicOriginType(Enum):
+class TopicOriginType(IntEnum):
     URL_PARSED = 1
     HARDSET = 2
     INFERRED = 3
