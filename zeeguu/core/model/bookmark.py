@@ -74,12 +74,12 @@ class Bookmark(db.Model):
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
-            self,
-            origin: UserWord,
-            translation: UserWord,
-            user: "User",
-            text: str,
-            time: datetime,
+        self,
+        origin: UserWord,
+        translation: UserWord,
+        user: "User",
+        text: str,
+        time: datetime,
     ):
         self.origin = origin
         self.translation = translation
@@ -135,12 +135,12 @@ class Bookmark(db.Model):
             session.add(self)
 
     def add_new_exercise_result(
-            self,
-            exercise_source: ExerciseSource,
-            exercise_outcome: ExerciseOutcome,
-            exercise_solving_speed,
-            session_id: int,
-            other_feedback="",
+        self,
+        exercise_source: ExerciseSource,
+        exercise_outcome: ExerciseOutcome,
+        exercise_solving_speed,
+        session_id: int,
+        other_feedback="",
     ):
         exercise = Exercise(
             exercise_outcome,
@@ -157,13 +157,13 @@ class Bookmark(db.Model):
         return exercise
 
     def report_exercise_outcome(
-            self,
-            exercise_source: str,
-            exercise_outcome: str,
-            solving_speed,
-            session_id,
-            other_feedback,
-            db_session,
+        self,
+        exercise_source: str,
+        exercise_outcome: str,
+        solving_speed,
+        session_id,
+        other_feedback,
+        db_session,
     ):
         from zeeguu.core.model import UserExerciseSession
 
@@ -203,9 +203,15 @@ class Bookmark(db.Model):
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
-        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-        basic_sr_schedule = BasicSRSchedule.query.filter_by(bookmark=self).one()
-        cooling_interval = basic_sr_schedule.cooling_interval
+        from zeeguu.core.model import BasicSRSchedule
+
+        try:
+            basic_sr_schedule = BasicSRSchedule.query.filter(
+                BasicSRSchedule.bookmark_id == self.id
+            ).one()
+            cooling_interval = basic_sr_schedule.cooling_interval
+        except sqlalchemy.exc.NoResultFound:
+            cooling_interval = -1
 
         bookmark_title = ""
         if with_title:
@@ -246,19 +252,19 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            user,
-            _origin: str,
-            _origin_lang: str,
-            _translation: str,
-            _translation_lang: str,
-            _context: str,
-            article_id: int,
+        cls,
+        session,
+        user,
+        _origin: str,
+        _origin_lang: str,
+        _translation: str,
+        _translation_lang: str,
+        _context: str,
+        article_id: int,
     ):
         """
-            if the bookmark does not exist, it creates it and returns it
-            if it exists, it ** updates the translation** and returns the bookmark object
+        if the bookmark does not exist, it creates it and returns it
+        if it exists, it ** updates the translation** and returns the bookmark object
         """
 
         origin_lang = Language.find_or_create(_origin_lang)
