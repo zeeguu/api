@@ -353,7 +353,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
         print("Used HARDCODED feed")
         topic = NewTopic.find_by_id(HARDCODED_FEEDS[feed.id])
         new_article.add_new_topic(topic, TopicOriginType.HARDSET.value)
-        return TopicOriginType.HARDSET, [topic.title]
+        return TopicOriginType.HARDSET.value, [topic.title]
     # Try setting the Topics based on URLs
     topics = []
     topics_added = set()
@@ -369,7 +369,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
             session.add(new_article)
     if len(topics) > 0:
         print("Used URL PARSED")
-        return TopicOriginType.URL_PARSED, [t.title for t in topics]
+        return TopicOriginType.URL_PARSED.value, [t.title for t in topics]
 
     from collections import Counter
 
@@ -383,7 +383,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
         print("Used INFERRED")
         new_article.add_new_topic(top_topic, TopicOriginType.INFERRED.value)
         session.add(new_article)
-        return TopicOriginType.INFERRED, [top_topic.title]
+        return TopicOriginType.INFERRED.value, [top_topic.title]
     return None, []
 
 
