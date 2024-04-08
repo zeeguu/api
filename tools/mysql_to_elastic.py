@@ -89,8 +89,9 @@ def main(starting_index, delete_index=False):
     sample_ids = np.array([a_id[0] for a_id in db_session.query(Article.id).all()])
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
-    for _ in range(50):
-        sub_sample = np.random.choice(sample_ids, 50, replace=False)
+    total_iter = 100
+    for i in range(total_iter):
+        sub_sample = np.random.choice(sample_ids, 10, replace=False)
         print(f"starting import at: {sub_sample[0]}")
         # print(f"max id in db: {sample_ids}")
         # fetch_db_articles = list(gen_docs(fetch_articles(max_id, max_id - 200)))
@@ -105,6 +106,7 @@ def main(starting_index, delete_index=False):
         #    total_added += 1
         res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
         total_added += res
+        print(f"Iteration {i+1}/{total_iter}...")
     print(total_added)
 
 
