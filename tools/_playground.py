@@ -5,11 +5,13 @@ from zeeguu.core.semantic_search import (
 )
 
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from elasticsearch import Elasticsearch
 from collections import Counter
 from zeeguu.core.semantic_vector_api import get_embedding_from_article
+from zeeguu.core.elastic.elastic_query_builder import build_elastic_recommender_query
 
 from pprint import pprint
 from zeeguu.api.app import create_app
@@ -23,6 +25,34 @@ es = Elasticsearch(ES_CONN_STRING)
 
 doc_to_search = 2441247
 article_to_search = Article.find_by_id(doc_to_search)
+query_body = build_elastic_recommender_query(
+    20,
+    "Business",
+    "",
+    "",
+    "",
+    Language.find_by_id(2),
+    100,
+    0,
+    es_scale="1d",
+    es_decay=0.8,
+    es_weight=4.2,
+)
+es = Elasticsearch(ES_CONN_STRING)
+res = es.search(index=ES_ZINDEX, body=query_body)
+hit_list = res["hits"].get("hits")
+print(len(hit_list))
+for hit in hit_list:
+    print(
+        hit["_id"],
+        hit["_source"]["topics"],
+        f"Inferred: '{hit['_source']['topics_inferred']}'",
+        hit["_source"]["language"],
+        hit["_source"].get("topic_keywords", []),
+        hit["_source"].get("url", ""),
+        hit["_score"],
+    )
+input()
 a_found, hits = semantic_search_from_article(article_to_search)
 print("------------------------------------------------")
 a_found_t, hits_t = semantic_search_add_topics_based_on_neigh(article_to_search)
