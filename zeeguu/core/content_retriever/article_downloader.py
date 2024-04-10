@@ -331,6 +331,7 @@ def download_feed_item(session, feed, feed_item, url):
         session.rollback()
     session.commit()
     logp(f"SUCCESS for: {new_article.title}")
+
     return new_article
 
 
@@ -352,7 +353,8 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     if feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
         topic = NewTopic.find_by_id(HARDCODED_FEEDS[feed.id])
-        new_article.add_new_topic(topic, TopicOriginType.HARDSET.value)
+        new_article.add_new_topic(topic, session, TopicOriginType.HARDSET.value)
+        session.add(new_article)
         return TopicOriginType.HARDSET.value, [topic.title]
     # Try setting the Topics based on URLs
     topics = []
@@ -365,7 +367,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
-            new_article.add_new_topic(topic, TopicOriginType.URL_PARSED.value)
+            new_article.add_new_topic(topic, session, TopicOriginType.URL_PARSED.value)
             session.add(new_article)
     if len(topics) > 0:
         print("Used URL PARSED")
@@ -376,14 +378,17 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     # Add based on KK neighbours:
     a_found_t, _ = semantic_search_add_topics_based_on_neigh(new_article)
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
-    topics_counter = Counter(neighbouring_topics)
-    top_topic, count = topics_counter.most_common(1)[0]
-    print(topics_counter)
-    if count >= 3:
-        print("Used INFERRED")
-        new_article.add_new_topic(top_topic, TopicOriginType.INFERRED.value)
-        session.add(new_article)
-        return TopicOriginType.INFERRED.value, [top_topic.title]
+    if len(neighbouring_topics) > 0:
+        topics_counter = Counter(neighbouring_topics)
+        top_topic, count = topics_counter.most_common(1)[0]
+        print(topics_counter)
+        if count >= 1:
+            print("Used INFERRED")
+            new_article.add_new_topic(
+                top_topic, session, TopicOriginType.INFERRED.value
+            )
+            session.add(new_article)
+            return TopicOriginType.INFERRED.value, [top_topic.title]
     return None, []
 
 
@@ -393,5 +398,6 @@ def add_topic_keywords(new_article, session):
         for keyword in TopicKeyword.get_topic_keywords_from_url(new_article.url)
         if keyword is not None
     ]
-    new_article.set_topic_keywords(topic_keywords)
+    new_article.set_topic_keywords(topic_keywords, session)
+    session.add(new_article)
     return topic_keywords

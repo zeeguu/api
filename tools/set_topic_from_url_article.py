@@ -39,7 +39,7 @@ for a_id in tqdm(all_article_id):
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
-        article.set_new_topics(topics)
+        article.set_new_topics(topics, db_session)
         db_session.add(article)
     except Exception as e:
         counter -= 1

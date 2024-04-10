@@ -11,6 +11,8 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
+from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
 from zeeguu.core.model import db
@@ -286,29 +288,27 @@ class Article(db.Model):
     def add_topic(self, topic):
         self.topics.append(topic)
 
-    def add_new_topic(self, new_topic, origin_type: TopicOriginType):
-        from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+    def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
 
-        t = NewArticleTopicMap(origin_type=origin_type)
-        t.new_topic = new_topic
-        self.new_topics.append(t)
+        t = NewArticleTopicMap(
+            article=self, new_topic=new_topic, origin_type=origin_type
+        )
+        session.add(t)
 
-    def set_new_topics(self, topics):
+    def set_new_topics(self, topics, session):
 
         for t in topics:
-            self.add_new_topic(t, TopicOriginType.URL_PARSED.value)
+            self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
 
-    def add_topic_keywords(self, topic_keyword, rank):
-        from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+    def add_topic_keywords(self, topic_keyword, rank, session):
 
-        a = ArticleTopicKeywordMap(rank=rank)
-        a.topic_keyword = topic_keyword
-        self.topic_keywords.append(a)
+        a = ArticleTopicKeywordMap(article=self, topic_keyword=topic_keyword, rank=rank)
+        session.add(a)
 
-    def set_topic_keywords(self, topic_keywords):
+    def set_topic_keywords(self, topic_keywords, session):
 
         for rank, t in enumerate(topic_keywords):
-            self.add_topic_keywords(t, rank)
+            self.add_topic_keywords(t, rank, session)
 
     def add_search(self, search):
         self.searches.append(search)

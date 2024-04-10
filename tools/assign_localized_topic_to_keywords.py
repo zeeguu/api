@@ -35,7 +35,7 @@ for a_id in tqdm(all_article_id):
             for keyword in get_topic_keywords_from_article(article)
             if keyword is not None
         ]
-        article.set_topic_keywords(topic_keywords)
+        article.set_topic_keywords(topic_keywords, db_session)
         db_session.add(article)
     except Exception as e:
         print(f"Failed for article id: {a_id}, with: {e}")

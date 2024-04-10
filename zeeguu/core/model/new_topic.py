@@ -26,7 +26,7 @@ class NewTopic(db.Model):
         self.title = title
 
     def __repr__(self):
-        return f"<Topic {self.title}>"
+        return f"<NewTopic {self.title}>"
 
     def as_dictionary(self):
 
