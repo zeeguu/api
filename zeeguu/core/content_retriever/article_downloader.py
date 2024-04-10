@@ -379,11 +379,16 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     a_found_t, _ = semantic_search_add_topics_based_on_neigh(new_article)
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
     if len(neighbouring_topics) > 0:
+        from pprint import pprint
+
         topics_counter = Counter(neighbouring_topics)
+        pprint(topics_counter)
         top_topic, count = topics_counter.most_common(1)[0]
-        print(topics_counter)
-        if count >= 1:
-            print("Used INFERRED")
+        threshold = (
+            sum(topics_counter.values()) // 2
+        )  # The threshold is being at least half or above rounded down
+        if count >= threshold:
+            print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
             new_article.add_new_topic(
                 top_topic, session, TopicOriginType.INFERRED.value
             )
