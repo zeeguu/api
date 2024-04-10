@@ -39,6 +39,7 @@ class UserPreference(db.Model):
     # Key Names Below
     DIFFICULTY_ESTIMATOR = "difficulty_estimator"
     AUDIO_EXERCISES = "audio_exercises"
+    PRODUCTIVE_EXERCISES = "productive_exercises"
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user

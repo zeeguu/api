@@ -55,7 +55,7 @@ def _tiago_exercises(user):
 def _merle_exercises(user):
     # Change this to Match Merle's Exercises
     # 534: Mircea, 4089: Tiago Test User, 4192: Merle's User
-    right_user = user.invitation_code == "Merle" or user.id == 534 or user.id == 4089
+    right_user = user.invitation_code == "Merle" or user.id == 534 or user.id == 4192
     return right_user
 
 

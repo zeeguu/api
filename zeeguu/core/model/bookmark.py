@@ -80,6 +80,7 @@ class Bookmark(db.Model):
         user: "User",
         text: str,
         time: datetime,
+        learning_cycle: int = LearningCycle.NOT_SET,
     ):
         self.origin = origin
         self.translation = translation
@@ -89,6 +90,7 @@ class Bookmark(db.Model):
         self.starred = False
         self.fit_for_study = fit_for_study(self)
         self.learned = False
+        self.learning_cycle = learning_cycle
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -204,6 +206,7 @@ class Bookmark(db.Model):
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.model import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.basicSR import MAX_INTERVAL_8_DAY
 
         try:
             basic_sr_schedule = BasicSRSchedule.query.filter(
@@ -240,6 +243,7 @@ class Bookmark(db.Model):
             fit_for_study=self.fit_for_study == 1,
             learning_cycle=self.learning_cycle,
             cooling_interval=cooling_interval,
+            is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY,
         )
 
         if self.text.article:
@@ -261,6 +265,7 @@ class Bookmark(db.Model):
         _translation_lang: str,
         _context: str,
         article_id: int,
+        learning_cycle: int = LearningCycle.NOT_SET,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -288,7 +293,7 @@ class Bookmark(db.Model):
             bookmark.translation = translation
 
         except sqlalchemy.orm.exc.NoResultFound as e:
-            bookmark = cls(origin, translation, user, context, now)
+            bookmark = cls(origin, translation, user, context, now, learning_cycle = learning_cycle)
         except Exception as e:
             raise e
 

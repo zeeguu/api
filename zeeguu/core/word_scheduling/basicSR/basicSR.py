@@ -4,6 +4,7 @@ from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 from zeeguu.core.model.learning_cycle import LearningCycle
+from zeeguu.core.model import UserPreference
 
 from zeeguu.core.model import db
 
@@ -58,19 +59,29 @@ class BasicSRSchedule(db.Model):
 
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
-        if correctness and self.cooling_interval == MAX_INTERVAL_8_DAY:
-            if learning_cycle == LearningCycle.NOT_SET:
-                self.set_bookmark_as_learned(db_session)
-                return
-            elif learning_cycle == LearningCycle.RECEPTIVE:
-                # Switch learning_cycle to productive knowledge
-                self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
-                self.cooling_interval = 0
-                db.session.add(self.bookmark)
-                db.session.commit()
-            elif learning_cycle == LearningCycle.PRODUCTIVE:
-                self.set_bookmark_as_learned(db_session)
-                return
+
+        # Query user preferences to get the value of productive exercises setting
+        productive_exercises_setting = UserPreference.query.filter_by(user_id=self.bookmark.user_id, key="productive_exercises").first().value
+
+        if correctness:
+            if self.cooling_interval == MAX_INTERVAL_8_DAY:
+                if learning_cycle == LearningCycle.NOT_SET:
+                    self.set_bookmark_as_learned(db_session)
+                    return
+                elif learning_cycle == LearningCycle.RECEPTIVE:
+                    if productive_exercises_setting == "false":
+                            self.set_bookmark_as_learned(db_session)
+                            return
+                    else:
+                    # Switch learning_cycle to productive knowledge
+                        self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
+                        self.cooling_interval = 0
+                        db.session.add(self.bookmark)
+                        db.session.commit()
+                        return
+                elif learning_cycle == LearningCycle.PRODUCTIVE:
+                    self.set_bookmark_as_learned(db_session)
+                    return
 
             # Use the same logic as when selecting bookmarks
             # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
