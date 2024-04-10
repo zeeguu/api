@@ -26,40 +26,6 @@ def article_semantic_search_for_user(
 ):
     return NotImplementedError
 
-    final_article_mix = []
-
-    (
-        language,
-        upper_bounds,
-        lower_bounds,
-        topics_to_include,
-        topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
-    ) = prepare_user_constraints(user)
-
-    # build the query using elastic_query_builder
-    query_body = build_elastic_semantic_sim_query(
-        count,
-        search_terms,
-        topics_to_include,
-        topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
-        language,
-        upper_bounds,
-        lower_bounds,
-        es_scale,
-        es_decay,
-        es_weight,
-    )
-
-    es = Elasticsearch(ES_CONN_STRING)
-    res = es.search(index=ES_ZINDEX, body=query_body)
-
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
 
 @time_this
 def like_this_from_article(article: Article):
@@ -106,21 +72,7 @@ def semantic_search_from_article(article: Article):
 @time_this
 def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 7):
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
-        k,
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        100,
-        0,
-        get_embedding_from_article(article),
-        article,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
-        second_try=False,
+        k, article, get_embedding_from_article(article), 10000
     )
     final_article_mix = []
 

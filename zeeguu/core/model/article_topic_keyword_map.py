@@ -4,7 +4,9 @@ from sqlalchemy.orm import relationship
 
 
 class ArticleTopicKeywordMap(db.Model):
+    __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "article_topic_keyword_map"
+
     article_id = Column(ForeignKey("article.id"), primary_key=True)
     topic_keyword_id = Column(ForeignKey("topic_keyword.id"), primary_key=True)
     rank = Column(Integer)

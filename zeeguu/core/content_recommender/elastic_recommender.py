@@ -7,6 +7,7 @@
 
 """
 
+from zeeguu.logging import logp
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q, SF
 
@@ -14,6 +15,8 @@ from zeeguu.core.model import (
     Article,
     TopicFilter,
     TopicSubscription,
+    NewTopicFilter,
+    NewTopicSubscription,
     SearchFilter,
     SearchSubscription,
     UserArticle,
@@ -47,7 +50,9 @@ def _prepare_user_constraints(user):
     # 2. Topics to exclude / filter out
     # =================================
     excluded_topics = TopicFilter.all_for_user(user)
-    topics_to_exclude = [each.topic.title for each in excluded_topics]
+    topics_to_exclude = [
+        each.topic.title for each in excluded_topics if each is not None
+    ]
     print(f"topics to exclude: {topics_to_exclude}")
 
     # 3. Topics subscribed, and thus to include
@@ -55,11 +60,30 @@ def _prepare_user_constraints(user):
     topic_subscriptions = TopicSubscription.all_for_user(user)
     topics_to_include = [
         subscription.topic.title
-        for subscription in TopicSubscription.all_for_user(user)
+        for subscription in topic_subscriptions
+        if subscription is not None
     ]
     print(f"topics to include: {topic_subscriptions}")
 
-    # 4. Wanted user topics
+    # 4. New Topics to exclude / filter out
+    # =================================
+    excluded_new_topics = NewTopicFilter.all_for_user(user)
+    new_topics_to_exclude = [
+        each.new_topic.title for each in excluded_new_topics if each is not None
+    ]
+    print(f"New Topics to exclude: {topics_to_exclude}")
+
+    # 5. New Topics subscribed, and thus to include
+    # =========================================
+    topic_new_subscriptions = NewTopicSubscription.all_for_user(user)
+    new_topics_to_include = [
+        subscription.new_topic.title
+        for subscription in topic_new_subscriptions
+        if subscription is not None
+    ]
+    print(f"New Topics to include: {topic_subscriptions}")
+
+    # 6. Wanted user topics
     # =========================================
     user_subscriptions = SearchSubscription.all_for_user(user)
 
@@ -74,6 +98,8 @@ def _prepare_user_constraints(user):
         lower_bounds,
         _list_to_string(topics_to_include),
         _list_to_string(topics_to_exclude),
+        _new_topics_to_string(new_topics_to_include),
+        _new_topics_to_string(new_topics_to_exclude),
         _list_to_string(wanted_user_topics),
         _list_to_string(unwanted_user_topics),
     )
@@ -106,15 +132,16 @@ def article_recommendations_for_user(
         lower_bounds,
         topics_to_include,
         topics_to_exclude,
+        new_topics_to_include,
+        new_topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
     ) = _prepare_user_constraints(user)
-
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
-        topics_to_include,
-        topics_to_exclude,
+        new_topics_to_include,
+        new_topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
         language,
@@ -136,20 +163,20 @@ def article_recommendations_for_user(
         # build the query using elastic_query_builder
         query_body = build_elastic_recommender_query(
             count,
-            topics_to_include,
-            topics_to_exclude,
+            new_topics_to_include,
+            new_topics_to_exclude,
             wanted_user_topics,
             unwanted_user_topics,
             language,
             upper_bounds,
             lower_bounds,
             es_scale,
+            es_offset,
             es_decay,
             es_weight,
             second_try=True,
         )
         res = es.search(index=ES_ZINDEX, body=query_body)
-
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
@@ -165,8 +192,9 @@ def article_search_for_user(
     user,
     count,
     search_terms,
-    es_scale="3d",
-    es_decay=0.8,
+    es_scale="30d",
+    es_offset="1d",
+    es_decay=0.6,
     es_weight=4.2,
 ):
     final_article_mix = []
@@ -177,6 +205,8 @@ def article_search_for_user(
         lower_bounds,
         topics_to_include,
         topics_to_exclude,
+        new_topics_to_include,
+        new_topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
     ) = _prepare_user_constraints(user)
@@ -185,14 +215,15 @@ def article_search_for_user(
     query_body = build_elastic_search_query(
         count,
         search_terms,
-        topics_to_include,
-        topics_to_exclude,
+        new_topics_to_include,
+        new_topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
         language,
         upper_bounds,
         lower_bounds,
         es_scale,
+        es_offset,
         es_decay,
         es_weight,
     )
@@ -208,14 +239,15 @@ def article_search_for_user(
         query_body = build_elastic_search_query(
             count,
             search_terms,
-            topics_to_include,
-            topics_to_exclude,
+            new_topics_to_include,
+            new_topics_to_exclude,
             wanted_user_topics,
             unwanted_user_topics,
             language,
             upper_bounds,
             lower_bounds,
             es_scale,
+            es_offset,
             es_decay,
             es_weight,
             second_try=True,
@@ -289,6 +321,10 @@ def topic_filter_for_user(
 
 def _list_to_string(input_list):
     return " ".join([each for each in input_list]) or ""
+
+
+def _new_topics_to_string(input_list):
+    return ",".join(input_list)
 
 
 def _to_articles_from_ES_hits(hits):

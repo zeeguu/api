@@ -18,6 +18,10 @@ def array_of_lowercase_topics(topics):
     return [topic.lower() for topic in topics.split()]
 
 
+def array_of_new_topics(topics):
+    return topics.split(",")
+
+
 def build_elastic_recommender_query(
     count,
     topics,
@@ -88,18 +92,27 @@ def build_elastic_recommender_query(
         should.append(match("content", search_string))
         should.append(match("title", search_string))
 
-    unwanted_topics_arr = array_of_lowercase_topics(unwanted_topics)
-    if len(unwanted_topics_arr) > 0:
-        must_not.append({"terms": {"topics": unwanted_topics_arr}})
+    if unwanted_topics != "":
+        should_remove_topics = []
+        topics_to_filter_out = array_of_new_topics(unwanted_topics)
+        for t in topics_to_filter_out:
+            should_remove_topics.append({"match": {"topics": t}})
+            should_remove_topics.append({"match": {"topics_inferred": t}})
+        must_not.append({"bool": {"should": should_remove_topics}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
 
     must.append(exists("published_time"))
-    topics_arr = array_of_lowercase_topics(topics)
-    if len(topics_arr) > 0:
-        must.append({"terms": {"topics": topics_arr}})
+
+    if topics != "":
+        should_topics = []
+        topics_to_find = array_of_new_topics(topics)
+        for t in topics_to_find:
+            should_topics.append({"match": {"topics": t}})
+            should_topics.append({"match": {"topics_inferred": t}})
+        must.append({"bool": {"should": should_topics}})
 
     if not second_try:
         # on the second try we do not add the range;
@@ -328,27 +341,15 @@ def build_elastic_semantic_sim_query(
 
 
 def build_elastic_semantic_sim_query_for_topic_cls(
-    count,
-    search_terms,
-    topics,
-    unwanted_topics,
-    user_topics,
-    unwanted_user_topics,
-    language,
-    upper_bounds,
-    lower_bounds,
-    article_sem_vec,
+    k_count,
     article,
-    es_scale="3d",
-    es_decay=0.8,
-    es_weight=4.2,
-    second_try=False,
+    article_sem_vec,
     n_candidates=100,
 ):
     s = Search()
     s = s.knn(
         field="sem_vec",
-        k=count,
+        k=k_count,
         num_candidates=n_candidates,
         query_vector=article_sem_vec,
         filter=(
