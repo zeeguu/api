@@ -357,6 +357,7 @@ def build_elastic_semantic_sim_query_for_topic_cls(
             # & ~Q("match", **{"topic_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
             & Q("exists", field="topics")
+            & ~Q("match", topics="")
         ),
     )
 

@@ -70,7 +70,7 @@ def semantic_search_from_article(article: Article):
 
 
 @time_this
-def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 7):
+def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 9):
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
         k, article, get_embedding_from_article(article), 10000
     )
