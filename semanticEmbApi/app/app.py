@@ -26,11 +26,6 @@ def json_result(dictionary):
     return resp
 
 
-@app.route("/")
-def hello():
-    return "Hello World!"
-
-
 @app.route("/get_article_embedding", methods=["POST"])
 def get_article_embedding():
     from semantic_vector import semantic_embedding_model
