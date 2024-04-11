@@ -35,6 +35,8 @@ def build_elastic_recommender_query(
     es_offset="1d",
     es_decay=0.5,
     es_weight=2.1,
+    new_topics_to_include="",
+    new_topics_to_exclude="",
     second_try=False,
 ):
     """
@@ -92,13 +94,21 @@ def build_elastic_recommender_query(
         should.append(match("content", search_string))
         should.append(match("title", search_string))
 
-    if unwanted_topics != "":
+    # Assumes if a user has new topics they won't be rolled
+    # back to not have new topics again.
+    # Essentially, if there are new topics the user won't be able
+    # to access the old topics anymore.
+    if new_topics_to_exclude != "":
         should_remove_topics = []
-        topics_to_filter_out = array_of_new_topics(unwanted_topics)
+        topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
         for t in topics_to_filter_out:
-            should_remove_topics.append({"match": {"topics": t}})
-            should_remove_topics.append({"match": {"topics_inferred": t}})
+            should_remove_topics.append({"match": {"new_topics": t}})
+            should_remove_topics.append({"match": {"new_topics_inferred": t}})
         must_not.append({"bool": {"should": should_remove_topics}})
+    else:
+        unwanted_old_topics_arr = array_of_lowercase_topics(unwanted_topics)
+        if len(unwanted_old_topics_arr) > 0:
+            must_not.append({"terms": {"topics": unwanted_old_topics_arr}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
@@ -106,13 +116,17 @@ def build_elastic_recommender_query(
 
     must.append(exists("published_time"))
 
-    if topics != "":
+    if new_topics_to_include != "":
         should_topics = []
-        topics_to_find = array_of_new_topics(topics)
+        topics_to_find = array_of_new_topics(new_topics_to_include)
         for t in topics_to_find:
-            should_topics.append({"match": {"topics": t}})
-            should_topics.append({"match": {"topics_inferred": t}})
+            should_topics.append({"match": {"new_topics": t}})
+            should_topics.append({"match": {"new_topics_inferred": t}})
         must.append({"bool": {"should": should_topics}})
+    else:
+        topics_arr = array_of_lowercase_topics(topics)
+        if len(topics_arr) > 0:
+            must.append({"terms": {"topics": topics_arr}})
 
     if not second_try:
         # on the second try we do not add the range;
@@ -162,6 +176,7 @@ def build_elastic_search_query(
     upper_bounds,
     lower_bounds,
     es_scale="3d",
+    es_offset="0d",
     es_decay=0.8,
     es_weight=4.2,
     second_try=False,
@@ -175,7 +190,11 @@ def build_elastic_search_query(
 
     s = (
         Search()
-        .query(Q("match", title=search_terms) | Q("match", content=search_terms))
+        .query(
+            Q("match", title=search_terms)
+            | Q("match", content=search_terms)
+            | Q("match", url=search_terms)
+        )
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
@@ -189,7 +208,14 @@ def build_elastic_search_query(
         "function_score",
         query=s.query,
         functions=[
-            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3})
+            SF(
+                "gauss",
+                published_time={
+                    "scale": es_scale,
+                    "offset": es_offset,
+                    "decay": es_decay,
+                },
+            )
         ],
     )
 
@@ -330,7 +356,7 @@ def build_elastic_semantic_sim_query(
                 ~Q("ids", values=[article.id])
                 & (
                     Q("match", language__keyword=language.name)
-                    & ~Q("match", **{"topics.keyword": ""})
+                    & ~Q("match", **{"new_topics.keyword": ""})
                 )
             ),
         )
@@ -356,8 +382,8 @@ def build_elastic_semantic_sim_query_for_topic_cls(
             ~Q("ids", values=[article.id])
             # & ~Q("match", **{"topic_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
-            & Q("exists", field="topics")
-            & ~Q("match", topics="")
+            & Q("exists", field="new_topics")
+            & ~Q("match", new_topics="")
         ),
     )
 

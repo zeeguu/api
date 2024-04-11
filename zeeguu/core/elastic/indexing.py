@@ -54,6 +54,7 @@ def find_filter_topic_keywords(article_id, session):
 
 
 def document_from_article(article, session, topics=None):
+    old_topics = find_topics(article.id, session)
     topics, topics_inferred = find_new_topics(article.id, session)
     doc = {
         "title": article.title,
@@ -62,11 +63,12 @@ def document_from_article(article, session, topics=None):
         "summary": article.summary,
         "word_count": article.word_count,
         "published_time": article.published_time,
-        "topics": [t.title for t in topics],
+        "topics": old_topics,
+        "new_topics": [t.title for t in topics],
         # We need to avoid using these as a way to classify further documents
         # (we should rely on the human labels to classify further articles)
         # rather than infer on inferences.
-        "topics_inferred": [t.title for t in topics_inferred],
+        "new_topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),

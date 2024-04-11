@@ -140,8 +140,8 @@ def article_recommendations_for_user(
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
-        new_topics_to_include,
-        new_topics_to_exclude,
+        topics_to_include,
+        topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
         language,
@@ -151,6 +151,8 @@ def article_recommendations_for_user(
         es_offset,
         es_decay,
         es_weight,
+        new_topics_to_include=new_topics_to_include,
+        new_topics_to_exclude=new_topics_to_exclude,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -163,8 +165,8 @@ def article_recommendations_for_user(
         # build the query using elastic_query_builder
         query_body = build_elastic_recommender_query(
             count,
-            new_topics_to_include,
-            new_topics_to_exclude,
+            topics_to_include,
+            topics_to_exclude,
             wanted_user_topics,
             unwanted_user_topics,
             language,
@@ -174,9 +176,12 @@ def article_recommendations_for_user(
             es_offset,
             es_decay,
             es_weight,
+            new_topics_to_include=new_topics_to_include,
+            new_topics_to_exclude=new_topics_to_exclude,
             second_try=True,
         )
         res = es.search(index=ES_ZINDEX, body=query_body)
+
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
@@ -215,8 +220,8 @@ def article_search_for_user(
     query_body = build_elastic_search_query(
         count,
         search_terms,
-        new_topics_to_include,
-        new_topics_to_exclude,
+        topics_to_include,
+        topics_to_exclude,
         wanted_user_topics,
         unwanted_user_topics,
         language,
@@ -226,6 +231,8 @@ def article_search_for_user(
         es_offset,
         es_decay,
         es_weight,
+        new_topics_to_include=new_topics_to_include,
+        new_topics_to_exclude=new_topics_to_exclude,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -239,8 +246,8 @@ def article_search_for_user(
         query_body = build_elastic_search_query(
             count,
             search_terms,
-            new_topics_to_include,
-            new_topics_to_exclude,
+            topics_to_include,
+            topics_to_exclude,
             wanted_user_topics,
             unwanted_user_topics,
             language,
@@ -250,6 +257,8 @@ def article_search_for_user(
             es_offset,
             es_decay,
             es_weight,
+            new_topics_to_include=new_topics_to_include,
+            new_topics_to_exclude=new_topics_to_exclude,
             second_try=True,
         )
         res = es.search(index=ES_ZINDEX, body=query_body)
