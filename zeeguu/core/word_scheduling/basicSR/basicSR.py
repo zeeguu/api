@@ -193,15 +193,23 @@ class BasicSRSchedule(db.Model):
 
         end_of_day = cls.get_current_study_window()
 
+        # Query user preferences to get the value of productive exercises setting
+        productive_exercises_setting = UserPreference.query.filter_by(user_id=user.id, key="productive_exercises").first().value
+
         # Get the candidates, words that are to practice
-        scheduled_candidates = (
+        scheduled_candidates_query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
             .filter(cls.next_practice_time < end_of_day)
-            .all()
         )
+
+         # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
+        if productive_exercises_setting == "false":
+            scheduled_candidates_query = scheduled_candidates_query.filter(Bookmark.learning_cycle == 1)
+
+        scheduled_candidates = scheduled_candidates_query.all()
 
         # Remove possible duplicated words from the list
         # - The user might have multiple translations of the same word in different
