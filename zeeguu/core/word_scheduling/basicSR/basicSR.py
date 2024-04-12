@@ -201,6 +201,13 @@ class BasicSRSchedule(db.Model):
 
         end_of_day = cls.get_current_study_window()
 
+        # Query user preferences to get the value of productive exercises setting
+        productive_exercises_setting = (
+            UserPreference.query.filter_by(user_id=user.id, key="productive_exercises")
+            .first()
+            .value
+        )
+
         # Get the candidates, words that are to practice
         scheduled_candidates_query = (
             Bookmark.query.join(cls)
