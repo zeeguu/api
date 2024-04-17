@@ -2,7 +2,7 @@ from zeeguu.core.semantic_search import (
     semantic_search_add_topics_based_on_neigh,
 )
 
-from zeeguu.core.model import Article, Language
+from zeeguu.core.model import Article, Language, NewArticleTopicMap
 from sklearn.metrics import classification_report
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -23,8 +23,9 @@ data_collected = []
 np.random.seed(0)
 ALL_IDS = [
     a.id
-    for a in Article.query.filter(Article.language != Language.find_by_id(19))
-    .filter(Article.new_topics.any())
+    for a in Article.query.join(NewArticleTopicMap)
+    .filter(Article.language != Language.find_by_id(19))
+    .filter(NewArticleTopicMap.origin_type != 3)
     .all()
 ]
 
