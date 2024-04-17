@@ -45,7 +45,7 @@ def _feature_map():
 
 
 def _new_topics(user):
-    right_user = user.id == 534 or user.id == 4022  # or user.id == 4089
+    right_user = user.id == 534 or user.id == 4022 or user.id == 4089
     return right_user
 
 
