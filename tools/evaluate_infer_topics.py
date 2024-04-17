@@ -22,15 +22,15 @@ data_collected = []
 
 np.random.seed(0)
 ALL_IDS = [
-    a.id
-    for a in Article.query.join(NewArticleTopicMap)
+    a.article_id
+    for a in NewArticleTopicMap.query.join(Article)
     .filter(Article.language != Language.find_by_id(19))
     .filter(NewArticleTopicMap.origin_type != 3)
     .all()
 ]
 
 TOTAL_EXAMPLES = 5000
-SAMPLED_IDS = np.random.choice(ALL_IDS, TOTAL_EXAMPLES)
+SAMPLED_IDS = np.random.choice(list(set(ALL_IDS)), TOTAL_EXAMPLES)
 
 for i, doc_to_search in enumerate(SAMPLED_IDS):
     article_to_search = Article.find_by_id(doc_to_search)
