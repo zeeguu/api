@@ -206,13 +206,13 @@ class Bookmark(db.Model):
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.model import BasicSRSchedule
-        from zeeguu.core.word_scheduling.basicSR.basicSR import MAX_INTERVAL_8_DAY
+        from zeeguu.core.word_scheduling.basicSR.basicSR import MAX_INTERVAL_8_DAY, ONE_DAY
 
         try:
             basic_sr_schedule = BasicSRSchedule.query.filter(
                 BasicSRSchedule.bookmark_id == self.id
             ).one()
-            cooling_interval = basic_sr_schedule.cooling_interval
+            cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = -1
 
@@ -243,7 +243,7 @@ class Bookmark(db.Model):
             fit_for_study=self.fit_for_study == 1,
             learning_cycle=self.learning_cycle,
             cooling_interval=cooling_interval,
-            is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY,
+            is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
         )
 
         if self.text.article:
