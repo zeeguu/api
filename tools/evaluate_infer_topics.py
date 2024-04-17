@@ -19,26 +19,6 @@ app.app_context().push()
 
 es = Elasticsearch(ES_CONN_STRING)
 data_collected = []
-# Done with 2491 articles.
-# Using Danish Only
-# Using k = 15, 85.71 % Predictions Acc,  6% Total Acc
-# Using k = 5 , 78.37 % Predictions Acc, 29% Total Acc
-# With English and Danish Data
-# Using k = 15, 90.90 % Predictions Acc, 15  % Total Acc
-# Using k = 5 , 81.44 % Predictions Acc, 39.5% Total Acc
-
-# Done with 8130 articles. (Note, not all have topics URL)
-# Using Danish Only
-# Using k = 15, 100   % Predictions Acc, 11% Total Acc
-# Using k = 5 , 73.91 % Predictions Acc, 34% Total Acc
-# With English and Danish Data
-# Using k = 5 , 80.04 % Predictions Acc, 39% Total Acc
-
-# Done with 19655 articles. (Note, not all have topics URL)
-# Using Danish Only
-# Using k = 15, 92.8 % Predictions Acc, 13 % Total Acc
-# With English and Danish Data
-# Using k = 5 , 80% Predictions Acc, 40% Total Acc
 
 np.random.seed(0)
 ALL_IDS = [
@@ -75,7 +55,10 @@ for i, doc_to_search in enumerate(SAMPLED_IDS):
     og_topics = " ".join([str(t.new_topic.title) for t in article_to_search.new_topics])
     try:
         top_topic, count = topics_counter.most_common(1)[0]
-        prediction = str(top_topic.title) if count >= ((k_to_use // 2)) else ""
+        threshold = (
+            sum(topics_counter.values()) // 2
+        )  # The threshold is being at least half or above rounded down
+        prediction = str(top_topic.title) if count >= threshold else ""
         print(
             f"Prediction: '{prediction}', Original: '{og_topics}'.\nPred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh.\nProgress: {i+1}/{TOTAL_EXAMPLES}"
         )
