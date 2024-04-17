@@ -142,6 +142,16 @@ def build_elastic_recommender_query(
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
 
+    # Consider not showing articles without new topics?
+    # bool_query_body["query"]["bool"].update(
+    #     {
+    #         "should": [
+    #             {"exists": {"field": "new_topics"}},
+    #             {"exists": {"field": "new_topics_inferred"}},
+    #         ]
+    #     }
+    # )
+
     full_query = {"size": count, "query": {"function_score": {}}}
 
     function1 = {
@@ -179,6 +189,8 @@ def build_elastic_search_query(
     es_offset="0d",
     es_decay=0.8,
     es_weight=4.2,
+    new_topics_to_include="",
+    new_topics_to_exclude="",
     second_try=False,
 ):
     """
