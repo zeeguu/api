@@ -1,11 +1,11 @@
 CREATE TABLE `zeeguu_test`.`topic_keyword` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `localized_topic_id` INT NULL,
+    `language_id` INT NULL,
     `keyword` VARCHAR(45) NULL,
     `type` INT NULL,
     PRIMARY KEY (`id`),
-    INDEX `localized_topic_id_idx` (`localized_topic_id` ASC),
-    CONSTRAINT `topic_keyword_ibfk_1` FOREIGN KEY (`localized_topic_id`) REFERENCES `zeeguu_test`.`localized_topic` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+    INDEX `localized_topic_id_idx` (`language_id` ASC),
+    CONSTRAINT `topic_keyword_ibfk_1` FOREIGN KEY (`language_id`) REFERENCES `zeeguu_test`.`language` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 CREATE TABLE `zeeguu_test`.`article_topic_keyword_map` (
