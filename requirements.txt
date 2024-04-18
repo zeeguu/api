@@ -45,7 +45,6 @@ da_core_news_md @ https://github.com/explosion/spacy-models/releases/download/da
 rapidfuzz==3.0.0
 scipy==1.13.0
 git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
-readabilipy
 scikit-learn==1.4.0
 flask_monitoringdashboard
 
