@@ -52,8 +52,8 @@ class TopicKeyword(db.Model):
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = relationship(Language)
 
-    topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
-    topic = relationship(NewTopic)
+    new_topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
+    new_topic = relationship(NewTopic)
 
     keyword = db.Column(db.String(45))
     articles = relationship("ArticleTopicKeywordMap", back_populates="topic_keyword")
@@ -61,7 +61,7 @@ class TopicKeyword(db.Model):
     def __init__(self, keyword: str, language: Language, new_topic: NewTopic = None):
 
         self.language = language
-        self.topic = new_topic
+        self.new_topic = new_topic
         self.keyword = keyword
 
     def __str__(self):
