@@ -1,4 +1,4 @@
-FROM python:3.9.2-buster
+FROM python:3.12.3
 
 RUN apt-get clean all
 RUN apt-get update
