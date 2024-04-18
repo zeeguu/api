@@ -2,7 +2,7 @@ CREATE TABLE `zeeguu_test`.`topic_keyword` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `language_id` INT NULL,
     `new_topic_id` INT NULL,
-    `keyword` INT NULL,
+    `keyword` VARCHAR(50) NULL,
     `type` INT NULL,
     PRIMARY KEY (`id`),
     INDEX `topic_keyword_ibfk_1_idx` (`language_id` ASC) VISIBLE,
