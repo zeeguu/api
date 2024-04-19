@@ -31,7 +31,6 @@ def create_account(
         native_language_code,
         learned_cefr_level,
 ):
-    create_basic_account(db_session, username)
     cohort_name = ""
     if password is None or len(password) < 4:
         raise Exception("Password should be at least 4 characters long")
