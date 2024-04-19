@@ -150,9 +150,7 @@ def reset_password(email):
     code = request.form.get("code", None)
     submitted_pass = request.form.get("password", None)
 
-    print(f"bef9ore user find {email}")
     user = User.find(email)
-    print("after!")
     last_code = UniqueCode.last_code(email)
 
     if submitted_code_is_wrong(last_code, code):
