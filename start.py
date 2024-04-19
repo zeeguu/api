@@ -18,30 +18,6 @@ application.logger.debug(application.instance_path)
 
 logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 
-# from wordstats import LanguageInfo
-#
-# LanguageInfo.load_in_memory_for(["fr", "de", "da"])
-
-
-from wordstats import Word
-
-import datetime
-from wordstats import LanguageInfo
-
-a = datetime.datetime.now()
-
-LanguageInfo.load_in_memory_for(["fr", "de", "da", "it"], True)
-
-b = datetime.datetime.now()
-delta = b - a
-print(delta)
-
-Word.stats("porto", "pt")
-
-from wordstats import LanguageInfo
-
-LanguageInfo.load_in_memory_for(["fr", "de", "da", "it"])
-
 # Make sure to keep this in sync with zeeguu_api_dev.wsgi
 application.run(
     host=application.config.get("HOST", "0.0.0.0"),
