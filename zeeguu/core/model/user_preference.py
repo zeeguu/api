@@ -68,6 +68,14 @@ class UserPreference(db.Model):
     def set_difficulty_estimator(cls, session, user: User, key: value):
         return cls.set(session, user, cls.DIFFICULTY_ESTIMATOR, key)
 
+    @classmethod
+    def get_productive_exercises(cls, user: User):
+        user_preference = UserPreference.query.filter_by(user_id=user.id, key="productive_exercises").first()
+        if not user_preference:
+            return True
+
+        return user_preference.value
+
     # Generic preference handling
     # ---------------------------
 

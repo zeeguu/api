@@ -27,6 +27,7 @@ DECREASE_COOLING_INTERVAL_ON_FAIL = {
 # If at 0, we don't decrease it further.
 DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
+
 class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "basic_sr_schedule"
@@ -48,7 +49,7 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
-    
+
     def set_bookmark_as_learned(self, db_session):
         self.bookmark.learned = True
         self.bookmark.learned_time = datetime.now()
@@ -61,7 +62,7 @@ class BasicSRSchedule(db.Model):
         learning_cycle = self.bookmark.learning_cycle
 
         # Query user preferences to get the value of productive exercises setting
-        productive_exercises_setting = UserPreference.query.filter_by(user_id=self.bookmark.user_id, key="productive_exercises").first().value
+        productive_exercises_setting = UserPreference.get_productive_exercises(self.bookmark.user)
 
         if correctness:
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
@@ -70,10 +71,10 @@ class BasicSRSchedule(db.Model):
                     return
                 elif learning_cycle == LearningCycle.RECEPTIVE:
                     if productive_exercises_setting == "false":
-                            self.set_bookmark_as_learned(db_session)
-                            return
+                        self.set_bookmark_as_learned(db_session)
+                        return
                     else:
-                    # Switch learning_cycle to productive knowledge
+                        # Switch learning_cycle to productive knowledge
                         self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                         self.cooling_interval = 0
                         db.session.add(self.bookmark)
@@ -99,7 +100,7 @@ class BasicSRSchedule(db.Model):
                 self.cooling_interval, MAX_INTERVAL_8_DAY
             )
             self.consecutive_correct_answers += 1
-            
+
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
@@ -121,14 +122,14 @@ class BasicSRSchedule(db.Model):
     def update(cls, db_session, bookmark, outcome):
 
         correctness = (
-            outcome == ExerciseOutcome.CORRECT
-            or outcome
-            in [
-                "TC",
-                "TTC",
-                "TTTC",
-            ]  # allow for a few translations before hitting the correct; they work like hints
-            or outcome == "HC"  # if it's correct after hint it should still be fine
+                outcome == ExerciseOutcome.CORRECT
+                or outcome
+                in [
+                    "TC",
+                    "TTC",
+                    "TTTC",
+                ]  # allow for a few translations before hitting the correct; they work like hints
+                or outcome == "HC"  # if it's correct after hint it should still be fine
         )
 
         schedule = cls.find_or_create(db_session, bookmark)
@@ -193,8 +194,7 @@ class BasicSRSchedule(db.Model):
 
         end_of_day = cls.get_current_study_window()
 
-        # Query user preferences to get the value of productive exercises setting
-        productive_exercises_setting = UserPreference.query.filter_by(user_id=user.id, key="productive_exercises").first().value
+        productive_exercises_setting = UserPreference.get_productive_exercises(user)
 
         # Get the candidates, words that are to practice
         scheduled_candidates_query = (
@@ -205,7 +205,7 @@ class BasicSRSchedule(db.Model):
             .filter(cls.next_practice_time < end_of_day)
         )
 
-         # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
+        # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
         if productive_exercises_setting == "false":
             scheduled_candidates_query = scheduled_candidates_query.filter(Bookmark.learning_cycle == 1)
 
@@ -286,5 +286,5 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+                    each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
             )
