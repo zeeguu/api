@@ -21,8 +21,16 @@ class SentenceBert(SemanticVectorModel):
         self.model_name = SENTENCE_BERT_PATH
         self.model = SentenceTransformer(SENTENCE_BERT_PATH)
 
-    def get_vector(self, text: str) -> list:
-        return self.model.encode(sent_tokenize(text)).mean(axis=0).tolist()
+    def get_vector(self, text: str, language: str = "english") -> list:
+        try:
+            return (
+                self.model.encode(sent_tokenize(text, language=language))
+                .mean(axis=0)
+                .tolist()
+            )
+        except LookupError:
+            # Use the default (English)
+            return self.model.encode(sent_tokenize(text)).mean(axis=0).tolist()
 
     def get_model_name(self) -> str:
         return self.model_name

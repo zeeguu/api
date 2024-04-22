@@ -42,11 +42,13 @@ es = Elasticsearch(ES_CONN_STRING)
 res = es.search(index=ES_ZINDEX, body=query_body)
 hit_list = res["hits"].get("hits")
 print(len(hit_list))
+print(hit_list)
 for hit in hit_list:
     print(
         hit["_id"],
         hit["_source"]["topics"],
-        f"Inferred: '{hit['_source']['topics_inferred']}'",
+        f"New Topics: {hit['_source']['new_topics']}",
+        f"Inferred: '{hit['_source']['new_topics_inferred']}'",
         hit["_source"]["language"],
         hit["_source"].get("topic_keywords", []),
         hit["_source"].get("url", ""),
@@ -67,6 +69,7 @@ for hit in hits:
         hit["_id"],
         hit["_source"]["topics"],
         hit["_source"]["language"],
+        f"New Topics: {hit['_source']['new_topics']}",
         hit["_source"].get("topic_keywords", []),
         hit["_source"].get("url", ""),
         hit["_score"],
@@ -79,6 +82,7 @@ for hit in hits_t:
         hit["_id"],
         hit["_source"]["topics"],
         hit["_source"]["language"],
+        f"New Topics: {hit['_source']['new_topics']}",
         hit["_source"].get("topic_keywords", []),
         hit["_source"].get("url", ""),
         hit["_score"],
@@ -90,6 +94,7 @@ for hit in hits_lt:
         hit["_id"],
         hit["_source"]["topics"],
         hit["_source"]["language"],
+        f"New Topics: {hit['_source']['new_topics']}",
         hit["_source"].get("topic_keywords", []),
         hit["_source"].get("url", ""),
         hit["_score"],

@@ -32,7 +32,7 @@ for a_id in tqdm(all_article_id):
         topics = []
         topics_added = set()
         for topic_key in article.topic_keywords:
-            topic = topic_key.topic_keyword.topic
+            topic = topic_key.topic_keyword.new_topic
             if topic is None:
                 continue
             if topic.id in topics_added:

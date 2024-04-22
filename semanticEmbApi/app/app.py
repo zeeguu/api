@@ -31,6 +31,7 @@ def get_article_embedding():
     from semantic_vector import semantic_embedding_model
 
     article_content = request.json.get("article_content", "")
+    article_language = request.json.get("language", "english")
     return json_result(semantic_embedding_model.get_vector(article_content))
 
 

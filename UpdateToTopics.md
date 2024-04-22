@@ -35,7 +35,11 @@ Here I will bootstrap it using the Lauritz model which does NLI to do Zero-Shot 
 
 If the keyword is not mapped to any topic then it's ignored when retrieving the topics for an article. For instance: "News" can be an ignored keyword with no mapping.
 
-## 5.1. Run the **tools/set_topic_from_url_article.py**
+## 5.1. Run the **tools/add_topic_mapping_to_keywords.py**
+
+This has been done for the keywords in the test database, with the proposed links listed in: **url_topics_count_with_pred_to_db.csv**
+
+## 5.2. Run the **tools/set_new_topics_from_topic_keyword_article.py**
 
 With the topics linked to their keywords we can now create a mapping for all articles based on the keywords found in the URL. If none are found, they are left empty.
 

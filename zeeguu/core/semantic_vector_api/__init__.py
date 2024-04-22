@@ -10,6 +10,9 @@ EMB_API_CONN_STRING = os.environ.get(
 def get_embedding_from_article(a: Article):
     r = requests.post(
         url=f"{EMB_API_CONN_STRING}/get_article_embedding",
-        json={"article_content": a.content},
+        json={
+            "article_content": a.content,
+            "article_language": a.language.name.lower(),
+        },
     )
     return r.json()
