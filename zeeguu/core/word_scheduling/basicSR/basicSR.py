@@ -69,11 +69,12 @@ class BasicSRSchedule(db.Model):
                     self.set_bookmark_as_learned(db_session)
                     return
                 elif learning_cycle == LearningCycle.RECEPTIVE:
+                    # If productive exercises are disabled, set the bookmark as learned
                     if productive_exercises_setting == "false":
                             self.set_bookmark_as_learned(db_session)
                             return
                     else:
-                    # Switch learning_cycle to productive knowledge
+                    # Switch learning_cycle to productive knowledge and reset cooling interval
                         self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                         self.cooling_interval = 0
                         db.session.add(self.bookmark)
@@ -264,6 +265,8 @@ class BasicSRSchedule(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             print(f"scheduling another bookmark_id for now: {id} ")
+            b.learning_cycle = LearningCycle.RECEPTIVE.value
+            session.add(b)
             n = cls(b)
             print(n)
             session.add(n)

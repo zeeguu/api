@@ -5,7 +5,6 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
-from sqlalchemy import Enum
 
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
@@ -214,7 +213,7 @@ class Bookmark(db.Model):
             ).one()
             cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
         except sqlalchemy.exc.NoResultFound:
-            cooling_interval = -1
+            cooling_interval = None
 
         bookmark_title = ""
         if with_title:
