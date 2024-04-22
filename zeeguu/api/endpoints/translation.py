@@ -1,7 +1,5 @@
 from string import punctuation
 from urllib.parse import unquote_plus
-from zeeguu.core.model.learning_cycle import LearningCycle
-from zeeguu.api.endpoints.feature_toggles import _merle_exercises
 
 import flask
 from flask import request
@@ -91,7 +89,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             to_lang_code,
             context,
             article_id,
-            learning_cycle=LearningCycle.RECEPTIVE if _merle_exercises(flask.g.user) else LearningCycle.NOT_SET,
         )
 
     return json_result(

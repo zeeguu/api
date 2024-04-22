@@ -211,18 +211,34 @@ class User(db.Model):
         :param bookmark_count: by default we recommend 10 words
         :return:
         """
-        db_session = zeeguu.core.model.db.session
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
-
-        if len(to_study) < bookmark_count:
-            BasicSRSchedule.schedule_some_more_bookmarks(
-                db_session, self, bookmark_count - len(to_study)
-            )
-            to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
-
         return to_study
+
+    def get_new_bookmarks_to_study(self, bookmarks_count):
+        from zeeguu.core.sql.queries.query_loader import load_query
+        from zeeguu.core.sql.query_building import list_of_dicts_from_query
+        from zeeguu.core.model.bookmark import Bookmark
+
+        query = load_query("words_to_study")
+        result = list_of_dicts_from_query(
+            query,
+            {
+                "user_id": self.id,
+                "language_id": self.learned_language.id,
+                "required_count": bookmarks_count,
+            },
+        )
+        added_bookmarks = []
+        for b in result:
+            print(b)
+            id = b["bookmark_id"]
+            b = Bookmark.find(id)
+            added_bookmarks.append(b)
+            print(f"scheduling another bookmark_id for now: {id} ")
+
+        return added_bookmarks
 
     def scheduled_bookmarks(self, bookmark_count=10):
         """
@@ -233,6 +249,16 @@ class User(db.Model):
 
         word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
         return word_for_study
+
+    def total_bookmarks_in_pipeline(self):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return: a list of 10 words that are scheduled to be learned.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        total_pipeline_bookmarks = BasicSRSchedule.total_bookmarks_in_pipeline(self)
+        return total_pipeline_bookmarks
 
     def date_of_last_bookmark(self):
         """

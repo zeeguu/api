@@ -202,6 +202,15 @@ class Bookmark(db.Model):
 
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
+        bookmark_title = ""
+        if with_title:
+            try:
+                bookmark_title = self.text.article.title
+            except Exception as e:
+                from sentry_sdk import capture_exception
+
+                capture_exception(e)
+                print(f"could not find article title for bookmark with id: {self.id}")
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.model import BasicSRSchedule
         from zeeguu.core.word_scheduling.basicSR.basicSR import (
@@ -216,16 +225,6 @@ class Bookmark(db.Model):
             cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
-
-        bookmark_title = ""
-        if with_title:
-            try:
-                bookmark_title = self.text.article.title
-            except Exception as e:
-                from sentry_sdk import capture_exception
-
-                capture_exception(e)
-                print(f"could not find article title for bookmark with id: {self.id}")
 
         result = dict(
             id=self.id,

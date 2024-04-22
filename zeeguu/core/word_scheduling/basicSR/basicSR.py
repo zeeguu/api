@@ -1,8 +1,6 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
-from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
 from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.sql.query_building import list_of_dicts_from_query
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model import UserPreference
 
@@ -259,18 +257,13 @@ class BasicSRSchedule(db.Model):
         return scheduled
 
     @classmethod
-    def schedule_some_more_bookmarks(cls, session, user, required_count):
-
-        from zeeguu.core.sql.queries.query_loader import load_query
-
-        query = load_query("words_to_study")
-        result = list_of_dicts_from_query(
-            query,
-            {
-                "user_id": user.id,
-                "language_id": user.learned_language.id,
-                "required_count": required_count,
-            },
+    def total_bookmarks_in_pipeline(cls, user) -> int:
+        total_pipeline_bookmarks = (
+            Bookmark.query.join(cls)
+            .filter(Bookmark.user_id == user.id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == user.learned_language_id)
+            .count()
         )
 
         for b in result:
