@@ -5,7 +5,6 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
-from sqlalchemy import Enum
 
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
