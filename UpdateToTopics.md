@@ -21,7 +21,7 @@ NOTE: We might want more methods for embedding a sentence for instance.
 
 ## 3. Update the Major topics to the new Topics
 
-To ensure more consistency among all topics, a new list will be used. These will all be placed in the system as **NewTopics** vs the old **Topics**.
+To ensure more consistency among all topics, a new list will be used. These will all be placed in the system as **NewTopics** vs the old **Topics**. This is done in the migration scripts, where the new topics will be added.
 
 Currently, the new topics are all under new_topic and new tables to ensure the old topics are still kept. At some point, we can drop the old functionality, but we need to update all the **New** to be the default.
 

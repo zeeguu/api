@@ -20,7 +20,7 @@ for row_i, row in tqdm(df.iterrows()):
             topic_to_assign = (
                 NewTopic.find_by_id(row["val_pred"]) if row["val_pred"] != -1 else None
             )
-            topic_k.topic = topic_to_assign
+            topic_k.new_topic = topic_to_assign
             db_session.add(topic_k)
     except Exception as e:
         print(f"Failed for '{keyword}', with: {e}")
