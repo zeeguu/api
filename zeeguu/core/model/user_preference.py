@@ -70,15 +70,11 @@ class UserPreference(db.Model):
 
     @classmethod
     def get_productive_exercises_setting(cls, user: User):
-        productive_exercises_setting = UserPreference.query.filter_by(user_id=user.id,
-                                                                      key="productive_exercises").first()
-        if productive_exercises_setting:
-            return productive_exercises_setting.value
-
-        return "true"
+        return UserPreference.query.filter_by(user_id=user.id,
+                                              key="productive_exercises").first()
 
     @classmethod
-    def are_productive_exercises_enabled(cls, user: User):
+    def is_productive_exercises_preference_enabled(cls, user: User):
         return cls.get_productive_exercises_setting(user) == "true"
 
     # Generic preference handling
