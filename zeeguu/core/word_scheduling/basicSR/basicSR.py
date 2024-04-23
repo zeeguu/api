@@ -259,7 +259,7 @@ class BasicSRSchedule(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             print(f"scheduling another bookmark_id for now: {id} ")
-            b.learning_cycle = LearningCycle.RECEPTIVE.value
+            b.learning_cycle = int(LearningCycle.RECEPTIVE)
             session.add(b)
             n = cls(b)
             print(n)
