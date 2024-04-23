@@ -61,7 +61,7 @@ class BasicSRSchedule(db.Model):
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
 
-        productive_exercises_enabled = UserPreference.are_productive_exercises_enabled(self.bookmark.user)
+        productive_exercises_enabled = UserPreference.is_productive_exercises_preference_enabled(self.bookmark.user)
 
         if correctness:
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
@@ -196,7 +196,7 @@ class BasicSRSchedule(db.Model):
         )
 
         # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
-        if UserPreference.are_productive_exercises_enabled(user):
+        if not UserPreference.is_productive_exercises_preference_enabled(user):
             scheduled_candidates_query = scheduled_candidates_query.filter(
                 Bookmark.learning_cycle == LearningCycle.RECEPTIVE)
 
