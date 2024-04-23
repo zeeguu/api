@@ -4,6 +4,19 @@ CREATE TABLE `zeeguu_test`.`new_topic` (
     PRIMARY KEY (`id`)
 );
 
+# Insert New Topic values into the DB.
+INSERT INTO
+    `new_topic`
+VALUES
+    (1, 'Sports'),
+    (2, 'Culture & Art'),
+    (3, 'Technology & Science'),
+    (4, 'Travel & Tourism'),
+    (5, 'Health & Society'),
+    (6, 'Business'),
+    (7, 'Politics'),
+    (8, 'Satire');
+
 CREATE TABLE `zeeguu_test`.`new_article_topic_map` (
     `article_id` INT NOT NULL,
     `new_topic_id` INT NOT NULL,
