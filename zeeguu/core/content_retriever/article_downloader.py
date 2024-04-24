@@ -307,7 +307,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     topics = []
     topics_added = set()
     for topic_key in topic_keywords:
-        topic = topic_key.topic
+        topic = topic_key.new_topic
         print(topic_key, topic)
         if topic is not None:
             if topic.id in topics_added:
