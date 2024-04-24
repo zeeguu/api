@@ -65,7 +65,7 @@ class BasicSRSchedule(db.Model):
 
         if correctness:
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
-                if learning_cycle == LearningCycle.RECEPTIVE & productive_exercises_enabled:
+                if learning_cycle == LearningCycle.RECEPTIVE and productive_exercises_enabled:
                     # Switch learning_cycle to productive knowledge and reset cooling interval
                     self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                     self.cooling_interval = 0
@@ -255,7 +255,7 @@ class BasicSRSchedule(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             print(f"scheduling another bookmark_id for now: {id} ")
-            b.learning_cycle = int(LearningCycle.RECEPTIVE)
+            b.learning_cycle = LearningCycle.RECEPTIVE
             session.add(b)
             n = cls(b)
             print(n)
