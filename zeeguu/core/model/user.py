@@ -74,6 +74,8 @@ class User(db.Model):
         self.cohort = cohort
         self.is_dev = is_dev
 
+        self.create_default_user_preference()
+
     @classmethod
     def create_anonymous(
         cls, uuid, password, learned_language_code=None, native_language_code=None
@@ -721,3 +723,15 @@ class User(db.Model):
     def authorize_anonymous(cls, uuid, password):
         email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
         return cls.authorize(email, password)
+
+    def create_default_user_preference(self):
+        from zeeguu.core.model.user_preference import UserPreference
+
+        existing_preference = UserPreference.find_or_create(
+            db.session, self, UserPreference.PRODUCTIVE_EXERCISES
+        )
+
+        if not existing_preference.value:
+            existing_preference.value = "true"
+            db.session.add(existing_preference)
+            db.session.commit()
