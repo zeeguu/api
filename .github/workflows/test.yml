@@ -21,9 +21,6 @@ jobs:
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           python setup.py develop
-      - name: Set Env variables
-        run: |
-          export $(grep -v '^#' default_docker.cfg | xargs)
       - name: Test with pytest
         run: |
           pytest
