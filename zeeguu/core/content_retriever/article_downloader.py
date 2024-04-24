@@ -216,60 +216,7 @@ def download_feed_item(session, feed, feed_item, url):
     if not is_quality_article:
         raise SkippedForLowQuality(reason)
 
-    summary = feed_item["summary"]
-    # however, this is not so easy... there have been cases where
-    # the summary is just malformed HTML... thus we try to extract
-    # the text:
-    from bs4 import BeautifulSoup
-
-    soup = BeautifulSoup(summary, "lxml")
-    summary = soup.get_text()
-    # then there are cases where the summary is huge... so we clip it
-    summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
-    # and if there is still no summary, we simply use the beginning of
-    # the article
-    if len(summary) < 10:
-        summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
-
-    # Create new article and save it to DB
-    new_article = zeeguu.core.model.Article(
-        Url.find_or_create(session, url),
-        title,
-        ", ".join(np_article.authors),
-        np_article.text,
-        summary,
-        published_datetime,
-        feed,
-        feed.language,
-        htmlContent=np_article.htmlContent,
-    )
-
-    if np_article.top_image != "":
-        new_article.img_url = Url.find_or_create(session, np_article.top_image)
-    session.add(new_article)
-
-    topics = add_topics(new_article, session)
-    logp(f" Topics ({topics})")
-    topic_keywords = add_topic_keywords(new_article, session)
-    logp(f" Topic Keywords: ({topic_keywords})")
-    # compute extra difficulties for french articles
     try:
-        if new_article.language.code == "fr":
-            from zeeguu.core.language.services.lingo_rank_service import (
-                retrieve_lingo_rank,
-            )
-
-            df = DifficultyLingoRank(
-                new_article, retrieve_lingo_rank(new_article.content)
-            )
-            session.add(df)
-        parsed = download_and_parse(url)
-
-        is_quality_article, reason = sufficient_quality(parsed)
-
-        if not is_quality_article:
-            raise SkippedForLowQuality(reason)
-
         summary = feed_item["summary"]
         # however, this is not so easy... there have been cases where
         # the summary is just malformed HTML... thus we try to extract
@@ -283,14 +230,14 @@ def download_feed_item(session, feed, feed_item, url):
         # and if there is still no summary, we simply use the beginning of
         # the article
         if len(summary) < 10:
-            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
             # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
-            ", ".join(parsed.authors),
-            parsed.text,
+            ", ".join(np_article.authors),
+            np_article.text,
             summary,
             published_datetime,
             feed,
