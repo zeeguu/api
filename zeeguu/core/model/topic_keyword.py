@@ -2,6 +2,7 @@ from sqlalchemy.orm import relationship
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.new_topic import NewTopic
+from zeeguu.core.util import remove_duplciates_keeping_order
 import sqlalchemy
 import string
 from collections import Counter
@@ -161,4 +162,4 @@ class TopicKeyword(db.Model):
         except Exception as e:
             print(f"Failed for url '{url.path}', with: '{e}'")
             return None
-        return list(set(topic_k))
+        return remove_duplciates_keeping_order(topic_k)
