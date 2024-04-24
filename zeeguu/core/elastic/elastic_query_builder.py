@@ -18,19 +18,19 @@ def array_of_lowercase_topics(topics):
 
 
 def build_elastic_recommender_query(
-        count,
-        topics,
-        unwanted_topics,
-        user_topics,
-        unwanted_user_topics,
-        language,
-        upper_bounds,
-        lower_bounds,
-        es_scale="30d",
-        es_offset="1d",
-        es_decay=0.5,
-        es_weight=2.1,
-        second_try=False,
+    count,
+    topics,
+    unwanted_topics,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+    es_scale="30d",
+    es_offset="1d",
+    es_decay=0.5,
+    es_weight=2.1,
+    second_try=False,
 ):
     """
 
@@ -87,16 +87,18 @@ def build_elastic_recommender_query(
         should.append(match("content", search_string))
         should.append(match("title", search_string))
 
-    if unwanted_topics:
-        must_not.append(match("topics", unwanted_topics))
+    unwanted_topics_arr = array_of_lowercase_topics(unwanted_topics)
+    if len(unwanted_topics_arr) > 0:
+        must_not.append({"terms": {"topics": unwanted_topics_arr}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
 
     must.append(exists("published_time"))
-    if user_topics:
-        must.append({"terms": {"topics": array_of_lowercase_topics(topics)}})
+    topics_arr = array_of_lowercase_topics(topics)
+    if len(topics_arr) > 0:
+        must.append({"terms": {"topics": topics_arr}})
 
     if not second_try:
         # on the second try we do not add the range;
@@ -116,7 +118,13 @@ def build_elastic_recommender_query(
 
     function1 = {
         # original parameters by Simon & Marcus
-        "gauss": {"published_time": {"scale": es_scale, "offset": es_offset, "decay": es_decay}},
+        "gauss": {
+            "published_time": {
+                "scale": es_scale,
+                "offset": es_offset,
+                "decay": es_decay,
+            }
+        },
         "weight": es_weight,
         # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
         # "weight": es_weight,
@@ -130,19 +138,19 @@ def build_elastic_recommender_query(
 
 
 def build_elastic_search_query(
-        count,
-        search_terms,
-        topics,
-        unwanted_topics,
-        user_topics,
-        unwanted_user_topics,
-        language,
-        upper_bounds,
-        lower_bounds,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
-        second_try=False,
+    count,
+    search_terms,
+    topics,
+    unwanted_topics,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+    es_scale="3d",
+    es_decay=0.8,
+    es_weight=4.2,
+    second_try=False,
 ):
     """
     Builds an elastic search query for search terms.

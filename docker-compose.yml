@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   dev_server:
-    image: zeeguu_api_dev
+    image: zeeguu/api
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
       ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
@@ -22,7 +22,7 @@ services:
       - elasticsearch
 
   readability_server:
-    image: aecrimus/readability_server
+    image: zeeguu/readability_server
     ports:
       - 3456:3456
     networks:
@@ -47,7 +47,7 @@ services:
 
 
   dev_play:
-    image: zeeguu_api_dev
+    image: zeeguu/api
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 
@@ -60,7 +60,7 @@ services:
 
   # docker-compose run --rm dev_bash
   dev_bash:
-    image: zeeguu_api_dev
+    image: zeeguu/api
     stdin_open: true # docker run -i
     tty: true # docker run -t
 
@@ -75,7 +75,7 @@ services:
       - zeeguu_backend
 
   dev_test:
-    image: zeeguu_api_dev
+    image: zeeguu/api
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 
@@ -87,7 +87,7 @@ services:
       - zeeguu_backend
 
   dev_init_es:
-    image: zeeguu_api_dev
+    image: zeeguu/api
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
       ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
