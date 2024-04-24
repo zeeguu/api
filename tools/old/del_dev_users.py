@@ -1,11 +1,8 @@
-from zeeguu.api.app import create_app
-from zeeguu.core.model import User, ArticleDifficultyFeedback, PersonalCopy, SearchFilter, UserPreference
+from zeeguu.core.model import User
 
 import zeeguu.core
-from zeeguu.core.model.starred_article import StarredArticle
 
-app = create_app()
-app.app_context().push()
+from sqlalchemy.orm.exc import NoResultFound
 
 db_session = zeeguu.core.model.db.session
 
@@ -37,11 +34,26 @@ tables_to_modify = [
     UserArticle,
     UserReadingSession,
     UserExerciseSession,
-    StarredArticle,
-    ArticleDifficultyFeedback,
-    PersonalCopy,
-    SearchFilter,
-    UserPreference
+]
+
+# users that are developer accounts
+# they should be deleted before doing data analysis
+user_ids_to_delete = [
+    3416,
+    19,
+    20,
+    3011,
+    2945,
+    3405,
+    2838,
+    2230,
+    2231,
+    2232,
+    62,
+    1859,
+    154,
+    1,
+    2643,
 ]
 
 
@@ -68,11 +80,14 @@ def delete_user(subject):
     db_session.commit()
 
 
-# # delete all anonymous users
-# for user in User.find_all():
-#     if "anon.zeeguu" in user.email:
-#         delete_user(user)
+for id in user_ids_to_delete:
+    try:
+        subject = User.find_by_id(id)
+        delete_user(subject)
+    except NoResultFound:
+        print(f"Inexistent user: {id}")
 
-for user in User.query.filter_by(is_dev=True):
-    print("deleting ... " + user.name)
-    delete_user(user)
+# delete all anonymous users
+for user in User.find_all():
+    if "anon.zeeguu" in user.email:
+        delete_user(user)
