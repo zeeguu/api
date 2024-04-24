@@ -33,7 +33,7 @@ VOLUME /Zeeguu-API
 # (e.g. to this build file) the whole cache is not invalidated and the build process does
 # not have to start from scratch
 RUN mkdir /Zeeguu-API
-COPY ./requirements.txt /Zeeguu-API/requirements.txt
+COPY ./requirements_v8.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
 # Install requirements and setup
@@ -41,9 +41,6 @@ WORKDIR /Zeeguu-API
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
-RUN pip install -U sentence-transformers
-RUN pip install -U elasticsearch
-RUN pip install -U elasticsearch_dsl
 
 # Copy the rest of the files 
 # (this is done after the requirements are installed, so that the cache is not invalidated)
