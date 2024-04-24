@@ -68,13 +68,11 @@ def delete_user(subject):
     db_session.commit()
 
 
-# delete all anonymous users
-for user in User.find_all():
-    if "anon.zeeguu" in user.email:
-        delete_user(user)
+# # delete all anonymous users
+# for user in User.find_all():
+#     if "anon.zeeguu" in user.email:
+#         delete_user(user)
 
 for user in User.query.filter_by(is_dev=True):
     print("deleting ... " + user.name)
     delete_user(user)
-
-print("Remaining users: " + str(len(User.find_all())))
