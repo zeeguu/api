@@ -32,7 +32,9 @@ def get_article_embedding():
 
     article_content = request.json.get("article_content", "")
     article_language = request.json.get("language", "english")
-    return json_result(semantic_embedding_model.get_vector(article_content))
+    return json_result(
+        semantic_embedding_model.get_vector(article_content, article_language)
+    )
 
 
 if __name__ == "__main__":
