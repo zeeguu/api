@@ -63,7 +63,7 @@ def create_account(
         )
 
         db_session.add(new_user)
-
+        new_user.create_default_user_preference()
         learned_language = UserLanguage.find_or_create(
             db_session, new_user, learned_language
         )
@@ -84,7 +84,7 @@ def create_account(
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
-        new_user.create_default_user_preference()
+
         return new_user
 
     except sqlalchemy.exc.IntegrityError:
