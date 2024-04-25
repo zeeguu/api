@@ -59,9 +59,7 @@ def add_user(email):
 @cross_domain
 def add_basic_user(email):
     """
-
     Creates user, then returns a session for that user
-
     """
 
     from ...core.account_management.user_account_creation import create_basic_account
