@@ -1,5 +1,5 @@
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Q, SF
+from elastic_transport import ConnectionError
 
 from zeeguu.core.model import (
     Article,
@@ -60,13 +60,21 @@ def semantic_search_from_article(article: Article):
     )
     final_article_mix = []
 
-    es = Elasticsearch(ES_CONN_STRING)
-    res = es.search(index=ES_ZINDEX, body=query_body)
+    try:
+        es = Elasticsearch(ES_CONN_STRING)
+        res = es.search(index=ES_ZINDEX, body=query_body)
 
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        hit_list = res["hits"].get("hits")
+        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    return [a for a in final_article_mix if a is not None and not a.broken], hit_list
+        return [
+            a for a in final_article_mix if a is not None and not a.broken
+        ], hit_list
+    except ConnectionError:
+        print("Could not connect to ES server.")
+    except Exception as e:
+        print(f"Error encountered: {e}")
+    return [], []
 
 
 @time_this
@@ -76,13 +84,21 @@ def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 9):
     )
     final_article_mix = []
 
-    es = Elasticsearch(ES_CONN_STRING)
-    res = es.search(index=ES_ZINDEX, body=query_body)
+    try:
+        es = Elasticsearch(ES_CONN_STRING)
+        res = es.search(index=ES_ZINDEX, body=query_body)
 
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        hit_list = res["hits"].get("hits")
+        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    return [a for a in final_article_mix if a is not None and not a.broken], hit_list
+        return [
+            a for a in final_article_mix if a is not None and not a.broken
+        ], hit_list
+    except ConnectionError:
+        print("Could not connect to ES server.")
+    except Exception as e:
+        print(f"Error encountered: {e}")
+    return [], []
 
 
 def _to_articles_from_ES_hits(hits):
