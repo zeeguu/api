@@ -7,11 +7,12 @@ from zeeguu.core.model import db
 
 class NewTopic(db.Model):
     """
+    The New Topics are standerdized accross all languages.
 
-    A topic is the general (English) name of a topic,
-    the localized_topic contains the language, translation,
-    and the keywords used to find the articles.
+    Each TopicKeyword can be associated with one New Topic
+    which are used to infer topics in articles which haven't got any topic.
 
+    This relationship is stored in NewArticleTopicMap.
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
