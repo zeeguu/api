@@ -13,7 +13,7 @@
               "packages": [
                 {
                   "path": "*",
-                  "depth": 0
+                  "depth": 1
                 }
               ],
 
