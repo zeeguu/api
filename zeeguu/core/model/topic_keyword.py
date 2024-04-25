@@ -13,8 +13,8 @@ from zeeguu.core.model import db
 class TopicKeyword(db.Model):
     """
     These are words extracted from the URL that can be used as keywords
-    for the Localized Topic Table.
-
+    for the New Topic Table. Each keyword is associated with a language,
+    as some language might have the same word for 2 different topics.
     """
 
     EXCLUDE_TOPICS = set(
@@ -102,10 +102,6 @@ class TopicKeyword(db.Model):
         return (cls.query.filter(cls.id == i)).one()
 
     @classmethod
-    def with_localized_topic_id(cls, lt_i):
-        return (cls.query.filter(cls.localized_topic_id == lt_i)).all()
-
-    @classmethod
     def topic_filter(cls, topic: str) -> bool:
         if topic == "":
             return False
@@ -144,11 +140,6 @@ class TopicKeyword(db.Model):
             and not upper_in_middle
             and n_numbers == 0
         )
-
-    @classmethod
-    def remove_hyphen(cls, topic: str) -> bool:
-        topic = topic
-        return topic
 
     @classmethod
     def get_topic_keywords_from_url(cls, url: Url):
