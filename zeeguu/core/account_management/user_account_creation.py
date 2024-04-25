@@ -10,7 +10,7 @@ def valid_invite_code(invite_code):
         return True
 
     if zeeguu.core.app.config.get(
-            "INVITATION_CODES"
+        "INVITATION_CODES"
     ) and invite_code in zeeguu.core.app.config.get("INVITATION_CODES"):
         return True
 
@@ -22,14 +22,14 @@ def valid_invite_code(invite_code):
 
 # TODO: delete after the new onboarding of Iga is done
 def create_account(
-        db_session,
-        username,
-        password,
-        invite_code,
-        email,
-        learned_language_code,
-        native_language_code,
-        learned_cefr_level,
+    db_session,
+    username,
+    password,
+    invite_code,
+    email,
+    learned_language_code,
+    native_language_code,
+    learned_cefr_level,
 ):
     cohort_name = ""
     if password is None or len(password) < 4:
@@ -84,7 +84,7 @@ def create_account(
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
-
+        new_user.create_default_user_preference()
         return new_user
 
     except sqlalchemy.exc.IntegrityError:
@@ -94,13 +94,7 @@ def create_account(
         raise Exception("Could not create the account")
 
 
-def create_basic_account(
-        db_session,
-        username,
-        password,
-        invite_code,
-        email
-):
+def create_basic_account(db_session, username, password, invite_code, email):
     cohort_name = ""
     if password is None or len(password) < 4:
         raise Exception("Password should be at least 4 characters long")
@@ -119,11 +113,7 @@ def create_basic_account(
 
     try:
         new_user = User(
-            email,
-            username,
-            password,
-            invitation_code=invite_code,
-            cohort=cohort
+            email, username, password, invitation_code=invite_code, cohort=cohort
         )
 
         db_session.add(new_user)

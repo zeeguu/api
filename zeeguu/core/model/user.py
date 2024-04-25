@@ -55,15 +55,15 @@ class User(db.Model):
     is_dev = Column(Boolean)
 
     def __init__(
-            self,
-            email,
-            name,
-            password,
-            learned_language=None,
-            native_language=None,
-            invitation_code=None,
-            cohort=None,
-            is_dev=0,
+        self,
+        email,
+        name,
+        password,
+        learned_language=None,
+        native_language=None,
+        invitation_code=None,
+        cohort=None,
+        is_dev=0,
     ):
         self.email = email
         self.name = name
@@ -74,11 +74,9 @@ class User(db.Model):
         self.cohort = cohort
         self.is_dev = is_dev
 
-        self.create_default_user_preference()
-
     @classmethod
     def create_anonymous(
-            cls, uuid, password, learned_language_code=None, native_language_code=None
+        cls, uuid, password, learned_language_code=None, native_language_code=None
     ):
         """
 
@@ -153,8 +151,8 @@ class User(db.Model):
         # Must have this import here to avoid circular dependency
 
         preference = (
-                UserPreference.get_difficulty_estimator(self)
-                or "FleschKincaidDifficultyEstimator"
+            UserPreference.get_difficulty_estimator(self)
+            or "FleschKincaidDifficultyEstimator"
         )
         log(f"Difficulty estimator for user {self.id}: {preference}")
         return preference
@@ -314,10 +312,10 @@ class User(db.Model):
         self.password_salt = salt_bytes.hex()
 
     def all_reading_sessions(
-            self,
-            after_date=datetime.datetime(1970, 1, 1),
-            before_date=datetime.date.today() + datetime.timedelta(days=1),
-            language_id=None,
+        self,
+        after_date=datetime.datetime(1970, 1, 1),
+        before_date=datetime.date.today() + datetime.timedelta(days=1),
+        language_id=None,
     ):
         from zeeguu.core.model.user_reading_session import UserReadingSession
         from zeeguu.core.model.article import Article
@@ -340,10 +338,10 @@ class User(db.Model):
         return all_sessions
 
     def all_bookmarks(
-            self,
-            after_date=datetime.datetime(1970, 1, 1),
-            before_date=datetime.date.today() + datetime.timedelta(days=1),
-            language_id=None,
+        self,
+        after_date=datetime.datetime(1970, 1, 1),
+        before_date=datetime.date.today() + datetime.timedelta(days=1),
+        language_id=None,
     ):
         from zeeguu.core.model import Bookmark, UserWord
 
@@ -449,7 +447,7 @@ class User(db.Model):
         return result
 
     def reading_sessions_by_day(
-            self, after_date=datetime.datetime(2010, 1, 1), max=42, language_id=None
+        self, after_date=datetime.datetime(2010, 1, 1), max=42, language_id=None
     ):
         """
         :param after_date: The date from which the reading sessions will be queried
@@ -468,8 +466,8 @@ class User(db.Model):
 
         if len(sorted_date_reading_sessions_tuples) > max:
             sorted_date_reading_sessions_tuples = sorted_date_reading_sessions_tuples[
-                                                  :max
-                                                  ]
+                :max
+            ]
 
         result = self._to_serializable(
             sorted_date_reading_sessions_tuples, key_name="reading_sessions"
@@ -499,12 +497,12 @@ class User(db.Model):
         return bookmarks_by_date, sorted_dates
 
     def bookmarks_by_day(
-            self,
-            with_context,
-            after_date=datetime.datetime(2010, 1, 1),
-            max=42,
-            with_title=False,
-            language_id=None,
+        self,
+        with_context,
+        after_date=datetime.datetime(2010, 1, 1),
+        max=42,
+        with_title=False,
+        language_id=None,
     ):
 
         bookmarks = self.all_bookmarks(after_date, language_id=language_id)
@@ -522,12 +520,12 @@ class User(db.Model):
         return result
 
     def bookmarks_for_article(
-            self,
-            article_id,
-            with_context,
-            with_title=False,
-            good_for_study=False,
-            json=True,
+        self,
+        article_id,
+        with_context,
+        with_title=False,
+        good_for_study=False,
+        json=True,
     ):
 
         from zeeguu.core.model import Bookmark, Text
@@ -712,7 +710,7 @@ class User(db.Model):
         try:
             user = cls.find(email)
             if user.password == password_hash(
-                    password, bytes.fromhex(user.password_salt)
+                password, bytes.fromhex(user.password_salt)
             ):
                 return user
         except sqlalchemy.orm.exc.NoResultFound:

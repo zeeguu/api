@@ -74,11 +74,7 @@ def add_basic_user(email):
 
     try:
         new_user = create_basic_account(
-            db_session,
-            username,
-            password,
-            invite_code,
-            email
+            db_session, username, password, invite_code, email
         )
         new_session = Session.for_user(new_user)
         db_session.add(new_session)
