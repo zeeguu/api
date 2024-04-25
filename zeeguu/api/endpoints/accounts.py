@@ -17,9 +17,7 @@ from zeeguu.logging import log
 @cross_domain
 def add_user(email):
     """
-
     Creates user, then returns a session for that user
-
     """
 
     password = request.form.get("password")
