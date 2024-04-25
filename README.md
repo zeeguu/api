@@ -45,23 +45,23 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
 1. Build the `zeguu_api_dev` development image
 
-   `docker build -f Dockerfile.development -t zeeguu_api_dev .`
+   `docker build -f Dockerfile.development -t zeeguu_api_dev_ESv8 .`
 
 2. Run the \_playground.py to ensure that you have something in the DB
 
-   `docker-compose up dev_play`
+   `docker-compose-development up dev_play`
 
    To ensure that the changes to the files on your local dev machine are reflected inside the container try to modify something in the `tools\_playground.py` file and rerun this command. Do you see the changes? That's good.
 
 3. Run the development server inside of the container
 
-   `docker-compose up dev_server`
+   `docker-compose-development up dev_server`
 
    to test it open http://localhost:9001/available_languages in your browser and you should be able to see a list of language codes that are supported by the system
 
 4. Test the deployment
 
-   `docker-compose up dev_test`
+   `docker-compose-development up dev_test`
 
 ### Note
 
@@ -110,24 +110,35 @@ CONTAINER ID        IMAGE                    COMMAND                  CREATED   
 
    `curl 127.0.0.1:9001/available_languages`
 
-
-7. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
+6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
 Go have fun!
 
+## If you plan to download new articles:
+
+To download new articles, you will need to set up the embedding API that will encode the new articles coming in to Zeeguu. This allows them to be inferred into topic categories.
+
+To do this create a new docker image by navigating to `semanticEmbApi` and running the command:
+
+```
+docker build -f Dockerfile.development -t zeeguu_api_sem_emb .
+```
+
+This will install the image which is part of the dependencies of the `dev_server`
 
 # Further Notes
+
 ## Running MySQL locally, not in a container on a mac
 
 _(Mircea, Feb 2024)_
 
-On Mac, if you want to run mysql locally, and not from within Docker, you need to install mysql-client with brew:  
+On Mac, if you want to run mysql locally, and not from within Docker, you need to install mysql-client with brew:
 
 ```
 brew install mysql-client
 ```
 
-Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following: 
+Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following:
 
 ```
 export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
