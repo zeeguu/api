@@ -199,13 +199,6 @@ class BasicSRSchedule(db.Model):
 
         end_of_day = cls.get_current_study_window()
 
-        # Query user preferences to get the value of productive exercises setting
-        productive_exercises_setting = (
-            UserPreference.query.filter_by(user_id=user.id, key="productive_exercises")
-            .first()
-            .value
-        )
-
         # Get the candidates, words that are to practice
         scheduled_candidates_query = (
             Bookmark.query.join(cls)
@@ -265,19 +258,7 @@ class BasicSRSchedule(db.Model):
             .filter(UserWord.language_id == user.learned_language_id)
             .count()
         )
-
-        for b in result:
-            print(b)
-            id = b["bookmark_id"]
-            b = Bookmark.find(id)
-            print(f"scheduling another bookmark_id for now: {id} ")
-            b.learning_cycle = LearningCycle.RECEPTIVE
-            session.add(b)
-            n = cls(b)
-            print(n)
-            session.add(n)
-
-        session.commit()
+        return total_pipeline_bookmarks
 
     @classmethod
     def schedule_for_user(cls, user_id):

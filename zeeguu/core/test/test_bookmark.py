@@ -28,8 +28,8 @@ class BookmarkTest(ModelTestMixIn):
         self.user_rule.add_bookmarks(random.randint(3, 5))
         self.user = self.user_rule.user
 
-    def test_bookmarks_to_study_is_not_empty(self):
-        assert self.user.bookmarks_to_study() is not None
+    def test_user_has_bookmarks(self):
+        assert self.user.has_bookmarks()
 
     def test_add_new_exercise(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -41,6 +41,9 @@ class BookmarkTest(ModelTestMixIn):
         length_new_exercise_log = len(random_bookmark.exercise_log)
 
         assert length_original_exercise_log < length_new_exercise_log
+
+    def test_bookmarks_to_study_is_not_empty(self):
+        assert self.user.bookmarks_to_study() is not None
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -69,7 +72,7 @@ class BookmarkTest(ModelTestMixIn):
             random_exercise.source,
             random_exercise.outcome,
             random_exercise.solving_speed,
-            exercise_session.id
+            exercise_session.id,
         )
         latest_exercise = random_bookmark.exercise_log[-1]
 
@@ -114,7 +117,10 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
         random_bookmark.add_new_exercise_result(
-            SourceRule().random, OutcomeRule().random, random.randint(100, 1000), exercise_session.id
+            SourceRule().random,
+            OutcomeRule().random,
+            random.randint(100, 1000),
+            exercise_session.id,
         )
 
         exercise_count_after = len(random_bookmark.exercise_log)
@@ -181,8 +187,8 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark.add_new_exercise(random_exercise)
 
         assert (
-                random_exercise.outcome
-                == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
+            random_exercise.outcome
+            == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
         )
 
     def test_is_learned_based_on_exercise_outcomes(self):
@@ -219,8 +225,8 @@ class BookmarkTest(ModelTestMixIn):
         exercises = 0
         distinct_dates = set()
         while not (
-                exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
-                and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
+            exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
+            and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
         ):
             correct_exercise = ExerciseRule(exercise_session).exercise
             correct_exercise.outcome = OutcomeRule().correct

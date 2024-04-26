@@ -236,7 +236,6 @@ class User(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             added_bookmarks.append(b)
-            print(f"scheduling another bookmark_id for now: {id} ")
 
         return added_bookmarks
 
