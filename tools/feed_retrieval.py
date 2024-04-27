@@ -19,6 +19,7 @@
 import traceback
 
 import zeeguu.core
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.logging import log
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
@@ -29,6 +30,9 @@ db_session = zeeguu.core.model.db.session
 def download_for_feeds(list_of_feeds):
     counter = 0
     all_feeds_count = len(list_of_feeds)
+
+    message_content = ""
+
     for feed in list_of_feeds:
         if feed.deactivated:
             continue
@@ -39,19 +43,25 @@ def download_for_feeds(list_of_feeds):
             log("")
             log(f"{msg}")
 
-            download_from_feed(feed, zeeguu.core.model.db.session)
+            feed_summary = download_from_feed(feed, zeeguu.core.model.db.session)
+            message_content += feed_summary + "\n\n\n"
 
         except:
             traceback.print_exc()
+
+        mailer = ZeeguuMailer(
+            "Feed Download Summary",
+            message_content,
+            "zeeguu.team@gmail.com",
+        )
+        mailer.send()
 
 
 def retrieve_articles_for_language(language_code):
 
     language = Language.find(language_code)
     all_language_feeds = (
-        Feed.query.filter_by(language_id=language.id)
-        .filter_by(deactivated=False)
-        .all()
+        Feed.query.filter_by(language_id=language.id).filter_by(deactivated=False).all()
     )
 
     download_for_feeds(all_language_feeds)

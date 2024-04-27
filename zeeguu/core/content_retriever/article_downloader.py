@@ -84,6 +84,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
     print(feed.url)
 
     downloaded = 0
+    downloaded_titles = []
     skipped_due_to_low_quality = 0
     skipped_already_in_db = 0
 
@@ -117,7 +118,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
-                feed_item_timestamp > last_retrieval_time_seen_this_crawl
+            feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
 
@@ -128,8 +129,8 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             )
 
         try:
-            log("before redirects")
-            log(feed_item["url"])
+            logp("before redirects")
+            logp(feed_item["url"])
             url = _url_after_redirects(feed_item["url"])
             logp("===============================> ")
             logp("after redirects")
@@ -156,8 +157,9 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 if new_article:
                     index_in_elasticsearch(new_article, session)
 
-            if new_article:
-                ZeeguuMailer.send_content_retrieved_notification(new_article)
+            downloaded_titles.append(
+                new_article.title + " " + new_article.url.as_string()
+            )
 
         except SkippedForTooOld:
             logp("- Article too old")
@@ -184,10 +186,16 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 logp(e)
             continue
 
+    content = f"{downloaded} articles from {feed.title}\n\n"
+    for each in downloaded_titles:
+        content += f"- {each}\n"
+
     logp(f"*** Downloaded: {downloaded} From: {feed.title}")
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
     logp(f"*** Already in DB: {skipped_already_in_db}")
     logp(f"*** ")
+
+    return content
 
 
 def download_feed_item(session, feed, feed_item, url):
@@ -277,8 +285,10 @@ def download_feed_item(session, feed, feed_item, url):
         logp(f"Data error for: {url}")
 
     except requests.exceptions.Timeout:
-        logp(f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds.")
-        
+        logp(
+            f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
+        )
+
     except Exception as e:
         import traceback
 
@@ -297,7 +307,7 @@ def add_topics(new_article, session):
     topics = []
     for loc_topic in LocalizedTopic.query.all():
         if loc_topic.language == new_article.language and loc_topic.matches_article(
-                new_article
+            new_article
         ):
             topics.append(loc_topic.topic.title)
             new_article.add_topic(loc_topic.topic)
