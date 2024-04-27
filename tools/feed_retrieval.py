@@ -31,7 +31,9 @@ from zeeguu.core.model import Feed, Language
 db_session = zeeguu.core.model.db.session
 
 
-def download_for_feeds(list_of_feeds, summary_stream: str = ""):
+def download_for_feeds(list_of_feeds):
+
+    summary_stream = ""
     counter = 0
     all_feeds_count = len(list_of_feeds)
 
@@ -45,7 +47,9 @@ def download_for_feeds(list_of_feeds, summary_stream: str = ""):
             log("")
             log(f"{msg}")
 
-            download_from_feed(feed, zeeguu.core.model.db.session, summary_stream)
+            summary_stream += (
+                download_from_feed(feed, zeeguu.core.model.db.session) + "\n\n\n"
+            )
 
         except PendingRollbackError as e:
             db_session.rollback()
@@ -58,6 +62,7 @@ def download_for_feeds(list_of_feeds, summary_stream: str = ""):
             traceback.print_exc()
 
     logp(f"Successfully finished processing {counter} feeds.")
+    return summary_stream
 
 
 def retrieve_articles_for_language(language_code, send_email=False):
@@ -66,9 +71,7 @@ def retrieve_articles_for_language(language_code, send_email=False):
         Feed.query.filter_by(language_id=language.id).filter_by(deactivated=False).all()
     )
 
-    summary_stream = ""
-
-    download_for_feeds(all_language_feeds, summary_stream)
+    summary_stream = download_for_feeds(all_language_feeds)
 
     if send_email:
 
