@@ -117,11 +117,8 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             )
 
         try:
-            logp("before redirects")
-            logp(feed_item["url"])
+
             url = _url_after_redirects(feed_item["url"])
-            logp("===============================> ")
-            logp("after redirects")
             logp(url)
 
         except requests.exceptions.TooManyRedirects:
