@@ -60,7 +60,6 @@ def download_for_feeds(list_of_feeds):
         except:
             traceback.print_exc()
 
-    return message_content
     logp("sending summary email")
     logp(message_content)
 
