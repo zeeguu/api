@@ -1,5 +1,8 @@
 name: Render ARchitectural Diff with ArchLens
 
+on:
+  workflow_dispatch:
+
 jobs:
   render-diff-and-upload-comment:
     permissions: write-all
