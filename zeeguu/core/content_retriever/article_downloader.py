@@ -198,7 +198,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 logp(e)
             continue
 
-    content = f"{downloaded} articles from {feed.title}\n\n"
+    content = f"{downloaded} articles from {feed.title}\n"
     for each in downloaded_titles:
         content += f"- {each}\n"
 
