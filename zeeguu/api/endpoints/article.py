@@ -30,7 +30,7 @@ def find_or_create_article():
     """
 
     url = request.form.get("url", "")
-    htmlContent = request.form.get("htmlContent", "")
+    html_content = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
     authors = request.form.get("authors", "")
 
@@ -39,7 +39,7 @@ def find_or_create_article():
 
     try:
         article = Article.find_or_create(
-            db_session, url, htmlContent=htmlContent, title=title, authors=authors
+            db_session, url, html_content=html_content, title=title, authors=authors
         )
         return json_result(article.article_info())
     except NoResultFound as e:
@@ -57,7 +57,6 @@ def find_or_create_article():
 @cross_domain
 @with_session
 def make_personal_copy():
-
     article_id = request.form.get("article_id", "")
     article = Article.find_by_id(article_id)
     user = flask.g.user
@@ -74,7 +73,6 @@ def make_personal_copy():
 @cross_domain
 @with_session
 def remove_personal_copy():
-
     article_id = request.form.get("article_id", "")
     article = Article.find_by_id(article_id)
     user = flask.g.user

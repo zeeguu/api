@@ -10,12 +10,12 @@
     "views": {
 
         "top-level-view-depth-1": {
-            "packages": [
+              "packages": [
                 {
-                    "packagePath":"",
-                    "depth":1
+                  "path": "*",
+                  "depth": 1
                 }
-            ],
+              ],
 
             "ignorePackages": []
         }

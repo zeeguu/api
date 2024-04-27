@@ -13,6 +13,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, User
+from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -132,7 +133,7 @@ class UserArticle(db.Model):
         user: User,
         article: Article,
         opened=None,
-        liked=False,
+        liked=None,
         starred=None,
     ):
         """
@@ -248,6 +249,9 @@ class UserArticle(db.Model):
 
         user_article_info = UserArticle.find(user, article)
 
+        user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
+
+
         if not user_article_info:
             returned_info["starred"] = False
             returned_info["opened"] = False
@@ -263,9 +267,8 @@ class UserArticle(db.Model):
                     user_article_info.starred
                 )
 
-            returned_info["relative_difficulty"] = random.choice(
-                ["easy", "moderate'", "hard"]
-            )
+            if user_diff_feedback is not None:
+                returned_info["relative_difficulty"] = user_diff_feedback.difficulty_feedback
 
             if with_translations:
                 translations = Bookmark.find_all_for_user_and_article(user, article)

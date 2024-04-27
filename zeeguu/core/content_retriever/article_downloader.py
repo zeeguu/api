@@ -10,6 +10,7 @@ import newspaper
 
 from pymysql import DataError
 
+from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
@@ -20,29 +21,16 @@ import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 
-from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import download_and_parse
-from zeeguu.core.content_retriever.parse_with_readability_server import TIMEOUT_SECONDS
+
+TIMEOUT_SECONDS = 10
 
 import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
-
-
-class SkippedForTooOld(Exception):
-    pass
-
-
-class SkippedForLowQuality(Exception):
-    def __init__(self, reason):
-        self.reason = reason
-
-
-class SkippedAlreadyInDB(Exception):
-    pass
 
 
 def _url_after_redirects(url):
@@ -164,22 +152,40 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
         except SkippedForTooOld:
             logp("- Article too old")
             continue
+
         except SkippedForLowQuality as e:
             logp(f" - Low quality: {e.reason}")
             skipped_due_to_low_quality += 1
             continue
+
         except SkippedAlreadyInDB:
             skipped_already_in_db += 1
             logp(" - Already in DB")
+            continue
+
+        except FailedToParseWithReadabilityServer as e:
+            logp(f" - failed to parse with readability server (server said: {e})")
+            continue
+
+        except newspaper.ArticleException as e:
+            logp(f"Newspaper can't download article at: {url}")
+            continue
+
+        except DataError as e:
+            logp(f"Data error ({e}) for: {url}")
+            continue
+
+        except requests.exceptions.Timeout:
+            logp(
+                f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
+            )
             continue
 
         except Exception as e:
             import traceback
 
             traceback.print_stack()
-
             capture_to_sentry(e)
-
             if hasattr(e, "message"):
                 logp(e.message)
             else:
@@ -199,106 +205,56 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
 
 def download_feed_item(session, feed, feed_item, url):
-    new_article = None
-
     title = feed_item["title"]
 
     published_datetime = feed_item["published_datetime"]
 
-    try:
-        art = model.Article.find(url)
-    except:
-        import sys
-
-        ex = sys.exc_info()[0]
-        raise Exception(
-            f" {LOG_CONTEXT}: For some reason excepted during Article.find \n{str(ex)}"
-        )
+    art = model.Article.find(url)
 
     if art:
         raise SkippedAlreadyInDB()
 
-    try:
+    np_article = download_and_parse(url)
 
-        parsed = download_and_parse(url)
+    is_quality_article, reason = sufficient_quality(np_article)
 
-        is_quality_article, reason = sufficient_quality(parsed)
+    if not is_quality_article:
+        raise SkippedForLowQuality(reason)
 
-        if not is_quality_article:
-            raise SkippedForLowQuality(reason)
+    summary = feed_item["summary"]
+    # however, this is not so easy... there have been cases where
+    # the summary is just malformed HTML... thus we try to extract
+    # the text:
+    from bs4 import BeautifulSoup
 
-        summary = feed_item["summary"]
-        # however, this is not so easy... there have been cases where
-        # the summary is just malformed HTML... thus we try to extract
-        # the text:
-        from bs4 import BeautifulSoup
+    soup = BeautifulSoup(summary, "lxml")
+    summary = soup.get_text()
+    # then there are cases where the summary is huge... so we clip it
+    summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
+    # and if there is still no summary, we simply use the beginning of
+    # the article
+    if len(summary) < 10:
+        summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-        soup = BeautifulSoup(summary, "lxml")
-        summary = soup.get_text()
-        # then there are cases where the summary is huge... so we clip it
-        summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
-        # and if there is still no summary, we simply use the beginning of
-        # the article
-        if len(summary) < 10:
-            summary = parsed.text[:MAX_CHAR_COUNT_IN_SUMMARY]
+    # Create new article and save it to DB
+    new_article = zeeguu.core.model.Article(
+        Url.find_or_create(session, url),
+        title,
+        ", ".join(np_article.authors),
+        np_article.text,
+        summary,
+        published_datetime,
+        feed,
+        feed.language,
+        htmlContent=np_article.htmlContent,
+    )
 
-            # Create new article and save it to DB
-        new_article = zeeguu.core.model.Article(
-            Url.find_or_create(session, url),
-            title,
-            ", ".join(parsed.authors),
-            parsed.text,
-            summary,
-            published_datetime,
-            feed,
-            feed.language,
-        )
-        session.add(new_article)
+    if np_article.top_image != "":
+        new_article.img_url = Url.find_or_create(session, np_article.top_image)
+    session.add(new_article)
 
-        topics = add_topics(new_article, session)
-        logp(f" Topics ({topics})")
-
-        # compute extra difficulties for french articles
-        try:
-            if new_article.language.code == "fr":
-                from zeeguu.core.language.services.lingo_rank_service import (
-                    retrieve_lingo_rank,
-                )
-
-                df = DifficultyLingoRank(
-                    new_article, retrieve_lingo_rank(new_article.content)
-                )
-                session.add(df)
-        except Exception as e:
-            capture_to_sentry(e)
-
-        session.commit()
-        logp(f"SUCCESS for: {new_article.title}")
-
-    except SkippedForLowQuality as e:
-        raise e
-
-    except newspaper.ArticleException as e:
-        logp(f"can't download article at: {url}")
-
-    except DataError as e:
-        logp(f"Data error for: {url}")
-
-    except requests.exceptions.Timeout:
-        logp(
-            f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
-        )
-
-    except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        capture_to_sentry(e)
-
-        log(
-            f"* Rolling back session due to exception while creating article and attaching words/topics: {str(e)}"
-        )
-        session.rollback()
+    topics = add_topics(new_article, session)
+    logp(f" Topics ({topics})")
 
     return new_article
 

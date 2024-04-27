@@ -35,6 +35,14 @@ def save_user_preferences():
         pref.value = audio_exercises_value
         zeeguu.core.model.db.session.add(pref)
 
+    productive_exercises_value = data.get(UserPreference.PRODUCTIVE_EXERCISES, None)
+    if productive_exercises_value:
+        pref_productive = UserPreference.find_or_create(
+            zeeguu.core.model.db.session, flask.g.user, UserPreference.PRODUCTIVE_EXERCISES
+        )
+        pref_productive.value = productive_exercises_value
+        zeeguu.core.model.db.session.add(pref_productive)
+
     zeeguu.core.model.db.session.add(flask.g.user)
     zeeguu.core.model.db.session.commit()
     return "OK"

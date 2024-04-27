@@ -10,13 +10,7 @@ app.app_context().push()
 
 def create_and_test_feed(url: str, feed_type: int):
     feed = Feed.from_url(url, feed_type=feed_type)
-
-    feed_items = feed.feed_items()
-    if not feed_items:
-        print("Feed seems broken. No items found.")
-    else:
-        count = len(feed_items)
-        print(f"Feed seems healthy: {count} items found. ")
+    print(feed.feed_health_info())
 
     return feed
 
@@ -34,8 +28,8 @@ def main():
     print(f"= {icon_name}")
 
     description = (
-        input(f"Description (Enter for: {test_feed.description}): ")
-        or test_feed.description
+            input(f"Description (Enter for: {test_feed.description}): ")
+            or test_feed.description
     )
     print(f"= {description}")
 

@@ -1,4 +1,4 @@
-#!/bin/env python
+#!python3
 import logging
 
 # this is needed since when run as wsgi this script

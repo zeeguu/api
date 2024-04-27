@@ -18,9 +18,13 @@
 """
 import traceback
 
+from sqlalchemy.exc import PendingRollbackError
+
 import zeeguu.core
+
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.logging import log
+from zeeguu.logging import log, logp
+
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
 
@@ -46,6 +50,13 @@ def download_for_feeds(list_of_feeds):
             feed_summary = download_from_feed(feed, zeeguu.core.model.db.session)
             message_content += feed_summary + "\n\n\n"
 
+        except PendingRollbackError as e:
+            db_session.rollback()
+            logp(
+                "Something went wrong and we had to rollback a transaction; following is the full stack trace:"
+            )
+            traceback.print_exc()
+
         except:
             traceback.print_exc()
 
@@ -56,9 +67,10 @@ def download_for_feeds(list_of_feeds):
         )
         mailer.send()
 
+    logp(f"Successfully finished processing {counter} feeds.")
+
 
 def retrieve_articles_for_language(language_code):
-
     language = Language.find(language_code)
     all_language_feeds = (
         Feed.query.filter_by(language_id=language.id).filter_by(deactivated=False).all()
@@ -68,7 +80,6 @@ def retrieve_articles_for_language(language_code):
 
 
 def retrieve_articles_from_all_feeds():
-
     counter = 0
     all_feeds = Feed.query.all()
     download_for_feeds(all_feeds)

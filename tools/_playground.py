@@ -1,19 +1,10 @@
-from zeeguu.core.model import User
-from zeeguu.core.user_statistics.activity import exercises_duration_by_day
+from zeeguu.core.content_retriever.parse_with_readability_server import download_and_parse
 
 from zeeguu.api.app import create_app
 
 app = create_app()
 app.app_context().push()
 
-print("before the for")
-for id in User.all_recent_user_ids(150):
-    u = User.find_by_id(id)
-    print(u.name)
-    duration_old = exercises_duration_by_day(u, True)
-    duration_new = exercises_duration_by_day(u)
-    if duration_new != duration_old:
-        print("old way")
-        print(duration_old)
-        print("new way")
-        print(duration_new)
+na = download_and_parse(
+    "https://www.dr.dk/stories/1288510966/allerede-inden-oscar-showets-start-lurer-en-ny-skandale-i-kulissen")
+print(na)

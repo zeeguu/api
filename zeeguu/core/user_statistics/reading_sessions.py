@@ -72,7 +72,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
         where 
             user_id = :userId
             and start_time > :startDate
-            and last_action_time < :endDate
+            and last_action_time <= :endDate
             and duration > 0
             and language_id = (select language_id from `cohort` where cohort.id=:cohortId)
         
@@ -92,7 +92,7 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         session["translations"] = translations_in_interval(
             session["start_time"], session["end_time"], user_id
         )
@@ -136,7 +136,7 @@ def translations_in_interval(start_time, end_time, user_id):
 
         where 
             b.time > :start_time
-            and b.time < :end_time
+            and b.time <= :end_time
             and b.user_id = :user_id
     """
 
@@ -147,7 +147,7 @@ def translations_in_interval(start_time, end_time, user_id):
 
     result = []
     for row in rows:
-        session = dict(row)
+        session = dict(row._mapping)
         result.append(session)
 
     return result

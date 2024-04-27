@@ -1,7 +1,10 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
 from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
+from zeeguu.core.model.learning_cycle import LearningCycle
+from zeeguu.core.model import UserPreference
 
 from zeeguu.core.model import db
 
@@ -47,18 +50,31 @@ class BasicSRSchedule(db.Model):
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
 
+    def set_bookmark_as_learned(self, db_session):
+        self.bookmark.learned = True
+        self.bookmark.learned_time = datetime.now()
+        db_session.add(self.bookmark)
+        db_session.commit()
+        db_session.delete(self)
+        db_session.commit()
+
     def update_schedule(self, db_session, correctness):
+        learning_cycle = self.bookmark.learning_cycle
+
+        productive_exercises_enabled = UserPreference.is_productive_exercises_preference_enabled(self.bookmark.user)
+
         if correctness:
-            # Use the cooldown to check if the user has learned
-            # the word.
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
-                self.bookmark.learned = True
-                self.bookmark.learned_time = datetime.now()
-                db.session.add(self.bookmark)
-                db.session.commit()
-                db.session.delete(self)
-                db.session.commit()
-                return
+                if learning_cycle == LearningCycle.RECEPTIVE and productive_exercises_enabled:
+                    # Switch learning_cycle to productive knowledge and reset cooling interval
+                    self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
+                    self.cooling_interval = 0
+                    db.session.add(self.bookmark)
+                    db.session.commit()
+                    return
+                else:
+                    self.set_bookmark_as_learned(db_session)
+                    return
 
             # Use the same logic as when selecting bookmarks
             # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
@@ -76,6 +92,7 @@ class BasicSRSchedule(db.Model):
                 self.cooling_interval, MAX_INTERVAL_8_DAY
             )
             self.consecutive_correct_answers += 1
+
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
@@ -97,14 +114,14 @@ class BasicSRSchedule(db.Model):
     def update(cls, db_session, bookmark, outcome):
 
         correctness = (
-            outcome == ExerciseOutcome.CORRECT
-            or outcome
-            in [
-                "TC",
-                "TTC",
-                "TTTC",
-            ]  # allow for a few translations before hitting the correct; they work like hints
-            or outcome == "HC"  # if it's correct after hint it should still be fine
+                outcome == ExerciseOutcome.CORRECT
+                or outcome
+                in [
+                    "TC",
+                    "TTC",
+                    "TTTC",
+                ]  # allow for a few translations before hitting the correct; they work like hints
+                or outcome == "HC"  # if it's correct after hint it should still be fine
         )
 
         schedule = cls.find_or_create(db_session, bookmark)
@@ -165,19 +182,25 @@ class BasicSRSchedule(db.Model):
             word_rank = user_word.rank
             if word_rank is None:
                 word_rank = UserWord.IMPOSSIBLE_RANK
-            return (-cooling_interval, word_rank)
+            return -cooling_interval, word_rank
 
         end_of_day = cls.get_current_study_window()
 
         # Get the candidates, words that are to practice
-        scheduled_candidates = (
+        scheduled_candidates_query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
             .filter(cls.next_practice_time < end_of_day)
-            .all()
         )
+
+        # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
+        if not UserPreference.is_productive_exercises_preference_enabled(user):
+            scheduled_candidates_query = scheduled_candidates_query.filter(
+                Bookmark.learning_cycle == LearningCycle.RECEPTIVE)
+
+        scheduled_candidates = scheduled_candidates_query.all()
 
         # Remove possible duplicated words from the list
         # - The user might have multiple translations of the same word in different
@@ -232,6 +255,8 @@ class BasicSRSchedule(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             print(f"scheduling another bookmark_id for now: {id} ")
+            b.learning_cycle = LearningCycle.RECEPTIVE
+            session.add(b)
             n = cls(b)
             print(n)
             session.add(n)
@@ -254,5 +279,5 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+                    each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
             )

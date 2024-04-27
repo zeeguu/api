@@ -71,7 +71,9 @@ class Article(db.Model):
     feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
-    url = relationship(Url)
+    img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
+    url = relationship(Url, foreign_keys="Article.url_id")
+    img_url = relationship(Url, foreign_keys="Article.img_url_id")
 
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
@@ -109,6 +111,7 @@ class Article(db.Model):
             broken=0,
             deleted=0,
             video=0,
+            img_url=None,
     ):
 
         if not summary:
@@ -128,6 +131,7 @@ class Article(db.Model):
         self.broken = broken
         self.deleted = deleted
         self.video = video
+        self.img_url = img_url
 
         self.convertHTML2TextIfNeeded()
         self.compute_fk_and_wordcount()
@@ -214,6 +218,8 @@ class Article(db.Model):
 
         if self.url:
             result_dict["url"] = self.url.as_string()
+        if self.img_url:
+            result_dict["img_url"] = self.img_url.as_string()
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
@@ -221,7 +227,7 @@ class Article(db.Model):
         if self.feed:
             # Is this supposed to be a tuple?
             result_dict["feed_id"] = (self.feed.id,)
-            result_dict["icon_name"] = self.feed.icon_name
+            result_dict["feed_icon_name"] = self.feed.icon_name
 
             # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
             # until the codebase is moved to zorg.
@@ -268,6 +274,7 @@ class Article(db.Model):
         self.broken = 100
         # if it was in ES, we delete it
         from zeeguu.core.elastic.indexing import remove_from_index
+
         remove_from_index(self)
 
     def update_content(self, session):
@@ -275,10 +282,13 @@ class Article(db.Model):
 
         parsed = download_and_parse(self.url.as_string())
         self.content = parsed.text
-        self.htmlContent = parsed.html
+        self.htmlContent = parsed.htmlContent
         self.compute_fk_and_wordcount()
 
-        from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
+        from zeeguu.core.content_quality.quality_filter import (
+            sufficient_quality_plain_text,
+        )
+
         quality, reason = sufficient_quality_plain_text(self.content)
         if not quality:
             print("Marking as broken. Reason: " + reason)
@@ -348,9 +358,8 @@ class Article(db.Model):
     def find_or_create(
             cls,
             session,
-            _url: str,
-            language=None,
-            htmlContent=None,
+            url: str,
+            html_content=None,
             title=None,
             authors: str = "",
     ):
@@ -359,24 +368,24 @@ class Article(db.Model):
             If article for url found, return ID
 
             If not found,
-
                 - if htmlContent is present, create article for that
                 - if not, download and create article then return
-
-        :param url:
-        :return:
         """
         from zeeguu.core.model import Url, Article, Language
 
-        url = Url.extract_canonical_url(_url)
+        canonical_url = Url.extract_canonical_url(url)
 
         try:
-            found = cls.find(url)
+            found = cls.find(canonical_url)
             if found:
                 return found
 
-            if htmlContent:
-                text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
+            if html_content:
+                # TODO: Why is this code here?
+                # it seems that we are sometimes creating a new article from the extension
+                # by sending the html from there. but don't we clean it up before? Must check!
+                # This code looks ugly here
+                text = re.sub(HTML_TAG_CLEANR, "", html_content)
 
                 # replace many newlines with max two; in some
                 # cases many newlines are left after stripping the html tags
@@ -386,20 +395,24 @@ class Article(db.Model):
                 summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
                 lang = detect(text)
             else:
+                # TODO: consequently, as above, this is probably not called because
+                # the only place where we call the endpoint is from the extension
+                # and there we have to htmlContent
                 from zeeguu.core.content_retriever import download_and_parse
 
-                parsed = download_and_parse(url)
+                np_article = download_and_parse(canonical_url)
 
-                text = parsed.text
-                summary = parsed.summary
-                title = parsed.title
-                authors = ", ".join(parsed.authors or [])
-                lang = parsed.meta_lang
+                text = np_article.text
+                html_content = np_article.htmlContent
+                summary = np_article.summary
+                title = np_article.title
+                authors = ", ".join(np_article.authors or [])
+                lang = np_article.meta_lang
 
             language = Language.find(lang)
 
             # Create new article and save it to DB
-            url_object = Url.find_or_create(session, url)
+            url_object = Url.find_or_create(session, canonical_url)
 
             new_article = Article(
                 url_object,
@@ -410,7 +423,7 @@ class Article(db.Model):
                 datetime.now(),
                 None,
                 language,
-                htmlContent,
+                html_content,
             )
             session.add(new_article)
             session.commit()
@@ -420,7 +433,7 @@ class Article(db.Model):
             for i in range(10):
                 try:
                     session.rollback()
-                    u = cls.find(url)
+                    u = cls.find(canonical_url)
                     print("Found article by url after recovering from race")
                     return u
                 except:

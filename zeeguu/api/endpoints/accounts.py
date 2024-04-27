@@ -17,10 +17,7 @@ from zeeguu.logging import log
 @cross_domain
 def add_user(email):
     """
-
-    Creates user, then redirects to the get_session
-    endpoint. Returns a session
-
+    Creates user, then returns a session for that user
     """
 
     password = request.form.get("password")
@@ -46,6 +43,34 @@ def add_user(email):
             learned_language_code,
             native_language_code,
             learned_cefr_level,
+        )
+        new_session = Session.for_user(new_user)
+        db_session.add(new_session)
+        db_session.commit()
+        return str(new_session.id)
+
+    except Exception as e:
+        log(f"Attemt to create user failed: {username} {password} {email}")
+        log(e)
+        return make_error(400, str(e))
+
+
+@api.route("/add_basic_user/<email>", methods=["POST"])
+@cross_domain
+def add_basic_user(email):
+    """
+    Creates user, then returns a session for that user
+    """
+
+    from ...core.account_management.user_account_creation import create_basic_account
+
+    password = request.form.get("password")
+    username = request.form.get("username")
+    invite_code = request.form.get("invite_code")
+
+    try:
+        new_user = create_basic_account(
+            db_session, username, password, invite_code, email
         )
         new_session = Session.for_user(new_user)
         db_session.add(new_session)

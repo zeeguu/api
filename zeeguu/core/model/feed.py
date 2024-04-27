@@ -10,10 +10,10 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 from zeeguu.core.feed_handler import FEED_TYPE_TO_FEED_HANDLER
 
-
 import zeeguu
 
 from zeeguu.core.model import db
+
 
 class Feed(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -42,7 +42,7 @@ class Feed(db.Model):
     feed_type = db.Column(db.Integer)
 
     feed_handler = None
-    
+
     def __init__(
         self,
         url,
@@ -79,6 +79,7 @@ class Feed(db.Model):
     def from_url(cls, url: str, feed_type: int):
         try:
             feed_handler = FEED_TYPE_TO_FEED_HANDLER[feed_type](url, feed_type)
+            feed_handler.extract_feed_metadata()
             feed_url = Url(feed_handler.url, feed_handler.title)
         except KeyError as e:
             log(f"Feed Handler not defined for type '{feed_type}'.")
@@ -90,10 +91,12 @@ class Feed(db.Model):
             feed_type=feed_type,
             feed_handler=feed_handler,
         )
-    
+
     def initializeFeedHandler(self):
         if self.feed_handler is None:
-            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](str(self.url), self.feed_type)
+            self.feed_handler = FEED_TYPE_TO_FEED_HANDLER[self.feed_type](
+                str(self.url), self.feed_type
+            )
 
     def as_dictionary(self):
         language = "unknown_lang"
@@ -122,8 +125,8 @@ class Feed(db.Model):
         self.initializeFeedHandler()
 
         if not last_retrieval_time_from_DB:
-                last_retrieval_time_from_DB = datetime(1980, 1, 1)
-        
+            last_retrieval_time_from_DB = datetime(1980, 1, 1)
+
         feed_candidates = self.feed_handler.get_feed_articles()
 
         skipped_due_to_time = 0
@@ -137,7 +140,7 @@ class Feed(db.Model):
             else:
                 skipped_due_to_time += 1
                 skipped_items.append(item)
-                
+
             sorted_skipped_items = sorted(
                 skipped_items, key=lambda x: x["published_datetime"]
             )
@@ -151,7 +154,7 @@ class Feed(db.Model):
             log(f"*** To download: {len(feed_items)}")
 
         return feed_items
-        
+
     @classmethod
     def exists(cls, feed):
         try:
@@ -160,12 +163,23 @@ class Feed(db.Model):
         except NoResultFound:
             return False
 
+    def feed_health_info(self):
+        feed_items = self.feed_items()
+        if not feed_items:
+            return "Feed seems broken. No items found."
+        else:
+            count = len(feed_items)
+            return f"Feed seems healthy: {count} items found. "
+
     @classmethod
     def find_by_id(cls, i):
         try:
             result = cls.query.filter(cls.id == i).one()
             return result
         except Exception as e:
+            import traceback
+
+            traceback.print_exc()
             from sentry_sdk import capture_exception
 
             capture_exception(e)
