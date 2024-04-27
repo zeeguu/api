@@ -48,7 +48,7 @@ def download_for_feeds(list_of_feeds):
             log(f"{msg}")
 
             summary_stream += (
-                download_from_feed(feed, zeeguu.core.model.db.session) + "\n\n\n"
+                download_from_feed(feed, zeeguu.core.model.db.session) + "\n\n"
             )
 
         except PendingRollbackError as e:
