@@ -200,7 +200,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
     content = f"{downloaded} articles from {feed.title}\n"
     for each in downloaded_titles:
-        content += f"- {each}\n"
+        content += f" - {each}\n"
 
     logp(f"*** Downloaded: {downloaded} From: {feed.title}")
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
