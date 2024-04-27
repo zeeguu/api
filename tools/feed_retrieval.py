@@ -62,8 +62,11 @@ def download_for_feeds(list_of_feeds):
 
     logp("sending summary email")
     logp(message_content)
+
+    import datetime
+
     mailer = ZeeguuMailer(
-        "Feed Download Summary",
+        "Feed Download Summary -- " + datetime.datetime.now().strftime("%HH:%MM"),
         message_content,
         "zeeguu.team@gmail.com",
     )
