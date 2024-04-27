@@ -112,9 +112,8 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
         if last_retrieval_time_seen_this_crawl > feed.last_crawled_time:
             feed.last_crawled_time = last_retrieval_time_seen_this_crawl
-            logp(
-                f" + updated feed's last crawled time to {last_retrieval_time_seen_this_crawl}"
-            )
+            session.add(feed)
+            session.commit()
 
         logp(feed_item["url"])
         # check if the article is already in the DB
@@ -145,9 +144,6 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
         if banned_url(url):
             logp("Banned Url")
             continue
-
-        session.add(feed)
-        session.commit()
 
         try:
             new_article = download_feed_item(session, feed, feed_item, url)
