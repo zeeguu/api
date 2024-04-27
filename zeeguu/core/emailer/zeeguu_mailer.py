@@ -30,6 +30,7 @@ class ZeeguuMailer(object):
             logp("sending email...")
             self.send_with_yagmail()
         except Exception as e:
+            logp(f"Failed to send email: {e}")
             from sentry_sdk import capture_exception
 
             capture_exception(e)
