@@ -56,7 +56,9 @@ def banned_url(url):
     return False
 
 
-def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
+def download_from_feed(
+    feed: Feed, session, summary_stream, limit=1000, save_in_elastic=True
+):
     """
 
     Session is needed because this saves stuff to the DB.
@@ -199,16 +201,16 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 logp(e)
             continue
 
-    content = f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
+    summary_stream += (
+        f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
+    )
     for each in downloaded_titles:
-        content += f" - {each}\n"
+        summary_stream += f" - {each}\n"
 
     logp(f"*** Downloaded: {downloaded} From: {feed.title}")
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
     logp(f"*** Already in DB: {skipped_already_in_db}")
     logp(f"*** ")
-
-    return content
 
 
 def download_feed_item(session, feed, feed_item, url):

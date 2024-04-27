@@ -31,11 +31,9 @@ from zeeguu.core.model import Feed, Language
 db_session = zeeguu.core.model.db.session
 
 
-def download_for_feeds(list_of_feeds):
+def download_for_feeds(list_of_feeds, summary_stream: str = ""):
     counter = 0
     all_feeds_count = len(list_of_feeds)
-
-    message_content = ""
 
     for feed in list_of_feeds:
         if feed.deactivated:
@@ -47,8 +45,7 @@ def download_for_feeds(list_of_feeds):
             log("")
             log(f"{msg}")
 
-            feed_summary = download_from_feed(feed, zeeguu.core.model.db.session)
-            message_content += feed_summary + "\n\n\n"
+            download_from_feed(feed, zeeguu.core.model.db.session, summary_stream)
 
         except PendingRollbackError as e:
             db_session.rollback()
@@ -60,28 +57,32 @@ def download_for_feeds(list_of_feeds):
         except:
             traceback.print_exc()
 
-    logp("sending summary email")
-    logp(message_content)
-
-    import datetime
-
-    mailer = ZeeguuMailer(
-        "Crawl Summary " + datetime.datetime.now().strftime("%H:%M"),
-        message_content,
-        "zeeguu.team@gmail.com",
-    )
-    mailer.send()
-
     logp(f"Successfully finished processing {counter} feeds.")
 
 
-def retrieve_articles_for_language(language_code):
+def retrieve_articles_for_language(language_code, send_email=False):
     language = Language.find(language_code)
     all_language_feeds = (
         Feed.query.filter_by(language_id=language.id).filter_by(deactivated=False).all()
     )
 
-    download_for_feeds(all_language_feeds)
+    summary_stream = ""
+
+    download_for_feeds(all_language_feeds, summary_stream)
+
+    if send_email:
+
+        logp("sending summary email")
+
+        import datetime
+
+        mailer = ZeeguuMailer(
+            f"{language.name} Crawl Summary "
+            + datetime.datetime.now().strftime("%H:%M"),
+            summary_stream,
+            "zeeguu.team@gmail.com",
+        )
+        mailer.send()
 
 
 def retrieve_articles_from_all_feeds():
