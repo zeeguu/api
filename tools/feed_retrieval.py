@@ -60,12 +60,14 @@ def download_for_feeds(list_of_feeds):
         except:
             traceback.print_exc()
 
-        mailer = ZeeguuMailer(
-            "Feed Download Summary",
-            message_content,
-            "zeeguu.team@gmail.com",
-        )
-        mailer.send()
+    logp("sending summary email")
+    logp(message_content)
+    mailer = ZeeguuMailer(
+        "Feed Download Summary",
+        message_content,
+        "zeeguu.team@gmail.com",
+    )
+    mailer.send()
 
     logp(f"Successfully finished processing {counter} feeds.")
 
