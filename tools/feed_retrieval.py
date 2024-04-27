@@ -60,13 +60,14 @@ def download_for_feeds(list_of_feeds):
         except:
             traceback.print_exc()
 
+    return message_content
     logp("sending summary email")
     logp(message_content)
 
     import datetime
 
     mailer = ZeeguuMailer(
-        "Feed Download Summary -- " + datetime.datetime.now().strftime("%HH:%MM"),
+        "Crawl Summary " + datetime.datetime.now().strftime("%H:%M"),
         message_content,
         "zeeguu.team@gmail.com",
     )
