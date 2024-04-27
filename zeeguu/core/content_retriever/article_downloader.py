@@ -112,14 +112,23 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
         if last_retrieval_time_seen_this_crawl > feed.last_crawled_time:
             feed.last_crawled_time = last_retrieval_time_seen_this_crawl
-            log(
-                f"+updated feed's last crawled time to {last_retrieval_time_seen_this_crawl}"
+            logp(
+                f" + updated feed's last crawled time to {last_retrieval_time_seen_this_crawl}"
             )
+
+        # check if the article is already in the DB
+        art = model.Article.find(feed_item["url"])
+        if art:
+            raise SkippedAlreadyInDB()
 
         try:
 
             url = _url_after_redirects(feed_item["url"])
-            logp(url)
+
+            # check if the article after resolving redirects is already in the DB
+            art = model.Article.find(url)
+            if art:
+                raise SkippedAlreadyInDB()
 
         except requests.exceptions.TooManyRedirects:
             raise Exception(f"- Too many redirects")
