@@ -120,7 +120,9 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
         # check if the article is already in the DB
         art = model.Article.find(feed_item["url"])
         if art:
-            raise SkippedAlreadyInDB()
+            skipped_already_in_db += 1
+            logp(" - Already in DB")
+            continue
 
         try:
 
