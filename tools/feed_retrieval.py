@@ -21,7 +21,10 @@ import traceback
 from sqlalchemy.exc import PendingRollbackError
 
 import zeeguu.core
+
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.logging import log, logp
+
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
 
@@ -29,6 +32,8 @@ db_session = zeeguu.core.model.db.session
 
 
 def download_for_feeds(list_of_feeds):
+
+    summary_stream = ""
     counter = 0
     all_feeds_count = len(list_of_feeds)
 
@@ -42,28 +47,45 @@ def download_for_feeds(list_of_feeds):
             log("")
             log(f"{msg}")
 
-            download_from_feed(feed, zeeguu.core.model.db.session)
+            summary_stream += (
+                download_from_feed(feed, zeeguu.core.model.db.session) + "\n\n"
+            )
 
         except PendingRollbackError as e:
             db_session.rollback()
-            logp("Something went wrong and we had to rollback a transaction; following is the full stack trace:")
+            logp(
+                "Something went wrong and we had to rollback a transaction; following is the full stack trace:"
+            )
             traceback.print_exc()
 
         except:
             traceback.print_exc()
 
-    print(f"Successfully finished processing {counter} feeds.")
+    logp(f"Successfully finished processing {counter} feeds.")
+    return summary_stream
 
 
-def retrieve_articles_for_language(language_code):
+def retrieve_articles_for_language(language_code, send_email=False):
     language = Language.find(language_code)
     all_language_feeds = (
-        Feed.query.filter_by(language_id=language.id)
-        .filter_by(deactivated=False)
-        .all()
+        Feed.query.filter_by(language_id=language.id).filter_by(deactivated=False).all()
     )
 
-    download_for_feeds(all_language_feeds)
+    summary_stream = download_for_feeds(all_language_feeds)
+
+    if send_email:
+
+        logp("sending summary email")
+
+        import datetime
+
+        mailer = ZeeguuMailer(
+            f"{language.name} Crawl Summary "
+            + datetime.datetime.now().strftime("%H:%M"),
+            summary_stream,
+            "zeeguu.team@gmail.com",
+        )
+        mailer.send()
 
 
 def retrieve_articles_from_all_feeds():
