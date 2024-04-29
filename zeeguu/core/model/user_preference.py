@@ -70,8 +70,12 @@ class UserPreference(db.Model):
 
     @classmethod
     def get_productive_exercises_setting(cls, user: User):
-        return UserPreference.query.filter_by(user_id=user.id,
-                                              key="productive_exercises").first()
+        # What if there is no entry?
+        return (
+            UserPreference.query.filter_by(user_id=user.id, key="productive_exercises")
+            .first()
+            .value
+        )
 
     @classmethod
     def is_productive_exercises_preference_enabled(cls, user: User):
