@@ -27,6 +27,21 @@ def bookmarks_to_study(bookmark_count):
     return json_result(json_bookmarks)
 
 
+@api.route("/bookmarks_in_pipeline", methods=["GET"])
+@cross_domain
+@with_session
+def bookmarks_in_pipeline():
+    """
+    Returns all the words in the pipeline to be learned by a user.
+    Is used to render the Words tab in Zeeguu
+    """
+    bookmarks_in_pipeline = flask.g.user.bookmarks_in_pipeline()
+    json_bookmarks = [
+        bookmark.json_serializable_dict() for bookmark in bookmarks_in_pipeline
+    ]
+    return json_result(json_bookmarks)
+
+
 @api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
 @cross_domain
 @with_session

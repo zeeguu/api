@@ -231,11 +231,22 @@ class User(db.Model):
             },
         )
         added_bookmarks = []
+        seen_bookmarks = set()
         for b in result:
             print(b)
             id = b["bookmark_id"]
             b = Bookmark.find(id)
-            added_bookmarks.append(b)
+            # Set the learning cycle to one (from 0)
+            # This is so that when they are shown in the front-end
+            # they are assumed to be set to the receptive learning cycle
+            # and associated with the receptive cycle. These are not saved
+            # to the DB unless an exercise is completed.
+            b.learning_cycle = 1
+            b_word = b.origin.word.lower()
+            # Avoid the same bookmark
+            if not (b_word in seen_bookmarks):
+                added_bookmarks.append(b)
+                seen_bookmarks.add(b_word)
 
         return added_bookmarks
 
@@ -248,6 +259,16 @@ class User(db.Model):
 
         word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
         return word_for_study
+
+    def bookmarks_in_pipeline(self):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return: a list of 10 words that are scheduled to be learned.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        words_in_pipeline = BasicSRSchedule.bookmarks_in_pipeline(self)
+        return words_in_pipeline
 
     def total_bookmarks_in_pipeline(self):
         """
