@@ -35,6 +35,7 @@ class PersonalCopy(db.Model):
         return (
             Article.query.join(PersonalCopy)
             .filter(PersonalCopy.user_id == user.id)
+            .filter(Article.language_id == user.learned_language_id)
             .order_by(desc(PersonalCopy.id))
             .all()
         )
