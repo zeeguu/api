@@ -47,7 +47,6 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
-        self.learning_cycle = LearningCycle.RECEPTIVE
 
     def set_bookmark_as_learned(self, db_session):
         self.bookmark.learned = True
@@ -73,7 +72,6 @@ class BasicSRSchedule(db.Model):
                 self.bookmark.user
             )
         )
-
         if correctness:
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
                 if (
@@ -169,6 +167,7 @@ class BasicSRSchedule(db.Model):
 
         # create a new one
         b = cls(bookmark)
+        bookmark.learning_cycle = 1
         db_session.add(b)
         db_session.commit()
         return b
@@ -220,10 +219,13 @@ class BasicSRSchedule(db.Model):
         # - The user might have multiple translations of the same word in different
         # contexts that are saved as different bookmarks
         # - In a session, a word should only show up once.
+        # TR: With the Topics a util function will be introduced that does this.
+        # We also need to ensure that we use the lower. Otherwise they might be duplicated
+        # due to different casing.
         bookmark_set = set()
         candidates_no_duplicates = []
         for bookmark in scheduled_candidates:
-            b_word = bookmark.origin.word
+            b_word = bookmark.origin.word.lower()
             if not (b_word in bookmark_set):
                 candidates_no_duplicates.append(bookmark)
                 bookmark_set.add(b_word)
@@ -245,6 +247,18 @@ class BasicSRSchedule(db.Model):
             .filter(UserWord.language_id == user.learned_language_id)
             .filter(cls.next_practice_time < end_of_day)
             .limit(required_count)
+            .all()
+        )
+        return scheduled
+
+    @classmethod
+    def bookmarks_in_pipeline(cls, user):
+        # Get the candidates, words that are to practice
+        scheduled = (
+            Bookmark.query.join(cls)
+            .filter(Bookmark.user_id == user.id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == user.learned_language_id)
             .all()
         )
         return scheduled
