@@ -53,7 +53,7 @@ def _tiago_exercises(user):
 
 
 def _merle_exercises(user):
-    right_user = user.invitation_code == "Merle" or user.id == 534 or user.id == 4089 or user.id == 4192
+    right_user = user.invitation_code == "Merle" or user.invitation_code == "MerleITU" or user.id == 534 or user.id == 4089 or user.id == 4192
     return right_user
 
 
