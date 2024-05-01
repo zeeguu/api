@@ -168,7 +168,7 @@ class BasicSRSchedule(db.Model):
 
         # create a new one
         schedule = cls(bookmark)
-        bookmark.learning_cycle = 1
+        bookmark.learning_cycle = LearningCycle.RECEPTIVE
         db_session.add_all([schedule, bookmark])
         db_session.commit()
         return schedule
