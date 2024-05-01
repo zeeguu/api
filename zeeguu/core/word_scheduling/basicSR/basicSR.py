@@ -115,7 +115,7 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def update(cls, db_session, bookmark, outcome):
-        print("UPDATING WORD with " + outcome)
+
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
             print("Deleting Schedule for Word!")
             schedule = cls.find_or_create(db_session, bookmark)
@@ -167,11 +167,11 @@ class BasicSRSchedule(db.Model):
             )
 
         # create a new one
-        b = cls(bookmark)
+        schedule = cls(bookmark)
         bookmark.learning_cycle = 1
-        db_session.add(b)
+        db_session.add_all([schedule, bookmark])
         db_session.commit()
-        return b
+        return schedule
 
     @classmethod
     def priority_bookmarks_to_study(cls, user, required_count):
