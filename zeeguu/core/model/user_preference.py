@@ -73,7 +73,7 @@ class UserPreference(db.Model):
         produtive_setting = UserPreference.query.filter_by(
             user_id=user.id, key="productive_exercises"
         ).first()
-        return produtive_setting if produtive_setting is not None else None
+        return produtive_setting.value
 
     @classmethod
     def is_productive_exercises_preference_enabled(cls, user: User):

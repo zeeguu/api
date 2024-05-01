@@ -15,8 +15,8 @@ class UserRule(BaseRule):
         super().__init__()
 
         self.user = self._create_model_object()
-
         self.save(self.user)
+        self.user.create_default_user_preference()
 
     def _create_model_object(self):
         random_email = self.faker.simple_profile()["mail"]
@@ -38,7 +38,6 @@ class UserRule(BaseRule):
 
         if self._exists_in_db(user):
             return self._create_model_object()
-
         return user
 
     @staticmethod
