@@ -56,14 +56,6 @@ class BasicSRSchedule(db.Model):
         db_session.delete(self)
         db_session.commit()
 
-    def set_bookmark_as_learned(self, db_session):
-        self.bookmark.learned = True
-        self.bookmark.learned_time = datetime.now()
-        db_session.add(self.bookmark)
-        db_session.commit()
-        db_session.delete(self)
-        db_session.commit()
-
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
 
@@ -123,6 +115,15 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def update(cls, db_session, bookmark, outcome):
+        print("UPDATING WORD with " + outcome)
+        if outcome == ExerciseOutcome.OTHER_FEEDBACK:
+            print("Deleting Schedule for Word!")
+            schedule = cls.find_or_create(db_session, bookmark)
+            bookmark.fit_for_study = 0
+            db_session.add(bookmark)
+            db_session.delete(schedule)
+            db_session.commit()
+            return
 
         correctness = (
             outcome == ExerciseOutcome.CORRECT

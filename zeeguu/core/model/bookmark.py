@@ -180,9 +180,10 @@ class Bookmark(db.Model):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         BasicSRSchedule.update(db_session, self, exercise_outcome)
-
-        self.update_fit_for_study(db_session)
-        self.update_learned_status(db_session)
+        # This needs to be re-thought, currently the updates are done in
+        # the BasicSRSchedule.update call.
+        # self.update_fit_for_study(db_session)
+        # self.update_learned_status(db_session)
 
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
