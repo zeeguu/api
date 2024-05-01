@@ -233,7 +233,7 @@ class User(db.Model):
         added_bookmarks = []
         seen_bookmarks = set()
         for b in result:
-            print(b)
+
             id = b["bookmark_id"]
             b = Bookmark.find(id)
             # Set the learning cycle to one (from 0)
