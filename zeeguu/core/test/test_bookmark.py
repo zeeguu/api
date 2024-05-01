@@ -31,18 +31,25 @@ class BookmarkTest(ModelTestMixIn):
     def test_user_has_bookmarks(self):
         assert self.user.has_bookmarks()
 
-    def test_add_new_exercise(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        length_original_exercise_log = len(random_bookmark.exercise_log)
+    def _helper_create_exercise(self, random_bookmark):
+
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         random_exercise = ExerciseRule(exercise_session).exercise
-
         random_bookmark.add_new_exercise(random_exercise)
-        length_new_exercise_log = len(random_bookmark.exercise_log)
 
+    def test_add_new_exercise(self):
+        random_bookmark = BookmarkRule(self.user).bookmark
+
+        length_original_exercise_log = len(random_bookmark.exercise_log)
+        self._helper_create_exercise(random_bookmark)
+
+        length_new_exercise_log = len(random_bookmark.exercise_log)
         assert length_original_exercise_log < length_new_exercise_log
 
     def test_bookmarks_to_study_is_not_empty(self):
+        random_bookmark = BookmarkRule(self.user).bookmark
+        self._helper_create_exercise(random_bookmark)
+
         assert self.user.bookmarks_to_study() is not None
 
     def test_translation(self):
