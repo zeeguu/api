@@ -42,7 +42,7 @@ def bookmarks_in_pipeline():
     return json_result(json_bookmarks)
 
 
-@api.route("/has_bookmarks_in_pipeline_to_review_today", methods=["GET"])
+@api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
 @cross_domain
 @with_session
 def has_bookmarks_in_pipeline_to_review():
