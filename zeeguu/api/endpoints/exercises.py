@@ -16,7 +16,7 @@ from flask import request
 def bookmarks_to_study(bookmark_count):
     """
     Returns a number of <bookmark_count> bookmarks that
-    are recommended for this user to study
+    are in the pipeline and are due today
 
     """
 
@@ -42,7 +42,7 @@ def bookmarks_in_pipeline():
     return json_result(json_bookmarks)
 
 
-@api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
+@api.route("/has_bookmarks_in_pipeline_to_review_today", methods=["GET"])
 @cross_domain
 @with_session
 def has_bookmarks_in_pipeline_to_review():
@@ -60,7 +60,7 @@ def has_bookmarks_in_pipeline_to_review():
 def new_bookmarks_to_study(bookmark_count):
     """
     Finds <bookmark_count> bookmarks that
-    are recommended for this user to study
+    are recommended for this user to study and are not in the pipeline
     """
     int_count = int(bookmark_count)
     new_to_study = flask.g.user.get_new_bookmarks_to_study(int_count)
