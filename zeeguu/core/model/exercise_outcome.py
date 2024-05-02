@@ -19,6 +19,7 @@ class ExerciseOutcome(db.Model):
     WRONG = "Wrong"
     TYPO = "Typo"
     ASKED_FOR_HINT = "asked_for_hint"
+    # TODO: Rename to EXERCISE_FEEDBACK
     OTHER_FEEDBACK = "other_feedback"
 
     correct_outcomes = [CORRECT, TOO_EASY, "Correct"]

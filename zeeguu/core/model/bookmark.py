@@ -73,13 +73,13 @@ class Bookmark(db.Model):
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
-            self,
-            origin: UserWord,
-            translation: UserWord,
-            user: "User",
-            text: str,
-            time: datetime,
-            learning_cycle: int = LearningCycle.NOT_SET,
+        self,
+        origin: UserWord,
+        translation: UserWord,
+        user: "User",
+        text: str,
+        time: datetime,
+        learning_cycle: int = LearningCycle.NOT_SET,
     ):
         self.origin = origin
         self.translation = translation
@@ -136,12 +136,12 @@ class Bookmark(db.Model):
             session.add(self)
 
     def add_new_exercise_result(
-            self,
-            exercise_source: ExerciseSource,
-            exercise_outcome: ExerciseOutcome,
-            exercise_solving_speed,
-            session_id: int,
-            other_feedback="",
+        self,
+        exercise_source: ExerciseSource,
+        exercise_outcome: ExerciseOutcome,
+        exercise_solving_speed,
+        session_id: int,
+        other_feedback="",
     ):
         exercise = Exercise(
             exercise_outcome,
@@ -158,13 +158,13 @@ class Bookmark(db.Model):
         return exercise
 
     def report_exercise_outcome(
-            self,
-            exercise_source: str,
-            exercise_outcome: str,
-            solving_speed,
-            session_id,
-            other_feedback,
-            db_session,
+        self,
+        exercise_source: str,
+        exercise_outcome: str,
+        solving_speed,
+        session_id,
+        other_feedback,
+        db_session,
     ):
 
         source = ExerciseSource.find_or_create(db_session, exercise_source)
@@ -180,9 +180,10 @@ class Bookmark(db.Model):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         BasicSRSchedule.update(db_session, self, exercise_outcome)
-
-        self.update_fit_for_study(db_session)
-        self.update_learned_status(db_session)
+        # This needs to be re-thought, currently the updates are done in
+        # the BasicSRSchedule.update call.
+        # self.update_fit_for_study(db_session)
+        # self.update_learned_status(db_session)
 
     def json_serializable_dict(self, with_context=True, with_title=False):
         try:
@@ -204,7 +205,10 @@ class Bookmark(db.Model):
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.model import BasicSRSchedule
-        from zeeguu.core.word_scheduling.basicSR.basicSR import MAX_INTERVAL_8_DAY, ONE_DAY
+        from zeeguu.core.word_scheduling.basicSR.basicSR import (
+            MAX_INTERVAL_8_DAY,
+            ONE_DAY,
+        )
 
         try:
             basic_sr_schedule = BasicSRSchedule.query.filter(
@@ -254,16 +258,16 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_or_create(
-            cls,
-            session,
-            user,
-            _origin: str,
-            _origin_lang: str,
-            _translation: str,
-            _translation_lang: str,
-            _context: str,
-            article_id: int,
-            learning_cycle: int = LearningCycle.NOT_SET,
+        cls,
+        session,
+        user,
+        _origin: str,
+        _origin_lang: str,
+        _translation: str,
+        _translation_lang: str,
+        _context: str,
+        article_id: int,
+        learning_cycle: int = LearningCycle.NOT_SET,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -291,7 +295,9 @@ class Bookmark(db.Model):
             bookmark.translation = translation
 
         except sqlalchemy.orm.exc.NoResultFound as e:
-            bookmark = cls(origin, translation, user, context, now, learning_cycle=learning_cycle)
+            bookmark = cls(
+                origin, translation, user, context, now, learning_cycle=learning_cycle
+            )
         except Exception as e:
             raise e
 

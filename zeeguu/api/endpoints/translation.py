@@ -1,7 +1,5 @@
 from string import punctuation
 from urllib.parse import unquote_plus
-from zeeguu.core.model.learning_cycle import LearningCycle
-from zeeguu.api.endpoints.feature_toggles import _merle_exercises
 
 import flask
 from flask import request
