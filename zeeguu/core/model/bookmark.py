@@ -215,8 +215,11 @@ class Bookmark(db.Model):
                 BasicSRSchedule.bookmark_id == self.id
             ).one()
             cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
+            next_practice_time = basic_sr_schedule.next_practice_time
+            can_update_schedule = (next_practice_time < datetime.now(),)
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
+            can_update_schedule = None
 
         bookmark_title = ""
         if with_title:
@@ -246,6 +249,7 @@ class Bookmark(db.Model):
             learning_cycle=self.learning_cycle,
             cooling_interval=cooling_interval,
             is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
+            can_update_schedule=can_update_schedule,
         )
 
         if self.text.article:

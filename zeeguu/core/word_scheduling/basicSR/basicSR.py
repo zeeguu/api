@@ -135,9 +135,9 @@ class BasicSRSchedule(db.Model):
             ]  # allow for a few translations before hitting the correct; they work like hints
             or outcome == "HC"  # if it's correct after hint it should still be fine
         )
-
+        current_time = datetime.now()
         schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.next_practice_time > datetime.now():
+        if schedule.next_practice_time > current_time:
             # The user is doing the word before it was scheduled.
             # We do not update the schedule if that's the case.
             # This can happen when they practice words from the
