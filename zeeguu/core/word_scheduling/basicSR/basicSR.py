@@ -83,7 +83,7 @@ class BasicSRSchedule(db.Model):
             # Use the same logic as when selecting bookmarks
             # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
             # 01-01-2024 10:00 the status is not updated.
-            if self.get_current_study_window() < self.next_practice_time:
+            if self.get_end_of_today() < self.next_practice_time:
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
@@ -135,9 +135,8 @@ class BasicSRSchedule(db.Model):
             ]  # allow for a few translations before hitting the correct; they work like hints
             or outcome == "HC"  # if it's correct after hint it should still be fine
         )
-        current_time = datetime.now()
         schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.next_practice_time > current_time:
+        if schedule.next_practice_time > cls.get_end_of_today():
             # The user is doing the word before it was scheduled.
             # We do not update the schedule if that's the case.
             # This can happen when they practice words from the
@@ -146,7 +145,7 @@ class BasicSRSchedule(db.Model):
         schedule.update_schedule(db_session, correctness)
 
     @classmethod
-    def get_current_study_window(cls):
+    def get_end_of_today(cls):
         """
         Retrieves midnight date of the following date,
         essentially ensures we get all the bookmarks
@@ -203,7 +202,7 @@ class BasicSRSchedule(db.Model):
                 word_rank = UserWord.IMPOSSIBLE_RANK
             return -cooling_interval, word_rank
 
-        end_of_day = cls.get_current_study_window()
+        end_of_day = cls.get_end_of_today()
 
         # Get the candidates, words that are to practice
         scheduled_candidates_query = (
@@ -245,7 +244,7 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        end_of_day = cls.get_current_study_window()
+        end_of_day = cls.get_end_of_today()
         # Get the candidates, words that are to practice
         scheduled = (
             Bookmark.query.join(cls)

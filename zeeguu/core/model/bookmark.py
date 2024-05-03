@@ -216,7 +216,7 @@ class Bookmark(db.Model):
             ).one()
             cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
             next_practice_time = basic_sr_schedule.next_practice_time
-            can_update_schedule = (next_practice_time < datetime.now(),)
+            can_update_schedule = next_practice_time <= BasicSRSchedule.get_end_of_today()
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
             can_update_schedule = None
