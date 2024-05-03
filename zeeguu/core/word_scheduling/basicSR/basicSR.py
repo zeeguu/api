@@ -137,6 +137,12 @@ class BasicSRSchedule(db.Model):
         )
 
         schedule = cls.find_or_create(db_session, bookmark)
+        if schedule.next_practice_time > datetime.now():
+            # The user is doing the word before it was scheduled.
+            # We do not update the schedule if that's the case.
+            # This can happen when they practice words from the
+            # Article.
+            return
         schedule.update_schedule(db_session, correctness)
 
     @classmethod
