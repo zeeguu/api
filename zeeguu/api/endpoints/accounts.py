@@ -13,6 +13,14 @@ from . import api, db_session
 from zeeguu.logging import log
 
 
+@api.route("/delete_user/<email>", methods=["POST"])
+@cross_domain
+def remove_user(email):
+    from zeeguu.core.account_management.user_account_deletion import delete_user_account
+
+    delete_user_account(db_session, email, "")
+
+
 @api.route("/add_user/<email>", methods=["POST"])
 @cross_domain
 def add_user(email):
