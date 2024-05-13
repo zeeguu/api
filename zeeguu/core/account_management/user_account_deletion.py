@@ -6,6 +6,7 @@ from zeeguu.core.model import (
     PersonalCopy,
     SearchFilter,
     UserPreference,
+    Session,
 )
 
 import time
@@ -53,11 +54,12 @@ tables_to_modify = [
 ]
 
 
-def delete_user_account(db_session, email, reason, full_delete=True):
+def delete_user_account(db_session, user_session_id, reason, full_delete=True):
     try:
         start_time = time.time()
         total_rows_affected = 0
-        user_to_delete = User.find(email)
+        user_session = Session.find(user_session_id)
+        user_to_delete = User.find_by_id(user_session.user_id)
         articles = Article.uploaded_by(user_to_delete.id)
         print(f"Removing author from Articles:")
         for a in articles:
@@ -65,7 +67,7 @@ def delete_user_account(db_session, email, reason, full_delete=True):
             total_rows_affected += 1
             db_session.add(a)
         print(f"Total of {total_rows_affected} articles altered")
-        db_session.commit()
+        # db_session.commit()
 
         print(f"Deleting user {user_to_delete.name}...")
         for each_table in tables_to_modify:
@@ -78,10 +80,10 @@ def delete_user_account(db_session, email, reason, full_delete=True):
             for each in subject_related:
                 total_rows_affected += 1
                 db_session.delete(each)
-            db_session.commit()
+            # db_session.commit()
 
         db_session.delete(user_to_delete)
-        db_session.commit()
+        # db_session.commit()
         end_time = time.time() - start_time
         print(
             f"Successfuly deleted user with id: '{user_to_delete.id}' using: '{'Full delete' if full_delete else 'Partial Delete'}'."
@@ -89,6 +91,8 @@ def delete_user_account(db_session, email, reason, full_delete=True):
         print(
             f"A total of {total_rows_affected} rows were affected. The process took: {end_time:.2f} seconds."
         )
+        db_session.flush()
+        db_session.rollback()
     except sqlalchemy.exc.IntegrityError:
         raise Exception("Integrity Error")
     except sqlalchemy.exc.NoResultFound:

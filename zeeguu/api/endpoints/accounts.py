@@ -13,12 +13,20 @@ from . import api, db_session
 from zeeguu.logging import log
 
 
-@api.route("/delete_user/<email>", methods=["POST"])
+@api.route("/delete_user/<session_id>", methods=["POST"])
 @cross_domain
-def remove_user(email):
+def remove_user(session_id):
     from zeeguu.core.account_management.user_account_deletion import delete_user_account
 
-    delete_user_account(db_session, email, "")
+    try:
+        session_id = int(session_id)
+        delete_user_account(db_session, session_id, "")
+        return "OK"
+
+    except Exception as e:
+        log(f"Attempt to delete user failed with session: '{session_id}'")
+        log(e)
+        return make_error(400, str(e))
 
 
 @api.route("/add_user/<email>", methods=["POST"])
