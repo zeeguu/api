@@ -67,7 +67,7 @@ def delete_user_account(db_session, user_session_id):
             total_rows_affected += 1
             db_session.add(a)
         print(f"Total of {total_rows_affected} articles altered")
-        # db_session.commit()
+        db_session.commit()
 
         print(f"Deleting user {user_to_delete.name}...")
         for each_table in tables_to_modify:
@@ -83,13 +83,12 @@ def delete_user_account(db_session, user_session_id):
             # db_session.commit()
 
         db_session.delete(user_to_delete)
-        # db_session.commit()
+        db_session.commit()
         end_time = time.time() - start_time
         print(
             f"A total of {total_rows_affected} rows were affected. The process took: {end_time:.2f} seconds."
         )
-        db_session.flush()
-        db_session.rollback()
+
     except sqlalchemy.exc.IntegrityError:
         raise Exception("Integrity Error")
     except sqlalchemy.exc.NoResultFound:
