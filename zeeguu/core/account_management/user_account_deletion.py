@@ -54,7 +54,7 @@ tables_to_modify = [
 ]
 
 
-def delete_user_account(db_session, user_session_id, reason, full_delete=True):
+def delete_user_account(db_session, user_session_id):
     try:
         start_time = time.time()
         total_rows_affected = 0
@@ -86,9 +86,6 @@ def delete_user_account(db_session, user_session_id, reason, full_delete=True):
         # db_session.commit()
         end_time = time.time() - start_time
         print(
-            f"Successfuly deleted user with id: '{user_to_delete.id}' using: '{'Full delete' if full_delete else 'Partial Delete'}'."
-        )
-        print(
             f"A total of {total_rows_affected} rows were affected. The process took: {end_time:.2f} seconds."
         )
         db_session.flush()
@@ -96,7 +93,7 @@ def delete_user_account(db_session, user_session_id, reason, full_delete=True):
     except sqlalchemy.exc.IntegrityError:
         raise Exception("Integrity Error")
     except sqlalchemy.exc.NoResultFound:
-        raise Exception(f"Couldn't find specified user: '{email}'")
+        raise Exception(f"Couldn't find specified user session: '{user_session_id}'")
     except Exception as e:
         print(e)
-        raise Exception(f"Could not delete the user with email: '{email}'")
+        raise Exception(f"Could not delete the user with session: '{user_session_id}'")
