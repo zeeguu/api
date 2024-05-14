@@ -24,6 +24,9 @@ def remove_user(session_id):
         return "OK"
 
     except Exception as e:
+        from sentry_sdk import capture_exception
+
+        capture_exception(e)
         log(f"Attempt to delete user failed with session: '{session_id}'")
         log(e)
         return make_error(400, str(e))
