@@ -31,8 +31,8 @@ def get_session(email):
     session = Session.create_for_user(user)
     db_session.add(session)
     db_session.commit()
-    resp = make_response(str(session.id))
-    resp.set_cookie("chocolatechip", str(session.id))
+    resp = make_response({"session": session.uuid})
+    resp.set_cookie("chocolatechip", str(session.uuid))
     return resp
 
 
