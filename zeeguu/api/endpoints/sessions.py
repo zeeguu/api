@@ -28,7 +28,7 @@ def get_session(email):
     user = User.authorize(email, password)
     if user is None:
         return make_error(401, "Invalid credentials")
-    session = Session.for_user(user)
+    session = Session.create_for_user(user)
     db_session.add(session)
     db_session.commit()
     resp = make_response(str(session.id))
@@ -54,7 +54,7 @@ def get_anon_session(uuid):
     user = User.authorize_anonymous(uuid, password)
     if user is None:
         flask.abort(401)
-    session = Session.for_user(user)
+    session = Session.create_for_user(user)
     db_session.add(session)
     db_session.commit()
     return str(session.id)
@@ -98,13 +98,11 @@ def logout():
     """
 
     try:
-        session_id = int(request.args["session"])
+        session_uuid = request.args["session"]
+        session = Session.find(session_uuid)
+        db_session.delete(session)
+        db_session.commit()
     except:
         flask.abort(401)
-    session = Session.query.get(session_id)
-
-    # print "about to expire session..." + str(session_id)
-    db_session.delete(session)
-    db_session.commit()
 
     return "OK"

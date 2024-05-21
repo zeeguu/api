@@ -18,23 +18,19 @@ def with_session(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         try:
-            session_id = int(flask.request.args["session"])
+            session_uuid = flask.request.args["session"]
+            session = Session.find(session_uuid)
+            flask.g.user = session.user
+            session.update_use_date()
+            zeeguu.core.model.db.session.add(session)
+            zeeguu.core.model.db.session.commit()
         except:
             flask.abort(401)
-        session = Session.query.get(session_id)
+
         if session is None:
             flask.abort(401)
-        flask.g.user = session.user
-        session.update_use_date()
 
-        log(str(flask.g.user.id) + " API CALL: " + str(view))
-
-        zeeguu.core.model.db.session.add(session)
-        # TODO: remove this commit? and add it after such that the session can be added with the next commit?
-        zeeguu.core.model.db.session.commit()
         return view(*args, **kwargs)
-
-        zeeguu.core.model.db.session.close()
 
     return wrapped_view
 
