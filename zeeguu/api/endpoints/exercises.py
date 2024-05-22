@@ -2,9 +2,9 @@ import traceback
 import flask
 
 from zeeguu.core.exercises.similar_words import similar_words
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model import Bookmark, User
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, has_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 from flask import request
@@ -12,7 +12,7 @@ from flask import request
 
 @api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def bookmarks_to_study(bookmark_count):
     """
     Returns a number of <bookmark_count> bookmarks that
@@ -21,21 +21,22 @@ def bookmarks_to_study(bookmark_count):
     """
 
     int_count = int(bookmark_count)
-
-    to_study = flask.g.user.bookmarks_to_study(int_count)
+    user = User.find_by_id(flask.g.user_id)
+    to_study = user.bookmarks_to_study(int_count)
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
     return json_result(json_bookmarks)
 
 
 @api.route("/bookmarks_in_pipeline", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def bookmarks_in_pipeline():
     """
     Returns all the words in the pipeline to be learned by a user.
     Is used to render the Words tab in Zeeguu
     """
-    bookmarks_in_pipeline = flask.g.user.bookmarks_in_pipeline()
+    user = User.find_by_id(flask.g.user_id)
+    bookmarks_in_pipeline = user.bookmarks_in_pipeline()
     json_bookmarks = [
         bookmark.json_serializable_dict() for bookmark in bookmarks_in_pipeline
     ]
@@ -44,45 +45,48 @@ def bookmarks_in_pipeline():
 
 @api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def has_bookmarks_in_pipeline_to_review():
     """
     Checks if there is at least one bookmark in the pipeline
     to review today.
     """
-    at_least_one_bookmark_in_pipeline = flask.g.user.bookmarks_to_study(1)
+    user = User.find_by_id(flask.g.user_id)
+    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1)
     return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
 
 
 @api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def new_bookmarks_to_study(bookmark_count):
     """
     Finds <bookmark_count> bookmarks that
     are recommended for this user to study and are not in the pipeline
     """
     int_count = int(bookmark_count)
-    new_to_study = flask.g.user.get_new_bookmarks_to_study(int_count)
+    user = User.find_by_id(flask.g.user_id)
+    new_to_study = user.get_new_bookmarks_to_study(int_count)
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in new_to_study]
     return json_result(json_bookmarks)
 
 
 @api.route("/get_total_bookmarks_in_pipeline", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def get_total_bookmarks_in_pipeline():
     """
     Returns a number of bookmarks that are in active learning.
     (Means the user has done at least on exercise in the past)
     """
-    total_bookmark_count = flask.g.user.total_bookmarks_in_pipeline()
+    user = User.find_by_id(flask.g.user_id)
+    total_bookmark_count = user.total_bookmarks_in_pipeline()
     return json_result(total_bookmark_count)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
 @cross_domain
-@with_session
+@has_session
 def get_exercise_log_for_bookmark(bookmark_id):
     bookmark = Bookmark.query.filter_by(id=bookmark_id).first()
 
@@ -106,7 +110,7 @@ def get_exercise_log_for_bookmark(bookmark_id):
     "/report_exercise_outcome",
     methods=["POST"],
 )
-@with_session
+@has_session
 def report_exercise_outcome():
     """
     In the model parlance, an exercise is an entry in a table that
@@ -144,9 +148,10 @@ def report_exercise_outcome():
 
 @api.route("/similar_words/<bookmark_id>", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def similar_words_api(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
+    user = User.find_by_id(flask.g.user_id)
     return json_result(
-        similar_words(bookmark.origin.word, bookmark.origin.language, flask.g.user)
+        similar_words(bookmark.origin.word, bookmark.origin.language, user)
     )

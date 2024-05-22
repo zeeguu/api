@@ -5,13 +5,13 @@ from ._common_api_parameters import (
     _get_student_cohort_and_period_from_POST_params,
 )
 from .. import api
-from zeeguu.api.utils import json_result, with_session
+from zeeguu.api.utils import json_result, has_session
 
 from zeeguu.core.model import db
 
 
 @api.route("/student_exercise_correctness", methods=["POST"])
-@with_session
+@has_session
 def student_exercise_correctness():
     """
     :return: e.g.
@@ -30,7 +30,7 @@ def student_exercise_correctness():
 
 
 @api.route("/student_exercise_history", methods=["POST"])
-@with_session
+@has_session
 def api_student_exercise_history():
     user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
     stats = exercises_grouped_by_word(user.id, cohort.language_id, from_date, to_date)

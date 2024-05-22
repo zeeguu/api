@@ -3,9 +3,10 @@ import zeeguu.core
 from flask import request
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.model import User
 
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, has_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -22,7 +23,7 @@ READING_LANGUAGES = "user_languages/reading"
 @api.route(f"/{MODIFY_USER_LANGUAGE}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@has_session
 def modify_user_language():
     """
     This endpoint is for modifying a user language.
@@ -44,11 +45,9 @@ def modify_user_language():
         language_level = int(request.form.get("language_level", ""))
     except:
         language_level = None
-
+    user = User.find_by_id(flask.g.user_id)
     language_object = Language.find(language_code)
-    user_language = UserLanguage.find_or_create(
-        db_session, flask.g.user, language_object
-    )
+    user_language = UserLanguage.find_or_create(db_session, user, language_object)
     if language_reading is not None:
         user_language.reading_news = language_reading
     if language_exercises is not None:
@@ -65,7 +64,7 @@ def modify_user_language():
 @api.route(f"/{DELETE_USER_LANGUAGE}/<language_id>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@has_session
 def delete_user_language(language_id):
     """
     A user can delete a language with a given ID.
@@ -76,7 +75,8 @@ def delete_user_language(language_id):
     """
 
     try:
-        to_delete = UserLanguage.with_language_id(language_id, flask.g.user)
+        user = User.find_by_id(flask.g.user_id)
+        to_delete = UserLanguage.with_language_id(language_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -92,7 +92,7 @@ def delete_user_language(language_id):
 @api.route(f"/{USER_LANGUAGES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@has_session
 def get_user_languages():
     """
     A user might have multiple user languages, which can be for reading
@@ -104,7 +104,8 @@ def get_user_languages():
                 language = <unicode string>
     """
     all_user_languages = []
-    user_languages = UserLanguage.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    user_languages = UserLanguage.all_for_user(user)
     for lan in user_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)
@@ -114,7 +115,7 @@ def get_user_languages():
 @api.route(f"/{READING_LANGUAGES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@has_session
 def get_reading_languages():
     """
     A user might be subscribed to multiple languages at once.
@@ -126,7 +127,8 @@ def get_reading_languages():
                 language = <unicode string>
     """
     all_user_languages = []
-    reading_languages = Language.all_reading_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    reading_languages = Language.all_reading_for_user(user)
     for lan in reading_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)
@@ -136,7 +138,7 @@ def get_reading_languages():
 @api.route(f"/{INTERESTING_LANGUAGES_FOR_READING}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@has_session
 def get_interesting_reading_languages():
     """
     'Interesting languages' are defined as languages the user
@@ -150,7 +152,8 @@ def get_interesting_reading_languages():
 
     all_languages = Language.available_languages()
     all_languages.sort(key=lambda x: x.name)
-    learned_languages = Language.all_reading_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    learned_languages = Language.all_reading_for_user(user)
 
     interesting_languages = []
 

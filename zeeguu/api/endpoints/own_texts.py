@@ -2,17 +2,17 @@ import flask
 import sqlalchemy
 from flask import request
 
-from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle
+from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle, User
 from zeeguu.core.model.personal_copy import PersonalCopy
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, has_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
 
 @api.route("/upload_own_text", methods=["POST"])
 @cross_domain
-@with_session
+@has_session
 def upload_own_text():
 
     db_session.rollback()
@@ -20,9 +20,9 @@ def upload_own_text():
     content = request.form.get("content", "")
     htmlContent = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
-
+    user = User.find_by_id(flask.g.user_id)
     new_article_id = Article.create_from_upload(
-        db_session, title, content, htmlContent, flask.g.user, language
+        db_session, title, content, htmlContent, user, language
     )
 
     return str(new_article_id)
@@ -30,24 +30,22 @@ def upload_own_text():
 
 @api.route("/own_texts", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def own_texts():
-
-    r = Article.own_texts_for_user(flask.g.user)
-    r2 = PersonalCopy.all_for(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    r = Article.own_texts_for_user(user)
+    r2 = PersonalCopy.all_for(user)
     all_articles = r + r2
     all_articles.sort(key=lambda art: art.id, reverse=True)
 
-    article_infos = [
-        UserArticle.user_article_info(flask.g.user, e) for e in all_articles
-    ]
+    article_infos = [UserArticle.user_article_info(user, e) for e in all_articles]
 
     return json_result(article_infos)
 
 
 @api.route("/delete_own_text/<id>", methods=["GET"])
 @cross_domain
-@with_session
+@has_session
 def delete_own_text(id):
 
     try:
@@ -65,7 +63,7 @@ def delete_own_text(id):
 
 @api.route("/update_own_text/<article_id>", methods=["POST"])
 @cross_domain
-@with_session
+@has_session
 def update_own_text(article_id):
 
     language = Language.find_or_create(request.form.get("language", ""))

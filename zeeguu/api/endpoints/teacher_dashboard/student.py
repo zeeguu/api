@@ -15,7 +15,7 @@ from ._permissions import (
     check_permission_for_user,
 )
 from .helpers import student_info_for_teacher_dashboard
-from zeeguu.api.utils import json_result, with_session
+from zeeguu.api.utils import json_result, has_session
 
 from .. import api
 
@@ -24,7 +24,7 @@ from zeeguu.core.model import db
 
 
 @api.route("/basic_user_info/<id>", methods=["GET"])
-@with_session
+@has_session
 def basic_user_info(id):
     user = check_permission_for_user(id)
 
@@ -34,7 +34,7 @@ def basic_user_info(id):
 
 
 @api.route("/user_info", methods=["POST"])
-@with_session
+@has_session
 def user_info_api():
     user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
     check_permission_for_user(user.id)
@@ -43,7 +43,7 @@ def user_info_api():
 
 
 @api.route("/cohort_member_bookmarks", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def cohort_member_bookmarks():
     user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params(
@@ -62,7 +62,7 @@ def cohort_member_bookmarks():
 
 # DEPRECATED: Use the POST instead
 @api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def cohort_member_bookmarks_deprecated(id, time_period):
     user = User.query.filter_by(id=id).one()
@@ -84,7 +84,7 @@ def cohort_member_bookmarks_deprecated(id, time_period):
 
 # DEPRECATED: Use the POST instead
 @api.route("/user_info/<id>/<duration>", methods=["GET"])
-@with_session
+@has_session
 def deprecated_user_info_api(id, duration):
     check_permission_for_user(id)
 

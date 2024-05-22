@@ -16,13 +16,13 @@ from ._permissions import (
     check_permission_for_cohort,
 )
 from .. import api
-from zeeguu.api.utils.route_wrappers import with_session
+from zeeguu.api.utils.route_wrappers import has_session
 
 from zeeguu.core.model import db
 
 
 @api.route("/send_article_to_colleague", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def send_article_to_colleague():
     """
@@ -40,10 +40,11 @@ def send_article_to_colleague():
     print(f"send email confirmation to {receiving_user} ")
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
+    user = User.find_by_id(flask.g.user_id)
     mail = ZeeguuMailer(
         f"Shared: {article.title}",
         f"Dear {receiving_user.name},\n\n"
-        + f'{flask.g.user.name} shared "{article.title}" with you.\n\n'
+        + f'{user.name} shared "{article.title}" with you.\n\n'
         + f"You can find it on the My Texts page, or at the link below:\n\n"
         + f"\t https://zeeguu.org/teacher/texts/editText/{new_id}\n\n"
         + "Cheers,\n"
@@ -57,7 +58,7 @@ def send_article_to_colleague():
 
 
 @api.route("/add_article_to_cohort", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def add_article_to_cohort():
     """
@@ -80,7 +81,7 @@ def add_article_to_cohort():
 
 
 @api.route("/upload_articles/<cohort_id>", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def upload_articles(cohort_id):
     """
@@ -127,7 +128,7 @@ def upload_articles(cohort_id):
 
 
 @api.route("/get_cohorts_for_article/<article_id>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def get_cohorts_for_article(article_id):
     """
@@ -140,7 +141,7 @@ def get_cohorts_for_article(article_id):
 
 
 @api.route("/delete_article_from_cohort", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def delete_article_from_cohort():
     """
@@ -164,7 +165,7 @@ def delete_article_from_cohort():
 
 # DEPRECATED!
 @api.route("/remove_article_from_cohort/<cohort_id>/<article_id>", methods=["POST"])
-@with_session
+@has_session
 @only_teachers
 def remove_article_from_cohort(cohort_id, article_id):
     """
@@ -188,7 +189,7 @@ def remove_article_from_cohort(cohort_id, article_id):
 
 
 @api.route("/cohort_files/<cohort_id>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def cohort_files(cohort_id):
     """
@@ -202,14 +203,14 @@ def cohort_files(cohort_id):
 
 
 @api.route("/teacher_texts", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def teacher_texts():
     """
     Gets all the articles of this teacher
     """
-
-    articles = Article.own_texts_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    articles = Article.own_texts_for_user(user)
     article_info_dicts = [article.article_info_for_teacher() for article in articles]
 
     return json.dumps(article_info_dicts)

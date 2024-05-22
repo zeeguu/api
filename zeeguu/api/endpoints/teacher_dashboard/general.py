@@ -13,7 +13,7 @@ from ._permissions import (
 )
 
 
-from zeeguu.api.utils.route_wrappers import with_session
+from zeeguu.api.utils.route_wrappers import has_session
 from .. import api
 
 import zeeguu.core
@@ -24,13 +24,13 @@ from zeeguu.core.model import db
 
 
 @api.route("/is_teacher", methods=["GET"])
-@with_session
+@has_session
 def is_teacher_api():
-    return str(is_teacher(flask.g.user.id))
+    return str(is_teacher(flask.g.user_id))
 
 
 @api.route("/has_permission_for_cohort/<id>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def has_permission_for_cohort_api(id):
 
@@ -40,7 +40,7 @@ def has_permission_for_cohort_api(id):
 
 
 @api.route("/has_permission_for_user_info/<id>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def has_permission_for_user_info(id):
 
@@ -50,7 +50,7 @@ def has_permission_for_user_info(id):
 
 
 @api.route("/users_by_teacher/<duration>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def users_by_teacher(duration):
     """
@@ -60,7 +60,7 @@ def users_by_teacher(duration):
 
     from zeeguu.core.model import TeacherCohortMap
 
-    mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user.id).all()
+    mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user_id).all()
     all_users = []
     for m in mappings:
         users = all_user_info_from_cohort(m.cohort_id, duration)
@@ -69,7 +69,7 @@ def users_by_teacher(duration):
 
 
 @api.route("/invite_code_usable/<invite_code>", methods=["GET"])
-@with_session
+@has_session
 @only_teachers
 def inv_code_usable(invite_code):
     """
