@@ -44,10 +44,10 @@ def add_user(email):
             native_language_code,
             learned_cefr_level,
         )
-        new_session = Session.for_user(new_user)
+        new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
         db_session.commit()
-        return str(new_session.id)
+        return new_session.uuid
 
     except Exception as e:
         log(f"Attemt to create user failed: {username} {password} {email}")
@@ -72,7 +72,7 @@ def add_basic_user(email):
         new_user = create_basic_account(
             db_session, username, password, invite_code, email
         )
-        new_session = Session.for_user(new_user)
+        new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
         db_session.commit()
         return str(new_session.id)
