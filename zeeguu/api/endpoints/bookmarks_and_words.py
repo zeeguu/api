@@ -192,6 +192,26 @@ def report_learned_bookmark(bookmark_id):
     return "OK"
 
 
+@api.route("/is_fit_for_study/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def set_is_fit_for_study(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.fit_for_study = True
+    db_session.commit()
+    return "OK"
+
+
+@api.route("/not_fit_for_study/<bookmark_id>", methods=["POST"])
+@cross_domain
+@with_session
+def set_not_fit_for_study(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.fit_for_study = False
+    db_session.commit()
+    return "OK"
+
+
 @api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @with_session
