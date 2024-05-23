@@ -9,7 +9,7 @@ from zeeguu.core.model import User
 
 from zeeguu.core.content_recommender import article_search_for_user
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -30,7 +30,7 @@ FILTERED_SEARCHES = "filtered_searches"
 @api.route(f"/{SUBSCRIBE_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def subscribe_to_search(search_terms):
     """
     :param: search_terms -- the search terms to be subscribed to.
@@ -53,7 +53,7 @@ def subscribe_to_search(search_terms):
 @api.route(f"/{UNSUBSCRIBE_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def unsubscribe_from_search():
     """
     A user can unsubscribe from the search with a given ID
@@ -84,7 +84,7 @@ def unsubscribe_from_search():
 @api.route(f"/{SUBSCRIBED_SEARCHES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_subscribed_searches():
     """
     A user might be subscribed to multiple searches at once.
@@ -115,7 +115,7 @@ def get_subscribed_searches():
 @api.route(f"/{FILTER_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def filter_search(search_terms):
     """
     Subscribe to the search filter with the given terms.
@@ -133,7 +133,7 @@ def filter_search(search_terms):
 @api.route(f"/{UNFILTER_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def unfilter_search():
     """
     A user can unsubscribe from the search with a given ID
@@ -163,7 +163,7 @@ def unfilter_search():
 @api.route(f"/{FILTERED_SEARCHES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_filtered_searches():
     """
     A user might be subscribed to multiple search filters at once.
@@ -194,7 +194,7 @@ def get_filtered_searches():
 @api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def search_for_search_terms(search_terms):
     """
     This endpoint is used for the standard search.

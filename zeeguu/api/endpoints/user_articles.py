@@ -7,7 +7,7 @@ from zeeguu.core.content_recommender import (
 )
 from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from sentry_sdk import capture_exception
 from . import api
@@ -20,7 +20,7 @@ from flask import request
 @api.route("/user_articles/recommended/<int:count>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_articles_recommended(count: int = 20):
     """
     recommendations for all languages
@@ -45,7 +45,7 @@ def user_articles_recommended(count: int = 20):
 
 @api.route("/user_articles/saved", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def saved_articles():
     user = User.find_by_id(flask.g.user_id)
     saves = PersonalCopy.all_for(user)
@@ -59,7 +59,7 @@ def saved_articles():
 @api.route("/user_articles/topic_filtered", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_articles_topic_filtered():
     """
     recommendations based on filters coming from the UI
@@ -93,7 +93,7 @@ def user_articles_topic_filtered():
 @api.route("/user_articles/starred_or_liked", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_articles_starred_and_liked():
     user = User.find_by_id(flask.g.user_id)
     return json_result(UserArticle.all_starred_and_liked_articles_of_user_info(user))
@@ -103,7 +103,7 @@ def user_articles_starred_and_liked():
 @api.route("/cohort_articles", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_articles_cohort():
     """
     get all articles for the cohort associated with the user
@@ -116,7 +116,7 @@ def user_articles_cohort():
 @api.route("/user_articles/foryou", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_articles_foryou():
     article_infos = []
     user = User.find_by_id(flask.g.user_id)

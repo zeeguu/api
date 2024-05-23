@@ -10,7 +10,7 @@ from zeeguu.core.model import (
     User,
 )
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -30,7 +30,7 @@ FILTERED_TOPICS = "filtered_topics"
 @api.route(f"/{SUBSCRIBE_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def subscribe_to_topic_with_id():
     """
     :param: topic_id -- the id of the topic to be subscribed to.
@@ -51,7 +51,7 @@ def subscribe_to_topic_with_id():
 @api.route(f"/{UNSUBSCRIBE_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def unsubscribe_from_topic():
     """
     A user can unsubscribe from the topic with a given ID
@@ -78,7 +78,7 @@ def unsubscribe_from_topic():
 @api.route(f"/{SUBSCRIBED_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_subscribed_topics():
     """
     A user might be subscribed to multiple topics at once.
@@ -108,7 +108,7 @@ def get_subscribed_topics():
 @api.route("/available_topics", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_available_topics():
     """
     Get a list of interesting topics for the given language.
@@ -142,7 +142,7 @@ def get_available_topics():
 @api.route(f"/{FILTER_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def subscribe_to_filter_with_id():
     """
     :param: filter_id -- the id of the filter to be subscribed to.
@@ -163,7 +163,7 @@ def subscribe_to_filter_with_id():
 @api.route(f"/{UNFILTER_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def unsubscribe_from_filter():
     """
     A user can unsubscribe from the filter with a given ID
@@ -189,7 +189,7 @@ def unsubscribe_from_filter():
 @api.route(f"/{FILTERED_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_subscribed_filters():
     """
     A user might be subscribed to multiple filters at once.

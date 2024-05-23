@@ -4,7 +4,7 @@ import flask
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model import Bookmark, User
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 from flask import request
@@ -12,7 +12,7 @@ from flask import request
 
 @api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def bookmarks_to_study(bookmark_count):
     """
     Returns a number of <bookmark_count> bookmarks that
@@ -29,7 +29,7 @@ def bookmarks_to_study(bookmark_count):
 
 @api.route("/bookmarks_in_pipeline", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def bookmarks_in_pipeline():
     """
     Returns all the words in the pipeline to be learned by a user.
@@ -45,7 +45,7 @@ def bookmarks_in_pipeline():
 
 @api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def has_bookmarks_in_pipeline_to_review():
     """
     Checks if there is at least one bookmark in the pipeline
@@ -58,7 +58,7 @@ def has_bookmarks_in_pipeline_to_review():
 
 @api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def new_bookmarks_to_study(bookmark_count):
     """
     Finds <bookmark_count> bookmarks that
@@ -73,7 +73,7 @@ def new_bookmarks_to_study(bookmark_count):
 
 @api.route("/get_total_bookmarks_in_pipeline", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def get_total_bookmarks_in_pipeline():
     """
     Returns a number of bookmarks that are in active learning.
@@ -86,7 +86,7 @@ def get_total_bookmarks_in_pipeline():
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
 @cross_domain
-@has_session
+@requires_session
 def get_exercise_log_for_bookmark(bookmark_id):
     bookmark = Bookmark.query.filter_by(id=bookmark_id).first()
 
@@ -110,7 +110,7 @@ def get_exercise_log_for_bookmark(bookmark_id):
     "/report_exercise_outcome",
     methods=["POST"],
 )
-@has_session
+@requires_session
 def report_exercise_outcome():
     """
     In the model parlance, an exercise is an entry in a table that
@@ -148,7 +148,7 @@ def report_exercise_outcome():
 
 @api.route("/similar_words/<bookmark_id>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def similar_words_api(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     user = User.find_by_id(flask.g.user_id)

@@ -4,7 +4,7 @@ from zeeguu.api.utils import json_result
 
 from zeeguu.core.model import Cohort, User
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
 
 
@@ -12,7 +12,7 @@ from . import api, db_session
 @api.route("/join_cohort", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def join_cohort_api():
     invite_code = request.form.get("invite_code", "")
 
@@ -37,7 +37,7 @@ def join_cohort_api():
 
 @api.route("/student_info", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def student_info():
     user = User.find_by_id(flask.g.user_id)
     return json_result(
@@ -50,7 +50,7 @@ def student_info():
 
 
 @api.route("/cohort_name/<id>", methods=["GET"])
-@has_session
+@requires_session
 def cohort_name(id):
 
     cohort = Cohort.find(id)

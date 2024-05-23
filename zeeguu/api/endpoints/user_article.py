@@ -3,7 +3,7 @@ from flask import request
 from zeeguu.core.model import Article, UserArticle, User
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
@@ -16,7 +16,7 @@ import newspaper
 @api.route("/user_article", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_article():
     """
 
@@ -53,7 +53,7 @@ def user_article():
 @api.route("/article_difficulty_feedback", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def post_article_difficulty_feedback():
     """
 
@@ -78,7 +78,7 @@ def post_article_difficulty_feedback():
 @api.route("/article_opened", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def article_opened():
     """
 
@@ -103,7 +103,7 @@ def article_opened():
 @api.route("/user_article", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def user_article_update():
     """
 
@@ -139,7 +139,7 @@ def user_article_update():
 @api.route("/parse_html", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def parse_html():
     article_html = request.form.get("html")
 
@@ -161,7 +161,7 @@ def parse_html():
 @api.route("/parse_url", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def parse_url():
     url = request.form.get("url")
 

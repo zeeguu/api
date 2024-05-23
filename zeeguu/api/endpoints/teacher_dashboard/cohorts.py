@@ -26,13 +26,13 @@ from ._permissions import (
     check_permission_for_user,
 )
 from .. import api
-from zeeguu.api.utils.route_wrappers import has_session
+from zeeguu.api.utils.route_wrappers import requires_session
 
 from zeeguu.core.model import db
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
-@has_session
+@requires_session
 def remove_cohort(cohort_id):
     """
     Removes cohort by cohort_id.
@@ -68,7 +68,7 @@ def remove_cohort(cohort_id):
 
 
 @api.route("/create_own_cohort", methods=["POST"])
-@has_session
+@requires_session
 @only_teachers
 def create_own_cohort():
     """
@@ -128,7 +128,7 @@ def create_own_cohort():
 
 
 @api.route("/update_cohort/<cohort_id>", methods=["POST"])
-@has_session
+@requires_session
 @only_teachers
 def update_cohort(cohort_id):
     """
@@ -163,7 +163,7 @@ def update_cohort(cohort_id):
 
 
 @api.route("/users_from_cohort/<id>/<duration>", methods=["GET"])
-@has_session
+@requires_session
 def users_from_cohort(id, duration):
     """
     Takes id for a cohort and returns all users belonging to that cohort.
@@ -186,7 +186,7 @@ def users_from_cohort(id, duration):
 
 
 @api.route("/cohorts_info", methods=["GET"])
-@has_session
+@requires_session
 @only_teachers
 def cohorts_info():
     """
@@ -203,7 +203,7 @@ def cohorts_info():
 
 
 @api.route("/cohort_info/<id>", methods=["GET"])
-@has_session
+@requires_session
 @only_teachers
 def wrapper_to_json_class(id):
     """
@@ -216,7 +216,7 @@ def wrapper_to_json_class(id):
 
 
 @api.route("/add_colleague_to_cohort", methods=["POST"])
-@has_session
+@requires_session
 @only_teachers
 def add_colleague_to_cohort():
     cohort_id = request.form.get("cohort_id")
@@ -239,7 +239,7 @@ def add_colleague_to_cohort():
 
 
 @api.route("/remove_user_from_cohort/<user_id>", methods=["GET"])
-@has_session
+@requires_session
 @only_teachers
 def remove_user_from_cohort(user_id):
     check_permission_for_user(user_id)

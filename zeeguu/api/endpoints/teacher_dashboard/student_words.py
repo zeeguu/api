@@ -2,13 +2,13 @@ import zeeguu.core
 from zeeguu.core.sql.learner.words import words_not_studied, learned_words
 from ._common_api_parameters import _get_student_cohort_and_period_from_POST_params
 from .. import api
-from zeeguu.api.utils import json_result, has_session
+from zeeguu.api.utils import json_result, requires_session
 
 from zeeguu.core.model import db
 
 
 @api.route("/student_words_not_studied", methods=["POST"])
-@has_session
+@requires_session
 def student_words_not_studied():
     user, cohort, from_str, to_str = _get_student_cohort_and_period_from_POST_params()
     stats = words_not_studied(user.id, cohort.language_id, from_str, to_str)
@@ -16,7 +16,7 @@ def student_words_not_studied():
 
 
 @api.route("/student_learned_words", methods=["POST"])
-@has_session
+@requires_session
 def student_learned_words():
     user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
 

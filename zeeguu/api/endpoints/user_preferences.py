@@ -3,14 +3,14 @@ import flask
 import zeeguu.core
 
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 from ...core.model import UserPreference, User
 
 
 @api.route("/user_preferences", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def user_preferences():
     preferences = {}
     user = User.find_by_id(flask.g.user_id)
@@ -22,7 +22,7 @@ def user_preferences():
 
 @api.route("/save_user_preferences", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def save_user_preferences():
 
     data = flask.request.form

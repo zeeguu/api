@@ -7,10 +7,10 @@ from datetime import datetime, timedelta
 import zeeguu
 
 SESSION_CACHE = {}
-SESSION_CACHE_EXPIRE = 60  # Seconds
+SESSION_CACHE_TIMEOUT = 60  # Seconds
 
 
-def has_session(view):
+def requires_session(view):
     """
     Decorator checks that user is in a session.
 
@@ -24,35 +24,26 @@ def has_session(view):
     def wrapped_view(*args, **kwargs):
         try:
             session_uuid = flask.request.args["session"]
-            user_id, timeout = SESSION_CACHE.get(
+            user_id, session_expiry_time = SESSION_CACHE.get(
                 session_uuid,
                 (
                     None,
-                    datetime.now() - timedelta(0, SESSION_CACHE_EXPIRE),
+                    None,
                 ),
             )
-            if datetime.now() > timeout:
-                from zeeguu.api.endpoints.sessions import validate_session
+            if session_expiry_time is None or datetime.now() > session_expiry_time:
+                from zeeguu.api.endpoints.sessions import is_session_valid
 
                 print("----------- Updating Cache! -----------")
                 session_object = Session.find(session_uuid)
-                is_session_valid = validate_session(session_object)
-                user_id = (
-                    session_object.user_id
-                    if session_object is not None and is_session_valid
-                    else None
-                )
+                if not is_session_valid(session_object):
+                    flask.abort(401)
+                user_id = session_object.user_id
                 SESSION_CACHE[session_uuid] = (
                     user_id,
-                    datetime.now() + timedelta(0, SESSION_CACHE_EXPIRE),
+                    datetime.now() + timedelta(0, SESSION_CACHE_TIMEOUT),
                 )
-            else:
-                print("----------- Using Cached Value! -----------")
-
-            if user_id is None:
-                print("----------- Session was not found! -----------")
-                flask.abort(401)
-
+            print("----------- Using Cache! -----------")
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
 

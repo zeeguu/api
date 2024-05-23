@@ -4,7 +4,7 @@ from zeeguu.core.model import Article, Language, User
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
 from zeeguu.core.model.article import HTML_TAG_CLEANR
 
@@ -16,7 +16,7 @@ from langdetect import detect
 @api.route("/find_or_create_article", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def find_or_create_article():
     """
 
@@ -55,7 +55,7 @@ def find_or_create_article():
 @api.route("/make_personal_copy", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def make_personal_copy():
     article_id = request.form.get("article_id", "")
     article = Article.find_by_id(article_id)
@@ -71,7 +71,7 @@ def make_personal_copy():
 @api.route("/remove_personal_copy", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def remove_personal_copy():
     article_id = request.form.get("article_id", "")
     article = Article.find_by_id(article_id)
@@ -89,7 +89,7 @@ def remove_personal_copy():
 @api.route("/is_article_language_supported", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def is_article_language_supported():
     """
     Expects:

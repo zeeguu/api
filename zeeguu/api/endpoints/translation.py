@@ -18,14 +18,14 @@ from zeeguu.core.model import Bookmark, Article, Text, User
 from zeeguu.core.model.user_word import UserWord
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 punctuation_extended = "»«" + punctuation
 
 
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def get_one_translation(from_lang_code, to_lang_code):
     """
 
@@ -106,7 +106,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     "/get_multiple_translations/<from_lang_code>/<to_lang_code>", methods=["POST"]
 )
 @cross_domain
-@has_session
+@requires_session
 def get_multiple_translations(from_lang_code, to_lang_code):
     """
     Returns a list of possible translations in :param to_lang_code
@@ -165,7 +165,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def update_translation(bookmark_id):
     """
 
@@ -205,7 +205,7 @@ def update_translation(bookmark_id):
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def contribute_translation(from_lang_code, to_lang_code):
     """
 
@@ -282,7 +282,7 @@ def contribute_translation(from_lang_code, to_lang_code):
 
 @api.route("/basic_translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def basic_translate(from_lang_code, to_lang_code):
     phrase = request.form["phrase"].strip(punctuation_extended)
 

@@ -5,14 +5,14 @@ from flask import request
 from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle, User
 from zeeguu.core.model.personal_copy import PersonalCopy
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
 
 @api.route("/upload_own_text", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def upload_own_text():
 
     db_session.rollback()
@@ -30,7 +30,7 @@ def upload_own_text():
 
 @api.route("/own_texts", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def own_texts():
     user = User.find_by_id(flask.g.user_id)
     r = Article.own_texts_for_user(user)
@@ -45,7 +45,7 @@ def own_texts():
 
 @api.route("/delete_own_text/<id>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def delete_own_text(id):
 
     try:
@@ -63,7 +63,7 @@ def delete_own_text(id):
 
 @api.route("/update_own_text/<article_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def update_own_text(article_id):
 
     language = Language.find_or_create(request.form.get("language", ""))

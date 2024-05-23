@@ -8,12 +8,12 @@ from zeeguu.core.bookmark_quality import top_bookmarks
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 
 @api.route("/user_words", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def studied_words():
     """
     Returns a list of the words that the user is currently studying.
@@ -24,7 +24,7 @@ def studied_words():
 
 @api.route("/top_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def top_bookmarks_route(count):
     """
     Returns a list of the words that the user is currently studying.
@@ -37,7 +37,7 @@ def top_bookmarks_route(count):
 
 @api.route("/learned_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def learned_bookmarks(count):
     """
     Returns a list of the words that the user is currently studying.
@@ -50,7 +50,7 @@ def learned_bookmarks(count):
 
 @api.route("/starred_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def starred_bookmarks(count):
     """
     Returns a list of the words that the user is currently studying.
@@ -63,7 +63,7 @@ def starred_bookmarks(count):
 
 @api.route("/bookmarks_by_day/<return_context>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def get_bookmarks_by_day(return_context):
     """
     Returns the bookmarks of this user organized by date
@@ -79,7 +79,7 @@ def get_bookmarks_by_day(return_context):
 
 @api.route("/bookmarks_by_day", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def post_bookmarks_by_day():
     """
     Returns the bookmarks of this user organized by date. Based on the
@@ -106,7 +106,7 @@ def post_bookmarks_by_day():
 
 @api.route("/bookmarks_for_article/<int:article_id>/<int:user_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def bookmarks_for_article(article_id, user_id):
     """
     Returns the bookmarks of this user organized by date. Based on the
@@ -134,7 +134,7 @@ def bookmarks_for_article(article_id, user_id):
 
 @api.route("/bookmarks_to_study_for_article/<int:article_id>", methods=["POST", "GET"])
 @cross_domain
-@has_session
+@requires_session
 def bookmarks_to_study_for_article(article_id):
 
     user = User.find_by_id(flask.g.user_id)
@@ -149,7 +149,7 @@ def bookmarks_to_study_for_article(article_id):
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])
 @cross_domain
-@has_session
+@requires_session
 def bookmarks_for_article_2(article_id):
     """
     Returns the bookmarks of this user organized by date. Based on the
@@ -169,7 +169,7 @@ def bookmarks_for_article_2(article_id):
 
 @api.route("/delete_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def delete_bookmark(bookmark_id):
     try:
         bookmark = Bookmark.find(bookmark_id)
@@ -183,7 +183,7 @@ def delete_bookmark(bookmark_id):
 
 @api.route("/report_correct_mini_exercise/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.report_exercise_outcome(
@@ -198,7 +198,7 @@ def report_learned_bookmark(bookmark_id):
 
 @api.route("/is_fit_for_study/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def set_is_fit_for_study(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.fit_for_study = True
@@ -208,7 +208,7 @@ def set_is_fit_for_study(bookmark_id):
 
 @api.route("/not_fit_for_study/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def set_not_fit_for_study(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.fit_for_study = False
@@ -218,7 +218,7 @@ def set_not_fit_for_study(bookmark_id):
 
 @api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def star_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = True
@@ -229,7 +229,7 @@ def star_bookmark(bookmark_id):
 
 @api.route("/unstar_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def unstar_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = False

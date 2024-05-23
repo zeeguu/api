@@ -6,7 +6,7 @@ from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.model import User
 
 
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -23,7 +23,7 @@ READING_LANGUAGES = "user_languages/reading"
 @api.route(f"/{MODIFY_USER_LANGUAGE}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def modify_user_language():
     """
     This endpoint is for modifying a user language.
@@ -64,7 +64,7 @@ def modify_user_language():
 @api.route(f"/{DELETE_USER_LANGUAGE}/<language_id>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def delete_user_language(language_id):
     """
     A user can delete a language with a given ID.
@@ -92,7 +92,7 @@ def delete_user_language(language_id):
 @api.route(f"/{USER_LANGUAGES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_user_languages():
     """
     A user might have multiple user languages, which can be for reading
@@ -115,7 +115,7 @@ def get_user_languages():
 @api.route(f"/{READING_LANGUAGES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_reading_languages():
     """
     A user might be subscribed to multiple languages at once.
@@ -138,7 +138,7 @@ def get_reading_languages():
 @api.route(f"/{INTERESTING_LANGUAGES_FOR_READING}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@has_session
+@requires_session
 def get_interesting_reading_languages():
     """
     'Interesting languages' are defined as languages the user

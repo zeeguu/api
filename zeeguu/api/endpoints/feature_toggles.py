@@ -1,13 +1,13 @@
 import flask
 
 from zeeguu.api.endpoints import api
-from zeeguu.api.utils import cross_domain, has_session
+from zeeguu.api.utils import cross_domain, requires_session
 from zeeguu.core.model import User
 
 
 @api.route("/is_feature_enabled/<feature_name>", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def is_feature_enabled(feature_name):
     """
     e.g.

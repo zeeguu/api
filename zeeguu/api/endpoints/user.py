@@ -6,14 +6,14 @@ import zeeguu.core
 from zeeguu.core.model import User
 
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, has_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 from ...core.model import UserPreference
 
 
 @api.route("/learned_language", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def learned_language():
     """
     Each endpoint is defined by a function definition
@@ -40,7 +40,7 @@ def learned_language():
 
 @api.route("/learned_language/<language_code>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def learned_language_set(language_code):
     """
     Set the learned language
@@ -55,7 +55,7 @@ def learned_language_set(language_code):
 
 @api.route("/native_language", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def native_language():
     user = User.find_by_id(flask.g.user_id)
     return user.native_language.code
@@ -63,7 +63,7 @@ def native_language():
 
 @api.route("/native_language/<language_code>", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def native_language_set(language_code):
     """
     :param language_code:
@@ -77,7 +77,7 @@ def native_language_set(language_code):
 
 @api.route("/learned_and_native_language", methods=["GET"])
 @cross_domain
-@has_session
+@requires_session
 def learned_and_native_language():
     """
     Get both the native and the learned language
@@ -91,7 +91,7 @@ def learned_and_native_language():
 
 @api.route("/get_user_details", methods=("GET",))
 @cross_domain
-@has_session
+@requires_session
 def get_user_details():
     """
     after the login, this information might be useful to be displayed
@@ -108,7 +108,7 @@ def get_user_details():
 
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def user_settings():
     """
     set the native language of the user in session
@@ -159,7 +159,7 @@ def user_settings():
 
 @api.route("/send_feedback", methods=["POST"])
 @cross_domain
-@has_session
+@requires_session
 def send_feedback():
 
     message = flask.request.form.get("message", "")
