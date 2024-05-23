@@ -45,11 +45,11 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
 1. Build the `zeguu_api_dev` development image
 
-   `docker build -f Dockerfile.development -t zeeguu_api_dev_ESv8 .`
+   `docker build -f Dockerfile.development -t zeeguu_api_dev .`
 
 2. Run the \_playground.py to ensure that you have something in the DB
 
-   `docker-compose-development up dev_play`
+   `docker-compose up dev_play`
 
    To ensure that the changes to the files on your local dev machine are reflected inside the container try to modify something in the `tools\_playground.py` file and rerun this command. Do you see the changes? That's good.
 
@@ -121,10 +121,18 @@ To download new articles, you will need to set up the embedding API that will en
 To do this create a new docker image by navigating to `semanticEmbApi` and running the command:
 
 ```
-docker build -f Dockerfile.development -t zeeguu_api_sem_emb .
+docker build -f Dockerfile -t zeeguu_api_sem_emb .
 ```
 
 This will install the image which is part of the dependencies of the `dev_server`
+
+With this you can run:
+
+```
+docker-compose-development up dev_init_es
+```
+
+To index some articles into ElasticSearch so they can be displayed on the server.
 
 # Further Notes
 

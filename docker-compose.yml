@@ -1,16 +1,15 @@
-version: "3.8"
+version: "3.9"
 
 services:
   dev_server:
-    image: zeeguu_api_dev_ESv8
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
       ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api"
       PYTHONUNBUFFERED: 1
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
       GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
-
     ports:
       - 9001:9001
     volumes:
@@ -20,27 +19,21 @@ services:
     networks:
       - zeeguu_backend
     depends_on:
-      - elasticsearch_v8
+      - elasticsearch
       - embedding_api
       - readability_server
     mem_limit: 2048m
 
-  elasticsearch:
-    image: elasticsearch:7.6.2
-    platform: linux/amd64
+  readability_server: 
+    image: aecrimus/readability_server
     ports:
-      - 9200:9200
-      - 9300:9300
-    environment:
-      - discovery.type=single-node
-      - network.host=0.0.0.0 # is this still needed? 
-    volumes:
-      - ./data/elasticsearch_db/data:/usr/share/elasticsearch/data
-    networks:
+      - 3456:3456
+    networks: 
       - zeeguu_backend
     restart: unless-stopped
+    mem_limit: 1024m
 
-  elasticsearch_v8:
+  elasticsearch:
     image: elasticsearch:8.12.2
     platform: linux/amd64
     ports:
@@ -50,7 +43,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
     volumes:
-      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
+      - ./data/elasticsearch_db/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
@@ -58,20 +51,23 @@ services:
 
 
   dev_play:
-    image: zeeguu_api_dev_ESv8
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu:/zeeguu-data
     entrypoint: "python tools/_playground.py"
+    depends_on:
+      - elasticsearch
+      - embedding_api
+      - readability_server
     networks:
       - zeeguu_backend
 
   # docker-compose run --rm dev_bash
   dev_bash:
-    image: zeeguu_api_dev_ESv8
+    image: zeeguu_api_dev
     stdin_open: true # docker run -i
     tty: true # docker run -t
 
@@ -86,7 +82,7 @@ services:
       - zeeguu_backend
 
   dev_test:
-    image: zeeguu_api_dev_ESv8
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
 
@@ -98,24 +94,26 @@ services:
       - zeeguu_backend
 
   dev_init_es:
-    image: zeeguu_api_dev_ESv8
+    image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
       ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api"
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu/esV8:/zeeguu-data
       - ./Users:/userslalal
-    entrypoint: "python tools/mysql_to_elastic.py"
+    entrypoint: "python tools/mysql_to_elastic_new_topics.py"
     networks:
       - zeeguu_backend
     depends_on:
-      - elasticsearch_v8
+      - elasticsearch
       - embedding_api
     
   embedding_api:
     image: zeeguu_api_sem_emb
+    ports:
+      - 3000:3000
     entrypoint: "python ./app/app.py"
     networks:
       - zeeguu_backend
