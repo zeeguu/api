@@ -72,9 +72,10 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
     """
 
-    print(feed.url)
+    summary_stream = ""
 
     downloaded = 0
+    downloaded_titles = []
     skipped_due_to_low_quality = 0
     skipped_already_in_db = 0
 
@@ -114,17 +115,27 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
         if last_retrieval_time_seen_this_crawl > feed.last_crawled_time:
             feed.last_crawled_time = last_retrieval_time_seen_this_crawl
-            log(
-                f"+updated feed's last crawled time to {last_retrieval_time_seen_this_crawl}"
-            )
+            session.add(feed)
+            session.commit()
+
+        logp(feed_item["url"])
+        # check if the article is already in the DB
+        art = model.Article.find(feed_item["url"])
+        if art:
+            skipped_already_in_db += 1
+            logp(" - Already in DB")
+            continue
 
         try:
-            log("before redirects")
-            log(feed_item["url"])
+
             url = _url_after_redirects(feed_item["url"])
-            logp("===============================> ")
-            logp("after redirects")
-            logp(url)
+
+            # check if the article after resolving redirects is already in the DB
+            art = model.Article.find(url)
+            if art:
+                skipped_already_in_db += 1
+                logp(" - Already in DB")
+                continue
 
         except requests.exceptions.TooManyRedirects:
             raise Exception(f"- Too many redirects")
@@ -137,9 +148,6 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             logp("Banned Url")
             continue
 
-        session.add(feed)
-        session.commit()
-
         try:
             new_article = download_feed_item(session, feed, feed_item, url)
             downloaded += 1
@@ -147,8 +155,9 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 if new_article:
                     index_in_elasticsearch(new_article, session)
 
-            if new_article:
-                ZeeguuMailer.send_content_retrieved_notification(new_article)
+            downloaded_titles.append(
+                new_article.title + " " + new_article.url.as_string()
+            )
 
         except SkippedForTooOld:
             logp("- Article too old")
@@ -193,10 +202,18 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
                 logp(e)
             continue
 
+    summary_stream += (
+        f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
+    )
+    for each in downloaded_titles:
+        summary_stream += f" - {each}\n"
+
     logp(f"*** Downloaded: {downloaded} From: {feed.title}")
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
     logp(f"*** Already in DB: {skipped_already_in_db}")
     logp(f"*** ")
+
+    return summary_stream
 
 
 def download_feed_item(session, feed, feed_item, url):
@@ -232,7 +249,7 @@ def download_feed_item(session, feed, feed_item, url):
         if len(summary) < 10:
             summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-            # Create new article and save it to DB
+        # Create new article and save it to DB
         new_article = zeeguu.core.model.Article(
             Url.find_or_create(session, url),
             title,
@@ -242,8 +259,8 @@ def download_feed_item(session, feed, feed_item, url):
             published_datetime,
             feed,
             feed.language,
+            htmlContent=np_article.htmlContent,
         )
-        session.add(new_article)
 
         # Update topics based on the keywords:
         old_topics = add_topics(new_article, session)
@@ -252,6 +269,8 @@ def download_feed_item(session, feed, feed_item, url):
         logp(f"Topic Keywords: ({topic_keywords})")
         origin_type, topics = add_new_topics(new_article, feed, topic_keywords, session)
         logp(f"New Topics ({topics})")
+
+        session.add(new_article)
     except SkippedForLowQuality as e:
         raise e
 

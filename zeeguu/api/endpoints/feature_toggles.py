@@ -41,6 +41,7 @@ def _feature_map():
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
+        "merle_exercises": _merle_exercises,
     }
 
 
@@ -55,6 +56,16 @@ def _tiago_exercises(user):
     print(right_language)
     print(right_user)
     return right_user and right_language
+
+
+def _merle_exercises(user):
+    right_user = (
+        user.invitation_code == "Merle"
+        or user.invitation_code == "MerleITU"
+        or user.invitation_code == "PTCT"
+        or user.id in [534, 2953, 4022, 4089, 4192]
+    )
+    return right_user
 
 
 def _no_audio_exercises(user):

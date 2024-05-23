@@ -1,5 +1,7 @@
 from elasticsearch_dsl import Search, Q, SF
 from elasticsearch_dsl.query import MoreLikeThis
+from datetime import timedelta, datetime
+from zeeguu.core.model import Language
 
 
 def match(key, value):
@@ -401,4 +403,70 @@ def build_elastic_semantic_sim_query_for_topic_cls(
 
     query = s.to_dict()
     # print(query)
+    return query
+
+
+def build_elastic_more_like_this_query(
+    language: Language,
+    like_documents: list[dict[str, str]],
+    similar_to: list[str],
+    cutoff_days: int,
+    scale: str = "10d",
+    offset: str = "4h",
+    decay: float = 0.9,
+):
+
+    cutoff_date = datetime.now() - timedelta(days=cutoff_days)
+
+    query = {
+        "query": {
+            "function_score": {
+                "query": {
+                    "bool": {
+                        "must": [{"match": {"language": language.name}}],
+                        "should": {
+                            "more_like_this": {
+                                "fields": similar_to,
+                                "like": like_documents,
+                                "min_term_freq": 2,
+                                "max_query_terms": 25,
+                                "min_doc_freq": 5,
+                                "min_word_length": 3,
+                            }
+                        },
+                        "filter": {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "range": {
+                                            "published_time": {
+                                                "gte": cutoff_date.strftime(
+                                                    "%Y-%m-%dT%H:%M:%S"
+                                                ),
+                                                "lte": "now",
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                },
+                "functions": [
+                    {
+                        "gauss": {
+                            "published_time": {
+                                "origin": "now",
+                                "scale": scale,
+                                "offset": offset,
+                                "decay": decay,
+                            }
+                        }
+                    }
+                ],
+                "score_mode": "sum",
+            }
+        }
+    }
+
     return query

@@ -1,7 +1,7 @@
 import functools
 import flask
 from zeeguu.logging import log
-from zeeguu.core.model.session import Session
+from zeeguu.core.model.session import Session, User
 import zeeguu
 
 
@@ -18,23 +18,25 @@ def with_session(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         try:
-            session_id = int(flask.request.args["session"])
-        except:
-            flask.abort(401)
-        session = Session.query.get(session_id)
-        if session is None:
-            flask.abort(401)
-        flask.g.user = session.user
-        session.update_use_date()
+            session_uuid = flask.request.args["session"]
+            session_object = Session.find(session_uuid)
+            if session_object is None:
+                flask.abort(401)
 
-        log(str(flask.g.user.id) + " API CALL: " + str(view))
+            user = User.find_by_id(session_object.user_id)
+            flask.g.user = user
+            # TODO: ideally update in parallel with running the decorated method?
+            session_object.update_use_date()
+            zeeguu.core.model.db.session.add(session_object)
+            zeeguu.core.model.db.session.commit()
 
-        zeeguu.core.model.db.session.add(session)
-        # TODO: remove this commit? and add it after such that the session can be added with the next commit?
-        zeeguu.core.model.db.session.commit()
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            flask.abort(401)
+
         return view(*args, **kwargs)
-
-        zeeguu.core.model.db.session.close()
 
     return wrapped_view
 

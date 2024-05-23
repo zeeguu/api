@@ -77,24 +77,25 @@ def logged_in_teacher():
         zeeguu.core.model.db.drop_all()
 
 
-class LoggedInClient():
+class LoggedInClient:
     def __init__(self, client):
         self.client = client
 
         # Creating a user and returning also the session
-        test_user_data = dict(
-            password="test", username="test", learned_language="de"
-        )
+        test_user_data = dict(password="test", username="test", learned_language="de")
         self.email = "i@mir.lu"
         response = self.client.post(f"/add_user/{self.email}", data=test_user_data)
         assert response.status_code == 200
 
-        self.session = int(response.data)
+        self.session = response.data.decode("utf-8")
+        print(">>>>>>>>> <<<<<<")
+        print(response.data)
+        print(self.session)
 
     def append_session(self, url):
         if "?" in url:
-            return url + "&session=" + str(self.session)
-        return url + "?session=" + str(self.session)
+            return url + "&session=" + self.session
+        return url + "?session=" + self.session
 
     def get(self, endpoint):
         url = self.append_session(endpoint)
@@ -141,12 +142,15 @@ class LoggedInTeacher(LoggedInClient):
 
 def add_one_bookmark(logged_in_client):
     # Create one bookmark too
-    bookmark = logged_in_client.post("/contribute_translation/de/en", data=dict(
-        word="Freund",
-        translation="friend",
-        context="Mein Freund lächelte",
-        url="http://www.derkleineprinz-online.de/text/2-kapitel/",
-    ))
+    bookmark = logged_in_client.post(
+        "/contribute_translation/de/en",
+        data=dict(
+            word="Freund",
+            translation="friend",
+            context="Mein Freund lächelte",
+            url="http://www.derkleineprinz-online.de/text/2-kapitel/",
+        ),
+    )
 
     bookmark_id = bookmark["bookmark_id"]
 

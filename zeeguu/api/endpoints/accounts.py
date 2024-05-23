@@ -17,9 +17,7 @@ from zeeguu.logging import log
 @cross_domain
 def add_user(email):
     """
-
     Creates user, then returns a session for that user
-
     """
 
     password = request.form.get("password")
@@ -46,10 +44,10 @@ def add_user(email):
             native_language_code,
             learned_cefr_level,
         )
-        new_session = Session.for_user(new_user)
+        new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
         db_session.commit()
-        return str(new_session.id)
+        return new_session.uuid
 
     except Exception as e:
         log(f"Attemt to create user failed: {username} {password} {email}")
@@ -61,9 +59,7 @@ def add_user(email):
 @cross_domain
 def add_basic_user(email):
     """
-
     Creates user, then returns a session for that user
-
     """
 
     from ...core.account_management.user_account_creation import create_basic_account
@@ -74,13 +70,9 @@ def add_basic_user(email):
 
     try:
         new_user = create_basic_account(
-            db_session,
-            username,
-            password,
-            invite_code,
-            email
+            db_session, username, password, invite_code, email
         )
-        new_session = Session.for_user(new_user)
+        new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
         db_session.commit()
         return str(new_session.id)

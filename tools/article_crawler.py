@@ -24,7 +24,7 @@ app = create_app()
 app.app_context().push()
 
 if len(sys.argv) > 1:
-    retrieve_articles_for_language(sys.argv[1])
+    retrieve_articles_for_language(sys.argv[1], send_email=True)
 else:
     retrieve_articles_from_all_feeds()
 

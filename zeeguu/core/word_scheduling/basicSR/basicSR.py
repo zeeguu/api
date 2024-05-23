@@ -1,7 +1,8 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
-from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
-from zeeguu.core.sql.query_building import list_of_dicts_from_query
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.learning_cycle import LearningCycle
+from zeeguu.core.model import UserPreference
 
 from zeeguu.core.model import db
 
@@ -47,23 +48,42 @@ class BasicSRSchedule(db.Model):
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
 
+    def set_bookmark_as_learned(self, db_session):
+        self.bookmark.learned = True
+        self.bookmark.learned_time = datetime.now()
+        db_session.add(self.bookmark)
+        db_session.commit()
+        db_session.delete(self)
+        db_session.commit()
+
     def update_schedule(self, db_session, correctness):
+        learning_cycle = self.bookmark.learning_cycle
+
+        productive_exercises_enabled = (
+            UserPreference.is_productive_exercises_preference_enabled(
+                self.bookmark.user
+            )
+        )
         if correctness:
-            # Use the cooldown to check if the user has learned
-            # the word.
             if self.cooling_interval == MAX_INTERVAL_8_DAY:
-                self.bookmark.learned = True
-                self.bookmark.learned_time = datetime.now()
-                db.session.add(self.bookmark)
-                db.session.commit()
-                db.session.delete(self)
-                db.session.commit()
-                return
+                if (
+                    learning_cycle == LearningCycle.RECEPTIVE
+                    and productive_exercises_enabled
+                ):
+                    # Switch learning_cycle to productive knowledge and reset cooling interval
+                    self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
+                    self.cooling_interval = 0
+                    db.session.add(self.bookmark)
+                    db.session.commit()
+                    return
+                else:
+                    self.set_bookmark_as_learned(db_session)
+                    return
 
             # Use the same logic as when selecting bookmarks
             # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
             # 01-01-2024 10:00 the status is not updated.
-            if self.get_current_study_window() < self.next_practice_time:
+            if self.get_end_of_today() < self.next_practice_time:
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
@@ -96,6 +116,15 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def update(cls, db_session, bookmark, outcome):
 
+        if outcome == ExerciseOutcome.OTHER_FEEDBACK:
+            print("Deleting Schedule for Word!")
+            schedule = cls.find_or_create(db_session, bookmark)
+            bookmark.fit_for_study = 0
+            db_session.add(bookmark)
+            db_session.delete(schedule)
+            db_session.commit()
+            return
+
         correctness = (
             outcome == ExerciseOutcome.CORRECT
             or outcome
@@ -106,12 +135,17 @@ class BasicSRSchedule(db.Model):
             ]  # allow for a few translations before hitting the correct; they work like hints
             or outcome == "HC"  # if it's correct after hint it should still be fine
         )
-
         schedule = cls.find_or_create(db_session, bookmark)
+        if schedule.next_practice_time > cls.get_end_of_today():
+            # The user is doing the word before it was scheduled.
+            # We do not update the schedule if that's the case.
+            # This can happen when they practice words from the
+            # Article.
+            return
         schedule.update_schedule(db_session, correctness)
 
     @classmethod
-    def get_current_study_window(cls):
+    def get_end_of_today(cls):
         """
         Retrieves midnight date of the following date,
         essentially ensures we get all the bookmarks
@@ -138,10 +172,11 @@ class BasicSRSchedule(db.Model):
             )
 
         # create a new one
-        b = cls(bookmark)
-        db_session.add(b)
+        schedule = cls(bookmark)
+        bookmark.learning_cycle = LearningCycle.RECEPTIVE
+        db_session.add_all([schedule, bookmark])
         db_session.commit()
-        return b
+        return schedule
 
     @classmethod
     def priority_bookmarks_to_study(cls, user, required_count):
@@ -165,28 +200,38 @@ class BasicSRSchedule(db.Model):
             word_rank = user_word.rank
             if word_rank is None:
                 word_rank = UserWord.IMPOSSIBLE_RANK
-            return (-cooling_interval, word_rank)
+            return -cooling_interval, word_rank
 
-        end_of_day = cls.get_current_study_window()
+        end_of_day = cls.get_end_of_today()
 
         # Get the candidates, words that are to practice
-        scheduled_candidates = (
+        scheduled_candidates_query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
             .filter(cls.next_practice_time < end_of_day)
-            .all()
         )
+
+        # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
+        if not UserPreference.is_productive_exercises_preference_enabled(user):
+            scheduled_candidates_query = scheduled_candidates_query.filter(
+                Bookmark.learning_cycle == LearningCycle.RECEPTIVE
+            )
+
+        scheduled_candidates = scheduled_candidates_query.all()
 
         # Remove possible duplicated words from the list
         # - The user might have multiple translations of the same word in different
         # contexts that are saved as different bookmarks
         # - In a session, a word should only show up once.
+        # TR: With the Topics a util function will be introduced that does this.
+        # We also need to ensure that we use the lower. Otherwise they might be duplicated
+        # due to different casing.
         bookmark_set = set()
         candidates_no_duplicates = []
         for bookmark in scheduled_candidates:
-            b_word = bookmark.origin.word
+            b_word = bookmark.origin.word.lower()
             if not (b_word in bookmark_set):
                 candidates_no_duplicates.append(bookmark)
                 bookmark_set.add(b_word)
@@ -199,7 +244,7 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        end_of_day = cls.get_current_study_window()
+        end_of_day = cls.get_end_of_today()
         # Get the candidates, words that are to practice
         scheduled = (
             Bookmark.query.join(cls)
@@ -213,30 +258,27 @@ class BasicSRSchedule(db.Model):
         return scheduled
 
     @classmethod
-    def schedule_some_more_bookmarks(cls, session, user, required_count):
-
-        from zeeguu.core.sql.queries.query_loader import load_query
-
-        query = load_query("words_to_study")
-        result = list_of_dicts_from_query(
-            query,
-            {
-                "user_id": user.id,
-                "language_id": user.learned_language.id,
-                "required_count": required_count,
-            },
+    def bookmarks_in_pipeline(cls, user):
+        # Get the candidates, words that are to practice
+        scheduled = (
+            Bookmark.query.join(cls)
+            .filter(Bookmark.user_id == user.id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == user.learned_language_id)
+            .all()
         )
+        return scheduled
 
-        for b in result:
-            print(b)
-            id = b["bookmark_id"]
-            b = Bookmark.find(id)
-            print(f"scheduling another bookmark_id for now: {id} ")
-            n = cls(b)
-            print(n)
-            session.add(n)
-
-        session.commit()
+    @classmethod
+    def total_bookmarks_in_pipeline(cls, user) -> int:
+        total_pipeline_bookmarks = (
+            Bookmark.query.join(cls)
+            .filter(Bookmark.user_id == user.id)
+            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == user.learned_language_id)
+            .count()
+        )
+        return total_pipeline_bookmarks
 
     @classmethod
     def schedule_for_user(cls, user_id):

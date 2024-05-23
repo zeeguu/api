@@ -39,6 +39,7 @@ class UserPreference(db.Model):
     # Key Names Below
     DIFFICULTY_ESTIMATOR = "difficulty_estimator"
     AUDIO_EXERCISES = "audio_exercises"
+    PRODUCTIVE_EXERCISES = "productive_exercises"
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user
@@ -56,7 +57,7 @@ class UserPreference(db.Model):
             f'Preferences (uid: {self.user_id}, key:"{self.key}", value:"{self.value}")'
         )
 
-    # Specific Getter / Setter Methods below
+    # Preference Specific Getter/Setter Methods
     # --------------------------------------
 
     @classmethod
@@ -66,6 +67,17 @@ class UserPreference(db.Model):
     @classmethod
     def set_difficulty_estimator(cls, session, user: User, key: value):
         return cls.set(session, user, cls.DIFFICULTY_ESTIMATOR, key)
+
+    @classmethod
+    def get_productive_exercises_setting(cls, user: User):
+        produtive_setting = UserPreference.query.filter_by(
+            user_id=user.id, key="productive_exercises"
+        ).first()
+        return produtive_setting.value
+
+    @classmethod
+    def is_productive_exercises_preference_enabled(cls, user: User):
+        return cls.get_productive_exercises_setting(user) == "true"
 
     # Generic preference handling
     # ---------------------------

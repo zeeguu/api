@@ -2,7 +2,7 @@ from smtplib import SMTP
 
 import yagmail
 import zeeguu
-from zeeguu.logging import logger
+from zeeguu.logging import logger, logp
 
 
 class ZeeguuMailer(object):
@@ -24,11 +24,13 @@ class ZeeguuMailer(object):
     def send(self):
         # this next line disables the mailer also during unit testing
         if not zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False):
-            print("returning without sending")
+            logp("returning without sending")
             return
         try:
+            logp("sending email...")
             self.send_with_yagmail()
         except Exception as e:
+            logp(f"Failed to send email: {e}")
             from sentry_sdk import capture_exception
 
             capture_exception(e)

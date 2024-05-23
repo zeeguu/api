@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model import Language
+from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.logging import log
 from zeeguu.core.util import password_hash
@@ -211,18 +212,44 @@ class User(db.Model):
         :param bookmark_count: by default we recommend 10 words
         :return:
         """
-        db_session = zeeguu.core.model.db.session
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
-
-        if len(to_study) < bookmark_count:
-            BasicSRSchedule.schedule_some_more_bookmarks(
-                db_session, self, bookmark_count - len(to_study)
-            )
-            to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
-
         return to_study
+
+    def get_new_bookmarks_to_study(self, bookmarks_count):
+        from zeeguu.core.sql.queries.query_loader import load_query
+        from zeeguu.core.sql.query_building import list_of_dicts_from_query
+        from zeeguu.core.model.bookmark import Bookmark
+
+        query = load_query("words_to_study")
+        result = list_of_dicts_from_query(
+            query,
+            {
+                "user_id": self.id,
+                "language_id": self.learned_language.id,
+                "required_count": bookmarks_count,
+            },
+        )
+        added_bookmarks = []
+        seen_bookmarks = set()
+        for b in result:
+
+            id = b["bookmark_id"]
+            b = Bookmark.find(id)
+            # Set the learning cycle to one (from 0)
+            # This is so that when they are shown in the front-end
+            # they are assumed to be set to the receptive learning cycle
+            # and associated with the receptive cycle. These are not saved
+            # to the DB unless an exercise is completed.
+            b.learning_cycle = 1
+            b_word = b.origin.word.lower()
+            # Avoid the same bookmark
+            if not (b_word in seen_bookmarks):
+                added_bookmarks.append(b)
+                seen_bookmarks.add(b_word)
+
+        return added_bookmarks
 
     def scheduled_bookmarks(self, bookmark_count=10):
         """
@@ -233,6 +260,26 @@ class User(db.Model):
 
         word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
         return word_for_study
+
+    def bookmarks_in_pipeline(self):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return: a list of 10 words that are scheduled to be learned.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        words_in_pipeline = BasicSRSchedule.bookmarks_in_pipeline(self)
+        return words_in_pipeline
+
+    def total_bookmarks_in_pipeline(self):
+        """
+        :param bookmark_count: by default we recommend 10 words
+        :return: a list of 10 words that are scheduled to be learned.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        total_pipeline_bookmarks = BasicSRSchedule.total_bookmarks_in_pipeline(self)
+        return total_pipeline_bookmarks
 
     def date_of_last_bookmark(self):
         """
@@ -544,6 +591,12 @@ class User(db.Model):
         if good_for_study:
             bookmarks = [each for each in bookmarks if each.should_be_studied()]
 
+        # TODO: Think about doing this by default in the frontend; if there's no
+        # learning cycle, we assume it's RECEPTIVE. Otherwise we have to do this
+        # in muliple places
+        for each in bookmarks:
+            each.learning_cycle = LearningCycle.RECEPTIVE
+
         if not json:
             return bookmarks
 
@@ -721,3 +774,10 @@ class User(db.Model):
     def authorize_anonymous(cls, uuid, password):
         email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
         return cls.authorize(email, password)
+
+    def create_default_user_preference(self):
+        from zeeguu.core.model.user_preference import UserPreference
+
+        UserPreference.find_or_create(
+            db.session, self, UserPreference.PRODUCTIVE_EXERCISES, "true"
+        )

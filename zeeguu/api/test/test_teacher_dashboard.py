@@ -8,7 +8,7 @@ def test_is_teacher(client):
 
 def test_add_cohort(client):
     result = client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
-    assert result.decode('utf-8') == 'OK'
+    assert result.decode("utf-8") == "OK"
 
 
 def test_cohort_invite_code_already_in_use(client):
@@ -67,12 +67,10 @@ def test_student_does_not_have_access_to_cohort(client):
     cohorts = client.get("/cohorts_info")
 
     # Create a student user and log them in
-    student_data = dict(
-        password="test", username="test", learned_language="fr"
-    )
+    student_data = dict(password="test", username="test", learned_language="fr")
     email = "student@mir.lu"
     response = client.response_from_post(f"/add_user/{email}", data=student_data)
-    student_session = int(response.data)
+    student_session = response.data.decode("utf-8")
 
     # Ensure student user can't access /cohorts_info
     response = client.client.get(f"/cohorts_info?session={student_session}")
