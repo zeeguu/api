@@ -20,13 +20,16 @@ from zeeguu.core.util import password_hash
 from zeeguu.core.model import db
 from zeeguu.logging import warning
 
+# This mapping reflects splitting
+# the scale of 0 - 100 into 6 bands.
+# Rounded up (16.6666 ~ 17)
 CEFR_TO_DIFFICULTY_MAPPING = {
-    1: (1, 5.5),
-    2: (1, 6),
-    3: (3, 7),
-    4: (3, 7),
-    5: (6, 9),
-    6: (7, 10),
+    1: (0, 1.7),
+    2: (1.7, 3.4),
+    3: (3.4, 5.1),
+    4: (5.1, 6.8),
+    5: (6.8, 8.5),
+    6: (8.5, 10),
 }
 
 

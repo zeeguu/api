@@ -130,33 +130,27 @@ def build_elastic_recommender_query(
         if len(topics_arr) > 0:
             must.append({"terms": {"topics": topics_arr}})
 
-    if not second_try:
-        # on the second try we do not add the range;
-        # because we didn't find anything with it
-        bool_query_body["query"]["bool"].update(
-            {
-                "filter": {
-                    "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
-                }
-            }
-        )
+    # Let's not filter all the articles
+    # if not second_try:
+    #     # on the second try we do not add the range;
+    #     # because we didn't find anything with it
+    #     bool_query_body["query"]["bool"].update(
+    #         {
+    #             "filter": {
+    #                 "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
+    #             }
+    #         }
+    #     )
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
+    # bool_query_body["query"]["bool"].update({"should": should})
+    full_query = {
+        "size": count,
+        "query": {"function_score": {}},
+    }
 
-    # Consider not showing articles without new topics?
-    # bool_query_body["query"]["bool"].update(
-    #     {
-    #         "should": [
-    #             {"exists": {"field": "new_topics"}},
-    #             {"exists": {"field": "new_topics_inferred"}},
-    #         ]
-    #     }
-    # )
-
-    full_query = {"size": count, "query": {"function_score": {}}}
-
-    function1 = {
+    recency_preference = {
         # original parameters by Simon & Marcus
         "gauss": {
             "published_time": {
@@ -170,9 +164,19 @@ def build_elastic_recommender_query(
         # "weight": es_weight,
     }
 
-    full_query["query"]["function_score"].update({"functions": [function1]})
-    full_query["query"]["function_score"].update(bool_query_body)
+    difficulty_prefference = {
+        "gauss": {
+            "fk_difficulty": {
+                "origin": ((upper_bounds + lower_bounds) / 2),
+                "scale": 21,
+            }
+        },
+    }
 
+    full_query["query"]["function_score"].update(
+        {"functions": [recency_preference, difficulty_prefference]}
+    )
+    full_query["query"]["function_score"].update(bool_query_body)
     print(full_query)
     return full_query
 
@@ -213,23 +217,20 @@ def build_elastic_search_query(
         .exclude("match", description="pg15")
     )
 
-    if not second_try:
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
-
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     weighted_query = Q(
         "function_score",
         query=s.query,
         functions=[
+            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
             SF(
                 "gauss",
-                published_time={
-                    "scale": es_scale,
-                    "offset": es_offset,
-                    "decay": es_decay,
+                fk_difficulty={
+                    "origin": ((upper_bounds + lower_bounds) / 2),
+                    "scale": 21,
                 },
-            )
+            ),
         ],
     )
 

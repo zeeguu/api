@@ -140,6 +140,7 @@ class Article(db.Model):
         self.deleted = deleted
         self.video = video
         self.img_url = img_url
+        self.fk_cefr_level = None
 
         self.convertHTML2TextIfNeeded()
         self.compute_fk_and_wordcount()
@@ -148,11 +149,11 @@ class Article(db.Model):
         fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
         fk_difficulty = fk_estimator.estimate_difficulty(
             self.content, self.language, None
-        )["grade"]
+        )
 
         # easier to store integer in the DB
         # otherwise we have to use Decimal, and it's not supported on all dbs
-        self.fk_difficulty = fk_difficulty
+        self.fk_difficulty = fk_difficulty["grade"]
         self.word_count = len(self.content.split())
 
     def __repr__(self):
@@ -225,6 +226,23 @@ class Article(db.Model):
         :return:
         """
 
+        # We don't need to store this in the DB.
+        # I was trying to use the self.compute_fk_and_wordcount()
+        # but this wasn't working to set the field?
+        def fk_to_cefr(fk_difficulty):
+            if fk_difficulty < 17:
+                return "A1"
+            elif fk_difficulty < 34:
+                return "A2"
+            elif fk_difficulty < 51:
+                return "B1"
+            elif fk_difficulty < 68:
+                return "B2"
+            elif fk_difficulty < 85:
+                return "C1"
+            else:
+                return "C2"
+
         summary = self.content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         result_dict = dict(
@@ -237,7 +255,9 @@ class Article(db.Model):
             new_topics_list=self.new_topics_as_tuple(),
             video=self.video,
             metrics=dict(
-                difficulty=self.fk_difficulty / 100, word_count=self.word_count
+                difficulty=self.fk_difficulty / 100,
+                word_count=self.word_count,
+                cefr_level=fk_to_cefr(self.fk_difficulty),
             ),
         )
 

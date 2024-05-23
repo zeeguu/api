@@ -197,9 +197,8 @@ def article_search_for_user(
     user,
     count,
     search_terms,
-    es_scale="30d",
-    es_offset="1d",
-    es_decay=0.6,
+    es_scale="3d",
+    es_decay=0.8,
     es_weight=4.2,
 ):
     final_article_mix = []
