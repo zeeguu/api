@@ -102,23 +102,27 @@ def build_elastic_recommender_query(
     if len(topics_arr) > 0:
         must.append({"terms": {"topics": topics_arr}})
 
-    if not second_try:
-        # on the second try we do not add the range;
-        # because we didn't find anything with it
-        bool_query_body["query"]["bool"].update(
-            {
-                "filter": {
-                    "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
-                }
-            }
-        )
+    # Let's not filter all the articles
+    # if not second_try:
+    #     # on the second try we do not add the range;
+    #     # because we didn't find anything with it
+    #     bool_query_body["query"]["bool"].update(
+    #         {
+    #             "filter": {
+    #                 "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
+    #             }
+    #         }
+    #     )
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
+    # bool_query_body["query"]["bool"].update({"should": should})
+    full_query = {
+        "size": count,
+        "query": {"function_score": {}},
+    }
 
-    full_query = {"size": count, "query": {"function_score": {}}}
-
-    function1 = {
+    recency_preference = {
         # original parameters by Simon & Marcus
         "gauss": {
             "published_time": {
@@ -132,9 +136,19 @@ def build_elastic_recommender_query(
         # "weight": es_weight,
     }
 
-    full_query["query"]["function_score"].update({"functions": [function1]})
-    full_query["query"]["function_score"].update(bool_query_body)
+    difficulty_prefference = {
+        "gauss": {
+            "fk_difficulty": {
+                "origin": ((upper_bounds + lower_bounds) / 2),
+                "scale": 21,
+            }
+        },
+    }
 
+    full_query["query"]["function_score"].update(
+        {"functions": [recency_preference, difficulty_prefference]}
+    )
+    full_query["query"]["function_score"].update(bool_query_body)
     print(full_query)
     return full_query
 
@@ -168,16 +182,20 @@ def build_elastic_search_query(
         .exclude("match", description="pg15")
     )
 
-    if not second_try:
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
-
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     weighted_query = Q(
         "function_score",
         query=s.query,
         functions=[
-            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3})
+            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
+            SF(
+                "gauss",
+                fk_difficulty={
+                    "origin": ((upper_bounds + lower_bounds) / 2),
+                    "scale": 21,
+                },
+            ),
         ],
     )
 
@@ -185,15 +203,17 @@ def build_elastic_search_query(
 
     return query
 
+
 def build_elastic_more_like_this_query(
     language: Language,
     like_documents: list[dict[str, str]],
     similar_to: list[str],
     cutoff_days: int,
-    scale: str ="10d",
-    offset: str ="4h",
-    decay: float=0.9):
-    
+    scale: str = "10d",
+    offset: str = "4h",
+    decay: float = 0.9,
+):
+
     cutoff_date = datetime.now() - timedelta(days=cutoff_days)
 
     query = {
@@ -201,9 +221,7 @@ def build_elastic_more_like_this_query(
             "function_score": {
                 "query": {
                     "bool": {
-                        "must": [
-                            {'match': {'language': language.name}}
-                        ],
+                        "must": [{"match": {"language": language.name}}],
                         "should": {
                             "more_like_this": {
                                 "fields": similar_to,
@@ -211,7 +229,7 @@ def build_elastic_more_like_this_query(
                                 "min_term_freq": 2,
                                 "max_query_terms": 25,
                                 "min_doc_freq": 5,
-                                "min_word_length": 3
+                                "min_word_length": 3,
                             }
                         },
                         "filter": {
@@ -220,28 +238,33 @@ def build_elastic_more_like_this_query(
                                     {
                                         "range": {
                                             "published_time": {
-                                                "gte": cutoff_date.strftime('%Y-%m-%dT%H:%M:%S'),
-                                                "lte": "now"
+                                                "gte": cutoff_date.strftime(
+                                                    "%Y-%m-%dT%H:%M:%S"
+                                                ),
+                                                "lte": "now",
                                             }
                                         }
                                     }
                                 ]
                             }
-                        }
+                        },
                     }
-                }, "functions": [
-                        {"gauss": {
+                },
+                "functions": [
+                    {
+                        "gauss": {
                             "published_time": {
                                 "origin": "now",
                                 "scale": scale,
                                 "offset": offset,
-                                "decay": decay
+                                "decay": decay,
                             }
-                        }}
+                        }
+                    }
                 ],
-                "score_mode": "sum"
+                "score_mode": "sum",
             }
         }
     }
 
-    return query 
+    return query
