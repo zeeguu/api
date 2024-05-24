@@ -191,7 +191,7 @@ def get_filtered_searches():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{SEARCH}/<search_terms>/", methods=("GET",))
+@api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
 @api.route(f"/{SEARCH}/<search_terms>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
