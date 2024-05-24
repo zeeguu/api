@@ -187,11 +187,12 @@ def get_filtered_searches():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
+@api.route(f"/{SEARCH}/<search_terms>/", methods=("GET",))
+@api.route(f"/{SEARCH}/<search_terms>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def search_for_search_terms(search_terms):
+def search_for_search_terms(search_terms, page: int = 0):
     """
     This endpoint is used for the standard search.
     It passes the search terms to the mysql_recommender function
@@ -202,7 +203,7 @@ def search_for_search_terms(search_terms):
 
     """
 
-    articles = article_search_for_user(flask.g.user, 20, search_terms)
+    articles = article_search_for_user(flask.g.user, 20, search_terms, page=page)
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
     return json_result(article_infos)

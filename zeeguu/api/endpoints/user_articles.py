@@ -1,6 +1,10 @@
 import flask
 
-from zeeguu.core.content_recommender import article_recommendations_for_user, topic_filter_for_user, content_recommendations
+from zeeguu.core.content_recommender import (
+    article_recommendations_for_user,
+    topic_filter_for_user,
+    content_recommendations,
+)
 from zeeguu.core.model import UserArticle, Article, PersonalCopy
 
 from zeeguu.api.utils.route_wrappers import cross_domain, with_session
@@ -14,21 +18,26 @@ from flask import request
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
 @api.route("/user_articles/recommended/<int:count>", methods=("GET",))
+@api.route("/user_articles/recommended/<int:count>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @with_session
-def user_articles_recommended(count: int = 20):
+def user_articles_recommended(count: int = 20, page: int = 0):
     """
     recommendations for all languages
     """
 
     try:
-        articles = article_recommendations_for_user(flask.g.user, count)
+        articles = article_recommendations_for_user(flask.g.user, count, page)
     except:
         # we failed to get recommendations from elastic
-        # return something 
-        articles = Article.query.filter_by(broken=0).filter_by(language_id=flask.g.user.learned_language_id).order_by(
-            Article.published_time.desc()).limit(20)
+        # return something
+        articles = (
+            Article.query.filter_by(broken=0)
+            .filter_by(language_id=flask.g.user.learned_language_id)
+            .order_by(Article.published_time.desc())
+            .limit(20)
+        )
 
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
@@ -41,9 +50,7 @@ def user_articles_recommended(count: int = 20):
 def saved_articles():
     saves = PersonalCopy.all_for(flask.g.user)
 
-    article_infos = [
-        UserArticle.user_article_info(flask.g.user, e) for e in saves
-    ]
+    article_infos = [UserArticle.user_article_info(flask.g.user, e) for e in saves]
 
     return json_result(article_infos)
 
@@ -66,8 +73,16 @@ def user_articles_topic_filtered():
     min_duration = request.form.get("min_duration", None)
     difficulty_level = request.form.get("difficulty_level", None)
 
-    articles = topic_filter_for_user(flask.g.user, MAX_ARTICLES_PER_TOPIC, newer_than,
-                                     media_type, max_duration, min_duration, difficulty_level, topic)
+    articles = topic_filter_for_user(
+        flask.g.user,
+        MAX_ARTICLES_PER_TOPIC,
+        newer_than,
+        media_type,
+        max_duration,
+        min_duration,
+        difficulty_level,
+        topic,
+    )
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
 
     return json_result(article_infos)
@@ -96,6 +111,7 @@ def user_articles_cohort():
 
     return json_result(flask.g.user.cohort_articles_for_user())
 
+
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/foryou", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -104,13 +120,15 @@ def user_articles_cohort():
 def user_articles_foryou():
     article_infos = []
     try:
-        articles = content_recommendations(flask.g.user.id, flask.g.user.learned_language_id)
+        articles = content_recommendations(
+            flask.g.user.id, flask.g.user.learned_language_id
+        )
         print("Sending CB recommendations")
     except Exception as e:
         print(e)
         capture_exception(e)
-        #Usually no recommendations when the user has not liked any articles
+        # Usually no recommendations when the user has not liked any articles
         articles = []
     article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
-    
+
     return json_result(article_infos)

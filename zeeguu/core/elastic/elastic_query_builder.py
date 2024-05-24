@@ -33,6 +33,7 @@ def build_elastic_recommender_query(
     es_decay=0.5,
     es_weight=2.1,
     second_try=False,
+    page=0,
 ):
     """
 
@@ -118,26 +119,29 @@ def build_elastic_recommender_query(
     bool_query_body["query"]["bool"].update({"must_not": must_not})
     # bool_query_body["query"]["bool"].update({"should": should})
     full_query = {
+        "from": page * count,
         "size": count,
         "query": {"function_score": {}},
     }
 
     recency_preference = {
         # original parameters by Simon & Marcus
-        "gauss": {
+        "exp": {
             "published_time": {
                 "scale": es_scale,
                 "offset": es_offset,
                 "decay": es_decay,
             }
         },
-        "weight": es_weight,
-        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
+        # I am unsure if we should keep he weight for this one.
+        # Right now, I guess it means we weigh both the difficulty
+        # and recency equaly which I think it's the behaviour we would ike.
         # "weight": es_weight,
+        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
     }
 
     difficulty_prefference = {
-        "gauss": {
+        "exp": {
             "fk_difficulty": {
                 "origin": ((upper_bounds + lower_bounds) / 2),
                 "scale": 21,
@@ -167,6 +171,7 @@ def build_elastic_search_query(
     es_decay=0.8,
     es_weight=4.2,
     second_try=False,
+    page=0,
 ):
     """
     Builds an elastic search query for search terms.
@@ -188,18 +193,19 @@ def build_elastic_search_query(
         "function_score",
         query=s.query,
         functions=[
-            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
+            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.9}),
             SF(
-                "gauss",
+                "exp",
                 fk_difficulty={
                     "origin": ((upper_bounds + lower_bounds) / 2),
                     "scale": 21,
+                    "decay": 0.9,
                 },
             ),
         ],
     )
 
-    query = {"size": count, "query": weighted_query.to_dict()}
+    query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
 
     return query
 

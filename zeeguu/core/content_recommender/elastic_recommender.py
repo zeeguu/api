@@ -83,6 +83,7 @@ def _prepare_user_constraints(user):
 def article_recommendations_for_user(
     user,
     count,
+    page=0,
     es_scale="30d",
     es_offset="1d",
     es_decay=0.6,
@@ -125,6 +126,7 @@ def article_recommendations_for_user(
         es_offset,
         es_decay,
         es_weight,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -169,6 +171,7 @@ def article_search_for_user(
     es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
+    page=0,
 ):
     final_article_mix = []
 
@@ -196,6 +199,7 @@ def article_search_for_user(
         es_scale,
         es_decay,
         es_weight,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -220,6 +224,7 @@ def article_search_for_user(
             es_decay,
             es_weight,
             second_try=True,
+            page=page,
         )
         res = es.search(index=ES_ZINDEX, body=query_body)
 
