@@ -14,18 +14,18 @@ from python_translators.translation_query import TranslationQuery
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, Article, Text
+from zeeguu.core.model import Bookmark, Article, Text, User
 from zeeguu.core.model.user_word import UserWord
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 punctuation_extended = "»«" + punctuation
 
 
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@with_session
+@requires_session
 def get_one_translation(from_lang_code, to_lang_code):
     """
 
@@ -54,8 +54,9 @@ def get_one_translation(from_lang_code, to_lang_code):
     # - a teacher's translation or a senior user's should still
     # be considered here
     print("getting own past translation....")
+    user = User.find_by_id(flask.g.user_id)
     bookmark = get_own_past_translation(
-        flask.g.user, word_str, from_lang_code, to_lang_code, context
+        user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
         best_guess = bookmark.translation.word
@@ -79,10 +80,10 @@ def get_one_translation(from_lang_code, to_lang_code):
         best_guess = translations[0]["translation"]
         likelihood = translations[0].pop("quality")
         source = translations[0].pop("service_name")
-
+        user = User.find_by_id(flask.g.user_id)
         bookmark = Bookmark.find_or_create(
             db_session,
-            flask.g.user,
+            user,
             word_str,
             from_lang_code,
             best_guess,
@@ -105,7 +106,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     "/get_multiple_translations/<from_lang_code>/<to_lang_code>", methods=["POST"]
 )
 @cross_domain
-@with_session
+@requires_session
 def get_multiple_translations(from_lang_code, to_lang_code):
     """
     Returns a list of possible translations in :param to_lang_code
@@ -164,7 +165,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
-@with_session
+@requires_session
 def update_translation(bookmark_id):
     """
 
@@ -204,7 +205,7 @@ def update_translation(bookmark_id):
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@with_session
+@requires_session
 def contribute_translation(from_lang_code, to_lang_code):
     """
 
@@ -252,10 +253,10 @@ def contribute_translation(from_lang_code, to_lang_code):
     selected_from_predefined_choices = request.form.get(
         "selected_from_predefined_choices", ""
     )
-
+    user = User.find_by_id(flask.g.user_id)
     bookmark = Bookmark.find_or_create(
         db_session,
-        flask.g.user,
+        user,
         word_str,
         from_lang_code,
         translation_str,
@@ -281,7 +282,7 @@ def contribute_translation(from_lang_code, to_lang_code):
 
 @api.route("/basic_translate/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
-@with_session
+@requires_session
 def basic_translate(from_lang_code, to_lang_code):
     phrase = request.form["phrase"].strip(punctuation_extended)
 

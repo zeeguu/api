@@ -2,7 +2,7 @@ import flask
 
 from zeeguu.core.model import UserExerciseSession
 
-from zeeguu.api.utils.route_wrappers import with_session
+from zeeguu.api.utils.route_wrappers import requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 from flask import request
@@ -17,9 +17,9 @@ from zeeguu.core.emailer.user_activity import (
     "/exercise_session_start",
     methods=["POST"],
 )
-@with_session
+@requires_session
 def exercise_session_start():
-    session = UserExerciseSession(flask.g.user.id, datetime.now())
+    session = UserExerciseSession(flask.g.user_id, datetime.now())
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))
@@ -29,7 +29,7 @@ def exercise_session_start():
     "/exercise_session_update",
     methods=["POST"],
 )
-@with_session
+@requires_session
 def exercise_session_update():
     session = update_activity_session(UserExerciseSession, request, db_session)
     return json_result(dict(id=session.id, duration=session.duration))
@@ -39,7 +39,7 @@ def exercise_session_update():
     "/exercise_session_end",
     methods=["POST"],
 )
-@with_session
+@requires_session
 def exercise_session_end():
     session = update_activity_session(UserExerciseSession, request, db_session)
     send_user_finished_exercise_session(session)
@@ -50,7 +50,7 @@ def exercise_session_end():
     "/exercise_session_info/<id>",
     methods=["GET"],
 )
-@with_session
+@requires_session
 def exercise_session_info(id):
     session = UserExerciseSession.find_by_id(id)
     return json_result(dict(id=session.id, duration=session.duration))

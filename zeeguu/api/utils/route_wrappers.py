@@ -1,11 +1,16 @@
 import functools
 import flask
 from zeeguu.logging import log
-from zeeguu.core.model.session import Session, User
+from zeeguu.core.model.session import Session
+
+from datetime import datetime, timedelta
 import zeeguu
 
+SESSION_CACHE = {}
+SESSION_CACHE_TIMEOUT = 60  # Seconds
 
-def with_session(view):
+
+def requires_session(view):
     """
     Decorator checks that user is in a session.
 
@@ -19,20 +24,40 @@ def with_session(view):
     def wrapped_view(*args, **kwargs):
         try:
             session_uuid = flask.request.args["session"]
-            session_object = Session.find(session_uuid)
-            if session_object is None:
-                flask.abort(401)
+            user_id, session_expiry_time = SESSION_CACHE.get(
+                session_uuid,
+                (
+                    None,
+                    None,
+                ),
+            )
+            if session_expiry_time is None or datetime.now() > session_expiry_time:
+                from zeeguu.api.endpoints.sessions import (
+                    is_session_too_old,
+                    force_user_to_relog,
+                )
 
-            user = User.find_by_id(session_object.user_id)
-            flask.g.user = user
-            # TODO: ideally update in parallel with running the decorated method?
-            session_object.update_use_date()
-            zeeguu.core.model.db.session.add(session_object)
-            zeeguu.core.model.db.session.commit()
+                print("----------- Updating Cache! -----------")
+                session_object = Session.find(session_uuid)
+                if session_object is None:
+                    flask.abort(401)
+                if is_session_too_old(session_object):
+                    force_user_to_relog(session_object)
+                    flask.abort(401)
+                user_id = session_object.user_id
+                SESSION_CACHE[session_uuid] = (
+                    user_id,
+                    datetime.now() + timedelta(0, SESSION_CACHE_TIMEOUT),
+                )
+            print("----------- Using Cache! -----------")
+            flask.g.user_id = user_id
+            flask.g.session_uuid = session_uuid
 
         except Exception as e:
             import traceback
+            from sentry_sdk import capture_exception
 
+            capture_exception(e)
             traceback.print_exc()
             flask.abort(401)
 
