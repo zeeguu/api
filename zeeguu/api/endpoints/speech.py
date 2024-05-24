@@ -4,7 +4,7 @@ import re
 from flask import request
 
 from zeeguu.api.endpoints import api
-from zeeguu.api.utils import cross_domain, with_session
+from zeeguu.api.utils import cross_domain, requires_session
 
 DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
 
@@ -28,7 +28,7 @@ def voice_for_language(language_id):
 
 @api.route("/text_to_speech", methods=("POST",))
 @cross_domain
-@with_session
+@requires_session
 def tts():
     import zeeguu.core
     from zeeguu.core.model import UserWord, Language
@@ -56,7 +56,7 @@ def tts():
 
 @api.route("/mp3_of_full_article", methods=("POST",))
 @cross_domain
-@with_session
+@requires_session
 def mp3_of_full_article():
     print("in mp3_of_full_article")
     import zeeguu.core

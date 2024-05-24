@@ -5,13 +5,13 @@ from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
 )
 
 from . import api, db_session
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
-from zeeguu.core.model import UserActivityData
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.model import UserActivityData, User
 
 
 @api.route("/upload_user_activity_data", methods=["POST"])
 @cross_domain
-@with_session
+@requires_session
 def upload_user_activity_data():
     """
 
@@ -32,15 +32,15 @@ def upload_user_activity_data():
 
     :return: OK if all went well
     """
-
-    UserActivityData.create_from_post_data(db_session, request.form, flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    UserActivityData.create_from_post_data(db_session, request.form, user)
 
     if request.form.get("article_id", None):
-        distill_article_interactions(db_session, flask.g.user, request.form)
+        distill_article_interactions(db_session, user, request.form)
 
     if request.form.get("event") == "AUDIO_EXP":
         from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
-        ZeeguuMailer.notify_audio_experiment(request.form, flask.g.user)
+        ZeeguuMailer.notify_audio_experiment(request.form, user)
 
     return "OK"

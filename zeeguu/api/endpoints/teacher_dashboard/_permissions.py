@@ -13,7 +13,7 @@ def has_permission_for_cohort(cohort_id):
 
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for m in maps:
-        if m.user_id == flask.g.user.id:
+        if m.user_id == flask.g.user_id:
             return True
     return False
 
