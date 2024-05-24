@@ -32,11 +32,17 @@ def requires_session(view):
                 ),
             )
             if session_expiry_time is None or datetime.now() > session_expiry_time:
-                from zeeguu.api.endpoints.sessions import is_session_valid
+                from zeeguu.api.endpoints.sessions import (
+                    is_session_too_old,
+                    force_user_to_relog,
+                )
 
                 print("----------- Updating Cache! -----------")
                 session_object = Session.find(session_uuid)
-                if not is_session_valid(session_object):
+                if session_object is None:
+                    flask.abort(401)
+                if is_session_too_old(session_object):
+                    force_user_to_relog(session_object)
                     flask.abort(401)
                 user_id = session_object.user_id
                 SESSION_CACHE[session_uuid] = (
@@ -49,7 +55,9 @@ def requires_session(view):
 
         except Exception as e:
             import traceback
+            from sentry_sdk import capture_exception
 
+            capture_exception(e)
             traceback.print_exc()
             flask.abort(401)
 

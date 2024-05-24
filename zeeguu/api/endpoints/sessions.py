@@ -10,19 +10,16 @@ from . import api, db_session
 DAYS_BEFORE_EXPIRE = 30  # Days
 
 
-def is_session_valid(session_object):
-    print("----------- Validating the Session based on Last use!! -----------")
-    if session_object is None:
-        return False
-    is_session_too_old = (
-        datetime.now() - session_object.last_use
-    ).days > DAYS_BEFORE_EXPIRE
-    if is_session_too_old:
-        print("Session was too old! - logging out!")
-        db_session.delete(session_object)
-        db_session.commit()
-        return False
-    return True
+def is_session_too_old(session_object):
+    return (datetime.now() - session_object.last_use).days > DAYS_BEFORE_EXPIRE
+
+
+def force_user_to_relog(session_object, reason: str = ""):
+    print(
+        f"Session for user '{session_object.user_id}' was terminated. Reason: '{reason}'"
+    )
+    db_session.delete(session_object)
+    db_session.commit()
 
 
 @api.route("/session/<email>", methods=["POST"])
@@ -92,7 +89,10 @@ def validate():
     """
     # TODO: ideally update in parallel with running the decorated method?
     session_object = Session.find(flask.g.session_uuid)
-    if not is_session_valid(session_object):
+    if session_object is None:
+        flask.abort(401)
+    if is_session_too_old(session_object):
+        force_user_to_relog(session_object, "Session was too old.")
         flask.abort(401)
     session_object.update_use_date()
     db_session.add(session_object)
