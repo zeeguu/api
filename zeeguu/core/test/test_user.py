@@ -8,8 +8,9 @@ from dateutil.utils import today
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.model import User
+from zeeguu.core.model import User, Session
 from zeeguu.core.model import db
+from zeeguu.core.account_management.user_account_deletion import delete_user_account
 
 
 class UserTest(ModelTestMixIn):
@@ -151,3 +152,10 @@ class UserTest(ModelTestMixIn):
         return datetime(
             date_with_time.year, date_with_time.month, date_with_time.day, 0, 0, 0
         )
+
+    def test_user_deletion(self):
+        new_session = Session.create_for_user(self.user)
+        db.session.add(new_session)
+        db.session.commit()
+        delete_user_account(db.session, new_session.uuid)
+        assert not User.exists(self.user)
