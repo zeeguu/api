@@ -168,10 +168,10 @@ def article_search_for_user(
     user,
     count,
     search_terms,
+    page=0,
     es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
-    page=0,
 ):
     final_article_mix = []
 
