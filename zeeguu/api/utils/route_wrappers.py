@@ -2,10 +2,15 @@ import functools
 import flask
 from zeeguu.logging import log
 from zeeguu.core.model.session import Session
+
+from datetime import datetime, timedelta
 import zeeguu
 
+SESSION_CACHE = {}
+SESSION_CACHE_TIMEOUT = 60  # Seconds
 
-def with_session(view):
+
+def requires_session(view):
     """
     Decorator checks that user is in a session.
 
@@ -18,23 +23,45 @@ def with_session(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         try:
-            session_id = int(flask.request.args["session"])
-        except:
-            flask.abort(401)
-        session = Session.query.get(session_id)
-        if session is None:
-            flask.abort(401)
-        flask.g.user = session.user
-        session.update_use_date()
+            session_uuid = flask.request.args["session"]
+            user_id, session_expiry_time = SESSION_CACHE.get(
+                session_uuid,
+                (
+                    None,
+                    None,
+                ),
+            )
+            if session_expiry_time is None or datetime.now() > session_expiry_time:
+                from zeeguu.api.endpoints.sessions import (
+                    is_session_too_old,
+                    force_user_to_relog,
+                )
 
-        log(str(flask.g.user.id) + " API CALL: " + str(view))
+                print("----------- Updating Cache! -----------")
+                session_object = Session.find(session_uuid)
+                if session_object is None:
+                    flask.abort(401)
+                if is_session_too_old(session_object):
+                    force_user_to_relog(session_object)
+                    flask.abort(401)
+                user_id = session_object.user_id
+                SESSION_CACHE[session_uuid] = (
+                    user_id,
+                    datetime.now() + timedelta(0, SESSION_CACHE_TIMEOUT),
+                )
+            print("----------- Using Cache! -----------")
+            flask.g.user_id = user_id
+            flask.g.session_uuid = session_uuid
 
-        zeeguu.core.model.db.session.add(session)
-        # TODO: remove this commit? and add it after such that the session can be added with the next commit?
-        zeeguu.core.model.db.session.commit()
+        except Exception as e:
+            import traceback
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+            traceback.print_exc()
+            flask.abort(401)
+
         return view(*args, **kwargs)
-
-        zeeguu.core.model.db.session.close()
 
     return wrapped_view
 

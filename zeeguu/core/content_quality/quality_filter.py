@@ -31,7 +31,7 @@ incomplete_suggesting_terminations = "Read More"
 
 LIVE_BLOG_KIND_OF_PATTERNS = [
     "Lees hier het hele verhaal",
-    "Lees hier het hele verhaal"
+    "Lees hier het hele verhaal",
 ]
 
 
@@ -46,8 +46,7 @@ def sufficient_quality_html(html):
 
 
 def sufficient_quality_plain_text(text):
-    word_count = len(text.split(" "))
-
+    word_count = len(text.split())
     if word_count < Article.MINIMUM_WORD_COUNT:
         return False, f"Too Short ({word_count} words) {text}"
 
@@ -61,13 +60,13 @@ def sufficient_quality_plain_text(text):
     for each in LIVE_BLOG_KIND_OF_PATTERNS:
         if text.find(each) >= 0:
             return False, "Live blog kind of article"
-    
+
     paywall_pred = is_paywalled(text)
     if paywall_pred > 0:
         # 0 is Normal Text
         label_found = ID_TO_LABEL_PAYWALL[paywall_pred]
         return False, f"ML Prediction was '{label_found}'."
-    
+
     return True, ""
 
 
