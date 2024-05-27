@@ -1,4 +1,3 @@
-from zeeguu.api.app import create_app
 import sqlalchemy
 from zeeguu.core.model import (
     User,
@@ -12,9 +11,6 @@ from zeeguu.core.model import (
 import time
 import zeeguu.core
 from zeeguu.core.model.starred_article import StarredArticle
-
-app = create_app()
-app.app_context().push()
 
 db_session = zeeguu.core.model.db.session
 
@@ -54,11 +50,11 @@ tables_to_modify = [
 ]
 
 
-def delete_user_account(db_session, user_session_id):
+def delete_user_account(db_session, user_session_uuid):
     try:
         start_time = time.time()
         total_rows_affected = 0
-        user_session = Session.find(user_session_id)
+        user_session = Session.find(user_session_uuid)
         user_to_delete = User.find_by_id(user_session.user_id)
         articles = Article.uploaded_by(user_to_delete.id)
         print(f"Removing author from Articles:")
@@ -92,7 +88,12 @@ def delete_user_account(db_session, user_session_id):
     except sqlalchemy.exc.IntegrityError:
         raise Exception("Integrity Error")
     except sqlalchemy.exc.NoResultFound:
-        raise Exception(f"Couldn't find specified user session: '{user_session_id}'")
+        raise Exception(f"Couldn't find specified user session: '{user_session_uuid}'")
     except Exception as e:
+        from sentry_sdk import capture_exception
+
+        capture_exception(e)
         print(e)
-        raise Exception(f"Could not delete the user with session: '{user_session_id}'")
+        raise Exception(
+            f"Could not delete the user with session: '{user_session_uuid}'"
+        )
