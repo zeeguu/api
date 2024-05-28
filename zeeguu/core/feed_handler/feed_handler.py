@@ -22,6 +22,7 @@ class FeedHandler:
             print(
                 f"Failed parsing into Datetime, using current date. Date was: '{article_date}', Failed with: '{e}'"
             )
+        finally:
             return datetime.now()
 
     def extract_feed_metadata() -> None:
