@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 from zeeguu.core.util.time import normalize_to_server_time
-from datetime import datetime
 from time import mktime, struct_time
 
 
