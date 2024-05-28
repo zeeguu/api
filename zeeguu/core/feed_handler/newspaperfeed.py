@@ -10,7 +10,6 @@ class NewspaperFeed(FeedHandler):
         url: str,
         feed_type: int,
         use_cache: bool = True,
-        is_stored_db: bool = False,
     ):
         self.use_cache = use_cache
         super().__init__(url, feed_type)
