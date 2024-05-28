@@ -21,7 +21,7 @@ class FeedHandler:
                 return normalize_to_server_time(article_date)
         except Exception as e:
             print(
-                f"Failed parsing into Datetime, using current date: '{article_date}', '{e}'"
+                f"Failed parsing into Datetime, using current date. Date was: '{article_date}', Failed with: '{e}'"
             )
             return datetime.now()
 
