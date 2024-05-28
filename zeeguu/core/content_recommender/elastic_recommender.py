@@ -135,27 +135,6 @@ def article_recommendations_for_user(
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_recommender_query(
-            count,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_decay,
-            es_weight,
-            second_try=True,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
-
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
     articles = [a for a in final_article_mix if a is not None and not a.broken]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
@@ -207,29 +186,6 @@ def article_search_for_user(
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_search_query(
-            count,
-            search_terms,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_decay,
-            es_weight,
-            second_try=True,
-            page=page,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
-
-        hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
     return [a for a in final_article_mix if a is not None and not a.broken]
 

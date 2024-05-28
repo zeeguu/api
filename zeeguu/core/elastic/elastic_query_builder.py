@@ -32,7 +32,6 @@ def build_elastic_recommender_query(
     es_offset="1d",
     es_decay=0.5,
     es_weight=2.1,
-    second_try=False,
     page=0,
 ):
     """
@@ -103,18 +102,6 @@ def build_elastic_recommender_query(
     if len(topics_arr) > 0:
         must.append({"terms": {"topics": topics_arr}})
 
-    # Let's not filter all the articles
-    # if not second_try:
-    #     # on the second try we do not add the range;
-    #     # because we didn't find anything with it
-    #     bool_query_body["query"]["bool"].update(
-    #         {
-    #             "filter": {
-    #                 "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
-    #             }
-    #         }
-    #     )
-
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
     # bool_query_body["query"]["bool"].update({"should": should})
@@ -170,14 +157,12 @@ def build_elastic_search_query(
     es_scale="3d",
     es_decay=0.8,
     es_weight=4.2,
-    second_try=False,
     page=0,
 ):
     """
     Builds an elastic search query for search terms.
-    If called with second_try it drops the difficulty constraints
-    It also weights more recent results higher
 
+    Uses the recency and the difficulty of articles to prioritize documents.
     """
 
     s = (
