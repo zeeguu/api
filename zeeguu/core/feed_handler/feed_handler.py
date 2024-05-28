@@ -1,5 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from zeeguu.core.util.time import normalize_to_server_time
+from datetime import datetime
+from time import mktime, struct_time
 
 
 class FeedHandler:
@@ -11,9 +13,17 @@ class FeedHandler:
         self.image_url_string = ""
 
     def get_server_time(self, article_date) -> datetime:
-        if type(article_date) is datetime:
-            return normalize_to_server_time(article_date)
-        return datetime.now()
+        try:
+            if type(article_date) is struct_time:
+                # Convert in case it is a struct_time obj
+                article_date = datetime.fromtimestamp(mktime(article_date))
+            if type(article_date) is datetime:
+                return normalize_to_server_time(article_date)
+        except Exception as e:
+            print(
+                f"Failed parsing into Datetime, using current date: '{article_date}', '{e}'"
+            )
+            return datetime.now()
 
     def extract_feed_metadata() -> None:
         """
