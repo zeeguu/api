@@ -6,6 +6,7 @@
    - topics, language and user subscriptions.
 
 """
+
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q, SF
 
@@ -22,10 +23,11 @@ from zeeguu.core.model import (
 from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_recommender_query,
     build_elastic_search_query,
-    build_elastic_more_like_this_query
+    build_elastic_more_like_this_query,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+
 
 def _prepare_user_constraints(user):
     language = user.learned_language
@@ -79,12 +81,13 @@ def _prepare_user_constraints(user):
 
 
 def article_recommendations_for_user(
-        user,
-        count,
-        es_scale="30d",
-        es_offset="1d",
-        es_decay=0.6,
-        es_weight=4.2,
+    user,
+    count,
+    page=0,
+    es_scale="30d",
+    es_offset="1d",
+    es_decay=0.6,
+    es_weight=4.2,
 ):
     """
 
@@ -123,31 +126,11 @@ def article_recommendations_for_user(
         es_offset,
         es_decay,
         es_weight,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
-
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_recommender_query(
-            count,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_decay,
-            es_weight,
-            second_try=True,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
@@ -161,12 +144,13 @@ def article_recommendations_for_user(
 
 @time_this
 def article_search_for_user(
-        user,
-        count,
-        search_terms,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
+    user,
+    count,
+    search_terms,
+    page=0,
+    es_scale="3d",
+    es_decay=0.8,
+    es_weight=4.2,
 ):
     final_article_mix = []
 
@@ -194,6 +178,7 @@ def article_search_for_user(
         es_scale,
         es_decay,
         es_weight,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -202,39 +187,19 @@ def article_search_for_user(
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_search_query(
-            count,
-            search_terms,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_decay,
-            es_weight,
-            second_try=True,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
-
-        hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
     return [a for a in final_article_mix if a is not None and not a.broken]
 
 
-def topic_filter_for_user(user,
-                          count,
-                          newer_than,
-                          media_type,
-                          max_duration,
-                          min_duration,
-                          difficulty_level,
-                          topic):
+def topic_filter_for_user(
+    user,
+    count,
+    newer_than,
+    media_type,
+    max_duration,
+    min_duration,
+    difficulty_level,
+    topic,
+):
     es = Elasticsearch(ES_CONN_STRING)
 
     s = Search().query(Q("term", language=user.learned_language.code()))
@@ -245,10 +210,14 @@ def topic_filter_for_user(user,
     AVERAGE_WORDS_PER_MINUTE = 70
 
     if max_duration:
-        s = s.filter("range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE})
+        s = s.filter(
+            "range", word_count={"lte": int(max_duration) * AVERAGE_WORDS_PER_MINUTE}
+        )
 
     if min_duration:
-        s = s.filter("range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE})
+        s = s.filter(
+            "range", word_count={"gte": int(min_duration) * AVERAGE_WORDS_PER_MINUTE}
+        )
 
     if media_type:
         if media_type == "video":
@@ -261,14 +230,15 @@ def topic_filter_for_user(user,
 
     if difficulty_level:
         lower_bounds, upper_bounds = _difficuty_level_bounds()
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds,
-                                             "lte": upper_bounds})
+        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
 
     query = s.query
 
-    query_with_size = {"size": count,
-                       "query": query.to_dict(),
-                       "sort": [{"published_time": "desc"}]}
+    query_with_size = {
+        "size": count,
+        "query": query.to_dict(),
+        "sort": [{"published_time": "desc"}],
+    }
 
     res = es.search(index=ES_ZINDEX, body=query_with_size)
 
@@ -304,19 +274,24 @@ def _difficuty_level_bounds(level):
     return lower_bounds, upper_bounds
 
 
-def __find_articles_like(recommended_articles_ids: 'list[int]', limit: int, article_age: int, language_id: int) -> 'list[Article]':
+def __find_articles_like(
+    recommended_articles_ids: "list[int]",
+    limit: int,
+    article_age: int,
+    language_id: int,
+) -> "list[Article]":
     es = Elasticsearch(ES_CONN_STRING)
     fields = ["content", "title"]
     language = Language.find_by_id(language_id)
     like_documents = [
-        {"_index": ES_ZINDEX, "_id": str(doc_id) } for doc_id in recommended_articles_ids
+        {"_index": ES_ZINDEX, "_id": str(doc_id)} for doc_id in recommended_articles_ids
     ]
-    
+
     mlt_query = build_elastic_more_like_this_query(
         language=language,
         like_documents=like_documents,
         similar_to=fields,
-        cutoff_days=article_age
+        cutoff_days=article_age,
     )
 
     res = es.search(index=ES_ZINDEX, body=mlt_query, size=limit)
@@ -324,13 +299,14 @@ def __find_articles_like(recommended_articles_ids: 'list[int]', limit: int, arti
     articles = [a for a in articles if a.broken == 0]
     return articles
 
+
 def content_recommendations(user_id: int, language_id: int):
-       query = UserArticle.all_liked_articles_of_user_by_id(user_id)
-       
-       user_likes = []
-       for article in query:
-           if article.article.language_id == language_id:
-               user_likes.append(article.article_id)
-       
-       articles_to_recommend = __find_articles_like(user_likes, 20, 50, language_id)
-       return articles_to_recommend
+    query = UserArticle.all_liked_articles_of_user_by_id(user_id)
+
+    user_likes = []
+    for article in query:
+        if article.article.language_id == language_id:
+            user_likes.append(article.article_id)
+
+    articles_to_recommend = __find_articles_like(user_likes, 20, 50, language_id)
+    return articles_to_recommend

@@ -37,6 +37,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
             normalized=cls.normalize_difficulty(flesch_kincaid_index),
             discrete=cls.discrete_difficulty(flesch_kincaid_index),
             grade=cls.grade_difficulty(flesch_kincaid_index),
+            cefr_level=cls.discrete_difficulty_CEFR(flesch_kincaid_index),
         )
 
         return difficulty_scores
@@ -96,7 +97,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
             return int(math.floor(syllables))  # Truncate the number of syllables
         else:
             # pyphen can't hyphenate on 'no' - so we use 'nb' instead
-            code = 'nb' if language.code == 'no' else language.code
+            code = "nb" if language.code == "no" else language.code
             dic = pyphen.Pyphen(lang=code)
             syllables = len(dic.positions(word)) + 1
             return syllables
@@ -118,6 +119,22 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
             return "MEDIUM"
         else:
             return "HARD"
+
+    @classmethod
+    def discrete_difficulty_CEFR(cls, score: int):
+        # Divided the scale into 6 bands
+        if score > 83:
+            return "A1"
+        elif score > 66:
+            return "A2"
+        elif score > 49:
+            return "B1"
+        elif score > 32:
+            return "B2"
+        elif score > 15:
+            return "C1"
+        else:
+            return "C2"
 
     @classmethod
     def grade_difficulty(cls, score: int):

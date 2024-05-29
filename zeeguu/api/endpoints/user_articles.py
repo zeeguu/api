@@ -18,16 +18,18 @@ from flask import request
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
 @api.route("/user_articles/recommended/<int:count>", methods=("GET",))
+@api.route("/user_articles/recommended/<int:count>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def user_articles_recommended(count: int = 20):
+def user_articles_recommended(count: int = 20, page: int = 0):
     """
     recommendations for all languages
     """
     user = User.find_by_id(flask.g.user_id)
     try:
-        articles = article_recommendations_for_user(user, count)
+        articles = article_recommendations_for_user(user, count, page)
+
     except:
         # we failed to get recommendations from elastic
         # return something
