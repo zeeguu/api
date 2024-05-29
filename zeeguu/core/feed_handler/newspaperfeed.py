@@ -1,4 +1,5 @@
 import newspaper
+from zeeguu.core.util.time import covert_to_server_time
 from .feed_handler import FeedHandler
 
 from zeeguu.logging import log, logp
@@ -46,7 +47,7 @@ class NewspaperFeed(FeedHandler):
         for article in feed_data:
             article.download()
             article.parse()
-            publish_date = self.get_server_time(article.publish_date)
+            publish_date = covert_to_server_time(article.publish_date)
 
             new_item_data_dict = dict(
                 title=article.title,

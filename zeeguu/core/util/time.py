@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+from time import mktime, struct_time
 
 
 SERVER_HOUR_DIFFERENCE = 1  # Frankfurt is +1 from UTC
@@ -28,11 +29,12 @@ means we have likely used the server time as reference for all our operations. T
 when an article gets parsed, we should call normalize_to_server_time(). 
 """
 
+
 def get_server_time_utc():
     # Returns the time with the time delta of the server, converted
     # to UTC. This is now a time aware object. This can be useful
     # if we need to perform operations between the server time and
-    # a timezone aware datetime object. 
+    # a timezone aware datetime object.
     # This is not used at this time, see explanation above.
     return (
         datetime.now()
@@ -41,40 +43,50 @@ def get_server_time_utc():
     )
 
 
-def normalize_to_server_time(date: datetime):
+def covert_to_server_time(date: datetime):
     """
-        Takes a datetime that MIGHT be a timezone aware object and converts it to
-        the server time and makes it not time aware (so it can be operated on with datetime.now()).
+    Takes a datetime that MIGHT be a timezone aware object and converts it to
+    the server time and makes it not time aware (so it can be operated on with datetime.now()).
 
-        Examples:
-        ## Case there is a non-tz aware object
-        # A non-timezone aware object is created
-        >>> example1 = datetime.fromisoformat('2011-11-04 10:05:23.283')
-        datetime.datetime(2011, 11, 4, 10, 5, 23, 283000)
-        >>> example1 - datetime.now()
-        datetime.timedelta(days=-4473, seconds=1087, microseconds=670042)
-        >>> example1_timeaware = example1.astimezone(timezone(timedelta(hours=1)))
-        datetime.datetime(2011, 11, 4, 10, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=3600)))
-        >>> example1_timeaware - datetime.now()
-        Traceback (most recent call last):
-        File "<stdin>", line 1, in <module>
-        TypeError: can't subtract offset-naive and offset-aware datetimes
-        >>> example1_timeaware.replace(tzinfo=None)
-        datetime.datetime(2011, 11, 4, 10, 5, 23, 283000)
-        # We obtain the same object, it is assumed that the datetime was already in the server time.
+    Examples:
+    ## Case there is a non-tz aware object
+    # A non-timezone aware object is created
+    >>> example1 = datetime.fromisoformat('2011-11-04 10:05:23.283')
+    datetime.datetime(2011, 11, 4, 10, 5, 23, 283000)
+    >>> example1 - datetime.now()
+    datetime.timedelta(days=-4473, seconds=1087, microseconds=670042)
+    >>> example1_timeaware = example1.astimezone(timezone(timedelta(hours=1)))
+    datetime.datetime(2011, 11, 4, 10, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=3600)))
+    >>> example1_timeaware - datetime.now()
+    Traceback (most recent call last):
+    File "<stdin>", line 1, in <module>
+    TypeError: can't subtract offset-naive and offset-aware datetimes
+    >>> example1_timeaware.replace(tzinfo=None)
+    datetime.datetime(2011, 11, 4, 10, 5, 23, 283000)
+    # We obtain the same object, it is assumed that the datetime was already in the server time.
 
-        ## Case if there is a tz aware object
-        # This time is +3 UTC, +2 from Frankfurt
-        >>> example2 = datetime.fromisoformat('2011-11-04 10:05:23.283+03:00')
-        datetime.datetime(2011, 11, 4, 10, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=10800)))
-        >>> example2_server_time = example2.astimezone(timezone(timedelta(hours=1)))
-        datetime.datetime(2011, 11, 4, 8, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=3600)))
-        # Notice that the hours went back 2 in time (matches the fact that there is a 2 hour difference)
-        >>> example2_server_time.replace(tzinfo=None)
-        datetime.datetime(2011, 11, 4, 8, 5, 23, 283000)
-        # We end up with a datetime object with the date converted to server time, not tz aware.
+    ## Case if there is a tz aware object
+    # This time is +3 UTC, +2 from Frankfurt
+    >>> example2 = datetime.fromisoformat('2011-11-04 10:05:23.283+03:00')
+    datetime.datetime(2011, 11, 4, 10, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=10800)))
+    >>> example2_server_time = example2.astimezone(timezone(timedelta(hours=1)))
+    datetime.datetime(2011, 11, 4, 8, 5, 23, 283000, tzinfo=datetime.timezone(datetime.timedelta(seconds=3600)))
+    # Notice that the hours went back 2 in time (matches the fact that there is a 2 hour difference)
+    >>> example2_server_time.replace(tzinfo=None)
+    datetime.datetime(2011, 11, 4, 8, 5, 23, 283000)
+    # We end up with a datetime object with the date converted to server time, not tz aware.
 
     """
+    try:
+        if type(date) is struct_time:
+            # Convert in case it is a struct_time obj
+            date = datetime.fromtimestamp(mktime(date))
+    except Exception as e:
+        print(
+            f"Failed parsing into Datetime, using current date. Date was: '{date}', Failed with: '{e}'"
+        )
+        date = datetime.now()
+
     return date.astimezone(timezone(timedelta(hours=SERVER_HOUR_DIFFERENCE))).replace(
         tzinfo=None
     )

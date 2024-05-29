@@ -1,6 +1,7 @@
 import feedparser
 import requests
 
+from zeeguu.core.util.time import covert_to_server_time
 from .feed_handler import FeedHandler
 from zeeguu.logging import log, logp
 
@@ -58,7 +59,7 @@ class RSSFeed(FeedHandler):
 
             log(f"** Articles in feed: {len(feed_data.entries)}")
             for item in feed_data.entries:
-                publish_time = self.get_server_time(item.get("published_parsed"))
+                publish_time = covert_to_server_time(item.get("published_parsed"))
                 new_item_data_dict = dict(
                     title=item.get("title", ""),
                     url=item.get("link", ""),
