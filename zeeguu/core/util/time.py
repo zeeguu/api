@@ -81,12 +81,11 @@ def covert_to_server_time(date: datetime):
         if type(date) is struct_time:
             # Convert in case it is a struct_time obj
             date = datetime.fromtimestamp(mktime(date))
+        return date.astimezone(
+            timezone(timedelta(hours=SERVER_HOUR_DIFFERENCE))
+        ).replace(tzinfo=None)
     except Exception as e:
         print(
             f"Failed parsing into Datetime, using current date. Date was: '{date}', Failed with: '{e}'"
         )
-        date = datetime.now()
-
-    return date.astimezone(timezone(timedelta(hours=SERVER_HOUR_DIFFERENCE))).replace(
-        tzinfo=None
-    )
+        return datetime.now()
