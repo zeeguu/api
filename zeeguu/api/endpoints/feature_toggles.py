@@ -1,12 +1,13 @@
 import flask
 
 from zeeguu.api.endpoints import api
-from zeeguu.api.utils import cross_domain, with_session
+from zeeguu.api.utils import cross_domain, requires_session
+from zeeguu.core.model import User
 
 
 @api.route("/is_feature_enabled/<feature_name>", methods=["GET"])
 @cross_domain
-@with_session
+@requires_session
 def is_feature_enabled(feature_name):
     """
     e.g.
@@ -19,8 +20,8 @@ def is_feature_enabled(feature_name):
 
     if not func:
         return "NO"
-
-    if func(flask.g.user):
+    user = User.find_by_id(flask.g.user_id)
+    if func(user):
         return "YES"
 
     return "NO"

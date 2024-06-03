@@ -1,9 +1,9 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, UserArticle
+from zeeguu.core.model import Article, UserArticle, User
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
@@ -16,7 +16,7 @@ import newspaper
 @api.route("/user_article", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def user_article():
     """
 
@@ -45,30 +45,30 @@ def user_article():
 
     print(article_id)
     article = Article.query.filter_by(id=article_id).one()
-
-    return json_result(
-        UserArticle.user_article_info(flask.g.user, article, with_content=True)
-    )
+    user = User.find_by_id(flask.g.user_id)
+    return json_result(UserArticle.user_article_info(user, article, with_content=True))
 
 
 # ---------------------------------------------------------------------------
 @api.route("/article_difficulty_feedback", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def post_article_difficulty_feedback():
     """
 
-        difficulty is expected to be: 1 (too easy), 3 (ok), 5 (too hard)
-    
+    difficulty is expected to be: 1 (too easy), 3 (ok), 5 (too hard)
+
     """
 
     article_id = int(request.form.get("article_id"))
     article = Article.query.filter_by(id=article_id).one()
 
     feedback = request.form.get("difficulty")
-
-    df = ArticleDifficultyFeedback.find_or_create(db_session, flask.g.user, article, datetime.now(), feedback)
+    user = User.find_by_id(flask.g.user_id)
+    df = ArticleDifficultyFeedback.find_or_create(
+        db_session, user, article, datetime.now(), feedback
+    )
     db_session.add(df)
     db_session.commit()
     return "OK"
@@ -78,7 +78,7 @@ def post_article_difficulty_feedback():
 @api.route("/article_opened", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def article_opened():
     """
 
@@ -89,7 +89,8 @@ def article_opened():
 
     article_id = int(request.form.get("article_id"))
     article = Article.query.filter_by(id=article_id).one()
-    ua = UserArticle.find_or_create(db_session, flask.g.user, article)
+    user = User.find_by_id(flask.g.user_id)
+    ua = UserArticle.find_or_create(db_session, user, article)
     ua.set_opened()
 
     db_session.add(ua)
@@ -102,7 +103,7 @@ def article_opened():
 @api.route("/user_article", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def user_article_update():
     """
 
@@ -120,8 +121,8 @@ def user_article_update():
     liked = request.form.get("liked")
 
     article = Article.query.filter_by(id=article_id).one()
-
-    user_article = UserArticle.find_or_create(db_session, flask.g.user, article)
+    user = User.find_by_id(flask.g.user_id)
+    user_article = UserArticle.find_or_create(db_session, user, article)
 
     if starred is not None:
         user_article.set_starred(starred in ["true", "True", "1"])
@@ -138,7 +139,7 @@ def user_article_update():
 @api.route("/parse_html", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def parse_html():
     article_html = request.form.get("html")
 
@@ -160,7 +161,7 @@ def parse_html():
 @api.route("/parse_url", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def parse_url():
     url = request.form.get("url")
 

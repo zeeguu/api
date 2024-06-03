@@ -10,9 +10,10 @@ from zeeguu.core.model import (
     NewTopicFilter,
     LocalizedTopic,
     Language,
+    User,
 )
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -38,7 +39,7 @@ FILTERED_NEW_TOPICS = "filtered_new_topics"
 @api.route(f"/{SUBSCRIBE_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def subscribe_to_topic_with_id():
     """
     :param: topic_id -- the id of the topic to be subscribed to.
@@ -48,9 +49,9 @@ def subscribe_to_topic_with_id():
     """
 
     topic_id = int(request.form.get("topic_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     topic_object = Topic.find_by_id(topic_id)
-    TopicSubscription.find_or_create(db_session, flask.g.user, topic_object)
+    TopicSubscription.find_or_create(db_session, user, topic_object)
 
     return "OK"
 
@@ -106,7 +107,7 @@ def unsubscribe_from_new_topic():
 @api.route(f"/{UNSUBSCRIBE_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unsubscribe_from_topic():
     """
     A user can unsubscribe from the topic with a given ID
@@ -115,9 +116,9 @@ def unsubscribe_from_topic():
     """
 
     topic_id = int(request.form.get("topic_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = TopicSubscription.with_topic_id(topic_id, flask.g.user)
+        to_delete = TopicSubscription.with_topic_id(topic_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -133,7 +134,7 @@ def unsubscribe_from_topic():
 @api.route(f"/{SUBSCRIBED_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_subscribed_topics():
     """
     A user might be subscribed to multiple topics at once.
@@ -144,7 +145,8 @@ def get_subscribed_topics():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    subscriptions = TopicSubscription.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    subscriptions = TopicSubscription.all_for_user(user)
     topic_list = []
     for sub in subscriptions:
         try:
@@ -191,7 +193,7 @@ def get_subscribed_new_topics():
 @api.route("/available_topics", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_available_topics():
     """
     Get a list of interesting topics for the given language.
@@ -203,12 +205,11 @@ def get_available_topics():
     :return:
     """
     topic_data = []
-    already_filtered = [each.topic for each in TopicFilter.all_for_user(flask.g.user)]
-    already_subscribed = [
-        each.topic for each in TopicSubscription.all_for_user(flask.g.user)
-    ]
+    user = User.find_by_id(flask.g.user_id)
+    already_filtered = [each.topic for each in TopicFilter.all_for_user(user)]
+    already_subscribed = [each.topic for each in TopicSubscription.all_for_user(user)]
 
-    reading_languages = Language.all_reading_for_user(flask.g.user)
+    reading_languages = Language.all_reading_for_user(user)
 
     loc_topics = []
     for each in reading_languages:
@@ -335,7 +336,7 @@ def get_subscribed_new_filters():
 @api.route(f"/{FILTER_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def subscribe_to_filter_with_id():
     """
     :param: filter_id -- the id of the filter to be subscribed to.
@@ -345,9 +346,9 @@ def subscribe_to_filter_with_id():
     """
 
     filter_id = int(request.form.get("filter_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     filter_object = Topic.find_by_id(filter_id)
-    TopicFilter.find_or_create(db_session, flask.g.user, filter_object)
+    TopicFilter.find_or_create(db_session, user, filter_object)
 
     return "OK"
 
@@ -356,7 +357,7 @@ def subscribe_to_filter_with_id():
 @api.route(f"/{UNFILTER_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unsubscribe_from_filter():
     """
     A user can unsubscribe from the filter with a given ID
@@ -364,9 +365,9 @@ def unsubscribe_from_filter():
     """
 
     filter_id = int(request.form.get("topic_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = TopicFilter.with_topic_id(filter_id, flask.g.user)
+        to_delete = TopicFilter.with_topic_id(filter_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -382,7 +383,7 @@ def unsubscribe_from_filter():
 @api.route(f"/{FILTERED_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_subscribed_filters():
     """
     A user might be subscribed to multiple filters at once.
@@ -393,7 +394,8 @@ def get_subscribed_filters():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    filters = TopicFilter.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    filters = TopicFilter.all_for_user(user)
     filter_list = []
     for fil in filters:
         try:

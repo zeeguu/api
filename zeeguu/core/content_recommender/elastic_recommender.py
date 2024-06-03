@@ -108,6 +108,7 @@ def _prepare_user_constraints(user):
 def article_recommendations_for_user(
     user,
     count,
+    page=0,
     es_scale="30d",
     es_offset="1d",
     es_decay=0.6,
@@ -153,34 +154,11 @@ def article_recommendations_for_user(
         es_weight,
         new_topics_to_include=new_topics_to_include,
         new_topics_to_exclude=new_topics_to_exclude,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
-
-    hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_recommender_query(
-            count,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_offset,
-            es_decay,
-            es_weight,
-            new_topics_to_include=new_topics_to_include,
-            new_topics_to_exclude=new_topics_to_exclude,
-            second_try=True,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
@@ -197,7 +175,9 @@ def article_search_for_user(
     user,
     count,
     search_terms,
+    page=0,
     es_scale="3d",
+    es_offset="1d",
     es_decay=0.8,
     es_weight=4.2,
 ):
@@ -232,6 +212,7 @@ def article_search_for_user(
         es_weight,
         new_topics_to_include=new_topics_to_include,
         new_topics_to_exclude=new_topics_to_exclude,
+        page=page,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -239,31 +220,6 @@ def article_search_for_user(
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
-    if len(final_article_mix) == 0:
-        # build the query using elastic_query_builder
-        query_body = build_elastic_search_query(
-            count,
-            search_terms,
-            topics_to_include,
-            topics_to_exclude,
-            wanted_user_topics,
-            unwanted_user_topics,
-            language,
-            upper_bounds,
-            lower_bounds,
-            es_scale,
-            es_offset,
-            es_decay,
-            es_weight,
-            new_topics_to_include=new_topics_to_include,
-            new_topics_to_exclude=new_topics_to_exclude,
-            second_try=True,
-        )
-        res = es.search(index=ES_ZINDEX, body=query_body)
-
-        hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
     return [a for a in final_article_mix if a is not None and not a.broken]
 

@@ -40,6 +40,7 @@ def build_elastic_recommender_query(
     new_topics_to_include="",
     new_topics_to_exclude="",
     second_try=False,
+    page=0,
 ):
     """
 
@@ -146,26 +147,29 @@ def build_elastic_recommender_query(
     bool_query_body["query"]["bool"].update({"must_not": must_not})
     # bool_query_body["query"]["bool"].update({"should": should})
     full_query = {
+        "from": page * count,
         "size": count,
         "query": {"function_score": {}},
     }
 
     recency_preference = {
         # original parameters by Simon & Marcus
-        "gauss": {
+        "exp": {
             "published_time": {
                 "scale": es_scale,
                 "offset": es_offset,
                 "decay": es_decay,
             }
         },
-        "weight": es_weight,
-        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
+        # I am unsure if we should keep he weight for this one.
+        # Right now, I guess it means we weigh both the difficulty
+        # and recency equaly which I think it's the behaviour we would ike.
         # "weight": es_weight,
+        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
     }
 
     difficulty_prefference = {
-        "gauss": {
+        "exp": {
             "fk_difficulty": {
                 "origin": ((upper_bounds + lower_bounds) / 2),
                 "scale": 21,
@@ -249,13 +253,12 @@ def more_like_this_query(
     es_offset="1d",
     es_decay=0.8,
     es_weight=4.2,
-    second_try=False,
+    page=0,
 ):
     """
     Builds an elastic search query for search terms.
-    If called with second_try it drops the difficulty constraints
-    It also weights more recent results higher
 
+    Uses the recency and the difficulty of articles to prioritize documents.
     """
 
     s = (
@@ -264,27 +267,25 @@ def more_like_this_query(
         .filter("term", language=language.name.lower())
     )
 
-    if not second_try:
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
-
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     weighted_query = Q(
         "function_score",
         query=s.query,
         functions=[
+            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.9}),
             SF(
-                "gauss",
-                published_time={
-                    "scale": es_scale,
-                    "offset": es_offset,
-                    "decay": es_decay,
+                "exp",
+                fk_difficulty={
+                    "origin": ((upper_bounds + lower_bounds) / 2),
+                    "scale": 21,
+                    "decay": 0.9,
                 },
-            )
+            ),
         ],
     )
 
-    query = {"size": count, "query": weighted_query.to_dict()}
+    query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
 
     return s.to_dict()
 

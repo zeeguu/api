@@ -5,10 +5,11 @@ from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
 from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model import User
 
 from zeeguu.core.content_recommender import article_search_for_user
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from . import api
 
@@ -29,7 +30,7 @@ FILTERED_SEARCHES = "filtered_searches"
 @api.route(f"/{SUBSCRIBE_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def subscribe_to_search(search_terms):
     """
     :param: search_terms -- the search terms to be subscribed to.
@@ -42,7 +43,8 @@ def subscribe_to_search(search_terms):
 
     """
     search = Search.find_or_create(db_session, search_terms)
-    SearchSubscription.find_or_create(db_session, flask.g.user, search)
+    user = User.find_by_id(flask.g.user_id)
+    SearchSubscription.find_or_create(user, search)
 
     return json_result(search.as_dictionary())
 
@@ -51,7 +53,7 @@ def subscribe_to_search(search_terms):
 @api.route(f"/{UNSUBSCRIBE_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unsubscribe_from_search():
     """
     A user can unsubscribe from the search with a given ID
@@ -60,9 +62,9 @@ def unsubscribe_from_search():
     """
 
     search_id = int(request.form.get("search_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = SearchSubscription.with_search_id(search_id, flask.g.user)
+        to_delete = SearchSubscription.with_search_id(search_id, user)
         db_session.delete(to_delete)
         to_delete2 = Search.find_by_id(search_id)
         db_session.delete(to_delete2)
@@ -82,7 +84,7 @@ def unsubscribe_from_search():
 @api.route(f"/{SUBSCRIBED_SEARCHES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_subscribed_searches():
     """
     A user might be subscribed to multiple searches at once.
@@ -93,7 +95,8 @@ def get_subscribed_searches():
                 id = unique id of the search;
                 search_keywords = <unicode string>
     """
-    subscriptions = SearchSubscription.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    subscriptions = SearchSubscription.all_for_user(user)
     searches_list = []
 
     for subs in subscriptions:
@@ -112,16 +115,16 @@ def get_subscribed_searches():
 @api.route(f"/{FILTER_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def filter_search(search_terms):
     """
     Subscribe to the search filter with the given terms.
     :param: search_terms -- the search to be filtered.
     :return: the search as a dictionary
     """
-
+    user = User.find_by_id(flask.g.user_id)
     search = Search.find_or_create(db_session, search_terms)
-    SearchFilter.find_or_create(db_session, flask.g.user, search)
+    SearchFilter.find_or_create(db_session, user, search)
 
     return json_result(search.as_dictionary())
 
@@ -130,7 +133,7 @@ def filter_search(search_terms):
 @api.route(f"/{UNFILTER_SEARCH}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unfilter_search():
     """
     A user can unsubscribe from the search with a given ID
@@ -138,9 +141,9 @@ def unfilter_search():
     """
 
     search_id = int(request.form.get("search_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = SearchFilter.with_search_id(search_id, flask.g.user)
+        to_delete = SearchFilter.with_search_id(search_id, user)
         db_session.delete(to_delete)
         to_delete = Search.find_by_id(search_id)
         db_session.delete(to_delete)
@@ -160,7 +163,7 @@ def unfilter_search():
 @api.route(f"/{FILTERED_SEARCHES}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_filtered_searches():
     """
     A user might be subscribed to multiple search filters at once.
@@ -171,7 +174,8 @@ def get_filtered_searches():
                 id = unique id of the topic;
                 search_keywords = <unicode string>
     """
-    filters = SearchFilter.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    filters = SearchFilter.all_for_user(user)
     filtered_searches = []
 
     for filt in filters:
@@ -188,10 +192,11 @@ def get_filtered_searches():
 
 # ---------------------------------------------------------------------------
 @api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
+@api.route(f"/{SEARCH}/<search_terms>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
-def search_for_search_terms(search_terms):
+@requires_session
+def search_for_search_terms(search_terms, page: int = 0):
     """
     This endpoint is used for the standard search.
     It passes the search terms to the mysql_recommender function
@@ -202,7 +207,8 @@ def search_for_search_terms(search_terms):
 
     """
 
-    articles = article_search_for_user(flask.g.user, 20, search_terms)
-    article_infos = [UserArticle.user_article_info(flask.g.user, a) for a in articles]
+    user = User.find_by_id(flask.g.user_id)
+    articles = article_search_for_user(user, 20, search_terms, page=page)
+    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
 
     return json_result(article_infos)

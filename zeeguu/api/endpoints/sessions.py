@@ -1,10 +1,25 @@
 import flask
+from datetime import datetime
 from flask import request, make_response
 from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
 
-from zeeguu.api.utils.route_wrappers import cross_domain, with_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
+
+DAYS_BEFORE_EXPIRE = 30  # Days
+
+
+def is_session_too_old(session_object):
+    return (datetime.now() - session_object.last_use).days > DAYS_BEFORE_EXPIRE
+
+
+def force_user_to_relog(session_object, reason: str = ""):
+    print(
+        f"Session for user '{session_object.user_id}' was terminated. Reason: '{reason}'"
+    )
+    db_session.delete(session_object)
+    db_session.commit()
 
 
 @api.route("/session/<email>", methods=["POST"])
@@ -62,7 +77,7 @@ def get_anon_session(uuid):
 
 @api.route("/validate")
 @cross_domain
-@with_session
+@requires_session
 def validate():
     """
 
@@ -72,6 +87,16 @@ def validate():
 
     :return:
     """
+    # TODO: ideally update in parallel with running the decorated method?
+    session_object = Session.find(flask.g.session_uuid)
+    if session_object is None:
+        flask.abort(401)
+    if is_session_too_old(session_object):
+        force_user_to_relog(session_object, "Session was too old.")
+        flask.abort(401)
+    session_object.update_use_date()
+    db_session.add(session_object)
+    db_session.commit()
     return "OK"
 
 
@@ -89,7 +114,7 @@ def is_up():
 
 @api.route("/logout_session", methods=["GET"])
 @cross_domain
-@with_session
+@requires_session
 def logout():
     """
 

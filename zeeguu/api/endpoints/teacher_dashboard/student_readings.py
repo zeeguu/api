@@ -2,13 +2,13 @@ import zeeguu.core
 from zeeguu.core.user_statistics.reading_sessions import reading_sessions
 from ._common_api_parameters import _get_student_cohort_and_period_from_POST_params
 from .. import api
-from zeeguu.api.utils import json_result, with_session
+from zeeguu.api.utils import json_result, requires_session
 
 from zeeguu.core.model import db
 
 
 @api.route("/student_reading_sessions", methods=["POST"])
-@with_session
+@requires_session
 def student_reading_sessions():
     """
     :param student_id: int
