@@ -17,9 +17,16 @@ class SentenceBert(SemanticVectorModel):
         # Use a Average / Pool Method
         # Loads model from internet:
         # self.model_name = "sentence-transformers/distiluse-base-multilingual-cased-v2"
-        print(os.curdir, MODULE_PATH)
-        self.model_name = SENTENCE_BERT_PATH
-        self.model = SentenceTransformer(SENTENCE_BERT_PATH)
+        if os.path.exists(SENTENCE_BERT_PATH):
+            print("Saved model found!")
+            self.model_name = SENTENCE_BERT_PATH
+            self.model = SentenceTransformer(SENTENCE_BERT_PATH)
+        else:
+            print("Model not found: Downloading model!")
+            self.model_name = MODEL_NAME
+            self.model = SentenceTransformer(MODEL_NAME)
+            self.model.save(SENTENCE_BERT_PATH)
+        self.model.compile()
 
     def get_vector(self, text: str, language: str = "english") -> list:
         try:

@@ -5,8 +5,8 @@ services:
     image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
-      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api"
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
       PYTHONUNBUFFERED: 1
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
       GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
@@ -19,7 +19,7 @@ services:
     networks:
       - zeeguu_backend
     depends_on:
-      - elasticsearch
+      - elasticsearch_v8
       - embedding_api
       - readability_server
     mem_limit: 2048m
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     mem_limit: 1024m
 
-  elasticsearch:
+  elasticsearch_v8:
     image: elasticsearch:8.12.2
     platform: linux/amd64
     ports:
@@ -43,7 +43,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
     volumes:
-      - ./data/elasticsearch_db/data:/usr/share/elasticsearch/data
+      - ./data/elasticsearch_db/data:/usr/share/elasticsearch_v8/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
@@ -59,7 +59,7 @@ services:
       - ./data/zeeguu:/zeeguu-data
     entrypoint: "python tools/_playground.py"
     depends_on:
-      - elasticsearch
+      - elasticsearch_v8
       - embedding_api
       - readability_server
     networks:
@@ -97,8 +97,8 @@ services:
     image: zeeguu_api_dev
     environment:
       ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
-      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api"
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
     volumes:
       - .:/Zeeguu-API
       - ./data/zeeguu/esV8:/zeeguu-data
@@ -107,13 +107,13 @@ services:
     networks:
       - zeeguu_backend
     depends_on:
-      - elasticsearch
+      - elasticsearch_v8
       - embedding_api
     
   embedding_api:
     image: zeeguu_api_sem_emb
     ports:
-      - 3000:3000
+      - 3654:3654
     entrypoint: "python ./app/app.py"
     networks:
       - zeeguu_backend
