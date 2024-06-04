@@ -5,7 +5,7 @@ from zeeguu.core.elastic.indexing import (
     create_or_update_bulk_docs,
 )
 from sqlalchemy import func
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 from elasticsearch.helpers import bulk
 import zeeguu.core
 from zeeguu.core.model import Article
@@ -21,6 +21,10 @@ import numpy as np
 
 app = create_app()
 app.app_context().push()
+
+DELETE_INDEX = False
+TOTAL_ITEMS = 5000
+ITERATION_STEP = 100
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
@@ -41,8 +45,8 @@ def find_topics(article_id, session):
     return topics.rstrip()
 
 
-def main(delete_index=False):
-    if delete_index:
+def main():
+    if DELETE_INDEX:
         try:
             es.options(ignore_status=[400, 404]).indices.delete(index="zeeguu")
             print("Deleted index 'zeeguu'!")
@@ -87,13 +91,18 @@ def main(delete_index=False):
     print("Total articles missing: ", len(sample_ids_no_in_es))
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
-    total_iter = 400
-    for i in range(total_iter):
-        print(f"Iteration {i+1}/{total_iter}...")
-        sub_sample = np.random.choice(sample_ids_no_in_es, 10, replace=False)
-        res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
-        total_added += res
-    print("Total articles added: " + total_added)
+    total_iter = TOTAL_ITEMS // ITERATION_STEP
+    sampled_ids = np.random.choice(sample_ids_no_in_es, TOTAL_ITEMS, replace=False)
+    for i_start in range(0, TOTAL_ITEMS, ITERATION_STEP):
+        print(f"Starting at {i_start}")
+        sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]
+        try:
+            res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
+            total_added += res
+            print(f"Completed {i_start+ITERATION_STEP}/{TOTAL_ITEMS}...")
+        except helpers.BulkIndexError:
+            print("-- WARNING, at least one document failed to index.")
+    print(f"Total articles added: {total_added}")
 
 
 if __name__ == "__main__":
