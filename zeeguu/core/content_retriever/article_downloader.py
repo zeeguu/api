@@ -261,7 +261,8 @@ def download_feed_item(session, feed, feed_item, url):
             feed.language,
             htmlContent=np_article.htmlContent,
         )
-
+        if np_article.top_image != "":
+            new_article.img_url = Url.find_or_create(session, np_article.top_image)
         # Update topics based on the keywords:
         old_topics = add_topics(new_article, session)
         logp(f"Old Topics ({old_topics})")

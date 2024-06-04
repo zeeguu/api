@@ -60,7 +60,7 @@ def subscribe_to_topic_with_id():
 @api.route(f"/{SUBSCRIBE_NEW_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def subscribe_to_new_topic_with_id():
     """
     :param: new_topic_id -- the id of the topic to be subscribed to.
@@ -71,7 +71,8 @@ def subscribe_to_new_topic_with_id():
     new_topic_id = int(request.form.get("new_topic_id", ""))
 
     topic_object = NewTopic.find_by_id(new_topic_id)
-    NewTopicSubscription.find_or_create(db_session, flask.g.user, topic_object)
+    user = User.find_by_id(flask.g.user_id)
+    NewTopicSubscription.find_or_create(db_session, user, topic_object)
 
     return "OK"
 
@@ -80,7 +81,7 @@ def subscribe_to_new_topic_with_id():
 @api.route(f"/{UNSUBSCRIBE_NEW_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unsubscribe_from_new_topic():
     """
     A user can unsubscribe from the topic with a given ID
@@ -89,9 +90,9 @@ def unsubscribe_from_new_topic():
     """
 
     new_topic_id = int(request.form.get("new_topic_id", ""))
-
+    user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = NewTopicSubscription.with_topic_id(new_topic_id, flask.g.user)
+        to_delete = NewTopicSubscription.with_topic_id(new_topic_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -164,7 +165,7 @@ def get_subscribed_topics():
 @api.route(f"/{SUBSCRIBED_NEW_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_subscribed_new_topics():
     """
     A user might be subscribed to multiple topics at once.
@@ -175,7 +176,8 @@ def get_subscribed_new_topics():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    subscriptions = NewTopicSubscription.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    subscriptions = NewTopicSubscription.all_for_user(user)
     topic_list = []
     for sub in subscriptions:
         try:
@@ -227,7 +229,7 @@ def get_available_topics():
 @api.route("/available_new_topics", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_available_new_topics():
     """
     Get a list of interesting topics for the given language.
@@ -239,11 +241,10 @@ def get_available_new_topics():
     :return:
     """
     topic_data = []
-    already_filtered = [
-        each.new_topic for each in NewTopicFilter.all_for_user(flask.g.user)
-    ]
+    user = User.find_by_id(flask.g.user_id)
+    already_filtered = [each.new_topic for each in NewTopicFilter.all_for_user(user)]
     already_subscribed = [
-        each.new_topic for each in NewTopicSubscription.all_for_user(flask.g.user)
+        each.new_topic for each in NewTopicSubscription.all_for_user(user)
     ]
 
     topics = NewTopic.get_all_topics()
@@ -260,7 +261,7 @@ def get_available_new_topics():
 @api.route(f"/{FILTER_NEW_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def subscribe_to_new_filter_with_id():
     """
     :param: filter_id -- the id of the filter to be subscribed to.
@@ -272,7 +273,8 @@ def subscribe_to_new_filter_with_id():
     filter_id = int(request.form.get("filter_id", ""))
 
     filter_object = NewTopic.find_by_id(filter_id)
-    NewTopicFilter.find_or_create(db_session, flask.g.user, filter_object)
+    user = User.find_by_id(flask.g.user_id)
+    NewTopicFilter.find_or_create(db_session, user, filter_object)
 
     return "OK"
 
@@ -281,17 +283,17 @@ def subscribe_to_new_filter_with_id():
 @api.route(f"/{UNFILTER_NEW_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def unsubscribe_from_new_filter():
     """
     A user can unsubscribe from the filter with a given ID
     :return: OK / ERROR
     """
-
+    user = User.find_by_id(flask.g.user_id)
     filter_id = int(request.form.get("new_topic_id", ""))
 
     try:
-        to_delete = NewTopicFilter.with_topic_id(filter_id, flask.g.user)
+        to_delete = NewTopicFilter.with_topic_id(filter_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -307,7 +309,7 @@ def unsubscribe_from_new_filter():
 @api.route(f"/{FILTERED_NEW_TOPICS}", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
-@with_session
+@requires_session
 def get_subscribed_new_filters():
     """
     A user might be subscribed to multiple filters at once.
@@ -318,7 +320,8 @@ def get_subscribed_new_filters():
                 id = unique id of the topic;
                 title = <unicode string>
     """
-    filters = NewTopicFilter.all_for_user(flask.g.user)
+    user = User.find_by_id(flask.g.user_id)
+    filters = NewTopicFilter.all_for_user(user)
     filter_list = []
     for fil in filters:
         try:

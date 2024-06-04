@@ -14,7 +14,7 @@ def requires_session(view):
     """
     Decorator checks that user is in a session.
 
-    Every API endpoint annotated with @with_session
+    Every API endpoint annotated with @requires_session
      expects a session object to be passed as a GET parameter
 
     Example: API_URL/learned_language?session=123141516
