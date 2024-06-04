@@ -6,7 +6,9 @@ The first step is to update ES, as it supports KNN searches with dense vectors w
 
 ### 1.1. Update docker-compose with a new service that corresponds to the new version
 
-I provided this under **elasticsearch_v8** in this codebase. We also need to set the `xpack.security.enabled=false` to allow us to connect via HTTP, otherwise we would need to set an SSL key.
+I provided this under **elasticsearch_v8** in this codebase. We also need to set the `xpack.security.enabled=false` to allow us to connect via HTTP, otherwise we would need to set an SSL key. If, instead, we want to override the original **elasticsearch**, we need to first delete the index otherwise it will cause errors when trying to start up the ES server.
+
+Personally, I recommend using the **\_v8** image, and once we are ready we can remove the old version and rename this to be the new **elasticsearch** image
 
 ## 2. Create the API to provide the article embedding service.
 
@@ -43,7 +45,7 @@ This has been done for the keywords in the test database, with the proposed link
 
 With the topics linked to their keywords we can now create a mapping for all articles based on the keywords found in the URL. If none are found, they are left empty.
 
-## 6. Run the tools/mysql_to_elastic.py to re-index all the documents.
+## 6. Run the tools/mysql_to_elastic_new_topics.py to re-index all the documents.
 
 **NOTE:** We should index all the articles with topics either from URL or Hardset, before adding others. This ensures that the KNN voting has the maximum available pool of topics to vote from when doing inferance.
 
