@@ -6,6 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.bookmark_quality import top_bookmarks
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
+from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -193,6 +194,28 @@ def report_learned_bookmark(bookmark_id):
         db_session,
     )
 
+    return "OK"
+
+
+@api.route("/use_in_exercises/<bookmark_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def set_user_word_exercise_preference(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.user_preference = UserWordExPreference.USE_IN_EXERCISES
+    bookmark.update_fit_for_study()
+    db_session.commit()
+    return "OK"
+
+
+@api.route("/dont_use_in_exercises/<bookmark_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def set_user_word_exercise_dislike(bookmark_id):
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+    bookmark.update_fit_for_study()
+    db_session.commit()
     return "OK"
 
 
