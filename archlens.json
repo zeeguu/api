@@ -1,24 +1,21 @@
 {
-    "$schema": "https://raw.githubusercontent.com/Perlten/MT-diagrams/master/config.schema.json",
-    "name": "-",
-    "rootFolder": "zeeguu",
-    "github": {
-        "url": "https://github.com/zeeguu/api",
-        "branch": "master"
-    },
-    "saveLocation": "./diagrams/",
-    "views": {
-
-        "top-level-view-depth-1": {
-              "packages": [
-                {
-                  "path": "*",
-                  "depth": 1
-                }
-              ],
-
-            "ignorePackages": []
+  "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
+  "name": "ZeeGuu-API",
+  "rootFolder": "zeeguu",
+  "github": {
+    "url": "https://github.com/zeeguu/api",
+    "branch": "master"
+  },
+  "saveLocation": "./diagrams/",
+  "views": {
+    "top-level-view-depth-1": {
+      "packages": [
+        {
+          "path": "*",
+          "depth": 1
         }
-
+      ],
+      "ignorePackages": []
     }
+  }
 }

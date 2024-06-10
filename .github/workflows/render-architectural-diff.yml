@@ -1,7 +1,6 @@
 name: Render ARchitectural Diff with ArchLens
-
 on:
-  workflow_dispatch:
+  - pull_request
 
 jobs:
   render-diff-and-upload-comment:
