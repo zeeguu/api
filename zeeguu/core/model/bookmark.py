@@ -20,6 +20,7 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.model.learning_cycle import LearningCycle
+from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
 import zeeguu
 
@@ -70,6 +71,8 @@ class Bookmark(db.Model):
 
     learning_cycle = db.Column(db.Integer)
 
+    user_preference = db.Column(db.Integer)
+
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
@@ -90,6 +93,7 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
         self.learned = False
         self.learning_cycle = learning_cycle
+        self.user_preference = UserWordExPreference.NO_PREFERENCE
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -216,7 +220,9 @@ class Bookmark(db.Model):
             ).one()
             cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
             next_practice_time = basic_sr_schedule.next_practice_time
-            can_update_schedule = next_practice_time <= BasicSRSchedule.get_end_of_today()
+            can_update_schedule = (
+                next_practice_time <= BasicSRSchedule.get_end_of_today()
+            )
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
             can_update_schedule = None
@@ -250,6 +256,7 @@ class Bookmark(db.Model):
             cooling_interval=cooling_interval,
             is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
             can_update_schedule=can_update_schedule,
+            user_preference = self.user_preference
         )
 
         if self.text.article:
