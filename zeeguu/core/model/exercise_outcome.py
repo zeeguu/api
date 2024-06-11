@@ -28,6 +28,7 @@ class ExerciseOutcome(db.Model):
 
     wrong_outcomes = ["W", WRONG, SHOW_SOLUTION, ASKED_FOR_HINT]
 
+    @classmethod
     def is_valid_attempt(cls, outcome: str):
         """
         The user might have multiple attempts:
@@ -40,6 +41,7 @@ class ExerciseOutcome(db.Model):
         allowed_attempts = set(["C", "W", "T", "S", "H"])
         return allowed_attempts.issuperset(set([c for c in outcome]))
 
+    @classmethod
     def is_correct(cls, outcome: str):
         is_correct = outcome == ExerciseOutcome.CORRECT
         # allow for a few translations before hitting the correct; they work like hints
