@@ -5,17 +5,10 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
 
 def fit_for_study(bookmark):
-    exercise_log = SortedExerciseLog(bookmark)
     return (
-        (
-            quality_bookmark(bookmark)
-            or bookmark.starred
-            or bookmark.user_preference == UserWordExPreference.USE_IN_EXERCISES
-        )
-        and not is_learned_based_on_exercise_outcomes(exercise_log)
-        and not feedback_prevents_further_study(exercise_log)
-        and not bookmark.user_preference == UserWordExPreference.DONT_USE_IN_EXERCISES
-    )
+        quality_bookmark(bookmark)
+        or bookmark.user_preference == UserWordExPreference.USE_IN_EXERCISES
+    ) and not bookmark.user_preference == UserWordExPreference.DONT_USE_IN_EXERCISES
 
 
 def feedback_prevents_further_study(exercise_log):

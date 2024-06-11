@@ -52,7 +52,6 @@ class BasicSRSchedule(db.Model):
         self.bookmark.learned = True
         self.bookmark.learned_time = datetime.now()
         db_session.add(self.bookmark)
-        db_session.commit()
         db_session.delete(self)
         db_session.commit()
 
@@ -114,27 +113,29 @@ class BasicSRSchedule(db.Model):
         db_session.commit()
 
     @classmethod
+    def clear_bookmark_schedule(cls, db_session, bookmark):
+        schedule = cls.find_by_bookmark(bookmark)
+        if schedule is not None:
+            db_session.delete(schedule)
+            db_session.commit()
+
+    @classmethod
     def update(cls, db_session, bookmark, outcome):
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
-            print("Deleting Schedule for Word!")
+            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+
             schedule = cls.find_or_create(db_session, bookmark)
             bookmark.fit_for_study = 0
+            ## Since the user has explicitly given feedback, this should 
+            # be recorded as a user preference.
+            bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
             db_session.add(bookmark)
             db_session.delete(schedule)
             db_session.commit()
             return
 
-        correctness = (
-            outcome == ExerciseOutcome.CORRECT
-            or outcome
-            in [
-                "TC",
-                "TTC",
-                "TTTC",
-            ]  # allow for a few translations before hitting the correct; they work like hints
-            or outcome == "HC"  # if it's correct after hint it should still be fine
-        )
+        correctness = ExerciseOutcome.is_correct(outcome)
         schedule = cls.find_or_create(db_session, bookmark)
         if schedule.next_practice_time > cls.get_end_of_today():
             # The user is doing the word before it was scheduled.
@@ -155,6 +156,14 @@ class BasicSRSchedule(db.Model):
         tomorrows_date = (datetime.now() + timedelta(days=1)).date()
         # Create an object that matches midnight of next day
         return datetime.combine(tomorrows_date, datetime.min.time())
+
+    @classmethod
+    def find_by_bookmark(cls, bookmark):
+        try:
+            result = cls.query.filter(cls.bookmark_id == bookmark.id).one()
+            return result
+        except Exception as e:
+            return None
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):

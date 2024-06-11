@@ -256,7 +256,7 @@ class Bookmark(db.Model):
             cooling_interval=cooling_interval,
             is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
             can_update_schedule=can_update_schedule,
-            user_preference = self.user_preference
+            user_preference=self.user_preference,
         )
 
         if self.text.article:
