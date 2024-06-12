@@ -90,7 +90,7 @@ class BasicSRSchedule(db.Model):
                 # cooldown perio, they might have arrived to do
                 # the exercise again; but it should not count
                 return
-            # Since we can now loose the streak on day 8,
+            # Since we can now lose the streak on day 8,
             # we might have to repeat it a few times to learn it.
             new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                 self.cooling_interval, MAX_INTERVAL_8_DAY
