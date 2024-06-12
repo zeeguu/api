@@ -50,12 +50,10 @@ tables_to_modify = [
 ]
 
 
-def delete_user_account(db_session, user_session_uuid):
+def delete_user_account(db_session, user_to_delete):
     try:
         start_time = time.time()
         total_rows_affected = 0
-        user_session = Session.find(user_session_uuid)
-        user_to_delete = User.find_by_id(user_session.user_id)
         articles = Article.uploaded_by(user_to_delete.id)
         print(f"Removing author from Articles:")
         for a in articles:
@@ -76,7 +74,7 @@ def delete_user_account(db_session, user_session_uuid):
             for each in subject_related:
                 total_rows_affected += 1
                 db_session.delete(each)
-            # db_session.commit()
+            db_session.commit()
 
         db_session.delete(user_to_delete)
         db_session.commit()
@@ -84,7 +82,17 @@ def delete_user_account(db_session, user_session_uuid):
         print(
             f"A total of {total_rows_affected} rows were affected. The process took: {end_time:.2f} seconds."
         )
+    except Exception as e:
+        from sentry_sdk import capture_exception
 
+        capture_exception(e)
+        print(e)
+        raise Exception(f"Could not delete the user '{user_to_delete}'")
+
+
+def delete_user_account_w_session(db_session, user_session_uuid):
+    try:
+        user_session = Session.find(user_session_uuid)
     except sqlalchemy.exc.IntegrityError:
         raise Exception("Integrity Error")
     except sqlalchemy.exc.NoResultFound:
@@ -97,3 +105,5 @@ def delete_user_account(db_session, user_session_uuid):
         raise Exception(
             f"Could not delete the user with session: '{user_session_uuid}'"
         )
+    user_to_delete = User.find_by_id(user_session.user_id)
+    delete_user_account(db_session, user_to_delete)

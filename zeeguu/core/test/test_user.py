@@ -10,7 +10,9 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import User, Session
 from zeeguu.core.model import db
-from zeeguu.core.account_management.user_account_deletion import delete_user_account
+from zeeguu.core.account_management.user_account_deletion import (
+    delete_user_account_w_session,
+)
 
 
 class UserTest(ModelTestMixIn):
@@ -157,5 +159,5 @@ class UserTest(ModelTestMixIn):
         new_session = Session.create_for_user(self.user)
         db.session.add(new_session)
         db.session.commit()
-        delete_user_account(db.session, new_session.uuid)
+        delete_user_account_w_session(db.session, new_session.uuid)
         assert not User.exists(self.user)

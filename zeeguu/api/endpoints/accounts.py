@@ -18,10 +18,12 @@ from zeeguu.logging import log
 @cross_domain
 @requires_session
 def remove_user():
-    from zeeguu.core.account_management.user_account_deletion import delete_user_account
+    from zeeguu.core.account_management.user_account_deletion import (
+        delete_user_account_w_session,
+    )
 
     try:
-        delete_user_account(db_session, flask.g.session_uuid)
+        delete_user_account_w_session(db_session, flask.g.session_uuid)
         return "OK"
 
     except Exception as e:
