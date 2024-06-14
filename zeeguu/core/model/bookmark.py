@@ -8,9 +8,8 @@ from wordstats import Word
 
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
-from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
+
 from zeeguu.core.model import Article
-from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
@@ -25,8 +24,6 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 import zeeguu
 
 from zeeguu.core.model import db
-
-CORRECTS_IN_A_ROW_FOR_LEARNED = 4
 
 bookmark_exercise_mapping = Table(
     "bookmark_exercise_mapping",
@@ -318,6 +315,8 @@ class Bookmark(db.Model):
         return bookmark
 
     def sorted_exercise_log(self):
+        from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
+
         return SortedExerciseLog(self)
 
     @classmethod
@@ -362,15 +361,21 @@ class Bookmark(db.Model):
             return False
 
     def update_learned_status(self, session):
+        from zeeguu.core.definition_of_learned import (
+            is_learned_based_on_exercise_outcomes,
+        )
+        from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
+
         """
             To call when something happened to the bookmark,
              that requires it's "learned" status to be updated.
         :param session:
         :return:
         """
-
         exercise_log = SortedExerciseLog(self)
-        is_learned = is_learned_based_on_exercise_outcomes(exercise_log)
+        is_learned = is_learned_based_on_exercise_outcomes(
+            exercise_log, self.learning_cycle == LearningCycle.PRODUCTIVE
+        )
         if is_learned:
             log(f"Log: {exercise_log.summary()}: bookmark {self.id} learned!")
             self.learned_time = exercise_log.last_exercise_time()

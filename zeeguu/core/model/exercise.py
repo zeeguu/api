@@ -22,7 +22,9 @@ class Exercise(db.Model):
     time = db.Column(db.DateTime, nullable=False)
     feedback = db.Column(db.String(255))
 
-    session_id = db.Column(db.Integer, db.ForeignKey(UserExerciseSession.id), nullable=True)
+    session_id = db.Column(
+        db.Integer, db.ForeignKey(UserExerciseSession.id), nullable=True
+    )
     session = db.relationship(UserExerciseSession)
 
     def __init__(self, outcome, source, solving_speed, time, session_id, feedback=""):
@@ -96,4 +98,4 @@ class Exercise(db.Model):
         return self.outcome.outcome in ExerciseOutcome.too_easy_outcomes
 
     def is_correct(self):
-        return self.outcome.outcome in ExerciseOutcome.correct_outcomes
+        return ExerciseOutcome.is_correct(self.outcome.outcome)
