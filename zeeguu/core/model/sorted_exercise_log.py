@@ -76,14 +76,16 @@ class SortedExerciseLog(object):
         current_streak = 0
         total_streak_counts = {}
         for exercise in self.exercises:
-            if not exercise.is_correct() or current_streak == LEARNING_CYCLE_LENGTH:
+            is_correct = exercise.is_correct()
+            if is_correct:
+                current_streak += 1
+            if not is_correct or current_streak == LEARNING_CYCLE_LENGTH:
                 # To move to a next cycle you need a streak of 4 exercises.
                 # If the exercise is not correct or is at the end of the cycle
                 # We store that information
                 save_streak(total_streak_counts, current_streak)
                 current_streak = 0
-            else:
-                current_streak += 1
+
         save_streak(total_streak_counts, current_streak)
         # If we want the resulting dictionary sorted by keys.
         # return dict(sorted(total_streak_counts.items()))

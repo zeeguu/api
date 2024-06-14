@@ -254,24 +254,21 @@ class BookmarkTest(ModelTestMixIn):
 
         correct_bookmark.update_learned_status(db.session)
 
-        log = SortedExerciseLog(correct_bookmark)
-        learned = is_learned_based_on_exercise_outcomes(log, True)
-        result_time = log.last_exercise_time()
-        print("Testing is learned!")
+        learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
         assert learned
 
         log = SortedExerciseLog(correct_bookmark)
         learned_time_from_log = log.last_exercise_time()
-        print("Testing is learned date!")
+        result_time = log.last_exercise_time()
         assert result_time == learned_time_from_log
 
         # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        wrong_exercise_bookmark = random_bookmarks[3]
         wrong_exercise = ExerciseRule(exercise_session).exercise
         wrong_exercise.outcome = OutcomeRule().wrong
-        random_bookmarks[3].add_new_exercise(wrong_exercise)
+        wrong_exercise_bookmark.add_new_exercise(wrong_exercise)
 
-        log = SortedExerciseLog(random_bookmarks[3])
-        learned = is_learned_based_on_exercise_outcomes(log, True)
+        learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
         print("Testing is not learned")
         assert not learned
 
@@ -297,25 +294,22 @@ class BookmarkTest(ModelTestMixIn):
 
         correct_bookmark.update_learned_status(db.session)
 
-        log = SortedExerciseLog(correct_bookmark)
-        learned = is_learned_based_on_exercise_outcomes(log, False)
-        result_time = log.last_exercise_time()
-        print(log.str_most_recent_correct_dates())
-        print(learned)
+        learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
+        
         assert learned
 
         log = SortedExerciseLog(correct_bookmark)
         learned_time_from_log = log.last_exercise_time()
+        result_time = log.last_exercise_time()
         assert result_time == learned_time_from_log
 
         # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        wrong_exercise_bookmark = random_bookmarks[3]
         wrong_exercise = ExerciseRule(exercise_session).exercise
         wrong_exercise.outcome = OutcomeRule().wrong
         random_bookmarks[3].add_new_exercise(wrong_exercise)
 
-        log = SortedExerciseLog(random_bookmarks[3])
-        learned = is_learned_based_on_exercise_outcomes(log, False)
-        print(learned)
+        learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
         assert not learned
 
     def test_top_bookmarks(self):
