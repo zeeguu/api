@@ -70,6 +70,9 @@ class SortedExerciseLog(object):
         return distinct_days
 
     def count_number_of_streaks(self):
+        def save_streak(count_dict, current_count):
+            count_dict[current_count] = count_dict.get(current_count, 0) + 1
+
         current_streak = 0
         total_streak_counts = {}
         for exercise in self.exercises:
@@ -77,13 +80,11 @@ class SortedExerciseLog(object):
                 # To move to a next cycle you need a streak of 4 exercises.
                 # If the exercise is not correct or is at the end of the cycle
                 # We store that information
-                total_streak_counts[current_streak] = (
-                    total_streak_counts.get(current_streak, 0) + 1
-                )
+                save_streak(total_streak_counts, current_streak)
                 current_streak = 0
             else:
                 current_streak += 1
-        total_streak_counts[current_streak] = (
-            total_streak_counts.get(current_streak, 0) + 1
-        )
+        save_streak(total_streak_counts, current_streak)
+        # If we want the resulting dictionary sorted by keys.
+        # return dict(sorted(total_streak_counts.items()))
         return total_streak_counts

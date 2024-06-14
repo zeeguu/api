@@ -360,6 +360,17 @@ class Bookmark(db.Model):
         except NoResultFound:
             return False
 
+    def is_learned_based_on_exercise_outcomes(self):
+        from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
+        from zeeguu.core.definition_of_learned import (
+            is_learned_based_on_exercise_outcomes,
+        )
+
+        exercise_log = SortedExerciseLog(self)
+        return is_learned_based_on_exercise_outcomes(
+            exercise_log, self.learning_cycle == LearningCycle.PRODUCTIVE
+        )
+
     def update_learned_status(self, session):
         from zeeguu.core.definition_of_learned import (
             is_learned_based_on_exercise_outcomes,
