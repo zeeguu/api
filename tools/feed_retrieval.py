@@ -73,20 +73,6 @@ def retrieve_articles_for_language(language_code, send_email=False):
 
     summary_stream = download_for_feeds(all_language_feeds)
 
-    if send_email:
-
-        logp("sending summary email")
-
-        import datetime
-
-        mailer = ZeeguuMailer(
-            f"{language.name} Crawl Summary "
-            + datetime.datetime.now().strftime("%H:%M"),
-            summary_stream,
-            "zeeguu.team@gmail.com",
-        )
-        mailer.send()
-
 
 def retrieve_articles_from_all_feeds():
     counter = 0
