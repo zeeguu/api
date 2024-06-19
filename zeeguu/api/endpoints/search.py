@@ -44,7 +44,7 @@ def subscribe_to_search(search_terms):
     """
     search = Search.find_or_create(db_session, search_terms)
     user = User.find_by_id(flask.g.user_id)
-    SearchSubscription.find_or_create(user, search)
+    SearchSubscription.find_or_create(db_session, user, search)
 
     return json_result(search.as_dictionary())
 
