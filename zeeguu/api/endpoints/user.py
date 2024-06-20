@@ -147,7 +147,6 @@ def user_settings():
 
     submitted_email = data.get("email", None)
     if submitted_email:
-        print("Updating email!")
         user.email = submitted_email
 
     zeeguu.core.model.db.session.add(user)
