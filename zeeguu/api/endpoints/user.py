@@ -112,13 +112,12 @@ def get_user_details():
 def user_settings():
     """
     set the native language of the user in session
-    :param language_code:
     :return: OK for success
     """
 
     data = flask.request.form
-    print(flask.request)
     user = User.find_by_id(flask.g.user_id)
+
     submitted_name = data.get("name", None)
     if submitted_name:
         user.name = submitted_name
