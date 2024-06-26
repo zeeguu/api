@@ -309,7 +309,7 @@ class Article(db.Model):
             sufficient_quality_plain_text,
         )
 
-        quality, reason = sufficient_quality_plain_text(self.content)
+        quality, reason, _ = sufficient_quality_plain_text(self.content)
         if not quality:
             print("Marking as broken. Reason: " + reason)
             self.mark_as_low_quality_and_remove_from_index()
