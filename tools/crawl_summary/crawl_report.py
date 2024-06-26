@@ -12,6 +12,10 @@ class CrawlReport:
         path_to_dir = os.sep.join(inspect.getfile(self.__class__).split(os.sep)[:-1])
         self.default_save_dir = os.path.join(path_to_dir, "crawl_data")
         self.data = {"lang": {}}
+        self.crawl_date = datetime.datetime.now()
+
+    def get_days_from_crawl_date(self):
+        return (datetime.datetime.now() - self.crawl_date).days
 
     def __convert_str_to_dt(self, str_datetime):
         dt_parsed = datetime.datetime.strptime(str_datetime, STR_DATETIME_FORMAT)
@@ -125,6 +129,7 @@ class CrawlReport:
             for file in os.listdir(os.path.join(report_dir_path, lang)):
                 lang, _, date = file.split(".")[0].split("-")
                 date = self.__convert_str_to_dt(date)
+                self.crawl_date = min(self.crawl_date, date)
                 day_diff = (date.now() - date).days
                 if day_diff > day_period:
                     print(

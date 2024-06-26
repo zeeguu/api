@@ -12,6 +12,14 @@ import argparse
 REPORT_FOLDER = "reports"
 
 
+def save_fig_params(filename):
+    path_to_img = os.path.join(REPORT_FOLDER, "img", filename)
+    rel_path = os.path.join("img", filename)
+    plt.savefig(path_to_img, bbox_inches="tight")
+    plt.clf()
+    return rel_path
+
+
 def get_rejected_sentences_table(total_deleted_sents):
     total_deleted_sents["Total"] = sum(total_deleted_sents.values())
     pd_deleted_sents = pd.DataFrame.from_dict(
@@ -29,15 +37,7 @@ def get_total_reject_article_reason_table(total_rejected_article_reasons):
         total_rejected_article_reasons, orient="index"
     ).reset_index()
     pd_quality_errors.columns = ["Reason", "Count"]
-    return generate_html_table(pd_quality_errors.sort_values("Count", ascending=False))
-
-
-def save_fig_params(filename):
-    path_to_img = os.path.join(REPORT_FOLDER, "img", filename)
-    rel_path = os.path.join("img", "filename")
-    plt.savefig(path_to_img, bbox_inches="tight")
-    plt.clf()
-    return rel_path
+    return generate_html_table(pd_quality_errors.sort_values("Count", ascending=True))
 
 
 def generate_feed_count_plots(feed_df, lang):
@@ -381,6 +381,12 @@ def generate_html_page():
     exercise_activity_df = data_extractor.get_exercise_type_activity()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
+    total_days_from_crawl_report = crawl_report.get_days_from_crawl_date()
+    warning_crawl_range = (
+        ""
+        if total_days_from_crawl_report == DAYS_FOR_REPORT
+        else f"<b>WARNING!</b> This date only contains values from the last '{total_days_from_crawl_report}' day(s)."
+    )
 
     articles_with_topic_count = len(article_topics_df.id.unique())
     total_active_users = len(
@@ -439,6 +445,7 @@ def generate_html_page():
                 <img src="{generate_total_article_per_language(article_df)}" />
                 <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
                 <h2>Articles Rejected:</h2>
+                <p>{warning_crawl_range}</p>
                 {get_total_reject_article_reason_table(crawl_report.get_total_non_quality_counts())}
                 <h2>Word Count:</h2>
                 {generate_html_table(article_df.groupby("Language").word_count.describe().reset_index())}
@@ -457,6 +464,7 @@ def generate_html_page():
             {lang_report}
             <hr />
             <h1 id="removed-articles">Removed Article Sents:</h1>
+            <p>{warning_crawl_range}</p>
             {get_rejected_sentences_table(crawl_report.get_total_removed_sents_counts())}
         </body>
     """
