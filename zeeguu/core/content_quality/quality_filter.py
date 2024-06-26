@@ -35,47 +35,73 @@ LIVE_BLOG_KIND_OF_PATTERNS = [
 ]
 
 
+class LowQualityTypes:
+    TOO_SHORT = "TOO_SHORT"
+    HTML_PATTERN = "HTML_PATTERN"
+    TEXT_PAYWALL_PATTERN = "PAYWALL_PATTERN"
+    INCOMPLETE_PATTERN = "INCOMPLETE_PATTERN"
+    LIVE_BLOG = "LIVE_BLOG"
+    ML_PREDICTION = "ML_PREDICTION"
+
+
 def sufficient_quality_html(html):
     for each in HTML_READ_MORE_PATTERNS:
         if html.find(each) > 0:
             return (
                 False,
                 f"Incomplete Article (based on HTML analysis). Contains: {each}",
+                LowQualityTypes.HTML_PATTERN,
             )
-    return True, ""
+    return True, "", ""
 
 
 def sufficient_quality_plain_text(text):
     word_count = len(text.split())
     if word_count < Article.MINIMUM_WORD_COUNT:
-        return False, f"Too Short ({word_count} words) {text}"
+        return (
+            False,
+            f"Too Short ({word_count} words) {text}",
+            LowQualityTypes.TOO_SHORT,
+        )
 
     for each in PLAIN_TEXT_PAYWALL_PATTERNS:
         if text.find(each) >= 0:
-            return False, f"Incomplete pattern in text: {each}"
+            return (
+                False,
+                f"Incomplete pattern in text: {each}",
+                LowQualityTypes.TEXT_PAYWALL_PATTERN,
+            )
 
     if text.endswith(incomplete_suggesting_terminations):
-        return False, 'Ends with "Read More" or similar'
+        return (
+            False,
+            'Ends with "Read More" or similar',
+            LowQualityTypes.INCOMPLETE_PATTERN,
+        )
 
     for each in LIVE_BLOG_KIND_OF_PATTERNS:
         if text.find(each) >= 0:
-            return False, "Live blog kind of article"
+            return False, "Live blog kind of article", LowQualityTypes.LIVE_BLOG
 
     paywall_pred = is_paywalled(text)
     if paywall_pred > 0:
         # 0 is Normal Text
         label_found = ID_TO_LABEL_PAYWALL[paywall_pred]
-        return False, f"ML Prediction was '{label_found}'."
+        return (
+            False,
+            f"ML Prediction was '{label_found}'.",
+            LowQualityTypes.ML_PREDICTION,
+        )
 
-    return True, ""
+    return True, "", ""
 
 
-def sufficient_quality(art: newspaper.Article) -> (bool, str):
-    res, reason = sufficient_quality_html(art.html)
+def sufficient_quality(art: newspaper.Article) -> tuple[bool, str, str]:
+    res, reason, code = sufficient_quality_html(art.html)
     if not res:
-        return False, reason
-    res, reason = sufficient_quality_plain_text(art.text)
+        return False, reason, code
+    res, reason, code = sufficient_quality_plain_text(art.text)
     if not res:
-        return False, reason
+        return False, reason, code
 
-    return True, ""
+    return True, "", ""

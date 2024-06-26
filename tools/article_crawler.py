@@ -22,10 +22,9 @@ from zeeguu.api.app import create_app
 
 app = create_app()
 app.app_context().push()
-resulting_report = {}
 
 if len(sys.argv) > 1:
-    resulting_report = retrieve_articles_for_language(sys.argv[1], send_email=True)
+    retrieve_articles_for_language(sys.argv[1], send_email=True)
 else:
     retrieve_articles_from_all_feeds()
 

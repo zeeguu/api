@@ -452,7 +452,7 @@ def generate_html_page():
                 <h2>FK Difficulty:</h2>
                 {generate_html_table(article_df.groupby("Language").fk_difficulty.describe().reset_index())}
                 <h2>Activity Report</h2>
-                <p><b>Total Active Users: <b> {total_active_users}</p>
+                <p><b>Total Active Users:</b> {total_active_users}</p>
                 {generate_active_users_table(combined_user_activity_df, bookmark_df)}
                 <img src="{generate_exercise_activity(exercise_activity_df)}" />
                 <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
