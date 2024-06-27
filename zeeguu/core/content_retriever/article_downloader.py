@@ -113,14 +113,10 @@ def download_from_feed(
             feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
-            crawl_report.set_feed_last_article_date(
-                feed.language.code, feed.id, feed_item_timestamp
-            )
+            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
 
         if last_retrieval_time_seen_this_crawl > feed.last_crawled_time:
-            crawl_report.set_feed_last_article_date(
-                feed.language.code, feed.id, feed_item_timestamp
-            )
+            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
             feed.last_crawled_time = last_retrieval_time_seen_this_crawl
             session.add(feed)
             session.commit()
@@ -213,17 +209,11 @@ def download_from_feed(
             else:
                 logp(e)
             continue
-    crawl_report.set_feed_total_articles(feed.language.code, feed.id, len(items))
-    crawl_report.set_feed_total_downloaded(feed.language.code, feed.id, downloaded)
-    crawl_report.set_feed_total_low_quality(
-        feed.language.code, feed.id, skipped_due_to_low_quality
-    )
-    crawl_report.set_feed_total_in_db(
-        feed.language.code, feed.id, skipped_already_in_db
-    )
-    crawl_report.set_feed_crawl_time(
-        feed.language.code, feed.id, round(time() - start_feed_time, 2)
-    )
+    crawl_report.set_feed_total_articles(feed, len(items))
+    crawl_report.set_feed_total_downloaded(feed, downloaded)
+    crawl_report.set_feed_total_low_quality(feed, skipped_due_to_low_quality)
+    crawl_report.set_feed_total_in_db(feed, skipped_already_in_db)
+    crawl_report.set_feed_crawl_time(feed, round(time() - start_feed_time, 2))
     summary_stream += (
         f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
     )
@@ -250,13 +240,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     np_article, sents_removed = download_and_parse_with_remove_sents(url)
     print("Counted sents!", sents_removed)
-    crawl_report.set_sent_removed(feed.language.code, feed.id, sents_removed)
+    crawl_report.set_sent_removed(feed, sents_removed)
 
     is_quality_article, reason, code = sufficient_quality(np_article)
-
-    if not is_quality_article:
-        crawl_report.add_non_quality_reason(feed.language.code, feed.id, code)
-        raise SkippedForLowQuality(reason)
 
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
@@ -285,10 +271,14 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         feed.language,
         htmlContent=np_article.htmlContent,
     )
+    session.add(new_article)
+    if not is_quality_article:
+        crawl_report.add_non_quality_reason(feed, code)
+        new_article.broken = True
+        raise SkippedForLowQuality(reason)
 
     if np_article.top_image != "":
         new_article.img_url = Url.find_or_create(session, np_article.top_image)
-    session.add(new_article)
 
     topics = add_topics(new_article, session)
     logp(f" Topics ({topics})")

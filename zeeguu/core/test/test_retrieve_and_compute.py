@@ -27,7 +27,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
     def testDifficultyOfFeedItems(self):
         feed = FeedRule().feed1
         crawl_report = CrawlReport()
-        crawl_report.add_feed(feed.language.code, feed.id)
+        crawl_report.add_feed(feed)
         download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
 
         articles = feed.get_articles(limit=2)
@@ -44,7 +44,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         zeeguu.core.model.db.session.add(loc_topic)
         zeeguu.core.model.db.session.commit()
         crawl_report = CrawlReport()
-        crawl_report.add_feed(feed.language.code, feed.id)
+        crawl_report.add_feed(feed)
         download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
 
         article = feed.get_articles(limit=2)[0]

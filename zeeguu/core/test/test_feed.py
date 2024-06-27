@@ -16,10 +16,8 @@ class FeedTest(ModelTestMixIn, TestCase):
         self.crawl_report = CrawlReport()
         self.spiegel = FeedRule().feed1
         self.newspaper_da = FeedRule().feed_newspaper_da
-        self.crawl_report.add_feed(self.spiegel.language.code, self.spiegel.id)
-        self.crawl_report.add_feed(
-            self.newspaper_da.language.code, self.newspaper_da.id
-        )
+        self.crawl_report.add_feed(self.spiegel)
+        self.crawl_report.add_feed(self.newspaper_da)
         download_from_feed(self.spiegel, db.session, self.crawl_report, 3, False)
         download_from_feed(self.newspaper_da, db.session, self.crawl_report, 3, False)
 

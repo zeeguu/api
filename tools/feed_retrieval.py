@@ -40,7 +40,7 @@ def download_for_feeds(list_of_feeds, crawl_report):
     all_feeds_count = len(list_of_feeds)
 
     for feed in list_of_feeds:
-        crawl_report.add_feed(feed.language.code, feed.id)
+        crawl_report.add_feed(feed)
         if feed.deactivated:
             continue
 
@@ -65,11 +65,11 @@ def download_for_feeds(list_of_feeds, crawl_report):
                 "Something went wrong and we had to rollback a transaction; following is the full stack trace:"
             )
             traceback.print_exc()
-            crawl_report.add_feed_error(feed.language.code, feed.id, str(e))
+            crawl_report.add_feed_error(feed, str(e))
 
         except Exception as e:
             traceback.print_exc()
-            crawl_report.add_feed_error(feed.language.code, feed.id, str(e))
+            crawl_report.add_feed_error(feed, str(e))
 
     logp(f"Successfully finished processing {counter} feeds.")
     return summary_stream

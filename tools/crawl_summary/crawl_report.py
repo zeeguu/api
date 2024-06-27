@@ -12,10 +12,10 @@ class CrawlReport:
         path_to_dir = os.sep.join(inspect.getfile(self.__class__).split(os.sep)[:-1])
         self.default_save_dir = os.path.join(path_to_dir, "crawl_data")
         self.data = {"lang": {}}
-        self.crawl_date = datetime.datetime.now()
+        self.crawl_report_date = datetime.datetime.now()
 
-    def get_days_from_crawl_date(self):
-        return (datetime.datetime.now() - self.crawl_date).days
+    def get_days_from_crawl_report_date(self):
+        return (datetime.datetime.now() - self.crawl_report_date).days
 
     def __convert_str_to_dt(self, str_datetime):
         dt_parsed = datetime.datetime.strptime(str_datetime, STR_DATETIME_FORMAT)
@@ -27,7 +27,9 @@ class CrawlReport:
     def add_language(self, lang_code: str):
         self.data["lang"][lang_code] = {"feeds": {}, "total_time": None}
 
-    def add_feed(self, lang_code: str, feed_id: int):
+    def add_feed(self, feed):
+        lang_code = feed.language.code
+        feed_id = feed.id
         if lang_code not in self.data["lang"]:
             self.add_language(lang_code)
         self.data["lang"][lang_code]["feeds"][feed_id] = {
@@ -47,52 +49,66 @@ class CrawlReport:
     def set_total_time(self, lang_code: str, total_time):
         self.data["lang"][lang_code]["total_time"] = total_time
 
-    def add_feed_error(self, lang_code: str, feed_id: int, error: str):
+    def add_feed_error(self, feed, error: str):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["feed_errors"].append(error)
 
-    def set_feed_crawl_time(self, lang_code: str, feed_id: int, crawl_time):
+    def set_feed_crawl_time(self, feed, crawl_time):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["crawl_time"] = crawl_time
 
-    def set_feed_last_article_date(
-        self, lang_code: str, feed_id: int, last_article_date
-    ):
+    def set_feed_last_article_date(self, feed, last_article_date):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["last_article_date"] = (
             self.__convert_dt_to_str(last_article_date)
         )
 
-    def set_feed_total_articles(self, lang_code: str, feed_id: int, total_articles):
+    def set_feed_total_articles(self, feed, total_articles):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id][
             "total_articles"
         ] = total_articles
 
-    def set_feed_total_downloaded(self, lang_code: str, feed_id: int, total_downloaded):
+    def set_feed_total_downloaded(self, feed, total_downloaded):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id][
             "total_downloaded"
         ] = total_downloaded
 
-    def set_feed_total_low_quality(
-        self, lang_code: str, feed_id: int, total_low_quality
-    ):
+    def set_feed_total_low_quality(self, feed, total_low_quality):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id][
             "total_low_quality"
         ] = total_low_quality
 
-    def set_feed_total_in_db(self, lang_code: str, feed_id: int, total_in_db):
+    def set_feed_total_in_db(self, feed, total_in_db):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["total_in_db"] = total_in_db
 
-    def set_non_quality_reason(
-        self, lang_code: str, feed_id: int, non_quality_reason_counts: dict
-    ):
+    def set_non_quality_reason(self, feed, non_quality_reason_counts: dict):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
             "quality_error"
         ] = Counter(non_quality_reason_counts)
 
-    def set_sent_removed(self, lang_code: str, feed_id: int, sent_removed_count: dict):
+    def set_sent_removed(self, feed, sent_removed_count: dict):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
             "sents_removed"
         ] = Counter(sent_removed_count)
 
-    def add_non_quality_reason(self, lang_code: str, feed_id: int, non_quality_reason):
+    def add_non_quality_reason(self, feed, non_quality_reason):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
             "quality_error"
         ][non_quality_reason] = (
@@ -102,7 +118,9 @@ class CrawlReport:
             + 1
         )
 
-    def add_sent_removed(self, lang_code: str, feed_id: int, sent_removed):
+    def add_sent_removed(self, feed, sent_removed):
+        lang_code = feed.language.code
+        feed_id = feed.id
         self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
             "sents_removed"
         ] = (
@@ -113,14 +131,14 @@ class CrawlReport:
         )
 
     def save_crawl_report(self):
-        timestamp_str = self.__convert_dt_to_str(datetime.datetime.now())
+        timestamp_str = self.__convert_dt_to_str(self.crawl_report_date)
         for lang in self.data["lang"]:
             filename = f"{lang}-crawl-{timestamp_str}.json"
             output_dir = os.path.join(self.default_save_dir, lang)
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
-                json.dump(self.data["lang"], f)
+                json.dump(self.data["lang"][lang], f)
 
     def load_crawl_report_data(self, day_period: int, report_dir_path=None):
         if report_dir_path is None:
@@ -129,7 +147,7 @@ class CrawlReport:
             for file in os.listdir(os.path.join(report_dir_path, lang)):
                 lang, _, date = file.split(".")[0].split("-")
                 date = self.__convert_str_to_dt(date)
-                self.crawl_date = min(self.crawl_date, date)
+                self.crawl_report_date = min(self.crawl_report_date, date)
                 day_diff = (date.now() - date).days
                 if day_diff > day_period:
                     print(
@@ -141,8 +159,9 @@ class CrawlReport:
                         os.path.join(report_dir_path, lang, file), "r", encoding="utf-8"
                     ) as f:
                         self.data["lang"][lang] = json.load(f)[lang]
+                        print(f"LOADED File (d:{date}, l:{lang}): {file}")
                 except Exception as e:
-                    print(f"Failed to load: '{file}', with: '{e}'")
+                    print(f"Failed to load: '{file}', with: '{e} ({type(e)})'")
 
     def __validate_lang(self, lang: str):
         langs_available = set(self.data["lang"].keys())

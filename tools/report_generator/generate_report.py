@@ -381,7 +381,7 @@ def generate_html_page():
     exercise_activity_df = data_extractor.get_exercise_type_activity()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
-    total_days_from_crawl_report = crawl_report.get_days_from_crawl_date()
+    total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
     warning_crawl_range = (
         ""
         if total_days_from_crawl_report == DAYS_FOR_REPORT
