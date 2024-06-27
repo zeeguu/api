@@ -122,23 +122,15 @@ def user_settings():
     if submitted_name:
         user.name = submitted_name
 
-    submitted_native_language_code = data.get("native_language_code", None)
-    if not submitted_native_language_code:
-        submitted_native_language_code = data.get("native_language", None)
-
+    submitted_native_language_code = data.get("native_language", None)
     if submitted_native_language_code:
         user.set_native_language(submitted_native_language_code)
-
-    # deprecating the larned_language_code
-    # TR: Do we still need this?
-    submitted_learned_language_code = data.get("learned_language_code", None)
-    if not submitted_learned_language_code:
-        submitted_learned_language_code = data.get("learned_language", None)
 
     cefr_level = data.get("cefr_level", None)
     if cefr_level is None:
         return "ERROR"
 
+    submitted_learned_language_code = data.get("learned_language", None)
     if submitted_learned_language_code:
         user.set_learned_language(
             submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
