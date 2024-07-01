@@ -7,8 +7,12 @@ from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
-from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.content_quality.quality_filter import (
+    sufficient_quality,
+    LowQualityTypes,
+)
 from zeeguu.core.model import Topic, LocalizedTopic
+from tools.crawl_summary.crawl_report import CrawlReport
 
 from zeeguu.core.test.mocking_the_web import *
 
@@ -22,7 +26,9 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
     def testDifficultyOfFeedItems(self):
         feed = FeedRule().feed1
-        download_from_feed(feed, zeeguu.core.model.db.session, 3, False)
+        crawl_report = CrawlReport()
+        crawl_report.add_feed(feed)
+        download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
 
         articles = feed.get_articles(limit=2)
 
@@ -37,8 +43,9 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         loc_topic = LocalizedTopic(topic, self.lan, "spiegelDE", "spiegel")
         zeeguu.core.model.db.session.add(loc_topic)
         zeeguu.core.model.db.session.commit()
-
-        download_from_feed(feed, zeeguu.core.model.db.session, 3, False)
+        crawl_report = CrawlReport()
+        crawl_report.add_feed(feed)
+        download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
 
         article = feed.get_articles(limit=2)[0]
 
@@ -49,14 +56,14 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         art.download()
         art.parse()
 
-        assert sufficient_quality(art)
+        assert sufficient_quality(art)[0]
 
     def test_new_scientist_overlay(self):
         art = newspaper.Article(URL_NEWSCIENTIST_FISH)
         art.download()
         art.parse()
 
-        is_quality, _ = sufficient_quality(art)
+        is_quality, _, _ = sufficient_quality(art)
         assert not is_quality
 
     def test_le_monde_subscription(self):
@@ -64,7 +71,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         art.download()
         art.parse()
 
-        is_quality, _ = sufficient_quality(art)
+        is_quality, _, _ = sufficient_quality(art)
         assert not is_quality
 
     def test_fragment_removal(self):
@@ -74,10 +81,11 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
         cleaned_up_text = cleanup_non_content_bits(art.text)
         assert "Advertisement" not in cleaned_up_text
-    
+
     def test_ml_classification(self):
         db_content = mock_readability_call(URL_ML_JP_PAYWALL)
 
-        is_quality, reason = sufficient_quality(db_content)
+        is_quality, reason, code = sufficient_quality(db_content)
         assert not is_quality
         assert reason == "ML Prediction was 'Paywalled'."
+        assert code == LowQualityTypes.ML_PREDICTION

@@ -7,7 +7,8 @@
 """
 
 import newspaper
-
+from collections import Counter
+from time import time
 from pymysql import DataError
 
 from zeeguu.core.content_retriever.crawler_exceptions import *
@@ -24,7 +25,9 @@ from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
 from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
-from zeeguu.core.content_retriever import download_and_parse
+from zeeguu.core.content_retriever import (
+    download_and_parse_with_remove_sents,
+)
 
 TIMEOUT_SECONDS = 10
 
@@ -56,7 +59,9 @@ def banned_url(url):
     return False
 
 
-def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
+def download_from_feed(
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True
+):
     """
 
     Session is needed because this saves stuff to the DB.
@@ -70,7 +75,7 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
     """
 
     summary_stream = ""
-
+    start_feed_time = time()
     downloaded = 0
     downloaded_titles = []
     skipped_due_to_low_quality = 0
@@ -90,11 +95,10 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
 
         traceback.print_stack()
         capture_to_sentry(e)
-        return
+        return ""
 
+    skipped_already_in_db = 0
     for feed_item in items:
-
-        skipped_already_in_db = 0
 
         if downloaded >= limit:
             break
@@ -109,8 +113,10 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             feed_item_timestamp > last_retrieval_time_seen_this_crawl
         ):
             last_retrieval_time_seen_this_crawl = feed_item_timestamp
+            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
 
         if last_retrieval_time_seen_this_crawl > feed.last_crawled_time:
+            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
             feed.last_crawled_time = last_retrieval_time_seen_this_crawl
             session.add(feed)
             session.commit()
@@ -124,7 +130,6 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         try:
-
             url = _url_after_redirects(feed_item["url"])
 
             # check if the article after resolving redirects is already in the DB
@@ -146,9 +151,15 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             continue
 
         try:
-            new_article = download_feed_item(session, feed, feed_item, url)
+            new_article = download_feed_item(
+                session,
+                feed,
+                feed_item,
+                url,
+                crawl_report,
+            )
             downloaded += 1
-            if save_in_elastic:
+            if save_in_elastic and not new_article.broken:
                 if new_article:
                     index_in_elasticsearch(new_article, session)
 
@@ -198,7 +209,11 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
             else:
                 logp(e)
             continue
-
+    crawl_report.set_feed_total_articles(feed, len(items))
+    crawl_report.set_feed_total_downloaded(feed, downloaded)
+    crawl_report.set_feed_total_low_quality(feed, skipped_due_to_low_quality)
+    crawl_report.set_feed_total_in_db(feed, skipped_already_in_db)
+    crawl_report.set_feed_crawl_time(feed, round(time() - start_feed_time, 2))
     summary_stream += (
         f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
     )
@@ -209,11 +224,12 @@ def download_from_feed(feed: Feed, session, limit=1000, save_in_elastic=True):
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
     logp(f"*** Already in DB: {skipped_already_in_db}")
     logp(f"*** ")
+    session.commit()
 
     return summary_stream
 
 
-def download_feed_item(session, feed, feed_item, url):
+def download_feed_item(session, feed, feed_item, url, crawl_report):
     title = feed_item["title"]
 
     published_datetime = feed_item["published_datetime"]
@@ -223,12 +239,9 @@ def download_feed_item(session, feed, feed_item, url):
     if art:
         raise SkippedAlreadyInDB()
 
-    np_article = download_and_parse(url)
+    np_article = download_and_parse_with_remove_sents(url, crawl_report, feed)
 
-    is_quality_article, reason = sufficient_quality(np_article)
-
-    if not is_quality_article:
-        raise SkippedForLowQuality(reason)
+    is_quality_article, reason, code = sufficient_quality(np_article)
 
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
@@ -257,14 +270,23 @@ def download_feed_item(session, feed, feed_item, url):
         feed.language,
         htmlContent=np_article.htmlContent,
     )
+    session.add(new_article)
+
+    if not is_quality_article:
+        MAX_WORD_FOR_BROKEN_ARTICLE = 10000
+        crawl_report.add_non_quality_reason(feed, code, str(url))
+        new_article.set_as_broken(session, code)
+        if len(new_article.content.split()) > MAX_WORD_FOR_BROKEN_ARTICLE:
+            new_article.content = new_article.content[:MAX_WORD_FOR_BROKEN_ARTICLE]
+        session.add(new_article)
+        raise SkippedForLowQuality(reason)
 
     if np_article.top_image != "":
         new_article.img_url = Url.find_or_create(session, np_article.top_image)
-    session.add(new_article)
 
     topics = add_topics(new_article, session)
     logp(f" Topics ({topics})")
-
+    session.add(new_article)
     return new_article
 
 

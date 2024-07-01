@@ -35,6 +35,7 @@ from .user_word import UserWord
 from .user_preference import UserPreference
 from .session import Session
 from .unique_code import UniqueCode
+from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
 
 from .user_language import UserLanguage
 
