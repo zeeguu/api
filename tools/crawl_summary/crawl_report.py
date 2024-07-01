@@ -158,7 +158,39 @@ class CrawlReport:
                     with open(
                         os.path.join(report_dir_path, lang, file), "r", encoding="utf-8"
                     ) as f:
-                        self.data["lang"][lang] = json.load(f)[lang]
+                        loaded_data = json.load(f)
+                        if lang not in self.data["lang"]:
+                            self.add_language(lang)
+
+                        for feed in loaded_data["feeds"]:
+                            if feed not in self.data["lang"][lang]["feeds"]:
+                                # We have not loaded any feeds yet:
+                                self.data["lang"][lang]["feeds"][feed] = loaded_data[
+                                    "feeds"
+                                ][feed]
+                            else:
+                                self.data["lang"][lang]["feeds"][feed][
+                                    "article_report"
+                                ]["sents_removed"] = Counter(
+                                    self.data["lang"][lang]["feeds"][feed][
+                                        "article_report"
+                                    ]["sents_removed"]
+                                ) + Counter(
+                                    loaded_data["feeds"][feed]["article_report"][
+                                        "sents_removed"
+                                    ]
+                                )
+                                self.data["lang"][lang]["feeds"][feed][
+                                    "article_report"
+                                ]["quality_error"] = Counter(
+                                    self.data["lang"][lang]["feeds"][feed][
+                                        "article_report"
+                                    ]["quality_error"]
+                                ) + Counter(
+                                    loaded_data["feeds"][feed]["article_report"][
+                                        "quality_error"
+                                    ]
+                                )
                         print(f"LOADED File (d:{date}, l:{lang}): {file}")
                 except Exception as e:
                     print(f"Failed to load: '{file}', with: '{e} ({type(e)})'")

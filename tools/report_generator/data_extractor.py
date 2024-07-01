@@ -26,7 +26,8 @@ class DataExtractor:
         INNER JOIN article_topic_map atm on a.id = atm.article_id 
         INNER JOIN topic t ON atm.topic_id = t.id
         INNER JOIN language l ON l.id = a.language_id
-        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}"""
+        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        AND a.broken = 0"""
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
@@ -36,7 +37,8 @@ class DataExtractor:
         query = f"""SELECT a.*, l.name Language
         FROM article a     
         INNER JOIN language l ON l.id = a.language_id
-        WHERE DATEDIFF(CURDATE(), published_time) <= {self.DAYS_FOR_REPORT}"""
+        WHERE DATEDIFF(CURDATE(), published_time) <= {self.DAYS_FOR_REPORT}
+        AND a.broken = 0"""
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
