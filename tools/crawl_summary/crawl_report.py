@@ -148,15 +148,13 @@ class CrawlReport:
                         loaded_data = json.load(f)
                         if lang not in self.data["lang"]:
                             self.add_language(lang)
-
+                        lang_dict = self.data["lang"][lang]
                         for feed in loaded_data["feeds"]:
-                            if feed not in self.data["lang"][lang]["feeds"]:
+                            if feed not in lang_dict["feeds"]:
                                 # We have not loaded any feeds yet:
-                                self.data["lang"][lang]["feeds"][feed] = loaded_data[
-                                    "feeds"
-                                ][feed]
+                                lang_dict["feeds"][feed] = loaded_data["feeds"][feed]
                             else:
-                                feed_dict = self._get_feed_dict(feed)
+                                feed_dict = lang_dict["feeds"][feed]
                                 feed_dict["article_report"]["sents_removed"] = Counter(
                                     feed_dict["article_report"]["sents_removed"]
                                 ) + Counter(
@@ -193,7 +191,7 @@ class CrawlReport:
         total_counts = Counter()
         for lang in langs_to_load:
             for feed in self.data["lang"][lang]["feeds"]:
-                feed_dict = self._get_feed_dict(feed)
+                feed_dict = self.data["lang"][lang]["feeds"][feed]
                 total_counts += Counter(feed_dict["article_report"]["quality_error"])
         return total_counts
 
@@ -204,8 +202,9 @@ class CrawlReport:
             for lang in langs_to_load:
                 self.__validate_lang(lang)
         total_counts = Counter()
+
         for lang in langs_to_load:
             for feed in self.data["lang"][lang]["feeds"]:
-                feed_dict = self._get_feed_dict(feed)
+                feed_dict = self.data["lang"][lang]["feeds"][feed]
                 total_counts += Counter(feed_dict["article_report"]["sents_removed"])
         return total_counts
