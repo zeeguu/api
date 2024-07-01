@@ -104,7 +104,7 @@ def build_elastic_recommender_query(
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
-    # bool_query_body["query"]["bool"].update({"should": should})
+    bool_query_body["query"]["bool"].update({"should": should})
     full_query = {
         "from": page * count,
         "size": count,

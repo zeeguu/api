@@ -171,7 +171,9 @@ class User(db.Model):
     def set_native_language(self, code):
         self.native_language = Language.find(code)
 
-    def set_learned_language(self, language_code, session=None):
+    def set_learned_language(
+        self, language_code: str, cefr_level: int = None, session=None
+    ):
         self.learned_language = Language.find(language_code)
 
         from zeeguu.core.model import UserLanguage
@@ -191,16 +193,21 @@ class User(db.Model):
         language = UserLanguage.find_or_create(session, self, self.learned_language)
         language.reading_news = True
         language.doing_exercises = True
+        if cefr_level:
+            language.cefr_level = cefr_level
 
         if session:
             session.add(language)
+            
 
-    def set_learned_language_level(self, language_code: str, level: str, session=None):
+    def set_learned_language_level(
+        self, language_code: str, cefr_level: str, session=None
+    ):
         learned_language = Language.find_or_create(language_code)
         from zeeguu.core.model import UserLanguage
 
         language = UserLanguage.find_or_create(session, self, learned_language)
-        language.cefr_level = int(level)
+        language.cefr_level = int(cefr_level)
         if session:
             session.add(language)
 
