@@ -24,6 +24,11 @@ class CrawlReport:
     def __convert_dt_to_str(self, datetime):
         return datetime.strftime(STR_DATETIME_FORMAT)
 
+    def _get_feed_dict(self, feed):
+        lang_code = feed.language.code
+        feed_id = feed.id
+        return self.data["lang"][lang_code]["feeds"][feed_id]
+
     def add_language(self, lang_code: str):
         self.data["lang"][lang_code] = {"feeds": {}, "total_time": None}
 
@@ -36,6 +41,8 @@ class CrawlReport:
             "article_report": {
                 "sents_removed": {},
                 "quality_error": {},
+                "quality_to_url": {},
+                "sents_to_url": {},
             },
             "last_article_date": None,
             "feed_errors": [],
@@ -50,85 +57,65 @@ class CrawlReport:
         self.data["lang"][lang_code]["total_time"] = total_time
 
     def add_feed_error(self, feed, error: str):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["feed_errors"].append(error)
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["feed_errors"].append(error)
 
     def set_feed_crawl_time(self, feed, crawl_time):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["crawl_time"] = crawl_time
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["crawl_time"] = crawl_time
 
     def set_feed_last_article_date(self, feed, last_article_date):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["last_article_date"] = (
-            self.__convert_dt_to_str(last_article_date)
-        )
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["last_article_date"] = self.__convert_dt_to_str(last_article_date)
 
     def set_feed_total_articles(self, feed, total_articles):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id][
-            "total_articles"
-        ] = total_articles
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["total_articles"] = total_articles
 
     def set_feed_total_downloaded(self, feed, total_downloaded):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id][
-            "total_downloaded"
-        ] = total_downloaded
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["total_downloaded"] = total_downloaded
 
     def set_feed_total_low_quality(self, feed, total_low_quality):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id][
-            "total_low_quality"
-        ] = total_low_quality
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["total_low_quality"] = total_low_quality
 
     def set_feed_total_in_db(self, feed, total_in_db):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["total_in_db"] = total_in_db
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["total_in_db"] = total_in_db
 
     def set_non_quality_reason(self, feed, non_quality_reason_counts: dict):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-            "quality_error"
-        ] = Counter(non_quality_reason_counts)
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["article_report"]["quality_error"] = Counter(
+            non_quality_reason_counts
+        )
 
     def set_sent_removed(self, feed, sent_removed_count: dict):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-            "sents_removed"
-        ] = Counter(sent_removed_count)
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["article_report"]["sents_removed"] = Counter(sent_removed_count)
 
-    def add_non_quality_reason(self, feed, non_quality_reason):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-            "quality_error"
-        ][non_quality_reason] = (
-            self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-                "quality_error"
-            ].get(non_quality_reason, 0)
-            + 1
+    def add_non_quality_reason(self, feed, non_quality_reason, url=None):
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["article_report"]["quality_error"][non_quality_reason] = (
+            feed_dict["article_report"]["quality_error"].get(non_quality_reason, 0) + 1
         )
+        if url is not None:
+            feed_dict["article_report"]["quality_to_url"][non_quality_reason] = (
+                feed_dict["article_report"]["quality_to_url"].get(
+                    non_quality_reason, []
+                )
+                + [url]
+            )
 
-    def add_sent_removed(self, feed, sent_removed):
-        lang_code = feed.language.code
-        feed_id = feed.id
-        self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-            "sents_removed"
-        ] = (
-            self.data["lang"][lang_code]["feeds"][feed_id]["article_report"][
-                "sents_removed"
-            ].get(sent_removed, 0)
-            + 1
+    def add_sent_removed(self, feed, sent_removed, url=None):
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["article_report"]["sents_removed"][sent_removed] = (
+            feed_dict["article_report"]["sents_removed"].get(sent_removed, 0) + 1
         )
+        if url is not None:
+            feed_dict["article_report"]["sents_to_url"][sent_removed] = feed_dict[
+                "article_report"
+            ]["sents_to_url"].get(sent_removed, []) + [url]
 
     def save_crawl_report(self):
         timestamp_str = self.__convert_dt_to_str(self.crawl_report_date)
@@ -169,23 +156,16 @@ class CrawlReport:
                                     "feeds"
                                 ][feed]
                             else:
-                                self.data["lang"][lang]["feeds"][feed][
-                                    "article_report"
-                                ]["sents_removed"] = Counter(
-                                    self.data["lang"][lang]["feeds"][feed][
-                                        "article_report"
-                                    ]["sents_removed"]
+                                feed_dict = self._get_feed_dict(feed)
+                                feed_dict["article_report"]["sents_removed"] = Counter(
+                                    feed_dict["article_report"]["sents_removed"]
                                 ) + Counter(
                                     loaded_data["feeds"][feed]["article_report"][
                                         "sents_removed"
                                     ]
                                 )
-                                self.data["lang"][lang]["feeds"][feed][
-                                    "article_report"
-                                ]["quality_error"] = Counter(
-                                    self.data["lang"][lang]["feeds"][feed][
-                                        "article_report"
-                                    ]["quality_error"]
+                                feed_dict["article_report"]["quality_error"] = Counter(
+                                    feed_dict["article_report"]["quality_error"]
                                 ) + Counter(
                                     loaded_data["feeds"][feed]["article_report"][
                                         "quality_error"
@@ -213,11 +193,8 @@ class CrawlReport:
         total_counts = Counter()
         for lang in langs_to_load:
             for feed in self.data["lang"][lang]["feeds"]:
-                total_counts += Counter(
-                    self.data["lang"][lang]["feeds"][feed]["article_report"][
-                        "quality_error"
-                    ]
-                )
+                feed_dict = self._get_feed_dict(feed)
+                total_counts += Counter(feed_dict["article_report"]["quality_error"])
         return total_counts
 
     def get_total_removed_sents_counts(self, langs_to_load: list[str] = None):
@@ -229,9 +206,6 @@ class CrawlReport:
         total_counts = Counter()
         for lang in langs_to_load:
             for feed in self.data["lang"][lang]["feeds"]:
-                total_counts += Counter(
-                    self.data["lang"][lang]["feeds"][feed]["article_report"][
-                        "sents_removed"
-                    ]
-                )
+                feed_dict = self._get_feed_dict(feed)
+                total_counts += Counter(feed_dict["article_report"]["sents_removed"])
         return total_counts
