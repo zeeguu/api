@@ -36,10 +36,21 @@ class LanguageTest(ModelTestMixIn, TestCase):
             assert LanguageRule.get_or_create_language(lan)
 
     def test_user_set_language(self):
-        language_should_be = LanguageRule().random
+        from zeeguu.core.model import UserLanguage
 
-        self.user.set_learned_language(language_should_be.code, db_session)
-        assert self.user.learned_language.id == language_should_be.id
+        language_should_be = LanguageRule().random
+        language_level_should_be = 2
+        self.user.set_learned_language(
+            language_should_be.code, language_level_should_be, db_session
+        )
+        db_session.commit()
+        user_language = UserLanguage.find_or_create(
+            db_session, self.user, language_should_be
+        )
+        assert (
+            self.user.learned_language.id == language_should_be.id
+            and user_language.cefr_level == language_level_should_be
+        )
 
     def test_native_language(self):
         language_should_be = LanguageRule().random

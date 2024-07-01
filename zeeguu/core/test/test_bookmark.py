@@ -3,10 +3,10 @@ import random
 from zeeguu.core.bookmark_quality import top_bookmarks, bad_quality_bookmark
 from zeeguu.core.definition_of_learned import (
     is_learned_based_on_exercise_outcomes,
-    CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED,
+    LEARNING_CYCLE_LENGTH,
 )
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-from zeeguu.core.model.bookmark import CORRECTS_IN_A_ROW_FOR_LEARNED
+from zeeguu.core.definition_of_learned import LEARNING_CYCLE_LENGTH
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -198,7 +198,7 @@ class BookmarkTest(ModelTestMixIn):
             == SortedExerciseLog(random_bookmark).latest_exercise_outcome()
         )
 
-    def test_is_learned_based_on_exercise_outcomes(self):
+    def test_empty_exercises_is_not_learned(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
 
         # Empty exercise_log should lead to a False return
@@ -206,6 +206,9 @@ class BookmarkTest(ModelTestMixIn):
             SortedExerciseLog(random_bookmarks[0])
         )
         assert not learned
+
+    def test_is_too_easy_sets_to_learned(self):
+        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
 
         # An exercise with Outcome equal to TOO EASY results in True, and time of last exercise
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
@@ -226,14 +229,22 @@ class BookmarkTest(ModelTestMixIn):
         )
         assert learned
 
+    def test_is_learned_based_on_exercise_outcomes_productive(self):
+        from zeeguu.core.model.learning_cycle import LearningCycle
+
+        print("Testing Productive Outcome!")
+        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
+        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH * 2
         correct_bookmark = random_bookmarks[2]
+        correct_bookmark.learning_cycle = LearningCycle.PRODUCTIVE
         exercises = 0
         distinct_dates = set()
         while not (
-            exercises >= CORRECTS_IN_A_ROW_FOR_LEARNED
-            and len(distinct_dates) >= CORRECTS_IN_DISTINCT_DAYS_FOR_LEARNED
+            exercises >= (total_exercises_productive_cycle)
+            and len(distinct_dates) >= total_exercises_productive_cycle
         ):
             correct_exercise = ExerciseRule(exercise_session).exercise
             correct_exercise.outcome = OutcomeRule().correct
@@ -243,22 +254,62 @@ class BookmarkTest(ModelTestMixIn):
 
         correct_bookmark.update_learned_status(db.session)
 
-        log = SortedExerciseLog(correct_bookmark)
-        learned = is_learned_based_on_exercise_outcomes(log)
-        result_time = log.last_exercise_time()
+        learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
         assert learned
 
         log = SortedExerciseLog(correct_bookmark)
         learned_time_from_log = log.last_exercise_time()
+        result_time = log.last_exercise_time()
         assert result_time == learned_time_from_log
 
         # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        wrong_exercise_bookmark = random_bookmarks[3]
+        wrong_exercise = ExerciseRule(exercise_session).exercise
+        wrong_exercise.outcome = OutcomeRule().wrong
+        wrong_exercise_bookmark.add_new_exercise(wrong_exercise)
+
+        learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
+        print("Testing is not learned")
+        assert not learned
+
+    def test_is_learned_based_on_exercise_outcomes_receptive_not_set(self):
+
+        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
+        # returns true and the time of the last exercise
+        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH
+        correct_bookmark = random_bookmarks[2]
+        exercises = 0
+        distinct_dates = set()
+        while not (
+            exercises >= (total_exercises_productive_cycle)
+            and len(distinct_dates) >= total_exercises_productive_cycle
+        ):
+            correct_exercise = ExerciseRule(exercise_session).exercise
+            correct_exercise.outcome = OutcomeRule().correct
+            correct_bookmark.add_new_exercise(correct_exercise)
+            exercises += 1
+            distinct_dates.add(correct_exercise.time.date())
+
+        correct_bookmark.update_learned_status(db.session)
+
+        learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
+        
+        assert learned
+
+        log = SortedExerciseLog(correct_bookmark)
+        learned_time_from_log = log.last_exercise_time()
+        result_time = log.last_exercise_time()
+        assert result_time == learned_time_from_log
+
+        # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        wrong_exercise_bookmark = random_bookmarks[3]
         wrong_exercise = ExerciseRule(exercise_session).exercise
         wrong_exercise.outcome = OutcomeRule().wrong
         random_bookmarks[3].add_new_exercise(wrong_exercise)
 
-        log = SortedExerciseLog(random_bookmarks[3])
-        learned = is_learned_based_on_exercise_outcomes(log)
+        learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
         assert not learned
 
     def test_top_bookmarks(self):

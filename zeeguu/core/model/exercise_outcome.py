@@ -28,6 +28,32 @@ class ExerciseOutcome(db.Model):
 
     wrong_outcomes = ["W", WRONG, SHOW_SOLUTION, ASKED_FOR_HINT]
 
+    @classmethod
+    def is_valid_attempt(cls, outcome: str):
+        """
+        The user might have multiple attempts:
+            e.g. "WWWHHC",
+                 "WWTTHC"...
+        By checking if the characters in the answer are part
+        of the set of possible reports of the exercise, we can
+        conclude it is a user attempt.
+        """
+        allowed_attempts = set(["C", "W", "T", "S", "H"])
+        return allowed_attempts.issuperset(set([c for c in outcome]))
+
+    @classmethod
+    def is_correct(cls, outcome: str):
+        is_correct = outcome == ExerciseOutcome.CORRECT
+        # allow for a few translations before hitting the correct; they work like hints
+        is_correct_after_translation = outcome in [
+            "TC",
+            "TTC",
+            "TTTC",
+        ]
+        # if it's correct after hint it should still be fine
+        is_correct_after_hint = outcome == "HC"
+        return is_correct or is_correct_after_translation or is_correct_after_hint
+
     def __init__(self, outcome):
         self.outcome = outcome
 
@@ -46,17 +72,13 @@ class ExerciseOutcome(db.Model):
         return self.outcome in self.too_easy_outcomes
 
     def free_text_feedback(self):
-        """
-        this can happen since the user can provide any free
-        text feedback. in such a case it would probably be
-        safest not to show such a bookmark until somebody
-        manually verified the appropriateness of the
-        feedback"""
-        return (
+        result = (
             self.outcome not in self.correct_outcomes
             and self.outcome not in self.wrong_outcomes
             and self.outcome not in self.too_easy_outcomes
+            and not ExerciseOutcome.is_valid_attempt(self.outcome)
         )
+        return result
 
     @classmethod
     def find(cls, outcome: str):
