@@ -8,8 +8,41 @@ from sqlalchemy import create_engine
 import datetime
 import os
 import argparse
+from collections import Counter
+from tqdm import tqdm
+from nltk.tokenize import sent_tokenize
 
 REPORT_FOLDER = "reports"
+
+
+def identify_repeating_patterns(article_df, sents_filtered_set: set):
+    def normalize_sent(text: str):
+        return text.lower().strip()
+
+    def sent_count(text: str):
+        return Counter(
+            [
+                normalize_sent(sent)
+                for paragraph in text.split("\n\n")
+                for sent in sent_tokenize(paragraph)
+                if len(sent.strip()) > 10
+            ]
+        )
+
+    def get_total_sent_counts(text_list: list[str]):
+        total_counts = Counter()
+        for text in tqdm(text_list, total=len(text_list)):
+            total_counts += sent_count(text)
+        return total_counts
+
+    print("Evaluating new repeating patterns...")
+    total_counts = get_total_sent_counts(article_df.content)
+    sents_occur_more_than_10 = [
+        [sent, count]
+        for sent, count in total_counts.items()
+        if count > 10 and sent not in sents_filtered_set
+    ]
+    return pd.DataFrame(sents_occur_more_than_10, columns=["Sent", "Count"])
 
 
 def save_fig_params(filename):
@@ -18,6 +51,10 @@ def save_fig_params(filename):
     plt.savefig(path_to_img, bbox_inches="tight")
     plt.clf()
     return rel_path
+
+
+def get_new_repeating_sents(pd_repeating_sents):
+    return generate_html_table(pd_repeating_sents.sort_values("Count", ascending=False))
 
 
 def get_rejected_sentences_table(total_deleted_sents):
@@ -382,6 +419,10 @@ def generate_html_page():
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
+    total_removed_sents = crawl_report.get_total_removed_sents_counts()
+    pd_new_repeated_sents = identify_repeating_patterns(
+        article_df, set(total_removed_sents.keys())
+    )
     warning_crawl_range = (
         ""
         if total_days_from_crawl_report == DAYS_FOR_REPORT
@@ -463,9 +504,12 @@ def generate_html_page():
             <hr />
             {lang_report}
             <hr />
+            <h1>Newly identified repeating patterns:</h1>
+            <p>Sentences that occur in more than 10 articles during this weeks crawl, and were not filtered.<p>
+            {get_new_repeating_sents(pd_new_repeated_sents)}
             <h1 id="removed-articles">Removed Article Sents:</h1>
             <p>{warning_crawl_range}</p>
-            {get_rejected_sentences_table(crawl_report.get_total_removed_sents_counts())}
+            {get_rejected_sentences_table(total_removed_sents)}
         </body>
     """
     with open(
