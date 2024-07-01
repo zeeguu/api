@@ -159,7 +159,7 @@ def download_from_feed(
                 crawl_report,
             )
             downloaded += 1
-            if save_in_elastic:
+            if save_in_elastic and not new_article.broken:
                 if new_article:
                     index_in_elasticsearch(new_article, session)
 
@@ -224,6 +224,7 @@ def download_from_feed(
     logp(f"*** Low Quality: {skipped_due_to_low_quality}")
     logp(f"*** Already in DB: {skipped_already_in_db}")
     logp(f"*** ")
+    session.commit()
 
     return summary_stream
 
@@ -238,9 +239,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if art:
         raise SkippedAlreadyInDB()
 
-    np_article, sents_removed = download_and_parse_with_remove_sents(url)
-    print("Counted sents!", sents_removed)
-    crawl_report.set_sent_removed(feed, sents_removed)
+    np_article = download_and_parse_with_remove_sents(url, crawl_report, feed)
 
     is_quality_article, reason, code = sufficient_quality(np_article)
 
@@ -272,9 +271,14 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         htmlContent=np_article.htmlContent,
     )
     session.add(new_article)
+
     if not is_quality_article:
-        crawl_report.add_non_quality_reason(feed, code)
-        new_article.broken = True
+        MAX_WORD_FOR_BROKEN_ARTICLE = 10000
+        crawl_report.add_non_quality_reason(feed, code, str(url))
+        new_article.set_as_broken(session, code)
+        if len(new_article.content.split()) > MAX_WORD_FOR_BROKEN_ARTICLE:
+            new_article.content = new_article.content[:MAX_WORD_FOR_BROKEN_ARTICLE]
+        session.add(new_article)
         raise SkippedForLowQuality(reason)
 
     if np_article.top_image != "":
@@ -282,7 +286,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     topics = add_topics(new_article, session)
     logp(f" Topics ({topics})")
-
+    session.add(new_article)
     return new_article
 
 

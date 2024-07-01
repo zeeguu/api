@@ -1124,26 +1124,21 @@ def normalize_sent(text: str):
     return text.lower().strip()
 
 
-def filter_noise_patterns(article, sent_filter_set, sent_count={}):
+def filter_noise_patterns(article, sent_filter_set, crawl_report, feed, url):
     clean_artcile = ""
     for paragraph in article.split("\n\n"):
         clean_paragraph = ""
         is_prev_skip = False
-        if len(paragraph) < 10:
-            if paragraph != "":
-                sent_count[paragraph] = sent_count.get(paragraph, 0) + 1
-            print("Skipped (paragraph too short (<10)!): ", paragraph)
-            continue
         for sent in sent_tokenize(paragraph):
             if is_prev_skip and len(sent) <= 10:
-                sent_count[sent] = sent_count.get(sent, 0) + 1
                 print("Skipped (Prev Skipped and Short!): ", sent)
+                crawl_report.add_sent_removed(feed, sent, url)
                 continue
             else:
                 is_prev_skip = False
             if normalize_sent(sent) in sent_filter_set:
                 print("Skipped (Repetitive): ", sent)
-                sent_count[sent] = sent_count.get(sent, 0) + 1
+                crawl_report.add_sent_removed(feed, sent, url)
                 is_prev_skip = True
                 continue
             clean_paragraph += sent + " "
@@ -1153,16 +1148,16 @@ def filter_noise_patterns(article, sent_filter_set, sent_count={}):
     return clean_artcile.strip()
 
 
-def cleanup_non_content_bits_w_sent_count(text: str) -> tuple[str, dict]:
+def cleanup_non_content_bits_w_crawl_report(text: str, crawl_report, feed, url) -> str:
     new_text = text
-    sent_count = {}
-    new_text = filter_noise_patterns(text, set(JUNK_COUNT_PATTERNS), sent_count)
-
+    new_text = filter_noise_patterns(
+        text, set(JUNK_COUNT_PATTERNS), crawl_report, feed, url
+    )
     for junk_pattern in JUNK_PATTERNS_TO_REMOVE:
         cleaned = new_text.replace(junk_pattern, "")
 
         if cleaned != new_text:
-            sent_count[junk_pattern] = sent_count.get(junk_pattern, 0) + 1
+            crawl_report.add_sent_removed(feed, junk_pattern, url)
             print(f"- cleaned: {junk_pattern}")
             new_text = cleaned
 
@@ -1171,11 +1166,11 @@ def cleanup_non_content_bits_w_sent_count(text: str) -> tuple[str, dict]:
         for each in new_text.split("\n"):
             if each.startswith(junk_prefix):
                 print(">>>> dropping the Paragraph: " + each)
-                sent_count[junk_prefix] = sent_count.get(junk_prefix, 0) + 1
+                crawl_report.add_sent_removed(feed, junk_pattern, url)
                 continue
             clean_text += each + "\n"
 
-    return clean_text, sent_count
+    return clean_text
 
 
 def cleanup_non_content_bits(text: str):
