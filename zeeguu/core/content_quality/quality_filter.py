@@ -1,5 +1,5 @@
 import newspaper
-from zeeguu.core.model import Article
+from zeeguu.core.model import Article, LowQualityTypes
 from zeeguu.core.ml_models import is_paywalled, ID_TO_LABEL_PAYWALL
 
 HTML_READ_MORE_PATTERNS = [
@@ -33,15 +33,6 @@ LIVE_BLOG_KIND_OF_PATTERNS = [
     "Lees hier het hele verhaal",
     "Lees hier het hele verhaal",
 ]
-
-
-class LowQualityTypes:
-    TOO_SHORT = "TOO_SHORT"
-    HTML_PATTERN = "HTML_PATTERN"
-    TEXT_PAYWALL_PATTERN = "PAYWALL_PATTERN"
-    INCOMPLETE_PATTERN = "INCOMPLETE_PATTERN"
-    LIVE_BLOG = "LIVE_BLOG"
-    ML_PREDICTION = "ML_PREDICTION"
 
 
 def sufficient_quality_html(html):
