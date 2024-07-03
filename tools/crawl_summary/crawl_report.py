@@ -3,14 +3,18 @@ import datetime
 import os
 import inspect
 import json
+import pathlib
 
 STR_DATETIME_FORMAT = "%d_%m_%y_%H_%M_%S"
+CRAWL_REPORT_DATA = os.environ.get(
+    "CRAWL_REPORT_DATA",
+    os.path.join(pathlib.Path(__file__).parent.resolve(), "crawl_data"),
+)
 
 
 class CrawlReport:
     def __init__(self) -> None:
-        path_to_dir = os.sep.join(inspect.getfile(self.__class__).split(os.sep)[:-1])
-        self.default_save_dir = os.path.join(path_to_dir, "crawl_data")
+        self.save_dir = CRAWL_REPORT_DATA
         self.data = {"lang": {}}
         self.crawl_report_date = datetime.datetime.now()
 
@@ -121,7 +125,7 @@ class CrawlReport:
         timestamp_str = self.__convert_dt_to_str(self.crawl_report_date)
         for lang in self.data["lang"]:
             filename = f"{lang}-crawl-{timestamp_str}.json"
-            output_dir = os.path.join(self.default_save_dir, lang)
+            output_dir = os.path.join(self.save_dir, lang)
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
@@ -129,7 +133,7 @@ class CrawlReport:
 
     def load_crawl_report_data(self, day_period: int, report_dir_path=None):
         if report_dir_path is None:
-            report_dir_path = self.default_save_dir
+            report_dir_path = self.save_dir
         for lang in os.listdir(report_dir_path):
             for file in os.listdir(os.path.join(report_dir_path, lang)):
                 lang, _, date = file.split(".")[0].split("-")

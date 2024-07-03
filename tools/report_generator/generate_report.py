@@ -8,11 +8,15 @@ from sqlalchemy import create_engine
 import datetime
 import os
 import argparse
+import pathlib
 from collections import Counter
 from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
 
-REPORT_FOLDER = "reports"
+FOLDER_FOR_REPORT_OUTPUT = os.environ.get(
+    "FOLDER_FOR_REPORT_OUTPUT",
+    os.path.join(pathlib.Path(__file__).parent.resolve(), "reports"),
+)
 
 
 def identify_repeating_patterns(article_df, sents_filtered_set: set):
@@ -46,7 +50,12 @@ def identify_repeating_patterns(article_df, sents_filtered_set: set):
 
 
 def save_fig_params(filename):
-    path_to_img = os.path.join(REPORT_FOLDER, "img", filename)
+    img_folder = os.path.join(FOLDER_FOR_REPORT_OUTPUT, "img")
+    print(FOLDER_FOR_REPORT_OUTPUT)
+    print(os.listdir(FOLDER_FOR_REPORT_OUTPUT))
+    if not os.path.exists(img_folder):
+        os.mkdir(img_folder)
+    path_to_img = os.path.join(img_folder, filename)
     rel_path = os.path.join("img", filename)
     plt.savefig(path_to_img, bbox_inches="tight")
     plt.clf()
@@ -526,7 +535,7 @@ def generate_html_page():
         </body>
     """
     with open(
-        os.path.join(REPORT_FOLDER, f"report_week_nr_{CURRENT_WEEK_N}.html"),
+        os.path.join(FOLDER_FOR_REPORT_OUTPUT, f"report_week_nr_{CURRENT_WEEK_N}.html"),
         "w",
         encoding="UTF-8",
     ) as f:
