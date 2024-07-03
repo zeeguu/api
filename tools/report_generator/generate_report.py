@@ -420,25 +420,29 @@ def generate_html_page():
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
     total_removed_sents = crawl_report.get_total_removed_sents_counts()
-    pd_new_repeated_sents = identify_repeating_patterns(
-        article_df, set(total_removed_sents.keys())
-    )
+    if DAYS_FOR_REPORT <= 7:
+        pd_new_repeated_sents = identify_repeating_patterns(
+            article_df, set(total_removed_sents.keys())
+        )
     warning_crawl_range = (
         ""
         if total_days_from_crawl_report == DAYS_FOR_REPORT
         else f"<b>WARNING!</b> This date only contains values from the last '{total_days_from_crawl_report}' day(s)."
     )
-
+    ACTIVE_USER_ACTIVITY_TIME_MIN = 1
     articles_with_topic_count = len(article_topics_df.id.unique())
-    total_active_users = len(
-        combined_user_activity_df[
-            (combined_user_activity_df["total_reading_time"] > 1)
-            | (combined_user_activity_df["total_exercise_time"] > 1)
-        ]
-    )
-
+    active_users = combined_user_activity_df[
+        (
+            combined_user_activity_df["total_reading_time"]
+            > ACTIVE_USER_ACTIVITY_TIME_MIN
+        )
+        | (
+            combined_user_activity_df["total_exercise_time"]
+            > ACTIVE_USER_ACTIVITY_TIME_MIN
+        )
+    ]
+    total_active_users = len(active_users)
     lang_report = ""
-
     for lang in article_df["Language"].unique():
         lang_report += f"""
           <h2 id='{lang}'>{lang}</h2>
@@ -446,12 +450,21 @@ def generate_html_page():
           <img src="{generate_topic_by_feed_plot(article_topics_df, lang)}" />
           <img src="{generate_feed_count_plots(feed_df, lang)}" />
           <h3>User Activity</h3>
-          <img src="{generate_topic_reading_time(topic_reading_time_df,lang)}" />
-          <img src="{generate_user_reading_time(user_reading_time_df, lang)}" />
-          <img src="{generate_unique_articles_read_plot(user_reading_time_df, lang)}" />
-          <img src="{generate_exercise_activity(exercise_activity_df, lang)}" />
-          <hr>
           """
+        if lang in active_users["Language"].values:
+            lang_report += f"""
+            <p><b>Total Active users</b>: {len(active_users[active_users["Language"] == lang])}</p>
+            <img src="{generate_topic_reading_time(topic_reading_time_df,lang)}" />
+            <img src="{generate_user_reading_time(user_reading_time_df, lang)}" />
+            <img src="{generate_unique_articles_read_plot(user_reading_time_df, lang)}" />
+            <img src="{generate_exercise_activity(exercise_activity_df, lang)}" />
+            <hr>
+            """
+        else:
+            lang_report += """
+            <p><b>No active users in this language</b></p>
+            <hr>
+            """
     lang_links = "<ul>"
 
     for lang in article_df["Language"].unique():
@@ -506,7 +519,7 @@ def generate_html_page():
             <hr />
             <h1>Newly identified repeating patterns:</h1>
             <p>Sentences that occur in more than 10 articles during this weeks crawl, and were not filtered.<p>
-            {get_new_repeating_sents(pd_new_repeated_sents)}
+            {get_new_repeating_sents(pd_new_repeated_sents) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
             <h1 id="removed-articles">Removed Article Sents:</h1>
             <p>{warning_crawl_range}</p>
             {get_rejected_sentences_table(total_removed_sents)}
