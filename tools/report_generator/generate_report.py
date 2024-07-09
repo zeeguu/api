@@ -19,6 +19,20 @@ FOLDER_FOR_REPORT_OUTPUT = os.environ.get(
 )
 
 
+def set_legend_to_right_side(ax):
+    # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-outside-the-plot
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+
+
+def get_color_palette(n_items):
+    if n_items <= 10:
+        return sns.color_palette("tab10")
+    else:
+        return sns.color_palette("tab20")
+
+
 def identify_repeating_patterns(article_df, sents_filtered_set: set):
     def normalize_sent(text: str):
         return text.lower().strip()
@@ -50,9 +64,9 @@ def identify_repeating_patterns(article_df, sents_filtered_set: set):
 
 
 def save_fig_params(filename):
+    if not os.path.exists(FOLDER_FOR_REPORT_OUTPUT):
+        os.mkdir(FOLDER_FOR_REPORT_OUTPUT)
     img_folder = os.path.join(FOLDER_FOR_REPORT_OUTPUT, "img")
-    print(FOLDER_FOR_REPORT_OUTPUT)
-    print(os.listdir(FOLDER_FOR_REPORT_OUTPUT))
     if not os.path.exists(img_folder):
         os.mkdir(img_folder)
     path_to_img = os.path.join(img_folder, filename)
@@ -125,13 +139,19 @@ def generate_topic_by_feed_plot(article_topic_df, lang):
         .Topic.value_counts()
         .reset_index()
     )
+    total_sources = len(
+        topic_monitor[topic_monitor["Language"] == lang]["Feed Name"].unique()
+    )
+
+    ax = plt.subplot(111)
     sns.barplot(
         x="Topic",
         y="count",
         hue="Feed Name",
         data=topic_monitor[topic_monitor["Language"] == lang],
-        palette=sns.color_palette("tab20"),
+        palette=get_color_palette(total_sources),
     )
+    set_legend_to_right_side(ax)
     plt.title(f"{lang} - Topic Report")
     plt.xlabel("Topic")
     plt.xticks(rotation=35, ha="right")
@@ -161,7 +181,14 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
 
 def generate_total_article_per_language(article_df):
     filename = f"total_articles_downloaded_w_{CURRENT_WEEK_N}.png"
-    article_df["Language"].value_counts().plot.bar()
+    data = article_df["Language"].value_counts().reset_index()
+    sns.barplot(
+        x="Language",
+        y="count",
+        hue="Language",
+        data=data,
+        palette=get_color_palette(len(data["Language"].unique())),
+    )
     plt.title("New Articles Downloaded")
     plt.xticks(rotation=35, ha="right")
     plt.ylabel("Total Articles")
@@ -243,6 +270,7 @@ def generate_unique_articles_read_plot(user_reading_time_df, lang=""):
             .reset_index()
             .sort_values("Feed Name")
         )
+        print(plot_unique_articles_read)
         sns.barplot(
             x="Feed Name",
             y="count",
@@ -269,12 +297,15 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
         .reset_index()
     )
     if lang == "":
+        ax = plt.subplot(111)
         sns.barplot(
-            x="Topic",
+            x="Language",
             y="total_reading_time",
-            hue="Language",
+            hue="Topic",
             data=plot_total_reading_time,
+            palette=get_color_palette(len(plot_total_reading_time["Topic"].unique())),
         )
+        set_legend_to_right_side(ax)
         plt.title("Total Reading Time by Topic per Language")
     else:
         sns.barplot(
@@ -295,6 +326,7 @@ def generate_exercise_activity(exercise_activity_df, lang=""):
         if lang == ""
         else f"exercise_activity_plot_{lang}_w_{CURRENT_WEEK_N}.png"
     )
+    ax = plt.subplot(111)
     if lang == "":
         sns.barplot(
             x="Source",
@@ -303,6 +335,7 @@ def generate_exercise_activity(exercise_activity_df, lang=""):
             data=exercise_activity_df,
         )
         plt.title("Total Exercises Performed by Language")
+        set_legend_to_right_side(ax)
     else:
         sns.barplot(
             x="Source",
@@ -311,6 +344,7 @@ def generate_exercise_activity(exercise_activity_df, lang=""):
             data=exercise_activity_df[exercise_activity_df["Language"] == lang],
         )
         plt.title(f"{lang} - Total Exercses Performed by Type")
+
     plt.xticks(rotation=35, ha="right")
     plt.ylabel("Total Exercises Count")
     return save_fig_params(filename)
@@ -428,6 +462,7 @@ def generate_html_page():
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
+    print("############ Report date: ", crawl_report.crawl_report_date)
     total_removed_sents = crawl_report.get_total_removed_sents_counts()
     if DAYS_FOR_REPORT <= 7:
         pd_new_repeated_sents = identify_repeating_patterns(
@@ -502,11 +537,9 @@ def generate_html_page():
                 <p><b>Total Articles Crawled: </b> {len(article_df)}</p>
                 <p><b>Total Unique Articles Opened: </b> {total_unique_articles_opened_by_users}
                 <p><b>Topic Coverage: </b> {((articles_with_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
-                <h3>Top Articles Read:</h3>
-                {generate_top_opened_articles(user_reading_time_df, article_df)}
+
                 <img src="{generate_topic_coverage_plot(article_df, article_topics_df)}" />
                 <img src="{generate_total_article_per_language(article_df)}" />
-                <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
                 <h2>Articles Rejected:</h2>
                 <p>{warning_crawl_range}</p>
                 {get_total_reject_article_reason_table(crawl_report.get_total_non_quality_counts())}
@@ -516,10 +549,22 @@ def generate_html_page():
                 {generate_html_table(article_df.groupby("Language").fk_difficulty.describe().reset_index())}
                 <h2>Activity Report</h2>
                 <p><b>Total Active Users:</b> {total_active_users}</p>
-                {generate_active_users_table(combined_user_activity_df, bookmark_df)}
-                <img src="{generate_exercise_activity(exercise_activity_df)}" />
-                <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
-                <img src="{generate_bookmarks_by_language_plot(bookmark_df)}" />
+            """
+    if total_active_users == 0:
+        result += """<p><b>No active users in this period</b></p>
+        <hr>"""
+    else:
+        result += f"""
+        <h3>Top Articles Read:</h3>
+        {generate_active_users_table(combined_user_activity_df, bookmark_df)}
+        <br>
+        {generate_top_opened_articles(user_reading_time_df, article_df)}
+        <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
+        <img src="{generate_exercise_activity(exercise_activity_df)}" />
+        <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
+        <img src="{generate_bookmarks_by_language_plot(bookmark_df)}" />
+        """
+    result += f"""
             <p><a href="#removed-articles">Removed Sents Table</a><p>
             <h1>Per Language Report:</h1>
             {lang_links}

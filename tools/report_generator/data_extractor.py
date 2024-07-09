@@ -19,6 +19,10 @@ class DataExtractor:
             )
         )
 
+    def run_query(self, query):
+        df = pd.read_sql(query, con=self.db_connection)
+        return df
+
     def get_article_topics_df(self, feed_df):
         print("Getting Article Topics...")
         query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic
@@ -66,7 +70,7 @@ class DataExtractor:
         FROM article a 
         INNER JOIN user_reading_session urs ON urs.article_id = a.id 
         INNER JOIN user u ON urs.user_id = u.id
-        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
         AND u.learned_language_id = a.language_id
         GROUP BY a.id, a.language_id, a.feed_id, urs.user_id"""
         reading_time_df = pd.read_sql(query, con=self.db_connection)
@@ -189,7 +193,7 @@ class DataExtractor:
         INNER JOIN user_reading_session urs ON urs.article_id = a.id
         INNER JOIN language l on a.language_id = l.id
         INNER JOIN user u ON urs.user_id = u.id
-        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
         AND u.learned_language_id = a.language_id
         GROUP BY a.language_id, atm.topic_id;"""
         topic_reading_time_df = pd.read_sql(query, con=self.db_connection)

@@ -123,6 +123,8 @@ class CrawlReport:
 
     def save_crawl_report(self):
         timestamp_str = self.__convert_dt_to_str(self.crawl_report_date)
+        if not os.path.exists(self.save_dir):
+            os.mkdir(self.save_dir)
         for lang in self.data["lang"]:
             filename = f"{lang}-crawl-{timestamp_str}.json"
             output_dir = os.path.join(self.save_dir, lang)
@@ -138,7 +140,7 @@ class CrawlReport:
             for file in os.listdir(os.path.join(report_dir_path, lang)):
                 lang, _, date = file.split(".")[0].split("-")
                 date = self.__convert_str_to_dt(date)
-                self.crawl_report_date = min(self.crawl_report_date, date)
+
                 day_diff = (date.now() - date).days
                 if day_diff > day_period:
                     print(
@@ -146,6 +148,7 @@ class CrawlReport:
                     )
                     continue
                 try:
+                    self.crawl_report_date = min(self.crawl_report_date, date)
                     with open(
                         os.path.join(report_dir_path, lang, file), "r", encoding="utf-8"
                     ) as f:
@@ -210,5 +213,14 @@ class CrawlReport:
         for lang in langs_to_load:
             for feed in self.data["lang"][lang]["feeds"]:
                 feed_dict = self.data["lang"][lang]["feeds"][feed]
-                total_counts += Counter(feed_dict["article_report"]["sents_removed"])
+                try:
+                    total_counts += Counter(
+                        feed_dict["article_report"]["sents_removed"]
+                    )
+                except Exception as e:
+                    from pprint import pprint
+
+                    pprint(feed_dict)
+                    print(e, type(e))
+                    input("Continue?")
         return total_counts
