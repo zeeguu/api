@@ -598,6 +598,10 @@ JUNK_COUNT_PATTERNS = (
         "malte müller-michaelis",
     ]
     + [  # French Patterns
+        "découvrez la lecture audio.",
+        "pas le temps de lire cet article ?",
+        "il n’y a pas encore de commentaire à cet article.",
+        "les commentaires sont soumis à des règles de modération.",
         "inscrivez-vous à notre newsletter.",
         "musique et habillage : emmanuel herschon/studio torrent",
         "logo : anne-laure chapelain/benjamin chazal",
@@ -1100,6 +1104,12 @@ JUNK_COUNT_PATTERNS = (
         "© 2024 dpg media b.v. - alle rechten voorbehouden",
         "geselecteerd door de redactie",
         "twitter bericht wordt geladen...",
+    ]  # Italian
+    + [
+        "ci piacerebbe sapere cosa pensi di questo articolo.",
+        "scrivici a: posta@internazionale.it",
+        "internazionale pubblica ogni settimana una pagina di lettere.",
+        "riproduzione riservata ©",
     ]
 )
 

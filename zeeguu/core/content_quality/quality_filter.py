@@ -25,6 +25,7 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     "Zugang zu allen F+ Artikeln",
     # JP
     "For abonnenter",
+    "article abonné",
 ]
 
 incomplete_suggesting_terminations = "Read More"
