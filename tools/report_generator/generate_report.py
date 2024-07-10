@@ -101,7 +101,7 @@ def get_total_reject_article_reason_table(total_rejected_article_reasons):
 
 
 def generate_feed_count_plots(feed_df, lang):
-    filename = f"feed_downloaded_articles_{lang}_w_{CURRENT_WEEK_N}.png"
+    filename = f"feed_downloaded_articles_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     if feed_df[feed_df["Language"] == lang].Count.sum() == 0:
         return ""
     plt.figure(lang)
@@ -117,7 +117,7 @@ def generate_feed_count_plots(feed_df, lang):
 
 
 def generate_bookmarks_by_language_plot(boomark_df):
-    filename = f"bookmarks_plot_w_{CURRENT_WEEK_N}.png"
+    filename = f"bookmarks_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
     bookmark_plot = (
         boomark_df.groupby(["Language", "Has Exercised"])[["user_id"]]
         .count()
@@ -133,7 +133,7 @@ def generate_bookmarks_by_language_plot(boomark_df):
 def generate_topic_by_feed_plot(article_topic_df, lang):
     # If I want to make topics consistant
     # https://stackoverflow.com/questions/39000115/how-can-i-set-the-colors-per-value-when-coloring-plots-by-a-dataframe-column
-    filename = f"topics_per_feed_lang_{lang}_w_{CURRENT_WEEK_N}.png"
+    filename = f"topics_per_feed_lang_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     topic_monitor = (
         article_topic_df.groupby(["Language", "Feed Name"])
         .Topic.value_counts()
@@ -159,7 +159,7 @@ def generate_topic_by_feed_plot(article_topic_df, lang):
 
 
 def generate_topic_coverage_plot(article_df, article_with_topics_df):
-    filename = f"topic_coverage_plot_w_{CURRENT_WEEK_N}.png"
+    filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
     article_df["has_topic"] = "No"
     article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
     articles_with_topics = (
@@ -180,7 +180,7 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
 
 
 def generate_total_article_per_language(article_df):
-    filename = f"total_articles_downloaded_w_{CURRENT_WEEK_N}.png"
+    filename = f"total_articles_downloaded_{date_str}_d{DAYS_FOR_REPORT}.png"
     data = article_df["Language"].value_counts().reset_index()
     sns.barplot(
         x="Language",
@@ -197,9 +197,9 @@ def generate_total_article_per_language(article_df):
 
 def generate_histogram(article_df, column, bins=20, remove_outliers=False):
     filename = (
-        f"hist_{column}_removed_out_w_{CURRENT_WEEK_N}.png"
+        f"hist_{column}_removed_out_{date_str}_d{DAYS_FOR_REPORT}.png"
         if remove_outliers
-        else f"hist_{column}_w_{CURRENT_WEEK_N}.png"
+        else f"hist_{column}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
     if remove_outliers:
         article_df[article_df[column] < article_df[column].quantile(0.99)].groupby(
@@ -214,9 +214,9 @@ def generate_histogram(article_df, column, bins=20, remove_outliers=False):
 
 def generate_user_reading_time(user_reading_time_df, lang=""):
     filename = (
-        f"user_reading_time_plot_all_lang_w_{CURRENT_WEEK_N}.png"
+        f"user_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
         if lang == ""
-        else f"user_reading_time_plot_{lang}_w_{CURRENT_WEEK_N}.png"
+        else f"user_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
     plot_total_reading_time = (
         user_reading_time_df.groupby(["Language", "Feed Name"])
@@ -247,9 +247,9 @@ def generate_user_reading_time(user_reading_time_df, lang=""):
 
 def generate_unique_articles_read_plot(user_reading_time_df, lang=""):
     filename = (
-        f"user_unique_articles_read_plot_all_lang_w_{CURRENT_WEEK_N}.png"
+        f"user_unique_articles_read_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
         if lang == ""
-        else f"user_unique_articles_read_plot_{lang}_w_{CURRENT_WEEK_N}.png"
+        else f"user_unique_articles_read_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
 
     if lang == "":
@@ -287,9 +287,9 @@ def generate_unique_articles_read_plot(user_reading_time_df, lang=""):
 
 def generate_topic_reading_time(topic_reading_time_df, lang=""):
     filename = (
-        f"topic_reading_time_plot_all_lang_w_{CURRENT_WEEK_N}.png"
+        f"topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
         if lang == ""
-        else f"topic_reading_time_plot_{lang}_w_{CURRENT_WEEK_N}.png"
+        else f"topic_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
     plot_total_reading_time = (
         topic_reading_time_df.groupby(["Language", "Topic"])
@@ -322,9 +322,9 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
 
 def generate_exercise_activity(exercise_activity_df, lang=""):
     filename = (
-        f"exercise_activity_plot_all_lang_w_{CURRENT_WEEK_N}.png"
+        f"exercise_activity_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
         if lang == ""
-        else f"exercise_activity_plot_{lang}_w_{CURRENT_WEEK_N}.png"
+        else f"exercise_activity_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
     ax = plt.subplot(111)
     if lang == "":
@@ -580,7 +580,10 @@ def generate_html_page():
         </body>
     """
     with open(
-        os.path.join(FOLDER_FOR_REPORT_OUTPUT, f"report_week_nr_{CURRENT_WEEK_N}.html"),
+        os.path.join(
+            FOLDER_FOR_REPORT_OUTPUT,
+            f"report_zeeguu_{date_str}_d{DAYS_FOR_REPORT}.html",
+        ),
         "w",
         encoding="UTF-8",
     ) as f:
@@ -610,7 +613,10 @@ if __name__ == "__main__":
 
     app = create_app()
     sns.set_theme("paper", "whitegrid")
-    CURRENT_WEEK_N = datetime.datetime.now().isocalendar()[1]
+    cur_time = datetime.datetime.now()
+    CURRENT_WEEK_N = max(cur_time.isocalendar()[1] - 1, 1)
+    date_str = cur_time.strftime("%Y_%m_%d")
+
     DB_URI = app.config["SQLALCHEMY_DATABASE_URI"]
     # rcParams["figure.figsize"] = 10, 8
     db_connection = create_engine(
