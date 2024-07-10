@@ -292,7 +292,7 @@ JUNK_COUNT_PATTERNS = (
         "fortsætter herefter til 99 kr.",
         "fortrydelsesret jf.",
         "forbrugeraftaleloven.",
-        "\læs også",
+        r"\læs også",
     ]
     + [  # German Patterns
         "folgen ich folge",
@@ -1124,7 +1124,9 @@ def normalize_sent(text: str):
     return text.lower().strip()
 
 
-def filter_noise_patterns(article, sent_filter_set, crawl_report=None, feed=None, url=None):
+def filter_noise_patterns(
+    article, sent_filter_set, crawl_report=None, feed=None, url=None
+):
     clean_artcile = ""
     for paragraph in article.split("\n\n"):
         clean_paragraph = ""

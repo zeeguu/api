@@ -25,7 +25,7 @@ MAX_CHAR_COUNT_IN_SUMMARY = 300
 
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
-MULTIPLE_NEWLINES = re.compile("\n\s*\n")
+MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
 # \n matches a line-feed (newline) character (ASCII 10)
 # \s matches any whitespace character (equivalent to [\r\n\t\f\v  ])
 # \n matches a line-feed (newline) character (ASCII 10)
