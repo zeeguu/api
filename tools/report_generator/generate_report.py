@@ -523,6 +523,7 @@ def generate_html_page():
     )
     result = f"""
         <head>
+            <meta charset="utf-8">
             <link
                 rel="stylesheet"
                 href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css"
