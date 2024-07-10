@@ -276,6 +276,15 @@ class Article(db.Model):
     def add_topic(self, topic):
         self.topics.append(topic)
 
+    def set_as_broken(self, session, broken_code):
+        from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
+
+        article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
+        self.broken = True
+        session.add(article_broken_map)
+        session.add(self)
+        session.commit()
+
     def add_search(self, search):
         self.searches.append(search)
 
@@ -309,7 +318,7 @@ class Article(db.Model):
             sufficient_quality_plain_text,
         )
 
-        quality, reason = sufficient_quality_plain_text(self.content)
+        quality, reason, _ = sufficient_quality_plain_text(self.content)
         if not quality:
             print("Marking as broken. Reason: " + reason)
             self.mark_as_low_quality_and_remove_from_index()

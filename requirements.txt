@@ -48,6 +48,11 @@ git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 scikit-learn==1.4.0
 flask_monitoringdashboard
 
+# For the report generator
+matplotlib
+seaborn
+pandas
+
 # the following two were required when deploying the API on Mac OS with Python 3.12.1
 cryptography
 lxml_html_clean 
