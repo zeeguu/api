@@ -27,7 +27,7 @@ class ArticleBrokenMap(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
     article = relationship(Article)
 
-    broken_code = db.Column(db.UnicodeText)
+    broken_code = db.Column(db.String(42))
     __table_args__ = (
         PrimaryKeyConstraint(article_id, broken_code),
         {"mysql_collate": "utf8_bin"},
