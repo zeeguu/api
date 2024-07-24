@@ -52,6 +52,11 @@ def requires_session(view):
             print("----------- Using Cache! -----------")
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
+        except BadRequestKeyError as e:
+            # This surely happens for missing session key
+            # I'm not sure in which way the request could be bad
+            # but in any case, we should simply abort if this happens
+            flask.abort(401)
 
         except Exception as e:
             import traceback
