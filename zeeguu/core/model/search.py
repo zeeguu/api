@@ -1,4 +1,5 @@
 import sqlalchemy
+from zeeguu.api.utils.abort_handling import make_error
 import zeeguu.core
 from sqlalchemy import Column, Integer, String
 
@@ -81,5 +82,5 @@ class Search(db.Model):
             session.commit()
             return search
         else:
-            return None
+            return make_error(401, "There is no search")
     
