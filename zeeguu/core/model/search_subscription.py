@@ -1,5 +1,6 @@
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.core.model.user import User
 import sqlalchemy
 
@@ -31,17 +32,27 @@ class SearchSubscription(db.Model):
     search_id = db.Column(db.Integer, db.ForeignKey(Search.id))
     search = relationship(Search)
 
+    receive_email = db.Column(db.Boolean, default=False)
+
     UniqueConstraint(user_id, search_id)
 
-    def __init__(self, user, search):
+    def __init__(self, user, search, receive_email = False):
         self.user = user
         self.search = search
+        self.receive_email = receive_email
 
     def __str__(self):
-        return f"Search subscription ({self.user.name}, {self.search})"
+        return f"Search subscription ({self.user.name}, {self.search}, {self.receive_email})"
 
     __repr__ = __str__
 
+    def as_dictionary(self, search):
+
+        return dict(
+            search=search,
+            receive_email=self.receive_email
+        )
+    
     @classmethod
     def find_or_create(cls, session, user, search):
         try:
@@ -70,3 +81,13 @@ class SearchSubscription(db.Model):
             capture_exception(e)
             print(e)
             return None
+        
+    @classmethod
+    def update_receive_email(cls, session, user, search, receive_email):
+        subscription = cls.query.filter(cls.user == user, cls.search == search).one_or_none()
+        if subscription:
+            subscription.receive_email = receive_email
+            session.commit()
+            return subscription
+        else:
+            return make_error(401, "There is no search subcription")

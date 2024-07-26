@@ -1,3 +1,4 @@
+import sqlalchemy
 import zeeguu.core
 from sqlalchemy import Column, Integer, String
 
@@ -21,17 +22,21 @@ class Search(db.Model):
 
     keywords = Column(String(100))
 
-    def __init__(self, keywords):
+    receive_email = db.Column(db.Boolean, default=False)
+
+    def __init__(self, keywords, receive_email = False):
         self.keywords = keywords
+        self.receive_email = receive_email
 
     def __repr__(self):
-        return f"<Search: {self.keywords}>"
+        return f"<Search: {self.keywords}, {self.receive_email}>"
 
     def as_dictionary(self):
 
         return dict(
             id=self.id,
             search=self.keywords,
+            receive_email=self.receive_email
         )
 
     def all_articles(self):
@@ -41,19 +46,20 @@ class Search(db.Model):
 
     @classmethod
     def find_or_create(cls, session, keywords):
-        new = cls(keywords)
-        session.add(new)
-        session.commit()
-        return new
-
-    @classmethod
-    def find(cls, keywords: str):
         try:
             return cls.query.filter(cls.keywords == keywords).one()
-        except Exception as e:
-            from sentry_sdk import capture_exception
+        except sqlalchemy.orm.exc.NoResultFound:
+            new = cls(keywords)
+            session.add(new)
+            session.commit()
+            return new
 
-            capture_exception(e)
+    @classmethod
+    def find(cls, keywords):
+        try:
+            search = cls.query.filter(cls.keywords == keywords).one()
+            return search
+        except sqlalchemy.orm.exc.NoResultFound:
             return None
 
     @classmethod
@@ -66,3 +72,14 @@ class Search(db.Model):
 
             capture_exception(e)
             return None
+
+    @classmethod
+    def update_receive_email(cls, session, keywords, receive_email):
+        search = cls.query.filter(cls.keywords == keywords).one_or_none()
+        if search:
+            search.receive_email = receive_email
+            session.commit()
+            return search
+        else:
+            return None
+    
