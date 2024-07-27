@@ -1,5 +1,7 @@
 import functools
 import flask
+from werkzeug.exceptions import BadRequestKeyError
+
 from zeeguu.logging import log
 from zeeguu.core.model.session import Session
 
