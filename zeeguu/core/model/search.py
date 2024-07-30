@@ -23,21 +23,17 @@ class Search(db.Model):
 
     keywords = Column(String(100))
 
-    receive_email = db.Column(db.Boolean, default=False)
-
-    def __init__(self, keywords, receive_email = False):
+    def __init__(self, keywords):
         self.keywords = keywords
-        self.receive_email = receive_email
 
     def __repr__(self):
-        return f"<Search: {self.keywords}, {self.receive_email}>"
+        return f"<Search: {self.keywords}>"
 
     def as_dictionary(self):
 
         return dict(
             id=self.id,
             search=self.keywords,
-            receive_email=self.receive_email
         )
 
     def all_articles(self):
@@ -73,14 +69,4 @@ class Search(db.Model):
 
             capture_exception(e)
             return None
-
-    @classmethod
-    def update_receive_email(cls, session, keywords, receive_email):
-        search = cls.query.filter(cls.keywords == keywords).one_or_none()
-        if search:
-            search.receive_email = receive_email
-            session.commit()
-            return search
-        else:
-            return make_error(401, "There is no search")
     

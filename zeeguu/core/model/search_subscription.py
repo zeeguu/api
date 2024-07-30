@@ -46,19 +46,20 @@ class SearchSubscription(db.Model):
 
     __repr__ = __str__
 
-    def as_dictionary(self, search):
+    def as_dictionary(self):
 
         return dict(
-            search=search,
+            id=self.search.id,
+            search=self.search.keywords,
             receive_email=self.receive_email
         )
     
     @classmethod
-    def find_or_create(cls, session, user, search):
+    def find_or_create(cls, session, user, search, receive_email):
         try:
             return cls.query.filter(cls.user == user).filter(cls.search == search).one()
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(user, search)
+            new = cls(user, search, receive_email)
             session.add(new)
             session.commit()
             return new

@@ -3,8 +3,8 @@
 */
 SET FOREIGN_KEY_CHECKS = 0;
 
-DELETE FROM Search;
+TRUNCATE Search;
 
-DELETE FROM search_subscription;
+TRUNCATE search_subscription;
 
 SET FOREIGN_KEY_CHECKS = 1;

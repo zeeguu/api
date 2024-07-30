@@ -47,9 +47,11 @@ def subscribe_to_search(search_terms):
     """
     search = Search.find_or_create(db_session, search_terms)
     user = User.find_by_id(flask.g.user_id)
-    SearchSubscription.find_or_create(db_session, user, search)
+    receive_email = False
+    subscription = SearchSubscription.find_or_create(db_session, user, search, receive_email)
 
-    return json_result(search.as_dictionary())
+    #return json_result(search.as_dictionary())
+    return json_result(subscription.as_dictionary())
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +106,7 @@ def get_subscribed_searches():
 
     for subs in subscriptions:
         try:
-            searches_list.append(subs.search.as_dictionary())
+            searches_list.append(subs.as_dictionary())
         except Exception as e:
             log(str(e))
             from sentry_sdk import capture_exception
@@ -228,10 +230,11 @@ def subscribe_to_email_search(search_terms):
     search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
     receive_email = True
-    SearchSubscription.update_receive_email(db_session, user, search, receive_email)
-    Search.update_receive_email(db_session, search_terms, receive_email)
+    subscription = SearchSubscription.update_receive_email(db_session, user, search, receive_email)
+    #Search.update_receive_email(db_session, search_terms, receive_email)
 
-    return json_result(search.as_dictionary())
+    #return json_result(search.as_dictionary())
+    return json_result(subscription.as_dictionary())   
 
 @api.route(f"/{UNSUBSCRIBE_FROM_EMAIL_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -245,8 +248,9 @@ def unsubscribe_from_email_search(search_terms):
     search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
     receive_email = False
-    SearchSubscription.update_receive_email(db_session, user, search, receive_email)
+    subscription = SearchSubscription.update_receive_email(db_session, user, search, receive_email)
     
-    Search.update_receive_email(db_session, search_terms, receive_email)
+    #Search.update_receive_email(db_session, search_terms, receive_email)
 
-    return json_result(search.as_dictionary())
+    #return json_result(search.as_dictionary())
+    return json_result(subscription.as_dictionary())

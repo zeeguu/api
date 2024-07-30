@@ -25,15 +25,16 @@ def send_mail_new_articles_search(to_email, search):
 
 def send_subscription_emails():
     all_subscriptions = SearchSubscription.query.filter_by(receive_email=True).all()
-    current_datetime = datetime.now(datetime.timezone.utc)
+    current_datetime = datetime.datetime.now()
     previous_day_datetime = current_datetime - datetime.timedelta(days=1)
 
     for subscription in all_subscriptions:
-        articles = article_search_for_user(subscription.user_id, 2, subscription.search, page = 0)
-        new_articles_found = [article for article in articles if article.published > previous_day_datetime]
+        user = User.find_by_id(subscription.user_id)
+        articles = article_search_for_user(user, 2, subscription.search.keywords, page = 0)
+        new_articles_found = [article for article in articles if article.published_time > previous_day_datetime]
 
         if new_articles_found:
-            user = User.find_by_id(subscription.user_id)
+            
             send_mail_new_articles_search(user.email, subscription.search)
             print(f"""
                 ####################################
