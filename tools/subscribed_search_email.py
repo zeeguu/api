@@ -50,7 +50,3 @@ def send_subscription_emails():
 
 if __name__ == "__main__":
     send_subscription_emails()
-
-    #python article_crawler.py da
-    #_plaground
-    #move to tools...

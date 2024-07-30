@@ -1,10 +1,10 @@
 /*
  removes all searches and search aubscriptions from the database, which ensures no duplicates. 
 */
-SET FOREIGN_KEY_CHECKS = 0;
-
-TRUNCATE Search;
-
 TRUNCATE search_subscription;
 
-SET FOREIGN_KEY_CHECKS = 1;
+TRUNCATE search_filter;
+
+DELETE FROM Search;
+/* This is delete from search, because otherwise you would need to remove the foreign key constraints and recreate them. 
+    This way you do not have to do that. */
