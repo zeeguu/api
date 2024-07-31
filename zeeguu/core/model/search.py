@@ -1,3 +1,5 @@
+import sqlalchemy
+from zeeguu.api.utils.abort_handling import make_error
 import zeeguu.core
 from sqlalchemy import Column, Integer, String
 
@@ -41,19 +43,20 @@ class Search(db.Model):
 
     @classmethod
     def find_or_create(cls, session, keywords):
-        new = cls(keywords)
-        session.add(new)
-        session.commit()
-        return new
-
-    @classmethod
-    def find(cls, keywords: str):
         try:
             return cls.query.filter(cls.keywords == keywords).one()
-        except Exception as e:
-            from sentry_sdk import capture_exception
+        except sqlalchemy.orm.exc.NoResultFound:
+            new = cls(keywords)
+            session.add(new)
+            session.commit()
+            return new
 
-            capture_exception(e)
+    @classmethod
+    def find(cls, keywords):
+        try:
+            search = cls.query.filter(cls.keywords == keywords).one()
+            return search
+        except sqlalchemy.orm.exc.NoResultFound:
             return None
 
     @classmethod
@@ -66,3 +69,4 @@ class Search(db.Model):
 
             capture_exception(e)
             return None
+    

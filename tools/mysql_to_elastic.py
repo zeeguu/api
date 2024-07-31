@@ -1,5 +1,6 @@
 # coding=utf-8
 import sqlalchemy as database
+from zeeguu.api.app import create_app
 from zeeguu.core.elastic.indexing import create_or_update, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
@@ -12,8 +13,11 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 
+app = create_app()
+app.app_context().push()
+
 es = Elasticsearch([ES_CONN_STRING])
-DB_URI = zeeguu.core.app.config["SQLALCHEMY_DATABASE_URI"]
+DB_URI = app.config["SQLALCHEMY_DATABASE_URI"]
 engine = database.create_engine(DB_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
