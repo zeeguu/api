@@ -23,7 +23,7 @@ def send_mail_new_articles_search(to_email, search):
             "The Zeeguu Team",
         ]
     )
-
+    print(f"""Sending to '{to_email}': ''{body}''""")
     emailer = ZeeguuMailer("New articles to your subscribed search", body, to_email)
     emailer.send()
 
@@ -32,7 +32,7 @@ def send_subscription_emails():
     all_subscriptions = SearchSubscription.query.filter_by(receive_email=True).all()
     current_datetime = datetime.datetime.now()
     previous_day_datetime = current_datetime - datetime.timedelta(days=1)
-
+    user_subscriptions = {}
     for subscription in all_subscriptions:
         user = User.find_by_id(subscription.user_id)
         articles = article_search_for_user(
@@ -43,25 +43,12 @@ def send_subscription_emails():
             for article in articles
             if article.published_time > previous_day_datetime
         ]
-
         if new_articles_found:
-
-            send_mail_new_articles_search(user.email, subscription.search)
-            print(
-                f"""
-                ####################################
-                  email send to {user.email} for: {subscription.search}
-                ###################################
-        """
-            )
-        else:
-            print(
-                f"""
-                ####################################
-                  No new articles found {subscription.search} for user: {user.email}
-                ###################################
-        """
-            )
+            user_subscriptions[user.email] = user_subscriptions.get(user.email, []) + [
+                subscription.search.keywords
+            ]
+    for user_email, keywords in  user_subscriptions.items():
+        send_mail_new_articles_search(user_email, f"'{"','".join(keywords)}'")
 
 
 if __name__ == "__main__":
