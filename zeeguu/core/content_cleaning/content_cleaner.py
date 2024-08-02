@@ -34,8 +34,6 @@ with open(JUNK_COUNT_FILEPATH, "r", encoding="utf-8") as f:
     json_data = json.load(f)
     JUNK_COUNT_PATTERNS = [sent for lang in json_data.values() for sent in lang]
 
-print(JUNK_COUNT_PATTERNS)
-
 JUNK_PREFIXES = [
     "Der er ikke oplæsning af denne artikel, så den oplæses derfor med maskinstemme."
 ]
