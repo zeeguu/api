@@ -15,16 +15,17 @@ def send_mail_new_articles_search(to_email, search):
         [
             "Hi there,",
             " ",
-            "There are new articles related to your subscribed search: "
-            + str(search)
+            "There are new articles related to your subscribed search: {search}"
             + ".",
+            "You can see them on the link below:",
+            "https://www.zeeguu.org/search?search={search}",
             " ",
             "Cheers,",
             "The Zeeguu Team",
         ]
     )
 
-    emailer = ZeeguuMailer("New articles to your subscribed search", body, to_email)
+    emailer = ZeeguuMailer("New articles about " + str(search), body, to_email)
     emailer.send()
 
 
@@ -46,11 +47,11 @@ def send_subscription_emails():
 
         if new_articles_found:
 
-            send_mail_new_articles_search(user.email, subscription.search)
+            send_mail_new_articles_search(user.email, subscription.search.keywords)
             print(
                 f"""
                 ####################################
-                  email send to {user.email} for: {subscription.search}
+                  email send to {user.email} for: {subscription.search.keywords}
                 ###################################
         """
             )
@@ -58,7 +59,7 @@ def send_subscription_emails():
             print(
                 f"""
                 ####################################
-                  No new articles found {subscription.search} for user: {user.email}
+                  No new articles found {subscription.search.keywords} for user: {user.email}
                 ###################################
         """
             )
