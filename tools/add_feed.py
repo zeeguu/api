@@ -28,8 +28,8 @@ def main():
     print(f"= {icon_name}")
 
     description = (
-            input(f"Description (Enter for: {test_feed.description}): ")
-            or test_feed.description
+        input(f"Description (Enter for: {test_feed.description}): ")
+        or test_feed.description
     )
     print(f"= {description}")
 
@@ -46,7 +46,7 @@ def main():
         description,
         icon_name=icon_name,
         language=language,
-        feed_type=feed_type
+        feed_type=feed_type,
     )
 
     print("Done: ")

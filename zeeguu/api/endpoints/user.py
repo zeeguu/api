@@ -112,41 +112,29 @@ def get_user_details():
 def user_settings():
     """
     set the native language of the user in session
-    :param language_code:
     :return: OK for success
     """
 
     data = flask.request.form
-    print(flask.request)
     user = User.find_by_id(flask.g.user_id)
+
     submitted_name = data.get("name", None)
     if submitted_name:
         user.name = submitted_name
 
-    submitted_native_language_code = data.get("native_language_code", None)
-    if not submitted_native_language_code:
-        submitted_native_language_code = data.get("native_language", None)
-
+    submitted_native_language_code = data.get("native_language", None)
     if submitted_native_language_code:
         user.set_native_language(submitted_native_language_code)
 
-    # deprecating the larned_language_code
-    submitted_learned_language_code = data.get("learned_language_code", None)
-    if not submitted_learned_language_code:
-        submitted_learned_language_code = data.get("learned_language", None)
+    cefr_level = data.get("cefr_level", None)
+    if cefr_level is None:
+        return "ERROR"
 
+    submitted_learned_language_code = data.get("learned_language", None)
     if submitted_learned_language_code:
         user.set_learned_language(
-            submitted_learned_language_code, zeeguu.core.model.db.session
+            submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
         )
-
-    language_level = data.get("language_level_data", None)
-    if language_level:
-        submitted_learned_language_data = json.loads(language_level)
-        for language_level in submitted_learned_language_data:
-            user.set_learned_language_level(
-                language_level[0], language_level[1], zeeguu.core.model.db.session
-            )
 
     submitted_email = data.get("email", None)
     if submitted_email:

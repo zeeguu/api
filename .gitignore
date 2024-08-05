@@ -3,6 +3,8 @@ dev_data_folder*
 .idea/
 .cache/
 data/
+tools/report_generator/reports/
+tools/crawl_summary/crawl_data/
 
 *.pyc
 *.egg-info

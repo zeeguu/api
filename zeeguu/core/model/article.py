@@ -28,7 +28,7 @@ MAX_CHAR_COUNT_IN_SUMMARY = 300
 
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
-MULTIPLE_NEWLINES = re.compile("\n\s*\n")
+MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
 # \n matches a line-feed (newline) character (ASCII 10)
 # \s matches any whitespace character (equivalent to [\r\n\t\f\v  ])
 # \n matches a line-feed (newline) character (ASCII 10)
@@ -329,6 +329,14 @@ class Article(db.Model):
 
         for rank, t in enumerate(topic_keywords):
             self.add_topic_keywords(t, rank, session)
+    def set_as_broken(self, session, broken_code):
+        from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
+
+        article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
+        self.broken = True
+        session.add(article_broken_map)
+        session.add(self)
+        session.commit()
 
     def add_search(self, search):
         self.searches.append(search)
@@ -363,7 +371,7 @@ class Article(db.Model):
             sufficient_quality_plain_text,
         )
 
-        quality, reason = sufficient_quality_plain_text(self.content)
+        quality, reason, _ = sufficient_quality_plain_text(self.content)
         if not quality:
             print("Marking as broken. Reason: " + reason)
             self.mark_as_low_quality_and_remove_from_index()

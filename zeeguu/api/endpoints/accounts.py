@@ -1,4 +1,5 @@
 import sqlalchemy
+import flask
 
 from flask import request
 from zeeguu.core.model import Session
@@ -7,10 +8,31 @@ from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
 
-from zeeguu.api.utils.route_wrappers import cross_domain
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
 
 from zeeguu.logging import log
+
+
+@api.route("/delete_user", methods=["POST"])
+@cross_domain
+@requires_session
+def remove_user():
+    from zeeguu.core.account_management.user_account_deletion import (
+        delete_user_account_w_session,
+    )
+
+    try:
+        delete_user_account_w_session(db_session, flask.g.session_uuid)
+        return "OK"
+
+    except Exception as e:
+        from sentry_sdk import capture_exception
+
+        capture_exception(e)
+        log(f"Attempt to delete user failed with session: '{flask.g.session_uuid}'")
+        log(e)
+        return make_error(400, str(e))
 
 
 @api.route("/add_user/<email>", methods=["POST"])
