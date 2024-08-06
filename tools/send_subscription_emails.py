@@ -19,6 +19,8 @@ def send_mail_new_articles_search(to_email, search):
             + str(search)
             + ".",
             " ",
+            "You can find your subscriptions here: https://www.zeeguu.org/articles/mySearches"
+            " ",
             "Cheers,",
             "The Zeeguu Team",
         ]
