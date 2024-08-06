@@ -81,6 +81,7 @@ def main():
             a_id[0]
             for a_id in db_session.query(Article.id)
             .join(NewArticleTopicMap)
+            .filter(Article.language_id == 2)
             .filter(NewArticleTopicMap.origin_type != 3)
             .all()
         ]
@@ -92,7 +93,9 @@ def main():
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
     total_iter = TOTAL_ITEMS // ITERATION_STEP
-    sampled_ids = np.random.choice(sample_ids_no_in_es, TOTAL_ITEMS, replace=False)
+    sampled_ids = np.random.choice(
+        sample_ids_no_in_es, min(TOTAL_ITEMS, len(sample_ids_no_in_es)), replace=False
+    )
     for i_start in range(0, TOTAL_ITEMS, ITERATION_STEP):
         print(f"Starting at {i_start}")
         sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]

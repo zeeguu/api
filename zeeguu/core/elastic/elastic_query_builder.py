@@ -150,6 +150,18 @@ def build_elastic_recommender_query(
         "from": page * count,
         "size": count,
         "query": {"function_score": {}},
+        "aggregations": {
+            "doc_sampler": {
+                "sampler": {"shard_size": 2000},
+                "aggregations": {
+                    "keywords": {
+                        "significant_text": {
+                            "field": "content",
+                        },
+                    },
+                },
+            }
+        },
     }
 
     recency_preference = {
@@ -172,6 +184,7 @@ def build_elastic_recommender_query(
         "exp": {
             "fk_difficulty": {
                 "origin": ((upper_bounds + lower_bounds) / 2),
+                "offset": 15,
                 "scale": 21,
             }
         },
@@ -201,7 +214,7 @@ def build_elastic_search_query(
     es_weight=4.2,
     new_topics_to_include="",
     new_topics_to_exclude="",
-    second_try=False,
+    page=0,
 ):
     """
     Builds an elastic search query for search terms.
@@ -221,15 +234,17 @@ def build_elastic_search_query(
         .exclude("match", description="pg15")
     )
 
+    # https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-significanttext-aggregation.html
+
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     weighted_query = Q(
         "function_score",
         query=s.query,
         functions=[
-            SF("gauss", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
+            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
             SF(
-                "gauss",
+                "exp",
                 fk_difficulty={
                     "origin": ((upper_bounds + lower_bounds) / 2),
                     "scale": 21,
@@ -238,7 +253,24 @@ def build_elastic_search_query(
         ],
     )
 
-    query = {"size": count, "query": weighted_query.to_dict()}
+    query = {
+        "from": page * count,
+        "size": count,
+        "query": weighted_query.to_dict(),
+        # Extra the top-keywords from the search
+        "aggregations": {
+            "doc_sampler": {
+                "sampler": {"shard_size": 500},
+                "aggregations": {
+                    "keywords": {
+                        "significant_text": {
+                            "field": "content",
+                        },
+                    },
+                },
+            }
+        },
+    }
 
     return query
 

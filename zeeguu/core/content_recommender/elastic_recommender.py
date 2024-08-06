@@ -9,6 +9,7 @@
 
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q, SF
+from pprint import pprint
 
 from zeeguu.core.model import (
     Article,
@@ -162,7 +163,7 @@ def article_recommendations_for_user(
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-
+    pprint(res["aggregations"]["doc_sampler"])
     articles = [a for a in final_article_mix if a is not None and not a.broken]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
@@ -217,7 +218,7 @@ def article_search_for_user(
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
-
+    pprint(res["aggregations"]["doc_sampler"])
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 

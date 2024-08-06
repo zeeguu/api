@@ -246,21 +246,20 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     is_quality_article, reason, code = sufficient_quality(np_article)
 
-    try:
-        summary = feed_item["summary"]
-        # however, this is not so easy... there have been cases where
-        # the summary is just malformed HTML... thus we try to extract
-        # the text:
-        from bs4 import BeautifulSoup
+    summary = feed_item["summary"]
+    # however, this is not so easy... there have been cases where
+    # the summary is just malformed HTML... thus we try to extract
+    # the text:
+    from bs4 import BeautifulSoup
 
-        soup = BeautifulSoup(summary, "lxml")
-        summary = soup.get_text()
-        # then there are cases where the summary is huge... so we clip it
-        summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
-        # and if there is still no summary, we simply use the beginning of
-        # the article
-        if len(summary) < 10:
-            summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
+    soup = BeautifulSoup(summary, "lxml")
+    summary = soup.get_text()
+    # then there are cases where the summary is huge... so we clip it
+    summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
+    # and if there is still no summary, we simply use the beginning of
+    # the article
+    if len(summary) < 10:
+        summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
     # Create new article and save it to DB
     new_article = zeeguu.core.model.Article(
