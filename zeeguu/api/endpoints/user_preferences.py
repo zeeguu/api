@@ -46,7 +46,6 @@ def save_user_preferences():
 
     translate_reader_value = data.get(UserPreference.TRANSLATE_IN_READER, None)
     if translate_reader_value:
-        print("Got update user preferences - TRANSLATE!")
         translate_reader = UserPreference.find_or_create(
             zeeguu.core.model.db.session,
             user,
@@ -57,7 +56,6 @@ def save_user_preferences():
     
     pronounce_reader_value = data.get(UserPreference.PRONOUNCE_IN_READER, None)
     if pronounce_reader_value:
-        print("Got update user preferences - PRONOUNCE!")
         pronounce_reader = UserPreference.find_or_create(
             zeeguu.core.model.db.session,
             user,
