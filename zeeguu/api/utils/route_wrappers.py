@@ -51,7 +51,7 @@ def requires_session(view):
                     user_id,
                     datetime.now() + timedelta(0, SESSION_CACHE_TIMEOUT),
                 )
-            print("----------- Using Cache! -----------")
+
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
         except BadRequestKeyError as e:
