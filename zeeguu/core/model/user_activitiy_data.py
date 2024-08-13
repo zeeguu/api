@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
@@ -16,6 +16,7 @@ from zeeguu.core.constants import (
     JSON_TIME_FORMAT,
     EVENT_LIKE_ARTICLE,
     EVENT_USER_FEEDBACK,
+    EVENT_USER_SCROLL,
 )
 import zeeguu
 
@@ -219,7 +220,6 @@ class UserActivityData(db.Model):
             return None
 
     def find_url_in_extra_data(self):
-
         """
         DB structure is a mess!
         There is no convention where the url associated with an event is.
@@ -290,6 +290,30 @@ class UserActivityData(db.Model):
             return self.article_id
 
         return self._find_article_in_value_or_extra_data(db_session)
+
+    @classmethod
+    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7):
+        query = (
+            cls.query.filter(cls.user_id == user.id)
+            .filter(cls.event == EVENT_USER_SCROLL)
+            .filter(datetime.now() - cls.time < timedelta(days=days_range))
+            .order_by("time")
+        )
+        events = query.all()
+        seen_articles = set()
+        list_of_sessions = []
+        for e in events:
+            if e.article_id is None or e.article_id in seen_articles:
+                continue
+            seen_articles.add(e.article_id)
+            list_of_sessions.append(
+                (
+                    e.article_id,
+                    (datetime.now() - cls.time).days,
+                    json.loads(e.extra_data),
+                )
+            )
+        return list_of_sessions
 
     @classmethod
     def create_from_post_data(cls, session, data, user):
