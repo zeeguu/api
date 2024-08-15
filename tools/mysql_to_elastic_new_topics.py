@@ -9,7 +9,6 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch.helpers import bulk
 import zeeguu.core
 from zeeguu.core.model import Article
-import sys
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
@@ -86,13 +85,17 @@ def main():
             .all()
         ]
     )
+    if len(sample_ids) == 0:
+        print("No articles found! Exiting...")
+        return
     sample_ids_no_in_es = list(
         filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), sample_ids)
     )
     print("Total articles missing: ", len(sample_ids_no_in_es))
+    
+
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
-    total_iter = TOTAL_ITEMS // ITERATION_STEP
     sampled_ids = np.random.choice(
         sample_ids_no_in_es, min(TOTAL_ITEMS, len(sample_ids_no_in_es)), replace=False
     )

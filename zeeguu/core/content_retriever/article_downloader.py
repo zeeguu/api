@@ -244,7 +244,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     np_article = download_and_parse_with_remove_sents(url, crawl_report, feed)
 
-    is_quality_article, reason, code = sufficient_quality(np_article)
+    is_quality_article, reason, code = sufficient_quality(np_article, feed.language.code)
 
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
