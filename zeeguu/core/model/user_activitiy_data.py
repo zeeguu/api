@@ -18,6 +18,7 @@ from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
 )
+from zeeguu.core.util import find_last_reading_point
 import zeeguu
 
 from zeeguu.core.model import db
@@ -293,24 +294,40 @@ class UserActivityData(db.Model):
 
     @classmethod
     def get_scroll_events_for_user_in_date_range(cls, user, days_range=7):
+        def seconds_to_hour(sec):
+            return sec // 60 // 60
+        current_date = (datetime.now() + timedelta(1)).date()
+        past_date = (datetime.now() - timedelta(days_range)).date()
+        print("Getting values from: ", past_date, " to ", current_date)
         query = (
             cls.query.filter(cls.user_id == user.id)
             .filter(cls.event == EVENT_USER_SCROLL)
-            .filter(datetime.now() - cls.time < timedelta(days=days_range))
-            .order_by("time")
+            .filter(cls.time.between(str(past_date), str(current_date)))
+            .order_by(cls.id.desc())
         )
         events = query.all()
         seen_articles = set()
         list_of_sessions = []
         for e in events:
-            if e.article_id is None or e.article_id in seen_articles:
+            parsed_data = json.loads(e.extra_data)
+            if e.article_id is None or e.article_id in seen_articles or len(parsed_data) == 0:
                 continue
             seen_articles.add(e.article_id)
+            date_ago = (datetime.now() - e.time)
+            days_ago, hours_ago = date_ago.days, seconds_to_hour(date_ago.seconds)
+            string_date = ""
+            if days_ago == 0:
+                string_date = f"{hours_ago} hours ago" if hours_ago > 1 else f"<1 hour ago"
+            else:
+                string_date = f"{days_ago} days ago" if days_ago > 1 else f"{days_ago} day ago"
+            
             list_of_sessions.append(
                 (
                     e.article_id,
-                    (datetime.now() - cls.time).days,
-                    json.loads(e.extra_data),
+                    (days_ago, hours_ago),
+                    string_date,
+                    parsed_data,
+                    find_last_reading_point(parsed_data)
                 )
             )
         return list_of_sessions
