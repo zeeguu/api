@@ -35,6 +35,19 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
+    
+    def get_article_new_topics_df(self, feed_df):
+        print("Getting Article New Topics...")
+        query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
+        FROM article a 
+        INNER JOIN new_article_topic_map atm on a.id = atm.article_id 
+        INNER JOIN new_topic t ON atm.new_topic_id = t.id
+        INNER JOIN language l ON l.id = a.language_id
+        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        AND a.broken = 0"""
+        df = pd.read_sql(query, con=self.db_connection)
+        self.__add_feed_name(df, feed_df)
+        return df
 
     def get_article_df(self, feed_df):
         print("Getting Articles...")
