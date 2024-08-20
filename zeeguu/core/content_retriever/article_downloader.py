@@ -158,6 +158,11 @@ def download_from_feed(
                 url,
                 crawl_report,
             )
+            # Politiken sometimes has titles that have
+            # strange characters instead of å æ ø
+            if feed.id == 136:
+                new_article.title = new_article.title.replace("Ã¥","å").replace("Ã¸", "ø").replace("Ã¦", "æ")
+
             downloaded += 1
             if save_in_elastic and not new_article.broken:
                 if new_article:
