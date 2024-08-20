@@ -16,6 +16,7 @@ from zeeguu.logging import log, logp
 
 from zeeguu.core import model
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
+from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Url, Feed, LocalizedTopic
 import requests
@@ -26,7 +27,7 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import (
-    download_and_parse_with_remove_sents,
+    download_with_reability,
 )
 
 TIMEOUT_SECONDS = 10
@@ -244,9 +245,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if art:
         raise SkippedAlreadyInDB()
 
-    np_article = download_and_parse_with_remove_sents(url, crawl_report, feed)
-
-    is_quality_article, reason, code = sufficient_quality(np_article)
+    np_article = download_with_reability(url)
+    is_quality_article, reason, code = sufficient_quality(np_article, feed.language.code)    
+    np_article.text = cleanup_text_w_crawl_report(
+        np_article.text, crawl_report, feed, url
+    )
 
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
