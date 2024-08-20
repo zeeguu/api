@@ -310,7 +310,8 @@ class UserActivityData(db.Model):
         list_of_sessions = []
         for e in events:
             parsed_data = json.loads(e.extra_data)
-            if e.article_id is None or e.article_id in seen_articles or len(parsed_data) == 0:
+            viewportSettings = e.value
+            if e.article_id is None or e.article_id in seen_articles or len(parsed_data) == 0 or viewportSettings == "":
                 continue
             seen_articles.add(e.article_id)
             date_ago = (datetime.now() - e.time)
@@ -320,12 +321,12 @@ class UserActivityData(db.Model):
                 string_date = f"{hours_ago} hours ago" if hours_ago > 1 else f"<1 hour ago"
             else:
                 string_date = f"{days_ago} days ago" if days_ago > 1 else f"{days_ago} day ago"
-            
             list_of_sessions.append(
                 (
                     e.article_id,
                     (days_ago, hours_ago),
                     string_date,
+                    json.loads(viewportSettings),
                     parsed_data,
                     find_last_reading_point(parsed_data)
                 )

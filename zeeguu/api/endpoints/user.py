@@ -98,14 +98,18 @@ def get_user_unfinished_reading_sessions():
     last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user)
     list_result = []
     for s in last_sessions:
-        art_id, _, date_str, _, last_reading_point = s
+        art_id, _, date_str, viewport_settings, _, last_reading_point = s
         if last_reading_point < 100 and last_reading_point > 0:
+            scrollHeight = viewport_settings["scrollHeight"]
+            clientHeight = viewport_settings["clientHeight"]
+            bottomRowHeight = viewport_settings["bottomRowHeight"]
             art = Article.find_by_id(art_id)
             art_info = UserArticle.user_article_info(user, art)
+            art_info["pixel_to_scroll_to"] = (scrollHeight - (clientHeight/2) - bottomRowHeight) * (last_reading_point/100)
             art_info["time_until_last_read"] = date_str
             art_info["last_reading_percentage"] = last_reading_point
             list_result.append(art_info)
-        if len(list_result) >= 2:
+        if len(list_result) >= 1:
             break
 
     return json_result(list_result)
