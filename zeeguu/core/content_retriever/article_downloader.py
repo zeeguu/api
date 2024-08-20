@@ -27,7 +27,7 @@ from sentry_sdk import capture_exception as capture_to_sentry
 from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
 from zeeguu.core.content_retriever import (
-    download_with_reability,
+    readability_download_and_parse,
 )
 
 TIMEOUT_SECONDS = 10
@@ -245,7 +245,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if art:
         raise SkippedAlreadyInDB()
 
-    np_article = download_with_reability(url)
+    np_article = readability_download_and_parse(url)
     is_quality_article, reason, code = sufficient_quality(np_article, feed.language.code)    
     np_article.text = cleanup_text_w_crawl_report(
         np_article.text, crawl_report, feed, url
