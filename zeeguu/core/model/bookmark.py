@@ -220,9 +220,11 @@ class Bookmark(db.Model):
             can_update_schedule = (
                 next_practice_time <= BasicSRSchedule.get_end_of_today()
             )
+            consecutive_correct_answers = basic_sr_schedule.consecutive_correct_answers
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
             can_update_schedule = None
+            consecutive_correct_answers = None
 
         bookmark_title = ""
         if with_title:
@@ -254,7 +256,7 @@ class Bookmark(db.Model):
             is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
-            consecutive_correct_answers=basic_sr_schedule.consecutive_correct_answers,
+            consecutive_correct_answers=consecutive_correct_answers,
         )
 
         if self.text.article:
