@@ -18,7 +18,7 @@ from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
 )
-from zeeguu.core.util import find_last_reading_point
+from zeeguu.core.util import find_last_reading_percentage
 import zeeguu
 
 from zeeguu.core.model import db
@@ -293,12 +293,16 @@ class UserActivityData(db.Model):
         return self._find_article_in_value_or_extra_data(db_session)
 
     @classmethod
-    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7):
+    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):
+        """
+            Returns a list of parsed scroll user events containing the last point which was "read"
+
+            [(article_id:int, string_date:str, viewPortSettings:dict, )]
+        """
         def seconds_to_hour(sec):
             return sec // 60 // 60
         current_date = (datetime.now() + timedelta(1)).date()
         past_date = (datetime.now() - timedelta(days_range)).date()
-        print("Getting values from: ", past_date, " to ", current_date)
         query = (
             cls.query.filter(cls.user_id == user.id)
             .filter(cls.event == EVENT_USER_SCROLL)
@@ -324,13 +328,13 @@ class UserActivityData(db.Model):
             list_of_sessions.append(
                 (
                     e.article_id,
-                    (days_ago, hours_ago),
                     string_date,
                     json.loads(viewportSettings),
-                    parsed_data,
-                    find_last_reading_point(parsed_data)
+                    find_last_reading_percentage(parsed_data)
                 )
             )
+            if len(list_of_sessions) >= limit:
+                break
         return list_of_sessions
 
     @classmethod

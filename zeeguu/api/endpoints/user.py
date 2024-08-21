@@ -93,19 +93,21 @@ def learned_and_native_language():
 @requires_session
 def get_user_unfinished_reading_sessions():
     """
+        Retrieves the last uncompleted sessions based on the SCROLL events of the user.
+
     """
     user = User.find_by_id(flask.g.user_id)
     last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user)
     list_result = []
     for s in last_sessions:
-        art_id, _, date_str, viewport_settings, _, last_reading_point = s
+        art_id, date_str, viewport_settings, last_reading_point = s
         if last_reading_point < 100 and last_reading_point > 0:
             scrollHeight = viewport_settings["scrollHeight"]
             clientHeight = viewport_settings["clientHeight"]
             bottomRowHeight = viewport_settings["bottomRowHeight"]
             art = Article.find_by_id(art_id)
             art_info = UserArticle.user_article_info(user, art)
-            art_info["pixel_to_scroll_to"] = (scrollHeight - (clientHeight/2) - bottomRowHeight) * (last_reading_point/100)
+            art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
             art_info["time_until_last_read"] = date_str
             art_info["last_reading_percentage"] = last_reading_point
             list_result.append(art_info)
