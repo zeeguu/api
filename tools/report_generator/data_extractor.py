@@ -46,7 +46,18 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-
+    
+    def get_article_df_with_ids(self, feed_df, id_to_fetch:list[int]):
+        print("Getting Articles with Ids...")
+        ids_as_str = [str(v) for v in id_to_fetch]
+        query = f"""SELECT a.*, l.name Language
+        FROM article a     
+        INNER JOIN language l ON l.id = a.language_id
+        WHERE a.id in ({",".join(ids_as_str)})"""
+        df = pd.read_sql(query, con=self.db_connection)
+        self.__add_feed_name(df, feed_df)
+        return df
+    
     def get_language_df(self):
         print("Getting Languages...")
         query = "SELECT * from language"
@@ -65,7 +76,7 @@ class DataExtractor:
         return pd.read_sql(query, con=self.db_connection)
 
     def get_user_reading_activity(self, language_df, feed_df):
-        print("Getting user activity...")
+        print("Getting User Activity...")
         query = f"""SELECT a.id, a.language_id, a.feed_id, urs.user_id, SUM(urs.duration) total_reading_time
         FROM article a 
         INNER JOIN user_reading_session urs ON urs.article_id = a.id 
