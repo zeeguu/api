@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-  "name": "zeeguu-api",
+  "name": "zeeguuapi",
   "rootFolder": "zeeguu",
   "github": {
     "url": "https://github.com/zeeguu/api",
