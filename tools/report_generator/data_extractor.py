@@ -228,7 +228,28 @@ class DataExtractor:
             "Unclassified"
         )
         return topic_reading_time_df
-
+    
+    def get_new_topic_reading_time(self):
+        print("Getting New Topic Reading Times...")
+        query = f"""SELECT l.name as Language, t.title Topic, SUM(urs.duration) total_reading_time
+        FROM article a 
+        LEFT JOIN new_article_topic_map atm on a.id = atm.article_id
+        LEFT JOIN new_topic t on atm.new_topic_id = t.id
+        INNER JOIN user_reading_session urs ON urs.article_id = a.id
+        INNER JOIN language l on a.language_id = l.id
+        INNER JOIN user u ON urs.user_id = u.id
+        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
+        AND u.learned_language_id = a.language_id
+        GROUP BY a.language_id, atm.new_topic_id;"""
+        topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
+        topic_reading_time_df["total_reading_time"] = topic_reading_time_df[
+            "total_reading_time"
+        ].apply(ms_to_mins)
+        topic_reading_time_df.loc[topic_reading_time_df["Topic"].isna(), "Topic"] = (
+            "Unclassified"
+        )
+        return topic_reading_time_df
+    
     def add_language_to_df(self, df, language_data):
         df["Language"] = df.language_id.apply(
             lambda x: language_data.loc[language_data.id == x, "name"].values[0]

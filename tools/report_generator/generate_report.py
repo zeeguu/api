@@ -365,6 +365,39 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
     plt.ylabel("Total Reading time (mins)")
     return save_fig_params(filename)
 
+def generate_new_topic_reading_time(topic_reading_time_df, lang=""):
+    filename = (
+        f"new_topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
+        if lang == ""
+        else f"new_topic_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
+    )
+    plot_total_reading_time = (
+        topic_reading_time_df.groupby(["Language", "Topic"])
+        .total_reading_time.sum()
+        .reset_index()
+    )
+    if lang == "":
+        ax = plt.subplot(111)
+        sns.barplot(
+            x="Language",
+            y="total_reading_time",
+            hue="Topic",
+            data=plot_total_reading_time,
+            palette=get_color_palette(len(plot_total_reading_time["Topic"].unique())),
+        )
+        set_legend_to_right_side(ax)
+        plt.title("Total Reading Time by New Topic per Language")
+    else:
+        sns.barplot(
+            x="Topic",
+            y="total_reading_time",
+            hue="Topic",
+            data=plot_total_reading_time[plot_total_reading_time["Language"] == lang],
+        )
+        plt.title(f"{lang} - Total Reading time by New Topic")
+    plt.xticks(rotation=35, ha="right")
+    plt.ylabel("Total Reading time (mins)")
+    return save_fig_params(filename)
 
 def generate_exercise_activity(exercise_activity_df, lang=""):
     filename = (
@@ -500,6 +533,7 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
+    new_topic_reading_time_df = data_extractor.get_new_topic_reading_time()
     total_unique_articles_opened_by_users = len(
         article_df[article_df.id.isin(user_reading_time_df.id)]
     )
@@ -546,6 +580,7 @@ def generate_html_page():
             lang_report += f"""
             <p><b>Total Active users</b>: {len(active_users[active_users["Language"] == lang])}</p>
             <img src="{generate_topic_reading_time(topic_reading_time_df,lang)}" />
+            <img src="{generate_new_topic_reading_time(new_topic_reading_time_df, lang)}" />
             <img src="{generate_user_reading_time(user_reading_time_df, lang)}" />
             <img src="{generate_unique_articles_read_plot(user_reading_time_df, lang)}" />
             <img src="{generate_exercise_activity(exercise_activity_df, lang)}" />
@@ -611,6 +646,7 @@ def generate_html_page():
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
         <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
+        <img src="{generate_new_topic_reading_time(new_topic_reading_time_df)}" />
         <img src="{generate_bookmarks_by_language_plot(bookmark_df)}" />
         """
     result += f"""
