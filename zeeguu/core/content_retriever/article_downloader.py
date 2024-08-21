@@ -162,7 +162,11 @@ def download_from_feed(
             # Politiken sometimes has titles that have
             # strange characters instead of å æ ø
             if feed.id == 136:
-                new_article.title = new_article.title.replace("Ã¥","å").replace("Ã¸", "ø").replace("Ã¦", "æ")
+                new_article.title = (
+                    new_article.title.replace("Ã¥", "å")
+                    .replace("Ã¸", "ø")
+                    .replace("Ã¦", "æ")
+                )
 
             downloaded += 1
             if save_in_elastic and not new_article.broken:
@@ -246,10 +250,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         raise SkippedAlreadyInDB()
 
     np_article = readability_download_and_parse(url)
-    is_quality_article, reason, code = sufficient_quality(np_article)    
-    np_article.text = cleanup_text_w_crawl_report(
-        np_article.text, crawl_report, feed, url
-    )
+    is_quality_article, reason, code = sufficient_quality(np_article)
+    if is_quality_article:
+        np_article.text = cleanup_text_w_crawl_report(
+            np_article.text, crawl_report, feed, url
+        )
 
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
