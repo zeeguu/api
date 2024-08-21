@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from zeeguu.core.model import Language
+from zeeguu.core.model.language import Language
 from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.logging import log

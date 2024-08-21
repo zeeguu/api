@@ -13,6 +13,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, User
+from zeeguu.core.model.new_topic_user_feedback import NewTopicUserFeedback
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
@@ -260,6 +261,18 @@ class UserArticle(db.Model):
 
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
 
+        user_new_topics_feedback = NewTopicUserFeedback.find_given_user_article(article, user)
+        
+        if user_new_topics_feedback:
+            article_topic_list = returned_info["new_topics_list"]
+            new_topic_list = []
+            topics_to_remove = set([untf.new_topic.title for untf in user_new_topics_feedback if untf.feedback == NewTopicUserFeedback.DO_NOT_SHOW_FEEDBACK])
+            for each in article_topic_list:
+                title, _ = each
+                if title not in topics_to_remove:
+                    new_topic_list.append(each)
+            returned_info["new_topics_list"] = new_topic_list
+            returned_info["new_topics"] = ",".join([t for t, _ in new_topic_list])
 
         if not user_article_info:
             returned_info["starred"] = False
