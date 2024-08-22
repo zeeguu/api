@@ -270,7 +270,6 @@ def generate_unique_articles_read_plot(user_reading_time_df, lang=""):
             .reset_index()
             .sort_values("Feed Name")
         )
-        print(plot_unique_articles_read)
         sns.barplot(
             x="Feed Name",
             y="count",
@@ -418,22 +417,20 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     )
 
 
-def generate_top_opened_articles(user_reading_time_df, article_df):
-    top_5_articles_by_opened = (
-        user_reading_time_df.groupby(["Language", "Feed Name"])
-        .id.value_counts()
-        .reset_index()
-        .sort_values("count", ascending=False)[:5]
+def generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5):
+    articles_by_user_interaction = (
+        user_reading_time_df.groupby(['id']).agg({'total_reading_time' : 'mean',
+                                        'user_id' : 'count'}).reset_index()
     )
-    print(top_5_articles_by_opened)
-    top_5_articles_by_opened = top_5_articles_by_opened.merge(
-        article_df[["id", "title"]], on="id"
-    )[["Language", "Feed Name", "id", "title", "count"]]
-    print(top_5_articles_by_opened)
-    top_5_articles_by_opened = top_5_articles_by_opened.rename(
-        columns={"id": "Article id", "title": "Article Title", "count": "Users Count"}
+    read_articles = data_extractor.get_article_df_with_ids(feed_df, articles_by_user_interaction.id.values)
+    articles_by_user_interaction = articles_by_user_interaction.merge(
+        read_articles[["id", "title", "Feed Name", "Language"]], on="id"
+    )[["Language", "Feed Name", "id", "title", "user_id", "total_reading_time"]]
+    articles_by_user_interaction = articles_by_user_interaction.rename(
+        columns={"id": "Article id", "title": "Article Title", "user_id": "Users Count", "total_reading_time":"User Avg. Reading Time"}
     )
-    return generate_html_table(top_5_articles_by_opened)
+    articles_by_user_interaction = articles_by_user_interaction.sort_values(["Users Count", "User Avg. Reading Time"], ascending=False)
+    return generate_html_table(articles_by_user_interaction.head(number_of_articles_to_report))
 
 
 def generate_html_page():
@@ -559,7 +556,7 @@ def generate_html_page():
         <h3>Top Articles Read:</h3>
         {generate_active_users_table(combined_user_activity_df, bookmark_df)}
         <br>
-        {generate_top_opened_articles(user_reading_time_df, article_df)}
+        {generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df)}
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
         <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
@@ -580,16 +577,19 @@ def generate_html_page():
             {get_rejected_sentences_table(total_removed_sents)}
         </body>
     """
+
+    output_filepath = f"report_zeeguu_{date_str}_d{DAYS_FOR_REPORT}.html"
     with open(
         os.path.join(
             FOLDER_FOR_REPORT_OUTPUT,
-            f"report_zeeguu_{date_str}_d{DAYS_FOR_REPORT}.html",
+            output_filepath,
         ),
         "w",
         encoding="UTF-8",
     ) as f:
         f.write(result)
 
+    print(f"File written to '{output_filepath}'.")
     return result
 
 
