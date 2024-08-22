@@ -308,6 +308,7 @@ class UserActivityData(db.Model):
             .filter(cls.event == EVENT_USER_SCROLL)
             .filter(cls.time.between(str(past_date), str(current_date)))
             .order_by(cls.id.desc())
+            .limit(50)
         )
         events = query.all()
         seen_articles = set()
