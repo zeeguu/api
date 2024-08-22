@@ -310,7 +310,10 @@ def add_topics(new_article, session):
 
 
 def add_new_topics(new_article, feed, topic_keywords, session):
-    HARDCODED_FEEDS = {102: 8}
+    HARDCODED_FEEDS = {
+        102: 8, # The Onion EN
+        121: 8, # Lercio IT
+    }
     # Handle Hard coded Feeds
     if feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
