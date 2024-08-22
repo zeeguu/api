@@ -281,7 +281,7 @@ class Article(db.Model):
         from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
 
         article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
-        self.broken = BROKEN_ARTICLE_QUALITY
+        self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         session.add(article_broken_map)
         session.add(self)
         session.commit()
@@ -301,7 +301,7 @@ class Article(db.Model):
         session.add(ua)
 
     def mark_as_low_quality_and_remove_from_index(self):
-        self.broken = BROKEN_ARTICLE_QUALITY
+        self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         # if it was in ES, we delete it
         from zeeguu.core.elastic.indexing import remove_from_index
 
