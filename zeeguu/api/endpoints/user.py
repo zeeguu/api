@@ -89,15 +89,16 @@ def learned_and_native_language():
     return json_result(res)
 
 @api.route("/get_user_unfinished_reading_sessions", methods=("GET",))
+@api.route("/get_user_unfinished_reading_sessions/<int:total_sessions>", methods=("GET",))
 @cross_domain
 @requires_session
-def get_user_unfinished_reading_sessions():
+def get_user_unfinished_reading_sessions(total_sessions:int=1):
     """
         Retrieves the last uncompleted sessions based on the SCROLL events of the user.
 
     """
     user = User.find_by_id(flask.g.user_id)
-    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user)
+    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user, limit=total_sessions)
     list_result = []
     for s in last_sessions:
         art_id, date_str, viewport_settings, last_reading_point = s
@@ -115,8 +116,6 @@ def get_user_unfinished_reading_sessions():
             tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
             art_info["last_reading_percentage"] = last_reading_point - tolerance
             list_result.append(art_info)
-        if len(list_result) >= 1:
-            break
 
     return json_result(list_result)
 
