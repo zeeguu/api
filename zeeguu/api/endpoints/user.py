@@ -107,9 +107,13 @@ def get_user_unfinished_reading_sessions():
             bottomRowHeight = viewport_settings["bottomRowHeight"]
             art = Article.find_by_id(art_id)
             art_info = UserArticle.user_article_info(user, art)
-            art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
+            # We might use these for a more complex calculation of where to lead the user
+            # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
+            # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
             art_info["time_until_last_read"] = date_str
-            art_info["last_reading_percentage"] = last_reading_point
+            # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
+            tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
+            art_info["last_reading_percentage"] = last_reading_point - tolerance
             list_result.append(art_info)
         if len(list_result) >= 1:
             break

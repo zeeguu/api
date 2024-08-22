@@ -320,6 +320,7 @@ class UserActivityData(db.Model):
             seen_articles.add(e.article_id)
             date_ago = (datetime.now() - e.time)
             days_ago, hours_ago = date_ago.days, seconds_to_hour(date_ago.seconds)
+            last_percentage = find_last_reading_percentage(parsed_data)
             string_date = ""
             if days_ago == 0:
                 string_date = f"{hours_ago} hours ago" if hours_ago > 1 else f"<1 hour ago"
@@ -330,7 +331,7 @@ class UserActivityData(db.Model):
                     e.article_id,
                     string_date,
                     json.loads(viewportSettings),
-                    find_last_reading_percentage(parsed_data)
+                    last_percentage
                 )
             )
             if len(list_of_sessions) >= limit:
