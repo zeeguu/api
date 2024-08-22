@@ -22,6 +22,7 @@ article_topic_map = Table(
 )
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
+MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
 
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
@@ -280,7 +281,7 @@ class Article(db.Model):
         from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
 
         article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
-        self.broken = True
+        self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         session.add(article_broken_map)
         session.add(self)
         session.commit()
@@ -300,7 +301,7 @@ class Article(db.Model):
         session.add(ua)
 
     def mark_as_low_quality_and_remove_from_index(self):
-        self.broken = 100
+        self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         # if it was in ES, we delete it
         from zeeguu.core.elastic.indexing import remove_from_index
 
