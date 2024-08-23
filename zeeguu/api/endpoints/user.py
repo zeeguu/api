@@ -88,8 +88,8 @@ def learned_and_native_language():
     res = dict(native=user.native_language_id, learned=user.learned_language_id)
     return json_result(res)
 
-@api.route("/get_user_unfinished_reading_sessions", methods=("GET",))
-@api.route("/get_user_unfinished_reading_sessions/<int:total_sessions>", methods=("GET",))
+@api.route("/get_unfinished_user_reading_sessions", methods=("GET",))
+@api.route("/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",))
 @cross_domain
 @requires_session
 def get_user_unfinished_reading_sessions(total_sessions:int=1):
@@ -114,7 +114,10 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             art_info["time_until_last_read"] = date_str
             # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
             tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
-            art_info["last_reading_percentage"] = last_reading_point - tolerance
+            last_reading_percentage = last_reading_point - tolerance
+            if last_reading_percentage <= 0:
+                continue
+            art_info["last_reading_percentage"] = last_reading_percentage
             list_result.append(art_info)
 
     return json_result(list_result)

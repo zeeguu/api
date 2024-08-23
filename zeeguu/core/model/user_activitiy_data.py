@@ -18,7 +18,7 @@ from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
 )
-from zeeguu.core.util import find_last_reading_percentage
+from zeeguu.core.behavioral_modeling import find_last_reading_percentage
 import zeeguu
 
 from zeeguu.core.model import db
