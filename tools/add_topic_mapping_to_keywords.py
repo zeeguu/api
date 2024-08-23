@@ -16,12 +16,10 @@ for row_i, row in tqdm(df.iterrows()):
     keyword = row["keyword"]
     try:
         topic_k_list = TopicKeyword.find_all_by_keyword(keyword)
-        print(topic_k_list)
         for topic_k in topic_k_list:
             topic_to_assign = (
                 NewTopic.find_by_id(row["val_pred"]) if row["val_pred"] != -1 else None
             )
-            print(topic_to_assign)
             topic_k.new_topic = topic_to_assign
             db_session.add(topic_k)
     except Exception as e:
