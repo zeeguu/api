@@ -55,13 +55,13 @@ This is useful for MacOS machines (M1 and later) on which MySQL does not seem to
 
 3. Run the development server inside of the container
 
-   `docker-compose-development up dev_server`
+   `docker-compose up dev_server`
 
    to test it open http://localhost:9001/available_languages in your browser and you should be able to see a list of language codes that are supported by the system
 
 4. Test the deployment
 
-   `docker-compose-development up dev_test`
+   `docker-compose up dev_test`
 
 ### Note
 

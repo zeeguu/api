@@ -121,15 +121,12 @@ def remove_ml_suggestion():
         of the new topics. Can indicate that the prediciton
         isn't correct.
     """
-    print(request.form)
     user = User.find_by_id(flask.g.user_id)
     article_id = request.form.get("article_id", "")
     new_topic = request.form.get("new_topic", "")
     article = Article.find_by_id(article_id)
     new_topic = NewTopic.find(new_topic)
-    print(article, new_topic)
     try:
-        print("ADDING NEW FEEDBACK")
         NewTopicUserFeedback.find_or_create(db_session, article, user, new_topic, NewTopicUserFeedback.DO_NOT_SHOW_FEEDBACK)
         return "OK"
     except Exception as e:

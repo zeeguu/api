@@ -30,7 +30,7 @@ def learned_language():
         with the expectd HTTP method
         it is normally appended to the API_URL (https://www.zeeguu.unibe.ch/)
 
-     @requires_session means that you must submit a session
+     @with_session means that you must submit a session
         argument together wit your API request
         e.g. API_URL/learned_language?session=123141516
     """

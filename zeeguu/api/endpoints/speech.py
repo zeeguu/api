@@ -6,7 +6,7 @@ from flask import request
 from zeeguu.api.endpoints import api
 from zeeguu.api.utils import cross_domain, requires_session
 
-DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER", "")
+DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
 
 # See: https://cloud.google.com/text-to-speech/docs/voices
 PREFERRED_VOICES = {
@@ -47,8 +47,8 @@ def tts():
 
     audio_file_path = _file_name_for_user_word(user_word, language_id)
 
-    ##if not os.path.isfile(DATA_FOLDER + audio_file_path):
-    ##    _save_speech_to_file(user_word.word, language_id, audio_file_path)
+    if not os.path.isfile(DATA_FOLDER + audio_file_path):
+        _save_speech_to_file(user_word.word, language_id, audio_file_path)
 
     print(audio_file_path)
     return audio_file_path
@@ -95,8 +95,7 @@ def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
 
     # Build the voice request
     voice = texttospeech.VoiceSelectionParams(
-        language_code=_code_from_id(language_id),
-        name=voice_for_language(language_id),
+        language_code=_code_from_id(language_id), name=voice_for_language(language_id)
     )
 
     # Select the type of audio file you want returned

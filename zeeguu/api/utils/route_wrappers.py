@@ -16,7 +16,7 @@ def requires_session(view):
     """
     Decorator checks that user is in a session.
 
-    Every API endpoint annotated with @requires_session
+    Every API endpoint annotated with @with_session
      expects a session object to be passed as a GET parameter
 
     Example: API_URL/learned_language?session=123141516
@@ -51,7 +51,7 @@ def requires_session(view):
                     user_id,
                     datetime.now() + timedelta(0, SESSION_CACHE_TIMEOUT),
                 )
-            print("----------- Using Cache! -----------")
+
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
         except BadRequestKeyError as e:
