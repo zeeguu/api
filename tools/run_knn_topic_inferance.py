@@ -10,10 +10,8 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from elasticsearch import Elasticsearch
 from collections import Counter
-from zeeguu.core.semantic_vector_api import get_embedding_from_article
 from zeeguu.core.elastic.elastic_query_builder import build_elastic_recommender_query
 
-from pprint import pprint
 from zeeguu.api.app import create_app
 
 app = create_app()
