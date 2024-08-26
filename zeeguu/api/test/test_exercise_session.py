@@ -9,12 +9,11 @@ def test_start_new_exercise_session(client):
     new_exercise_session = client.post("/exercise_session_start")
     assert new_exercise_session
     assert new_exercise_session["id"]
-    return new_exercise_session["id"]
 
 
 def test_add_exercise_to_session(client):
     bookmark_id = add_one_bookmark(client)
-    session_id = test_start_new_exercise_session(client)
+    session_id = client.post("/exercise_session_start")["id"]
     assert bookmark_id
 
     data = dict(

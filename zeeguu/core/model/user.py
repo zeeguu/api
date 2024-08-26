@@ -179,11 +179,9 @@ class User(db.Model):
         from zeeguu.core.model import UserLanguage
 
         # disable the exercises and reading for all the other languages
-        all_other_languages = (
-            UserLanguage.query.filter(User.id == self.id)
-            .filter(UserLanguage.doing_exercises == True)
-            .all()
-        )
+        all_other_languages = UserLanguage.query.filter(
+            UserLanguage.doing_exercises == True
+        ).all()
         for each in all_other_languages:
             each.doing_exercises = False
             each.reading_news = False
@@ -198,7 +196,6 @@ class User(db.Model):
 
         if session:
             session.add(language)
-            
 
     def set_learned_language_level(
         self, language_code: str, cefr_level: str, session=None
