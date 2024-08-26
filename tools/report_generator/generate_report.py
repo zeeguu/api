@@ -393,15 +393,16 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     ]
     if len(bookmark_count) > 0:
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_review_proportion, on="Language", how="inner"
+            bookmark_review_proportion, on="Language", how="outer"
         )
-
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_count, on="Language", how="inner"
+            bookmark_count, on="Language", how="outer"
         )
+        reading_time_ex_time.loc[reading_time_ex_time["Bookmarks % Reviewed"].isna(),"Bookmarks % Reviewed"] = 0
     else:
         reading_time_ex_time["Bookmarks % Reviewed"] = 0
         reading_time_ex_time["Total Bookmarks"] = 0
+
 
     return generate_html_table(
         reading_time_ex_time[
@@ -553,9 +554,9 @@ def generate_html_page():
         <hr>"""
     else:
         result += f"""
-        <h3>Top Articles Read:</h3>
         {generate_active_users_table(combined_user_activity_df, bookmark_df)}
         <br>
+        <h3>Top Articles Read:</h3>
         {generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df)}
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
