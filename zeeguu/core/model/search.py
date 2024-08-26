@@ -43,13 +43,10 @@ class Search(db.Model):
 
     @classmethod
     def find_or_create(cls, session, keywords):
-        try:
-            return cls.query.filter(cls.keywords == keywords).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(keywords)
-            session.add(new)
-            session.commit()
-            return new
+        new = cls(keywords)
+        session.add(new)
+        session.commit()
+        return new
 
     @classmethod
     def find(cls, keywords):
