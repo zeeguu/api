@@ -101,7 +101,7 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
     last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user, limit=total_sessions)
     list_result = []
     for s in last_sessions:
-        art_id, date_str, viewport_settings, last_reading_point = s
+        art_id, seconds_ago, viewport_settings, last_reading_point = s
         if last_reading_point < 100 and last_reading_point > 0:
             scrollHeight = viewport_settings["scrollHeight"]
             clientHeight = viewport_settings["clientHeight"]
@@ -111,7 +111,7 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             # We might use these for a more complex calculation of where to lead the user
             # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
             # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
-            art_info["time_until_last_read"] = date_str
+            art_info["seconds_since_read"] = int(seconds_ago)
             # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
             tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
             last_reading_percentage = last_reading_point - tolerance

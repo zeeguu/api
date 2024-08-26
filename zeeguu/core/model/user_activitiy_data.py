@@ -299,8 +299,11 @@ class UserActivityData(db.Model):
 
             [(article_id:int, string_date:str, viewPortSettings:dict, )]
         """
+        def seconds_to_minute(sec):
+            return sec // 60
         def seconds_to_hour(sec):
-            return sec // 60 // 60
+            return seconds_to_minute(sec) // 60
+
         current_date = (datetime.now() + timedelta(1)).date()
         past_date = (datetime.now() - timedelta(days_range)).date()
         query = (
@@ -320,17 +323,12 @@ class UserActivityData(db.Model):
                 continue
             seen_articles.add(e.article_id)
             date_ago = (datetime.now() - e.time)
-            days_ago, hours_ago = date_ago.days, seconds_to_hour(date_ago.seconds)
+            seconds_ago = date_ago.seconds
             last_percentage = find_last_reading_percentage(parsed_data)
-            string_date = ""
-            if days_ago == 0:
-                string_date = f"{hours_ago} hours ago" if hours_ago > 1 else f"<1 hour ago"
-            else:
-                string_date = f"{days_ago} days ago" if days_ago > 1 else f"{days_ago} day ago"
             list_of_sessions.append(
                 (
                     e.article_id,
-                    string_date,
+                    seconds_ago,
                     json.loads(viewportSettings),
                     last_percentage
                 )
