@@ -88,20 +88,25 @@ def learned_and_native_language():
     res = dict(native=user.native_language_id, learned=user.learned_language_id)
     return json_result(res)
 
+
 @api.route("/get_unfinished_user_reading_sessions", methods=("GET",))
-@api.route("/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",))
+@api.route(
+    "/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",)
+)
 @cross_domain
 @requires_session
-def get_user_unfinished_reading_sessions(total_sessions:int=1):
+def get_user_unfinished_reading_sessions(total_sessions: int = 1):
     """
-        Retrieves the last uncompleted sessions based on the SCROLL events of the user.
+    Retrieves the last uncompleted sessions based on the SCROLL events of the user.
 
     """
     user = User.find_by_id(flask.g.user_id)
-    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user, limit=total_sessions)
+    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(
+        user, limit=total_sessions
+    )
     list_result = []
     for s in last_sessions:
-        art_id, seconds_ago, viewport_settings, last_reading_point = s
+        art_id, date_read, viewport_settings, last_reading_point = s
         if last_reading_point < 100 and last_reading_point > 0:
             scrollHeight = viewport_settings["scrollHeight"]
             clientHeight = viewport_settings["clientHeight"]
@@ -111,9 +116,9 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             # We might use these for a more complex calculation of where to lead the user
             # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
             # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
-            art_info["seconds_since_read"] = int(seconds_ago)
+            art_info["time_last_read"] = date_read
             # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
-            tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
+            tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
             last_reading_percentage = last_reading_point - tolerance
             if last_reading_percentage <= 0:
                 continue
@@ -121,6 +126,7 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             list_result.append(art_info)
 
     return json_result(list_result)
+
 
 @api.route("/get_user_details", methods=("GET",))
 @cross_domain

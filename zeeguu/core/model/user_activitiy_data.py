@@ -295,14 +295,10 @@ class UserActivityData(db.Model):
     @classmethod
     def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):
         """
-            Returns a list of parsed scroll user events containing the last point which was "read"
+        Returns a list of parsed scroll user events containing the last point which was "read"
 
-            [(article_id:int, string_date:str, viewPortSettings:dict, )]
+        [(article_id:int, last_event_time:datetime, viewPortSettings:dict, last_percentage:float)]
         """
-        def seconds_to_minute(sec):
-            return sec // 60
-        def seconds_to_hour(sec):
-            return seconds_to_minute(sec) // 60
 
         current_date = (datetime.now() + timedelta(1)).date()
         past_date = (datetime.now() - timedelta(days_range)).date()
@@ -319,19 +315,24 @@ class UserActivityData(db.Model):
         for e in events:
             parsed_data = json.loads(e.extra_data)
             viewportSettings = e.value
-            if e.article_id is None or e.article_id in seen_articles or len(parsed_data) == 0 or viewportSettings == "":
+            if (
+                e.article_id is None
+                or e.article_id in seen_articles
+                or len(parsed_data) == 0
+                or viewportSettings == ""
+            ):
                 continue
+            article_data = Article.find_by_id(e.article_id)
             seen_articles.add(e.article_id)
-            date_ago = (datetime.now() - e.time)
-            seconds_ago = date_ago.seconds
+            if article_data.language_id != user.learned_language_id:
+                # Article doesn't match learned language
+                continue
+
+            # date_ago = (datetime.now() - e.time)
+            # seconds_ago = date_ago.seconds
             last_percentage = find_last_reading_percentage(parsed_data)
             list_of_sessions.append(
-                (
-                    e.article_id,
-                    seconds_ago,
-                    json.loads(viewportSettings),
-                    last_percentage
-                )
+                (e.article_id, e.time, json.loads(viewportSettings), last_percentage)
             )
             if len(list_of_sessions) >= limit:
                 break
