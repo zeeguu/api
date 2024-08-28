@@ -398,11 +398,12 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
         reading_time_ex_time = reading_time_ex_time.merge(
             bookmark_count, on="Language", how="outer"
         )
-        reading_time_ex_time.loc[reading_time_ex_time["Bookmarks % Reviewed"].isna(),"Bookmarks % Reviewed"] = 0
+        reading_time_ex_time.loc[
+            reading_time_ex_time["Bookmarks % Reviewed"].isna(), "Bookmarks % Reviewed"
+        ] = 0
     else:
         reading_time_ex_time["Bookmarks % Reviewed"] = 0
         reading_time_ex_time["Total Bookmarks"] = 0
-
 
     return generate_html_table(
         reading_time_ex_time[
@@ -418,20 +419,34 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     )
 
 
-def generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5):
+def generate_top_opened_articles(
+    user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5
+):
     articles_by_user_interaction = (
-        user_reading_time_df.groupby(['id']).agg({'total_reading_time' : 'mean',
-                                        'user_id' : 'count'}).reset_index()
+        user_reading_time_df.groupby(["id"])
+        .agg({"total_reading_time": "mean", "user_id": "count"})
+        .reset_index()
     )
-    read_articles = data_extractor.get_article_df_with_ids(feed_df, articles_by_user_interaction.id.values)
+    read_articles = data_extractor.get_article_df_with_ids(
+        feed_df, articles_by_user_interaction.id.values
+    )
     articles_by_user_interaction = articles_by_user_interaction.merge(
         read_articles[["id", "title", "Feed Name", "Language"]], on="id"
     )[["Language", "Feed Name", "id", "title", "user_id", "total_reading_time"]]
     articles_by_user_interaction = articles_by_user_interaction.rename(
-        columns={"id": "Article id", "title": "Article Title", "user_id": "Users Count", "total_reading_time":"User Avg. Reading Time"}
+        columns={
+            "id": "Article id",
+            "title": "Article Title",
+            "user_id": "Users Count",
+            "total_reading_time": "User Avg. Reading Time",
+        }
     )
-    articles_by_user_interaction = articles_by_user_interaction.sort_values(["Users Count", "User Avg. Reading Time"], ascending=False)
-    return generate_html_table(articles_by_user_interaction.head(number_of_articles_to_report))
+    articles_by_user_interaction = articles_by_user_interaction.sort_values(
+        ["Users Count", "User Avg. Reading Time"], ascending=False
+    )
+    return generate_html_table(
+        articles_by_user_interaction.head(number_of_articles_to_report)
+    )
 
 
 def generate_html_page():
@@ -457,6 +472,9 @@ def generate_html_page():
         article_df[article_df.id.isin(user_reading_time_df.id)]
     )
     exercise_activity_df = data_extractor.get_exercise_type_activity()
+    top_subscribed_searches = data_extractor.get_top_search_subscriptions()
+    top_filtered_searches = data_extractor.get_top_search_filters()
+    newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
@@ -546,9 +564,19 @@ def generate_html_page():
                 {generate_html_table(article_df.groupby("Language").word_count.describe().reset_index())}
                 <h2>FK Difficulty:</h2>
                 {generate_html_table(article_df.groupby("Language").fk_difficulty.describe().reset_index())}
-                <h2>Activity Report</h2>
-                <p><b>Total Active Users:</b> {total_active_users}</p>
+                <h2>Top Subscribed Searches:</h2>
             """
+    if len(newly_added_search_subscriptions) > 0:
+        result += f"""
+                <p><b>Newly added searches:</b> {"'" + "', '".join(newly_added_search_subscriptions) + "'"}</p>
+                """
+    result += f"""
+        {generate_html_table(top_subscribed_searches.head(10))}
+        <h2>Top Filtered Searches:</h2>
+        {generate_html_table(top_filtered_searches.head(10))}
+        <h2>Activity Report</h2>
+        <p><b>Total Active Users:</b> {total_active_users}</p>
+        """
     if total_active_users == 0:
         result += """<p><b>No active users in this period</b></p>
         <hr>"""
