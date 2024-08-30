@@ -118,7 +118,7 @@ Go have fun!
 
 To download new articles, you will need to set up the embedding API that will encode the new articles coming in to Zeeguu. This allows them to be inferred into topic categories.
 
-To do this create a new docker image by navigating to `semanticEmbApi` and running the command:
+To do this create a new docker image by cloning [`semantic-emb-api`](https://github.com/zeeguu/semantic-emb-api) and running the command:
 
 ```
 docker build -f Dockerfile -t zeeguu_api_sem_emb .

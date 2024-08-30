@@ -112,9 +112,14 @@ services:
     
   embedding_api:
     image: zeeguu_api_sem_emb
+    environment:
+      SEMANTIC_EMB_API_PORT: 3654
     ports:
       - 3654:3654
-    entrypoint: "python ./app/app.py"
+    entrypoint: "python ./semantic-emb-api/app/app.py"
+    volumes:
+      - .:/Zeeguu-API
+      - ./data/zeeguu/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries
     networks:
       - zeeguu_backend
     
