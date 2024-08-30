@@ -19,6 +19,8 @@ class Cohort(db.Model):
     declared_level_max = Column(Integer)
     is_cohort_of_teachers = Column(Boolean)
 
+    users = relationship("UserCohortMap", back_populates="cohort")
+
     def __init__(
         self, inv_code, name, language, max_students, level_min=0, level_max=10
     ):
@@ -32,8 +34,11 @@ class Cohort(db.Model):
 
     def get_current_student_count(self):
         from zeeguu.core.model.user import User
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
 
-        users_in_cohort = User.query.filter_by(cohort_id=self.id).all()
+        users_in_cohort = (
+            User.query.join(UserCohortMap).filter_by(cohort_id=self.id).all()
+        )
         return len(users_in_cohort)
 
     def cohort_still_has_capacity(self):

@@ -22,9 +22,7 @@ def join_cohort_api():
     try:
         cohort = Cohort.find_by_code(invite_code)
         user = User.find_by_id(flask.g.user_id)
-        user.cohort_id = cohort.id
-        db_session.add(user)
-        db_session.commit()
+        user.add_user_to_cohort(cohort, db_session)
 
         return "OK"
 
@@ -40,11 +38,12 @@ def join_cohort_api():
 @requires_session
 def student_info():
     user = User.find_by_id(flask.g.user_id)
+    user_cohorts = [] + [c.id for c in user.cohorts]
     return json_result(
         {
             "name": user.name,
             "email": user.email,
-            "cohort_id": user.cohort_id,
+            "cohorts": user_cohorts,
         }
     )
 

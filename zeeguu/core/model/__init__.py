@@ -24,18 +24,21 @@ import zeeguu
 
 
 # the core model
+from .user_cohort_map import UserCohortMap
 from .language import Language
 from .url import Url
 from .domain_name import DomainName
 from .article import Article
 from .bookmark import Bookmark
 from .text import Text
-from .user import User
 from .user_word import UserWord
 from .user_preference import UserPreference
 from .session import Session
 from .unique_code import UniqueCode
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
+
+from .user import User
+from .cohort import Cohort
 
 from .user_language import UserLanguage
 
@@ -63,13 +66,15 @@ from .exercise_source import ExerciseSource
 from .user_activitiy_data import UserActivityData
 
 # teachers and cohorts
-from .cohort import Cohort
+
+
 from .teacher_cohort_map import TeacherCohortMap
 from .teacher import Teacher
 from .cohort_article_map import CohortArticleMap
 
 from .user_reading_session import UserReadingSession
 from .user_exercise_session import UserExerciseSession
+
 
 # bookmark scheduling
 from .word_to_study import WordToStudy

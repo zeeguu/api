@@ -47,7 +47,7 @@ def remove_cohort(cohort_id):
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
         for student in selected_cohort.get_students():
-            student.cohort_id = None
+            student.cohorts = []
             db.session.add(student)
 
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
@@ -245,7 +245,7 @@ def remove_user_from_cohort(user_id):
     check_permission_for_user(user_id)
 
     u = User.find_by_id(user_id)
-    u.cohort_id = None
+    u.cohorts = []
     db.session.add(u)
     db.session.commit()
 

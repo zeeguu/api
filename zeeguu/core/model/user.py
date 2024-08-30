@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from zeeguu.core.model import Language
+from zeeguu.core.model.language import Language
 from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.logging import log
@@ -47,14 +47,10 @@ class User(db.Model):
     password_salt = db.Column(db.String(255))
     learned_language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     learned_language = relationship(Language, foreign_keys=[learned_language_id])
-
     native_language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     native_language = relationship(Language, foreign_keys=[native_language_id])
 
-    from zeeguu.core.model.cohort import Cohort
-
-    cohort_id = Column(Integer, ForeignKey(Cohort.id))
-    cohort = relationship(Cohort)
+    cohorts = relationship("UserCohortMap", back_populates="user")
 
     is_dev = Column(Boolean)
 
@@ -123,6 +119,9 @@ class User(db.Model):
     def __repr__(self):
         return "<User %r>" % (self.email)
 
+    def is_member_of_cohort(self, cohort_id):
+        return any([c.cohort_id == cohort_id for c in self.cohorts])
+
     def details_as_dictionary(self):
         from zeeguu.core.model import UserLanguage
 
@@ -132,7 +131,8 @@ class User(db.Model):
             learned_language=self.learned_language.code,
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
-            is_student=self.cohort_id and self.cohort_id not in [93, 459],
+            is_student=len(self.cohorts) > 0
+            and any(c.cohort_id in [93, 459] for c in self.cohorts),
         )
 
         for each in UserLanguage.query.filter_by(user=self):
@@ -198,7 +198,6 @@ class User(db.Model):
 
         if session:
             session.add(language)
-            
 
     def set_learned_language_level(
         self, language_code: str, cefr_level: str, session=None
@@ -311,6 +310,13 @@ class User(db.Model):
         now = datetime.datetime.now()
         a_while_ago = now - dateutil.relativedelta.relativedelta(days=days)
         return self.date_of_last_bookmark() > a_while_ago
+
+    def add_user_to_cohort(self, cohort, session):
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
+
+        new_cohort = UserCohortMap(user=self, cohort=cohort)
+        session.add(new_cohort)
+        session.commit()
 
     def cohort_articles_for_user(self):
         from zeeguu.core.model import Cohort, CohortArticleMap

@@ -130,7 +130,9 @@ class UserReadingSession(db.Model):
         Get reading sessions by cohort
         return: object or None if not found
         """
-        query = cls.query.join(User).filter(User.cohort_id == cohort)
+        from .user_cohort_map import UserCohortMap
+
+        query = cls.query.join(User).join(UserCohortMap).filter(UserCohortMap.cohort_id == cohort)
         query = query.filter(UserReadingSession.start_time >= from_date)
         query = query.filter(UserReadingSession.start_time <= to_date)
 
@@ -154,8 +156,9 @@ class UserReadingSession(db.Model):
         Get reading sessions by article
         return: object or None if not found
         """
+        from .user_cohort_map import UserCohortMap
         if cohort is not None:
-            query = cls.query.join(User).filter(User.cohort_id == cohort)
+            query = cls.query.join(User).join(UserCohortMap).filter(UserCohortMap.cohort_id == cohort)
         else:
             query = cls.query
         query = query.filter(cls.article_id == article)
