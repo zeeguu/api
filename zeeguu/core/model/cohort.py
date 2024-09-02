@@ -50,18 +50,21 @@ class Cohort(db.Model):
 
     def get_students(self):
         from zeeguu.core.model.user import User
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
 
         users = []
         if self.inv_code and len(self.inv_code) > 1:
             # adding those users that are only assigned based on
             # invitation code; this is for bacwards compatibility reasons
             users.extend(
-                User.query.filter_by(
-                    invitation_code=self.inv_code, cohort_id=None
-                ).all()
+                User.query.filter_by(invitation_code=self.inv_code)
+                .filter(id.notin_(UserCohortMap.user_id))
+                .all()
             )
 
-        users.extend(User.query.filter(User.cohort == self).all())
+        users.extend(
+            User.query.join(UserCohortMap).filter(UserCohortMap.cohort == self).all()
+        )
 
         return users
 
