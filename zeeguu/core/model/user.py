@@ -62,7 +62,6 @@ class User(db.Model):
         learned_language=None,
         native_language=None,
         invitation_code=None,
-        cohort=None,
         is_dev=0,
     ):
         self.email = email
@@ -71,7 +70,6 @@ class User(db.Model):
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
         self.invitation_code = invitation_code
-        self.cohort = cohort
         self.is_dev = is_dev
 
     @classmethod
@@ -120,11 +118,21 @@ class User(db.Model):
         return "<User %r>" % (self.email)
 
     def is_member_of_cohort(self, cohort_id):
+        cohort_id = int(cohort_id)
         return any([c.cohort_id == cohort_id for c in self.cohorts])
+
+    def remove_from_cohort(self, cohort_id):
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
+
+        cohort_id = int(cohort_id)
+        UserCohortMap.query.filter(UserCohortMap.user_id == self.id).filter(
+            UserCohortMap.cohort_id == cohort_id
+        ).delete()
 
     def details_as_dictionary(self):
         from zeeguu.core.model import UserLanguage
 
+        print()
         result = dict(
             email=self.email,
             name=self.name,
@@ -132,7 +140,7 @@ class User(db.Model):
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
             is_student=len(self.cohorts) > 0
-            and any(c.cohort_id in [93, 459] for c in self.cohorts),
+            and not any([c.cohort_id in [93, 459] for c in self.cohorts]),
         )
 
         for each in UserLanguage.query.filter_by(user=self):
@@ -315,16 +323,20 @@ class User(db.Model):
         from zeeguu.core.model.user_cohort_map import UserCohortMap
 
         new_cohort = UserCohortMap(user=self, cohort=cohort)
+        print("New user in cohort!")
         session.add(new_cohort)
         session.commit()
 
     def cohort_articles_for_user(self):
         from zeeguu.core.model import Cohort, CohortArticleMap
 
+        all_articles = []
         try:
-            cohort = Cohort.find(self.cohort_id)
-            cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
-            return cohort_articles
+            for c in self.cohorts:
+                cohort = Cohort.find(c.cohort_id)
+                cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
+                all_articles += cohort_articles
+            return all_articles
         except NoResultFound as e:
             return []
 
@@ -711,22 +723,21 @@ class User(db.Model):
             ]
 
         # If there's cohort info, consider it
-        if self.cohort:
-            if self.cohort.language:
-                if self.cohort.language == language:
-                    if self.cohort.declared_level_min:
-                        # min will be the max between the teacher's min and the student's min
-                        # this means that if the teacher says 5 is min, the student can't reduce it...
-                        # otoh, if the teacher says 5 is the min but the student wants 7 that will work
-                        declared_level_min = max(
-                            declared_level_min, self.cohort.declared_level_min
-                        )
-
-                    if self.cohort.declared_level_max:
-                        # a student is limited to the upper limit of his cohort
-                        declared_level_max = min(
-                            declared_level_max, self.cohort.declared_level_max
-                        )
+        for cohortMap in self.cohorts:
+            currentCohort = cohortMap.cohort
+            if currentCohort.language == language:
+                if currentCohort.declared_level_min:
+                    # min will be the max between the teacher's min and the student's min
+                    # this means that if the teacher says 5 is min, the student can't reduce it...
+                    # otoh, if the teacher says 5 is the min but the student wants 7 that will work
+                    declared_level_min = max(
+                        declared_level_min, currentCohort.declared_level_min
+                    )
+                if currentCohort.declared_level_max:
+                    # a student is limited to the upper limit of his cohort
+                    declared_level_max = min(
+                        declared_level_max, currentCohort.declared_level_max
+                    )
 
         return max(declared_level_min, 0), min(declared_level_max, 10)
 

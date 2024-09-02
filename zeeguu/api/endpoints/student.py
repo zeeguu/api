@@ -30,6 +30,7 @@ def join_cohort_api():
         from sentry_sdk import capture_exception
 
         capture_exception(e)
+        print(e)
         flask.abort(500)
 
 
@@ -38,7 +39,7 @@ def join_cohort_api():
 @requires_session
 def student_info():
     user = User.find_by_id(flask.g.user_id)
-    user_cohorts = [] + [c.id for c in user.cohorts]
+    user_cohorts = [c.cohort.get_cohort_info() for c in user.cohorts]
     return json_result(
         {
             "name": user.name,

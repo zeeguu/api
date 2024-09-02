@@ -73,6 +73,13 @@ class Cohort(db.Model):
 
         return TeacherCohortMap.get_teachers_for(self)
 
+    def get_cohort_info(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "language_id": self.language_id,
+        }
+
     @classmethod
     def find(cls, id):
         return cls.query.filter_by(id=id).one()
