@@ -399,6 +399,7 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
             bookmark_count, on="Language", how="outer"
         )
         reading_time_ex_time.loc[reading_time_ex_time["Bookmarks % Reviewed"].isna(),"Bookmarks % Reviewed"] = 0
+        reading_time_ex_time.loc[reading_time_ex_time["Total Bookmarks"].isna(),"Total Bookmarks"] = 0
     else:
         reading_time_ex_time["Bookmarks % Reviewed"] = 0
         reading_time_ex_time["Total Bookmarks"] = 0
@@ -453,9 +454,7 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
-    total_unique_articles_opened_by_users = len(
-        article_df[article_df.id.isin(user_reading_time_df.id)]
-    )
+    total_unique_articles_opened_by_users = user_reading_time_df.Language.value_counts().reset_index()['count'].sum()
     exercise_activity_df = data_extractor.get_exercise_type_activity()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
