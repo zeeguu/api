@@ -198,7 +198,6 @@ class User(db.Model):
 
         if session:
             session.add(language)
-            
 
     def set_learned_language_level(
         self, language_code: str, cefr_level: str, session=None
@@ -397,11 +396,13 @@ class User(db.Model):
     def all_bookmarks(
         self,
         after_date=datetime.datetime(1970, 1, 1),
-        before_date=datetime.date.today() + datetime.timedelta(days=1),
+        before_date=None,
         language_id=None,
     ):
         from zeeguu.core.model import Bookmark, UserWord
 
+        if before_date is None:
+            before_date = datetime.date.today() + datetime.timedelta(days=1)
         query = zeeguu.core.model.db.session.query(Bookmark)
 
         query = query.join(UserWord, Bookmark.origin_id == UserWord.id)
