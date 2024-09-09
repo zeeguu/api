@@ -1,6 +1,7 @@
 import zeeguu.core
 from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import exists
 from zeeguu.core.model.language import Language
 
 from zeeguu.core.model import db
@@ -56,10 +57,11 @@ class Cohort(db.Model):
         if self.inv_code and len(self.inv_code) > 1:
             # adding those users that are only assigned based on
             # invitation code; this is for bacwards compatibility reasons
+            users_in_UserCohortMap = exists().where(User.id == UserCohortMap.user_id)
             users.extend(
-                User.query.filter_by(invitation_code=self.inv_code)
-                .filter(id.notin_(UserCohortMap.user_id))
-                .all()
+                User.query.filter_by(invitation_code=self.inv_code).filter(
+                    ~users_in_UserCohortMap
+                )
             )
 
         users.extend(
