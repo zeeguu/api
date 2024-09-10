@@ -25,8 +25,8 @@ SUBSCRIBED_SEARCHES = "subscribed_searches"
 FILTER_SEARCH = "filter_search"
 UNFILTER_SEARCH = "unfilter_search"
 FILTERED_SEARCHES = "filtered_searches"
-SUBSCRIBE_TO_EMAIL_SEARCH= "subscribe_to_email_search"
-UNSUBSCRIBE_FROM_EMAIL_SEARCH= "unsubscribe_from_email_search"
+SUBSCRIBE_TO_EMAIL_SEARCH = "subscribe_to_email_search"
+UNSUBSCRIBE_FROM_EMAIL_SEARCH = "unsubscribe_from_email_search"
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,9 @@ def subscribe_to_search(search_terms):
     search = Search.find_or_create(db_session, search_terms)
     user = User.find_by_id(flask.g.user_id)
     receive_email = False
-    subscription = SearchSubscription.find_or_create(db_session, user, search, receive_email)
+    subscription = SearchSubscription.find_or_create(
+        db_session, user, search, receive_email
+    )
 
     return json_result(subscription.as_dictionary())
 
@@ -70,8 +72,11 @@ def unsubscribe_from_search():
     try:
         to_delete = SearchSubscription.with_search_id(search_id, user)
         db_session.delete(to_delete)
-        to_delete2 = Search.find_by_id(search_id)
-        db_session.delete(to_delete2)
+
+        search = Search.find_by_id(search_id)
+        total_subscribers = SearchSubscription.get_number_of_subscribers(search_id)
+        if total_subscribers == 0:
+            db_session.delete(search)
         db_session.commit()
 
     except Exception as e:
@@ -217,6 +222,7 @@ def search_for_search_terms(search_terms, page: int = 0):
 
     return json_result(article_infos)
 
+
 @api.route(f"/{SUBSCRIBE_TO_EMAIL_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -229,9 +235,12 @@ def subscribe_to_email_search(search_terms):
     search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
     receive_email = True
-    subscription = SearchSubscription.update_receive_email(db_session, user, search, receive_email)
+    subscription = SearchSubscription.update_receive_email(
+        db_session, user, search, receive_email
+    )
 
-    return json_result(subscription.as_dictionary())   
+    return json_result(subscription.as_dictionary())
+
 
 @api.route(f"/{UNSUBSCRIBE_FROM_EMAIL_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -245,6 +254,8 @@ def unsubscribe_from_email_search(search_terms):
     search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
     receive_email = False
-    subscription = SearchSubscription.update_receive_email(db_session, user, search, receive_email)
+    subscription = SearchSubscription.update_receive_email(
+        db_session, user, search, receive_email
+    )
 
     return json_result(subscription.as_dictionary())
