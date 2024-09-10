@@ -10,14 +10,20 @@ app = create_app()
 app.app_context().push()
 
 
-def send_mail_new_articles_search(to_email, search):
+def send_mail_new_articles_search(to_email, new_content_dict):
     body = "\r\n".join(
         [
             "Hi there,",
             " ",
-            "There are new articles related to your subscribed search: "
-            + str(search)
-            + ".",
+            "There are new articles related to your subscribed " + ("searches" if len(new_content_dict) > 1 else "search") + ".",
+            " "
+        ])
+    
+    for keyword, titles in new_content_dict.items():
+        body += "\r\n".join([" ", f"Search: '{keyword}': "] + ["- " + t for t in titles]) + "\n"
+            
+    
+    body += "\r\n".join([
             " ",
             "You can find your subscriptions here: https://www.zeeguu.org/articles/mySearches"
             " ",
@@ -26,8 +32,11 @@ def send_mail_new_articles_search(to_email, search):
             "The Zeeguu Team",
         ]
     )
-    print(f"""Sending to '{to_email}': ''{body}''""")
-    emailer = ZeeguuMailer("New articles to your subscribed search", body, to_email)
+    
+    subject = f"New articles for {"'" + "','".join(new_content_dict.keys()) + "'"}"
+    print(f"""Sending {subject} to '{to_email}':""")
+    print("''", body, "''")
+    emailer = ZeeguuMailer(subject, body, to_email)
     emailer.send()
 
 
@@ -47,11 +56,11 @@ def send_subscription_emails():
             if article.published_time > previous_day_datetime
         ]
         if new_articles_found:
-            user_subscriptions[user.email] = user_subscriptions.get(user.email, []) + [
-                subscription.search.keywords
-            ]
-    for user_email, keywords in  user_subscriptions.items():
-        send_mail_new_articles_search(user_email, f"'{"','".join(keywords)}'")
+            updated_dict = user_subscriptions.get(user.email, {})
+            updated_dict[subscription.search.keywords] = [f"{article.title} ({article.url})" for article in new_articles_found]
+            user_subscriptions[user.email] = updated_dict
+    for user_email, new_content_dict in user_subscriptions.items():
+        send_mail_new_articles_search(user_email, new_content_dict)
 
 
 if __name__ == "__main__":
