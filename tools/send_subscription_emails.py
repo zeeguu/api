@@ -15,17 +15,14 @@ def send_mail_new_articles_search(to_email, new_content_dict):
         [
             "Hi there,",
             " ",
-            "There are new articles related to your subscribed " + ("searches" if len(new_content_dict) > 1 else "search") + ".",
+            "There are new articles related to your subscribed " + ("searches" if len(new_content_dict) > 1 else "search") + ". You can find your subscriptions here: https://www.zeeguu.org/articles/mySearches",
             " "
         ])
     
     for keyword, titles in new_content_dict.items():
-        body += "\r\n".join([" ", f"Search: '{keyword}': "] + ["- " + t for t in titles]) + "\n"
-            
-    
+        body += "\r\n".join([" ", f"Search: '{keyword}': "] + [f"""- <a href="{url}">{t}</a>""" for t, url in titles]) + "\n"
+        
     body += "\r\n".join([
-            " ",
-            "You can find your subscriptions here: https://www.zeeguu.org/articles/mySearches"
             " ",
             " ",
             "Cheers,",
@@ -34,8 +31,6 @@ def send_mail_new_articles_search(to_email, new_content_dict):
     )
     
     subject = f"New articles for {"'" + "','".join(new_content_dict.keys()) + "'"}"
-    print(f"""Sending {subject} to '{to_email}':""")
-    print("''", body, "''")
     emailer = ZeeguuMailer(subject, body, to_email)
     emailer.send()
 
@@ -57,11 +52,10 @@ def send_subscription_emails():
         ]
         if new_articles_found:
             updated_dict = user_subscriptions.get(user.email, {})
-            updated_dict[subscription.search.keywords] = [f"{article.title} ({article.url})" for article in new_articles_found]
+            updated_dict[subscription.search.keywords] = [(article.title, article.url) for article in new_articles_found]
             user_subscriptions[user.email] = updated_dict
     for user_email, new_content_dict in user_subscriptions.items():
         send_mail_new_articles_search(user_email, new_content_dict)
-
 
 if __name__ == "__main__":
     send_subscription_emails()
