@@ -30,7 +30,6 @@ def join_cohort_api():
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        print(e)
         flask.abort(500)
 
 

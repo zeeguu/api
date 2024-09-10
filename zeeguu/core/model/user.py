@@ -132,7 +132,6 @@ class User(db.Model):
     def details_as_dictionary(self):
         from zeeguu.core.model import UserLanguage
 
-        print()
         result = dict(
             email=self.email,
             name=self.name,
@@ -323,7 +322,6 @@ class User(db.Model):
         from zeeguu.core.model.user_cohort_map import UserCohortMap
 
         new_cohort = UserCohortMap(user=self, cohort=cohort)
-        print("New user in cohort!")
         session.add(new_cohort)
         session.commit()
 
