@@ -74,7 +74,8 @@ def unsubscribe_from_search():
         db_session.delete(to_delete)
 
         search = Search.find_by_id(search_id)
-        if SearchSubscription.with_search(search) is None:
+        total_subscribers = SearchSubscription.get_number_of_subscribers(search_id)
+        if total_subscribers == 0:
             db_session.delete(search)
         db_session.commit()
 
