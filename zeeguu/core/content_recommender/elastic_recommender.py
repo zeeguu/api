@@ -101,15 +101,14 @@ def article_recommendations_for_user(
     """
 
     final_article_mix = []
-
     (
         language,
         upper_bounds,
         lower_bounds,
         topics_to_include,
         topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
+        wanted_user_searches,
+        unwanted_user_searches,
     ) = _prepare_user_constraints(user)
 
     # build the query using elastic_query_builder
@@ -117,8 +116,8 @@ def article_recommendations_for_user(
         count,
         topics_to_include,
         topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
+        wanted_user_searches,
+        unwanted_user_searches,
         language,
         upper_bounds,
         lower_bounds,
@@ -135,8 +134,30 @@ def article_recommendations_for_user(
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
-    articles = [a for a in final_article_mix if a is not None and not a.broken]
+    # Get articles based on Search preferences
+    print("USER SEARCHES: ", wanted_user_searches)
+    for search in wanted_user_searches.split():
+        print("Adding searches for: ", search)
+        query_body = build_elastic_search_query(
+            1,
+            search,
+            topics_to_include,
+            topics_to_exclude,
+            wanted_user_searches,
+            unwanted_user_searches,
+            language,
+            upper_bounds,
+            lower_bounds,
+            es_scale,
+            es_decay,
+            es_weight,
+            page=page,
+        )
+        res = es.search(index=ES_ZINDEX, body=query_body)
+        hit_list = res["hits"].get("hits")
+        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
 
+    articles = [a for a in final_article_mix if a is not None and not a.broken]
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
 
     return sorted_articles

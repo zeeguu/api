@@ -84,10 +84,10 @@ def build_elastic_recommender_query(
     if not user_topics:
         user_topics = ""
 
-    if user_topics:
-        search_string = user_topics
-        should.append(match("content", search_string))
-        should.append(match("title", search_string))
+    # if user_topics:
+    # search_string = user_topics
+    # should.append(match("content", search_string))
+    # should.append(match("title", search_string))
 
     unwanted_topics_arr = array_of_lowercase_topics(unwanted_topics)
     if len(unwanted_topics_arr) > 0:
@@ -104,7 +104,7 @@ def build_elastic_recommender_query(
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
-    bool_query_body["query"]["bool"].update({"should": should})
+    # bool_query_body["query"]["bool"].update({"should": should})
     full_query = {
         "from": page * count,
         "size": count,
@@ -178,7 +178,7 @@ def build_elastic_search_query(
         "function_score",
         query=s.query,
         functions=[
-            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.9}),
+            SF("exp", published_time={"scale": "1d", "offset": "0d", "decay": 0.9}),
             SF(
                 "exp",
                 fk_difficulty={
