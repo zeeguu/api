@@ -38,8 +38,15 @@ def send_subscription_emails():
     user_subscriptions = {}
     for subscription in all_subscriptions:
         user = User.find_by_id(subscription.user_id)
+        # Use the same query as in the MySearches
         articles = article_search_for_user(
-            user, 2, subscription.search.keywords, page=0
+            user,
+            3,
+            subscription.search.keywords,
+            page=0,
+            use_published_priority=True,
+            use_readability_priority=True,
+            score_threshold=0,
         )
         new_articles_found = [
             article
