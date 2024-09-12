@@ -244,8 +244,6 @@ def search_for_search_terms(search_terms, page: int = 0):
         use_readability_priority=use_readability_priority,
     )
     article_infos = [UserArticle.user_article_info(user, a) for a in articles]
-    print("Print sending articles")
-    print(article_infos)
     return json_result(article_infos)
 
 
