@@ -8,7 +8,7 @@ from zeeguu.core.model import User
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, UserActivityData, UserArticle, Article
+from ...core.model import UserActivityData, UserArticle, Article
 
 
 @api.route("/learned_language", methods=["GET"])
@@ -150,7 +150,6 @@ def get_user_details():
 @requires_session
 def user_settings():
     """
-    set the native language of the user in session
     :return: OK for success
     """
 
@@ -198,3 +197,22 @@ def send_feedback():
     user = User.find_by_id(flask.g.user_id)
     ZeeguuMailer.send_feedback("Feedback", context, message, user)
     return "OK"
+
+
+@api.route("/leave_cohort/<cohort_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def leave_cohort(cohort_id):
+    from zeeguu.core.model import db
+
+    """
+    set the native language of the user in session
+    :return: OK for success
+    """
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        user.remove_from_cohort(cohort_id, db.session)
+        return "OK"
+    except Exception as e:
+        print(e)
+        return "FAIL"

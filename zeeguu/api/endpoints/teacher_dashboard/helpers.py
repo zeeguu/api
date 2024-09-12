@@ -32,8 +32,10 @@ def all_user_info_from_cohort(id, from_date: str, to_date: str):
     """
     Takes id for a cohort and returns all users belonging to that cohort.
     """
+    from zeeguu.core.model.user_cohort_map import UserCohortMap
+
     c = Cohort.query.filter_by(id=id).one()
-    users = User.query.filter_by(cohort_id=c.id).all()
+    users = User.query.join(UserCohortMap).filter_by(cohort_id=c.id).all()
     users_info = []
 
     for u in users:
