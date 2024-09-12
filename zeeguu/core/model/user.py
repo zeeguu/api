@@ -121,13 +121,15 @@ class User(db.Model):
         cohort_id = int(cohort_id)
         return any([c.cohort_id == cohort_id for c in self.cohorts])
 
-    def remove_from_cohort(self, cohort_id):
+    def remove_from_cohort(self, cohort_id, session):
         from zeeguu.core.model.user_cohort_map import UserCohortMap
 
         cohort_id = int(cohort_id)
         UserCohortMap.query.filter(UserCohortMap.user_id == self.id).filter(
             UserCohortMap.cohort_id == cohort_id
         ).delete()
+        session.add(self)
+        session.commit()
 
     def details_as_dictionary(self):
         from zeeguu.core.model import UserLanguage
@@ -334,7 +336,9 @@ class User(db.Model):
                 cohort = Cohort.find(c.cohort_id)
                 if cohort.language_id == self.learned_language_id:
                     # Only add texts on the current "learning language"
-                    cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
+                    cohort_articles = CohortArticleMap.get_articles_info_for_cohort(
+                        cohort
+                    )
                     all_articles += cohort_articles
             return all_articles
         except NoResultFound as e:

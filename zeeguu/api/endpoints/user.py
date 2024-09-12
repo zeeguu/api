@@ -150,7 +150,6 @@ def get_user_details():
 @requires_session
 def user_settings():
     """
-    set the native language of the user in session
     :return: OK for success
     """
 
@@ -212,9 +211,7 @@ def leave_cohort(cohort_id):
     """
     try:
         user = User.find_by_id(flask.g.user_id)
-        user.remove_from_cohort(cohort_id)
-        db.session.add(user)
-        db.session.commit()
+        user.remove_from_cohort(cohort_id, db.session)
         return "OK"
     except Exception as e:
         print(e)
