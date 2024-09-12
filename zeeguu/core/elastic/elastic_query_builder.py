@@ -178,7 +178,6 @@ def build_elastic_search_query(
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     preferences = []
-    print("Current values: ", use_published_priority, use_readability_priority)
     if use_published_priority:
         preferences.append(
             SF(
@@ -204,8 +203,6 @@ def build_elastic_search_query(
     weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
-    print("Performing Search: ")
-    pprint(query)
     return query
 
 
