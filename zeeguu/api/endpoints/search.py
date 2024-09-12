@@ -268,7 +268,7 @@ def search_for_latest_search_terms(search_terms):
     user = User.find_by_id(flask.g.user_id)
     articles = article_search_for_user(
         user,
-        5,
+        3,
         search_terms,
         page=0,
         use_published_priority=True,
