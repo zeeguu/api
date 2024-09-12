@@ -728,22 +728,27 @@ class User(db.Model):
                 lang_info.cefr_level
             ]
 
-        # If there's cohort info, consider it
-        for cohortMap in self.cohorts:
-            currentCohort = cohortMap.cohort
-            if currentCohort.language == language:
-                if currentCohort.declared_level_min:
-                    # min will be the max between the teacher's min and the student's min
-                    # this means that if the teacher says 5 is min, the student can't reduce it...
-                    # otoh, if the teacher says 5 is the min but the student wants 7 that will work
-                    declared_level_min = max(
-                        declared_level_min, currentCohort.declared_level_min
-                    )
-                if currentCohort.declared_level_max:
-                    # a student is limited to the upper limit of his cohort
-                    declared_level_max = min(
-                        declared_level_max, currentCohort.declared_level_max
-                    )
+        # ML, Sept 12, 2024
+        # This is too complicated stuff for something that I don't even remmeber anybody asking for
+        # The teacher overriding the difficulty levels of the student with micro granularity seems
+        # like more trouble than necessary.
+        # Commenting it out for now and I expect that we'll remove it eventually completely
+        # # If there's cohort info, consider it
+        # for cohortMap in self.cohorts:
+        #     each_cohort = cohortMap.cohort
+        #     if each_cohort.language and each_cohort.language == language:
+        #         if each_cohort.declared_level_min:
+        #             # min will be the max between the teacher's min and the student's min
+        #             # this means that if the teacher says 5 is min, the student can't reduce it...
+        #             # otoh, if the teacher says 5 is the min but the student wants 7 that will work
+        #             declared_level_min = max(
+        #                 declared_level_min, each_cohort.declared_level_min
+        #             )
+        #         if each_cohort.declared_level_max:
+        #             # a student is limited to the upper limit of his cohort
+        #             declared_level_max = min(
+        #                 declared_level_max, each_cohort.declared_level_max
+        #             )
 
         return max(declared_level_min, 0), min(declared_level_max, 10)
 
