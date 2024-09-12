@@ -150,7 +150,13 @@ def article_recommendations_for_user(
     articles_from_searches = []
     for search in wanted_user_searches.split():
         articles_from_searches += article_search_for_user(
-            user, 1, search, page, score_threshold=score_threshold_for_search
+            user,
+            1,
+            search,
+            page,
+            score_threshold=score_threshold_for_search,
+            use_published_priority=True,
+            use_readability_priority=True,
         )
 
     # Limit the searched added articles to a maximum of 10 extra articles.
