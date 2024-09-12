@@ -14,6 +14,8 @@ from . import api
 
 from flask import request
 
+MAX_ARTICLES_PER_TOPIC = 20
+
 
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
@@ -29,7 +31,7 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     It prioritizes Difficulty and Recency so the users see
     new articles every day.
 
-    It also includes articles from User saved searches if they
+    It also includes articles from user's search subscriptions if they
     are relevant enough. The articles are then sorted by published date.
 
     """
@@ -73,7 +75,6 @@ def user_articles_topic_filtered():
     """
     recommendations based on filters coming from the UI
     """
-    MAX_ARTICLES_PER_TOPIC = 20
 
     topic = request.form.get("topic")
     newer_than = request.form.get("newer_than", None)

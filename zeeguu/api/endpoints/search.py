@@ -226,7 +226,6 @@ def search_for_search_terms(search_terms, page: int = 0):
     use_readability_priority = True
 
     if request.method == "POST":
-        print(request.form)
         use_published_priority = (
             request.form.get("use_publish_priority", "false") == "true"
         )
