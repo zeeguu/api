@@ -24,7 +24,14 @@ from flask import request
 @requires_session
 def user_articles_recommended(count: int = 20, page: int = 0):
     """
-    recommendations for all languages
+    Home Page recomendation for the users.
+
+    It prioritizes Difficulty and Recency so the users see
+    new articles every day.
+
+    It also includes articles from User saved searches if they
+    are relevant enough. The articles are then sorted by published date.
+
     """
     user = User.find_by_id(flask.g.user_id)
     try:

@@ -19,6 +19,7 @@ import zeeguu
 db_session = zeeguu.core.model.db.session
 
 SEARCH = "search"
+LATEST_SEARCH = "latest_search"
 SUBSCRIBE_SEARCH = "subscribe_search"
 UNSUBSCRIBE_SEARCH = "unsubscribe_search"
 SUBSCRIBED_SEARCHES = "subscribed_searches"
@@ -200,14 +201,18 @@ def get_filtered_searches():
 
 
 # ---------------------------------------------------------------------------
-@api.route(f"/{SEARCH}/<search_terms>", methods=("GET",))
-@api.route(f"/{SEARCH}/<search_terms>/<int:page>", methods=("GET",))
+@api.route(f"/{SEARCH}/<search_terms>", methods=("GET", "POST"))
+@api.route(f"/{SEARCH}/<search_terms>/<int:page>", methods=("GET", "POST"))
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
 def search_for_search_terms(search_terms, page: int = 0):
     """
-    This endpoint is used for the standard search.
+    This endpoint is used for the standard search. It prioritizes
+    relevancy and user difficulty by default. The user can toggle
+    if they would like to prioritize the difficulty and recency
+    in the UI.
+
     It passes the search terms to the mysql_recommender function
     and returns the articles in a json format as a list.
 
@@ -216,8 +221,62 @@ def search_for_search_terms(search_terms, page: int = 0):
 
     """
 
+    # Default params
+    use_published_priority = False
+    use_readability_priority = True
+
+    if request.method == "POST":
+        print(request.form)
+        use_published_priority = (
+            request.form.get("use_publish_priority", "false") == "true"
+        )
+        use_readability_priority = (
+            request.form.get("use_readability_priority", "true") == "true"
+        )
+
     user = User.find_by_id(flask.g.user_id)
-    articles = article_search_for_user(user, 20, search_terms, page=page)
+    articles = article_search_for_user(
+        user,
+        20,
+        search_terms,
+        page=page,
+        use_published_priority=use_published_priority,
+        use_readability_priority=use_readability_priority,
+    )
+    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    print("Print sending articles")
+    print(article_infos)
+    return json_result(article_infos)
+
+
+# ---------------------------------------------------------------------------
+@api.route(f"/{LATEST_SEARCH}/<search_terms>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def search_for_latest_search_terms(search_terms):
+    """
+    This endpoint is used for the preview search and sending notification
+    emails.
+    The call prioritizes the recency of articles paried with the difficulty.
+    It has a reduced count as we are only checking if there are new relevant
+    documents for those keywords.
+
+    :param search_terms:
+    :return: json article list for the search term
+
+    """
+
+    user = User.find_by_id(flask.g.user_id)
+    articles = article_search_for_user(
+        user,
+        5,
+        search_terms,
+        page=0,
+        use_published_priority=True,
+        use_readability_priority=True,
+        score_threshold=0,
+    )
     article_infos = [UserArticle.user_article_info(user, a) for a in articles]
 
     return json_result(article_infos)
