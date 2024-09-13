@@ -64,16 +64,16 @@ def _merle_exercises(user):
 
 
 def _no_audio_exercises(user):
-    return user.cohort and user.cohort.id == 447
+    return user.is_member_of_cohort(447)
 
 
 def _audio_exercises(user):
-    return user.cohort and user.cohort.id == 444
+    return user.is_member_of_cohort(444)
 
 
 def _extension_experiment_1(user):
     return (
-        (user.cohort and user.cohort.id == 437)
+        (user.is_member_of_cohort(437))
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )

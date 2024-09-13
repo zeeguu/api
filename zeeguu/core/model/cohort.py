@@ -1,6 +1,7 @@
 import zeeguu.core
 from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import exists
 from zeeguu.core.model.language import Language
 
 from zeeguu.core.model import db
@@ -19,6 +20,8 @@ class Cohort(db.Model):
     declared_level_max = Column(Integer)
     is_cohort_of_teachers = Column(Boolean)
 
+    users = relationship("UserCohortMap", back_populates="cohort")
+
     def __init__(
         self, inv_code, name, language, max_students, level_min=0, level_max=10
     ):
@@ -32,8 +35,11 @@ class Cohort(db.Model):
 
     def get_current_student_count(self):
         from zeeguu.core.model.user import User
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
 
-        users_in_cohort = User.query.filter_by(cohort_id=self.id).all()
+        users_in_cohort = (
+            User.query.join(UserCohortMap).filter_by(cohort_id=self.id).all()
+        )
         return len(users_in_cohort)
 
     def cohort_still_has_capacity(self):
@@ -45,18 +51,22 @@ class Cohort(db.Model):
 
     def get_students(self):
         from zeeguu.core.model.user import User
+        from zeeguu.core.model.user_cohort_map import UserCohortMap
 
         users = []
         if self.inv_code and len(self.inv_code) > 1:
             # adding those users that are only assigned based on
             # invitation code; this is for bacwards compatibility reasons
+            users_in_UserCohortMap = exists().where(User.id == UserCohortMap.user_id)
             users.extend(
-                User.query.filter_by(
-                    invitation_code=self.inv_code, cohort_id=None
-                ).all()
+                User.query.filter_by(invitation_code=self.inv_code).filter(
+                    ~users_in_UserCohortMap
+                )
             )
 
-        users.extend(User.query.filter(User.cohort == self).all())
+        users.extend(
+            User.query.join(UserCohortMap).filter(UserCohortMap.cohort == self).all()
+        )
 
         return users
 
@@ -64,6 +74,13 @@ class Cohort(db.Model):
         from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
         return TeacherCohortMap.get_teachers_for(self)
+
+    def get_cohort_info(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "language_id": self.language_id,
+        }
 
     @classmethod
     def find(cls, id):

@@ -8,7 +8,7 @@ from zeeguu.core.model import User
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, UserActivityData, UserArticle, Article
+from ...core.model import UserActivityData, UserArticle, Article
 
 
 @api.route("/learned_language", methods=["GET"])
@@ -88,20 +88,25 @@ def learned_and_native_language():
     res = dict(native=user.native_language_id, learned=user.learned_language_id)
     return json_result(res)
 
+
 @api.route("/get_unfinished_user_reading_sessions", methods=("GET",))
-@api.route("/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",))
+@api.route(
+    "/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",)
+)
 @cross_domain
 @requires_session
-def get_user_unfinished_reading_sessions(total_sessions:int=1):
+def get_user_unfinished_reading_sessions(total_sessions: int = 1):
     """
-        Retrieves the last uncompleted sessions based on the SCROLL events of the user.
+    Retrieves the last uncompleted sessions based on the SCROLL events of the user.
 
     """
     user = User.find_by_id(flask.g.user_id)
-    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(user, limit=total_sessions)
+    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(
+        user, limit=total_sessions
+    )
     list_result = []
     for s in last_sessions:
-        art_id, date_str, viewport_settings, last_reading_point = s
+        art_id, date_read, viewport_settings, last_reading_point = s
         if last_reading_point < 100 and last_reading_point > 0:
             scrollHeight = viewport_settings["scrollHeight"]
             clientHeight = viewport_settings["clientHeight"]
@@ -111,9 +116,9 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             # We might use these for a more complex calculation of where to lead the user
             # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
             # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
-            art_info["time_until_last_read"] = date_str
+            art_info["time_last_read"] = date_read
             # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
-            tolerance = ((clientHeight/((scrollHeight-bottomRowHeight))/4))
+            tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
             last_reading_percentage = last_reading_point - tolerance
             if last_reading_percentage <= 0:
                 continue
@@ -121,6 +126,7 @@ def get_user_unfinished_reading_sessions(total_sessions:int=1):
             list_result.append(art_info)
 
     return json_result(list_result)
+
 
 @api.route("/get_user_details", methods=("GET",))
 @cross_domain
@@ -144,7 +150,6 @@ def get_user_details():
 @requires_session
 def user_settings():
     """
-    set the native language of the user in session
     :return: OK for success
     """
 
@@ -192,3 +197,22 @@ def send_feedback():
     user = User.find_by_id(flask.g.user_id)
     ZeeguuMailer.send_feedback("Feedback", context, message, user)
     return "OK"
+
+
+@api.route("/leave_cohort/<cohort_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def leave_cohort(cohort_id):
+    from zeeguu.core.model import db
+
+    """
+    set the native language of the user in session
+    :return: OK for success
+    """
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        user.remove_from_cohort(cohort_id, db.session)
+        return "OK"
+    except Exception as e:
+        print(e)
+        return "FAIL"

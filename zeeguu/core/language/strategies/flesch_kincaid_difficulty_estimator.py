@@ -6,7 +6,7 @@ from zeeguu.core.language.difficulty_estimator_strategy import (
     DifficultyEstimatorStrategy,
 )
 from zeeguu.core.util.text import split_words_from_text
-from zeeguu.core.model import Language
+from zeeguu.core.model.language import Language
 from collections import Counter
 
 

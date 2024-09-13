@@ -468,9 +468,7 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
-    total_unique_articles_opened_by_users = len(
-        article_df[article_df.id.isin(user_reading_time_df.id)]
-    )
+    total_unique_articles_opened_by_users = user_reading_time_df.Language.value_counts().reset_index()['count'].sum()
     exercise_activity_df = data_extractor.get_exercise_type_activity()
     top_subscribed_searches = data_extractor.get_top_search_subscriptions()
     top_filtered_searches = data_extractor.get_top_search_filters()

@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.core.model.user import User
 import sqlalchemy
-
 import zeeguu.core
 
 from zeeguu.core.model import db
@@ -36,7 +35,7 @@ class SearchSubscription(db.Model):
 
     UniqueConstraint(user_id, search_id)
 
-    def __init__(self, user, search, receive_email = False):
+    def __init__(self, user, search, receive_email=False):
         self.user = user
         self.search = search
         self.receive_email = receive_email
@@ -51,9 +50,9 @@ class SearchSubscription(db.Model):
         return dict(
             id=self.search.id,
             search=self.search.keywords,
-            receive_email=self.receive_email
+            receive_email=self.receive_email,
         )
-    
+
     @classmethod
     def find_or_create(cls, session, user, search, receive_email):
         try:
@@ -73,19 +72,14 @@ class SearchSubscription(db.Model):
         return (cls.query.filter(cls.search_id == i).filter(cls.user == user)).one()
 
     @classmethod
-    def with_search(cls, search_id):
-        try:
-            return (cls.query.filter(cls.search_id == search_id)).one()
-        except Exception as e:
-            from sentry_sdk import capture_exception
+    def get_number_of_subscribers(cls, search_id):
+        return cls.query.filter(cls.search_id == search_id).count()
 
-            capture_exception(e)
-            print(e)
-            return None
-        
     @classmethod
     def update_receive_email(cls, session, user, search, receive_email):
-        subscription = cls.query.filter(cls.user == user, cls.search == search).one_or_none()
+        subscription = cls.query.filter(
+            cls.user == user, cls.search == search
+        ).one_or_none()
         if subscription:
             subscription.receive_email = receive_email
             session.commit()
