@@ -12,29 +12,25 @@ app.app_context().push()
 
 def format_article_info(article):
     art_info = article.article_info()
-    return f"""<b>{art_info["title"]}</b>\n
-                <p>&nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{article.feed.url.domain.domain_name}</a></p>\n"""
+    return f""" <li><p><b>{art_info["title"]}</b></p></li>
+                <p>&nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{article.feed.url.domain.domain_name}</a></p>"""
 
 
-def send_mail_new_articles_search(to_email, new_content_dict):
-    body = "\r\n".join(
-        [
-            "Hi there,",
-            " ",
-            "There are new articles related to your subscribed " + ("searches" if len(new_content_dict) > 1 else "search") + ". You can find your subscriptions here: https://www.zeeguu.org/articles/mySearches",
-            " "
-        ])
+def send_mail_new_articles_search(to_email, name, new_content_dict):
+    body = f"""
+            <p>Hi {name},</p>
+            <p>There are new articles related to your subscribed {"searches" if len(new_content_dict) > 1 else "search"}.</p>
+           """
     
     for keyword, articles in new_content_dict.items():
-        body += "\r\n".join([" ", f"<h3>{keyword}</h3>", " "] + [format_article_info(a) for a in articles]) + "\n"
-        
-    body += "\r\n".join([
-            " ",
-            " ",
-            "Cheers,",
-            "The Zeeguu Team",
-        ]
-    )
+        body += f"""<h3>{keyword}</h3>
+                  <hr>"""
+        body += f"""<ul>{"".join([format_article_info(a) for a in articles])}</ul>"""
+    
+    body += f"""
+        <p>Find the rest of your subscriptions at: https://www.zeeguu.org/articles/mySearches</p>
+        <p>Your Friendly Zeeguu Team.</p>
+       """
     
     subject = f"New articles for {"'" + "','".join(new_content_dict.keys()) + "'"}"
     print(body)
@@ -65,11 +61,11 @@ def send_subscription_emails():
             if article.published_time > previous_day_datetime
         ]
         if new_articles_found:
-            updated_dict = user_subscriptions.get(user.email, {})
+            updated_dict = user_subscriptions.get((user.email, user.name), {})
             updated_dict[subscription.search.keywords] = [article for article in new_articles_found]
-            user_subscriptions[user.email] = updated_dict
-    for user_email, new_content_dict in user_subscriptions.items():
-        send_mail_new_articles_search(user_email, new_content_dict)
+            user_subscriptions[(user.email, user.name)] = updated_dict
+    for (email, name), new_content_dict in user_subscriptions.items():
+        send_mail_new_articles_search(email, name, new_content_dict)
 
 if __name__ == "__main__":
     send_subscription_emails()
