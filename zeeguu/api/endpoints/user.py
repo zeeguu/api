@@ -107,7 +107,7 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
     list_result = []
     for s in last_sessions:
         art_id, date_read, viewport_settings, last_reading_point = s
-        if last_reading_point < 100 and last_reading_point > 0:
+        if last_reading_point < 0.9 and last_reading_point > 0:
             scrollHeight = viewport_settings["scrollHeight"]
             clientHeight = viewport_settings["clientHeight"]
             bottomRowHeight = viewport_settings["bottomRowHeight"]
