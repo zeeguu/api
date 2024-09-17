@@ -5,9 +5,15 @@ from zeeguu.core.model import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.api.app import create_app
+from zeeguu.core.util.reading_time_estimator import estimate_read_time
 
 app = create_app()
 app.app_context().push()
+
+def format_article_info(article):
+    art_info = article.article_info()
+    return f"""<b>{art_info["title"]}</b>\n
+                <p>&nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{article.feed.url.domain.domain_name}</a></p>\n"""
 
 
 def send_mail_new_articles_search(to_email, new_content_dict):
@@ -19,8 +25,8 @@ def send_mail_new_articles_search(to_email, new_content_dict):
             " "
         ])
     
-    for keyword, titles in new_content_dict.items():
-        body += "\r\n".join([" ", f"Search: '{keyword}': "] + [f"""- <a href="{url}">{t}</a>""" for t, url in titles]) + "\n"
+    for keyword, articles in new_content_dict.items():
+        body += "\r\n".join([" ", f"<h3>{keyword}</h3>", " "] + [format_article_info(a) for a in articles]) + "\n"
         
     body += "\r\n".join([
             " ",
@@ -31,6 +37,7 @@ def send_mail_new_articles_search(to_email, new_content_dict):
     )
     
     subject = f"New articles for {"'" + "','".join(new_content_dict.keys()) + "'"}"
+    print(body)
     emailer = ZeeguuMailer(subject, body, to_email)
     emailer.send()
 
@@ -59,7 +66,7 @@ def send_subscription_emails():
         ]
         if new_articles_found:
             updated_dict = user_subscriptions.get(user.email, {})
-            updated_dict[subscription.search.keywords] = [(article.title, article.url) for article in new_articles_found]
+            updated_dict[subscription.search.keywords] = [article for article in new_articles_found]
             user_subscriptions[user.email] = updated_dict
     for user_email, new_content_dict in user_subscriptions.items():
         send_mail_new_articles_search(user_email, new_content_dict)
