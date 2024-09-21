@@ -6,5 +6,5 @@ app = create_app()
 app.app_context().push()
 
 na = download_and_parse(
-    "https://www.dr.dk/stories/1288510966/allerede-inden-oscar-showets-start-lurer-en-ny-skandale-i-kulissen")
+    "https://www.dr.dk/nyheder/indland/flere-laeger-uden-koebenhavn-kronikerpakker-og-kaempe-region-her-er-det-vigtigste-i")
 print(na)
