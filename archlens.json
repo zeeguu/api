@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-  "name": "Zeeguu API",
+  "name": "zeeguu-api",
   "rootFolder": "zeeguu",
   "github": {
     "url": "https://github.com/zeeguu/api",
@@ -16,6 +16,30 @@
         }
       ],
       "ignorePackages": []
+    },
+    "inside-api": {
+      "packages": [
+        {
+          "path": "api",
+          "depth": 1
+        }
+      ],
+      "ignorePackages": [
+        "*test*",
+        "core"
+      ]
+    },
+    "inside-core": {
+      "packages": [
+        {
+          "path": "core",
+          "depth": 1
+        }
+      ],
+      "ignorePackages": [
+        "*test*",
+        "core"
+      ]
     }
   }
 }

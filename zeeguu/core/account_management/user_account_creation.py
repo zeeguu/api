@@ -57,12 +57,12 @@ def create_account(
             username,
             password,
             invitation_code=invite_code,
-            cohort=cohort,
             learned_language=learned_language,
             native_language=native_language,
         )
-
         db_session.add(new_user)
+        if cohort_name != "":
+            new_user.add_user_to_cohort(cohort, db_session)
         new_user.create_default_user_preference()
         learned_language = UserLanguage.find_or_create(
             db_session, new_user, learned_language

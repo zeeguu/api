@@ -270,7 +270,6 @@ def generate_unique_articles_read_plot(user_reading_time_df, lang=""):
             .reset_index()
             .sort_values("Feed Name")
         )
-        print(plot_unique_articles_read)
         sns.barplot(
             x="Feed Name",
             y="count",
@@ -394,12 +393,14 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     ]
     if len(bookmark_count) > 0:
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_review_proportion, on="Language", how="inner"
+            bookmark_review_proportion, on="Language", how="outer"
         )
-
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_count, on="Language", how="inner"
+            bookmark_count, on="Language", how="outer"
         )
+        reading_time_ex_time.loc[
+            reading_time_ex_time["Bookmarks % Reviewed"].isna(), "Bookmarks % Reviewed"
+        ] = 0
     else:
         reading_time_ex_time["Bookmarks % Reviewed"] = 0
         reading_time_ex_time["Total Bookmarks"] = 0
@@ -418,22 +419,34 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     )
 
 
-def generate_top_opened_articles(user_reading_time_df, article_df):
-    top_5_articles_by_opened = (
-        user_reading_time_df.groupby(["Language", "Feed Name"])
-        .id.value_counts()
+def generate_top_opened_articles(
+    user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5
+):
+    articles_by_user_interaction = (
+        user_reading_time_df.groupby(["id"])
+        .agg({"total_reading_time": "mean", "user_id": "count"})
         .reset_index()
-        .sort_values("count", ascending=False)[:5]
     )
-    print(top_5_articles_by_opened)
-    top_5_articles_by_opened = top_5_articles_by_opened.merge(
-        article_df[["id", "title"]], on="id"
-    )[["Language", "Feed Name", "id", "title", "count"]]
-    print(top_5_articles_by_opened)
-    top_5_articles_by_opened = top_5_articles_by_opened.rename(
-        columns={"id": "Article id", "title": "Article Title", "count": "Users Count"}
+    read_articles = data_extractor.get_article_df_with_ids(
+        feed_df, articles_by_user_interaction.id.values
     )
-    return generate_html_table(top_5_articles_by_opened)
+    articles_by_user_interaction = articles_by_user_interaction.merge(
+        read_articles[["id", "title", "Feed Name", "Language"]], on="id"
+    )[["Language", "Feed Name", "id", "title", "user_id", "total_reading_time"]]
+    articles_by_user_interaction = articles_by_user_interaction.rename(
+        columns={
+            "id": "Article id",
+            "title": "Article Title",
+            "user_id": "Users Count",
+            "total_reading_time": "User Avg. Reading Time",
+        }
+    )
+    articles_by_user_interaction = articles_by_user_interaction.sort_values(
+        ["Users Count", "User Avg. Reading Time"], ascending=False
+    )
+    return generate_html_table(
+        articles_by_user_interaction.head(number_of_articles_to_report)
+    )
 
 
 def generate_html_page():
@@ -455,10 +468,11 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
-    total_unique_articles_opened_by_users = len(
-        article_df[article_df.id.isin(user_reading_time_df.id)]
-    )
+    total_unique_articles_opened_by_users = user_reading_time_df.Language.value_counts().reset_index()['count'].sum()
     exercise_activity_df = data_extractor.get_exercise_type_activity()
+    top_subscribed_searches = data_extractor.get_top_search_subscriptions()
+    top_filtered_searches = data_extractor.get_top_search_filters()
+    newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
@@ -548,18 +562,28 @@ def generate_html_page():
                 {generate_html_table(article_df.groupby("Language").word_count.describe().reset_index())}
                 <h2>FK Difficulty:</h2>
                 {generate_html_table(article_df.groupby("Language").fk_difficulty.describe().reset_index())}
-                <h2>Activity Report</h2>
-                <p><b>Total Active Users:</b> {total_active_users}</p>
+                <h2>Top Subscribed Searches:</h2>
             """
+    if len(newly_added_search_subscriptions) > 0:
+        result += f"""
+                <p><b>Newly added searches:</b> {"'" + "', '".join(newly_added_search_subscriptions) + "'"}</p>
+                """
+    result += f"""
+        {generate_html_table(top_subscribed_searches.head(10))}
+        <h2>Top Filtered Searches:</h2>
+        {generate_html_table(top_filtered_searches.head(10))}
+        <h2>Activity Report</h2>
+        <p><b>Total Active Users:</b> {total_active_users}</p>
+        """
     if total_active_users == 0:
         result += """<p><b>No active users in this period</b></p>
         <hr>"""
     else:
         result += f"""
-        <h3>Top Articles Read:</h3>
         {generate_active_users_table(combined_user_activity_df, bookmark_df)}
         <br>
-        {generate_top_opened_articles(user_reading_time_df, article_df)}
+        <h3>Top Articles Read:</h3>
+        {generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df)}
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
         <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
@@ -580,16 +604,19 @@ def generate_html_page():
             {get_rejected_sentences_table(total_removed_sents)}
         </body>
     """
+
+    output_filepath = f"report_zeeguu_{date_str}_d{DAYS_FOR_REPORT}.html"
     with open(
         os.path.join(
             FOLDER_FOR_REPORT_OUTPUT,
-            f"report_zeeguu_{date_str}_d{DAYS_FOR_REPORT}.html",
+            output_filepath,
         ),
         "w",
         encoding="UTF-8",
     ) as f:
         f.write(result)
 
+    print(f"File written to '{output_filepath}'.")
     return result
 
 
