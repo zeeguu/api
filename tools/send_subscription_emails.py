@@ -25,9 +25,7 @@ def remove_protocolfrom_link(link):
 
 def format_article_info(article):
     art_info = article.article_info()
-    return f""" <li><b>{art_info["title"]}</b></li>
-                &nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{remove_protocolfrom_link(article.feed.url.domain.domain_name)}</a>"""
-
+    return f""" <li><b>{art_info["title"]}</b> ({estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}" style="text-decoration: none; color:black;">{remove_protocolfrom_link(article.feed.url.domain.domain_name)}</a>)</li>"""
 
 def send_mail_new_articles_search(to_email, name, new_content_dict):
     body = f"""
