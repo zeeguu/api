@@ -200,7 +200,7 @@ class Bookmark(db.Model):
 
         word_info = Word.stats(self.origin.word, self.origin.language.code)
 
-        learned_datetime = str(self.learned_time.date()) if self.learned else ""
+        learned_datetime = str(self.learned_time.date()) if self.learned_time is not None else ""
 
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 

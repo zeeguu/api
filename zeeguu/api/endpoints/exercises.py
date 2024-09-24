@@ -10,10 +10,10 @@ from . import api, db_session
 from flask import request
 
 
-@api.route("/bookmarks_to_study/<bookmark_count>", methods=["GET"])
+@api.route("/scheduled_bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
 @requires_session
-def bookmarks_to_study(bookmark_count):
+def scheduled_bookmarks_to_study(bookmark_count):
     """
     Returns a number of <bookmark_count> bookmarks that
     are in the pipeline and are due today
@@ -22,7 +22,21 @@ def bookmarks_to_study(bookmark_count):
 
     int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
-    to_study = user.bookmarks_to_study(int_count)
+    to_study = user.bookmarks_to_study(bookmark_count=int_count)
+    json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    return json_result(json_bookmarks)
+
+
+@api.route("/top_bookmarks_to_study", methods=["GET"])
+@cross_domain
+@requires_session
+def top_bookmarks_to_study():
+    """
+    Return all the possible bookmarks a user has to study ordered by
+    how common it is in the language and how close they are to being learned.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    to_study = user.bookmarks_to_study(scheduled_only=False)
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
     return json_result(json_bookmarks)
 
@@ -53,6 +67,19 @@ def has_bookmarks_in_pipeline_to_review():
     """
     user = User.find_by_id(flask.g.user_id)
     at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1)
+    return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
+
+
+@api.route("/has_bookmarks_to_review", methods=["GET"])
+@cross_domain
+@requires_session
+def has_bookmarks_to_review():
+    """
+    Checks if there is at least one bookmark that can be exercised
+    today.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1, scheduled_only=False)
     return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
 
 
