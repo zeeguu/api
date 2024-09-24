@@ -41,6 +41,20 @@ def top_bookmarks_to_study():
     return json_result(json_bookmarks)
 
 
+@api.route("/bookmarks_to_learn_not_scheduled", methods=["GET"])
+@cross_domain
+@requires_session
+def bookmarks_to_learn_not_scheduled():
+    """
+    Return all the bookmarks that aren't learned and haven't been
+    scheduled to the user.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    to_study = user.bookmarks_to_learn_not_in_pipeline()
+    json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    return json_result(json_bookmarks)
+
+
 @api.route("/bookmarks_in_pipeline", methods=["GET"])
 @cross_domain
 @requires_session
