@@ -10,26 +10,38 @@ from zeeguu.core.util.reading_time_estimator import estimate_read_time
 app = create_app()
 app.app_context().push()
 
+def remove_protocolfrom_link(link):
+    PATTERNS_TO_REMOVE = [
+        "http://www.",
+        "https://www.",
+        "www.",
+        "https://",
+        "http://"
+    ]
+    filtered_link = link
+    for pattern in PATTERNS_TO_REMOVE:
+        filtered_link = filtered_link.replace(pattern, "")
+    return filtered_link
+
 def format_article_info(article):
     art_info = article.article_info()
-    return f""" <li><p><b>{art_info["title"]}</b></p></li>
-                <p>&nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{article.feed.url.domain.domain_name}</a></p>"""
+    return f""" <li><b>{art_info["title"]}</b></li>
+                &nbsp;&nbsp;{estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}">{remove_protocolfrom_link(article.feed.url.domain.domain_name)}</a>"""
 
 
 def send_mail_new_articles_search(to_email, name, new_content_dict):
     body = f"""
-            <p>Hi {name},</p>
-            <p>There are new articles related to your subscribed {"searches" if len(new_content_dict) > 1 else "search"}.</p>
+            Hi {name},
+            There are new articles containg the {"keywords" if len(new_content_dict) > 1 else "keyword"} you are subscribed to:
            """
     
     for keyword, articles in new_content_dict.items():
-        body += f"""<h3>{keyword}</h3>
-                  <hr>"""
+        body += f"""<h3 style="color: #2F77AD;">{keyword}</h3><hr style="background-color: rgb(255, 187, 84); height: 1px; border: 0; height: 2px; margin-top: -6px;">"""
         body += f"""<ul>{"".join([format_article_info(a) for a in articles])}</ul>"""
     
     body += f"""
-        <p>Find the rest of your subscriptions at: https://www.zeeguu.org/articles/mySearches</p>
-        <p>Your Friendly Zeeguu Team.</p>
+        Find the rest of your subscriptions at: <a href="https://www.zeeguu.org/articles/mySearches">zeeguu.org/articles/mySearches</a>
+        Your Friendly Zeeguu Team
        """
     
     subject = f"New articles for {"'" + "','".join(new_content_dict.keys()) + "'"}"
