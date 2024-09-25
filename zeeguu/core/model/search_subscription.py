@@ -6,6 +6,7 @@ import sqlalchemy
 import zeeguu.core
 
 from zeeguu.core.model import db
+from zeeguu.core.model.search import Search
 
 
 class SearchSubscription(db.Model):
@@ -65,7 +66,13 @@ class SearchSubscription(db.Model):
 
     @classmethod
     def all_for_user(cls, user):
-        return cls.query.filter(cls.user == user).all()
+
+        return (
+            cls.query.join(Search)
+            .filter(cls.user == user)
+            .filter(Search.language_id == user.learned_language_id)
+            .all()
+        )
 
     @classmethod
     def with_search_id(cls, i, user):
