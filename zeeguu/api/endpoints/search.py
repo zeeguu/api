@@ -46,8 +46,8 @@ def subscribe_to_search(search_terms):
              This is used to display it in the UI.
 
     """
-    search = Search.find_or_create(db_session, search_terms)
     user = User.find_by_id(flask.g.user_id)
+    search = Search.find_or_create(db_session, search_terms, user.learned_language_id)
     receive_email = False
     subscription = SearchSubscription.find_or_create(
         db_session, user, search, receive_email
@@ -133,7 +133,7 @@ def filter_search(search_terms):
     :return: the search as a dictionary
     """
     user = User.find_by_id(flask.g.user_id)
-    search = Search.find_or_create(db_session, search_terms)
+    search = Search.find_or_create(db_session, search_terms, user.learned_language_id)
     SearchFilter.find_or_create(db_session, user, search)
 
     return json_result(search.as_dictionary())
@@ -287,9 +287,8 @@ def subscribe_to_email_search(search_terms):
     """
     A user can subscribe to email updates about a search
     """
-
-    search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
+    search = Search.find(search_terms, user.learned_language_id)
     receive_email = True
     subscription = SearchSubscription.update_receive_email(
         db_session, user, search, receive_email
@@ -306,9 +305,9 @@ def unsubscribe_from_email_search(search_terms):
     """
     A user can unsubscribe to email updates about a search
     """
-
-    search = Search.find(search_terms)
     user = User.find_by_id(flask.g.user_id)
+    search = Search.find(search_terms, user.learned_language_id)
+
     receive_email = False
     subscription = SearchSubscription.update_receive_email(
         db_session, user, search, receive_email
