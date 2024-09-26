@@ -200,6 +200,7 @@ def send_feedback():
     feedback_component = FeedbackComponent.find_by_id(feedback_component_id)
     if url is not None:
         url = Url.find_or_create(session, url)
+
     user_feedback_report = UserFeedbackReport.create(
         session, user, feedback_component, message, url
     )
