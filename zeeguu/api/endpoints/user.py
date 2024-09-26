@@ -9,6 +9,9 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
+from zeeguu.core.model.feedback_component import FeedbackComponent
+from zeeguu.core.model.user_feedback_report import UserFeedbackReport
+from zeeguu.core.model.url import Url
 
 
 @api.route("/learned_language", methods=["GET"])
@@ -187,15 +190,23 @@ def user_settings():
 @cross_domain
 @requires_session
 def send_feedback():
-
+    session = zeeguu.core.model.db.session
     message = flask.request.form.get("message", "")
-    context = flask.request.form.get("context", "")
-    print(message)
-    print(context)
+    url = flask.request.form.get("currentUrl", None)
+    feedback_component_id = int(flask.request.form.get("feedbackComponentId", ""))
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
     user = User.find_by_id(flask.g.user_id)
-    ZeeguuMailer.send_feedback("Feedback", context, message, user)
+    feedback_component = FeedbackComponent.find_by_id(feedback_component_id)
+    if url is not None:
+        url = Url.find_or_create(session, url)
+    user_feedback_report = UserFeedbackReport.create(
+        session, user, feedback_component, message, url
+    )
+    session.commit()
+    ZeeguuMailer.send_feedback(
+        "Feedback", feedback_component.component_type, message, user
+    )
     return "OK"
 
 

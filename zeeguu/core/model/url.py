@@ -97,7 +97,6 @@ class Url(db.Model):
             try:
                 new = cls(_url, title, domain)
                 session.add(new)
-                session.commit()
                 return new
             except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
                 for i in range(10):
