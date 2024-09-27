@@ -14,11 +14,9 @@ from zeeguu.core.model import db
 
 class UserFeedbackReport(db.Model):
     """
-
-    A search filter is created when the user
-    wants to filter out a particular search.
-    This is then taken into account in the
-    mixed recomemnder, when retrieving articles.
+    This contains the message the user sends with the component they pick.
+    We also store the report time in UTC and the URL where the user was
+    when they send the message.
 
     """
 
