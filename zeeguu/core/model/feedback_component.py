@@ -10,8 +10,10 @@ class FeedbackComponent(db.Model):
     """
 
     A Feedback Component is a component of the Web that the user
-    can report an issue from. They pick one from a drop-down list
-    based on the URL/component they are currently at.
+    can report an issue from. They pick one of the Feedback Components
+    from a drop-down list. The available components can be adjusted
+    in the frontend, e.g. the exercises won't have the components related
+    to the Article Recommeder or Reader.
 
     """
 
