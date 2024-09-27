@@ -97,7 +97,13 @@ class UserExerciseSession(db.Model):
         Get exercise sessions by cohort
         return: object or None if not found
         """
-        query = cls.query.join(User).filter(User.cohort_id == cohort_id)
+        from .user_cohort_map import UserCohortMap
+
+        query = (
+            cls.query.join(User)
+            .join(UserCohortMap)
+            .filter(UserCohortMap.cohort_id == cohort_id)
+        )
         query = query.filter(cls.start_time >= from_date)
         query = query.filter(cls.start_time <= to_date)
 

@@ -3,8 +3,11 @@ from datetime import timedelta, datetime
 import flask
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.api.endpoints.teacher_dashboard._permissions import check_permission_for_user
-from zeeguu.core.model import User, Cohort
+from zeeguu.api.endpoints.teacher_dashboard._permissions import (
+    check_permission_for_user,
+)
+from zeeguu.core.model.user import User
+from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.sql.query_building import date_format, datetime_format
 
 
@@ -35,7 +38,7 @@ def _get_student_cohort_and_period_from_POST_params(
     except NoResultFound:
         flask.abort(400)
 
-    check_permission_for_user(user.id)
+    check_permission_for_user(user.id, cohort.id)
 
     from_date, to_date = _convert_number_of_days_to_date_interval(
         number_of_days, to_string
