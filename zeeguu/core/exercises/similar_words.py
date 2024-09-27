@@ -1,7 +1,11 @@
 import random
 
 from zeeguu.core.word_stats import lang_info
-from zeeguu.core.profanity_filter import BAD_WORD_LIST, remove_bad_words
+from zeeguu.core.word_filter import (
+    BAD_WORD_LIST,
+    PROPER_NAMES_LIST,
+    remove_words_based_on_list,
+)
 
 
 def similar_words(word, language, user, words_to_sample=2):
@@ -12,11 +16,11 @@ def similar_words(word, language, user, words_to_sample=2):
         candidates = [each.origin.word for each in words_the_user_must_study]
     else:
         candidates = lang_info(language.code).all_words()
-        candidates_filtered = remove_bad_words(candidates, BAD_WORD_LIST)
-
-    if len(candidates_filtered) != len(candidates):
-        word_set = set(candidates)
-        print("WORDS Filtered: ", word_set.intersection(BAD_WORD_LIST))
+        candidates_filtered = remove_words_based_on_list(candidates, BAD_WORD_LIST)
+        candidates_filtered = remove_words_based_on_list(
+            candidates_filtered, PROPER_NAMES_LIST
+        )
+        candidates_filtered = [w for w in candidates_filtered if len(w) > 1]
 
     random_sample = random.sample(candidates_filtered, words_to_sample)
     while word in random_sample:

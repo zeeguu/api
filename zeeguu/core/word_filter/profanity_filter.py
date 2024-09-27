@@ -16,9 +16,5 @@ def load_bad_words():
             with open(path_to_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 for line in lines:
-                    bad_word_list.add(line.strip())
+                    bad_word_list.add(line.strip().lower())
     return bad_word_list
-
-
-def remove_bad_words(candidates, bad_word_list):
-    return list(set(candidates) - set(bad_word_list))
