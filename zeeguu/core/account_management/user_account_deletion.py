@@ -5,7 +5,7 @@ from zeeguu.core.model import (
     PersonalCopy,
     SearchFilter,
     UserPreference,
-    Session,
+    UserCohortMap,
 )
 
 import time
@@ -47,6 +47,7 @@ tables_to_modify = [
     PersonalCopy,
     SearchFilter,
     UserPreference,
+    UserCohortMap,
 ]
 
 
