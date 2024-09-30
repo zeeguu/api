@@ -30,3 +30,5 @@ lu-mir-zeeguu-credentials.json
 
 zenv*
 tools/_playground.py
+
+!zeeguu/core/word_filter/data/
