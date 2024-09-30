@@ -22,7 +22,7 @@ def scheduled_bookmarks_to_study(bookmark_count):
 
     int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
-    to_study = user.bookmarks_to_study(bookmark_count=int_count)
+    to_study = user.bookmarks_to_study(bookmark_count=int_count, scheduled_only=True)
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
     return json_result(json_bookmarks)
 
@@ -80,7 +80,7 @@ def has_bookmarks_in_pipeline_to_review():
     to review today.
     """
     user = User.find_by_id(flask.g.user_id)
-    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1)
+    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1, scheduled_only=True)
     return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
 
 

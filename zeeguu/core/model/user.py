@@ -222,7 +222,7 @@ class User(db.Model):
     def has_bookmarks(self):
         return self.bookmark_count() > 0
 
-    def bookmarks_to_study(self, bookmark_count=None, scheduled_only=True):
+    def bookmarks_to_study(self, bookmark_count=None, scheduled_only=False):
         """
         We now use a logic to sort the words, if we call this everytime
         we want similar words it might bottleneck the application.
@@ -280,7 +280,7 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
+        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count, scheduled_only=True)
         return word_for_study
     
     def bookmarks_to_learn_not_in_pipeline(self):
