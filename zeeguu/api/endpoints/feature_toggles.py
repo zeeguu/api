@@ -35,6 +35,14 @@ def features_for_user(user):
     return features
 
 
+"""
+    We have a code 'zeeguu-preview' which is used to invite
+    general users and should give access to the latest feature set
+    of Zeeguu. It can be used for usability tests and can be also
+    spread by word of mouth to new participants.
+"""
+
+
 def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
