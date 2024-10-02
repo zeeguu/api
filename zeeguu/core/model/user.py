@@ -222,18 +222,22 @@ class User(db.Model):
     def has_bookmarks(self):
         return self.bookmark_count() > 0
 
-    def bookmarks_to_study(self, bookmark_count=10):
+    def bookmarks_to_study(self, bookmark_count=None, scheduled_only=False):
         """
         We now use a logic to sort the words, if we call this everytime
         we want similar words it might bottleneck the application.
 
-        :param bookmark_count: by default we recommend 10 words
+        :param bookmark_count: If None all bookmarks are returned
+        :param scheduled_only: Only use bookmarks that are scheduled
         :return:
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        to_study = BasicSRSchedule.priority_bookmarks_to_study(self, bookmark_count)
-        return to_study
+        if scheduled_only:
+            to_study = BasicSRSchedule.priority_scheduled_bookmarks_to_study(self)
+        else:
+            to_study = BasicSRSchedule.all_bookmarks_priority_to_study(self)
+        return to_study if bookmark_count is None else to_study[:bookmark_count]
 
     def get_new_bookmarks_to_study(self, bookmarks_count):
         from zeeguu.core.sql.queries.query_loader import load_query
@@ -276,13 +280,22 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
+        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count, scheduled_only=True)
         return word_for_study
+    
+    def bookmarks_to_learn_not_in_pipeline(self):
+        """
+        :return gets all bookmarks that are going to be shown in exercises
+        but haven't been scheduled yet.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        words_not_started_learning = BasicSRSchedule.get_unscheduled_bookmarks_for_user(self)
+        return words_not_started_learning
+
 
     def bookmarks_in_pipeline(self):
         """
-        :param bookmark_count: by default we recommend 10 words
-        :return: a list of 10 words that are scheduled to be learned.
+        :return get all the bookmarks that are in the pipeline
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
@@ -690,6 +703,25 @@ class User(db.Model):
 
     def bookmark_count(self):
         return len(self.all_bookmarks())
+
+    def total_exercises_completed_today(self):
+        from zeeguu.core.model import Exercise
+        from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
+        from zeeguu.core.model import UserWord
+
+        current_date = datetime.datetime.now().date()
+        total_exercises = (
+            Exercise.query.join(bookmark_exercise_mapping)
+            .join(Bookmark)
+            .join(User)
+            .join(UserWord, UserWord.id == Bookmark.origin_id)
+            .filter(User.id == self.id)
+            .filter(Exercise.time >= current_date)
+            .filter(Bookmark.user_id == self.id)
+            .filter(UserWord.language_id == self.learned_language_id)
+            .count()
+        )
+        return total_exercises
 
     def word_count(self):
         return len(self.user_words())
