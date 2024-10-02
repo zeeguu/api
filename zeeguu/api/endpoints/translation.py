@@ -1,5 +1,6 @@
 from string import punctuation
 from urllib.parse import unquote_plus
+import os
 
 import flask
 from flask import request
@@ -40,7 +41,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-
+    IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
     article_id = request.form.get("articleID", None)
@@ -64,22 +65,26 @@ def get_one_translation(from_lang_code, to_lang_code):
         source = "Own past translation"
         print(f"about to return {bookmark}")
     else:
-
         # TODO: must remove theurl, and title - they are not used in the calling method.
-        translations = get_next_results(
-            {
-                "from_lang_code": from_lang_code,
-                "to_lang_code": to_lang_code,
-                "word": word_str,
-                "query": query,
-                "context": context,
-            },
-            number_of_results=1,
-        ).translations
-
-        best_guess = translations[0]["translation"]
-        likelihood = translations[0].pop("quality")
-        source = translations[0].pop("service_name")
+        if IS_DEV_SKIP_TRANSLATION:
+            print("Dev Skipping Translation")
+            best_guess = f"T-({to_lang_code})-'{word_str}'"
+            likelihood = None
+            source = "DEV_SKIP"
+        else:
+            translations = get_next_results(
+                {
+                    "from_lang_code": from_lang_code,
+                    "to_lang_code": to_lang_code,
+                    "word": word_str,
+                    "query": query,
+                    "context": context,
+                },
+                number_of_results=1,
+            ).translations
+            best_guess = translations[0]["translation"]
+            likelihood = translations[0].pop("quality")
+            source = translations[0].pop("service_name")
         user = User.find_by_id(flask.g.user_id)
         bookmark = Bookmark.find_or_create(
             db_session,
