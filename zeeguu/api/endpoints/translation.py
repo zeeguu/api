@@ -22,6 +22,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 punctuation_extended = "»«" + punctuation
+IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -41,7 +42,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-    IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
+
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
     article_id = request.form.get("articleID", None)
