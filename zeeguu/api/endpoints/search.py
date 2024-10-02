@@ -155,8 +155,10 @@ def unfilter_search():
     try:
         to_delete = SearchFilter.with_search_id(search_id, user)
         db_session.delete(to_delete)
-        to_delete = Search.find_by_id(search_id)
-        db_session.delete(to_delete)
+        total_excluding = SearchFilter.get_number_of_users_excluding(search_id)
+        if total_excluding == 0:
+            search = Search.find_by_id(search_id)
+            db_session.delete(search)
         db_session.commit()
 
     except Exception as e:
