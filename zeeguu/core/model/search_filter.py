@@ -64,6 +64,10 @@ class SearchFilter(db.Model):
         )
 
     @classmethod
+    def get_number_of_users_excluding(cls, search_id):
+        return cls.query.filter(cls.search_id == search_id).count()
+
+    @classmethod
     def with_search_id(cls, i, user):
         return (cls.query.filter(cls.search_id == i).filter(cls.user == user)).one()
 
