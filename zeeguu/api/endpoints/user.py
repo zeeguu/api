@@ -165,11 +165,9 @@ def user_settings():
         user.set_native_language(submitted_native_language_code)
 
     cefr_level = data.get("cefr_level", None)
-    if cefr_level is None:
-        return "ERROR"
-
     submitted_learned_language_code = data.get("learned_language", None)
-    if submitted_learned_language_code:
+
+    if submitted_learned_language_code and cefr_level:
         user.set_learned_language(
             submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
         )
