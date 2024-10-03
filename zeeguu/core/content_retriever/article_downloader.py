@@ -342,22 +342,25 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     for topic_key in topic_keywords:
         topic = topic_key.new_topic
         print(topic_key, topic)
-        if topic is not None:
+        if (
+            topic is not None
+        ):  # there could be a keyword that might not have a topic assigned
             if topic.id in topics_added:
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
             new_article.add_new_topic(topic, session, TopicOriginType.URL_PARSED.value)
-            session.add(new_article)
+
     if len(topics) > 0:
         print("Used URL PARSED")
+        session.add(new_article)
         return TopicOriginType.URL_PARSED.value, [t.title for t in topics]
 
     from collections import Counter
 
     # Add based on KK neighbours:
-    a_found_t, _ = add_topics_based_on_semantic_hood_search(new_article)
-    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
+    found_articles, _ = add_topics_based_on_semantic_hood_search(new_article)
+    neighbouring_topics = [t.new_topic for a in found_articles for t in a.new_topics]
     if len(neighbouring_topics) > 0:
         from pprint import pprint
 
