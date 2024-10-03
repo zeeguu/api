@@ -98,6 +98,9 @@ def mock_requests_get(m):
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
 
+    # When creating a new article we need to be able to "call" the embedding API
+    # so we return some random vector; thus, not used in the tests per se, but ensure that Article objects can be
+    # created / "downloaded" in the tests
     m.post(
         f"{EMB_API_CONN_STRING}/get_article_embedding",
         json=np.random.random(512).tolist(),
