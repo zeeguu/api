@@ -1,5 +1,4 @@
 import flask
-from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model.search import Search

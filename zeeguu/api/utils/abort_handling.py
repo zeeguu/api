@@ -1,4 +1,4 @@
-from flask import jsonify
+from flask import jsonify, make_response
 
 
 def make_error(
@@ -10,5 +10,4 @@ def make_error(
             "message": message,
         }
     )
-    response.status_code = status_code
-    return response
+    return make_response(response, status_code)
