@@ -280,18 +280,20 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count, scheduled_only=True)
+        word_for_study = BasicSRSchedule.bookmarks_to_study(self, bookmark_count)
         return word_for_study
-    
+
     def bookmarks_to_learn_not_in_pipeline(self):
         """
         :return gets all bookmarks that are going to be shown in exercises
         but haven't been scheduled yet.
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-        words_not_started_learning = BasicSRSchedule.get_unscheduled_bookmarks_for_user(self)
-        return words_not_started_learning
 
+        words_not_started_learning = BasicSRSchedule.get_unscheduled_bookmarks_for_user(
+            self
+        )
+        return words_not_started_learning
 
     def bookmarks_in_pipeline(self):
         """
