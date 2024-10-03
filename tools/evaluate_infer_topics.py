@@ -1,5 +1,5 @@
 from zeeguu.core.semantic_search import (
-    semantic_search_add_topics_based_on_neigh,
+    add_topics_based_on_semantic_hood_search,
 )
 
 from zeeguu.core.model import Article, Language, NewArticleTopicMap
@@ -35,7 +35,7 @@ SAMPLED_IDS = np.random.choice(list(set(ALL_IDS)), TOTAL_EXAMPLES)
 for i, doc_to_search in enumerate(SAMPLED_IDS):
     article_to_search = Article.find_by_id(doc_to_search)
     k_to_use = 9
-    a_found_t, hits_t = semantic_search_add_topics_based_on_neigh(
+    a_found_t, hits_t = add_topics_based_on_semantic_hood_search(
         article_to_search, k_to_use
     )
 

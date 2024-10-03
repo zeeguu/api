@@ -1,5 +1,5 @@
 from .elastic_semantic_search import (
-    semantic_search_from_article,
-    semantic_search_add_topics_based_on_neigh,
-    like_this_from_article,
+    articles_like_this_semantic,
+    add_topics_based_on_semantic_hood_search,
+    articles_like_this_tfidf,
 )

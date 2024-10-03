@@ -1,7 +1,7 @@
 from zeeguu.core.semantic_search import (
-    semantic_search_from_article,
-    semantic_search_add_topics_based_on_neigh,
-    like_this_from_article,
+    articles_like_this_semantic,
+    add_topics_based_on_semantic_hood_search,
+    articles_like_this_tfidf,
 )
 
 from zeeguu.core.model.article import Article
@@ -53,10 +53,10 @@ for hit in hit_list:
         hit["_score"],
     )
 input()
-a_found, hits = semantic_search_from_article(article_to_search)
+a_found, hits = articles_like_this_semantic(article_to_search)
 print("------------------------------------------------")
-a_found_t, hits_t = semantic_search_add_topics_based_on_neigh(article_to_search)
-a_found_lt, hits_lt = like_this_from_article(article_to_search)
+a_found_t, hits_t = add_topics_based_on_semantic_hood_search(article_to_search)
+a_found_lt, hits_lt = articles_like_this_tfidf(article_to_search)
 
 
 print("Doc Searched: ", doc_to_search)

@@ -15,7 +15,7 @@ from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
-from zeeguu.core.semantic_search import semantic_search_add_topics_based_on_neigh
+from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -254,7 +254,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     np_article = readability_download_and_parse(url)
 
-    is_quality_article, reason, code = sufficient_quality(np_article, feed.language.code)
+    is_quality_article, reason, code = sufficient_quality(
+        np_article, feed.language.code
+    )
     if is_quality_article:
         np_article.text = cleanup_text_w_crawl_report(
             np_article.text, crawl_report, feed, url
@@ -324,8 +326,8 @@ def add_topics(new_article, session):
 
 def add_new_topics(new_article, feed, topic_keywords, session):
     HARDCODED_FEEDS = {
-        102: 8, # The Onion EN
-        121: 8, # Lercio IT
+        102: 8,  # The Onion EN
+        121: 8,  # Lercio IT
     }
     # Handle Hard coded Feeds
     if feed.id in HARDCODED_FEEDS:
@@ -354,7 +356,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     from collections import Counter
 
     # Add based on KK neighbours:
-    a_found_t, _ = semantic_search_add_topics_based_on_neigh(new_article)
+    a_found_t, _ = add_topics_based_on_semantic_hood_search(new_article)
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
     if len(neighbouring_topics) > 0:
         from pprint import pprint

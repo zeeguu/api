@@ -28,7 +28,7 @@ def article_semantic_search_for_user(
 
 
 @time_this
-def like_this_from_article(article: Article):
+def articles_like_this_tfidf(article: Article):
     query_body = more_like_this_query(10, article.content, article.language, 100, 0)
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
@@ -40,9 +40,9 @@ def like_this_from_article(article: Article):
 
 
 @time_this
-def semantic_search_from_article(article: Article):
+def articles_like_this_semantic(article: Article):
     query_body = build_elastic_semantic_sim_query(
-        11,
+        10,
         "",
         "",
         None,
@@ -78,7 +78,9 @@ def semantic_search_from_article(article: Article):
 
 
 @time_this
-def semantic_search_add_topics_based_on_neigh(article: Article, k: int = 9):
+def add_topics_based_on_semantic_hood_search(
+    article: Article, k: int = 9
+):  # hood = (slang) neighborhood
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
         k, article, get_embedding_from_article(article), 10000
     )

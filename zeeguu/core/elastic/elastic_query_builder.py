@@ -430,7 +430,9 @@ def build_elastic_semantic_sim_query_for_topic_cls(
             ~Q("ids", values=[article.id])
             # & ~Q("match", **{"topic_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
-            & Q("exists", field="new_topics")
+            & Q(
+                "exists", field="new_topics"
+            )  # new_topics = topics that are not inferred, as opposed to new_topics_inferred
             & ~Q("match", new_topics="")
         ),
     )
