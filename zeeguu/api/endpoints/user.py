@@ -10,7 +10,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
 from zeeguu.core.model.feedback_component import FeedbackComponent
-from zeeguu.core.model.user_feedback_report import UserFeedbackReport
+from zeeguu.core.model.user_feedback import UserFeedback
 from zeeguu.core.model.url import Url
 
 
@@ -201,7 +201,7 @@ def send_feedback():
     if url is not None:
         url = Url.find_or_create(session, url)
 
-    user_feedback_report = UserFeedbackReport.create(
+    user_feedback = UserFeedback.create(
         session, user, feedback_component, message, url
     )
     session.commit()

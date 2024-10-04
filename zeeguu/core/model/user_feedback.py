@@ -12,7 +12,7 @@ import zeeguu.core
 from zeeguu.core.model import db
 
 
-class UserFeedbackReport(db.Model):
+class UserFeedback(db.Model):
     """
     This contains the message the user sends with the component they pick.
     We also store the report time in UTC and the URL where the user was
@@ -21,7 +21,7 @@ class UserFeedbackReport(db.Model):
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "user_feedback_report"
+    __tablename__ = "user_feedback"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
