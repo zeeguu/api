@@ -8,7 +8,7 @@ from zeeguu.core.word_filter import (
 )
 
 
-def similar_words(word, language, user, words_to_sample=2):
+def similar_words(word, language, user, number_of_words_to_return=2):
 
     words_the_user_must_study = user.scheduled_bookmarks(10)
 
@@ -22,8 +22,8 @@ def similar_words(word, language, user, words_to_sample=2):
         )
         candidates_filtered = [w for w in candidates_filtered if len(w) > 1]
 
-    random_sample = random.sample(candidates_filtered, words_to_sample)
+    random_sample = random.sample(candidates_filtered, number_of_words_to_return)
     while word in random_sample:
-        random_sample = random.sample(candidates_filtered, words_to_sample)
+        random_sample = random.sample(candidates_filtered, number_of_words_to_return)
 
     return random_sample
