@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 MODULE_PATH = Path(__file__).parent.absolute()
-PATH_TO_NAME_FILE = os.path.join(MODULE_PATH, "data", "name-list.txt")
+PATH_TO_NAME_FILE = os.path.join(MODULE_PATH, "data", "person-names.txt")
 PATH_TO_CITY_FILE = os.path.join(MODULE_PATH, "data", "city-names.txt")
 
 

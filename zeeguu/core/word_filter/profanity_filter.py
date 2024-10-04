@@ -3,7 +3,7 @@ import os
 
 SKIP_FILES = set(["README.md", "USERS.md", "LICENSE"])
 MODULE_PATH = Path(__file__).parent.absolute()
-PATH_TO_WORD_LIST = os.path.join(MODULE_PATH, "data", "bad-word-list")
+PATH_TO_WORD_LIST = os.path.join(MODULE_PATH, "data", "bad-words")
 
 
 def load_bad_words():
