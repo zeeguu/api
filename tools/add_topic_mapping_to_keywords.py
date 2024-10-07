@@ -9,7 +9,12 @@ app = create_app()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 
-
+"""
+    Assigns the topic_keywords (url_keywords) a specific topic based on manual labeling.
+    The file was generated before we seperated them based on different languages.
+    This should be considered a starting point and should be monitored overtime to 
+    identify possible errors in the labeling or new labels that become relevant.
+"""
 df = pd.read_csv("url_topics_count_with_pred_to_db.csv", index_col=0)
 
 for row_i, row in tqdm(df.iterrows()):

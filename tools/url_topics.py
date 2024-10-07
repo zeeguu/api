@@ -10,6 +10,13 @@ from pprint import pprint
 from collections import Counter
 import numpy as np
 
+"""
+    Script to test the is_non_word heuristic to extract url_keywords for topics.
+
+    Samples a number of articles and retrieves the keywords from them. After assingning
+    topics to the url_keywords it can also be used in order to validate the mappings
+    assinged to each keyword.
+"""
 
 app = create_app()
 app.app_context().push()

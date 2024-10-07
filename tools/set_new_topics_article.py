@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
-"""
-    goes through all the articles in the DB 
-    by language and associates them with the
-    corresponding topics
-"""
-
 import zeeguu.core
 from zeeguu.api.app import create_app
 from zeeguu.core.content_retriever.article_downloader import add_new_topics
 from zeeguu.core.model import Article
 from tqdm import tqdm
+
+
+"""
+    Script to add inferred topics to articles with no label.
+
+    If we want to add the new topics to articles that haven't been lable this script
+    will go through the list of articles and if no NewTopics are found it will run the
+    add_new_topics, assigning topics based on url_keywords, hardcoded or inferred.
+"""
 
 app = create_app()
 app.app_context().push()

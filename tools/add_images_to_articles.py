@@ -10,6 +10,11 @@ from pprint import pprint
 from zeeguu.core.content_retriever import download_and_parse
 import numpy as np
 
+"""
+    Goes through all articles that don't have an image to attempt to fetch an image.
+    This is not necessary, I (TR) used this to test formatting on some older documents
+    when searching the DB.
+"""
 
 app = create_app()
 app.app_context().push()
@@ -17,12 +22,11 @@ db_session = zeeguu.core.model.db.session
 
 
 def add_image_to_articles():
-    all_articles = db_session.query(Article.id).all()
+    all_articles = db_session.query(Article.id).filter(Article.img_url_id == None).all()
+    print(f"Found {len(all_articles)} without an image.")
     total_added = 0
     for row_id in tqdm(all_articles, total=len(all_articles)):
         a_id = row_id[0]
-        if a_id < 2460000:
-            continue
         a = Article.find_by_id(a_id)
         if a is None:
             continue

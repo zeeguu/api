@@ -5,6 +5,10 @@ import numpy as np
 import zeeguu.core
 import json
 
+"""
+    Extract small samples with and wihtout any topics for testing.
+"""
+
 db_session = zeeguu.core.model.db.session
 app = create_app()
 app.app_context().push()

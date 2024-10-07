@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 
-"""
-
-    goes through all the articles in the DB 
-    by language and associates them with the
-    corresponding topics
-    
-
+""" 
+    Script to populate the NewArticleTopicMap once the url_keywords have been mapped
+    to a Topic. This step is required before inferring new topics for new articles.
 """
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, NewTopic
+from zeeguu.core.model import Article
 from tqdm import tqdm
 
 app = create_app()

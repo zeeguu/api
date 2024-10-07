@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 
 """
-
-    goes through all the articles in the DB 
-    by language and associates them with the
-    corresponding topics
-    
-
+    Populates the url_keywords based on the existing articles of the DB.
+    This is the first step of the migration to introduce the url_keywords based topics.
 """
 
 import zeeguu.core

@@ -14,13 +14,24 @@ import numpy as np
 from pprint import pprint
 from zeeguu.api.app import create_app
 
+"""
+    Script to evaluate the Inference of topics using a random sample of TOTAL_EXAMPLES.
+
+    This takes articles which have been assigned a topic based on the url_keywords and
+    runs the inference on them to test if inference retrieves at least one of the topics
+    they have been mapped to. Usually this results in around 0.7 F1 score.
+"""
+np.random.seed(0)
+TOTAL_EXAMPLES = 5000
+
+
 app = create_app()
 app.app_context().push()
 
 es = Elasticsearch(ES_CONN_STRING)
 data_collected = []
 
-np.random.seed(0)
+
 ALL_IDS = [
     a.article_id
     for a in NewArticleTopicMap.query.join(Article)
@@ -29,10 +40,10 @@ ALL_IDS = [
     .all()
 ]
 
-TOTAL_EXAMPLES = 5000
-SAMPLED_IDS = np.random.choice(list(set(ALL_IDS)), TOTAL_EXAMPLES)
 
-for i, doc_to_search in enumerate(SAMPLED_IDS):
+sampled_ids = np.random.choice(list(set(ALL_IDS)), TOTAL_EXAMPLES)
+
+for i, doc_to_search in enumerate(sampled_ids):
     article_to_search = Article.find_by_id(doc_to_search)
     k_to_use = 9
     a_found_t, hits_t = add_topics_based_on_semantic_hood_search(
@@ -60,9 +71,9 @@ for i, doc_to_search in enumerate(SAMPLED_IDS):
             sum(topics_counter.values()) // 2
         )  # The threshold is being at least half or above rounded down
         prediction = str(top_topic.title) if count >= threshold else ""
-        print(
-            f"Prediction: '{prediction}', Original: '{og_topics}'.\nPred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh.\nProgress: {i+1}/{TOTAL_EXAMPLES}"
-        )
+        print(f"Prediction: '{prediction}', Original: '{og_topics}'.")
+        print(f"Pred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh.")
+        print(f"Progress: {i+1}/{TOTAL_EXAMPLES}")
         data_collected.append(
             [
                 i,
