@@ -55,8 +55,13 @@ def _feature_map():
 
 
 def _new_topics(user):
-    right_user = user.id == 534 or user.id == 4022 or user.id == 4089
-    return right_user or True
+    right_user = (
+        user.id == 534
+        or user.id == 4022
+        or user.id == 4089
+        or user.invitation_code == "zeeguu-preview"
+    )
+    return right_user
 
 
 def _tiago_exercises(user):
