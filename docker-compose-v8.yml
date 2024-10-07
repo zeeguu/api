@@ -122,6 +122,45 @@ services:
       - ./data/zeeguu/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries
     networks:
       - zeeguu_backend
+
+  dev_server_pre:
+    image: zeeguu_api_dev
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9205"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
+      PYTHONUNBUFFERED: 1
+      MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
+      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
+    ports:
+      - 9005:9005
+    volumes:
+      - .:/Zeeguu-API
+      - ./data/zeeguu/esV8:/zeeguu-data
+    entrypoint: "python /Zeeguu-API/start.py"
+    networks:
+      - zeeguu_backend
+    depends_on:
+      - elasticsearch_v8_pre
+      - embedding_api
+      - readability_server
+    mem_limit: 2048m
+
+  elasticsearch_v8_pre:
+    image: elasticsearch:8.12.2
+    platform: linux/amd64
+    ports:
+      - 9205:9205
+      - 9305:9305
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - ./data/elasticsearch_db/data:/usr/share/elasticsearch_v8/data
+    networks:
+      - zeeguu_backend
+    restart: unless-stopped
+    mem_limit: 2048m
     
 
 networks:
