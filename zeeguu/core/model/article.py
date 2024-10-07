@@ -184,14 +184,6 @@ class Article(db.Model):
             topics.append((topic.new_topic.title, topic.origin_type))
         return topics
 
-    def contains_new_topic_from_url(self):
-        from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
-
-        topics_from_url = NewArticleTopicMap.query.filter(
-            NewArticleTopicMap.article_id == self.id
-        ).all()
-        return len(topics_from_url) > 0
-
     def contains_any_of(self, keywords: list):
         for each in keywords:
             if self.title.find(each) >= 0:
@@ -330,6 +322,7 @@ class Article(db.Model):
 
         for rank, t in enumerate(topic_keywords):
             self.add_topic_keywords(t, rank, session)
+
     def set_as_broken(self, session, broken_code):
         from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
 
