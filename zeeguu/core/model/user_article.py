@@ -13,7 +13,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, User
-from zeeguu.core.model.new_topic_user_feedback import ArticleTopicUserFeedback
+from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json

@@ -1,7 +1,7 @@
 import flask
 from flask import request
 from zeeguu.core.model import Article, Language, User, NewTopic
-from zeeguu.core.model.new_topic_user_feedback import ArticleTopicUserFeedback
+from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
