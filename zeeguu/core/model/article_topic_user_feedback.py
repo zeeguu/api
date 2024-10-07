@@ -7,19 +7,20 @@ import sqlalchemy
 
 from zeeguu.core.model import db
 
-class NewTopicUserFeedback(db.Model):
+
+class ArticleTopicUserFeedback(db.Model):
     """
+    This table allows for users to provide feedback to a specific Topic assigned to an
+    article. Currently, this is only used for users to remove Inferred topics in the
+    frontend. We can then have a process to review these and improve our method to
+    infer topics.
 
-    A topic subscription is created when
-    the user subscribed to a particular topic.
-    This is then taken into account in the
-    mixed recomemmder, when retrieving articles.
-
+    Eventually, this could be extended to support other types of feedback.
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "new_topic_user_feedback"
-    
+    __tablename__ = "article_topic_user_feedback"
+
     DO_NOT_SHOW_FEEDBACK = "DO_NOT_SHOW"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -51,29 +52,39 @@ class NewTopicUserFeedback(db.Model):
     def find_or_create(cls, session, article, user, topic, feedback):
         try:
             return (
-                cls.query.filter(cls.article == article).filter(cls.user == user).filter(cls.new_topic == topic).filter(cls.article == article).filter(cls.feedback == feedback).one()
+                cls.query.filter(cls.article == article)
+                .filter(cls.user == user)
+                .filter(cls.new_topic == topic)
+                .filter(cls.article == article)
+                .filter(cls.feedback == feedback)
+                .one()
             )
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(article, user, topic, feedback)
             session.add(new)
             session.commit()
-            print("Commitned new row: ", new, " to new_topic_user_feedback")
+            print("Commitned new row: ", new, " to article_topic_user_feedback")
             return new
-        
+
     @classmethod
-    def find_given_user_article(cls, article:Article, user:User):
+    def find_given_user_article(cls, article: Article, user: User):
         try:
-            return cls.query.filter_by(user=user, article=article).all()        
+            return cls.query.filter_by(user=user, article=article).all()
         except sqlalchemy.orm.exc.NoResultFound:
             return None
-        
+
     @classmethod
     def all_for_user(cls, user):
         return cls.query.filter(cls.user == user).all()
 
     @classmethod
     def all_for_user_as_list_w_feedback(cls, user, feedback):
-        return [user_feedback for user_feedback in cls.query.filter(cls.user == user).filter(cls.feedback == feedback).all()]
+        return [
+            user_feedback
+            for user_feedback in cls.query.filter(cls.user == user)
+            .filter(cls.feedback == feedback)
+            .all()
+        ]
 
     @classmethod
     def with_id(cls, i):

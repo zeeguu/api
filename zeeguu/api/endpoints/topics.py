@@ -73,7 +73,7 @@ def subscribe_to_new_topic_with_id():
     topic_object = NewTopic.find_by_id(new_topic_id)
     user = User.find_by_id(flask.g.user_id)
     NewTopicSubscription.find_or_create(db_session, user, topic_object)
-
+    db_session.commit()
     return "OK"
 
 
@@ -242,7 +242,6 @@ def get_available_new_topics():
     """
     topic_data = []
     user = User.find_by_id(flask.g.user_id)
-    already_filtered = [each.new_topic for each in NewTopicFilter.all_for_user(user)]
     already_subscribed = [
         each.new_topic for each in NewTopicSubscription.all_for_user(user)
     ]
@@ -250,10 +249,9 @@ def get_available_new_topics():
     topics = NewTopic.get_all_topics()
 
     for topic in topics:
-        if (topic not in already_filtered) and (topic not in already_subscribed):
+        if topic not in already_subscribed:
             topic_data.append(topic.as_dictionary())
-    print(already_filtered)
-    print(already_subscribed)
+
     return json_result(topic_data)
 
 
