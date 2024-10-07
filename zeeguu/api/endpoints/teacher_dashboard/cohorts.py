@@ -47,7 +47,7 @@ def remove_cohort(cohort_id):
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
         for student in selected_cohort.get_students():
-            student.cohort_id = None
+            student.cohorts = []
             db.session.add(student)
 
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
@@ -238,15 +238,17 @@ def add_colleague_to_cohort():
     return "OK"
 
 
-@api.route("/remove_user_from_cohort/<user_id>", methods=["GET"])
+@api.route("/remove_user_from_cohort/<user_id>/<cohort_id>", methods=["GET"])
 @requires_session
 @only_teachers
-def remove_user_from_cohort(user_id):
-    check_permission_for_user(user_id)
-
-    u = User.find_by_id(user_id)
-    u.cohort_id = None
-    db.session.add(u)
-    db.session.commit()
-
-    return "OK"
+def remove_user_from_cohort(user_id, cohort_id):
+    try:
+        check_permission_for_user(user_id, cohort_id)
+        u = User.find_by_id(user_id)
+        u.remove_from_cohort(cohort_id)
+        db.session.add(u)
+        db.session.commit()
+        return "OK"
+    except Exception as e:
+        print(e)
+        return "FAIL"

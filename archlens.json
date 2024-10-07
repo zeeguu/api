@@ -16,6 +16,30 @@
         }
       ],
       "ignorePackages": []
+    },
+    "inside-api": {
+      "packages": [
+        {
+          "path": "api",
+          "depth": 1
+        }
+      ],
+      "ignorePackages": [
+        "*test*",
+        "core"
+      ]
+    },
+    "inside-core": {
+      "packages": [
+        {
+          "path": "core",
+          "depth": 1
+        }
+      ],
+      "ignorePackages": [
+        "*test*",
+        "core"
+      ]
     }
   }
 }

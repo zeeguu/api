@@ -50,7 +50,7 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         self._helper_create_exercise(random_bookmark)
 
-        assert self.user.bookmarks_to_study() is not None
+        assert self.user.bookmarks_to_study(scheduled_only=True) is not None
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -295,7 +295,7 @@ class BookmarkTest(ModelTestMixIn):
         correct_bookmark.update_learned_status(db.session)
 
         learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
-        
+
         assert learned
 
         log = SortedExerciseLog(correct_bookmark)

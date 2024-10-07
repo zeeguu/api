@@ -2,6 +2,7 @@ from elasticsearch_dsl import Search, Q, SF
 from elasticsearch_dsl.query import MoreLikeThis
 from datetime import timedelta, datetime
 from zeeguu.core.model import Language
+from pprint import pprint
 
 
 def match(key, value):
@@ -33,14 +34,13 @@ def build_elastic_recommender_query(
     language,
     upper_bounds,
     lower_bounds,
-    es_scale="30d",
-    es_offset="1d",
-    es_decay=0.5,
-    es_weight=2.1,
-    new_topics_to_include="",
-    new_topics_to_exclude="",
-    second_try=False,
-    page=0,
+    es_scale,
+    es_offset,
+    es_decay,
+    es_weight,
+    new_topics_to_include,
+    new_topics_to_exclude,
+    page,
 ):
     """
 
@@ -92,10 +92,10 @@ def build_elastic_recommender_query(
     if not user_topics:
         user_topics = ""
 
-    if user_topics:
-        search_string = user_topics
-        should.append(match("content", search_string))
-        should.append(match("title", search_string))
+    # if user_topics:
+    #     search_string = user_topics
+    #     should.append(match("content", search_string))
+    #     should.append(match("title", search_string))
 
     # Assumes if a user has new topics they won't be rolled
     # back to not have new topics again.
@@ -145,7 +145,8 @@ def build_elastic_recommender_query(
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
-    bool_query_body["query"]["bool"].update({"should": should})
+    # bool_query_body["query"]["bool"].update({"should": should})
+
     full_query = {
         "from": page * count,
         "size": count,
@@ -194,7 +195,7 @@ def build_elastic_recommender_query(
         {"functions": [recency_preference, difficulty_prefference]}
     )
     full_query["query"]["function_score"].update(bool_query_body)
-    print(full_query)
+    pprint(full_query)
     return full_query
 
 
@@ -208,84 +209,12 @@ def build_elastic_search_query(
     language,
     upper_bounds,
     lower_bounds,
-    es_scale="3d",
-    es_offset="0d",
-    es_decay=0.8,
-    es_weight=4.2,
-    new_topics_to_include="",
-    new_topics_to_exclude="",
+    es_time_scale="1d",
+    es_time_offset="1d",
+    es_time_decay=0.65,
     page=0,
-):
-    """
-    Builds an elastic search query for search terms.
-    If called with second_try it drops the difficulty constraints
-    It also weights more recent results higher
-
-    """
-
-    s = (
-        Search()
-        .query(
-            Q("match", title=search_terms)
-            | Q("match", content=search_terms)
-            | Q("match", url=search_terms)
-        )
-        .filter("term", language=language.name.lower())
-        .exclude("match", description="pg15")
-    )
-
-    # https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-significanttext-aggregation.html
-
-    # using function scores to weight more recent results higher
-    # https://github.com/elastic/elasticsearch-dsl-py/issues/608
-    weighted_query = Q(
-        "function_score",
-        query=s.query,
-        functions=[
-            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.3}),
-            SF(
-                "exp",
-                fk_difficulty={
-                    "origin": ((upper_bounds + lower_bounds) / 2),
-                    "scale": 21,
-                },
-            ),
-        ],
-    )
-
-    query = {
-        "from": page * count,
-        "size": count,
-        "query": weighted_query.to_dict(),
-        # Extra the top-keywords from the search
-        "aggregations": {
-            "doc_sampler": {
-                "sampler": {"shard_size": 500},
-                "aggregations": {
-                    "keywords": {
-                        "significant_text": {
-                            "field": "content",
-                        },
-                    },
-                },
-            }
-        },
-    }
-
-    return query
-
-
-def more_like_this_query(
-    count,
-    article_text,
-    language,
-    upper_bounds,
-    lower_bounds,
-    es_scale="3d",
-    es_offset="1d",
-    es_decay=0.8,
-    es_weight=4.2,
-    page=0,
+    use_published_priority=True,
+    use_readability_priority=True,
 ):
     """
     Builds an elastic search query for search terms.
@@ -295,27 +224,36 @@ def more_like_this_query(
 
     s = (
         Search()
-        .query(MoreLikeThis(like=article_text, fields=["title", "content"]))
+        .query(Q("match", title=search_terms) | Q("match", content=search_terms))
         .filter("term", language=language.name.lower())
+        .exclude("match", description="pg15")
     )
-
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
-    weighted_query = Q(
-        "function_score",
-        query=s.query,
-        functions=[
-            SF("exp", published_time={"scale": "30d", "offset": "7d", "decay": 0.9}),
+    preferences = []
+    if use_published_priority:
+        preferences.append(
+            SF(
+                "exp",
+                published_time={
+                    "scale": es_time_scale,
+                    "offset": es_time_offset,
+                    "decay": es_time_decay,
+                },
+            ),
+        )
+    if use_readability_priority:
+        preferences.append(
             SF(
                 "exp",
                 fk_difficulty={
                     "origin": ((upper_bounds + lower_bounds) / 2),
                     "scale": 21,
-                    "decay": 0.9,
+                    "decay": 0.5,
                 },
             ),
-        ],
-    )
+        )
+    weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
 

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
@@ -16,7 +16,9 @@ from zeeguu.core.constants import (
     JSON_TIME_FORMAT,
     EVENT_LIKE_ARTICLE,
     EVENT_USER_FEEDBACK,
+    EVENT_USER_SCROLL,
 )
+from zeeguu.core.behavioral_modeling import find_last_reading_percentage
 import zeeguu
 
 from zeeguu.core.model import db
@@ -219,7 +221,6 @@ class UserActivityData(db.Model):
             return None
 
     def find_url_in_extra_data(self):
-
         """
         DB structure is a mess!
         There is no convention where the url associated with an event is.
@@ -290,6 +291,52 @@ class UserActivityData(db.Model):
             return self.article_id
 
         return self._find_article_in_value_or_extra_data(db_session)
+
+    @classmethod
+    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):
+        """
+        Returns a list of parsed scroll user events containing the last point which was "read"
+
+        [(article_id:int, last_event_time:datetime, viewPortSettings:dict, last_percentage:float)]
+        """
+
+        current_date = (datetime.now() + timedelta(1)).date()
+        past_date = (datetime.now() - timedelta(days_range)).date()
+        query = (
+            cls.query.filter(cls.user_id == user.id)
+            .filter(cls.event == EVENT_USER_SCROLL)
+            .filter(cls.time.between(str(past_date), str(current_date)))
+            .order_by(cls.id.desc())
+            .limit(50)
+        )
+        events = query.all()
+        seen_articles = set()
+        list_of_sessions = []
+        for e in events:
+            parsed_data = json.loads(e.extra_data)
+            viewportSettings = e.value
+            if (
+                e.article_id is None
+                or e.article_id in seen_articles
+                or len(parsed_data) == 0
+                or viewportSettings == ""
+            ):
+                continue
+            article_data = Article.find_by_id(e.article_id)
+            seen_articles.add(e.article_id)
+            if article_data.language_id != user.learned_language_id:
+                # Article doesn't match learned language
+                continue
+
+            # date_ago = (datetime.now() - e.time)
+            # seconds_ago = date_ago.seconds
+            last_percentage = find_last_reading_percentage(parsed_data)
+            list_of_sessions.append(
+                (e.article_id, e.time, json.loads(viewportSettings), last_percentage)
+            )
+            if len(list_of_sessions) >= limit:
+                break
+        return list_of_sessions
 
     @classmethod
     def create_from_post_data(cls, session, data, user):

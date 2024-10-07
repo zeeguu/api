@@ -26,10 +26,15 @@ from zeeguu.core.model import db
 @api.route("/basic_user_info/<id>", methods=["GET"])
 @requires_session
 def basic_user_info(id):
+    # This method doesn't seem to be used by the frontend
     user = check_permission_for_user(id)
 
     return jsonify(
-        {"name": user.name, "email": user.email, "cohort_id": user.cohort_id}
+        {
+            "name": user.name,
+            "email": user.email,
+            "cohorts": [uc.cohort.get_cohort_info() for uc in user.cohorts],
+        }
     )
 
 
@@ -37,7 +42,7 @@ def basic_user_info(id):
 @requires_session
 def user_info_api():
     user, cohort, from_date, to_date = _get_student_cohort_and_period_from_POST_params()
-    check_permission_for_user(user.id)
+    check_permission_for_user(user.id, cohort.id)
 
     return jsonify(student_info_for_teacher_dashboard(user, cohort, from_date, to_date))
 

@@ -35,7 +35,7 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-    
+
     def get_article_new_topics_df(self, feed_df):
         print("Getting Article New Topics...")
         query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
@@ -59,8 +59,8 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-    
-    def get_article_df_with_ids(self, feed_df, id_to_fetch:list[int]):
+
+    def get_article_df_with_ids(self, feed_df, id_to_fetch: list[int]):
         print("Getting Articles with Ids...")
         ids_as_str = [str(v) for v in id_to_fetch]
         query = f"""SELECT a.*, l.name Language
@@ -70,7 +70,7 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-    
+
     def get_language_df(self):
         print("Getting Languages...")
         query = "SELECT * from language"
@@ -228,7 +228,7 @@ class DataExtractor:
             "Unclassified"
         )
         return topic_reading_time_df
-    
+
     def get_new_topic_reading_time(self):
         print("Getting New Topic Reading Times...")
         query = f"""SELECT l.name as Language, t.title Topic, SUM(urs.duration) total_reading_time
@@ -249,7 +249,41 @@ class DataExtractor:
             "Unclassified"
         )
         return topic_reading_time_df
-    
+
+    def get_top_search_subscriptions(self):
+        print("Getting top search subscriptions...")
+        query = """SELECT s.keywords, count(user_id) total_users, sum(receive_email) as total_subscribers
+                    FROM search_subscription s_sub 
+                    INNER JOIN search s
+                    ON s.id = s_sub.search_id
+                    GROUP by search_id
+                    ORDER BY total_users DESC;"""
+        top_search_subscriptions_df = pd.read_sql(query, con=self.db_connection)
+        return top_search_subscriptions_df
+
+    def get_added_search_subscriptions(self):
+        print("Getting new added search subscriptions...")
+        query = f"""SELECT DISTINCT value as search
+                    FROM zeeguu_test.user_activity_data
+                    WHERE event like 'SUBSCRIBE_TO_SEARCH'
+                    AND value in (SELECT keywords from search)
+                    AND DATEDIFF(CURDATE(), time) <= {self.DAYS_FOR_REPORT};"""
+        newly_added_subscriptions = list(
+            pd.read_sql(query, con=self.db_connection)["search"].values
+        )
+        return newly_added_subscriptions
+
+    def get_top_search_filters(self):
+        print("Getting top search filters...")
+        query = """SELECT s.keywords, count(user_id) total_users
+                    FROM search_filter s_f 
+                    INNER JOIN search s
+                    ON s.id = s_f.search_id
+                    GROUP by search_id
+                    ORDER BY total_users DESC;"""
+        top_search_filters_df = pd.read_sql(query, con=self.db_connection)
+        return top_search_filters_df
+
     def add_language_to_df(self, df, language_data):
         df["Language"] = df.language_id.apply(
             lambda x: language_data.loc[language_data.id == x, "name"].values[0]

@@ -32,6 +32,10 @@ from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
 
+def filter_hits_on_score(hits, score_threshold):
+    return [h for h in hits if h["_score"] > score_threshold]
+
+
 def _prepare_user_constraints(user):
     language = user.learned_language
 
@@ -110,24 +114,31 @@ def article_recommendations_for_user(
     user,
     count,
     page=0,
-    es_scale="30d",
+    es_scale="1d",
     es_offset="1d",
     es_decay=0.6,
     es_weight=4.2,
+    score_threshold_for_search=5,
+    maximum_added_search_articles=10,
 ):
     """
+        Retrieve up to :param count + maximum_added_search_articles articles
+        which are equally distributed over all the feeds to which the :param user
+        is registered to.
 
-            Retrieve :param count articles which are equally distributed
-            over all the feeds to which the :param user is registered to.
+        The articles are prioritized based on recency and the difficulty, preferring
+        articles that are close to the users level.
 
-            Fails if no language is selected.
+        The search articles prioritize finding the searches the user has saved, so that
+        these articles are still shown even if not tagged by the topics selected.
+
+        Fails if no language is selected.
 
     :return:
 
     """
 
     final_article_mix = []
-
     (
         language,
         upper_bounds,
@@ -144,8 +155,8 @@ def article_recommendations_for_user(
         count,
         topics_to_include,
         topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
+        wanted_user_searches,
+        unwanted_user_searches,
         language,
         upper_bounds,
         lower_bounds,
@@ -163,8 +174,24 @@ def article_recommendations_for_user(
 
     hit_list = res["hits"].get("hits")
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-    pprint(res["aggregations"]["doc_sampler"])
-    articles = [a for a in final_article_mix if a is not None and not a.broken]
+
+    # Get articles based on Search preferences
+    articles_from_searches = []
+    for search in wanted_user_searches.split():
+        articles_from_searches += article_search_for_user(
+            user,
+            1,
+            search,
+            page,
+            score_threshold=score_threshold_for_search,
+            use_published_priority=True,
+            use_readability_priority=True,
+        )
+
+    # Limit the searched added articles to a maximum of 10 extra articles.
+    articles = [
+        a for a in final_article_mix if a is not None and not a.broken
+    ] + articles_from_searches[:maximum_added_search_articles]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
 
@@ -177,10 +204,12 @@ def article_search_for_user(
     count,
     search_terms,
     page=0,
-    es_scale="3d",
-    es_offset="1d",
-    es_decay=0.8,
-    es_weight=4.2,
+    es_time_scale="1d",
+    es_time_offset="1d",
+    es_time_decay=0.65,
+    use_published_priority=False,
+    use_readability_priority=True,
+    score_threshold=0,
 ):
     final_article_mix = []
 
@@ -207,22 +236,24 @@ def article_search_for_user(
         language,
         upper_bounds,
         lower_bounds,
-        es_scale,
-        es_offset,
-        es_decay,
-        es_weight,
-        new_topics_to_include=new_topics_to_include,
-        new_topics_to_exclude=new_topics_to_exclude,
-        page=page,
+        es_time_scale,
+        es_time_offset,
+        es_time_decay,
+        page,
+        use_published_priority,
+        use_readability_priority,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     pprint(res["aggregations"]["doc_sampler"])
     hit_list = res["hits"].get("hits")
+    if score_threshold > 0:
+        hit_list = filter_hits_on_score(hit_list, score_threshold)
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+    final_articles = [a for a in final_article_mix if a is not None and not a.broken]
 
-    return [a for a in final_article_mix if a is not None and not a.broken]
+    return final_articles
 
 
 def topic_filter_for_user(

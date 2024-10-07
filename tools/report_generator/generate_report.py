@@ -184,7 +184,8 @@ def generate_new_topic_by_feed_plot(article_topic_df, lang):
     plt.xlabel("Topic")
     plt.xticks(rotation=35, ha="right")
     return save_fig_params(filename)
-    
+
+
 def generate_topic_coverage_plot(article_df, article_with_topics_df):
     filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
     article_df["has_topic"] = "No"
@@ -199,7 +200,10 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
         y="proportion",
         hue="has_topic",
         data=articles_with_topics,
-        palette={"Yes":sns.color_palette("vlag")[0], "No":sns.color_palette("vlag")[5]},
+        palette={
+            "Yes": sns.color_palette("vlag")[0],
+            "No": sns.color_palette("vlag")[5],
+        },
     )
     plt.title("Proportion of Articles with Topics")
     plt.xticks(rotation=35, ha="right")
@@ -220,11 +224,15 @@ def generate_new_topic_coverage_plot(article_df, article_with_topics_df):
         y="proportion",
         hue="has_topic",
         data=articles_with_topics,
-        palette={"Yes":sns.color_palette("vlag")[0], "No":sns.color_palette("vlag")[5]},
+        palette={
+            "Yes": sns.color_palette("vlag")[0],
+            "No": sns.color_palette("vlag")[5],
+        },
     )
     plt.title("Proportion of Articles with New Topics")
     plt.xticks(rotation=35, ha="right")
     return save_fig_params(filename)
+
 
 def generate_total_article_per_language(article_df):
     filename = f"total_articles_downloaded_{date_str}_d{DAYS_FOR_REPORT}.png"
@@ -365,6 +373,7 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
     plt.ylabel("Total Reading time (mins)")
     return save_fig_params(filename)
 
+
 def generate_new_topic_reading_time(topic_reading_time_df, lang=""):
     filename = (
         f"new_topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
@@ -398,6 +407,7 @@ def generate_new_topic_reading_time(topic_reading_time_df, lang=""):
     plt.xticks(rotation=35, ha="right")
     plt.ylabel("Total Reading time (mins)")
     return save_fig_params(filename)
+
 
 def generate_exercise_activity(exercise_activity_df, lang=""):
     filename = (
@@ -473,12 +483,14 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     ]
     if len(bookmark_count) > 0:
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_review_proportion, on="Language", how="inner"
+            bookmark_review_proportion, on="Language", how="outer"
         )
-
         reading_time_ex_time = reading_time_ex_time.merge(
-            bookmark_count, on="Language", how="inner"
+            bookmark_count, on="Language", how="outer"
         )
+        reading_time_ex_time.loc[
+            reading_time_ex_time["Bookmarks % Reviewed"].isna(), "Bookmarks % Reviewed"
+        ] = 0
     else:
         reading_time_ex_time["Bookmarks % Reviewed"] = 0
         reading_time_ex_time["Total Bookmarks"] = 0
@@ -497,20 +509,34 @@ def generate_active_users_table(active_user_read_ex_pd, bookmark_pd):
     )
 
 
-def generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5):
+def generate_top_opened_articles(
+    user_reading_time_df, data_extractor, feed_df, number_of_articles_to_report=5
+):
     articles_by_user_interaction = (
-        user_reading_time_df.groupby(['id']).agg({'total_reading_time' : 'mean',
-                                        'user_id' : 'count'}).reset_index()
+        user_reading_time_df.groupby(["id"])
+        .agg({"total_reading_time": "mean", "user_id": "count"})
+        .reset_index()
     )
-    read_articles = data_extractor.get_article_df_with_ids(feed_df, articles_by_user_interaction.id.values)
+    read_articles = data_extractor.get_article_df_with_ids(
+        feed_df, articles_by_user_interaction.id.values
+    )
     articles_by_user_interaction = articles_by_user_interaction.merge(
         read_articles[["id", "title", "Feed Name", "Language"]], on="id"
     )[["Language", "Feed Name", "id", "title", "user_id", "total_reading_time"]]
     articles_by_user_interaction = articles_by_user_interaction.rename(
-        columns={"id": "Article id", "title": "Article Title", "user_id": "Users Count", "total_reading_time":"User Avg. Reading Time"}
+        columns={
+            "id": "Article id",
+            "title": "Article Title",
+            "user_id": "Users Count",
+            "total_reading_time": "User Avg. Reading Time",
+        }
     )
-    articles_by_user_interaction = articles_by_user_interaction.sort_values(["Users Count", "User Avg. Reading Time"], ascending=False)
-    return generate_html_table(articles_by_user_interaction.head(number_of_articles_to_report))
+    articles_by_user_interaction = articles_by_user_interaction.sort_values(
+        ["Users Count", "User Avg. Reading Time"], ascending=False
+    )
+    return generate_html_table(
+        articles_by_user_interaction.head(number_of_articles_to_report)
+    )
 
 
 def generate_html_page():
@@ -537,7 +563,13 @@ def generate_html_page():
     total_unique_articles_opened_by_users = len(
         article_df[article_df.id.isin(user_reading_time_df.id)]
     )
+    total_unique_articles_opened_by_users = (
+        user_reading_time_df.Language.value_counts().reset_index()["count"].sum()
+    )
     exercise_activity_df = data_extractor.get_exercise_type_activity()
+    top_subscribed_searches = data_extractor.get_top_search_subscriptions()
+    top_filtered_searches = data_extractor.get_top_search_filters()
+    newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
@@ -631,17 +663,27 @@ def generate_html_page():
                 {generate_html_table(article_df.groupby("Language").word_count.describe().reset_index())}
                 <h2>FK Difficulty:</h2>
                 {generate_html_table(article_df.groupby("Language").fk_difficulty.describe().reset_index())}
-                <h2>Activity Report</h2>
-                <p><b>Total Active Users:</b> {total_active_users}</p>
+                <h2>Top Subscribed Searches:</h2>
             """
+    if len(newly_added_search_subscriptions) > 0:
+        result += f"""
+                <p><b>Newly added searches:</b> {"'" + "', '".join(newly_added_search_subscriptions) + "'"}</p>
+                """
+    result += f"""
+        {generate_html_table(top_subscribed_searches.head(10))}
+        <h2>Top Filtered Searches:</h2>
+        {generate_html_table(top_filtered_searches.head(10))}
+        <h2>Activity Report</h2>
+        <p><b>Total Active Users:</b> {total_active_users}</p>
+        """
     if total_active_users == 0:
         result += """<p><b>No active users in this period</b></p>
         <hr>"""
     else:
         result += f"""
-        <h3>Top Articles Read:</h3>
         {generate_active_users_table(combined_user_activity_df, bookmark_df)}
         <br>
+        <h3>Top Articles Read:</h3>
         {generate_top_opened_articles(user_reading_time_df, data_extractor, feed_df)}
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />

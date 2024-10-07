@@ -27,6 +27,12 @@ def main(starting_index):
 
     max_id = session.query(func.max(Article.id)).first()[0]
     min_id = session.query(func.min(Article.id)).first()[0]
+
+    if max_id is None:
+        max_id = 0
+    if min_id is None:
+        min_id = 0
+    
     print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
 

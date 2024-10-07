@@ -30,4 +30,5 @@ lu-mir-zeeguu-credentials.json
 
 zenv*
 tools/_playground.py
-semanticEmbApi/app/semantic_vector/binaries/distiluse-base-multilingual-cased-v2/
+
+!zeeguu/core/word_filter/data/

@@ -35,6 +35,14 @@ def features_for_user(user):
     return features
 
 
+"""
+    We have a code 'zeeguu-preview' which is used to invite
+    general users and should give access to the latest feature set
+    of Zeeguu. It can be used for usability tests and can be also
+    spread by word of mouth to new participants.
+"""
+
+
 def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
@@ -62,22 +70,23 @@ def _merle_exercises(user):
         user.invitation_code == "Merle"
         or user.invitation_code == "MerleITU"
         or user.invitation_code == "PTCT"
+        or user.invitation_code == "zeeguu-preview"
         or user.id in [534, 2953, 4022, 4089, 4607]
     )
     return right_user
 
 
 def _no_audio_exercises(user):
-    return user.cohort and user.cohort.id == 447
+    return user.is_member_of_cohort(447)
 
 
 def _audio_exercises(user):
-    return user.cohort and user.cohort.id == 444
+    return user.is_member_of_cohort(444)
 
 
 def _extension_experiment_1(user):
     return (
-        (user.cohort and user.cohort.id == 437)
+        (user.is_member_of_cohort(437))
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )

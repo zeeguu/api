@@ -7,6 +7,7 @@ import sqlalchemy
 import zeeguu.core
 
 from zeeguu.core.model import db
+from zeeguu.core.model.search import Search
 
 
 class SearchFilter(db.Model):
@@ -55,7 +56,16 @@ class SearchFilter(db.Model):
 
     @classmethod
     def all_for_user(cls, user):
-        return cls.query.filter(cls.user == user).all()
+        return (
+            cls.query.join(Search)
+            .filter(cls.user == user)
+            .filter(Search.language_id == user.learned_language_id)
+            .all()
+        )
+
+    @classmethod
+    def get_number_of_users_excluding(cls, search_id):
+        return cls.query.filter(cls.search_id == search_id).count()
 
     @classmethod
     def with_search_id(cls, i, user):

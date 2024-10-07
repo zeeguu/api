@@ -3,7 +3,7 @@ from sqlalchemy import Column, String
 from sqlalchemy.orm.exc import NoResultFound
 from datetime import time
 
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 from zeeguu.logging import log, logp
 
