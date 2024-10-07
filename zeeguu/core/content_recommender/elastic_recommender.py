@@ -47,10 +47,10 @@ def _prepare_user_constraints(user):
     # 1. Unwanted user topics
     # ==============================
     user_search_filters = SearchFilter.all_for_user(user)
-    unwanted_user_topics = []
+    unwanted_user_searches = []
     for user_search_filter in user_search_filters:
-        unwanted_user_topics.append(user_search_filter.search.keywords)
-    print(f"keywords to exclude: {unwanted_user_topics}")
+        unwanted_user_searches.append(user_search_filter.search.keywords)
+    print(f"keywords to exclude: {unwanted_user_searches}")
 
     # 2. Topics to exclude / filter out
     # =================================
@@ -92,10 +92,10 @@ def _prepare_user_constraints(user):
     # =========================================
     user_subscriptions = SearchSubscription.all_for_user(user)
 
-    wanted_user_topics = []
+    wanted_user_searches = []
     for sub in user_subscriptions:
-        wanted_user_topics.append(sub.search.keywords)
-    print(f"keywords to include: {wanted_user_topics}")
+        wanted_user_searches.append(sub.search.keywords)
+    print(f"keywords to include: {wanted_user_searches}")
 
     return (
         language,
@@ -105,8 +105,8 @@ def _prepare_user_constraints(user):
         _list_to_string(topics_to_exclude),
         _new_topics_to_string(new_topics_to_include),
         _new_topics_to_string(new_topics_to_exclude),
-        _list_to_string(wanted_user_topics),
-        _list_to_string(unwanted_user_topics),
+        _list_to_string(wanted_user_searches),
+        _list_to_string(unwanted_user_searches),
     )
 
 
@@ -147,8 +147,8 @@ def article_recommendations_for_user(
         topics_to_exclude,
         new_topics_to_include,
         new_topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
+        wanted_user_searches,
+        unwanted_user_searches,
     ) = _prepare_user_constraints(user)
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
