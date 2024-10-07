@@ -246,7 +246,6 @@ def article_search_for_user(
 
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
-    pprint(res["aggregations"]["doc_sampler"])
     hit_list = res["hits"].get("hits")
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)

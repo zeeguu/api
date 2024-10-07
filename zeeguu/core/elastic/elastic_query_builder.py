@@ -25,6 +25,33 @@ def array_of_new_topics(topics):
     return topics.split(",")
 
 
+def more_like_this_query(
+    count,
+    article_text,
+    language,
+    upper_bounds,
+    lower_bounds,
+    es_scale="3d",
+    es_offset="1d",
+    es_decay=0.8,
+    es_weight=4.2,
+    page=0,
+):
+    """
+    Builds an elastic search query for search terms.
+
+    Uses the recency and the difficulty of articles to prioritize documents.
+    """
+
+    s = (
+        Search()
+        .query(MoreLikeThis(like=article_text, fields=["title", "content"]))
+        .filter("term", language=language.name.lower())
+    )
+
+    return s.to_dict()
+
+
 def build_elastic_recommender_query(
     count,
     topics,
@@ -151,18 +178,6 @@ def build_elastic_recommender_query(
         "from": page * count,
         "size": count,
         "query": {"function_score": {}},
-        "aggregations": {
-            "doc_sampler": {
-                "sampler": {"shard_size": 2000},
-                "aggregations": {
-                    "keywords": {
-                        "significant_text": {
-                            "field": "content",
-                        },
-                    },
-                },
-            }
-        },
     }
 
     recency_preference = {
@@ -185,7 +200,6 @@ def build_elastic_recommender_query(
         "exp": {
             "fk_difficulty": {
                 "origin": ((upper_bounds + lower_bounds) / 2),
-                "offset": 15,
                 "scale": 21,
             }
         },
