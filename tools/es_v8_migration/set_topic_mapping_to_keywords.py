@@ -17,7 +17,7 @@ db_session = zeeguu.core.model.db.session
 """
 df = pd.read_csv("url_topics_count_with_pred_to_db.csv", index_col=0)
 
-for row_i, row in tqdm(df.iterrows()):
+for row_i, row in tqdm(df.iterrows(), total=len(df)):
     keyword = row["keyword"]
     try:
         url_k_list = UrlKeyword.find_all_by_keyword(keyword)
