@@ -1,5 +1,5 @@
 from zeeguu.core.model.article import Article
-from zeeguu.core.model.topic_keyword import TopicKeyword
+from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.util import remove_duplicates_keeping_order
 from zeeguu.api.app import create_app
 import zeeguu.core
@@ -23,18 +23,18 @@ app.app_context().push()
 db_session = zeeguu.core.model.db.session
 
 
-def get_topic_keywords_from_article(a: Article):
+def get_url_keywords_from_article(a: Article):
     try:
         path = str(a.url.path)
-        topic_k = filter(TopicKeyword.topic_filter, path.split("/"))
-        topic_k = filter(
-            TopicKeyword.is_non_word, map(lambda x: x.replace("-", " "), topic_k)
+        url_keywords = filter(UrlKeyword.topic_filter, path.split("/"))
+        url_keywords = filter(
+            UrlKeyword.is_non_word, map(lambda x: x.replace("-", " "), url_keywords)
         )
-        topic_k = map(lambda x: x.lower().strip(), topic_k)
+        url_keywords = map(lambda x: x.lower().strip(), url_keywords)
     except Exception as e:
         print(f"Failed for article '{a.id}', with: '{e}'")
         return None
-    return remove_duplicates_keeping_order(topic_k)
+    return remove_duplicates_keeping_order(url_keywords)
 
 
 def main():
@@ -47,9 +47,9 @@ def main():
         try:
             a = Article.find_by_id(a_id)
             path = str(a.url.path)
-            topics = filter(TopicKeyword.topic_filter, path.split("/"))
+            topics = filter(UrlKeyword.topic_filter, path.split("/"))
             topics = filter(
-                TopicKeyword.is_non_word, map(lambda x: x.replace("-", " "), topics)
+                UrlKeyword.is_non_word, map(lambda x: x.replace("-", " "), topics)
             )
             topics = map(lambda x: x.lower().strip(), topics)
             topics_l = list(topics)

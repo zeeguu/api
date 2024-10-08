@@ -1,6 +1,6 @@
-from zeeguu.core.model import Topic, TopicKeyword, NewTopic
+from zeeguu.core.model import Topic, UrlKeyword, NewTopic
 from zeeguu.core.model.article import article_topic_map
-from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.new_article_topic_map import TopicOriginType, NewArticleTopicMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
@@ -39,16 +39,16 @@ def find_new_topics(article_id, session):
     return article_topics, inferred_article_topics
 
 
-def find_filter_topic_keywords(article_id, session):
-    article_topic_keywords = (
-        session.query(TopicKeyword)
-        .join(ArticleTopicKeywordMap)
-        .filter(ArticleTopicKeywordMap.article_id == article_id)
+def find_filter_url_keywords(article_id, session):
+    article_url_keywords = (
+        session.query(UrlKeyword)
+        .join(ArticleUrlKeywordMap)
+        .filter(ArticleUrlKeywordMap.article_id == article_id)
     )
     topic_kewyords = [
         str(t_key.keyword)
-        for t_key in article_topic_keywords
-        if t_key not in TopicKeyword.EXCLUDE_TOPICS
+        for t_key in article_url_keywords
+        if t_key not in UrlKeyword.EXCLUDE_TOPICS
     ]
     return topic_kewyords
 

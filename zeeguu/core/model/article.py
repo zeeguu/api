@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from zeeguu.core.model.article_topic_keyword_map import ArticleTopicKeywordMap
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
@@ -71,7 +71,7 @@ class Article(db.Model):
 
     from zeeguu.core.model.language import Language
 
-    from zeeguu.core.model.topic_keyword import TopicKeyword
+    from zeeguu.core.model.url_keyword import UrlKeyword
 
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
@@ -97,7 +97,7 @@ class Article(db.Model):
 
     new_topics = relationship("NewArticleTopicMap", back_populates="article")
 
-    topic_keywords = relationship("ArticleTopicKeywordMap", back_populates="article")
+    url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
     # Or maybe an article that's behind a paywall and
@@ -313,15 +313,15 @@ class Article(db.Model):
         for t in topics:
             self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
 
-    def add_topic_keywords(self, topic_keyword, rank, session):
+    def add_url_keyword(self, url_keyword, rank, session):
 
-        a = ArticleTopicKeywordMap(article=self, topic_keyword=topic_keyword, rank=rank)
+        a = ArticleUrlKeywordMap(article=self, url_keyword=url_keyword, rank=rank)
         session.add(a)
 
-    def set_topic_keywords(self, topic_keywords, session):
+    def set_url_keywords(self, url_keywords, session):
 
-        for rank, t in enumerate(topic_keywords):
-            self.add_topic_keywords(t, rank, session)
+        for rank, t in enumerate(url_keywords):
+            self.add_url_keyword(t, rank, session)
 
     def set_as_broken(self, session, broken_code):
         from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap

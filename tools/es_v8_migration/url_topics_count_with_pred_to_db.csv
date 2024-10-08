@@ -1,4 +1,4 @@
-,topic_keyword_id,keyword,Total,main_topic,main_topic_p,val_pred
+,url_keywords_id,keyword,Total,main_topic,main_topic_p,val_pred
 0,27,sport,24232,sports,0.9213810563,1
 1,73,news,22051,travel & tourism,0.274492234,-1
 2,1226,i,20225,culture & art,0.2571561337,-1

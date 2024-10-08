@@ -50,7 +50,7 @@ def search_similar_to_article(article_id):
             hit["_source"]["topics"],
             hit["_source"]["language"],
             f"New Topics: {hit['_source']['new_topics']}",
-            hit["_source"].get("topic_keywords", []),
+            hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
         )
@@ -63,7 +63,7 @@ def search_similar_to_article(article_id):
             hit["_source"]["topics"],
             hit["_source"]["language"],
             f"New Topics: {hit['_source']['new_topics']}",
-            hit["_source"].get("topic_keywords", []),
+            hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
         )
@@ -75,17 +75,17 @@ def search_similar_to_article(article_id):
             hit["_source"]["topics"],
             hit["_source"]["language"],
             f"New Topics: {hit['_source']['new_topics']}",
-            hit["_source"].get("topic_keywords", []),
+            hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
         )
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
     TOPICS_TO_NOT_COUNT = set(["news", "aktuell", "nyheder", "nieuws", "article"])
     neighbouring_keywords = [
-        t.topic_keyword
+        t.url_keywords
         for a in a_found_t
-        for t in a.topic_keywords
-        if t.topic_keyword.keyword not in TOPICS_TO_NOT_COUNT
+        for t in a.url_keywords
+        if t.url_keywords.keyword not in TOPICS_TO_NOT_COUNT
     ]
 
     print()

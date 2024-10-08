@@ -24,7 +24,7 @@ import zeeguu
 
 
 # the core model
-from .article_topic_keyword_map import ArticleTopicKeywordMap
+from .article_url_keyword_map import ArticleUrlKeywordMap
 from .new_article_topic_map import NewArticleTopicMap
 from .user_cohort_map import UserCohortMap
 from .language import Language
@@ -54,7 +54,7 @@ from .topic import Topic
 from .topic_subscription import TopicSubscription
 from .topic_filter import TopicFilter
 from .localized_topic import LocalizedTopic
-from .topic_keyword import TopicKeyword
+from .url_keyword import UrlKeyword
 
 from .search import Search
 from .search_filter import SearchFilter

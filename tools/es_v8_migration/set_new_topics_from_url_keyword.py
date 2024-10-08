@@ -27,8 +27,8 @@ for a_id in tqdm(all_article_id):
         article = Article.find_by_id(a_id)
         topics = []
         topics_added = set()
-        for topic_key in article.topic_keywords:
-            topic = topic_key.topic_keyword.new_topic
+        for url_keyword in article.url_keywords:
+            topic = url_keyword.url_keyword.new_topic
             if topic is None:
                 continue
             if topic.id in topics_added:

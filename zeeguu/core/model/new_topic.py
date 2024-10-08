@@ -9,7 +9,7 @@ class NewTopic(db.Model):
     """
     The New Topics are standerdized accross all languages.
 
-    Each TopicKeyword can be associated with one New Topic
+    Each UrlKeyword can be associated with one New Topic
     which are used to infer topics in articles which haven't got any topic.
 
     This relationship is stored in NewArticleTopicMap.

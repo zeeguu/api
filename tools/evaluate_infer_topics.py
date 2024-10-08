@@ -51,9 +51,7 @@ for i, doc_to_search in enumerate(sampled_ids):
     )
 
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
-    neighbouring_keywords = [
-        t.topic_keyword for a in a_found_t for t in a.topic_keywords
-    ]
+    neighbouring_keywords = [t.url_keyword for a in a_found_t for t in a.url_keywords]
     avg_score = sum([float(h["_score"]) for h in hits_t]) / len(hits_t)
 
     topics_counter = Counter(neighbouring_topics)

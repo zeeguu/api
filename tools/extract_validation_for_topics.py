@@ -16,14 +16,14 @@ app.app_context().push()
 valid_articles_da = (
     Article.query.filter(Article.language.has(Language.code == "da"))
     .filter(Article.topics.any())
-    .filter(Article.topic_keywords.any())
+    .filter(Article.url_keywords.any())
     .all()
 )
 
 valid_articles_es = (
     Article.query.filter(Article.language.has(Language.code == "es"))
     .filter(Article.topics.any())
-    .filter(Article.topic_keywords.any())
+    .filter(Article.url_keywords.any())
     .all()
 )
 
@@ -32,10 +32,10 @@ def get_topics(a: Article):
     return ", ".join([t.title for t in a.topics])
 
 
-def get_ordered_topic_keywords(a: Article):
-    topic_keywords = [(tk.topic_keyword.keyword, tk.rank) for tk in a.topic_keywords]
-    topic_keywords = sorted(topic_keywords, key=lambda x: x[1])
-    return ", ".join([tk[0] for tk in topic_keywords])
+def get_ordered_url_keywords(a: Article):
+    url_keywords = [(uk.url_keywords.keyword, uk.rank) for uk in a.url_keywords]
+    url_keywords = sorted(url_keywords, key=lambda x: x[1])
+    return ", ".join([uk[0] for uk in url_keywords])
 
 
 def get_article_dict(a: Article):
@@ -43,7 +43,7 @@ def get_article_dict(a: Article):
         "id": a.id,
         "title": a.title,
         "topics": get_topics(a),
-        "topic_keywords": get_ordered_topic_keywords(a),
+        "url_keywords": get_ordered_url_keywords(a),
         "language": a.language.code,
         "summary": a.summary,
     }

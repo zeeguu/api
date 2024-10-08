@@ -19,7 +19,7 @@ from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, LocalizedTopic, TopicKeyword, NewTopic
+from zeeguu.core.model import Url, Feed, LocalizedTopic, UrlKeyword, NewTopic
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import requests
 
@@ -304,9 +304,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     old_topics = add_topics(new_article, session)
     logp(f"Old Topics ({old_topics})")
-    topic_keywords = add_topic_keywords(new_article, session)
-    logp(f"Topic Keywords: ({topic_keywords})")
-    origin_type, topics = add_new_topics(new_article, feed, topic_keywords, session)
+    url_keywords = add_url_keywords(new_article, session)
+    logp(f"Topic Keywords: ({url_keywords})")
+    origin_type, topics = add_new_topics(new_article, feed, url_keywords, session)
     logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
@@ -324,7 +324,7 @@ def add_topics(new_article, session):
     return topics
 
 
-def add_new_topics(new_article, feed, topic_keywords, session):
+def add_new_topics(new_article, feed, url_keywords, session):
     HARDCODED_FEEDS = {
         102: 8,  # The Onion EN
         121: 8,  # Lercio IT
@@ -339,7 +339,7 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     # Try setting the Topics based on URLs
     topics = []
     topics_added = set()
-    for topic_key in topic_keywords:
+    for topic_key in url_keywords:
         topic = topic_key.new_topic
         print(topic_key, topic)
         if (
@@ -380,12 +380,12 @@ def add_new_topics(new_article, feed, topic_keywords, session):
     return None, []
 
 
-def add_topic_keywords(new_article, session):
-    topic_keywords = [
-        TopicKeyword.find_or_create(session, keyword, new_article.language)
-        for keyword in TopicKeyword.get_topic_keywords_from_url(new_article.url)
+def add_url_keywords(new_article, session):
+    url_keywords = [
+        UrlKeyword.find_or_create(session, keyword, new_article.language)
+        for keyword in UrlKeyword.get_url_keywords_from_url(new_article.url)
         if keyword is not None
     ]
-    new_article.set_topic_keywords(topic_keywords, session)
+    new_article.set_url_keywords(url_keywords, session)
     session.add(new_article)
-    return topic_keywords
+    return url_keywords

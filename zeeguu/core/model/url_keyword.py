@@ -10,7 +10,7 @@ from collections import Counter
 from zeeguu.core.model import db
 
 
-class TopicKeyword(db.Model):
+class UrlKeyword(db.Model):
     """
     These are words extracted from the URL that can be used as keywords
     for the New Topic Table. Each keyword is associated with a language,
@@ -46,7 +46,7 @@ class TopicKeyword(db.Model):
     )
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "topic_keyword"
+    __tablename__ = "url_keyword"
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -57,7 +57,7 @@ class TopicKeyword(db.Model):
     new_topic = relationship(NewTopic)
 
     keyword = db.Column(db.String(45))
-    articles = relationship("ArticleTopicKeywordMap", back_populates="topic_keyword")
+    articles = relationship("ArticleUrlKeywordMap", back_populates="url_keyword")
 
     def __init__(self, keyword: str, language: Language, new_topic: NewTopic = None):
 
@@ -142,7 +142,7 @@ class TopicKeyword(db.Model):
         )
 
     @classmethod
-    def get_topic_keywords_from_url(cls, url: Url):
+    def get_url_keywords_from_url(cls, url: Url):
         try:
             path = str(url.path)
             topic_k = filter(cls.topic_filter, path.split("/"))

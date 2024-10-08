@@ -39,7 +39,7 @@ for a_id in tqdm(all_article_id):
         add_new_topics(
             article,
             article.feed,
-            [atk.topic_keyword for atk in article.topic_keywords],
+            [auk.url_keyword for auk in article.url_keywords],
             db_session,
         )
     except Exception as e:

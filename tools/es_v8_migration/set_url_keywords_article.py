@@ -7,8 +7,8 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, TopicKeyword
-from url_topics import get_topic_keywords_from_article
+from zeeguu.core.model import Article, UrlKeyword
+from url_topics import get_url_keywords_from_article
 from tqdm import tqdm
 
 app = create_app()
@@ -26,12 +26,12 @@ for a_id in tqdm(all_article_id):
     counter += 1
     try:
         article = Article.find_by_id(a_id)
-        topic_keywords = [
-            TopicKeyword.find_or_create(db_session, keyword, article.language)
-            for keyword in get_topic_keywords_from_article(article)
+        url_keywords = [
+            UrlKeyword.find_or_create(db_session, keyword, article.language)
+            for keyword in get_url_keywords_from_article(article)
             if keyword is not None
         ]
-        article.set_topic_keywords(topic_keywords, db_session)
+        article.set_url_keywords(url_keywords, db_session)
         db_session.add(article)
     except Exception as e:
         counter -= 1

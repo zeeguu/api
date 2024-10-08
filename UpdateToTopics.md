@@ -23,7 +23,7 @@ Within the `zeeguu.core` folder, we can find a new folder `semantic_vector_api`,
 
 To ensure more consistency among all topics, a new list will be used. These will all be placed in the system as **NewTopics** vs the old **Topics**. This is done in the migration scripts, where the new topics will be added.
 
-The NewTopics are assigned based on TopicKeywords, which are retrieved from the URL of articles crawled. These are manually assigned into categories when they have been crawled more than 100 times. E.g. Kultur is associated with the new topic: "Culture & Art".
+The NewTopics are assigned based on url keywords, which are retrieved from the URL of articles crawled. These are manually assigned into categories when they have been crawled more than 100 times. E.g. Kultur is associated with the new topic: "Culture & Art".
 
 Currently, the new topics are all under new_topic and new tables to ensure the old topics are still kept. At some point, we can drop the old functionality, but we need to update all the **New** to be the default.
 
@@ -35,7 +35,7 @@ This will update create a mapping between articles and keyword topics and can be
 
 Here I will bootstrap it using the Lauritz model which does NLI to do Zero-Shot classification. We will only look at url topics with more than 100 articles. This needs to be a process that monitors the future, and alerts when there are new topics found.
 
-If the keyword is not mapped to any topic then it's ignored when retrieving the topics for an article. Some words such as "News" are ignored and not even stored into the database. This list is kept in `topic_keyword.py`
+If the keyword is not mapped to any topic then it's ignored when retrieving the topics for an article. Some words such as "News" are ignored and not even stored into the database. This list is kept in `url_keyword.py`
 
 ## 5.1. Run the **tools/es_v8_migration/add_topic_mapping_to_keywords.py**
 
