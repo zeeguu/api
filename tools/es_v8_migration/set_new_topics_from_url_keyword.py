@@ -43,7 +43,7 @@ for a_id in tqdm(all_article_id):
     if counter % 1000 == 0:
         percentage = (100 * counter / total_articles) / 100
         print(
-            f"{counter} dorticles done ({percentage:.4f}%). last article id: {article.id}. comitting... "
+            f"{counter} articles done ({percentage:.4f}%). last article id: {article.id}. comitting... "
         )
         db_session.commit()
 db_session.commit()

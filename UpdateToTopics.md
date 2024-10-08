@@ -37,7 +37,7 @@ Here I will bootstrap it using the Lauritz model which does NLI to do Zero-Shot 
 
 If the keyword is not mapped to any topic then it's ignored when retrieving the topics for an article. Some words such as "News" are ignored and not even stored into the database. This list is kept in `url_keyword.py`
 
-## 5.1. Run the **tools/es_v8_migration/add_topic_mapping_to_keywords.py**
+## 5.1. Run the **tools/es_v8_migration/set_topic_mapping_to_keywords.py**
 
 This has been done for the keywords in the test database, with the proposed links listed in: **url_topics_count_with_pred_to_db.csv**
 
