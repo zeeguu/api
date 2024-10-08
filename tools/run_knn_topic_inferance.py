@@ -47,9 +47,9 @@ def search_similar_to_article(article_id):
     for hit in hits:
         print(
             hit["_id"],
-            hit["_source"]["topics"],
+            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['new_topics']}",
+            f"New Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
@@ -60,9 +60,9 @@ def search_similar_to_article(article_id):
     for hit in hits_t:
         print(
             hit["_id"],
-            hit["_source"]["topics"],
+            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['new_topics']}",
+            f"New Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
@@ -72,9 +72,9 @@ def search_similar_to_article(article_id):
     for hit in hits_lt:
         print(
             hit["_id"],
-            hit["_source"]["topics"],
+            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['new_topics']}",
+            f"New Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],

@@ -121,13 +121,13 @@ def build_elastic_recommender_query(
         should_remove_topics = []
         topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
         for t in topics_to_filter_out:
-            should_remove_topics.append({"match": {"new_topics": t}})
-            should_remove_topics.append({"match": {"new_topics_inferred": t}})
+            should_remove_topics.append({"match": {"topics": t}})
+            should_remove_topics.append({"match": {"topics_inferred": t}})
         must_not.append({"bool": {"should": should_remove_topics}})
     else:
         unwanted_old_topics_arr = array_of_lowercase_topics(unwanted_topics)
         if len(unwanted_old_topics_arr) > 0:
-            must_not.append({"terms": {"topics": unwanted_old_topics_arr}})
+            must_not.append({"terms": {"old_topics": unwanted_old_topics_arr}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
@@ -139,13 +139,13 @@ def build_elastic_recommender_query(
         should_topics = []
         topics_to_find = array_of_new_topics(new_topics_to_include)
         for t in topics_to_find:
-            should_topics.append({"match": {"new_topics": t}})
-            should_topics.append({"match": {"new_topics_inferred": t}})
+            should_topics.append({"match": {"topics": t}})
+            should_topics.append({"match": {"topics_inferred": t}})
         must.append({"bool": {"should": should_topics}})
     else:
         topics_arr = array_of_lowercase_topics(topics)
         if len(topics_arr) > 0:
-            must.append({"terms": {"topics": topics_arr}})
+            must.append({"terms": {"old_topics": topics_arr}})
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
@@ -307,7 +307,7 @@ def build_elastic_semantic_sim_query(
             ~Q("ids", values=[article.id])
             & (
                 Q("match", language__keyword=language.name)
-                & ~Q("match", **{"new_topics.keyword": ""})
+                & ~Q("match", **{"topics.keyword": ""})
             )
         ),
     )
@@ -333,9 +333,9 @@ def build_elastic_semantic_sim_query_for_topic_cls(
             # & ~Q("match", **{"url_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
             & Q(
-                "exists", field="new_topics"
+                "exists", field="topics"
             )  # new_topics = topics that are not inferred, as opposed to new_topics_inferred
-            & ~Q("match", new_topics="")
+            & ~Q("match", topics="")
         ),
     )
 

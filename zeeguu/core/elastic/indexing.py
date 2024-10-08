@@ -63,12 +63,12 @@ def document_from_article(article, session, topics=None):
         "summary": article.summary,
         "word_count": article.word_count,
         "published_time": article.published_time,
-        "topics": old_topics,
-        "new_topics": [t.title for t in topics],
+        "old_topics": old_topics,
+        "topics": [t.title for t in topics],
         # We need to avoid using these as a way to classify further documents
         # (we should rely on the human labels to classify further articles)
         # rather than infer on inferences.
-        "new_topics_inferred": [t.title for t in topics_inferred],
+        "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
