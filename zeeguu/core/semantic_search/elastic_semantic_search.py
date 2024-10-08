@@ -20,16 +20,13 @@ def article_semantic_search_for_user(
     user,
     count,
     search_terms,
-    es_scale="3d",
-    es_decay=0.8,
-    es_weight=4.2,
 ):
     return NotImplementedError
 
 
 @time_this
 def articles_like_this_tfidf(article: Article):
-    query_body = more_like_this_query(10, article.content, article.language, 100, 0)
+    query_body = more_like_this_query(10, article.content, article.language)
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     final_article_mix = []
@@ -42,21 +39,7 @@ def articles_like_this_tfidf(article: Article):
 @time_this
 def articles_like_this_semantic(article: Article):
     query_body = build_elastic_semantic_sim_query(
-        10,
-        "",
-        "",
-        None,
-        "",
-        "",
-        article.language,
-        100,
-        0,
-        get_embedding_from_article(article),
-        article,
-        es_scale="3d",
-        es_decay=0.8,
-        es_weight=4.2,
-        second_try=False,
+        10, article.language, get_embedding_from_article(article), article
     )
     final_article_mix = []
 
@@ -82,7 +65,7 @@ def add_topics_based_on_semantic_hood_search(
     article: Article, k: int = 9
 ):  # hood = (slang) neighborhood
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
-        k, article, get_embedding_from_article(article), 10000
+        k, article, get_embedding_from_article(article)
     )
     final_article_mix = []
 

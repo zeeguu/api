@@ -10,6 +10,7 @@
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q, SF
 from pprint import pprint
+from zeeguu.api.endpoints.feature_toggles import _new_topics
 
 from zeeguu.core.model import (
     Article,
@@ -117,7 +118,6 @@ def article_recommendations_for_user(
     es_scale="1d",
     es_offset="1d",
     es_decay=0.6,
-    es_weight=4.2,
     score_threshold_for_search=5,
     maximum_added_search_articles=10,
 ):
@@ -150,6 +150,7 @@ def article_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
     ) = _prepare_user_constraints(user)
+
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -163,10 +164,10 @@ def article_recommendations_for_user(
         es_scale,
         es_offset,
         es_decay,
-        es_weight,
         new_topics_to_include=new_topics_to_include,
         new_topics_to_exclude=new_topics_to_exclude,
         page=page,
+        user_using_new_topics=_new_topics(user),
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -229,10 +230,6 @@ def article_search_for_user(
     query_body = build_elastic_search_query(
         count,
         search_terms,
-        topics_to_include,
-        topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
         language,
         upper_bounds,
         lower_bounds,

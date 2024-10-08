@@ -25,18 +25,7 @@ def array_of_new_topics(topics):
     return topics.split(",")
 
 
-def more_like_this_query(
-    count,
-    article_text,
-    language,
-    upper_bounds,
-    lower_bounds,
-    es_scale="3d",
-    es_offset="1d",
-    es_decay=0.8,
-    es_weight=4.2,
-    page=0,
-):
+def more_like_this_query(count, article_text, language, page=0):
     """
     Builds an elastic search query for search terms.
 
@@ -49,7 +38,7 @@ def more_like_this_query(
         .filter("term", language=language.name.lower())
     )
 
-    return s.to_dict()
+    return {"from": page * count, "size": count, "query": s.to_dict()}
 
 
 def build_elastic_recommender_query(
@@ -64,10 +53,10 @@ def build_elastic_recommender_query(
     es_scale,
     es_offset,
     es_decay,
-    es_weight,
     new_topics_to_include,
     new_topics_to_exclude,
     page,
+    user_using_new_topics,
 ):
     """
 
@@ -128,7 +117,7 @@ def build_elastic_recommender_query(
     # back to not have new topics again.
     # Essentially, if there are new topics the user won't be able
     # to access the old topics anymore.
-    if new_topics_to_exclude != "":
+    if user_using_new_topics:
         should_remove_topics = []
         topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
         for t in topics_to_filter_out:
@@ -146,7 +135,7 @@ def build_elastic_recommender_query(
 
     must.append(exists("published_time"))
 
-    if new_topics_to_include != "":
+    if user_using_new_topics:
         should_topics = []
         topics_to_find = array_of_new_topics(new_topics_to_include)
         for t in topics_to_find:
@@ -157,18 +146,6 @@ def build_elastic_recommender_query(
         topics_arr = array_of_lowercase_topics(topics)
         if len(topics_arr) > 0:
             must.append({"terms": {"topics": topics_arr}})
-
-    # Let's not filter all the articles
-    # if not second_try:
-    #     # on the second try we do not add the range;
-    #     # because we didn't find anything with it
-    #     bool_query_body["query"]["bool"].update(
-    #         {
-    #             "filter": {
-    #                 "range": {"fk_difficulty": {"gt": lower_bounds, "lt": upper_bounds}}
-    #             }
-    #         }
-    #     )
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
@@ -216,10 +193,6 @@ def build_elastic_recommender_query(
 def build_elastic_search_query(
     count,
     search_terms,
-    topics,
-    unwanted_topics,
-    user_topics,
-    unwanted_user_topics,
     language,
     upper_bounds,
     lower_bounds,
@@ -271,25 +244,14 @@ def build_elastic_search_query(
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
 
-    return s.to_dict()
+    return query
 
 
 def build_elastic_semantic_sim_query(
     count,
-    search_terms,
-    topics,
-    unwanted_topics,
-    user_topics,
-    unwanted_user_topics,
     language,
-    upper_bounds,
-    lower_bounds,
     article_sem_vec,
     article,
-    es_scale="3d",
-    es_decay=0.8,
-    es_weight=4.2,
-    second_try=False,
     n_candidates=100,
 ):
     """
@@ -335,34 +297,22 @@ def build_elastic_semantic_sim_query(
     """
     s = Search()
     # s = s.exclude("match", id=article.id)
-    if unwanted_topics is None:
-        s = s.knn(
-            field="sem_vec",
-            k=count,
-            num_candidates=n_candidates,
-            query_vector=article_sem_vec,
-            filter=(
-                ~Q("ids", values=[article.id])
-                & Q("match", **{"language.keyword": language.name})
-            ),
-        )
-    else:
-        s = s.knn(
-            field="sem_vec",
-            k=count,
-            num_candidates=n_candidates,
-            query_vector=article_sem_vec,
-            filter=(
-                ~Q("ids", values=[article.id])
-                & (
-                    Q("match", language__keyword=language.name)
-                    & ~Q("match", **{"new_topics.keyword": ""})
-                )
-            ),
-        )
+
+    s = s.knn(
+        field="sem_vec",
+        k=count,
+        num_candidates=n_candidates,
+        query_vector=article_sem_vec,
+        filter=(
+            ~Q("ids", values=[article.id])
+            & (
+                Q("match", language__keyword=language.name)
+                & ~Q("match", **{"new_topics.keyword": ""})
+            )
+        ),
+    )
 
     query = s.to_dict()
-    print(query)
     return query
 
 
@@ -370,7 +320,7 @@ def build_elastic_semantic_sim_query_for_topic_cls(
     k_count,
     article,
     article_sem_vec,
-    n_candidates=100,
+    n_candidates=10000,
 ):
     s = Search()
     s = s.knn(
