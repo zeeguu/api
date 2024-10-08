@@ -126,8 +126,8 @@ services:
   dev_server_pre:
     image: zeeguu_api_dev
     environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9205"
+      ZEEGUU_CONFIG: /Zeeguu-API/default_docker_v8.cfg
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8_pre:9205"
       ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
       PYTHONUNBUFFERED: 1
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
@@ -155,6 +155,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+      - http.port=9205
     volumes:
       - ./data/elasticsearch_db/data:/usr/share/elasticsearch_v8/data
     networks:
