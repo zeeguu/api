@@ -20,10 +20,11 @@ def similar_words(word, language, user, number_of_words_to_return=2):
         candidates_filtered = remove_words_based_on_list(
             candidates_filtered, PROPER_NAMES_LIST
         )
-        candidates_filtered = [w for w in candidates_filtered if len(w) > 1]
+        # Update candidates to be based on the filtered words.
+        candidates = [w for w in candidates_filtered if len(w) > 1]
 
-    random_sample = random.sample(candidates_filtered, number_of_words_to_return)
+    random_sample = random.sample(candidates, number_of_words_to_return)
     while word in random_sample:
-        random_sample = random.sample(candidates_filtered, number_of_words_to_return)
+        random_sample = random.sample(candidates, number_of_words_to_return)
 
     return random_sample

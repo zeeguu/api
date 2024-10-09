@@ -71,10 +71,22 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
 
     @classmethod
     def get_constants_for_language(cls, language: "language"):
+        # Constants & references https://github.com/Yoast/YoastSEO.js/issues/267#issue-132433796
+        # INFO: es/it/nl use ( syllables / 100 words ) instead of ( total syllables / total words )
+        # Multiplying the constants by 100 should approximate this
+        if language.code == "es":
+            return {"start": 206.84, "sentence": 1.02, "word": 60}
+        if language.code == "it":
+            return {"start": 217, "sentence": 1.3, "word": 60}
+        if language.code == "nl":
+            return {"start": 206.84, "sentence": 0.93, "word": 77}
+        if language.code == "fr":
+            return {"start": 207, "sentence": 1.015, "word": 73.6}
+        if language.code == "ru":
+            return {"start": 206.835, "sentence": 1.3, "word": 73.6}
         if language.code in ["de", "pl", "da"]:
             return {"start": 180, "sentence": 1, "word": 58.5}
-        else:
-            return {"start": 206.835, "sentence": 1.015, "word": 84.6}
+        return {"start": 206.835, "sentence": 1.015, "word": 84.6}
 
     @classmethod
     def estimate_number_of_syllables_in_word(cls, word: str, language: "Language"):
