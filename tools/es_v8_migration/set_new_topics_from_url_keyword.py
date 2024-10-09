@@ -41,6 +41,8 @@ for article in tqdm(a_url_keywords_w_new_topics):
     counter += 1
     try:
         article = Article.find_by_id(a_id)
+        if len(article.new_topics) > 0:
+            continue
         topics = []
         topics_added = set()
         for url_keyword in article.url_keywords:
