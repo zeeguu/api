@@ -77,7 +77,7 @@ def _prepare_user_constraints(user):
     new_topics_to_exclude = [
         each.new_topic.title for each in excluded_new_topics if each is not None
     ]
-    print(f"New Topics to exclude: {topics_to_exclude}")
+    print(f"New Topics to exclude: {excluded_new_topics}")
 
     # 5. New Topics subscribed, and thus to include
     # =========================================
@@ -87,7 +87,7 @@ def _prepare_user_constraints(user):
         for subscription in topic_new_subscriptions
         if subscription is not None
     ]
-    print(f"New Topics to include: {topic_subscriptions}")
+    print(f"New Topics to include: {topic_new_subscriptions}")
 
     # 6. Wanted user topics
     # =========================================
@@ -151,6 +151,9 @@ def article_recommendations_for_user(
         unwanted_user_searches,
     ) = _prepare_user_constraints(user)
 
+    es = Elasticsearch(ES_CONN_STRING)
+    es_version = int(es.info()["version"]["number"][0])
+
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -168,9 +171,9 @@ def article_recommendations_for_user(
         new_topics_to_exclude=new_topics_to_exclude,
         page=page,
         user_using_new_topics=_new_topics(user),
+        is_es_v7=es_version == 7,
     )
 
-    es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
 
     hit_list = res["hits"].get("hits")

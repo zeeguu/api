@@ -53,29 +53,47 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
-def document_from_article(article, session, topics=None):
+def document_from_article(article, session, topics=None, is_v7=True):
     old_topics = find_topics(article.id, session)
-    topics, topics_inferred = find_new_topics(article.id, session)
-    doc = {
-        "title": article.title,
-        "author": article.authors,
-        "content": article.content,
-        "summary": article.summary,
-        "word_count": article.word_count,
-        "published_time": article.published_time,
-        "old_topics": old_topics,
-        "topics": [t.title for t in topics],
-        # We need to avoid using these as a way to classify further documents
-        # (we should rely on the human labels to classify further articles)
-        # rather than infer on inferences.
-        "topics_inferred": [t.title for t in topics_inferred],
-        "language": article.language.name,
-        "fk_difficulty": article.fk_difficulty,
-        "lr_difficulty": DifficultyLingoRank.value_for_article(article),
-        "sem_vec": get_embedding_from_article(article),
-        "url": article.url.as_string(),
-        "video": article.video,
-    }
+
+    if is_v7:
+        print("## Warning: Version for ES is 7, using old indexing system...")
+        doc = {
+            "title": article.title,
+            "author": article.authors,
+            "content": article.content,
+            "summary": article.summary,
+            "word_count": article.word_count,
+            "published_time": article.published_time,
+            "topics": old_topics,
+            "language": article.language.name,
+            "fk_difficulty": article.fk_difficulty,
+            "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+            "url": article.url.as_string(),
+            "video": article.video,
+        }
+    else:
+        topics, topics_inferred = find_new_topics(article.id, session)
+        doc = {
+            "title": article.title,
+            "author": article.authors,
+            "content": article.content,
+            "summary": article.summary,
+            "word_count": article.word_count,
+            "published_time": article.published_time,
+            "old_topics": old_topics,
+            "topics": [t.title for t in topics],
+            # We need to avoid using these as a way to classify further documents
+            # (we should rely on the human labels to classify further articles)
+            # rather than infer on inferences.
+            "topics_inferred": [t.title for t in topics_inferred],
+            "language": article.language.name,
+            "fk_difficulty": article.fk_difficulty,
+            "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+            "sem_vec": get_embedding_from_article(article),
+            "url": article.url.as_string(),
+            "video": article.video,
+        }
     return doc
 
 
@@ -116,7 +134,8 @@ def index_in_elasticsearch(new_article, session):
     """
     try:
         es = Elasticsearch(ES_CONN_STRING)
-        doc = document_from_article(new_article, session)
+        es_version = int(es.info()["version"]["number"][0])
+        doc = document_from_article(new_article, session, is_v7=es_version == 7)
         res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
 
     except Exception as e:

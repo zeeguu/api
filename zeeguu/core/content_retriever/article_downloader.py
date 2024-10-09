@@ -15,7 +15,13 @@ from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
-from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
+
+SEMANTIC_SEARCH_AVAILABLE = True
+try:
+    from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
+except:
+    SEMANTIC_SEARCH_AVAILABLE = False
+    print("######### Failed to load semantic search modules")
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -306,8 +312,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     logp(f"Old Topics ({old_topics})")
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
-    origin_type, topics = add_new_topics(new_article, feed, url_keywords, session)
-    logp(f"New Topics ({topics})")
+    if SEMANTIC_SEARCH_AVAILABLE:
+        origin_type, topics = add_new_topics(new_article, feed, url_keywords, session)
+        logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
 

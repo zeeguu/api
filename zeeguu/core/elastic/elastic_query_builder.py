@@ -57,6 +57,7 @@ def build_elastic_recommender_query(
     new_topics_to_exclude,
     page,
     user_using_new_topics,
+    is_es_v7,
 ):
     """
 
@@ -117,7 +118,7 @@ def build_elastic_recommender_query(
     # back to not have new topics again.
     # Essentially, if there are new topics the user won't be able
     # to access the old topics anymore.
-    if user_using_new_topics:
+    if user_using_new_topics and not is_es_v7:
         should_remove_topics = []
         topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
         for t in topics_to_filter_out:
@@ -127,7 +128,13 @@ def build_elastic_recommender_query(
     else:
         unwanted_old_topics_arr = array_of_lowercase_topics(unwanted_topics)
         if len(unwanted_old_topics_arr) > 0:
-            must_not.append({"terms": {"old_topics": unwanted_old_topics_arr}})
+            must_not.append(
+                {
+                    "terms": {
+                        "topics" if is_es_v7 else "old_topics": unwanted_old_topics_arr
+                    }
+                }
+            )
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
@@ -135,7 +142,7 @@ def build_elastic_recommender_query(
 
     must.append(exists("published_time"))
 
-    if user_using_new_topics:
+    if user_using_new_topics and not is_es_v7:
         should_topics = []
         topics_to_find = array_of_new_topics(new_topics_to_include)
         for t in topics_to_find:
@@ -145,7 +152,7 @@ def build_elastic_recommender_query(
     else:
         topics_arr = array_of_lowercase_topics(topics)
         if len(topics_arr) > 0:
-            must.append({"terms": {"old_topics": topics_arr}})
+            must.append({"terms": {"topics" if is_es_v7 else "old_topics": topics_arr}})
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
@@ -211,7 +218,7 @@ def build_elastic_search_query(
 
     s = (
         Search()
-        .query(Q("match", title=search_terms) | Q("match", content=search_terms))
+        .query((Q("match", title=search_terms) | Q("match", content=search_terms)))
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
@@ -243,7 +250,8 @@ def build_elastic_search_query(
     weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
-
+    print("## Search: ")
+    pprint(query)
     return query
 
 
