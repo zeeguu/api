@@ -99,8 +99,8 @@ def document_from_article(article, session, topics=None, is_v7=True):
 
 def create_or_update(article, session):
     es = Elasticsearch(ES_CONN_STRING)
-
-    doc = document_from_article(article, session)
+    es_version = int(es.info()["version"]["number"][0])
+    doc = document_from_article(article, session, is_v7=es_version == 7)
 
     if es.exists(index=ES_ZINDEX, id=article.id):
         es.delete(index=ES_ZINDEX, id=article.id)
@@ -112,8 +112,8 @@ def create_or_update(article, session):
 
 def create_or_update_bulk_docs(article, session, topics=None):
     es = Elasticsearch(ES_CONN_STRING)
-
-    doc_data = document_from_article(article, session, topics)
+    es_version = int(es.info()["version"]["number"][0])
+    doc_data = document_from_article(article, session, topics, is_v7=es_version == 7)
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
