@@ -21,7 +21,7 @@ class LocalizedTopicTest(ModelTestMixIn, TestCase):
         self.user = UserRule().user
 
     def test_topic_matching(self):
-        self._localized_topic_keyword_in_url(
+        self._localized_url_keywords_in_url(
             "World",
             "World",
             "theguardian.com/world",
@@ -29,14 +29,14 @@ class LocalizedTopicTest(ModelTestMixIn, TestCase):
         )
 
     def test_topic_matching_is_case_sensitive(self):
-        self._localized_topic_keyword_in_url(
+        self._localized_url_keywords_in_url(
             "Music",
             "Muziek",
             "the-Voice",
             "https://www.nu.nl/media/6056161/winnaar-negende-seizoen-van-the-Voice-kids-bekend.html",
         )
 
-    def _localized_topic_keyword_in_url(
+    def _localized_url_keywords_in_url(
         self, topic: str, localized: str, keyword: str, url: str
     ):
         topic = Topic(topic)

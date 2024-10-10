@@ -1,4 +1,5 @@
 import newspaper
+from langdetect import detect
 from zeeguu.core.model import Article, LowQualityTypes
 from zeeguu.core.ml_models import is_paywalled, ID_TO_LABEL_PAYWALL
 
@@ -47,7 +48,7 @@ def sufficient_quality_html(html):
     return True, "", ""
 
 
-def sufficient_quality_plain_text(text):
+def sufficient_quality_plain_text(text, lang_code = None):
     word_count = len(text.split())
     if word_count < Article.MINIMUM_WORD_COUNT:
         return (
@@ -71,6 +72,13 @@ def sufficient_quality_plain_text(text):
             LowQualityTypes.INCOMPLETE_PATTERN,
         )
 
+    art_lang = detect(text)
+    if lang_code is not None and art_lang != lang_code:
+        return (
+            False,
+            f"Article language '{art_lang}', does not match feed language: '{lang_code}'.",
+        )
+
     for each in LIVE_BLOG_KIND_OF_PATTERNS:
         if text.find(each) >= 0:
             return False, "Live blog kind of article", LowQualityTypes.LIVE_BLOG
@@ -88,11 +96,11 @@ def sufficient_quality_plain_text(text):
     return True, "", ""
 
 
-def sufficient_quality(art: newspaper.Article) -> tuple[bool, str, str]:
+def sufficient_quality(art: newspaper.Article, lang_code = None) -> tuple[bool, str, str]:
     res, reason, code = sufficient_quality_html(art.html)
     if not res:
         return False, reason, code
-    res, reason, code = sufficient_quality_plain_text(art.text)
+    res, reason, code = sufficient_quality_plain_text(art.text, lang_code)
     if not res:
         return False, reason, code
 

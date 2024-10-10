@@ -1,0 +1,360 @@
+,url_keywords_id,keyword,Total,main_topic,main_topic_p,val_pred
+0,27,sport,24232,sports,0.9213810563,1
+1,73,news,22051,travel & tourism,0.274492234,-1
+2,1226,i,20225,culture & art,0.2571561337,-1
+3,201,politics,19631,politics,0.9148818851,7
+4,1056,nyheter,18496,travel & tourism,0.25454291700000004,-1
+5,58,aktuell,15885,culture & art,0.2358464748,-1
+6,605,society,15236,culture & art,0.3218574524,5
+7,116,world,14455,travel & tourism,0.2694850862,-1
+8,12,article,13303,culture & art,0.2686490715,-1
+9,18,nieuws,11276,travel & tourism,0.3468917012,-1
+10,37,actualites,11222,culture & art,0.2489128411,-1
+11,202,artikel,11115,culture & art,0.2987219095,-1
+12,786,wiadomosci,10797,culture & art,0.274096638,-1
+13,21,culture,8871,travel & tourism,0.47363328930000004,2
+14,1524,incidents,7553,culture & art,0.3531161845,-1
+15,2,politik,7279,politics,0.9352959991,7
+16,1263,innenriks,7160,politics,0.7961210608,-1
+17,279,cronaca,7016,satire,0.25469195840000003,-1
+18,38,football,6693,sports,0.8525823951,1
+19,260,art,6304,culture & art,0.8483413458,-1
+20,477,money,5858,business,0.8824424744,6
+21,7,ausland,4766,travel & tourism,0.25505760310000003,-1
+22,266,esteri,4442,culture & art,0.5492997169,-1
+23,848,nyheder,4386,travel & tourism,0.31522014740000004,-1
+24,328,spettacoli,4371,culture & art,0.8309006691,2
+25,306,economia,4310,business,0.9295247197000001,6
+26,832,udland,4213,culture & art,0.2764465511,-1
+27,843,indland,3891,culture & art,0.2740786374,-1
+28,1227,utenriks,3485,politics,0.767804563,-1
+29,49,politique,3467,politics,0.9518510103000001,7
+30,292,mundo,3266,travel & tourism,0.2430643141,-1
+31,1055,person,3247,culture & art,0.27990457420000003,5
+32,548,calcio,3239,sports,0.8001350164000001,1
+33,385,health,3043,health & society,0.5021548867,5
+34,8,wirtschaft,2994,business,0.9606459141,6
+35,43,politica,2939,politics,0.9392281175,7
+36,39,international,2925,travel & tourism,0.25006043910000003,-1
+37,13,kultur,2751,culture & art,0.5202948451,2
+38,24,societe,2719,politics,0.34698575740000004,5
+39,321,business,2670,business,0.9510579705000001,6
+40,188,story,2569,travel & tourism,0.2739594281,-1
+41,51,monde,2460,politics,0.3451033831,-1
+42,1525,life,2390,health & society,0.4097077549,5
+43,1533,army,2310,satire,0.5153608322000001,7
+44,466,economy,2286,business,0.8935214877000001,6
+45,25,video,2274,culture & art,0.33710289,-1
+46,1050,russia,2259,politics,0.23399245740000002,7
+47,1257,meninger,2169,politics,0.5130001307000001,7
+48,1262,fotball,2051,sports,0.8594029546,1
+49,333,cronache,1978,satire,0.4011508822,-1
+50,29,gesellschaft,1911,business,0.5303516388,6
+51,63,feuilleton,1894,culture & art,0.3630032539,-1
+52,1225,norge,1875,culture & art,0.2604552805,-1
+53,50,tennis,1874,sports,0.7969271541,1
+54,1527,moscow,1722,politics,0.2327025533,7
+55,330,cards,1721,culture & art,0.29855626820000003,2
+56,1018,sporten,1665,sports,0.9344885349000001,1
+57,493,voyages,1662,travel & tourism,0.5880065560000001,4
+58,545,people,1629,politics,0.20954561230000002,5
+59,152,mar,1599,culture & art,0.312738508,-1
+60,85,fussball,1502,sports,0.882488668,1
+61,580,jan,1492,culture & art,0.2999741435,-1
+62,302,may,1474,culture & art,0.3008507788,-1
+63,315,salute,1460,culture & art,0.31916654110000003,5
+64,389,jul,1450,culture & art,0.328885287,-1
+65,80,magazine,1426,travel & tourism,0.20681159200000002,-1
+66,157,inland,1361,culture & art,0.2409724295,-1
+67,1260,verden,1356,culture & art,0.24833755200000002,-1
+68,253,apr,1349,culture & art,0.31750690940000004,-1
+69,322,jun,1339,culture & art,0.3150723577,-1
+70,115,feb,1304,culture & art,0.3147557378,-1
+71,15,france,1288,politics,0.2666807473,-1
+72,16,buitenland,1288,travel & tourism,0.2986359,-1
+73,1506,serie a,1286,sports,0.2938806415,1
+74,112,books,1252,culture & art,0.3404679894,2
+75,26,economie,1243,business,0.8523854613,6
+76,296,notizie,1242,travel & tourism,0.2542564869,-1
+77,138,actualite,1227,culture & art,0.219266966,-1
+78,1555,motori,1162,sports,0.712926507,1
+79,496,law,1159,travel & tourism,0.3132402599,5
+80,129,dossier,1158,travel & tourism,0.2644833922,-1
+81,572,dec,1135,culture & art,0.3185708225,-1
+82,559,nov,1134,culture & art,0.327354759,-1
+83,407,aug,1131,culture & art,0.32366925480000003,-1
+84,6,panorama,1107,culture & art,0.5300866961,-1
+85,22,science,1107,technology & science,0.4305062294,3
+86,1256,debatt,1103,politics,0.5751277804,7
+87,244,auto,985,satire,0.3758991957,3
+88,1,deutschland,979,politics,0.2667038739,-1
+89,790,polska,931,politics,0.577560544,-1
+90,1053,nature,917,satire,0.2745793164,3
+91,64,cinema,900,culture & art,0.6375299692,2
+92,233,musique,888,culture & art,0.7570073009,2
+93,275,en,886,culture & art,0.32962897420000004,-1
+94,508,sports,885,sports,0.9417441487,1
+95,28,binnenland,880,culture & art,0.2515695095,-1
+96,36,basket,867,sports,0.5549520254,1
+97,9,unternehmen,864,business,0.9473596215000001,6
+98,144,rugby,851,sports,0.7911047935000001,1
+99,841,fodbold,845,sports,0.8009338379000001,1
+100,196,politiek,823,politics,0.9235988259000001,7
+101,694,rhein main,803,culture & art,0.23229016360000002,5
+102,533,food,796,satire,0.44855350260000004,5
+103,516,education,778,culture & art,0.5800558925,5
+104,45,cultura,777,travel & tourism,0.3892244995,2
+105,67,europe,756,culture & art,0.2475395501,7
+106,1556,sezioni,753,politics,0.409891814,-1
+107,1501,diretta,748,politics,0.3461140394,-1
+108,889,buone notizie,745,culture & art,0.2897692919,-1
+109,1062,mymoney,728,business,0.7223003507,6
+110,2353,la zampa,727,satire,0.36956748370000003,-1
+111,1322,sette,723,satire,0.3104122281,-1
+112,673,environnement,719,satire,0.49667206410000003,3
+113,1054,movie,702,culture & art,0.4070605934,2
+114,338,technology,684,technology & science,0.3529386222,3
+115,1522,market,675,business,0.7784600258000001,6
+116,899,agora,672,culture & art,0.2999991477,-1
+117,325,live,667,health & society,0.2666939199,-1
+118,1514,green and blue,650,culture & art,0.349806428,-1
+119,190,film,647,travel & tourism,0.30671855810000004,2
+120,1560,aziende,644,business,0.9324573278,6
+121,1550,finanza,642,business,0.9465058446,6
+122,593,cultuur media,626,culture & art,0.513705492,2
+123,475,articles,615,culture & art,0.2415041775,-1
+124,1321,attualita,603,politics,0.3631773293,-1
+125,228,finanzen,595,business,0.9454300999999999,6
+126,1531,company,590,business,0.9106546044,6
+127,1239,cook,580,satire,0.5022386312,2
+128,380,commentisfree,574,culture & art,0.2642136812,-1
+129,1572,safety,562,health & society,0.2461860925,5
+130,32,sante,559,satire,0.5732172132000001,-1
+131,52,opinie,526,politics,0.5460991263,7
+132,1197,polityka,526,politics,0.9608682394,7
+133,957,faits divers,515,politics,0.4155779779,-1
+134,840,forbrugogliv,513,business,0.3346614242,5
+135,1567,consumi,506,business,0.4473911226,6
+136,1562,cinema serie tv,499,culture & art,0.645504415,2
+137,261,mondo,498,politics,0.3236328959,-1
+138,1213,swiat,494,politics,0.28888332840000003,-1
+139,1759,il gusto,491,culture & art,0.7565757036,-1
+140,1523,healthcare,490,health & society,0.5655270219,5
+141,1487,showbiz,478,satire,0.42647710440000003,2
+142,148,medien,477,travel & tourism,0.2508978546,2
+143,713,stage,476,culture & art,0.4355949759,2
+144,40,high tech,472,technology & science,0.4938482642,3
+145,62,menschen,472,culture & art,0.23549801110000002,2
+146,647,musica,470,culture & art,0.7774598598,2
+147,179,bundesliga,463,sports,0.4844857454,1
+148,320,travel,450,culture & art,0.4209885001,4
+149,345,medias,446,satire,0.3278126717,5
+150,234,justice,443,travel & tourism,0.3076816797,5
+151,1368,moda e beauty,443,culture & art,0.5074900985,2
+152,1051,sverige,437,culture & art,0.2508228719,-1
+153,126,wissenschaft,435,technology & science,0.5925180912,3
+154,1544,oslo,435,culture & art,0.2735265195,-1
+155,347,golf,431,sports,0.7805126905,1
+156,79,kriminalitaet,423,satire,0.1955355555,5
+157,1216,techno,419,technology & science,0.5660900474,3
+158,124,vox,416,culture & art,0.21346279980000002,-1
+159,239,cricket,415,sports,0.8137311339000001,1
+160,530,music,415,culture & art,0.7432915568,2
+161,155,debatten,402,politics,0.6307976842,7
+162,1578,naeringsliv,399,business,0.9448990822000001,6
+163,644,edizione,397,culture & art,0.2590734959,-1
+164,163,uk news,396,travel & tourism,0.2243892848,-1
+165,200,stil,394,culture & art,0.36009329560000003,-1
+166,34,langue francaise,393,culture & art,0.2644582093,-1
+167,546,moda,389,travel & tourism,0.3445986807,5
+168,768,tv and radio,387,culture & art,0.4494429827,2
+169,410,opinion,385,politics,0.4463293552,7
+170,105,podcast,379,culture & art,0.2909097075,2
+171,677,services,379,business,0.6261704564,6
+172,791,spoleczenstwo,377,politics,0.7932488322,5
+173,937,police et justice,377,satire,0.3984175622,5
+174,1559,lavoro,375,business,0.8753746748000001,6
+175,305,nieuws achtergrond,368,satire,0.327049315,-1
+176,839,sundhedogmotion,364,satire,0.2926456034,5
+177,1579,divertissement,364,satire,0.6635466218,2
+178,882,viden,362,culture & art,0.2962220311,3
+179,486,environment,359,satire,0.35854348540000003,3
+180,1569,trendy i inspiracje,358,culture & art,0.7730159163,-1
+181,1622,tv radio,354,culture & art,0.3567049503,2
+182,1543,politikk,352,politics,0.9580686092,7
+183,123,sciences,348,technology & science,0.5425313711,3
+184,88,actualite france,346,politics,0.3589437306,-1
+185,1169,kommentar,346,culture & art,0.3193866611,2
+186,1687,langrenn,343,sports,0.8344314694,1
+187,76,humor,342,satire,0.44927254320000004,8
+188,14,history,340,culture & art,0.5392935872,2
+189,1573,religion,340,satire,0.2967506945,5
+190,147,wissen,335,culture & art,0.2861447036,2
+191,240,fussball wm,332,sports,0.8500763178,1
+192,884,penge,332,satire,0.42822894450000004,6
+193,870,cykling,328,sports,0.6591566205,1
+194,1602,amagasinet,326,culture & art,0.2209356278,-1
+195,1762,osloogviken,324,culture & art,0.2612926364,-1
+196,1546,viral,323,culture & art,0.285941571,5
+197,301,ungluecke,314,satire,0.46949315070000003,-1
+198,57,technik motor,312,sports,0.44289428000000003,3
+199,346,tous sports,312,sports,0.9278583527,1
+200,795,frankfurt,310,business,0.3100411892,-1
+201,960,podcasts,309,culture & art,0.30442747470000003,2
+202,291,mehr sport,308,sports,0.9165722728000001,1
+203,293,adrenaline,306,sports,0.38762554530000004,1
+204,1420,about,305,culture & art,0.27511104940000003,-1
+205,1529,realty,304,travel & tourism,0.2657793164,-1
+206,1557,prodotto,303,business,0.3776792586,6
+207,398,viaggi,298,travel & tourism,0.5841131806000001,4
+208,214,media,296,satire,0.3015297353,2
+209,164,rugby union,293,sports,0.7713707685000001,1
+210,898,guides,291,travel & tourism,0.3283538818,4
+211,592,cultuur overig,288,culture & art,0.43196022510000004,2
+212,41,secteur,285,business,0.3640349805,2
+213,95,planete,285,travel & tourism,0.2605107129,-1
+214,1510,vari,284,culture & art,0.32829263810000003,-1
+215,247,buecher,283,business,0.4031462967,2
+216,676,bons plans,280,culture & art,0.2557065785,6
+217,1296,varlden,280,politics,0.4097189009,-1
+218,1285,kronikk,279,culture & art,0.3424232304,-1
+219,1666,oroscopo,279,satire,0.27317222950000003,5
+220,101,entertainment,277,culture & art,0.880638659,2
+221,1512,metropolis,276,politics,0.31214898820000003,-1
+222,935,collectie,272,culture & art,0.3739827573,-1
+223,5,justiz,270,travel & tourism,0.3147820234,5
+224,287,opinione,270,politics,0.3933265805,7
+225,498,gallery,268,culture & art,0.6092982292,2
+226,4,publicaties,267,culture & art,0.3479059637,-1
+227,213,web,267,culture & art,0.29417264460000003,3
+228,186,afrique,263,politics,0.2920970619,-1
+229,797,coronavirus,261,health & society,0.27655571700000003,5
+230,1570,psychologia,260,travel & tourism,0.2451203465,5
+231,153,global development,257,culture & art,0.21175345780000002,-1
+232,1052,products,257,business,0.5704471469,6
+233,1526,psychologic,257,travel & tourism,0.4002944827,5
+234,2954,energi og klima,257,technology & science,0.6810408235000001,3
+235,394,spettacoli e cultura,256,culture & art,0.9673121572000001,2
+236,150,reise,251,travel & tourism,0.5121293664000001,4
+237,68,conjoncture,249,politics,0.44055578110000004,-1
+238,382,scuola,246,culture & art,0.4178956151,5
+239,1445,norsk oekonomi,246,business,0.8993911147,6
+240,1842,dacha,246,culture & art,0.3294423521,-1
+241,250,cyclisme sur route,245,sports,0.6539931297,1
+242,952,klima,245,health & society,0.4263912737,5
+243,77,daily shouts,234,satire,0.2445677221,-1
+244,78,gesundheit,231,health & society,0.552269876,5
+245,914,tribunes libres,231,politics,0.4133214056,-1
+246,847,conseils,230,culture & art,0.2988449037,5
+247,84,netzwelt,228,culture & art,0.3009448349,3
+248,264,musik,228,culture & art,0.6666144729,2
+249,453,review,227,culture & art,0.3367835581,2
+250,1577,sid,224,culture & art,0.2693703175,-1
+251,660,animaux,223,satire,0.35374394060000003,3
+252,861,haandbold,221,sports,0.5121910572,1
+253,48,societes,220,politics,0.3178230822,5
+254,2115,nantes,220,sports,0.1929983944,-1
+255,349,esport,219,sports,0.8891384602,1
+256,720,av,219,culture & art,0.3045200408,-1
+257,1461,ciclismo,218,sports,0.7481423616,1
+258,836,samfund,213,politics,0.27449503540000003,5
+259,1680,ptransport,213,travel & tourism,0.30977222320000003,4
+260,1031,andre skriver,212,culture & art,0.2047773302,5
+261,878,index,210,travel & tourism,0.23261566460000002,-1
+262,2108,sciences sante,210,health & society,0.7304511666,3
+263,641,handball,207,sports,0.7103623152,1
+264,72,financieel,204,business,0.6172379851,6
+265,1585,rubriche,204,culture & art,0.2546293139,-1
+266,1600,tromsogfinnmark,202,culture & art,0.3056841195,5
+267,390,animali,197,satire,0.3433683515,3
+268,726,jardin,197,culture & art,0.5019029379000001,5
+269,916,oekonomi,194,business,0.8663967252,6
+270,487,sep,189,culture & art,0.3152073026,-1
+271,182,kino,187,culture & art,0.45336431260000004,2
+272,1761,mondiali,187,sports,0.2860429883,1
+273,162,champions league,185,sports,0.6467961669,1
+274,395,neuroscienze,182,travel & tourism,0.2602074742,5
+275,1486,maison,182,culture & art,0.41252851490000003,5
+276,834,ibyen,181,business,0.28649184110000003,5
+277,879,lodicoalcorriere,181,business,0.44719791410000004,-1
+278,483,us news,175,politics,0.2726118267,7
+279,2359,lyon,171,sports,0.23579111700000002,-1
+280,965,rejser,168,travel & tourism,0.5351485014,4
+281,753,karriere hochschule,167,business,0.7929455638,6
+282,1568,pierre haski,166,culture & art,0.2282341421,-1
+283,168,tech,165,technology & science,0.4075106382,3
+284,248,rezensionen,160,culture & art,0.32171699400000003,2
+285,789,kultura,158,culture & art,0.5706706047,2
+286,1552,serietv,156,culture & art,0.275981456,2
+287,3,insolite,154,satire,0.4629220068,-1
+288,909,entretiens et debats,154,politics,0.3133310676,7
+289,923,humeurs,151,satire,0.2733881474,8
+290,417,athletisme,150,sports,0.9319364429,1
+291,1575,boers og finans,148,business,0.8135266304000001,6
+292,1509,commenti,146,culture & art,0.3231348097,2
+293,1698,opinioni,145,politics,0.4024026096,7
+294,1740,vestland,144,politics,0.2366083413,-1
+295,1681,hockey,142,sports,0.7453715801,1
+296,864,region und hessen,141,travel & tourism,0.2606972158,-1
+297,1701,children,141,satire,0.3428880274,5
+298,268,caffe gramellini,139,culture & art,0.2469555289,-1
+299,191,ski,137,sports,0.6948792934,1
+300,74,daily comment,136,culture & art,0.3282259107,-1
+301,1382,leder,136,politics,0.3063422441,7
+302,33,actu des mots,135,politics,0.2235667408,-1
+303,317,motor,135,sports,0.5964898467,1
+304,1540,ecology,135,satire,0.2429021895,3
+305,158,leute,134,politics,0.24998019640000002,5
+306,136,actualite economique,133,business,0.9432200193,6
+307,221,automobile,133,satire,0.5721343160000001,3
+308,1503,roma,133,culture & art,0.3377570808,-1
+309,534,oct,132,culture & art,0.3269011378,-1
+310,670,odr,132,culture & art,0.2542197406,-1
+311,1768,zdrowie i nauka,132,health & society,0.5296947956,5
+312,653,asie,131,culture & art,0.2559157312,-1
+313,896,hotels,131,travel & tourism,0.46956565980000003,4
+314,1530,other,131,culture & art,0.2417940795,-1
+315,1207,biznes,130,business,0.8873984814,6
+316,2109,laloupe,130,culture & art,0.2897590995,-1
+317,1584,juventus,129,sports,0.5769255161,1
+318,3969,tourdefrance,129,travel & tourism,0.410286963,1
+319,773,religie filosofie,127,culture & art,0.7931210399,5
+320,1582,artanddesign,127,culture & art,0.9727051854000001,2
+321,1817,calciomercato,127,sports,0.7993389964000001,1
+322,259,apps,126,satire,0.23737335210000002,3
+323,1679,gibdd,125,business,0.5047482252000001,5
+324,871,boger,124,satire,0.3108133376,2
+325,877,vejret,124,sports,0.4041267931,3
+326,1746,secrets,124,travel & tourism,0.2848345041,5
+327,1561,nutrizione,123,health & society,0.5270473957,5
+328,55,tecnologia,122,technology & science,0.45154371860000003,3
+329,1777,cultura societa,122,culture & art,0.4743220508,2
+330,939,sportpolitik,118,sports,0.6199164987,1
+331,1307,nordland,118,culture & art,0.2673873901,5
+332,106,political scene,116,politics,0.9542900324,7
+333,195,wetenschap,116,technology & science,0.6712566018,3
+334,1017,gouvernement,116,politics,0.8582551479,7
+335,1737,napoli,115,sports,0.2907811403,-1
+336,2803,essenziale,115,culture & art,0.3309749067,-1
+337,3375,almanacco del giorno,113,satire,0.2974025607,-1
+338,833,medier,112,culture & art,0.2617520988,2
+339,2134,amerique,112,politics,0.22017996010000002,-1
+340,269,essen trinken,111,culture & art,0.36033418770000003,5
+341,1536,charity,111,health & society,0.4316372871,5
+342,1696,tasse,111,satire,0.5618826151,6
+343,1767,nauka,110,technology & science,0.7054383159000001,3
+344,936,litterature,109,culture & art,0.8257362843,2
+345,1583,morire di lavoro,109,business,0.6732757688000001,-1
+346,363,borowitz report,108,culture & art,0.2653104067,-1
+347,2145,ogorod,108,satire,0.35732364650000004,5
+348,229,natur,107,travel & tourism,0.3317553103,3
+349,521,boxing,107,sports,0.6407343745,1
+350,557,smalltalk,107,satire,0.4051422477,5
+351,635,meteo,106,satire,0.2680003345,3
+352,1605,forbruker,105,satire,0.3305253983,6
+353,1809,diritti e consumi,105,politics,0.2323492765,6
+354,249,sachbuch,104,satire,0.35028067230000004,-1
+355,1502,milano,103,culture & art,0.2254829407,-1
+356,237,quiz francais,102,culture & art,0.4240258038,-1
+357,940,digitec,101,satire,0.2596942484,3
+358,1320,skiskyting,101,sports,0.557623148,1

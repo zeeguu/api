@@ -38,6 +38,6 @@ for language in languages:
         if counter % 1000 == 0:
             percentage = (100 * counter / total_articles) / 100
             print(
-                f"{counter} dorticles done ({percentage}%). last article id: {article.id}. comitting... "
+                f"{counter} articles done ({percentage}%). last article id: {article.id}. comitting... "
             )
             db_session.commit()

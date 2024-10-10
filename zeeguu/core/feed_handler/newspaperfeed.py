@@ -45,17 +45,20 @@ class NewspaperFeed(FeedHandler):
         feed_items = []
         log(f"** Articles in feed: {len(feed_data)}")
         for article in feed_data:
-            article.download()
-            article.parse()
-            publish_date = self.get_server_time(article.publish_date)
+            try:
+                article.download()
+                article.parse()
+                publish_date = self.get_server_time(article.publish_date)
 
-            new_item_data_dict = dict(
-                title=article.title,
-                url=article.url,
-                content=article.text,
-                summary=article.summary,
-                published_datetime=publish_date,
-            )
-            feed_items.append(new_item_data_dict)
+                new_item_data_dict = dict(
+                    title=article.title,
+                    url=article.url,
+                    content=article.text,
+                    summary=article.summary,
+                    published_datetime=publish_date,
+                )
+                feed_items.append(new_item_data_dict)
+            except Exception as e:
+                logp(f"Failed article: {article}, with '{e}'")
 
         return feed_items

@@ -110,24 +110,43 @@ CONTAINER ID        IMAGE                    COMMAND                  CREATED   
 
    `curl 127.0.0.1:9001/available_languages`
 
-
-7. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
+6. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
 Go have fun!
 
+## If you plan to download new articles:
+
+To download new articles, you will need to set up the embedding API that will encode the new articles coming in to Zeeguu. This allows them to be inferred into topic categories.
+
+To do this create a new docker image by cloning [`semantic-emb-api`](https://github.com/zeeguu/semantic-emb-api) and running the command:
+
+```
+docker build -f Dockerfile -t zeeguu_api_sem_emb .
+```
+
+This will install the image which is part of the dependencies of the `dev_server`
+
+With this you can run:
+
+```
+docker-compose-development up dev_init_es
+```
+
+To index some articles into ElasticSearch so they can be displayed on the server.
 
 # Further Notes
+
 ## Running MySQL locally, not in a container on a mac
 
 _(Mircea, Feb 2024)_
 
-On Mac, if you want to run mysql locally, and not from within Docker, you need to install mysql-client with brew:  
+On Mac, if you want to run mysql locally, and not from within Docker, you need to install mysql-client with brew:
 
 ```
 brew install mysql-client
 ```
 
-Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following: 
+Mircea: On my M2 mac the `pip instal mysqlclient` (called indirectly via `pip install -r requirements`) still fails till I define the following:
 
 ```
 export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"

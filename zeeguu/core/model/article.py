@@ -8,8 +8,11 @@ from langdetect import detect
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
+from zeeguu.core.model.new_article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
+from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
 from zeeguu.core.model import db
@@ -68,6 +71,8 @@ class Article(db.Model):
 
     from zeeguu.core.model.language import Language
 
+    from zeeguu.core.model.url_keyword import UrlKeyword
+
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
 
@@ -90,6 +95,9 @@ class Article(db.Model):
         Topic, secondary="article_topic_map", backref=backref("articles")
     )
 
+    new_topics = relationship("NewArticleTopicMap", back_populates="article")
+
+    url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
     # Or maybe an article that's behind a paywall and
@@ -162,6 +170,20 @@ class Article(db.Model):
             topics += topic.title + " "
         return topics
 
+    def new_topics_as_string(self):
+        topics = ""
+        for topic in self.new_topics:
+            topics += topic.new_topic.title + ", "
+        return topics
+
+    def new_topics_as_tuple(self):
+        topics = []
+        for topic in self.new_topics:
+            if topic.new_topic.title == "" or topic.new_topic.title is None:
+                continue
+            topics.append((topic.new_topic.title, topic.origin_type))
+        return topics
+
     def contains_any_of(self, keywords: list):
         for each in keywords:
             if self.title.find(each) >= 0:
@@ -222,6 +244,8 @@ class Article(db.Model):
             summary=summary,
             language=self.language.code,
             topics=self.topics_as_string(),
+            new_topics=self.new_topics_as_string(),
+            new_topics_list=self.new_topics_as_tuple(),
             video=self.video,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100,
@@ -276,6 +300,28 @@ class Article(db.Model):
 
     def add_topic(self, topic):
         self.topics.append(topic)
+
+    def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
+
+        t = NewArticleTopicMap(
+            article=self, new_topic=new_topic, origin_type=origin_type
+        )
+        session.add(t)
+
+    def set_new_topics(self, topics, session):
+
+        for t in topics:
+            self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
+
+    def add_url_keyword(self, url_keyword, rank, session):
+
+        a = ArticleUrlKeywordMap(article=self, url_keyword=url_keyword, rank=rank)
+        session.add(a)
+
+    def set_url_keywords(self, url_keywords, session):
+
+        for rank, t in enumerate(url_keywords):
+            self.add_url_keyword(t, rank, session)
 
     def set_as_broken(self, session, broken_code):
         from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap

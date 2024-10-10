@@ -1,6 +1,7 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User
+from zeeguu.core.model import Article, Language, User, NewTopic
+from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
@@ -110,3 +111,34 @@ def is_article_language_supported():
             return "NO"
     except:
         return "NO"
+
+
+@api.route("/remove_ml_suggestion", methods=["POST"])
+@cross_domain
+@requires_session
+def remove_ml_suggestion():
+    """
+    Saves a user feedback to remove a ML prediction
+    of the new topics. Can indicate that the prediciton
+    isn't correct.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    article_id = request.form.get("article_id", "")
+    new_topic = request.form.get("new_topic", "")
+    article = Article.find_by_id(article_id)
+    new_topic = NewTopic.find(new_topic)
+    try:
+        ArticleTopicUserFeedback.find_or_create(
+            db_session,
+            article,
+            user,
+            new_topic,
+            ArticleTopicUserFeedback.DO_NOT_SHOW_FEEDBACK,
+        )
+        return "OK"
+    except Exception as e:
+        from sentry_sdk import capture_exception
+
+        capture_exception(e)
+        print(e)
+        return "Something went wrong!"

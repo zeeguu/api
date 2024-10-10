@@ -36,7 +36,7 @@ def main(starting_index):
     print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
 
-    for i in range(max_id, min_id,-1):
+    for i in range(max_id, min_id, -1):
         print("article id...")
         print(i)
         try:
@@ -56,12 +56,10 @@ def main(starting_index):
 
 if __name__ == "__main__":
 
-
     print("waiting for the ES process to boot up")
-  
+
     print(f"started at: {datetime.now()}")
     starting_index = 0
-    
 
     if len(sys.argv) > 1:
         starting_index = int(sys.argv[1])

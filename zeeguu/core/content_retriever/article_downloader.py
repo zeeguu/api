@@ -15,10 +15,18 @@ from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
 
 from zeeguu.core import model
+
+SEMANTIC_SEARCH_AVAILABLE = True
+try:
+    from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
+except:
+    SEMANTIC_SEARCH_AVAILABLE = False
+    print("######### Failed to load semantic search modules")
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, LocalizedTopic
+from zeeguu.core.model import Url, Feed, LocalizedTopic, UrlKeyword, NewTopic
+from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -31,6 +39,7 @@ from zeeguu.core.content_retriever import (
 )
 
 TIMEOUT_SECONDS = 10
+
 
 import zeeguu
 
@@ -250,12 +259,14 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         raise SkippedAlreadyInDB()
 
     np_article = readability_download_and_parse(url)
-    is_quality_article, reason, code = sufficient_quality(np_article)
+
+    is_quality_article, reason, code = sufficient_quality(
+        np_article, feed.language.code
+    )
     if is_quality_article:
         np_article.text = cleanup_text_w_crawl_report(
             np_article.text, crawl_report, feed, url
         )
-
     summary = feed_item["summary"]
     # however, this is not so easy... there have been cases where
     # the summary is just malformed HTML... thus we try to extract
@@ -297,8 +308,13 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if np_article.top_image != "":
         new_article.img_url = Url.find_or_create(session, np_article.top_image)
 
-    topics = add_topics(new_article, session)
-    logp(f" Topics ({topics})")
+    old_topics = add_topics(new_article, session)
+    logp(f"Old Topics ({old_topics})")
+    url_keywords = add_url_keywords(new_article, session)
+    logp(f"Topic Keywords: ({url_keywords})")
+    if SEMANTIC_SEARCH_AVAILABLE:
+        origin_type, topics = add_new_topics(new_article, feed, url_keywords, session)
+        logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
 
@@ -313,3 +329,70 @@ def add_topics(new_article, session):
             new_article.add_topic(loc_topic.topic)
             session.add(new_article)
     return topics
+
+
+def add_new_topics(new_article, feed, url_keywords, session):
+    HARDCODED_FEEDS = {
+        102: 8,  # The Onion EN
+        121: 8,  # Lercio IT
+    }
+    # Handle Hard coded Feeds
+    if feed.id in HARDCODED_FEEDS:
+        print("Used HARDCODED feed")
+        topic = NewTopic.find_by_id(HARDCODED_FEEDS[feed.id])
+        new_article.add_new_topic(topic, session, TopicOriginType.HARDSET.value)
+        session.add(new_article)
+        return TopicOriginType.HARDSET.value, [topic.title]
+    # Try setting the Topics based on URLs
+    topics = []
+    topics_added = set()
+    for topic_key in url_keywords:
+        topic = topic_key.new_topic
+        print(topic_key, topic)
+        if (
+            topic is not None
+        ):  # there could be a keyword that might not have a topic assigned
+            if topic.id in topics_added:
+                continue
+            topics_added.add(topic.id)
+            topics.append(topic)
+            new_article.add_new_topic(topic, session, TopicOriginType.URL_PARSED.value)
+
+    if len(topics) > 0:
+        print("Used URL PARSED")
+        session.add(new_article)
+        return TopicOriginType.URL_PARSED.value, [t.title for t in topics]
+
+    from collections import Counter
+
+    # Add based on KK neighbours:
+    found_articles, _ = add_topics_based_on_semantic_hood_search(new_article)
+    neighbouring_topics = [t.new_topic for a in found_articles for t in a.new_topics]
+    if len(neighbouring_topics) > 0:
+        from pprint import pprint
+
+        topics_counter = Counter(neighbouring_topics)
+        pprint(topics_counter)
+        top_topic, count = topics_counter.most_common(1)[0]
+        threshold = (
+            sum(topics_counter.values()) // 2
+        )  # The threshold is being at least half or above rounded down
+        if count >= threshold:
+            print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
+            new_article.add_new_topic(
+                top_topic, session, TopicOriginType.INFERRED.value
+            )
+            session.add(new_article)
+            return TopicOriginType.INFERRED.value, [top_topic.title]
+    return None, []
+
+
+def add_url_keywords(new_article, session):
+    url_keywords = [
+        UrlKeyword.find_or_create(session, keyword, new_article.language)
+        for keyword in UrlKeyword.get_url_keywords_from_url(new_article.url)
+        if keyword is not None
+    ]
+    new_article.set_url_keywords(url_keywords, session)
+    session.add(new_article)
+    return url_keywords

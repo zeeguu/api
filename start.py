@@ -11,6 +11,7 @@ except:
     print("didn't find env_var_defs. hopefully there's envvars defined")
 
 from zeeguu.api.app import create_app
+import os
 
 application = create_app()
 
@@ -21,6 +22,6 @@ logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 # Make sure to keep this in sync with zeeguu_api_dev.wsgi
 application.run(
     host=application.config.get("HOST", "0.0.0.0"),
-    port=application.config.get("PORT", 9001),
+    port=application.config.get("API_PORT", 9001),
     debug=True,
 )

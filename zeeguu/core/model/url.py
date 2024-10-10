@@ -90,6 +90,9 @@ class Url(db.Model):
 
         domain = DomainName.find_or_create(session, _url)
         path = Url.get_path(_url)
+        if len(path) > 255:
+            print(f"Path was too long. Was: {len(path)}, max: 255.")
+            return None
 
         try:
             return cls.query.filter(cls.path == path).filter(cls.domain == domain).one()
