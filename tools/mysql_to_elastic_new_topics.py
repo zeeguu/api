@@ -17,13 +17,14 @@ from zeeguu.core.model import Topic, NewArticleTopicMap
 from zeeguu.core.model.article import article_topic_map
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 import numpy as np
+from tqdm import tqdm
 
 app = create_app()
 app.app_context().push()
 
 DELETE_INDEX = False
-TOTAL_ITEMS = 5000
-ITERATION_STEP = 100
+TOTAL_ITEMS = 1000
+ITERATION_STEP = 10
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
@@ -92,20 +93,17 @@ def main():
         filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), sample_ids)
     )
     print("Total articles missing: ", len(sample_ids_no_in_es))
-    
 
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
     sampled_ids = np.random.choice(
         sample_ids_no_in_es, min(TOTAL_ITEMS, len(sample_ids_no_in_es)), replace=False
     )
-    for i_start in range(0, TOTAL_ITEMS, ITERATION_STEP):
-        print(f"Starting at {i_start}")
+    for i_start in tqdm(range(0, TOTAL_ITEMS, ITERATION_STEP)):
         sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]
         try:
             res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
             total_added += res
-            print(f"Completed {i_start+ITERATION_STEP}/{TOTAL_ITEMS}...")
         except helpers.BulkIndexError:
             print("-- WARNING, at least one document failed to index.")
     print(f"Total articles added: {total_added}")
