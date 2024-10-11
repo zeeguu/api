@@ -8,16 +8,26 @@ The first step is to update ES, as it supports KNN searches with dense vectors w
 
 I provided this under **elasticsearch_v8** in this codebase. We also need to set the `xpack.security.enabled=false` to allow us to connect via HTTP, otherwise we would need to set an SSL key. If, instead, we want to override the original **elasticsearch**, we need to first delete the index otherwise it will cause errors when trying to start up the ES server.
 
-Personally, I recommend using the **\_v8** image, and once we are ready we can remove the old version and rename this to be the new **elasticsearch** image
+Personally, I recommend using the **\_v8** image, and once we are ready we can remove the old version and rename this to be the new **elasticsearch** image.
 
 ## 2. Create the API to provide the article embedding service.
 
 I have created a folder for a small flask API application which will be in charge of embedding documents into dense vectors.
-In the semanticEmbApi, it's include a dockerfile to create the image for this flask application, as well as the basic interface for a **semantic_vector** generator. In this case, we are using https://huggingface.co/sentence-transformers/distiluse-base-multilingual-cased-v2 which can be downloaded and placed in binaries in `semanticEmbApi\app\semantic_vector\binaries` to avoid re-loading the model.
+In the semanticEmbApi, it's include a dockerfile to create the image for this flask application, as well as the basic interface for a **semantic_vector** generator. In this case, we are using https://huggingface.co/sentence-transformers/distiluse-base-multilingual-cased-v2 which can be downloaded from https://github.com/zeeguu/semantic-emb-api. The instructions are included and it will create a container which will be required by the new API to generate the sematnic vectors.
 
-### 2.1. Include this service within the docker-compose file and include the connection string in the images to allow them to connect to the model.
+### 2.1. Include this image as a service in the docker-compose-v8.yml file
 
 Within the `zeeguu.core` folder, we can find a new folder `semantic_vector_api`, which will include the logic to retrieve the dense vector given a document's content.
+
+Currently, the connection is made at `ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"` and the service is called `embedding_api`.
+
+# Starting the deployment
+
+For the deployment, and transition period we will use the containers named `dev_server_pre` and `elasticsearch_v8_pre` which runs on a different port and can index the documents in the background without interfering with the dev_server running the production server.
+
+At the end of the process, we can run the default `dev_server` and `elasticsearch_v8` which run on the default ports and replace the requirements and docker-compose with their v8 counterparts to complete the deployment.
+
+**All the next steps are run in the `dev_server_pre` container.**
 
 ## 3. Update the Major topics to the new Topics
 
