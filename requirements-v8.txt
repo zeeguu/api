@@ -21,6 +21,7 @@ mysqlclient
 newspaper3k==0.2.7
 nltk
 numpy
+tqdm
 Pillow
 pyphen
 regex
