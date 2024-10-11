@@ -30,6 +30,12 @@ SUBSCRIBE_TO_EMAIL_SEARCH = "subscribe_to_email_search"
 UNSUBSCRIBE_FROM_EMAIL_SEARCH = "unsubscribe_from_email_search"
 
 
+def get_total_subscriptions_exclusions_for_search(search_id):
+    total_excluding = SearchFilter.get_number_of_users_excluding(search_id)
+    total_subscribers = SearchSubscription.get_number_of_subscribers(search_id)
+    return total_excluding + total_subscribers
+
+
 # ---------------------------------------------------------------------------
 @api.route(f"/{SUBSCRIBE_SEARCH}/<search_terms>", methods=("GET",))
 # ---------------------------------------------------------------------------
@@ -75,14 +81,15 @@ def unsubscribe_from_search():
         db_session.delete(to_delete)
 
         search = Search.find_by_id(search_id)
-        total_subscribers = SearchSubscription.get_number_of_subscribers(search_id)
-        if total_subscribers == 0:
+        users_following_topic = get_total_subscriptions_exclusions_for_search(search_id)
+        if users_following_topic == 0:
             db_session.delete(search)
         db_session.commit()
 
     except Exception as e:
         from sentry_sdk import capture_exception
 
+        print(e)
         capture_exception(e)
         log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
@@ -155,8 +162,8 @@ def unfilter_search():
     try:
         to_delete = SearchFilter.with_search_id(search_id, user)
         db_session.delete(to_delete)
-        total_excluding = SearchFilter.get_number_of_users_excluding(search_id)
-        if total_excluding == 0:
+        users_following_topic = get_total_subscriptions_exclusions_for_search(search_id)
+        if users_following_topic == 0:
             search = Search.find_by_id(search_id)
             db_session.delete(search)
         db_session.commit()
