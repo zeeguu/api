@@ -43,7 +43,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
     volumes:
-      - ./data/elasticsearch_db/data:/usr/share/elasticsearch_v8/data
+      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
@@ -157,7 +157,7 @@ services:
       - xpack.security.enabled=false
       - http.port=9205
     volumes:
-      - ./data/elasticsearch_db/data:/usr/share/elasticsearch_v8/data
+      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
