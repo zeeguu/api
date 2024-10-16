@@ -25,6 +25,7 @@ for user in User.query.all():
         try:
             user.name = fake.name()
             user.email = fake.email()
+            user.update_password("supersecret")
             db_session.add(user)
             db_session.commit()
             print(f"anonymized user id {user.id} to {user.name}")
