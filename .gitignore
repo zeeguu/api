@@ -12,7 +12,7 @@ tools/crawl_summary/crawl_data/
 
 .DS_Store
 wordinfo.db
-default_api.cfg
+default.api.cfg
 build*
 *.egg*
 *.db
@@ -32,3 +32,8 @@ zenv*
 tools/_playground.py
 
 !zeeguu/core/word_filter/data/
+
+.env
+api.cfg
+fmd.cfg
+
