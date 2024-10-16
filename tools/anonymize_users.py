@@ -11,12 +11,13 @@ import sqlalchemy
 import zeeguu.core
 from faker import Faker
 from zeeguu.api.app import create_app
+from zeeguu.core.model import User
 
 app = create_app()
 app.app_context().push()
 
 fake = Faker()
-from zeeguu.core.model import User
+
 
 db_session = zeeguu.core.model.db.session
 
