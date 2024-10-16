@@ -81,62 +81,23 @@ So for running the development server this is ok, but for actual development, th
 
 # From docker-compose on Mac OS
 
+## Starting the API
 - create a local folder where you want to store zeeguu data, e.g. `mkdir /Users/mircea/zeeguu-data`
 - make sure that you have `envsubst` installed (i.e. `brew install gettext`)
+- copy the content of `default_env` to a newly created `.env` file
 - run `generate-configs.sh`
 - run `docker compose up`
-- you should be able to see something at `localhost:8080/available_languages`
+- once everything is up, go to `localhost:8080/available_languages`: if you see an array like `["de", "es", "fr", "nl", "en"]` you have the API working.
+
+## Developing 
+
+Once you make changes to the code you have to restart the apache2ctl inside the container. To test this do the following: 
+
 - try to change the implementaiton of `available_languages` in `system_languages.py` and then
   run `docker exec -it api-zapi-1 apache2ctl restart`
 - now if you revisit the api above you should see the modified response
 
-# With MySQL in Separate Container
-
-2. (Optional) Build docker images with the steps described [here](/docker/README.md).
-
-3. Start mysql database by running a container with `zeeguu/zeeguu-mysql` image:
-
-```sh
-docker run --net=host --name=zeeguu-mysql -d zeeguu/zeeguu-mysql
-```
-
-Before continuing you should make sure the mysql database is ready to accept connections, otherwise zeeguu-api-core
-container will not start.
-To check that, you can run:
-
-```sh
-$ docker logs zeeguu-mysql
-...
-2018-11-01T17:13:15.296779Z 0 [Note] Event Scheduler: Loaded 0 events
-2018-11-01T17:13:15.296965Z 0 [Note] mysqld: ready for connections.
-Version: '5.7.24'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server (GPL)
-```
-
-If you see the above lines at the end of the output then you are ready to proceed with the next steps.
-
-4. Start Zeeguu API and Core by running a container with `zeeguu/zeeguu-api-core` image:
-
-```sh
-docker run --net=host --name=zeeguu-endpoints-core -d zeeguu/zeeguu-endpoints-core
-```
-
-You can check that the zeeguu-api-core container is started by running `docker ps`. You should see the following:
-
-```sh
-$ docker ps
-CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-31373fb67f01        zeeguu/zeeguu-endpoints-core   "python zeeguu_api"      1 second ago        Up 1 second                             zeeguu-endpoints-core
-0b988ad5956e        zeeguu/zeeguu-mysql      "docker-entrypoint.s…"   6 minutes ago       Up 6 minutes                            zeeguu-mysql
-```
-
-5. To make sure that the API works, you can call the `/available_languages` endpoint from a terminal like this:
-
-   `curl 127.0.0.1:9001/available_languages`
-
-
-7. If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
-
-Go have fun!
+That's all. Go have fun!
 
 # Further Notes
 
