@@ -1,108 +1,98 @@
-version: "3.8"
-
 services:
-  dev_server:
-    image: zeeguu/api
-    environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
-      PYTHONUNBUFFERED: 1
-      DEV_SKIP_TRANSLATION: 1
-      MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
-      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
 
-    ports:
-      - 9001:9001
+  # main db
+  mysql:
+    image: mysql:5.7
     volumes:
-      - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
-    entrypoint: "python /Zeeguu-API/start.py"
-    networks:
-      - zeeguu_backend
-    depends_on:
-      - elasticsearch
-
-  readability_server:
-    image: zeeguu/readability_server
-    ports:
-      - 3456:3456
+      - ${ZEEGUU_DATA_FOLDER}/mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ZEEGUU_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${ZEEGUU_MYSQL_DB}
+      MYSQL_USER: ${ZEEGUU_MYSQL_USER}
+      MYSQL_PASSWORD: ${ZEEGUU_MYSQL_USER_PASSWORD}
     networks:
       - zeeguu_backend
     restart: unless-stopped
+
+
+  # main db
+  fmd_mysql:
+    image: mysql:5.7
+    volumes:
+      - ${ZEEGUU_DATA_FOLDER}/fmd_mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${FMD_ROOT_PASS}
+      MYSQL_DATABASE: ${FMD_MYSQL_DB}
+      MYSQL_USER: ${FMD_MYSQL_USER}
+      MYSQL_PASSWORD: ${FMD_MYSQL_USER_PASS}
+    networks:
+      - zeeguu_backend
+    restart: unless-stopped
+
+
+
 
   elasticsearch:
     image: elasticsearch:7.6.2
-    platform: linux/amd64
-    ports:
-      - 9200:9200
-      - 9300:9300
     environment:
       - discovery.type=single-node
-      - network.host=0.0.0.0 # is this still needed? 
+      - network.host=0.0.0.0 # is this still needed?
     volumes:
-      - ./data/elasticsearch_db/data:/usr/share/elasticsearch/data
+      - ${ZEEGUU_DATA_FOLDER}/elasticsearch/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
 
 
-
-  dev_play:
-    image: zeeguu/api
-    environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-
-    volumes:
-      - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
-    entrypoint: "python tools/_playground.py"
+  readability_server:
+    image: zeeguu/readability_server
     networks:
       - zeeguu_backend
+    restart: unless-stopped
 
-  # docker-compose run --rm dev_bash
-  dev_bash:
-    image: zeeguu/api
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
 
-    environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-
-    volumes:
-      - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
-    entrypoint: "bash"
-    networks:
-      - zeeguu_backend
-
-  dev_test:
-    image: zeeguu/api
-    environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-
-    volumes:
-      - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
-    entrypoint: "./run_tests.sh"
-    networks:
-      - zeeguu_backend
-
-  dev_init_es:
-    image: zeeguu/api
-    environment:
-      ZEEGUU_CONFIG: /Zeeguu-API/default_docker.cfg
-      ZEEGUU_ES_CONN_STRING: "elasticsearch:9200"
-
-    volumes:
-      - .:/Zeeguu-API
-      - ./data/zeeguu:/zeeguu-data
-      - /Users:/userslalal
-    entrypoint: "python tools/mysql_to_elastic.py"
-    networks:
-      - zeeguu_backend
+  zapi:
     depends_on:
+      - mysql
+      - fmd_mysql
       - elasticsearch
+      - readability_server
+    image: zeeguu/api:latest
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+      # to consider mapping only to localhost cf here:
+      # https://serverfault.com/questions/681571/docker-exposed-ports-accessible-from-outside-iptables-rules-ignored
+      # otherwise the port is visible from the outside; even against ufw rules!
+    volumes:
+      - .:/Zeeguu-API
+      - ${ZEEGUU_DATA_FOLDER}:/zeeguu-data
+    #      - ./api.cfg:/Zeeguu-API/api.cfg
+    #      - ./fmd.cfg:/Zeeguu-API/fmd.cfg
+    #      - ./lu-mir-zeeguu-credentials.json:/Zeeguu-API/lu-mir-zeeguu-credentials.json
+    environment:
+      ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
+      ZEEGUU_DATA_FOLDER: /zeeguu-data/
+      SENTRY_DSN: ${SENTRY_DSN}
+      FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg
+      MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
+      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}
+      GOOGLE_APPLICATION_CREDENTIALS: /Zeeguu-API/lu-mir-zeeguu-credentials.json
+      WORDNIK_API_KEY: ${WORDNIK_API_KEY}
+      MULTI_LANG_TRANSLATOR_AB_TESTING: ${MULTI_LANG_TRANSLATOR_AB_TESTING}
+      ZEEGUU_ES_CONN_STRING: 'http://elasticsearch:9200'
+      FOLDER_FOR_REPORT_OUTPUT: /zeeguu-data/crawl-reports
+      CRAWL_REPORT_DATA: /zeeguu-data/crawl-reports/data
+
+    command: /usr/sbin/apache2ctl -D FOREGROUND
+    networks:
+      - zeeguu_backend
+    restart: unless-stopped
+
+
+# TODO add the zapi_pink back
 
 
 networks:
   zeeguu_backend:
+
