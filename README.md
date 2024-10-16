@@ -81,18 +81,23 @@ So for running the development server this is ok, but for actual development, th
 
 # From docker-compose on Mac OS
 
+## Starting the API
 - create a local folder where you want to store zeeguu data, e.g. `mkdir /Users/mircea/zeeguu-data`
 - make sure that you have `envsubst` installed (i.e. `brew install gettext`)
 - copy the content of `default_env` to a newly created `.env` file
 - run `generate-configs.sh`
 - run `docker compose up`
-- you should be able to see something at `localhost:8080/available_languages`
-  If the answer is something like `["de", "es", "fr", "nl", "en"]` you have the API working.
+- once everything is up, go to `localhost:8080/available_languages`: if you see an array like `["de", "es", "fr", "nl", "en"]` you have the API working.
+
+## Developing 
+
+Once you make changes to the code you have to restart the apache2ctl inside the container. To test this do the following: 
+
 - try to change the implementaiton of `available_languages` in `system_languages.py` and then
   run `docker exec -it api-zapi-1 apache2ctl restart`
 - now if you revisit the api above you should see the modified response
 
-Go have fun!
+That's all. Go have fun!
 
 # Further Notes
 
