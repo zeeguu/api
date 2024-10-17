@@ -158,6 +158,34 @@ def generate_topic_by_feed_plot(article_topic_df, lang):
     return save_fig_params(filename)
 
 
+def generate_new_topic_by_feed_plot(article_topic_df, lang):
+    # If I want to make topics consistant
+    # https://stackoverflow.com/questions/39000115/how-can-i-set-the-colors-per-value-when-coloring-plots-by-a-dataframe-column
+    filename = f"new_topics_per_feed_lang_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
+    topic_monitor = (
+        article_topic_df.groupby(["Language", "Feed Name"])
+        .Topic.value_counts()
+        .reset_index()
+    )
+    total_sources = len(
+        topic_monitor[topic_monitor["Language"] == lang]["Feed Name"].unique()
+    )
+
+    ax = plt.subplot(111)
+    sns.barplot(
+        x="Topic",
+        y="count",
+        hue="Feed Name",
+        data=topic_monitor[topic_monitor["Language"] == lang],
+        palette=get_color_palette(total_sources),
+    )
+    set_legend_to_right_side(ax)
+    plt.title(f"{lang} - New Topic Report")
+    plt.xlabel("Topic")
+    plt.xticks(rotation=35, ha="right")
+    return save_fig_params(filename)
+
+
 def generate_topic_coverage_plot(article_df, article_with_topics_df):
     filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
     article_df["has_topic"] = "No"
@@ -172,9 +200,36 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
         y="proportion",
         hue="has_topic",
         data=articles_with_topics,
-        palette=[sns.color_palette("vlag")[0], sns.color_palette("vlag")[5]],
+        palette={
+            "Yes": sns.color_palette("vlag")[0],
+            "No": sns.color_palette("vlag")[5],
+        },
     )
     plt.title("Proportion of Articles with Topics")
+    plt.xticks(rotation=35, ha="right")
+    return save_fig_params(filename)
+
+
+def generate_new_topic_coverage_plot(article_df, article_with_topics_df):
+    filename = f"new_topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
+    article_df["has_topic"] = "No"
+    article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
+    articles_with_topics = (
+        article_df.groupby("Language")
+        .has_topic.value_counts(normalize=True)
+        .reset_index()
+    )
+    sns.barplot(
+        x="Language",
+        y="proportion",
+        hue="has_topic",
+        data=articles_with_topics,
+        palette={
+            "Yes": sns.color_palette("vlag")[0],
+            "No": sns.color_palette("vlag")[5],
+        },
+    )
+    plt.title("Proportion of Articles with New Topics")
     plt.xticks(rotation=35, ha="right")
     return save_fig_params(filename)
 
@@ -319,6 +374,41 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
     return save_fig_params(filename)
 
 
+def generate_new_topic_reading_time(topic_reading_time_df, lang=""):
+    filename = (
+        f"new_topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
+        if lang == ""
+        else f"new_topic_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
+    )
+    plot_total_reading_time = (
+        topic_reading_time_df.groupby(["Language", "Topic"])
+        .total_reading_time.sum()
+        .reset_index()
+    )
+    if lang == "":
+        ax = plt.subplot(111)
+        sns.barplot(
+            x="Language",
+            y="total_reading_time",
+            hue="Topic",
+            data=plot_total_reading_time,
+            palette=get_color_palette(len(plot_total_reading_time["Topic"].unique())),
+        )
+        set_legend_to_right_side(ax)
+        plt.title("Total Reading Time by New Topic per Language")
+    else:
+        sns.barplot(
+            x="Topic",
+            y="total_reading_time",
+            hue="Topic",
+            data=plot_total_reading_time[plot_total_reading_time["Language"] == lang],
+        )
+        plt.title(f"{lang} - Total Reading time by New Topic")
+    plt.xticks(rotation=35, ha="right")
+    plt.ylabel("Total Reading time (mins)")
+    return save_fig_params(filename)
+
+
 def generate_exercise_activity(exercise_activity_df, lang=""):
     filename = (
         f"exercise_activity_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
@@ -455,6 +545,7 @@ def generate_html_page():
     feed_df = data_extractor.get_feed_df()
     article_df = data_extractor.get_article_df(feed_df)
     article_topics_df = data_extractor.get_article_topics_df(feed_df)
+    new_article_topics_df = data_extractor.get_article_new_topics_df(feed_df)
     language_df = data_extractor.get_language_df()
     bookmark_df = data_extractor.get_bookmark_df()
     data_extractor.add_stats_to_feed(feed_df, article_df)
@@ -468,7 +559,13 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
-    total_unique_articles_opened_by_users = user_reading_time_df.Language.value_counts().reset_index()['count'].sum()
+    new_topic_reading_time_df = data_extractor.get_new_topic_reading_time()
+    total_unique_articles_opened_by_users = len(
+        article_df[article_df.id.isin(user_reading_time_df.id)]
+    )
+    total_unique_articles_opened_by_users = (
+        user_reading_time_df.Language.value_counts().reset_index()["count"].sum()
+    )
     exercise_activity_df = data_extractor.get_exercise_type_activity()
     top_subscribed_searches = data_extractor.get_top_search_subscriptions()
     top_filtered_searches = data_extractor.get_top_search_filters()
@@ -489,6 +586,7 @@ def generate_html_page():
     )
     ACTIVE_USER_ACTIVITY_TIME_MIN = 1
     articles_with_topic_count = len(article_topics_df.id.unique())
+    articles_with_new_topic_count = len(new_article_topics_df.id.unique())
     active_users = combined_user_activity_df[
         (
             combined_user_activity_df["total_reading_time"]
@@ -506,6 +604,7 @@ def generate_html_page():
           <h2 id='{lang}'>{lang}</h2>
           <h3>Articles Downloaded</h3>
           <img src="{generate_topic_by_feed_plot(article_topics_df, lang)}" />
+          <img src="{generate_new_topic_by_feed_plot(new_article_topics_df, lang)}" />
           <img src="{generate_feed_count_plots(feed_df, lang)}" />
           <h3>User Activity</h3>
           """
@@ -513,6 +612,7 @@ def generate_html_page():
             lang_report += f"""
             <p><b>Total Active users</b>: {len(active_users[active_users["Language"] == lang])}</p>
             <img src="{generate_topic_reading_time(topic_reading_time_df,lang)}" />
+            <img src="{generate_new_topic_reading_time(new_topic_reading_time_df, lang)}" />
             <img src="{generate_user_reading_time(user_reading_time_df, lang)}" />
             <img src="{generate_unique_articles_read_plot(user_reading_time_df, lang)}" />
             <img src="{generate_exercise_activity(exercise_activity_df, lang)}" />
@@ -552,8 +652,9 @@ def generate_html_page():
                 <p><b>Total Articles Crawled: </b> {len(article_df)}</p>
                 <p><b>Total Unique Articles Opened: </b> {total_unique_articles_opened_by_users}
                 <p><b>Topic Coverage: </b> {((articles_with_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
-
+                <p><b>New Topic Coverage: </b> {((articles_with_new_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
                 <img src="{generate_topic_coverage_plot(article_df, article_topics_df)}" />
+                <img src="{generate_new_topic_coverage_plot(article_df, new_article_topics_df)}" />
                 <img src="{generate_total_article_per_language(article_df)}" />
                 <h2>Articles Rejected:</h2>
                 <p>{warning_crawl_range}</p>
@@ -587,6 +688,7 @@ def generate_html_page():
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
         <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
+        <img src="{generate_new_topic_reading_time(new_topic_reading_time_df)}" />
         <img src="{generate_bookmarks_by_language_plot(bookmark_df)}" />
         """
     result += f"""

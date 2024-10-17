@@ -36,6 +36,19 @@ class DataExtractor:
         self.__add_feed_name(df, feed_df)
         return df
 
+    def get_article_new_topics_df(self, feed_df):
+        print("Getting Article New Topics...")
+        query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
+        FROM article a 
+        INNER JOIN new_article_topic_map atm on a.id = atm.article_id 
+        INNER JOIN new_topic t ON atm.new_topic_id = t.id
+        INNER JOIN language l ON l.id = a.language_id
+        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        AND a.broken = 0"""
+        df = pd.read_sql(query, con=self.db_connection)
+        self.__add_feed_name(df, feed_df)
+        return df
+
     def get_article_df(self, feed_df):
         print("Getting Articles...")
         query = f"""SELECT a.*, l.name Language
@@ -207,6 +220,27 @@ class DataExtractor:
         WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
         AND u.learned_language_id = a.language_id
         GROUP BY a.language_id, atm.topic_id;"""
+        topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
+        topic_reading_time_df["total_reading_time"] = topic_reading_time_df[
+            "total_reading_time"
+        ].apply(ms_to_mins)
+        topic_reading_time_df.loc[topic_reading_time_df["Topic"].isna(), "Topic"] = (
+            "Unclassified"
+        )
+        return topic_reading_time_df
+
+    def get_new_topic_reading_time(self):
+        print("Getting New Topic Reading Times...")
+        query = f"""SELECT l.name as Language, t.title Topic, SUM(urs.duration) total_reading_time
+        FROM article a 
+        LEFT JOIN new_article_topic_map atm on a.id = atm.article_id
+        LEFT JOIN new_topic t on atm.new_topic_id = t.id
+        INNER JOIN user_reading_session urs ON urs.article_id = a.id
+        INNER JOIN language l on a.language_id = l.id
+        INNER JOIN user u ON urs.user_id = u.id
+        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
+        AND u.learned_language_id = a.language_id
+        GROUP BY a.language_id, atm.new_topic_id;"""
         topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
         topic_reading_time_df["total_reading_time"] = topic_reading_time_df[
             "total_reading_time"

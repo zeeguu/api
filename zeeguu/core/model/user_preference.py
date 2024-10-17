@@ -42,7 +42,7 @@ class UserPreference(db.Model):
     PRODUCTIVE_EXERCISES = "productive_exercises"
     TRANSLATE_IN_READER = "translate_reader"
     PRONOUNCE_IN_READER = "pronounce_reader"
-
+    
     def __init__(self, user: User, key=None, value=None):
         self.user = user
         self.key = key

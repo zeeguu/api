@@ -49,15 +49,24 @@ def _feature_map():
         "extension_experiment_1": _extension_experiment_1,
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
+        "new_topics": _new_topics,
         "merle_exercises": _merle_exercises,
     }
+
+
+def _new_topics(user):
+    right_user = (
+        user.id == 534
+        or user.id == 4022
+        or user.id == 4089
+        or user.invitation_code == "zeeguu-preview"
+    )
+    return right_user
 
 
 def _tiago_exercises(user):
     right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
     right_language = user.learned_language.code in ["da"]
-    print(right_language)
-    print(right_user)
     return right_user and right_language
 
 

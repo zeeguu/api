@@ -4,7 +4,9 @@ import newspaper
 from langdetect import detect
 import requests
 
-from zeeguu.core.content_retriever.crawler_exceptions import FailedToParseWithReadabilityServer
+from zeeguu.core.content_retriever.crawler_exceptions import (
+    FailedToParseWithReadabilityServer,
+)
 
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
 TIMEOUT_SECONDS = 20
@@ -31,8 +33,8 @@ def download_and_parse(url, request_timeout=TIMEOUT_SECONDS):
         raise FailedToParseWithReadabilityServer(result.text)
 
     result_dict = json.loads(result.text)
-    np_article.text = result_dict['text']
-    np_article.htmlContent = result_dict['html']
+    np_article.text = result_dict["text"]
+    np_article.htmlContent = result_dict["html"]
 
     if np_article.meta_lang == "":
         np_article.meta_lang = detect(np_article.text)
