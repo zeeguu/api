@@ -12,9 +12,7 @@ class ZeeguuMailer(object):
         self.to_email = to_email
         self.message_subject = message_subject
 
-        self.server_name = zeeguu.core.app.config.get("SMTP_SERVER")
         self.our_email = zeeguu.core.app.config.get("SMTP_EMAIL")
-        self.username = zeeguu.core.app.config.get("SMTP_USERNAME")
         self.password = zeeguu.core.app.config.get("SMTP_PASS")
 
     def send_with_yagmail(self):
@@ -56,7 +54,7 @@ class ZeeguuMailer(object):
             + "\n\n"
             + "Cheers,\n"
             + f"{user.name} ({user.id}, {user.email})",
-            zeeguu.core.app.config.get("SMTP_USERNAME"),
+            zeeguu.core.app.config.get("SMTP_EMAIL"),
         )
 
         mailer.send()
@@ -87,9 +85,7 @@ class ZeeguuMailer(object):
 
         logger.info("Sending email...")
         body = "\r\n".join(content_lines)
-        mailer = ZeeguuMailer(
-            subject, body, zeeguu.core.app.config.get("SMTP_USERNAME")
-        )
+        mailer = ZeeguuMailer(subject, body, zeeguu.core.app.config.get("SMTP_EMAIL"))
         mailer.send()
 
     @classmethod

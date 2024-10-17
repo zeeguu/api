@@ -11,12 +11,13 @@ import sqlalchemy
 import zeeguu.core
 from faker import Faker
 from zeeguu.api.app import create_app
+from zeeguu.core.model import User
 
 app = create_app()
 app.app_context().push()
 
 fake = Faker()
-from zeeguu.core.model import User
+
 
 db_session = zeeguu.core.model.db.session
 
@@ -25,6 +26,7 @@ for user in User.query.all():
         try:
             user.name = fake.name()
             user.email = fake.email()
+            user.update_password("supersecret")
             db_session.add(user)
             db_session.commit()
             print(f"anonymized user id {user.id} to {user.name}")
