@@ -62,3 +62,5 @@ With the topics linked to their keywords we can now create a mapping for all art
 This will take sometime to run, with 5000 documents taking about: 1h08m in my laptop to index.
 
 ## 7. Enable the Feature Tag and visualize the differences in the Front-End
+
+Note, during the transition period we will be missing some indexed documents that are only placed in ES_v7, but we can re-run the mysql_to_elastic script to capture these.
