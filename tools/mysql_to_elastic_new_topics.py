@@ -76,7 +76,7 @@ def main():
                 print(f"fail for: '{article.id}', {e}")
 
     # Sample Articles that have topics assigned and are not inferred
-    sample_ids = np.array(
+    target_ids = np.array(
         [
             a_id[0]
             for a_id in db_session.query(Article.id)
@@ -86,11 +86,11 @@ def main():
             .all()
         ]
     )
-    if len(sample_ids) == 0:
+    if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
     sample_ids_no_in_es = list(
-        filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), sample_ids)
+        filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), target_ids)
     )
     print("Total articles missing: ", len(sample_ids_no_in_es))
 
