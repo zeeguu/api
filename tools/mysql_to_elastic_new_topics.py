@@ -16,6 +16,7 @@ from zeeguu.api.app import create_app
 from zeeguu.core.model import Topic, NewArticleTopicMap
 from zeeguu.core.model.article import article_topic_map
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
+from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import numpy as np
 from tqdm import tqdm
 
@@ -23,8 +24,11 @@ app = create_app()
 app.app_context().push()
 
 DELETE_INDEX = False
-TOTAL_ITEMS = 1000
-ITERATION_STEP = 10
+# First we should only index with topics so we can do
+# inference based on the articles that have topics.
+INDEX_WITH_TOPIC_ONLY = False
+TOTAL_ITEMS = 100
+ITERATION_STEP = 1000
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
@@ -57,12 +61,14 @@ def main():
         for i in id_list:
             try:
                 if es.exists(index=ES_ZINDEX, id=i):
-                    print(f"Skipped for: '{i}'")
+                    print(f"Skipped for: '{i}', article already in ES.")
                     continue
                 article = Article.find_by_id(i)
-                if article:
-                    topics = find_topics(article.id, db_session)
-                    yield (article, topics)
+                if not article:
+                    print(f"Skipped for: '{i}', article not in DB.")
+                    continue
+                topics = find_topics(article.id, db_session)
+                yield (article, topics)
             except NoResultFound:
                 print(f"fail for: '{i}'")
             except Exception as e:
@@ -76,28 +82,47 @@ def main():
                 print(f"fail for: '{article.id}', {e}")
 
     # Sample Articles that have topics assigned and are not inferred
-    target_ids = np.array(
-        [
-            a_id[0]
-            for a_id in db_session.query(Article.id)
-            .join(NewArticleTopicMap)
-            .filter(Article.language_id == 2)
-            .filter(NewArticleTopicMap.origin_type != 3)
-            .all()
-        ]
-    )
+    if INDEX_WITH_TOPIC_ONLY:
+        target_ids = np.array(
+            [
+                a_id[0]
+                for a_id in db_session.query(Article.id)
+                .join(NewArticleTopicMap)
+                .filter(NewArticleTopicMap.origin_type != TopicOriginType.INFERRED)
+                # .filter(Article.language_id == 2) If only one language
+                .distinct()  # Do not index Inferred topics
+            ]
+        )
+        print("Got articles with topics, total: ", len(target_ids))
+    else:
+        articles_with_topic = set(
+            [
+                art_id_w_topic[0]
+                for art_id_w_topic in db_session.query(
+                    NewArticleTopicMap.article_id
+                ).distinct()
+            ]
+        )
+        target_ids = np.array(
+            list(
+                set([a_id[0] for a_id in db_session.query(Article.id)])
+                - articles_with_topic
+            )
+        )
+        print("Got articles without topics, total: ", len(target_ids))
+
     if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
-    sample_ids_no_in_es = list(
+    target_ids_not_in_es = list(
         filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), target_ids)
     )
-    print("Total articles missing: ", len(sample_ids_no_in_es))
+    print("Total articles missing: ", len(target_ids_not_in_es))
 
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
     sampled_ids = np.random.choice(
-        sample_ids_no_in_es, min(TOTAL_ITEMS, len(sample_ids_no_in_es)), replace=False
+        target_ids_not_in_es, min(TOTAL_ITEMS, len(target_ids_not_in_es)), replace=False
     )
     for i_start in tqdm(range(0, TOTAL_ITEMS, ITERATION_STEP)):
         sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]
