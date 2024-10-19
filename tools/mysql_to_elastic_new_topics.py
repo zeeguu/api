@@ -28,7 +28,7 @@ DELETE_INDEX = False
 # inference based on the articles that have topics.
 INDEX_WITH_TOPIC_ONLY = False
 TOTAL_ITEMS = 100
-ITERATION_STEP = 10
+ITERATION_STEP = 1000
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
