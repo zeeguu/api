@@ -27,7 +27,7 @@ DELETE_INDEX = False
 # First we should only index with topics so we can do
 # inference based on the articles that have topics.
 INDEX_WITH_TOPIC_ONLY = False
-TOTAL_ITEMS = 100
+TOTAL_ITEMS = 50000
 ITERATION_STEP = 1000
 
 print(ES_CONN_STRING)
