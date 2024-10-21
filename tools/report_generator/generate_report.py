@@ -76,9 +76,11 @@ def save_fig_params(filename):
     return rel_path
 
 
-def get_new_repeating_sents(pd_repeating_sents):
+def get_new_repeating_sents_table(pd_repeating_sents):
     return generate_html_table(pd_repeating_sents.sort_values("Count", ascending=False))
 
+def get_new_url_keywords_table(pd_url_keywords_count):
+    return generate_html_table(pd_url_keywords_count.sort_values("count", ascending=False))
 
 def get_rejected_sentences_table(total_deleted_sents):
     total_deleted_sents["Total"] = sum(total_deleted_sents.values())
@@ -570,6 +572,7 @@ def generate_html_page():
     top_subscribed_searches = data_extractor.get_top_search_subscriptions()
     top_filtered_searches = data_extractor.get_top_search_filters()
     newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
+    pd_new_url_keywords = data_extractor.get_url_keyword_counts()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
@@ -693,6 +696,7 @@ def generate_html_page():
         """
     result += f"""
             <p><a href="#removed-articles">Removed Sents Table</a><p>
+            <p><a href="#new-url-keywords">New keywords without topics</a><p>
             <h1>Per Language Report:</h1>
             {lang_links}
             <hr />
@@ -700,10 +704,17 @@ def generate_html_page():
             <hr />
             <h1>Newly identified repeating patterns:</h1>
             <p>Sentences that occur in more than 10 articles during this weeks crawl, and were not filtered.<p>
-            {get_new_repeating_sents(pd_new_repeated_sents) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
+            {get_new_repeating_sents_table(pd_new_repeated_sents) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
             <h1 id="removed-articles">Removed Article Sents:</h1>
             <p>{warning_crawl_range}</p>
             {get_rejected_sentences_table(total_removed_sents)}
+        </body>
+    """
+
+    result += f"""
+            <h1 id="new-url-keywords">Newly url keywords without topics:</h1>
+            <p>URL Keywords that occur more than 100 times in articles and are not mapped to a topic. They are language unique.<p>
+            {get_new_url_keywords_table(pd_new_url_keywords) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
         </body>
     """
 

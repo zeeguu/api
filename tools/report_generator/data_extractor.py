@@ -59,6 +59,48 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
+    
+    def get_url_keyword_counts(self, min_count=100):
+        print("Getting URL keyword counts...")
+        # Update with values from the code.
+        query = f"""SELECT uk.id, l.name, keyword, count
+                    FROM url_keyword uk
+                    JOIN (SELECT url_keyword_id, count(*) count
+                          FROM article_url_keyword_map
+                          GROUP BY url_keyword_id) as keyword_count
+                    ON uk.id = keyword_count.url_keyword_id
+                    JOIN language l ON l.id = language_id
+                    WHERE count > {min_count}
+                    AND new_topic_id is NULL
+                    AND keyword not in (
+                                        "news",
+                                        "i",
+                                        "nyheter",
+                                        "article",
+                                        "nieuws",
+                                        "aktuell",
+                                        "artikel",
+                                        "wiadomosci",
+                                        "actualites",
+                                        "cronaca",
+                                        "nyheder",
+                                        "jan",
+                                        "feb",
+                                        "mar",
+                                        "apr",
+                                        "may",
+                                        "jun",
+                                        "jul",
+                                        "aug",
+                                        "sep",
+                                        "oct",
+                                        "nov",
+                                        "dec"
+                                        )
+                    ORDER BY count DESC;
+                """
+        df = pd.read_sql(query, con=self.db_connection)
+        return df
 
     def get_article_df_with_ids(self, feed_df, id_to_fetch: list[int]):
         print("Getting Articles with Ids...")
