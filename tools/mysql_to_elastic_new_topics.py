@@ -32,8 +32,8 @@ app.app_context().push()
 # only the articles without the topic will be added. Default: True
 #   TOTAL_ITEMS - total items to be indexed, the IDs are sampled and this is used to
 # have a variety of different articles in ES. Default: 5000
-# NOTE: If you want to index all the articles, you can pass a very high number e.g.
-# 1000000.
+# NOTE: If you want to index all the articles, you shoud pass a number that's higher 
+# or equal to the number of articles in the DB
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
 DELETE_INDEX = False
 INDEX_WITH_TOPIC_ONLY = True
