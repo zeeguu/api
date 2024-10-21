@@ -26,8 +26,8 @@ app.app_context().push()
 DELETE_INDEX = False
 # First we should only index with topics so we can do
 # inference based on the articles that have topics.
-INDEX_WITH_TOPIC_ONLY = False
-TOTAL_ITEMS = 50000
+INDEX_WITH_TOPIC_ONLY = True
+TOTAL_ITEMS = 10000
 ITERATION_STEP = 1000
 
 print(ES_CONN_STRING)
@@ -88,9 +88,12 @@ def main():
                 a_id[0]
                 for a_id in db_session.query(Article.id)
                 .join(NewArticleTopicMap)
-                .filter(NewArticleTopicMap.origin_type != TopicOriginType.INFERRED)
+                .filter(
+                    NewArticleTopicMap.origin_type != TopicOriginType.INFERRED
+                )  # Do not index Inferred topics
+                .filter(Article.broken != 1)  # Filter out documents that are broken
                 # .filter(Article.language_id == 2) If only one language
-                .distinct()  # Do not index Inferred topics
+                .distinct()
             ]
         )
         print("Got articles with topics, total: ", len(target_ids))
@@ -121,16 +124,23 @@ def main():
 
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
+    errors_encountered = []
     sampled_ids = np.random.choice(
         target_ids_not_in_es, min(TOTAL_ITEMS, len(target_ids_not_in_es)), replace=False
     )
     for i_start in tqdm(range(0, TOTAL_ITEMS, ITERATION_STEP)):
         sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]
-        try:
-            res, _ = bulk(es, gen_docs(fetch_articles_by_id(sub_sample)))
-            total_added += res
-        except helpers.BulkIndexError:
-            print("-- WARNING, at least one document failed to index.")
+        res_bulk, error_bulk = bulk(
+            es, gen_docs(fetch_articles_by_id(sub_sample)), raise_on_error=False
+        )
+        total_added += res_bulk
+        errors_encountered += error_bulk
+        total_bulk_errors = len(error_bulk)
+        if total_bulk_errors > 0:
+            print(f"## Warning, {total_bulk_errors} failed to index. With errors: ")
+            print(error_bulk)
+        print(f"Batch finished. ADDED:{res_bulk} | ERRORS: {total_bulk_errors}")
+    print(errors_encountered)
     print(f"Total articles added: {total_added}")
 
 
