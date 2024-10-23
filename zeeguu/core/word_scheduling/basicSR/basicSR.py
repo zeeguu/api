@@ -49,7 +49,6 @@ class BasicSRSchedule(db.Model):
         self.cooling_interval = 0
 
     def set_bookmark_as_learned(self, db_session):
-        self.bookmark.learned = True
         self.bookmark.learned_time = datetime.now()
         db_session.add(self.bookmark)
         db_session.delete(self)
@@ -211,7 +210,7 @@ class BasicSRSchedule(db.Model):
         unscheduled_bookmarks = (
             Bookmark.query.filter(Bookmark.user_id == user.id)
             .outerjoin(BasicSRSchedule)
-            .filter(Bookmark.learned == 0)
+            .filter(Bookmark.learned_time == None)
             .filter(Bookmark.fit_for_study == 1)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
