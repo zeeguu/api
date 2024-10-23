@@ -67,7 +67,7 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
             and b.learned_time < :to_date -- '2021-06-23'
             and o_uw.language_id = :language_id -- 2
             and b.user_id = :user_id -- 2953
-            and learned = 1
+            and b.learned_time is NOT NULL 
         order by b.learned_time
         """
 
@@ -86,8 +86,8 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
         each["self_reported"] = (
             bookmark.sorted_exercise_log().last_exercise().is_too_easy()
         )
-        each[
-            "most_recent_correct_dates"
-        ] = bookmark.sorted_exercise_log().str_most_recent_correct_dates()
+        each["most_recent_correct_dates"] = (
+            bookmark.sorted_exercise_log().str_most_recent_correct_dates()
+        )
 
     return results

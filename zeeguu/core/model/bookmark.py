@@ -60,8 +60,6 @@ class Bookmark(db.Model):
 
     starred = db.Column(db.Boolean, default=False)
 
-    learned = db.Column(db.Boolean, default=False)
-
     fit_for_study = db.Column(db.Boolean)
 
     learned_time = db.Column(db.DateTime)
