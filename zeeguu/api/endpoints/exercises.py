@@ -35,9 +35,16 @@ def top_bookmarks_to_study():
     Return all the possible bookmarks a user has to study ordered by
     how common it is in the language and how close they are to being learned.
     """
+    import time
+
+    start = time.time()
     user = User.find_by_id(flask.g.user_id)
     to_study = user.bookmarks_to_study(scheduled_only=False)
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    end = time.time() - start
+    print(
+        f"### INFO: `top_bookmarks_to_study` took: {end:.4f} seconds, total: {len(json_bookmarks)}"
+    )
     return json_result(json_bookmarks)
 
 
@@ -49,9 +56,16 @@ def bookmarks_to_learn_not_scheduled():
     Return all the bookmarks that aren't learned and haven't been
     scheduled to the user.
     """
+    import time
+
+    start = time.time()
     user = User.find_by_id(flask.g.user_id)
     to_study = user.bookmarks_to_learn_not_in_pipeline()
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+    end = time.time() - start
+    print(
+        f"### INFO: `bookmarks_to_learn_not_scheduled` took: {end:.4f} seconds, total: {len(json_bookmarks)}"
+    )
     return json_result(json_bookmarks)
 
 
