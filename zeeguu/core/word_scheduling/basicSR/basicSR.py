@@ -259,9 +259,6 @@ class BasicSRSchedule(db.Model):
         1. Words that are most common in the language (utilizing the word rank in the db
         2. Words that are closest to being learned (indicated by `cooling_interval`, the highest the closest it is)
         """
-        import time
-
-        start = time.time()
 
         def priority_by_rank(bookmark):
             # If this is updated remember to update the order_by in
@@ -282,10 +279,6 @@ class BasicSRSchedule(db.Model):
         sorted_candidates = sorted(
             no_duplicate_bookmarks, key=lambda x: priority_by_rank(x)
         )
-        end = time.time() - start
-        print(
-            f"### INFO: `all_bookmarks_priority_to_study` took: {end:.4f} seconds, total: {len(sorted_candidates)}"
-        )
         return sorted_candidates
 
     @classmethod
@@ -301,9 +294,6 @@ class BasicSRSchedule(db.Model):
         1. Words that are closest to being learned (indicated by `cooling_interval`, the highest the closest it is)
         2. Words that are most common in the language (utilizing the word rank in the db)
         """
-        import time
-
-        start = time.time()
 
         def priority_by_cooling_interval(bookmark):
             bookmark_info = bookmark.json_serializable_dict()
@@ -319,10 +309,6 @@ class BasicSRSchedule(db.Model):
 
         sorted_candidates = sorted(
             no_duplicate_bookmarks, key=lambda x: priority_by_cooling_interval(x)
-        )
-        end = time.time() - start
-        print(
-            f"### INFO: `priority_scheduled_bookmarks_to_study` took: {end:.4f} seconds"
         )
         return sorted_candidates
 
