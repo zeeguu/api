@@ -1,5 +1,4 @@
 services:
-
   # main db
   mysql:
     image: mysql:5.7
@@ -13,7 +12,6 @@ services:
     networks:
       - zeeguu_backend
     restart: unless-stopped
-
 
   # main db
   fmd_mysql:
@@ -29,9 +27,6 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
-
-
-
   elasticsearch:
     image: elasticsearch:7.6.2
     environment:
@@ -43,17 +38,14 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
-
   readability_server:
     image: zeeguu/readability_server
     networks:
       - zeeguu_backend
     restart: unless-stopped
 
-
   zapi:
     depends_on:
-      - mysql
       - fmd_mysql
       - elasticsearch
       - readability_server
@@ -80,7 +72,7 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /Zeeguu-API/lu-mir-zeeguu-credentials.json
       WORDNIK_API_KEY: ${WORDNIK_API_KEY}
       MULTI_LANG_TRANSLATOR_AB_TESTING: ${MULTI_LANG_TRANSLATOR_AB_TESTING}
-      ZEEGUU_ES_CONN_STRING: 'http://elasticsearch:9200'
+      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
       FOLDER_FOR_REPORT_OUTPUT: /zeeguu-data/crawl-reports
       CRAWL_REPORT_DATA: /zeeguu-data/crawl-reports/data
 
@@ -89,10 +81,7 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
-
 # TODO add the zapi_pink back
-
 
 networks:
   zeeguu_backend:
-
