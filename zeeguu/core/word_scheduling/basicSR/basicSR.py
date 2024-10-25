@@ -204,7 +204,12 @@ class BasicSRSchedule(db.Model):
             scheduled_candidates_query = scheduled_candidates_query.filter(
                 Bookmark.learning_cycle == LearningCycle.RECEPTIVE
             )
-        scheduled_candidates_query.order_by(-UserWord.rank.desc(), cls.cooling_interval)
+        # The scheduled bookmarks are sorted by the most common in the language and
+        # then by cooling interval, meaning the words that are closest to being learned
+        # come before the ones that are just learned.
+        scheduled_candidates_query.order_by(
+            -UserWord.rank.desc(), cls.cooling_interval.desc()
+        )  # By using the negative for rank, we ensure NULL is last.
         if limit is None:
             return scheduled_candidates_query.all()
         else:
@@ -220,7 +225,9 @@ class BasicSRSchedule(db.Model):
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
             .filter(BasicSRSchedule.cooling_interval == None)
-            .order_by(-UserWord.rank.desc())
+            .order_by(
+                -UserWord.rank.desc()
+            )  # By using the negative for rank, we ensure NULL is last.
         )
         if limit is None:
             return unscheduled_bookmarks.all()
@@ -256,8 +263,9 @@ class BasicSRSchedule(db.Model):
         this method, we do not need to explicitly schedule new words.
 
         Currently, we prioritize bookmarks in the following way:
-        1. Words that are most common in the language (utilizing the word rank in the db
-        2. Words that are closest to being learned (indicated by `cooling_interval`, the highest the closest it is)
+         1. Words that are most common in the language (utilizing the word rank in the db
+         2. Words that are closest to being learned (indicated by `cooling_interval`,
+        the highest the closest it is)
         """
 
         def priority_by_rank(bookmark):
@@ -290,27 +298,14 @@ class BasicSRSchedule(db.Model):
         The original logic is kept in bookmarks_to_study as it is called to
         get similar_words to function as distractors in the exercises.
 
-        Currently, we prioritize bookmarks in the following way:
-        1. Words that are closest to being learned (indicated by `cooling_interval`, the highest the closest it is)
-        2. Words that are most common in the language (utilizing the word rank in the db)
+        To update the order of bookmarks look at the order_by in
+        get_scheduled_bookmarks_for_user
         """
-
-        def priority_by_cooling_interval(bookmark):
-            bookmark_info = bookmark.json_serializable_dict()
-            cooling_interval = bookmark_info["cooling_interval"]
-            cooling_interval = cooling_interval if cooling_interval is not None else -1
-            word_rank = bookmark_info["origin_rank"]
-            if word_rank == "":
-                word_rank = UserWord.IMPOSSIBLE_RANK
-            return -cooling_interval, word_rank
 
         scheduled_candidates = cls.get_scheduled_bookmarks_for_user(user, limit)
         no_duplicate_bookmarks = cls.remove_duplicated_bookmarks(scheduled_candidates)
 
-        sorted_candidates = sorted(
-            no_duplicate_bookmarks, key=lambda x: priority_by_cooling_interval(x)
-        )
-        return sorted_candidates
+        return no_duplicate_bookmarks
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
