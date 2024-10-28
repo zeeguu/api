@@ -21,14 +21,13 @@ counter = 0
 
 # languages = Language.available_languages()
 print("Adding topics keywords to articles!")
-already_extraced_articles = [
-    a_id[0] for a_id in db_session.query(ArticleUrlKeywordMap.article_id).all()
-]
+already_extraced_articles = set(
+    [a_id[0] for a_id in db_session.query(ArticleUrlKeywordMap.article_id).all()]
+)
 all_article_id = [
     a_id[0]
-    for a_id in db_session.query(Article.id)
-    .filter(Article.id.not_in(already_extraced_articles))
-    .all()
+    for a_id in db_session.query(Article.id).all()
+    if a_id[0] not in already_extraced_articles
 ]
 print(f"Filered a total of: {len(already_extraced_articles)}")
 total_articles = len(all_article_id)
