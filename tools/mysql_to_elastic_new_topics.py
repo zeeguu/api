@@ -32,7 +32,7 @@ app.app_context().push()
 # only the articles without the topic will be added. Default: True
 #   TOTAL_ITEMS - total items to be indexed, the IDs are sampled and this is used to
 # have a variety of different articles in ES. Default: 5000
-# NOTE: If you want to index all the articles, you shoud pass a number that's higher 
+# NOTE: If you want to index all the articles, you shoud pass a number that's higher
 # or equal to the number of articles in the DB
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
 DELETE_INDEX = False
@@ -135,10 +135,11 @@ def main():
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0
     errors_encountered = []
+    final_count_of_articles = min(TOTAL_ITEMS, len(target_ids_not_in_es))
     sampled_ids = np.random.choice(
-        target_ids_not_in_es, min(TOTAL_ITEMS, len(target_ids_not_in_es)), replace=False
+        target_ids_not_in_es, final_count_of_articles, replace=False
     )
-    for i_start in tqdm(range(0, TOTAL_ITEMS, ITERATION_STEP)):
+    for i_start in tqdm(range(0, final_count_of_articles, ITERATION_STEP)):
         sub_sample = sampled_ids[i_start : i_start + ITERATION_STEP]
         res_bulk, error_bulk = bulk(
             es, gen_docs(fetch_articles_by_id(sub_sample)), raise_on_error=False
