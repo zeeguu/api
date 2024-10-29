@@ -22,7 +22,7 @@ def array_of_lowercase_topics(topics):
 
 
 def array_of_new_topics(topics):
-    return topics.split(",")
+    return topics.split(",") if topics != "" else []
 
 
 def more_like_this_query(count, article_text, language, page=0):
@@ -119,12 +119,13 @@ def build_elastic_recommender_query(
     # Essentially, if there are new topics the user won't be able
     # to access the old topics anymore.
     if user_using_new_topics and not is_es_v7:
-        should_remove_topics = []
         topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
-        for t in topics_to_filter_out:
-            should_remove_topics.append({"match": {"topics": t}})
-            should_remove_topics.append({"match": {"topics_inferred": t}})
-        must_not.append({"bool": {"should": should_remove_topics}})
+        if len(new_topics_to_exclude) > 0:
+            should_remove_topics = []
+            for t in topics_to_filter_out:
+                should_remove_topics.append({"match": {"topics": t}})
+                should_remove_topics.append({"match": {"topics_inferred": t}})
+            must_not.append({"bool": {"should": should_remove_topics}})
     else:
         unwanted_old_topics_arr = array_of_lowercase_topics(unwanted_topics)
         if len(unwanted_old_topics_arr) > 0:
@@ -143,12 +144,13 @@ def build_elastic_recommender_query(
     must.append(exists("published_time"))
 
     if user_using_new_topics and not is_es_v7:
-        should_topics = []
         topics_to_find = array_of_new_topics(new_topics_to_include)
-        for t in topics_to_find:
-            should_topics.append({"match": {"topics": t}})
-            should_topics.append({"match": {"topics_inferred": t}})
-        must.append({"bool": {"should": should_topics}})
+        if len(topics_to_find) > 0:
+            should_topics = []
+            for t in topics_to_find:
+                should_topics.append({"match": {"topics": t}})
+                should_topics.append({"match": {"topics_inferred": t}})
+            must.append({"bool": {"should": should_topics}})
     else:
         topics_arr = array_of_lowercase_topics(topics)
         if len(topics_arr) > 0:
