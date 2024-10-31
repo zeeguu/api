@@ -38,7 +38,7 @@ def more_like_this_query(count, article_text, language, page=0):
         .filter("term", language=language.name.lower())
     )
 
-    return {"from": page * count, "size": count, "query": s.to_dict()}
+    return {"from": page * count, "size": count, "query": s.to_dict()["query"]}
 
 
 def build_elastic_recommender_query(
@@ -321,6 +321,37 @@ def build_elastic_semantic_sim_query(
             )
         ),
     )
+
+    query = s.to_dict()
+    return query
+
+
+def build_elastic_semantic_sim_query_for_text(
+    count,
+    text_embedding,
+    n_candidates=100,
+    language=None,
+):
+    """
+    Similar to build_elastic_semantic_sim_query, but taking a text embedding
+    """
+    s = Search()
+    # s = s.exclude("match", id=article.id)
+    if language:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=text_embedding,
+            filter=(Q("match", language__keyword=language.name)),
+        )
+    else:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=text_embedding,
+        )
 
     query = s.to_dict()
     return query

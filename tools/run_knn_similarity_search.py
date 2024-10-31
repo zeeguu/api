@@ -2,15 +2,13 @@ from zeeguu.core.semantic_search import (
     articles_like_this_semantic,
     add_topics_based_on_semantic_hood_search,
     articles_like_this_tfidf,
+    find_articles_based_on_text,
 )
 
 from zeeguu.core.model.article import Article
-from zeeguu.core.model.language import Language
-
-from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+from zeeguu.core.elastic.settings import ES_CONN_STRING
 from elasticsearch import Elasticsearch
 from collections import Counter
-from zeeguu.core.elastic.elastic_query_builder import build_elastic_recommender_query
 
 from zeeguu.api.app import create_app
 import argparse
@@ -24,7 +22,8 @@ import argparse
 parser = argparse.ArgumentParser(
     description="Utilizes the various similar document queries in ES, to analyze the results."
 )
-parser.add_argument("article_id", type=int, help="article id to search with")
+parser.add_argument("-a", "--article_id", type=int, help="article id to search with")
+parser.add_argument("-k", "--keyword", type=str, help="keyword to search with")
 
 
 def search_similar_to_article(article_id):
@@ -82,10 +81,10 @@ def search_similar_to_article(article_id):
     neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
     TOPICS_TO_NOT_COUNT = set(["news", "aktuell", "nyheder", "nieuws", "article"])
     neighbouring_keywords = [
-        t.url_keywords
+        t.url_keyword
         for a in a_found_t
         for t in a.url_keywords
-        if t.url_keywords.keyword not in TOPICS_TO_NOT_COUNT
+        if t.url_keyword.keyword not in TOPICS_TO_NOT_COUNT
     ]
 
     print()
@@ -105,7 +104,37 @@ def search_similar_to_article(article_id):
     print(a_found[0].content[:100])
 
 
+def search_similar_to_keyword(keyword):
+    app = create_app()
+    app.app_context().push()
+
+    es = Elasticsearch(ES_CONN_STRING)
+
+    a_found, hits = find_articles_based_on_text(keyword)
+    print("------------------------------------------------")
+
+    print("Keyword Searched: ", keyword)
+    print()
+    print("Similar articles:")
+    for hit in hits:
+        print(
+            hit["_id"],
+            hit["_source"]["old_topics"],
+            hit["_source"]["language"],
+            f"New Topics: {hit['_source']['topics']}",
+            hit["_source"].get("url_keywords", []),
+            hit["_source"].get("url", ""),
+            hit["_score"],
+        )
+    print("Article list: ")
+    print(a_found)
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
     article_id = args.article_id
-    search_similar_to_article(article_id)
+    keyword = args.keyword
+    if article_id:
+        search_similar_to_article(article_id)
+    if keyword:
+        search_similar_to_keyword(keyword)
