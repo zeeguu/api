@@ -51,6 +51,7 @@ def _feature_map():
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
         "merle_exercises": _merle_exercises,
+        "exercise_levels": _exercise_levels,
     }
 
 
@@ -77,6 +78,13 @@ def _merle_exercises(user):
         or user.invitation_code == "PTCT"
         or user.invitation_code == "zeeguu-preview"
         or user.id in [534, 2953, 4022, 4089, 4607]
+    )
+    return right_user
+
+def _exercise_levels(user):
+    right_user = (
+        user.invitation_code == "exercise_levels"
+        or user.id in [4192]
     )
     return right_user
 
