@@ -3,6 +3,9 @@ from zeeguu.logging import logp
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from zeeguu.core.model import db
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+from zeeguu.core.util.time import get_server_time_utc
 
 
 class NewTopic(db.Model):
@@ -22,6 +25,7 @@ class NewTopic(db.Model):
 
     title = Column(String(64))
     articles = relationship("NewArticleTopicMap", back_populates="new_topic")
+    language_topic_available_cache = {}
 
     def __init__(self, title):
         self.title = title
@@ -86,5 +90,34 @@ class NewTopic(db.Model):
             return None
 
     @classmethod
-    def get_all_topics(cls):
-        return NewTopic.query.order_by(NewTopic.title).all()
+    def get_all_topics(cls, language: Language = None):
+        from zeeguu.core.model.article import Article
+
+        def update_available_topic_cache():
+            topics_for_language = (
+                NewTopic.query.join(NewArticleTopicMap)
+                .join(Article)
+                .filter(Article.language_id == language.id)
+                .distinct(NewTopic.id)
+                .all()
+            )
+            cls.language_topic_available_cache[language.id] = (
+                topics_for_language,
+                get_server_time_utc(),
+            )
+
+        if language is None:
+            return NewTopic.query.order_by(NewTopic.title).all()
+        topics_available, last_check = cls.language_topic_available_cache.get(
+            language.id, (None, None)
+        )
+
+        if last_check is None:
+            update_available_topic_cache()
+        else:
+            time_since_last_check = get_server_time_utc() - last_check
+            if time_since_last_check.days > 7:
+                update_available_topic_cache()
+
+        topics_available = cls.language_topic_available_cache[language.id][0]
+        return topics_available
