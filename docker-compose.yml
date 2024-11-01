@@ -45,7 +45,7 @@ services:
     networks:
       - zeeguu_backend
     restart: unless-stopped
-    # mem_limit: 2048m # Useful to restrict the ammount of RAM used by ES.
+    mem_limit: 512m # Useful to restrict the ammount of RAM used by ES.
 
   elasticsearch:
     image: elasticsearch:7.6.2
@@ -57,6 +57,7 @@ services:
     networks:
       - zeeguu_backend
     restart: unless-stopped
+    mem_limit: 512m
 
 
   readability_server:
@@ -82,6 +83,12 @@ services:
       - ./data/zeeguu/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries
     networks:
       - zeeguu_backend
+    # When encoding certain longer documents, it might use more than
+    # the available memory allocated to the container, in that case restart the service.
+    mem_limit: 2512m # From testing usially the container needs about 2GBs to run
+    # However, as a Dev safeguard, if needed the container is restarted to avoid 
+    # taking too much memory from the host.
+    restart: unless-stopped
 
   # yaml-anchors:
   # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
