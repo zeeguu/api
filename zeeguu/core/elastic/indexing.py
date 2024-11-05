@@ -117,11 +117,12 @@ def create_or_update_bulk_docs(article, session, topics=None):
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
-    doc["_source"] = doc_data
     if es.exists(index=ES_ZINDEX, id=article.id):
         doc["_op_type"] = "update"
+        doc["_source"] = {"doc": doc_data}
     else:
         doc["_op_type"] = "create"
+        doc["_source"] = doc_data
 
     return doc
 
