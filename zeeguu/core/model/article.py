@@ -308,7 +308,7 @@ class Article(db.Model):
         )
         session.add(t)
 
-    def set_new_topics(self, topics, session):
+    def set_new_topics_url_keywords(self, topics, session):
 
         for t in topics:
             self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
