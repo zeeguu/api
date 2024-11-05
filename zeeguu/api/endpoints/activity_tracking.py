@@ -44,3 +44,22 @@ def upload_user_activity_data():
         ZeeguuMailer.notify_audio_experiment(request.form, user)
 
     return "OK"
+
+
+@api.route("/days_since_last_use", methods=["POST"])
+@cross_domain
+@requires_session
+def days_since_last_use():
+
+    from sortedcontainers import SortedList
+    from datetime import datetime
+
+    activity_data = UserActivityData.find(flask.g.user)
+
+    ordered_dates = SortedList(activity_data, key=lambda x: x.time)
+
+    current_date = datetime.now()
+    time_difference = current_date - ordered_dates[-1]
+    days = time_difference.days
+
+    return days
