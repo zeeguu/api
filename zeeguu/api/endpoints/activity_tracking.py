@@ -52,7 +52,7 @@ def upload_user_activity_data():
 def days_since_last_use():
     """
     Returns the number of days since the last user activity event
-    or -1 in case there is no user activity event.
+    or an empty string in case there is no user activity event.
     """
 
     from datetime import datetime
@@ -63,4 +63,4 @@ def days_since_last_use():
         time_difference = datetime.now() - last_active_time
         return time_difference.days
 
-    return "-1"
+    return ""
