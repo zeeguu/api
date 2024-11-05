@@ -50,16 +50,17 @@ def upload_user_activity_data():
 @cross_domain
 @requires_session
 def days_since_last_use():
+    """
+    Returns the number of days since the last user activity event
+    or -1 in case there is no user activity event.
+    """
 
-    from sortedcontainers import SortedList
     from datetime import datetime
 
-    activity_data = UserActivityData.find(flask.g.user)
+    last_active_time = UserActivityData.get_last_activity_time(flask.g.user)
 
-    ordered_dates = SortedList(activity_data, key=lambda x: x.time)
+    if last_active_time:
+        time_difference = datetime.now() - last_active_time
+        return time_difference.days
 
-    current_date = datetime.now()
-    time_difference = current_date - ordered_dates[-1]
-    days = time_difference.days
-
-    return days
+    return "-1"
