@@ -82,6 +82,14 @@ def main():
             except Exception as e:
                 print(f"fail for: '{article.id}', {e}")
 
+    # Updating url_keyword new_topic mapping
+    # If we are deleting the current topics, it means the mapping should not be kept.
+    if DELETE_ARTICLE_NEW_TOPICS:
+        url_keywords = UrlKeyword.find_all_by_keyword(URL_KEYWORD_TO_UPDATE)
+        for u_key in url_keywords:
+            u_key.new_topic_id = None
+        db_session.commit()
+
     # Get the articles for the url_keyword
     target_ids = np.array(
         [
