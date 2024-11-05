@@ -82,7 +82,7 @@ def create_app(testing=False):
     # Log the DB connection string; after masking the password
     db_connection_string = app.config["SQLALCHEMY_DATABASE_URI"]
     anon_conn_string = re.sub(
-        ":([a-zA-Z_][a-zA-Z_0-9\-]*)@", ":****@", db_connection_string, 8
+        ":([a-zA-Z_][a-zA-Z_0-9\-]*)@", ":****@", db_connection_string
     )
     warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
 
