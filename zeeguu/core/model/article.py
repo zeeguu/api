@@ -1,5 +1,7 @@
 import re
 
+import zeeguu.api.utils.translator
+
 from datetime import datetime
 import time
 
