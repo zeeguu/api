@@ -61,6 +61,6 @@ def days_since_last_use():
 
     if last_active_time:
         time_difference = datetime.now() - last_active_time
-        return time_difference.days
+        return str(time_difference.days)
 
     return ""
