@@ -369,9 +369,9 @@ class UserActivityData(db.Model):
         session.commit()
 
     @classmethod
-    def get_last_activity_timestamp(cls, user):
+    def get_last_activity_timestamp(cls, user_id):
 
-        query = cls.query.filter(cls.user_id == user.id)
+        query = cls.query.filter(cls.user_id == user_id)
         query = query.order_by(cls.id.desc()).limit(1)
 
         last_event = query.first()
