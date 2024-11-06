@@ -46,7 +46,7 @@ def upload_user_activity_data():
     return "OK"
 
 
-@api.route("/days_since_last_use", methods=["POST"])
+@api.route("/days_since_last_use", methods=["GET"])
 @cross_domain
 @requires_session
 def days_since_last_use():
