@@ -369,7 +369,7 @@ class UserActivityData(db.Model):
         session.commit()
 
     @classmethod
-    def get_last_activity_date(cls, user):
+    def get_last_activity_timestamp(cls, user):
 
         query = cls.query.filter(cls.user_id == user.id)
         query = query.order_by(cls.id.desc()).limit(1)

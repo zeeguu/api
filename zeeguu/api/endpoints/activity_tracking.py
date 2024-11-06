@@ -57,7 +57,7 @@ def days_since_last_use():
 
     from datetime import datetime
 
-    last_active_time = UserActivityData.get_last_activity_time(flask.g.user)
+    last_active_time = UserActivityData.get_last_activity_timestamp(flask.g.user)
 
     if last_active_time:
         time_difference = datetime.now() - last_active_time
