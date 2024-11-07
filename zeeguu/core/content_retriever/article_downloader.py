@@ -319,14 +319,17 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         import requests
         from io import BytesIO
 
-        response = requests.get(np_article.top_image)
-        im = Image.open(BytesIO(response.content))
-        im_x, im_y = im.size
-        # Quality Check that the image is at least 300x300 ( not an icon )
-        if im_x < 300 and im_y < 300:
-            print("Skipped image due to low resolution")
-        else:
-            new_article.img_url = Url.find_or_create(session, np_article.top_image)
+        try:
+            response = requests.get(np_article.top_image)
+            im = Image.open(BytesIO(response.content))
+            im_x, im_y = im.size
+            # Quality Check that the image is at least 300x300 ( not an icon )
+            if im_x < 300 and im_y < 300:
+                print("Skipped image due to low resolution")
+            else:
+                new_article.img_url = Url.find_or_create(session, np_article.top_image)
+        except Exception as e:
+            print(f"Failed to parse image: '{e}'")
 
     old_topics = add_topics(new_article, session)
     logp(f"Old Topics ({old_topics})")
