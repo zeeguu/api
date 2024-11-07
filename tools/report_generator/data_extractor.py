@@ -49,6 +49,29 @@ class DataExtractor:
         self.__add_feed_name(df, feed_df)
         return df
 
+    def get_days_since_last_crawl(self):
+        print("Getting Feeds Last Crawl Time...")
+        query = f"""
+            SELECT
+                feed_id,
+                f.title,
+                DATEDIFF(CURDATE(), MAX(published_time)) days_since_last_article,
+                DATEDIFF(CURDATE(), f.last_crawled_time) days_since_last_feed_crawl
+            FROM
+                article a
+                JOIN feed f ON a.feed_id = f.id
+            WHERE
+                f.deactivated = 0
+            GROUP by
+                feed_id
+            HAVING
+                days_since_last_feed_crawl <= {self.DAYS_FOR_REPORT}
+            ORDER BY
+                days_since_last_article DESC;
+        """
+        df = pd.read_sql(query, con=self.db_connection)
+        return df
+
     def get_article_df(self, feed_df):
         print("Getting Articles...")
         query = f"""SELECT a.*, l.name Language
@@ -59,7 +82,7 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-    
+
     def get_url_keyword_counts(self, min_count=100):
         print("Getting URL keyword counts...")
         # Update with values from the code.
