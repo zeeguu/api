@@ -48,7 +48,7 @@ def sufficient_quality_html(html):
     return True, "", ""
 
 
-def sufficient_quality_plain_text(text, lang_code = None):
+def sufficient_quality_plain_text(text, lang_code=None):
     word_count = len(text.split())
     if word_count < Article.MINIMUM_WORD_COUNT:
         return (
@@ -77,6 +77,7 @@ def sufficient_quality_plain_text(text, lang_code = None):
         return (
             False,
             f"Article language '{art_lang}', does not match feed language: '{lang_code}'.",
+            LowQualityTypes.LANGUAGE_DOES_NOT_MATCH_FEED,
         )
 
     for each in LIVE_BLOG_KIND_OF_PATTERNS:
@@ -96,7 +97,7 @@ def sufficient_quality_plain_text(text, lang_code = None):
     return True, "", ""
 
 
-def sufficient_quality(art: newspaper.Article, lang_code = None) -> tuple[bool, str, str]:
+def sufficient_quality(art: newspaper.Article, lang_code=None) -> tuple[bool, str, str]:
     res, reason, code = sufficient_quality_html(art.html)
     if not res:
         return False, reason, code
