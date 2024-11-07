@@ -4,6 +4,7 @@ import os
 import inspect
 import json
 import pathlib
+from zeeguu.core.util.time import get_server_time_utc
 
 STR_DATETIME_FORMAT = "%d_%m_%y_%H_%M_%S"
 CRAWL_REPORT_DATA = os.environ.get(
@@ -188,12 +189,16 @@ class CrawlReport:
             )
         return True
 
-    def get_total_non_quality_counts(self, langs_to_load: list[str] = None):
+    def __load_languages(self, langs_to_load: list[str] = None):
         if langs_to_load is None:
             langs_to_load = self.data["lang"].keys()
         else:
             for lang in langs_to_load:
                 self.__validate_lang(lang)
+        return langs_to_load
+
+    def get_total_non_quality_counts(self, langs_to_load: list[str] = None):
+        langs_to_load = self.__load_languages(langs_to_load)
 
         total_counts = Counter()
         for lang in langs_to_load:
@@ -203,11 +208,8 @@ class CrawlReport:
         return total_counts
 
     def get_total_removed_sents_counts(self, langs_to_load: list[str] = None):
-        if langs_to_load is None:
-            langs_to_load = self.data["lang"].keys()
-        else:
-            for lang in langs_to_load:
-                self.__validate_lang(lang)
+        langs_to_load = self.__load_languages(langs_to_load)
+
         total_counts = Counter()
 
         for lang in langs_to_load:
