@@ -1,19 +1,16 @@
 # coding=utf-8
 from zeeguu.core.elastic.indexing import (
-    create_or_update,
-    document_from_article,
     create_or_update_bulk_docs,
 )
-from sqlalchemy import func
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch.helpers import bulk
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk, scan
 import zeeguu.core
 from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
 
-from zeeguu.core.model import Topic, NewArticleTopicMap
+from zeeguu.core.model import NewArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import numpy as np
@@ -36,8 +33,8 @@ app.app_context().push()
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
 DELETE_INDEX = False
 INDEX_WITH_TOPIC_ONLY = True
-TOTAL_ITEMS = 5000
-ITERATION_STEP = 1000
+TOTAL_ITEMS = 1000
+ITERATION_STEP = 100
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
@@ -112,9 +109,11 @@ def main():
     if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
-    target_ids_not_in_es = list(
-        filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), target_ids)
+    es_query = {"query": {"match_all": {}}}
+    ids_in_es = set(
+        [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
     )
+    target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
     print("Total articles missing: ", len(target_ids_not_in_es))
 
     # I noticed that if a document is not added then it won't let me query the ES search.
