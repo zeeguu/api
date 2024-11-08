@@ -53,7 +53,7 @@ for article in tqdm(a_url_keywords_w_new_topics):
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
-        article.set_new_topics_url_keywords(topics, db_session)
+        article.add_new_topics_from_url_keyword(topics, db_session)
     except Exception as e:
         counter -= 1
         print(f"Failed for article id: {a_id}, with: {e}")

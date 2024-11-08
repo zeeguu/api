@@ -301,6 +301,19 @@ class Article(db.Model):
     def add_topic(self, topic):
         self.topics.append(topic)
 
+    def recalculate_topics_from_url_keywords(self, session):
+        topics_added = set([t.new_topic.id for t in self.new_topics])
+        topics = []
+        for url_keyword in self.url_keywords:
+            topic = url_keyword.url_keyword.new_topic
+            if topic is None:
+                continue
+            if topic.id in topics_added:
+                continue
+            topics_added.add(topic.id)
+            topics.append(topic)
+        self.add_new_topics_from_url_keyword(topics, session)
+
     def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
 
         t = NewArticleTopicMap(
@@ -308,7 +321,7 @@ class Article(db.Model):
         )
         session.add(t)
 
-    def set_new_topics_url_keywords(self, topics, session):
+    def add_new_topics_from_url_keyword(self, topics, session):
 
         for t in topics:
             self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
