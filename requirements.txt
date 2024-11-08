@@ -8,6 +8,7 @@ elasticsearch-dsl==8.12.0
 Faker
 feedparser
 flask==2.3.2
+werkzeug==3.0.2
 Flask-Assets
 flask_cors
 flask_sqlalchemy>=3.0

@@ -62,6 +62,13 @@ def banned_url(url):
     banned = [
         "https://www.dr.dk/sporten/seneste-sport/",
         "https://www.dr.dk/nyheder/seneste/",
+        # Old Text interface for TVs
+        "https://www1.wdr.de/wdrtext/",
+        # Videos
+        "https://www.tagesschau.de/multimedia",
+        "https://www.1jour1actu.com/non-classe",
+        # Paywalled articles:
+        "https://www.faz.net/pro",
     ]
     for each in banned:
         if url.startswith(each):
@@ -221,6 +228,7 @@ def download_from_feed(
         except Exception as e:
             import traceback
 
+            print(e)
             traceback.print_stack()
             capture_to_sentry(e)
             if hasattr(e, "message"):
@@ -306,14 +314,29 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         raise SkippedForLowQuality(reason)
 
     if np_article.top_image != "":
-        new_article.img_url = Url.find_or_create(session, np_article.top_image)
+        # from https://stackoverflow.com/questions/7391945/how-do-i-read-image-data-from-a-url-in-python
+        from PIL import Image
+        import requests
+        from io import BytesIO
+
+        try:
+            response = requests.get(np_article.top_image)
+            im = Image.open(BytesIO(response.content))
+            im_x, im_y = im.size
+            # Quality Check that the image is at least 300x300 ( not an icon )
+            if im_x < 300 and im_y < 300:
+                print("Skipped image due to low resolution")
+            else:
+                new_article.img_url = Url.find_or_create(session, np_article.top_image)
+        except Exception as e:
+            print(f"Failed to parse image: '{e}'")
 
     old_topics = add_topics(new_article, session)
     logp(f"Old Topics ({old_topics})")
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
     if SEMANTIC_SEARCH_AVAILABLE:
-        origin_type, topics = add_new_topics(new_article, feed, url_keywords, session)
+        _, topics = add_new_topics(new_article, feed, url_keywords, session)
         logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
@@ -343,6 +366,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
         new_article.add_new_topic(topic, session, TopicOriginType.HARDSET.value)
         session.add(new_article)
         return TopicOriginType.HARDSET.value, [topic.title]
+
     # Try setting the Topics based on URLs
     topics = []
     topics_added = set()
@@ -361,7 +385,11 @@ def add_new_topics(new_article, feed, url_keywords, session):
     if len(topics) > 0:
         print("Used URL PARSED")
         session.add(new_article)
-        return TopicOriginType.URL_PARSED.value, [t.title for t in topics]
+        # If we have only one topic and that is News, we will try to infer.
+        if not (len(topics) == 1 and 9 in topics_added):
+            return TopicOriginType.URL_PARSED.value, [
+                t.new_topic.title for t in new_article.new_topics
+            ]
 
     from collections import Counter
 
@@ -383,8 +411,18 @@ def add_new_topics(new_article, feed, url_keywords, session):
                 top_topic, session, TopicOriginType.INFERRED.value
             )
             session.add(new_article)
-            return TopicOriginType.INFERRED.value, [top_topic.title]
-    return None, []
+            return TopicOriginType.INFERRED.value, [
+                t.new_topic.title for t in new_article.new_topics
+            ]
+
+    return (
+        (None, [])
+        if len(topics) == 0
+        else (
+            TopicOriginType.URL_PARSED.value,
+            [t.new_topic.title for t in new_article.new_topics],
+        )
+    )
 
 
 def add_url_keywords(new_article, session):
