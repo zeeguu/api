@@ -53,7 +53,7 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
-def document_from_article(article, session, topics=None, is_v7=True):
+def document_from_article(article, session, is_v7=True, current_doc=None):
     old_topics = find_topics(article.id, session)
 
     if is_v7:
@@ -74,6 +74,13 @@ def document_from_article(article, session, topics=None, is_v7=True):
         }
     else:
         topics, topics_inferred = find_new_topics(article.id, session)
+        embedding_generation_required = current_doc is None
+        # Embeddings only need to be re-computed if the document
+        # doesn't exist or the text is updated.
+        # This is the most expensive operation in the indexing process, so it
+        # saves time by skipping it.
+        if current_doc is not None:
+            embedding_generation_required = current_doc["content"] != article.content
         doc = {
             "title": article.title,
             "author": article.authors,
@@ -90,10 +97,14 @@ def document_from_article(article, session, topics=None, is_v7=True):
             "language": article.language.name,
             "fk_difficulty": article.fk_difficulty,
             "lr_difficulty": DifficultyLingoRank.value_for_article(article),
-            "sem_vec": get_embedding_from_article(article),
             "url": article.url.as_string(),
             "video": article.video,
         }
+        if not embedding_generation_required and current_doc is not None:
+            doc["sem_vec"] = current_doc["sem_vec"]
+        else:
+            doc["sem_vec"] = get_embedding_from_article(article)
+
     return doc
 
 
@@ -110,20 +121,24 @@ def create_or_update(article, session):
     return res
 
 
-def create_or_update_bulk_docs(article, session, topics=None):
+def create_or_update_bulk_docs(article, session):
     es = Elasticsearch(ES_CONN_STRING)
     es_version = int(es.info()["version"]["number"][0])
-    doc_data = document_from_article(article, session, topics, is_v7=es_version == 7)
+
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
     if es.exists(index=ES_ZINDEX, id=article.id):
+        current_doc = es.get(index=ES_ZINDEX, id=article.id)
+        doc_data = document_from_article(
+            article, session, is_v7=es_version == 7, current_doc=current_doc["_source"]
+        )
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:
+        doc_data = document_from_article(article, session, is_v7=es_version == 7)
         doc["_op_type"] = "create"
         doc["_source"] = doc_data
-
     return doc
 
 
