@@ -14,7 +14,6 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
 
 from zeeguu.core.model import Topic, NewArticleTopicMap
-from zeeguu.core.model.article import article_topic_map
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import numpy as np
@@ -46,19 +45,6 @@ db_session = zeeguu.core.model.db.session
 print(es.info())
 
 
-def find_topics(article_id, session):
-    article_topic = (
-        session.query(Topic)
-        .join(article_topic_map)
-        .filter(article_topic_map.c.article_id == article_id)
-    )
-    topics = ""
-    for t in article_topic:
-        topics = topics + str(t.title) + " "
-
-    return topics.rstrip()
-
-
 def main():
     if DELETE_INDEX:
         try:
@@ -77,17 +63,16 @@ def main():
                 if not article:
                     print(f"Skipped for: '{i}', article not in DB.")
                     continue
-                topics = find_topics(article.id, db_session)
-                yield (article, topics)
+                yield article
             except NoResultFound:
                 print(f"fail for: '{i}'")
             except Exception as e:
                 print(f"fail for: '{i}', {e}")
 
     def gen_docs(articles_w_topics):
-        for article, topics in articles_w_topics:
+        for article in articles_w_topics:
             try:
-                yield create_or_update_bulk_docs(article, db_session, topics)
+                yield create_or_update_bulk_docs(article, db_session)
             except Exception as e:
                 print(f"fail for: '{article.id}', {e}")
 
