@@ -7,6 +7,8 @@ import zeeguu
 
 from zeeguu.core.model import db
 
+TOTAL_ITEMS_PER_PAGE = 20
+
 
 class PersonalCopy(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -28,6 +30,18 @@ class PersonalCopy(db.Model):
     def exists_for(cls, user, article):
         return len(
             PersonalCopy.query.filter_by(user_id=user.id, article_id=article.id).all()
+        )
+
+    @classmethod
+    def get_page_for(cls, user, page):
+        return (
+            Article.query.join(PersonalCopy)
+            .filter(PersonalCopy.user_id == user.id)
+            .filter(Article.language_id == user.learned_language_id)
+            .order_by(desc(PersonalCopy.id))
+            .limit(TOTAL_ITEMS_PER_PAGE)
+            .offset(TOTAL_ITEMS_PER_PAGE * page)
+            .all()
         )
 
     @classmethod
