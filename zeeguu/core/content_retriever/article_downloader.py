@@ -69,9 +69,15 @@ def banned_url(url):
         "https://www.1jour1actu.com/non-classe",
         # Paywalled articles:
         "https://www.faz.net/pro",
+        # Spanish URLs:
+        "https://www.rtve.es/play/",
+        "https://manualdeestilo.rtve.es/",
+        "https://lab.rtve.es/",
+        "https://www.rtve.es/v/",
+        "https://www.rtve.es/radio/",
     ]
     for each in banned:
-        if url.startswith(each):
+        if url.startswith(each) or url.replace("http://", "https://").startswith(each):
             return True
     return False
 
