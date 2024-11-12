@@ -65,6 +65,18 @@ ADD
 ALTER TABLE
     `zeeguu_test`.`new_article_topic_map` RENAME TO `zeeguu_test`.`article_topic_map`;
 
+/*article_topic_user_feedback, update reference column name*/
+ALTER TABLE
+    `zeeguu_test`.`article_topic_user_feedback` DROP FOREIGN KEY `article_topic_user_feedback_ibfk_3`;
+
+ALTER TABLE
+    `zeeguu_test`.`article_topic_user_feedback` CHANGE COLUMN `new_topic_id` `topic_id` INT NULL DEFAULT NULL;
+
+ALTER TABLE
+    `zeeguu_test`.`article_topic_user_feedback`
+ADD
+    CONSTRAINT `article_topic_user_feedback_ibfk_3` FOREIGN KEY (`topic_id`) REFERENCES `zeeguu_test`.`topic` (`id`);
+
 /* url_keyword, update reference column name */
 ALTER TABLE
     `zeeguu_test`.`url_keyword` DROP FOREIGN KEY `url_keyword_ibfk_2`;
