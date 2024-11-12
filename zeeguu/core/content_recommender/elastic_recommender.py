@@ -14,8 +14,8 @@ from zeeguu.api.endpoints.feature_toggles import _new_topics
 
 from zeeguu.core.model import (
     Article,
-    NewTopicFilter,
-    NewTopicSubscription,
+    TopicFilter,
+    TopicSubscription,
     SearchFilter,
     SearchSubscription,
     UserArticle,
@@ -53,7 +53,7 @@ def _prepare_user_constraints(user):
 
     # 2. New Topics to exclude / filter out
     # =================================
-    excluded_new_topics = NewTopicFilter.all_for_user(user)
+    excluded_new_topics = TopicFilter.all_for_user(user)
     new_topics_to_exclude = [
         each.new_topic.title for each in excluded_new_topics if each is not None
     ]
@@ -61,7 +61,7 @@ def _prepare_user_constraints(user):
 
     # 3. New Topics subscribed, and thus to include
     # =========================================
-    topic_new_subscriptions = NewTopicSubscription.all_for_user(user)
+    topic_new_subscriptions = TopicSubscription.all_for_user(user)
     new_topics_to_include = [
         subscription.new_topic.title
         for subscription in topic_new_subscriptions

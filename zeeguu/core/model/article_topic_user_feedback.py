@@ -1,6 +1,6 @@
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
-from zeeguu.core.model.new_topic import NewTopic
+from zeeguu.core.model.topic import Topic
 from zeeguu.core.model.user import User
 from zeeguu.core.model.article import Article
 import sqlalchemy
@@ -30,8 +30,8 @@ class ArticleTopicUserFeedback(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = relationship(User)
 
-    new_topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
-    new_topic = relationship(NewTopic)
+    new_topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    new_topic = relationship(Topic)
 
     feedback = db.Column(db.String(50))
 

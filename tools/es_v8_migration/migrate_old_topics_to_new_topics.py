@@ -7,7 +7,7 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import TopicSubscription, NewTopicSubscription, NewTopic
+from zeeguu.core.model import TopicSubscription, TopicSubscription, Topic
 from tqdm import tqdm
 
 app = create_app()
@@ -46,8 +46,8 @@ for i, topic_sub in tqdm(enumerate(current_topics), total=len(current_topics)):
     old_topic = topic_sub.topic
     new_topic_id = OLD_TOPIC_TO_NEW_TOPIC_MAP.get(old_topic.id, None)
     if new_topic_id:
-        new_topic = NewTopic.find_by_id(new_topic_id)
-        new_user_sub = NewTopicSubscription.find_or_create(db_session, user, new_topic)
+        new_topic = Topic.find_by_id(new_topic_id)
+        new_user_sub = TopicSubscription.find_or_create(db_session, user, new_topic)
         if VERBOSE:
             print(
                 f"User {user.id}, was subscribed to '{old_topic.title}' and now is subscribed to: '{new_topic.title}'"

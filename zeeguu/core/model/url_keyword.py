@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.new_topic import NewTopic
+from zeeguu.core.model.topic import Topic
 from zeeguu.core.util import remove_duplicates_keeping_order
 import sqlalchemy
 import string
@@ -59,13 +59,13 @@ class UrlKeyword(db.Model):
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = relationship(Language)
 
-    new_topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
-    new_topic = relationship(NewTopic)
+    new_topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    new_topic = relationship(Topic)
 
     keyword = db.Column(db.String(45))
     articles = relationship("ArticleUrlKeywordMap", back_populates="url_keyword")
 
-    def __init__(self, keyword: str, language: Language, new_topic: NewTopic = None):
+    def __init__(self, keyword: str, language: Language, new_topic: Topic = None):
 
         self.language = language
         self.new_topic = new_topic
@@ -81,7 +81,7 @@ class UrlKeyword(db.Model):
 
     @classmethod
     def find_or_create(
-        cls, session, keyword, language: Language, new_topic: NewTopic = None
+        cls, session, keyword, language: Language, new_topic: Topic = None
     ):
         try:
             return (

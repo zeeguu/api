@@ -2,9 +2,9 @@ import flask
 from zeeguu.logging import log
 from flask import request
 from zeeguu.core.model import (
-    NewTopic,
-    NewTopicSubscription,
-    NewTopicFilter,
+    Topic,
+    TopicSubscription,
+    TopicFilter,
     Language,
     User,
 )
@@ -24,6 +24,7 @@ FILTER_NEW_TOPIC = "filter_new_topic"
 UNFILTER_NEW_TOPIC = "unfilter_new_topic"
 FILTERED_NEW_TOPICS = "filtered_new_topics"
 
+
 # ---------------------------------------------------------------------------
 @api.route(f"/{SUBSCRIBE_NEW_TOPIC}", methods=("POST",))
 # ---------------------------------------------------------------------------
@@ -38,9 +39,9 @@ def subscribe_to_new_topic_with_id():
     """
     new_topic_id = int(request.form.get("new_topic_id", ""))
 
-    topic_object = NewTopic.find_by_id(new_topic_id)
+    topic_object = Topic.find_by_id(new_topic_id)
     user = User.find_by_id(flask.g.user_id)
-    NewTopicSubscription.find_or_create(db_session, user, topic_object)
+    TopicSubscription.find_or_create(db_session, user, topic_object)
     db_session.commit()
     return "OK"
 
@@ -60,7 +61,7 @@ def unsubscribe_from_new_topic():
     new_topic_id = int(request.form.get("new_topic_id", ""))
     user = User.find_by_id(flask.g.user_id)
     try:
-        to_delete = NewTopicSubscription.with_topic_id(new_topic_id, user)
+        to_delete = TopicSubscription.with_topic_id(new_topic_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -88,7 +89,7 @@ def get_subscribed_new_topics():
                 title = <unicode string>
     """
     user = User.find_by_id(flask.g.user_id)
-    subscriptions = NewTopicSubscription.all_for_user(user)
+    subscriptions = TopicSubscription.all_for_user(user)
     topic_list = []
     for sub in subscriptions:
         try:
@@ -100,6 +101,7 @@ def get_subscribed_new_topics():
             log(str(e))
 
     return json_result(topic_list)
+
 
 # ---------------------------------------------------------------------------
 @api.route("/available_new_topics", methods=("GET",))
@@ -119,10 +121,10 @@ def get_available_new_topics():
     topic_data = []
     user = User.find_by_id(flask.g.user_id)
     already_subscribed = [
-        each.new_topic.id for each in NewTopicSubscription.all_for_user(user)
+        each.new_topic.id for each in TopicSubscription.all_for_user(user)
     ]
     user_learning_language = Language.find_by_id(user.learned_language_id)
-    topics = NewTopic.get_all_topics(user_learning_language)
+    topics = Topic.get_all_topics(user_learning_language)
 
     for topic in topics:
         if topic.id not in already_subscribed:
@@ -146,9 +148,9 @@ def subscribe_to_new_filter_with_id():
 
     filter_id = int(request.form.get("filter_id", ""))
 
-    filter_object = NewTopic.find_by_id(filter_id)
+    filter_object = Topic.find_by_id(filter_id)
     user = User.find_by_id(flask.g.user_id)
-    NewTopicFilter.find_or_create(db_session, user, filter_object)
+    TopicFilter.find_or_create(db_session, user, filter_object)
 
     return "OK"
 
@@ -167,7 +169,7 @@ def unsubscribe_from_new_filter():
     filter_id = int(request.form.get("new_topic_id", ""))
 
     try:
-        to_delete = NewTopicFilter.with_topic_id(filter_id, user)
+        to_delete = TopicFilter.with_topic_id(filter_id, user)
         db_session.delete(to_delete)
         db_session.commit()
     except Exception as e:
@@ -195,7 +197,7 @@ def get_subscribed_new_filters():
                 title = <unicode string>
     """
     user = User.find_by_id(flask.g.user_id)
-    filters = NewTopicFilter.all_for_user(user)
+    filters = TopicFilter.all_for_user(user)
     filter_list = []
     for fil in filters:
         try:
@@ -207,4 +209,3 @@ def get_subscribed_new_filters():
             log(str(e))
 
     return json_result(filter_list)
-

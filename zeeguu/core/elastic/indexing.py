@@ -1,7 +1,6 @@
-from zeeguu.core.model import UrlKeyword, NewTopic
-from zeeguu.core.model.article import article_topic_map
+from zeeguu.core.model import UrlKeyword, Topic
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
-from zeeguu.core.model.new_article_topic_map import TopicOriginType, NewArticleTopicMap
+from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -10,17 +9,17 @@ from zeeguu.core.semantic_vector_api import get_embedding_from_article
 
 def find_new_topics(article_id, session):
     article_topics = (
-        session.query(NewTopic)
-        .join(NewArticleTopicMap)
-        .filter(NewArticleTopicMap.article_id == article_id)
-        .filter(NewArticleTopicMap.origin_type != TopicOriginType.INFERRED.value)
+        session.query(Topic)
+        .join(ArticleTopicMap)
+        .filter(ArticleTopicMap.article_id == article_id)
+        .filter(ArticleTopicMap.origin_type != TopicOriginType.INFERRED.value)
         .all()
     )
     inferred_article_topics = (
-        session.query(NewTopic)
-        .join(NewArticleTopicMap)
-        .filter(NewArticleTopicMap.article_id == article_id)
-        .filter(NewArticleTopicMap.origin_type == TopicOriginType.INFERRED.value)
+        session.query(Topic)
+        .join(ArticleTopicMap)
+        .filter(ArticleTopicMap.article_id == article_id)
+        .filter(ArticleTopicMap.origin_type == TopicOriginType.INFERRED.value)
         .all()
     )
     return article_topics, inferred_article_topics

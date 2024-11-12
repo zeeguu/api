@@ -21,35 +21,36 @@ class TopicSubscription(db.Model):
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "topic_subscription"
+    __tablename__ = "new_topic_subscription"
 
     id = db.Column(db.Integer, primary_key=True)
 
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = relationship(User)
 
-    topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
-    topic = relationship(Topic)
+    new_topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    new_topic = relationship(Topic)
 
-    UniqueConstraint(user_id, topic_id)
+    UniqueConstraint(user_id, new_topic_id)
 
     def __init__(self, user, topic):
         self.user = user
-        self.topic = topic
+        self.new_topic = topic
 
     def __str__(self):
-        return f"Topic subscription ({self.user.name}, {self.topic})"
+        return f"Topic subscription ({self.user.name}, {self.new_topic})"
 
     __repr__ = __str__
 
     @classmethod
     def find_or_create(cls, session, user, topic):
         try:
-            return cls.query.filter(cls.user == user).filter(cls.topic == topic).one()
+            return (
+                cls.query.filter(cls.user == user).filter(cls.new_topic == topic).one()
+            )
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(user, topic)
             session.add(new)
-            session.commit()
             return new
 
     @classmethod
@@ -67,5 +68,7 @@ class TopicSubscription(db.Model):
     @classmethod
     def with_topic_id(cls, i, user):
         return (
-            (cls.query.filter(cls.topic_id == i)).filter(cls.user_id == user.id).one()
+            (cls.query.filter(cls.new_topic_id == i))
+            .filter(cls.user_id == user.id)
+            .one()
         )

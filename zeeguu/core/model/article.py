@@ -8,21 +8,14 @@ from langdetect import detect
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core.model.new_article_topic_map import TopicOriginType
+from zeeguu.core.model.article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
-from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
 from zeeguu.core.model import db
-
-article_topic_map = Table(
-    "article_topic_map",
-    db.Model.metadata,
-    Column("article_id", Integer, ForeignKey("article.id")),
-    Column("topic_id", Integer, ForeignKey("topic.id")),
-)
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
@@ -89,7 +82,7 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    new_topics = relationship("NewArticleTopicMap", back_populates="article")
+    new_topics = relationship("ArticleTopicMap", back_populates="article")
 
     url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
     # Few words in an article is very often not an
@@ -287,9 +280,7 @@ class Article(db.Model):
 
     def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
 
-        t = NewArticleTopicMap(
-            article=self, new_topic=new_topic, origin_type=origin_type
-        )
+        t = ArticleTopicMap(article=self, new_topic=new_topic, origin_type=origin_type)
         session.add(t)
 
     def set_new_topics(self, topics, session):

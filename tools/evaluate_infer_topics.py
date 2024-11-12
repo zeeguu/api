@@ -2,7 +2,7 @@ from zeeguu.core.semantic_search import (
     add_topics_based_on_semantic_hood_search,
 )
 
-from zeeguu.core.model import Article, Language, NewArticleTopicMap
+from zeeguu.core.model import Article, Language, ArticleTopicMap
 from sklearn.metrics import classification_report
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -34,9 +34,9 @@ data_collected = []
 
 ALL_IDS = [
     a.article_id
-    for a in NewArticleTopicMap.query.join(Article)
+    for a in ArticleTopicMap.query.join(Article)
     .filter(Article.language != Language.find_by_id(19))
-    .filter(NewArticleTopicMap.origin_type != 3)
+    .filter(ArticleTopicMap.origin_type != 3)
     .all()
 ]
 

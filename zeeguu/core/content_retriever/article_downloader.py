@@ -25,8 +25,8 @@ except:
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, UrlKeyword, NewTopic
-from zeeguu.core.model.new_article_topic_map import TopicOriginType
+from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
+from zeeguu.core.model.article_topic_map import TopicOriginType
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -348,7 +348,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
     # Handle Hard coded Feeds
     if feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
-        topic = NewTopic.find_by_id(HARDCODED_FEEDS[feed.id])
+        topic = Topic.find_by_id(HARDCODED_FEEDS[feed.id])
         new_article.add_new_topic(topic, session, TopicOriginType.HARDSET.value)
         session.add(new_article)
         return TopicOriginType.HARDSET.value, [topic.title]

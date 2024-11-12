@@ -1,6 +1,6 @@
 from zeeguu.core.model import Article
 from zeeguu.api.app import create_app
-from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap, TopicOriginType
+from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
 import numpy as np
 from tqdm import tqdm
 
@@ -17,8 +17,8 @@ app = create_app()
 app.app_context().push()
 
 articles = (
-    Article.query.join(NewArticleTopicMap)
-    .filter(NewArticleTopicMap.origin_type != TopicOriginType.INFERRED)
+    Article.query.join(ArticleTopicMap)
+    .filter(ArticleTopicMap.origin_type != TopicOriginType.INFERRED)
     .all()
 )
 
