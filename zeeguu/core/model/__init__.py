@@ -44,16 +44,10 @@ from .cohort import Cohort
 
 from .user_language import UserLanguage
 
-from .topic import Topic
 from .user_article import UserArticle
 from .article_difficulty_feedback import ArticleDifficultyFeedback
 
 from .feed import Feed
-
-from .topic import Topic
-from .topic_subscription import TopicSubscription
-from .topic_filter import TopicFilter
-from .localized_topic import LocalizedTopic
 from .url_keyword import UrlKeyword
 
 from .search import Search

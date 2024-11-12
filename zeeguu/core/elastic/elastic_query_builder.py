@@ -43,8 +43,6 @@ def more_like_this_query(count, article_text, language, page=0):
 
 def build_elastic_recommender_query(
     count,
-    topics,
-    unwanted_topics,
     user_topics,
     unwanted_user_topics,
     language,

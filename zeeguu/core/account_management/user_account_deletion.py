@@ -16,8 +16,6 @@ db_session = zeeguu.core.model.db.session
 
 from zeeguu.core.model import (
     SearchSubscription,
-    TopicFilter,
-    TopicSubscription,
     Teacher,
     TeacherCohortMap,
     Session,
@@ -32,8 +30,6 @@ from zeeguu.core.model import Article
 
 tables_to_modify = [
     SearchSubscription,
-    TopicFilter,
-    TopicSubscription,
     Session,
     Teacher,
     TeacherCohortMap,

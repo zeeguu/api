@@ -11,7 +11,6 @@ from zeeguu.core.content_quality.quality_filter import (
     sufficient_quality,
     LowQualityTypes,
 )
-from zeeguu.core.model import Topic, LocalizedTopic
 from tools.crawl_summary.crawl_report import CrawlReport
 
 from zeeguu.core.test.mocking_the_web import *
@@ -34,22 +33,6 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
         assert len(articles) == 2
         assert articles[0].fk_difficulty
-
-    def testDownloadWithTopic(self):
-        feed = FeedRule().feed1
-        topic = Topic("Spiegel")
-        zeeguu.core.model.db.session.add(topic)
-        zeeguu.core.model.db.session.commit()
-        loc_topic = LocalizedTopic(topic, self.lan, "spiegelDE", "spiegel")
-        zeeguu.core.model.db.session.add(loc_topic)
-        zeeguu.core.model.db.session.commit()
-        crawl_report = CrawlReport()
-        crawl_report.add_feed(feed)
-        download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
-
-        article = feed.get_articles(limit=2)[0]
-
-        assert topic in article.topics
 
     def test_sufficient_quality(self):
         art = newspaper.Article(URL_PROPUBLICA_INVESTING)

@@ -25,7 +25,7 @@ except:
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model import Url, Feed, LocalizedTopic, UrlKeyword, NewTopic
+from zeeguu.core.model import Url, Feed, UrlKeyword, NewTopic
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
 import requests
 
@@ -331,8 +331,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         except Exception as e:
             print(f"Failed to parse image: '{e}'")
 
-    old_topics = add_topics(new_article, session)
-    logp(f"Old Topics ({old_topics})")
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
     if SEMANTIC_SEARCH_AVAILABLE:
@@ -340,18 +338,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
-
-
-def add_topics(new_article, session):
-    topics = []
-    for loc_topic in LocalizedTopic.query.all():
-        if loc_topic.language == new_article.language and loc_topic.matches_article(
-            new_article
-        ):
-            topics.append(loc_topic.topic.title)
-            new_article.add_topic(loc_topic.topic)
-            session.add(new_article)
-    return topics
 
 
 def add_new_topics(new_article, feed, url_keywords, session):

@@ -89,12 +89,6 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    from zeeguu.core.model.topic import Topic
-
-    topics = relationship(
-        Topic, secondary="article_topic_map", backref=backref("articles")
-    )
-
     new_topics = relationship("NewArticleTopicMap", back_populates="article")
 
     url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
@@ -163,12 +157,6 @@ class Article(db.Model):
     def vote_broken(self):
         # somebody could vote that this article is broken
         self.broken += 1
-
-    def topics_as_string(self):
-        topics = ""
-        for topic in self.topics:
-            topics += topic.title + " "
-        return topics
 
     def new_topics_as_string(self):
         topics = ""
@@ -243,7 +231,6 @@ class Article(db.Model):
             title=self.title,
             summary=summary,
             language=self.language.code,
-            topics=self.topics_as_string(),
             new_topics=self.new_topics_as_string(),
             new_topics_list=self.new_topics_as_tuple(),
             video=self.video,
@@ -297,9 +284,6 @@ class Article(db.Model):
 
     def is_owned_by(self, user):
         return self.uploader_id == user.id
-
-    def add_topic(self, topic):
-        self.topics.append(topic)
 
     def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
 

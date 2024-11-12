@@ -14,8 +14,6 @@ from zeeguu.api.endpoints.feature_toggles import _new_topics
 
 from zeeguu.core.model import (
     Article,
-    TopicFilter,
-    TopicSubscription,
     NewTopicFilter,
     NewTopicSubscription,
     SearchFilter,
@@ -53,25 +51,7 @@ def _prepare_user_constraints(user):
         unwanted_user_searches.append(user_search_filter.search.keywords)
     print(f"keywords to exclude: {unwanted_user_searches}")
 
-    # 2. Topics to exclude / filter out
-    # =================================
-    excluded_topics = TopicFilter.all_for_user(user)
-    topics_to_exclude = [
-        each.topic.title for each in excluded_topics if each is not None
-    ]
-    print(f"topics to exclude: {topics_to_exclude}")
-
-    # 3. Topics subscribed, and thus to include
-    # =========================================
-    topic_subscriptions = TopicSubscription.all_for_user(user)
-    topics_to_include = [
-        subscription.topic.title
-        for subscription in topic_subscriptions
-        if subscription is not None
-    ]
-    print(f"topics to include: {topic_subscriptions}")
-
-    # 4. New Topics to exclude / filter out
+    # 2. New Topics to exclude / filter out
     # =================================
     excluded_new_topics = NewTopicFilter.all_for_user(user)
     new_topics_to_exclude = [
@@ -79,7 +59,7 @@ def _prepare_user_constraints(user):
     ]
     print(f"New Topics to exclude: {excluded_new_topics}")
 
-    # 5. New Topics subscribed, and thus to include
+    # 3. New Topics subscribed, and thus to include
     # =========================================
     topic_new_subscriptions = NewTopicSubscription.all_for_user(user)
     new_topics_to_include = [
@@ -102,8 +82,6 @@ def _prepare_user_constraints(user):
         language,
         upper_bounds,
         lower_bounds,
-        _list_to_string(topics_to_include),
-        _list_to_string(topics_to_exclude),
         _new_topics_to_string(new_topics_to_include),
         _new_topics_to_string(new_topics_to_exclude),
         _list_to_string(wanted_user_searches),
@@ -143,8 +121,6 @@ def article_recommendations_for_user(
         language,
         upper_bounds,
         lower_bounds,
-        topics_to_include,
-        topics_to_exclude,
         new_topics_to_include,
         new_topics_to_exclude,
         wanted_user_searches,
@@ -157,8 +133,6 @@ def article_recommendations_for_user(
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
-        topics_to_include,
-        topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
         language,
