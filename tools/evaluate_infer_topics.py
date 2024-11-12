@@ -50,7 +50,7 @@ for i, doc_to_search in enumerate(sampled_ids):
         article_to_search, k_to_use
     )
 
-    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
+    neighbouring_topics = [t.topic for a in a_found_t for t in a.topic]
     neighbouring_keywords = [t.url_keyword for a in a_found_t for t in a.url_keywords]
     avg_score = sum([float(h["_score"]) for h in hits_t]) / len(hits_t)
 
@@ -62,7 +62,7 @@ for i, doc_to_search in enumerate(sampled_ids):
     print("Keyword Counts")
     pprint(topics_key_counter)
     print()
-    og_topics = " ".join([str(t.new_topic.title) for t in article_to_search.new_topics])
+    og_topics = " ".join([str(t.topic.title) for t in article_to_search.topics])
     try:
         top_topic, count = topics_counter.most_common(1)[0]
         threshold = (

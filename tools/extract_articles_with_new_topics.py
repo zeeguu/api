@@ -27,8 +27,8 @@ for a in tqdm(articles, total=len(articles)):
     tuple = (
         a.id,
         a.content,
-        a.new_topics_as_string(),
-        a.new_topics[-1].new_topic.title,
+        a.topic(),
+        a.topics[-1].topic.title,
     )
     articles_to_extract.append(tuple)
 

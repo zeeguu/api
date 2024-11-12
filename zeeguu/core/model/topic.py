@@ -19,12 +19,12 @@ class Topic(db.Model):
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
-    __tablename__ = "new_topic"
+    __tablename__ = "topic"
 
     id = Column(Integer, primary_key=True)
 
     title = Column(String(64))
-    articles = relationship("ArticleTopicMap", back_populates="new_topic")
+    articles = relationship("ArticleTopicMap", back_populates="topic")
     language_topic_available_cache = {}
 
     def __init__(self, title):

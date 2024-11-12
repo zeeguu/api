@@ -59,16 +59,16 @@ class UrlKeyword(db.Model):
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = relationship(Language)
 
-    new_topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
-    new_topic = relationship(Topic)
+    topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    topic = relationship(Topic)
 
     keyword = db.Column(db.String(45))
     articles = relationship("ArticleUrlKeywordMap", back_populates="url_keyword")
 
-    def __init__(self, keyword: str, language: Language, new_topic: Topic = None):
+    def __init__(self, keyword: str, language: Language, topic: Topic = None):
 
         self.language = language
-        self.new_topic = new_topic
+        self.topic = topic
         self.keyword = keyword
 
     def __str__(self):
@@ -80,9 +80,7 @@ class UrlKeyword(db.Model):
     __repr__ = __str__
 
     @classmethod
-    def find_or_create(
-        cls, session, keyword, language: Language, new_topic: Topic = None
-    ):
+    def find_or_create(cls, session, keyword, language: Language, topic: Topic = None):
         try:
             return (
                 cls.query.filter(cls.keyword == keyword)
@@ -90,7 +88,7 @@ class UrlKeyword(db.Model):
                 .one()
             )
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(keyword, language, new_topic)
+            new = cls(keyword, language, topic)
             session.add(new)
             session.commit()
             return new

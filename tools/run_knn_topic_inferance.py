@@ -10,7 +10,6 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from elasticsearch import Elasticsearch
 from collections import Counter
-from zeeguu.core.elastic.elastic_query_builder import build_elastic_recommender_query
 
 from zeeguu.api.app import create_app
 import argparse
@@ -79,7 +78,7 @@ def search_similar_to_article(article_id):
             hit["_source"].get("url", ""),
             hit["_score"],
         )
-    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
+    neighbouring_topics = [t.topic for a in a_found_t for t in a.topics]
     TOPICS_TO_NOT_COUNT = set(["news", "aktuell", "nyheder", "nieuws", "article"])
     neighbouring_keywords = [
         t.url_keywords

@@ -82,7 +82,7 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    new_topics = relationship("ArticleTopicMap", back_populates="article")
+    topics = relationship("ArticleTopicMap", back_populates="article")
 
     url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
     # Few words in an article is very often not an
@@ -151,18 +151,18 @@ class Article(db.Model):
         # somebody could vote that this article is broken
         self.broken += 1
 
-    def new_topics_as_string(self):
+    def topics_as_string(self):
         topics = ""
-        for topic in self.new_topics:
-            topics += topic.new_topic.title + ", "
+        for topic in self.topics:
+            topics += topic.topic.title + ", "
         return topics
 
-    def new_topics_as_tuple(self):
+    def topics_as_tuple(self):
         topics = []
-        for topic in self.new_topics:
-            if topic.new_topic.title == "" or topic.new_topic.title is None:
+        for topic in self.topics:
+            if topic.topic.title == "" or topic.topic.title is None:
                 continue
-            topics.append((topic.new_topic.title, topic.origin_type))
+            topics.append((topic.topic.title, topic.origin_type))
         return topics
 
     def contains_any_of(self, keywords: list):
@@ -224,8 +224,8 @@ class Article(db.Model):
             title=self.title,
             summary=summary,
             language=self.language.code,
-            new_topics=self.new_topics_as_string(),
-            new_topics_list=self.new_topics_as_tuple(),
+            topics=self.topics_as_string(),
+            topics_list=self.topics_as_tuple(),
             video=self.video,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100,
@@ -278,15 +278,15 @@ class Article(db.Model):
     def is_owned_by(self, user):
         return self.uploader_id == user.id
 
-    def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
+    def add_topic(self, topic, session, origin_type: TopicOriginType):
 
-        t = ArticleTopicMap(article=self, new_topic=new_topic, origin_type=origin_type)
+        t = ArticleTopicMap(article=self, topic=topic, origin_type=origin_type)
         session.add(t)
 
-    def set_new_topics(self, topics, session):
+    def set_topics(self, topics, session):
 
         for t in topics:
-            self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
+            self.add_topic(t, session, TopicOriginType.URL_PARSED.value)
 
     def add_url_keyword(self, url_keyword, rank, session):
 

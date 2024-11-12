@@ -334,13 +334,13 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
     if SEMANTIC_SEARCH_AVAILABLE:
-        _, topics = add_new_topics(new_article, feed, url_keywords, session)
+        _, topics = add_topics(new_article, feed, url_keywords, session)
         logp(f"New Topics ({topics})")
     session.add(new_article)
     return new_article
 
 
-def add_new_topics(new_article, feed, url_keywords, session):
+def add_topics(new_article, feed, url_keywords, session):
     HARDCODED_FEEDS = {
         102: 8,  # The Onion EN
         121: 8,  # Lercio IT
@@ -349,7 +349,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
     if feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
         topic = Topic.find_by_id(HARDCODED_FEEDS[feed.id])
-        new_article.add_new_topic(topic, session, TopicOriginType.HARDSET.value)
+        new_article.add_topic(topic, session, TopicOriginType.HARDSET.value)
         session.add(new_article)
         return TopicOriginType.HARDSET.value, [topic.title]
 
@@ -357,7 +357,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
     topics = []
     topics_added = set()
     for topic_key in url_keywords:
-        topic = topic_key.new_topic
+        topic = topic_key.topic
         print(topic_key, topic)
         if (
             topic is not None
@@ -366,7 +366,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
-            new_article.add_new_topic(topic, session, TopicOriginType.URL_PARSED.value)
+            new_article.add_topic(topic, session, TopicOriginType.URL_PARSED.value)
 
     if len(topics) > 0:
         print("Used URL PARSED")
@@ -374,14 +374,14 @@ def add_new_topics(new_article, feed, url_keywords, session):
         # If we have only one topic and that is News, we will try to infer.
         if not (len(topics) == 1 and 9 in topics_added):
             return TopicOriginType.URL_PARSED.value, [
-                t.new_topic.title for t in new_article.new_topics
+                t.topic.title for t in new_article.topics
             ]
 
     from collections import Counter
 
     # Add based on KK neighbours:
     found_articles, _ = add_topics_based_on_semantic_hood_search(new_article)
-    neighbouring_topics = [t.new_topic for a in found_articles for t in a.new_topics]
+    neighbouring_topics = [t.topic for a in found_articles for t in a.topics]
     if len(neighbouring_topics) > 0:
         from pprint import pprint
 
@@ -393,12 +393,10 @@ def add_new_topics(new_article, feed, url_keywords, session):
         )  # The threshold is being at least half or above rounded down
         if count >= threshold:
             print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
-            new_article.add_new_topic(
-                top_topic, session, TopicOriginType.INFERRED.value
-            )
+            new_article.add_topic(top_topic, session, TopicOriginType.INFERRED.value)
             session.add(new_article)
             return TopicOriginType.INFERRED.value, [
-                t.new_topic.title for t in new_article.new_topics
+                t.topic.title for t in new_article.topics
             ]
 
     return (
@@ -406,7 +404,7 @@ def add_new_topics(new_article, feed, url_keywords, session):
         if len(topics) == 0
         else (
             TopicOriginType.URL_PARSED.value,
-            [t.new_topic.title for t in new_article.new_topics],
+            [t.topic.title for t in new_article.topics],
         )
     )
 

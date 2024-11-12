@@ -7,7 +7,7 @@ from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.semantic_vector_api import get_embedding_from_article
 
 
-def find_new_topics(article_id, session):
+def find_topics(article_id, session):
     article_topics = (
         session.query(Topic)
         .join(ArticleTopicMap)
@@ -40,7 +40,7 @@ def find_filter_url_keywords(article_id, session):
 
 
 def document_from_article(article, session):
-    topics, topics_inferred = find_new_topics(article.id, session)
+    topics, topics_inferred = find_topics(article.id, session)
     doc = {
         "title": article.title,
         "author": article.authors,
