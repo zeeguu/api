@@ -127,7 +127,6 @@ def article_recommendations_for_user(
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
-    es_version = int(es.info()["version"]["number"][0])
 
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
@@ -143,7 +142,6 @@ def article_recommendations_for_user(
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         page=page,
-        is_es_v7=es_version == 7,
     )
 
     res = es.search(index=ES_ZINDEX, body=query_body)

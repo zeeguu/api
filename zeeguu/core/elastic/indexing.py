@@ -65,8 +65,7 @@ def document_from_article(article, session):
 
 def create_or_update(article, session):
     es = Elasticsearch(ES_CONN_STRING)
-    es_version = int(es.info()["version"]["number"][0])
-    doc = document_from_article(article, session, is_v7=es_version == 7)
+    doc = document_from_article(article, session)
 
     if es.exists(index=ES_ZINDEX, id=article.id):
         es.delete(index=ES_ZINDEX, id=article.id)
