@@ -7,8 +7,8 @@
 """
 
 DAYS_SINCE_ACTIVE = 30
-SHOW_TEACHER_NAMES = False
-SHOW_STUDENT_NAMES = False
+SHOW_TEACHER_NAMES = True
+SHOW_STUDENT_NAMES = True
 
 from zeeguu.api.app import create_app
 
@@ -39,18 +39,23 @@ print(f"Users active in the last {DAYS_SINCE_ACTIVE} days")
 total_users = 0
 for cohort in ordered_cohorts:
     values = cohort_student_map[cohort]
+    print("")
     print(f"========================================================")
     print(
         f"{cohort.name} ({cohort.id}) "
-        f"\nLang: {cohort.language.code if cohort.language else ''} "
-        f"\nInv Code: {cohort.inv_code} "
-        f"\nActive Students: {len(values)}"
+        f"\nLang: {cohort.language.name if cohort.language else ''} "
+        f"\nCode: {cohort.inv_code} "
     )
-    print(f"========================================================")
 
+    if SHOW_TEACHER_NAMES:
+        print("\nTeachers: ")
     for teacher in cohort.get_teachers():
         if SHOW_TEACHER_NAMES:
-            print(f"  {teacher.name} ({teacher.email})")
+            print(f"  -  {teacher.name} ({teacher.email})")
+    if SHOW_TEACHER_NAMES:
+        print("")
+
+    print(f"Active Students: {len(values)}")
 
     for v in values:
         total_users += 1
