@@ -36,6 +36,7 @@ ordered_cohorts = sorted(
 )
 
 print(f"Users active in the last {DAYS_SINCE_ACTIVE} days")
+total_users = 0
 for cohort in ordered_cohorts:
     values = cohort_student_map[cohort]
     print(f"========================================================")
@@ -52,7 +53,10 @@ for cohort in ordered_cohorts:
             print(f"  {teacher.name} ({teacher.email})")
 
     for v in values:
+        total_users += 1
         if SHOW_STUDENT_NAMES:
             print("  - ", v)
 
     print(" ")
+
+print("Total users: ", total_users)
