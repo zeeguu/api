@@ -79,8 +79,12 @@ def save_fig_params(filename):
 def get_new_repeating_sents_table(pd_repeating_sents):
     return generate_html_table(pd_repeating_sents.sort_values("Count", ascending=False))
 
+
 def get_new_url_keywords_table(pd_url_keywords_count):
-    return generate_html_table(pd_url_keywords_count.sort_values("count", ascending=False))
+    return generate_html_table(
+        pd_url_keywords_count.sort_values("count", ascending=False)
+    )
+
 
 def get_rejected_sentences_table(total_deleted_sents):
     total_deleted_sents["Total"] = sum(total_deleted_sents.values())
@@ -214,21 +218,50 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
 
 def generate_new_topic_coverage_plot(article_df, article_with_topics_df):
     filename = f"new_topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
-    article_df["has_topic"] = "No"
-    article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
+    article_df.loc[:, "Has Topic"] = "No Topic"
+    from zeeguu.core.model.new_article_topic_map import TopicOriginType
+
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df[
+                article_with_topics_df.origin_type == TopicOriginType.HARDSET
+            ].id
+        ),
+        "Has Topic",
+    ] = "Hardset Topic"
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df[
+                article_with_topics_df.origin_type == TopicOriginType.URL_PARSED
+            ].id
+        ),
+        "Has Topic",
+    ] = "Url Keyword Topic"
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df[
+                article_with_topics_df.origin_type == TopicOriginType.INFERRED
+            ].id
+        ),
+        "Has Topic",
+    ] = "Inferred Topic"
+
     articles_with_topics = (
-        article_df.groupby("Language")
-        .has_topic.value_counts(normalize=True)
+        article_df.groupby("Language")["Has Topic"]
+        .value_counts(normalize=True)
         .reset_index()
     )
+
     sns.barplot(
         x="Language",
         y="proportion",
-        hue="has_topic",
+        hue="Has Topic",
         data=articles_with_topics,
         palette={
-            "Yes": sns.color_palette("vlag")[0],
-            "No": sns.color_palette("vlag")[5],
+            "Inferred Topic": sns.color_palette("vlag")[2],
+            "Url Keyword Topic": sns.color_palette("vlag")[0],
+            "Hardset Topic": sns.color_palette("vlag")[1],
+            "No Topic": sns.color_palette("vlag")[5],
         },
     )
     plt.title("Proportion of Articles with New Topics")
