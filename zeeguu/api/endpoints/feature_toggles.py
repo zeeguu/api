@@ -41,7 +41,8 @@ def features_for_user(user):
     of Zeeguu. It can be used for usability tests and can be also
     spread by word of mouth to new participants.
 """
-
+def is_feature_enabled_for_user(feature_name, user):
+    return feature_name in features_for_user(user)
 
 def _feature_map():
     return {

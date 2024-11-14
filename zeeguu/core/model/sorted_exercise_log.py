@@ -7,6 +7,7 @@ class SortedExerciseLog(object):
         self.exercises = sorted(
             bookmark.exercise_log, key=lambda x: x.time, reverse=True
         )
+        self.bookmark = bookmark
 
     # string rep for logging
     def summary(self):

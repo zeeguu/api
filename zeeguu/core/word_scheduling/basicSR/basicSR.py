@@ -40,6 +40,12 @@ class BasicSRSchedule(db.Model):
 
     def update_schedule(self, db_session, correctness):
         raise NotImplementedError()
+    
+    def get_max_interval(self):
+        raise NotImplementedError()
+    
+    def get_next_cooling_interval(self):
+        raise NotImplementedError()
 
     @classmethod
     def clear_bookmark_schedule(cls, db_session, bookmark):

@@ -1,9 +1,15 @@
-from zeeguu.core.word_scheduling.basicSR.basicSR import NEXT_COOLING_INTERVAL_ON_SUCCESS
-
-LEARNING_CYCLE_LENGTH = len(NEXT_COOLING_INTERVAL_ON_SUCCESS)
-
-
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
+
+    def get_scheduler():
+        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCycleSR
+        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
+
+        if is_feature_enabled_for_user("exercise_levels", exercise_log.bookmark.user):
+            return LevelsSR
+        else:
+            return LearningCycleSR
+
     """
     Checks if the user has reported the exercise as too easy or looks into the
     streaks of this exercise log. Currently (14/06/2024), Zeeguu uses 2 cycles of
@@ -25,6 +31,10 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     # completed depending on the user preference.
     if exercise_log.last_exercise().is_too_easy():
         return True
+
+    scheduler = get_scheduler()
+
+    LEARNING_CYCLE_LENGTH = len(scheduler.get_next_cooling_interval())
 
     streak_counts = exercise_log.count_number_of_streaks()
     full_cycles_completed = streak_counts.get(LEARNING_CYCLE_LENGTH)

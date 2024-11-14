@@ -2,24 +2,26 @@ from  .basicSR import ONE_DAY, BasicSRSchedule
 from zeeguu.core.model import db, ExerciseOutcome
 from datetime import datetime, timedelta
 
-MAX_INTERVAL_2_DAY = 2 * ONE_DAY
 MAX_LEVEL = 4
 
-NEXT_COOLING_INTERVAL_ON_SUCCESS = {
-    0: ONE_DAY,
-    ONE_DAY: 2 * ONE_DAY,
-}
-
-# Reverse the process
-DECREASE_COOLING_INTERVAL_ON_FAIL = {
-    v: k for k, v in NEXT_COOLING_INTERVAL_ON_SUCCESS.items()
-}
-# If at 0, we don't decrease it further.
-DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
-
 class LevelsSR(BasicSRSchedule):
-    def __init__(self, initial_interval=ONE_DAY):
-        super(LevelsSR, self).__init__(initial_interval)
+
+    MAX_INTERVAL = 2 * ONE_DAY
+
+    NEXT_COOLING_INTERVAL_ON_SUCCESS = {
+        0: ONE_DAY,
+        ONE_DAY: 2 * ONE_DAY,
+    }
+
+    # Reverse the process
+    DECREASE_COOLING_INTERVAL_ON_FAIL = {
+        v: k for k, v in NEXT_COOLING_INTERVAL_ON_SUCCESS.items()
+    }
+    # If at 0, we don't decrease it further.
+    DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
+
+    def __init__(self, bookmark=None, bookmark_id=None):
+        super(LevelsSR, self).__init__(bookmark, bookmark_id)
     
     def update_schedule(self, db_session, correctness):
         level = self.bookmark.level
@@ -29,7 +31,8 @@ class LevelsSR(BasicSRSchedule):
             print("bookmark level is ", self.bookmark.level)
 
         if correctness:
-            if self.cooling_interval == MAX_INTERVAL_2_DAY:
+            # if the user comes from a scheduling with higher cooling intervals than expected the we treat it as a max interval
+            if self.cooling_interval >= self.MAX_INTERVAL:
                 if (
                     level < MAX_LEVEL
                 ):
@@ -55,13 +58,13 @@ class LevelsSR(BasicSRSchedule):
                 return
             # Since we can now lose the streak on day 8,
             # we might have to repeat it a few times to learn it.
-            new_cooling_interval = NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
-                self.cooling_interval, MAX_INTERVAL_2_DAY
+            new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
+                self.cooling_interval, self.MAX_INTERVAL
             )
             self.consecutive_correct_answers += 1
         else:
             # Decrease the cooling interval to the previous bucket
-            new_cooling_interval = DECREASE_COOLING_INTERVAL_ON_FAIL[
+            new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[
                 self.cooling_interval
             ]
             # Should we allow the user to "recover" their schedule
@@ -75,6 +78,14 @@ class LevelsSR(BasicSRSchedule):
 
         db_session.add(self)
         db_session.commit()
+    
+    @classmethod
+    def get_max_interval(cls):
+        return cls.MAX_INTERVAL
+    
+    @classmethod
+    def get_next_cooling_interval(cls):
+        return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
     
     @classmethod
     def update(cls, db_session, bookmark, outcome):
