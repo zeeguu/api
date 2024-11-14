@@ -9,8 +9,7 @@ ALTER TABLE
     `zeeguu_test`.`new_topic_filter` DROP FOREIGN KEY `new_topic_filter_ibfk_2`;
 
 ALTER TABLE
-    `zeeguu_test`.`new_topic_filter` CHANGE COLUMN `new_topic_id` `topic_id` INT NULL DEFAULT NULL,
-    RENAME TO `zeeguu_test`.`topic_filter`;
+    `zeeguu_test`.`new_topic_filter` CHANGE COLUMN `new_topic_id` `topic_id` INT NULL DEFAULT NULL;
 
 ALTER TABLE
     `zeeguu_test`.`new_topic_filter`
