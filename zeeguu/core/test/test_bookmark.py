@@ -2,11 +2,9 @@ import random
 
 from zeeguu.core.bookmark_quality import top_bookmarks, bad_quality_bookmark
 from zeeguu.core.definition_of_learned import (
-    is_learned_based_on_exercise_outcomes,
-    LEARNING_CYCLE_LENGTH,
+    is_learned_based_on_exercise_outcomes
 )
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-from zeeguu.core.definition_of_learned import LEARNING_CYCLE_LENGTH
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -18,6 +16,7 @@ from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
+from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCycleSR
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -237,7 +236,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
-        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH * 2
+        total_exercises_productive_cycle = LearningCycleSR.MAX_INTERVAL * 2
         correct_bookmark = random_bookmarks[2]
         correct_bookmark.learning_cycle = LearningCycle.PRODUCTIVE
         exercises = 0
@@ -278,7 +277,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
-        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH
+        total_exercises_productive_cycle = LearningCycleSR.MAX_INTERVAL
         correct_bookmark = random_bookmarks[2]
         exercises = 0
         distinct_dates = set()
