@@ -1,8 +1,9 @@
-from  .basicSR import ONE_DAY, BasicSRSchedule
+from .basicSR import ONE_DAY, BasicSRSchedule
 from zeeguu.core.model import db, ExerciseOutcome
 from datetime import datetime, timedelta
 
 MAX_LEVEL = 4
+
 
 class LevelsSR(BasicSRSchedule):
 
@@ -22,20 +23,18 @@ class LevelsSR(BasicSRSchedule):
 
     def __init__(self, bookmark=None, bookmark_id=None):
         super(LevelsSR, self).__init__(bookmark, bookmark_id)
-    
+
     def update_schedule(self, db_session, correctness):
         level = self.bookmark.level
         if level == 0:
             self.bookmark.level = 1
-            db_session.add(self.bookmark)   
+            db_session.add(self.bookmark)
             print("bookmark level is ", self.bookmark.level)
 
         if correctness:
             # if the user comes from a scheduling with higher cooling intervals than expected the we treat it as a max interval
             if self.cooling_interval >= self.MAX_INTERVAL:
-                if (
-                    level < MAX_LEVEL
-                ):
+                if level < MAX_LEVEL:
                     # Bookmark will move to the next level
                     self.bookmark.level = level + 1
                     self.cooling_interval = 0
@@ -78,15 +77,24 @@ class LevelsSR(BasicSRSchedule):
 
         db_session.add(self)
         db_session.commit()
-    
+
     @classmethod
-    def get_max_interval(cls):
-        return cls.MAX_INTERVAL
-    
+    def get_max_interval(cls, in_days: bool = False):
+        """
+        in_days:bool False, use true if you want the interval in days, rather than
+        minutes.
+        :returns:int, total number of minutes the schedule can have as a maximum.
+        """
+        return cls.MAX_INTERVAL if not in_days else cls.MAX_INTERVAL // ONE_DAY
+
     @classmethod
     def get_next_cooling_interval(cls):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
-    
+
+    @classmethod
+    def get_learning_cycle_length(cls):
+        return len(cls.NEXT_COOLING_INTERVAL_ON_SUCCESS)
+
     @classmethod
     def update(cls, db_session, bookmark, outcome):
 
@@ -112,7 +120,7 @@ class LevelsSR(BasicSRSchedule):
             # Article.
             return
         schedule.update_schedule(db_session, correctness)
-    
+
     @classmethod
     def find_or_create(cls, db_session, bookmark):
 

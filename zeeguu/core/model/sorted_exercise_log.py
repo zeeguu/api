@@ -1,4 +1,3 @@
-
 class SortedExerciseLog(object):
 
     def __init__(self, bookmark):
@@ -6,7 +5,9 @@ class SortedExerciseLog(object):
             bookmark.exercise_log, key=lambda x: x.time, reverse=True
         )
         self.bookmark = bookmark
-        self.learning_cycle_length = bookmark.get_scheduler().get_max_interval()
+        self.learning_cycle_length = (
+            bookmark.get_scheduler().get_learning_cycle_length()
+        )
 
     # string rep for logging
     def summary(self):
@@ -27,7 +28,7 @@ class SortedExerciseLog(object):
         distinct_days = self.most_recent_correct_dates()
 
         result = []
-        for day in list(distinct_days)[:self.learning_cycle_length]:
+        for day in list(distinct_days)[: self.learning_cycle_length]:
             result.append(day.strftime("%b.%d "))
         return " ".join(result)
 
