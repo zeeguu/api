@@ -573,6 +573,7 @@ def generate_html_page():
     top_filtered_searches = data_extractor.get_top_search_filters()
     newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
     pd_new_url_keywords = data_extractor.get_url_keyword_counts()
+    pd_feed_innactivity_time = data_extractor.get_days_since_last_crawl()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
     total_days_from_crawl_report = crawl_report.get_days_from_crawl_report_date()
@@ -659,6 +660,9 @@ def generate_html_page():
                 <img src="{generate_topic_coverage_plot(article_df, article_topics_df)}" />
                 <img src="{generate_new_topic_coverage_plot(article_df, new_article_topics_df)}" />
                 <img src="{generate_total_article_per_language(article_df)}" />
+                <h2>Possible Innactive feeds: </h2>
+                <p><a href="#inactive-feeds">Full table</a><p>
+                {generate_html_table(pd_feed_innactivity_time.head(10))}
                 <h2>Articles Rejected:</h2>
                 <p>{warning_crawl_range}</p>
                 {get_total_reject_article_reason_table(crawl_report.get_total_non_quality_counts())}
@@ -715,6 +719,9 @@ def generate_html_page():
             <h1 id="new-url-keywords">Newly url keywords without topics:</h1>
             <p>URL Keywords that occur more than 100 times in articles and are not mapped to a topic. They are language unique.<p>
             {get_new_url_keywords_table(pd_new_url_keywords) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
+            <br />
+            <h1 id="inactive-feeds">Feed activity:</h1>
+            {generate_html_table(pd_feed_innactivity_time)}
         </body>
     """
 

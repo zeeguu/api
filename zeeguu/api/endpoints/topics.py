@@ -243,13 +243,13 @@ def get_available_new_topics():
     topic_data = []
     user = User.find_by_id(flask.g.user_id)
     already_subscribed = [
-        each.new_topic for each in NewTopicSubscription.all_for_user(user)
+        each.new_topic.id for each in NewTopicSubscription.all_for_user(user)
     ]
-
-    topics = NewTopic.get_all_topics()
+    user_learning_language = Language.find_by_id(user.learned_language_id)
+    topics = NewTopic.get_all_topics(user_learning_language)
 
     for topic in topics:
-        if topic not in already_subscribed:
+        if topic.id not in already_subscribed:
             topic_data.append(topic.as_dictionary())
 
     return json_result(topic_data)

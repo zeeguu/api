@@ -50,6 +50,15 @@ URL_BLINDEN_UND_ELEPHANT = (
 
 URL_ML_JP_PAYWALL = "https://jyllands-posten.dk/kultur/ECE16582800/puk-damsgaard-leverer-voldsom-kritik-af-vestens-krig-i-afghanistan/#:~:text=Man%20kommer%20ikke%20i%20godt,og%20ligestilling%20i%20al%20evighed."
 
+URL_SPIEGEL_IMG_2 = (
+    "http://cdn2.spiegel.de/images/image-1387139-860_poster_16x9-fqsg-1387139.jpg"
+)
+
+URL_SPIEGEL_IMG_1 = (
+    "http://cdn1.spiegel.de/images/image-1387130-860_poster_16x9-gljs-1387130.jpg"
+)
+
+
 URLS_TO_MOCK = {
     URL_BLINDEN_UND_ELEPHANT: "blinden_und_elefant.html",
     URL_CNN_KATHMANDU: "cnn_kathmandu.html",
@@ -84,6 +93,8 @@ URLS_TO_MOCK = {
     READABILITY_SERVER_CLEANUP_URI + URL_ML_JP_PAYWALL: "jp_article_example.json",
     # tldextract, dependency of newspaper reaches out for this and makes our tests fail if we don't have net
     "https://publicsuffix.org/list/public_suffix_list.dat": "public_suffix_list.dat",
+    URL_SPIEGEL_IMG_1: "spiegel_nancy.html",
+    URL_SPIEGEL_IMG_2: "spiegel_nancy.html",
 }
 
 

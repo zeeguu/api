@@ -24,6 +24,7 @@ def requires_session(view):
 
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
+        print("--> /" + view.__name__)
         try:
             session_uuid = flask.request.args["session"]
             user_id, session_expiry_time = SESSION_CACHE.get(
