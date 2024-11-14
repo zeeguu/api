@@ -1,7 +1,9 @@
-from  .basicSR import ONE_DAY, BasicSRSchedule
+from .basicSR import ONE_DAY, BasicSRSchedule
 from zeeguu.core.model import UserPreference, db, ExerciseOutcome
 from datetime import datetime, timedelta
 from zeeguu.core.model.learning_cycle import LearningCycle
+
+
 class LearningCycleSR(BasicSRSchedule):
     MAX_INTERVAL = 8 * ONE_DAY
 
@@ -18,10 +20,10 @@ class LearningCycleSR(BasicSRSchedule):
     }
     # If at 0, we don't decrease it further.
     DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
-        
-    def __init__(self,bookmark=None, bookmark_id=None):
+
+    def __init__(self, bookmark=None, bookmark_id=None):
         super(LearningCycleSR, self).__init__(bookmark, bookmark_id)
-    
+
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
 
@@ -78,15 +80,24 @@ class LearningCycleSR(BasicSRSchedule):
 
         db_session.add(self)
         db_session.commit()
-    
+
     @classmethod
-    def get_max_interval(cls):
-        return cls.MAX_INTERVAL
-    
+    def get_max_interval(cls, in_days: bool = False):
+        """
+        in_days:bool False, use true if you want the interval in days, rather than
+        minutes.
+        :returns:int, total number of minutes the schedule can have as a maximum.
+        """
+        return cls.MAX_INTERVAL if not in_days else cls.MAX_INTERVAL // ONE_DAY
+
     @classmethod
     def get_next_cooling_interval(cls):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
-    
+
+    @classmethod
+    def get_learning_cycle_length(cls):
+        return len(cls.NEXT_COOLING_INTERVAL_ON_SUCCESS)
+
     @classmethod
     def update(cls, db_session, bookmark, outcome):
 
@@ -112,7 +123,7 @@ class LearningCycleSR(BasicSRSchedule):
             # Article.
             return
         schedule.update_schedule(db_session, correctness)
-    
+
     @classmethod
     def find_or_create(cls, db_session, bookmark):
 
