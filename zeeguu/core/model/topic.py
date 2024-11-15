@@ -10,9 +10,9 @@ from zeeguu.core.util.time import get_server_time_utc
 
 class Topic(db.Model):
     """
-    The New Topics are standerdized accross all languages.
+    The Topics are standerdized accross all languages.
 
-    Each UrlKeyword can be associated with one New Topic
+    Each UrlKeyword can be associated with one Topic
     which are used to infer topics in articles which haven't got any topic.
 
     This relationship is stored in ArticleTopicMap.
@@ -32,9 +32,6 @@ class Topic(db.Model):
 
     def __repr__(self):
         return f"<Topic {self.title}>"
-
-    def __eq__(self, other):
-        return self.id == other.id and self.title == other.title
 
     def as_dictionary(self):
 
