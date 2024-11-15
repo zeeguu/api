@@ -33,6 +33,9 @@ class Topic(db.Model):
     def __repr__(self):
         return f"<Topic {self.title}>"
 
+    def __eq__(self, other):
+        return self.id == other.id and self.title == other.title
+
     def as_dictionary(self):
 
         return dict(
