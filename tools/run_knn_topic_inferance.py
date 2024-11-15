@@ -6,6 +6,7 @@ from zeeguu.core.semantic_search import (
 
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.url_keyword import UrlKeyword
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from elasticsearch import Elasticsearch
@@ -29,9 +30,6 @@ parser.add_argument("article_id", type=int, help="article id to search with")
 def search_similar_to_article(article_id):
     app = create_app()
     app.app_context().push()
-
-    es = Elasticsearch(ES_CONN_STRING)
-
     doc_to_search = article_id
     article_to_search = Article.find_by_id(doc_to_search)
 
@@ -46,9 +44,8 @@ def search_similar_to_article(article_id):
     for hit in hits:
         print(
             hit["_id"],
-            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
+            f"Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
@@ -59,9 +56,8 @@ def search_similar_to_article(article_id):
     for hit in hits_t:
         print(
             hit["_id"],
-            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
+            f"Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
@@ -71,20 +67,19 @@ def search_similar_to_article(article_id):
     for hit in hits_lt:
         print(
             hit["_id"],
-            hit["_source"]["old_topics"],
             hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
+            f"Topics: {hit['_source']['topics']}",
             hit["_source"].get("url_keywords", []),
             hit["_source"].get("url", ""),
             hit["_score"],
         )
-    neighbouring_topics = [t.topic for a in a_found_t for t in a.topics]
-    TOPICS_TO_NOT_COUNT = set(["news", "aktuell", "nyheder", "nieuws", "article"])
+    neighbouring_topics = [t.topic.title for a in a_found_t for t in a.topics]
+    TOPICS_TO_NOT_COUNT = UrlKeyword.EXCLUDE_TOPICS
     neighbouring_keywords = [
-        t.url_keywords
+        t.url_keyword
         for a in a_found_t
         for t in a.url_keywords
-        if t.url_keywords.keyword not in TOPICS_TO_NOT_COUNT
+        if t.url_keyword.keyword not in TOPICS_TO_NOT_COUNT
     ]
 
     print()
