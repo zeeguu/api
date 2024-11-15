@@ -43,35 +43,20 @@ def search_similar_to_article(article_id):
     print("Similar articles:")
     for hit in hits:
         print(
-            hit["_id"],
-            hit["_source"]["language"],
-            f"Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
 
     print()
     print("Similar articles to classify:")
     for hit in hits_t:
         print(
-            hit["_id"],
-            hit["_source"]["language"],
-            f"Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
     print()
     print("More like this articles!:")
     for hit in hits_lt:
         print(
-            hit["_id"],
-            hit["_source"]["language"],
-            f"Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
     neighbouring_topics = [t.topic.title for a in a_found_t for t in a.topics]
     TOPICS_TO_NOT_COUNT = UrlKeyword.EXCLUDE_TOPICS
@@ -91,8 +76,9 @@ def search_similar_to_article(article_id):
     print(topics_key_counter)
     print("Classification: ", topics_key_counter.most_common(1)[0])
     print()
-    print(article_to_search.title[:100])
-    print(article_to_search.content[:100])
+    print("Title: ", article_to_search.title[:100])
+    print("Content: ", article_to_search.content[:100])
+    print()
     print("Top match content (sim): ")
     print(a_found_t[0].content[:100])
     print("Top match content (sim, same lang): ")

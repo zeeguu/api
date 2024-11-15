@@ -50,7 +50,7 @@ def _prepare_user_constraints(user):
         unwanted_user_searches.append(user_search_filter.search.keywords)
     print(f"keywords to exclude: {unwanted_user_searches}")
 
-    # 2. New Topics to exclude / filter out
+    # 2. Topics to exclude / filter out
     # =================================
     excluded_topics = TopicFilter.all_for_user(user)
     topics_to_exclude = [
@@ -58,7 +58,7 @@ def _prepare_user_constraints(user):
     ]
     print(f"Topics to exclude: {excluded_topics}")
 
-    # 3. New Topics subscribed, and thus to include
+    # 3. Topics subscribed, and thus to include
     # =========================================
     topic_subscriptions = TopicSubscription.all_for_user(user)
     topics_to_include = [
@@ -66,7 +66,7 @@ def _prepare_user_constraints(user):
         for subscription in topic_subscriptions
         if subscription is not None
     ]
-    print(f"New Topics to include: {topic_subscriptions}")
+    print(f"Topics to include: {topic_subscriptions}")
 
     # 6. Wanted user topics
     # =========================================

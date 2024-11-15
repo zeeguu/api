@@ -38,7 +38,7 @@ def more_like_this_query(count, article_text, language, page=0):
         .filter("term", language=language.name.lower())
     )
 
-    return {"from": page * count, "size": count, "query": s.to_dict()}
+    return {"from": page * count, "size": count, "query": s.query.to_dict()}
 
 
 def build_elastic_recommender_query(
