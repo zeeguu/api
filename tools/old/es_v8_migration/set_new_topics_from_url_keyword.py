@@ -11,7 +11,7 @@ from zeeguu.core.model import (
     Article,
     ArticleUrlKeywordMap,
     UrlKeyword,
-    ArticleTopicMap,
+    NewArticleTopicMap,
 )
 from tqdm import tqdm
 
@@ -29,9 +29,9 @@ a_url_keywords_w_new_topics = (
     db_session.query(Article.id)
     .join(ArticleUrlKeywordMap)
     .join(UrlKeyword)
-    .join(ArticleTopicMap, isouter=True)
-    .filter(UrlKeyword.topic != None)
-    .filter(ArticleTopicMap.topic_id == None)
+    .join(NewArticleTopicMap, isouter=True)
+    .filter(UrlKeyword.new_topic != None)
+    .filter(NewArticleTopicMap.new_topic_id == None)
     .all()
 )
 print("Adding topics based on url keywords to articles...")

@@ -1,6 +1,6 @@
 import pandas as pd
 from zeeguu.core.model.url_keyword import UrlKeyword
-from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.new_topic import NewTopic
 import zeeguu.core
 from tqdm import tqdm
 from zeeguu.api.app import create_app
@@ -23,7 +23,7 @@ for row_i, row in tqdm(df.iterrows(), total=len(df)):
         url_k_list = UrlKeyword.find_all_by_keyword(keyword)
         for url_k in url_k_list:
             topic_to_assign = (
-                Topic.find_by_id(row["val_pred"]) if row["val_pred"] != -1 else None
+                NewTopic.find_by_id(row["val_pred"]) if row["val_pred"] != -1 else None
             )
             url_k.new_topic = topic_to_assign
             db_session.add(url_k)
