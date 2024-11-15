@@ -24,13 +24,11 @@ articles = (
 
 articles_to_extract = []
 for a in tqdm(articles, total=len(articles)):
-    tuple = (
-        a.id,
-        a.content,
-        a.topic(),
-        a.topics[-1].topic.title,
-    )
-    articles_to_extract.append(tuple)
+    tuple = [a.id, a.content, len(a.topics)]
+    topics_data = []
+    for atm in a.topics:
+        topics_data += [atm.topic.title, atm.origin_type]
+    articles_to_extract.append((tuple + topics_data))
 
 with open("data_for_eval_new_topic.json", "w+", encoding="utf-8") as f:
     f.write(json.dumps(articles_to_extract))

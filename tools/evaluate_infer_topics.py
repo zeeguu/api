@@ -50,8 +50,10 @@ for i, doc_to_search in enumerate(sampled_ids):
         article_to_search, k_to_use
     )
 
-    neighbouring_topics = [t.topic for a in a_found_t for t in a.topic]
+    neighbouring_topics = [t.topic.title for a in a_found_t for t in a.topics]
     neighbouring_keywords = [t.url_keyword for a in a_found_t for t in a.url_keywords]
+    if len(hits_t) == 0:
+        continue
     avg_score = sum([float(h["_score"]) for h in hits_t]) / len(hits_t)
 
     topics_counter = Counter(neighbouring_topics)
@@ -68,7 +70,7 @@ for i, doc_to_search in enumerate(sampled_ids):
         threshold = (
             sum(topics_counter.values()) // 2
         )  # The threshold is being at least half or above rounded down
-        prediction = str(top_topic.title) if count >= threshold else ""
+        prediction = str(top_topic) if count >= threshold else ""
         print(f"Prediction: '{prediction}', Original: '{og_topics}'.")
         print(f"Pred Avg Score: {avg_score:.2f}, {len(hits_t)} K neigh.")
         print(f"Progress: {i+1}/{TOTAL_EXAMPLES}")
