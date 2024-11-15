@@ -23,6 +23,12 @@ class ArticleTest(ModelTestMixIn, TestCase):
         self.article2 = ArticleRule().article
         self.language = LanguageRule.get_or_create_language("en")
 
+    def test_articles_are_different(self):
+        assert self.article1.title != self.article2.title
+
+    def test_article_representation_does_not_error(self):
+        assert self.article1.article_info()
+
     def test_add_topic(self):
         sports = TopicRule.get_or_create_topic(1)
         health_society = TopicRule.get_or_create_topic(5)
@@ -32,12 +38,6 @@ class ArticleTest(ModelTestMixIn, TestCase):
         article_topics = [atm.topic for atm in self.article1.topics]
         assert sports in article_topics
         assert health_society in article_topics
-
-    def test_articles_are_different(self):
-        assert self.article1.title != self.article2.title
-
-    def test_article_representation_does_not_error(self):
-        assert self.article1.article_info()
 
     def test_find_or_create(self):
         self.new_art = Article.find_or_create(session, URL_SPIEGEL_VENEZUELA)

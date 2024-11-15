@@ -5,6 +5,8 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.user_rule import UserRule
+from zeeguu.core.test.rules.topic_rule import TopicRule
+from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.content_quality.quality_filter import (
@@ -33,6 +35,24 @@ class TestRetrieveAndCompute(ModelTestMixIn):
 
         assert len(articles) == 2
         assert articles[0].fk_difficulty
+
+    def testDownloadWithTopic(self):
+        ## Check if topic associated with the keyword is correctly added.
+        feed = FeedRule().feed1
+        topic = TopicRule.get_or_create_topic(7)
+        url_keyword = UrlKeyword.find_or_create(
+            zeeguu.core.model.db.session, "politik", self.lan, topic
+        )
+        crawl_report = CrawlReport()
+        crawl_report.add_feed(feed)
+        download_from_feed(feed, zeeguu.core.model.db.session, crawl_report, 3, False)
+
+        article = feed.get_articles(limit=2)[0]
+        # http://www.spiegel.de/politik/ausland/venezuela-militaer-unterstuetzt-nicolas-maduro-im-machtkampf-gegen-juan-guaido-a-1249616.html
+        #
+        #
+        assert url_keyword in [aukm.url_keyword for aukm in article.url_keywords]
+        assert topic in [atm.topic for atm in article.topics]
 
     def test_sufficient_quality(self):
         art = newspaper.Article(URL_PROPUBLICA_INVESTING)
