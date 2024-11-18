@@ -47,19 +47,6 @@ services:
     restart: unless-stopped
     mem_limit: 512m # Useful to restrict the ammount of RAM used by ES.
 
-  elasticsearch:
-    image: elasticsearch:7.6.2
-    environment:
-      - discovery.type=single-node
-      - network.host=0.0.0.0 # is this still needed?
-    volumes:
-      - ${ZEEGUU_DATA_FOLDER}/elasticsearch/data:/usr/share/elasticsearch/data
-    networks:
-      - zeeguu_backend
-    restart: unless-stopped
-    mem_limit: 512m
-
-
   readability_server:
     image: zeeguu/readability_server
     networks:
