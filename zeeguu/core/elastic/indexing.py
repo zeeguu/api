@@ -121,7 +121,7 @@ def create_or_update(article, session):
     return res
 
 
-def create_or_update_bulk_docs(article, session):
+def create_or_update_doc_for_bulk(article, session):
     es = Elasticsearch(ES_CONN_STRING)
     es_version = int(es.info()["version"]["number"][0])
 

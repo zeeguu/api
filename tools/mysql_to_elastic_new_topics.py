@@ -1,6 +1,6 @@
 # coding=utf-8
 from zeeguu.core.elastic.indexing import (
-    create_or_update_bulk_docs,
+    create_or_update_doc_for_bulk,
 )
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk, scan
@@ -69,7 +69,7 @@ def main():
     def gen_docs(articles_w_topics):
         for article in articles_w_topics:
             try:
-                yield create_or_update_bulk_docs(article, db_session)
+                yield create_or_update_doc_for_bulk(article, db_session)
             except Exception as e:
                 print(f"fail for: '{article.id}', {e}")
 

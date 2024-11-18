@@ -1,10 +1,22 @@
 """
+    Updates a url_keyword topic mapping and the article topic mapping for articles
+    that contain that url_keyword.
+
+    The script follows the following structure:
+        1. (IS_DELETION == True)
+        Delete the association of the url_keyword to the topic_id and all article
+        mappings to the topic this url_keyword was associated with.
+        2. Recalculate all the topics based on url_keywords for the articles associated
+        with the url_keyword being updated.
+        3. Re-index all the documents to ES. If RE_INDEX_ONLY_ARTICLES_IN_ES, only the 
+        ones that were in ES are re-index, otherwise all the documents are indexed.
+
+
     This script expects the following parameters:
 
     - URL_KEYWORD_TO_UPDATE (str): the keyword we seek to update the ES
-    - DELETE_ARTICLE_NEW_TOPICS (bool): if we should delete the current new topics for
-    the articles containing the URL_KEYWORD_TO_UPDATE. e.g. we note that there is a 
-    keyword wrongly associated with a specific topic.
+    - IS_DELETION (bool): when this is true, the URL_KEYWORD_TO_UPDATE topic_id mapping
+    is removed, and all associated article_topic_mappings are deleted.
     - RECALCULATE_TOPICS (bool): if the topics for the articles should be recalculated.
     Let's say two keywords have the same topic, then the article would loose it's topic 
     despite still being categorized by another keyword. E.g. 'vejret' and 'klima' are 
@@ -12,14 +24,14 @@
     all articles with 'vejret' will loose that topic. This would be incorrect for all 
     those that continue to have 'klima' as a keyword. For this reason, 
     RECALCULATE_TOPICS should be true. This setting MUST BE true, in case of an update,
-    e.g. we adde a new mapping to one of the keywords.
+    e.g. we add a new mapping to one of the keywords.
     - RE_INDEX_ONLY_ARTICLES_IN_ES (bool): if the articles re-index are only those 
     that were already in ES.
     - ITERATION_STEP (int): number of articles to index in each loop. 
 """
 
 URL_KEYWORD_TO_UPDATE = "vejret"
-DELETE_ARTICLE_NEW_TOPICS = True
+IS_DELETION = False
 RECALCULATE_TOPICS = True
 RE_INDEX_ONLY_ARTICLES_IN_ES = True
 ITERATION_STEP = 1000
@@ -27,7 +39,7 @@ ITERATION_STEP = 1000
 
 # coding=utf-8
 from zeeguu.core.elastic.indexing import (
-    create_or_update_bulk_docs,
+    create_or_update_doc_for_bulk,
 )
 
 from elasticsearch import Elasticsearch
@@ -72,26 +84,30 @@ def ids_of_articles_matching_url_keyword():
 
 
 def main():
-    def fetch_articles_by_id(id_list, recalculate_topic=False):
+    def recalculate_article_url_keyword_topics(article_id, commit_after_article=False):
+        article = Article.find_by_id(article_id)
+        article.recalculate_topics_from_url_keywords(db_session)
+        if commit_after_article:
+            db_session.commit()
+        return article
+
+    def fetch_articles_by_id(id_list: list[int]):
         for i in id_list:
             try:
                 article = Article.find_by_id(i)
                 if not article:
                     print(f"Skipped for: '{i}', article not in DB.")
                     continue
-                if recalculate_topic:
-                    article.recalculate_topics_from_url_keywords(db_session)
-                    db_session.commit()
-                yield article
+                yield (article)
             except NoResultFound:
                 print(f"fail for: '{i}'")
             except Exception as e:
                 print(f"fail for: '{i}', {e}")
 
-    def gen_docs(articles_w_topics):
-        for article in articles_w_topics:
+    def gen_docs(articles: list[Article]):
+        for article in articles:
             try:
-                yield create_or_update_bulk_docs(article, db_session)
+                yield create_or_update_doc_for_bulk(article, db_session)
             except Exception as e:
                 print(f"fail for: '{article.id}', {e}")
 
@@ -104,22 +120,22 @@ def main():
 
     # Updating url_keyword new_topic mapping
     # And the topics that were added based on that keyword.
-    if DELETE_ARTICLE_NEW_TOPICS:
-        new_topics_ids_to_delete = []
-        new_topics = []
+    if IS_DELETION:
+        topics_ids_to_delete_mappings = []
+        topics = []
         url_keywords = UrlKeyword.find_all_by_keyword(URL_KEYWORD_TO_UPDATE)
         for u_key in url_keywords:
             if u_key.new_topic_id:
-                new_topics.append(NewTopic.find_by_id(u_key.new_topic_id))
-                new_topics_ids_to_delete.append(u_key.new_topic_id)
+                topics.append(NewTopic.find_by_id(u_key.new_topic_id))
+                topics_ids_to_delete_mappings.append(u_key.new_topic_id)
                 u_key.new_topic_id = None
 
         print(
-            f"Deleting new_topics '{",".join([t.title for t in new_topics])}' for articles which have the keyword: '{URL_KEYWORD_TO_UPDATE}'"
+            f"Deleting new_topics '{",".join([t.title for t in topics])}' for articles which have the keyword: '{URL_KEYWORD_TO_UPDATE}'"
         )
         topic_mappings_to_delete = NewArticleTopicMap.query.filter(
             NewArticleTopicMap.article_id.in_(list(target_ids))
-        ).filter(NewArticleTopicMap.new_topic_id.in_(new_topics_ids_to_delete))
+        ).filter(NewArticleTopicMap.new_topic_id.in_(topics_ids_to_delete_mappings))
         print(
             f"Found '{len(topic_mappings_to_delete.all())}' topic mappings to delete."
         )
@@ -131,7 +147,14 @@ def main():
         print("No articles found! Exiting...")
         return
 
-    # I noticed that if a document is not added then it won't let me query the ES search.
+    if RECALCULATE_TOPICS:
+        print("Updating Article Topics based on URL Keywords...")
+        for a_id in tqdm(target_ids):
+            recalculate_article_url_keyword_topics(a_id)
+        print("Commiting...")
+        db_session.commit()
+        print("DONE.")
+
     if RE_INDEX_ONLY_ARTICLES_IN_ES:
         print("Re-indexing only existing articles in ES...")
         es_query = {"query": {"match_all": {}}}
@@ -152,7 +175,7 @@ def main():
         batch = target_ids[i_start : i_start + ITERATION_STEP]
         res_bulk, error_bulk = bulk(
             es,
-            gen_docs(fetch_articles_by_id(batch, RECALCULATE_TOPICS)),
+            gen_docs(fetch_articles_by_id(batch)),
             raise_on_error=False,
         )
         total_added += res_bulk
