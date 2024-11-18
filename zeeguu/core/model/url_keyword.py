@@ -15,6 +15,12 @@ class UrlKeyword(db.Model):
     These are words extracted from the URL that can be used as keywords
     for the New Topic Table. Each keyword is associated with a language,
     as some language might have the same word for 2 different topics.
+
+    We have a url keyword entry even if it is not mapped on a topic.
+    So pretty much, every time we find a URL keyword we put it in here
+    And we also map it to the article.
+
+
     """
 
     EXCLUDE_TOPICS = set(

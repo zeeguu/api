@@ -7,7 +7,6 @@ select
     uw.word,
     tw.word,
     uw.rank,
-    b.learned,
     b.fit_for_study,
     b.learned_time,
     bss.id
@@ -18,7 +17,7 @@ from
     join user_word tw on b.translation_id = tw.id
     left join basic_sr_schedule bss on b.id = bss.bookmark_id
 where
-    b.learned = 0
+    b.learned_time is null
     and b.fit_for_study
     and bss.id is null -- parameters
     and u.id = :user_id

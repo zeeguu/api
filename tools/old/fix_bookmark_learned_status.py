@@ -12,6 +12,11 @@ def print_bookmarks_that_are_learned_without_history(bookmarks):
 
 def print_bookmarks_that_are_wrongly_learned(bookmarks):
     i = 0
+    # This script needs to be updated.
+    # bookmark.learned has been removed and now it's store only
+    # in bookmark.learned_time, the correct behaviour would now set the date, the
+    # bookmark was learned.
+
     for bookmark in bookmarks:
 
         if not bookmark.learned_time:
@@ -20,7 +25,9 @@ def print_bookmarks_that_are_wrongly_learned(bookmarks):
         algo_result = is_learned_based_on_exercise_outcomes(bookmark)
 
         if bookmark.learned != algo_result:
-            print(f"){i}) mismatch: {bookmark} DB={bookmark.learned} ALGO={algo_result}")
+            print(
+                f"){i}) mismatch: {bookmark} DB={bookmark.learned} ALGO={algo_result}"
+            )
 
             print(bookmark.compact_sorted_exercise_log())
             print(" ")

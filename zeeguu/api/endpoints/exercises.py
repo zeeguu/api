@@ -52,6 +52,7 @@ def bookmarks_to_learn_not_scheduled():
     user = User.find_by_id(flask.g.user_id)
     to_study = user.bookmarks_to_learn_not_in_pipeline()
     json_bookmarks = [bookmark.json_serializable_dict() for bookmark in to_study]
+
     return json_result(json_bookmarks)
 
 
