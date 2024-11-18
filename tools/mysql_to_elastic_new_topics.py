@@ -9,7 +9,6 @@ from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
-
 from zeeguu.core.model import NewArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from zeeguu.core.model.new_article_topic_map import TopicOriginType
@@ -45,7 +44,7 @@ print(es.info())
 def main():
     if DELETE_INDEX:
         try:
-            es.options(ignore_status=[400, 404]).indices.delete(index="zeeguu")
+            es.options(ignore_status=[400, 404]).indices.delete(index=ES_ZINDEX)
             print("Deleted index 'zeeguu'!")
         except Exception as e:
             print(f"Failed to delete: {e}")
@@ -109,11 +108,16 @@ def main():
     if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
-    es_query = {"query": {"match_all": {}}}
-    ids_in_es = set(
-        [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
-    )
-    target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
+    if es.indices.exists(index=ES_ZINDEX):
+        es_query = {"query": {"match_all": {}}}
+        ids_in_es = set(
+            [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
+        )
+        target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
+    else:
+        # The index was deleted / doesn't exist:
+        target_ids_not_in_es = target_ids
+
     print("Total articles missing: ", len(target_ids_not_in_es))
 
     # I noticed that if a document is not added then it won't let me query the ES search.
