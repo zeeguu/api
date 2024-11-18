@@ -44,7 +44,7 @@ from zeeguu.core.model import (
     NewArticleTopicMap,
     NewTopic,
 )
-from zeeguu.core.model.article import article_topic_map
+
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 import numpy as np
 from tqdm import tqdm
@@ -58,6 +58,19 @@ db_session = zeeguu.core.model.db.session
 print(es.info())
 
 
+def ids_of_articles_matching_url_keyword():
+    return np.array(
+        [
+            a_id[0]
+            for a_id in db_session.query(Article.id)
+            .join(ArticleUrlKeywordMap)
+            .join(UrlKeyword)
+            .filter(UrlKeyword.keyword == URL_KEYWORD_TO_UPDATE)
+            .distinct()
+        ]
+    )
+
+
 def main():
     def fetch_articles_by_id(id_list, recalculate_topic=False):
         for i in id_list:
@@ -69,7 +82,7 @@ def main():
                 if recalculate_topic:
                     article.recalculate_topics_from_url_keywords(db_session)
                     db_session.commit()
-                yield (article)
+                yield article
             except NoResultFound:
                 print(f"fail for: '{i}'")
             except Exception as e:
@@ -83,19 +96,10 @@ def main():
                 print(f"fail for: '{article.id}', {e}")
 
     # Get the articles for the url_keyword
-    target_ids = np.array(
-        [
-            a_id[0]
-            for a_id in db_session.query(Article.id)
-            .join(ArticleUrlKeywordMap)
-            .join(UrlKeyword)
-            .filter(UrlKeyword.keyword == URL_KEYWORD_TO_UPDATE)
-            .distinct()
-        ]
-    )
+    target_ids = ids_of_articles_matching_url_keyword()
 
     print(
-        f"Got articles with url_keyword '{URL_KEYWORD_TO_UPDATE}', total: {len(target_ids)}",
+        f"Got articles for url_keyword '{URL_KEYWORD_TO_UPDATE}', total: {len(target_ids)}",
     )
 
     # Updating url_keyword new_topic mapping
