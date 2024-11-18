@@ -221,18 +221,21 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
     article_df["has_topic"] = "No"
     article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
     articles_with_topics = (
-        article_df.groupby("Language")
-        .has_topic.value_counts(normalize=True)
+        article_df.groupby("Language")["Has Topic"]
+        .value_counts(normalize=True)
         .reset_index()
     )
+
     sns.barplot(
         x="Language",
         y="proportion",
-        hue="has_topic",
+        hue="Has Topic",
         data=articles_with_topics,
         palette={
-            "Yes": sns.color_palette("vlag")[0],
-            "No": sns.color_palette("vlag")[5],
+            "Inferred Topic": sns.color_palette("vlag")[2],
+            "Url Keyword Topic": sns.color_palette("vlag")[0],
+            "Hardset Topic": sns.color_palette("vlag")[1],
+            "No Topic": sns.color_palette("vlag")[5],
         },
     )
     plt.title("Proportion of Articles with New Topics")

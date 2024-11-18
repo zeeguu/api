@@ -14,7 +14,7 @@ def top_bookmarks(self, count=50):
         query.join(UserWord, Bookmark.origin_id == UserWord.id)
         .filter(UserWord.language_id == self.learned_language_id)
         .filter(Bookmark.user_id == self.id)
-        .filter(Bookmark.learned == False)
+        .filter(Bookmark.learned_time != None)
         .order_by(Bookmark.time.desc())
         .limit(400)
     )
