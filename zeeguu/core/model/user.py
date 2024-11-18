@@ -494,9 +494,9 @@ class User(db.Model):
             query.join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
             .filter(Bookmark.user_id == self.id)
-            .filter(Bookmark.learned == True)
+            .filter(Bookmark.learned_time != None)
             .order_by(Bookmark.learned_time.desc())
-            .limit(400)
+            .limit(count)
         )
 
         return learned
