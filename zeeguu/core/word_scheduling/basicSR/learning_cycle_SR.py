@@ -41,8 +41,7 @@ class LearningCycleSR(BasicSRSchedule):
                     # Switch learning_cycle to productive knowledge and reset cooling interval
                     self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                     self.cooling_interval = 0
-                    db.session.add(self.bookmark)
-                    db.session.commit()
+                    db_session.add(self.bookmark)
                     return
                 else:
                     self.set_bookmark_as_learned(db_session)
@@ -79,7 +78,6 @@ class LearningCycleSR(BasicSRSchedule):
         self.next_practice_time = next_practice_date
 
         db_session.add(self)
-        db_session.commit()
 
     @classmethod
     def get_max_interval(cls, in_days: bool = False):
@@ -123,6 +121,7 @@ class LearningCycleSR(BasicSRSchedule):
             # Article.
             return
         schedule.update_schedule(db_session, correctness)
+        db_session.commit()
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):

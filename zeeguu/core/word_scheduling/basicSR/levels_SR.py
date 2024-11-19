@@ -4,6 +4,14 @@ from datetime import datetime, timedelta
 
 MAX_LEVEL = 4
 
+# We are mapping cooling intervals to levels for users that migrate to LevelsSR, so their progress won't get lost.
+COOLING_INTERVAL_TO_LEVEL_MAPPING = {
+    0: 1,
+    ONE_DAY: 1,
+    2 * ONE_DAY: 2,
+    4 * ONE_DAY: 3,
+    8 * ONE_DAY: 4,
+}
 
 class LevelsSR(BasicSRSchedule):
 
@@ -26,20 +34,20 @@ class LevelsSR(BasicSRSchedule):
 
     def update_schedule(self, db_session, correctness):
         level = self.bookmark.level
+        is_migrated = False
         if level == 0:
-            self.bookmark.level = 1
-            db_session.add(self.bookmark)
-            print("bookmark level is ", self.bookmark.level)
+            level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
+                self.cooling_interval, 1
+            )
+            is_migrated = True
 
         if correctness:
-            # if the user comes from a scheduling with higher cooling intervals than expected the we treat it as a max interval
             if self.cooling_interval >= self.MAX_INTERVAL:
-                if level < MAX_LEVEL:
+                if (level < MAX_LEVEL or (level == MAX_LEVEL and is_migrated)):
                     # Bookmark will move to the next level
-                    self.bookmark.level = level + 1
+                    self.bookmark.level = level + 1 if not is_migrated else level 
                     self.cooling_interval = 0
-                    db.session.add(self.bookmark)
-                    db.session.commit()
+                    db_session.add(self.bookmark)
                     return
                 else:
                     self.set_bookmark_as_learned(db_session)
@@ -52,11 +60,9 @@ class LevelsSR(BasicSRSchedule):
                 # a user might have arrived here by doing the
                 # bookmarks in a text for a second time...
                 # in general, as long as they didn't wait for the
-                # cooldown perio, they might have arrived to do
+                # cooldown period, they might have arrived to do
                 # the exercise again; but it should not count
                 return
-            # Since we can now lose the streak on day 8,
-            # we might have to repeat it a few times to learn it.
             new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                 self.cooling_interval, self.MAX_INTERVAL
             )
@@ -70,13 +76,11 @@ class LevelsSR(BasicSRSchedule):
             # in the same day?
             # next_practice_date = datetime.now()
             self.consecutive_correct_answers = 0
-
+        self.bookmark.level = level
+        db_session.add(self.bookmark)
         self.cooling_interval = new_cooling_interval
         next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
         self.next_practice_time = next_practice_date
-
-        db_session.add(self)
-        db_session.commit()
 
     @classmethod
     def get_max_interval(cls, in_days: bool = False):
@@ -108,7 +112,6 @@ class LevelsSR(BasicSRSchedule):
             bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
             db_session.add(bookmark)
             db_session.delete(schedule)
-            db_session.commit()
             return
 
         correctness = ExerciseOutcome.is_correct(outcome)
