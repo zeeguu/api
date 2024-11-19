@@ -7,7 +7,6 @@ from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_article_rule import UserArticleRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.model import Topic
 from zeeguu.core.model.user_article import UserArticle
 
 db_session = zeeguu.core.model.db.session

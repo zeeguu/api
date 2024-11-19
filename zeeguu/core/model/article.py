@@ -8,21 +8,14 @@ from langdetect import detect
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core.model.new_article_topic_map import TopicOriginType
+from zeeguu.core.model.article_topic_map import TopicOriginType
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
-from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap
+from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
 from zeeguu.core.model import db
-
-article_topic_map = Table(
-    "article_topic_map",
-    db.Model.metadata,
-    Column("article_id", Integer, ForeignKey("article.id")),
-    Column("topic_id", Integer, ForeignKey("topic.id")),
-)
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
@@ -89,13 +82,7 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    from zeeguu.core.model.topic import Topic
-
-    topics = relationship(
-        Topic, secondary="article_topic_map", backref=backref("articles")
-    )
-
-    new_topics = relationship("NewArticleTopicMap", back_populates="article")
+    topics = relationship("ArticleTopicMap", back_populates="article")
 
     url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
     # Few words in an article is very often not an
@@ -167,21 +154,15 @@ class Article(db.Model):
     def topics_as_string(self):
         topics = ""
         for topic in self.topics:
-            topics += topic.title + " "
+            topics += topic.topic.title + ", "
         return topics
 
-    def new_topics_as_string(self):
-        topics = ""
-        for topic in self.new_topics:
-            topics += topic.new_topic.title + ", "
-        return topics
-
-    def new_topics_as_tuple(self):
+    def topics_as_tuple(self):
         topics = []
-        for topic in self.new_topics:
-            if topic.new_topic.title == "" or topic.new_topic.title is None:
+        for topic in self.topics:
+            if topic.topic.title == "" or topic.topic.title is None:
                 continue
-            topics.append((topic.new_topic.title, topic.origin_type))
+            topics.append((topic.topic.title, topic.origin_type))
         return topics
 
     def contains_any_of(self, keywords: list):
@@ -244,8 +225,7 @@ class Article(db.Model):
             summary=summary,
             language=self.language.code,
             topics=self.topics_as_string(),
-            new_topics=self.new_topics_as_string(),
-            new_topics_list=self.new_topics_as_tuple(),
+            topics_list=self.topics_as_tuple(),
             video=self.video,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100,
@@ -298,20 +278,15 @@ class Article(db.Model):
     def is_owned_by(self, user):
         return self.uploader_id == user.id
 
-    def add_topic(self, topic):
-        self.topics.append(topic)
+    def add_topic(self, topic, session, origin_type: TopicOriginType):
 
-    def add_new_topic(self, new_topic, session, origin_type: TopicOriginType):
-
-        t = NewArticleTopicMap(
-            article=self, new_topic=new_topic, origin_type=origin_type
-        )
+        t = ArticleTopicMap(article=self, topic=topic, origin_type=origin_type)
         session.add(t)
 
-    def set_new_topics(self, topics, session):
+    def set_topics(self, topics, session):
 
         for t in topics:
-            self.add_new_topic(t, session, TopicOriginType.URL_PARSED.value)
+            self.add_topic(t, session, TopicOriginType.URL_PARSED.value)
 
     def add_url_keyword(self, url_keyword, rank, session):
 

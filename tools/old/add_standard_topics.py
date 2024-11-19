@@ -14,7 +14,6 @@
 import zeeguu.core
 from zeeguu.core.model.topic import Topic
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.localized_topic import LocalizedTopic
 
 db_session = zeeguu.core.model.db.session
 

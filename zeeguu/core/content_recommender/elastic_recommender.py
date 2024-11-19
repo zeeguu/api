@@ -10,14 +10,11 @@
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q, SF
 from pprint import pprint
-from zeeguu.api.endpoints.feature_toggles import _new_topics
 
 from zeeguu.core.model import (
     Article,
     TopicFilter,
     TopicSubscription,
-    NewTopicFilter,
-    NewTopicSubscription,
     SearchFilter,
     SearchSubscription,
     UserArticle,
@@ -59,7 +56,7 @@ def _prepare_user_constraints(user):
     topics_to_exclude = [
         each.topic.title for each in excluded_topics if each is not None
     ]
-    print(f"topics to exclude: {topics_to_exclude}")
+    print(f"Topics to exclude: {excluded_topics}")
 
     # 3. Topics subscribed, and thus to include
     # =========================================
@@ -69,25 +66,7 @@ def _prepare_user_constraints(user):
         for subscription in topic_subscriptions
         if subscription is not None
     ]
-    print(f"topics to include: {topic_subscriptions}")
-
-    # 4. New Topics to exclude / filter out
-    # =================================
-    excluded_new_topics = NewTopicFilter.all_for_user(user)
-    new_topics_to_exclude = [
-        each.new_topic.title for each in excluded_new_topics if each is not None
-    ]
-    print(f"New Topics to exclude: {excluded_new_topics}")
-
-    # 5. New Topics subscribed, and thus to include
-    # =========================================
-    topic_new_subscriptions = NewTopicSubscription.all_for_user(user)
-    new_topics_to_include = [
-        subscription.new_topic.title
-        for subscription in topic_new_subscriptions
-        if subscription is not None
-    ]
-    print(f"New Topics to include: {topic_new_subscriptions}")
+    print(f"Topics to include: {topic_subscriptions}")
 
     # 6. Wanted user topics
     # =========================================
@@ -102,10 +81,8 @@ def _prepare_user_constraints(user):
         language,
         upper_bounds,
         lower_bounds,
-        _list_to_string(topics_to_include),
-        _list_to_string(topics_to_exclude),
-        _new_topics_to_string(new_topics_to_include),
-        _new_topics_to_string(new_topics_to_exclude),
+        _topics_to_string(topics_to_include),
+        _topics_to_string(topics_to_exclude),
         _list_to_string(wanted_user_searches),
         _list_to_string(unwanted_user_searches),
     )
@@ -145,20 +122,15 @@ def article_recommendations_for_user(
         lower_bounds,
         topics_to_include,
         topics_to_exclude,
-        new_topics_to_include,
-        new_topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
-    es_version = int(es.info()["version"]["number"][0])
 
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
-        topics_to_include,
-        topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
         language,
@@ -167,11 +139,9 @@ def article_recommendations_for_user(
         es_scale,
         es_offset,
         es_decay,
-        new_topics_to_include=new_topics_to_include,
-        new_topics_to_exclude=new_topics_to_exclude,
+        topics_to_include=topics_to_include,
+        topics_to_exclude=topics_to_exclude,
         page=page,
-        user_using_new_topics=_new_topics(user),
-        is_es_v7=es_version == 7,
     )
 
     res = es.search(index=ES_ZINDEX, body=query_body)
@@ -223,10 +193,8 @@ def article_search_for_user(
         lower_bounds,
         topics_to_include,
         topics_to_exclude,
-        new_topics_to_include,
-        new_topics_to_exclude,
-        wanted_user_topics,
-        unwanted_user_topics,
+        wanted_user_searches,
+        unwanted_user_searches,
     ) = _prepare_user_constraints(user)
 
     # build the query using elastic_query_builder
@@ -318,7 +286,7 @@ def _list_to_string(input_list):
     return " ".join([each for each in input_list]) or ""
 
 
-def _new_topics_to_string(input_list):
+def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
