@@ -79,6 +79,7 @@ def _merle_exercises(user):
 def _exercise_levels(user):
     right_user = (
         user.invitation_code == "exercise_levels"
+        or user.is_member_of_cohort in [437, 514, 451, 519, 475, 506, 523]
         or user.id in [4192]
     )
     return right_user

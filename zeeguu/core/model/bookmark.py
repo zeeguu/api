@@ -190,10 +190,11 @@ class Bookmark(db.Model):
             source, outcome, solving_speed, session_id, other_feedback
         )
         db_session.add(exercise)
-        db_session.commit()
 
         scheduler = self.get_scheduler()
         scheduler.update(db_session, self, exercise_outcome)
+
+        db_session.commit()
 
         # This needs to be re-thought, currently the updates are done in
         # the BasicSRSchedule.update call.
@@ -235,7 +236,6 @@ class Bookmark(db.Model):
             )
             consecutive_correct_answers = bookmark_scheduler.consecutive_correct_answers
             is_last_in_cycle = bookmark_scheduler.get_max_interval() == bookmark_scheduler.cooling_interval
-            print(f"bookmark {self.id} has cooling interval {cooling_interval}", bookmark_scheduler.get_max_interval())
 
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
