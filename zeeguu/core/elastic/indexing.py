@@ -122,6 +122,8 @@ def create_or_update(article, session):
 
 
 def create_or_update_doc_for_bulk(article, session):
+
+    # Bulk indexing requires a special kind of "document"
     es = Elasticsearch(ES_CONN_STRING)
     es_version = int(es.info()["version"]["number"][0])
 
