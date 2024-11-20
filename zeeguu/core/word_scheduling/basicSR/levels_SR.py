@@ -92,7 +92,7 @@ class LevelsSR(BasicSRSchedule):
         return cls.MAX_INTERVAL if not in_days else cls.MAX_INTERVAL // ONE_DAY
 
     @classmethod
-    def get_next_cooling_interval(cls):
+    def get_cooling_interval_dictionary(cls):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
 
     @classmethod
