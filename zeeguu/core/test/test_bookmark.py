@@ -15,9 +15,6 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
 from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCycleSR
-from zeeguu.core.word_scheduling.basicSR.basicSR import ONE_DAY
-
-
 class BookmarkTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()

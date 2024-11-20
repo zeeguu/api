@@ -89,7 +89,7 @@ class LearningCycleSR(BasicSRSchedule):
         return cls.MAX_INTERVAL if not in_days else cls.MAX_INTERVAL // ONE_DAY
 
     @classmethod
-    def get_next_cooling_interval(cls):
+    def get_cooling_interval_dictionary(cls):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
 
     @classmethod
@@ -127,10 +127,7 @@ class LearningCycleSR(BasicSRSchedule):
     def find_or_create(cls, db_session, bookmark):
 
         results = cls.query.filter_by(bookmark=bookmark).all()
-        print(results)
         if len(results) == 1:
-            print(len(results))
-            print("getting the first element in results")
             return results[0]
 
         if len(results) > 1:

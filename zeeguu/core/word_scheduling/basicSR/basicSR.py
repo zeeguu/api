@@ -44,7 +44,7 @@ class BasicSRSchedule(db.Model):
     def get_max_interval(self):
         raise NotImplementedError()
     
-    def get_next_cooling_interval(self):
+    def get_cooling_interval_dictionary(self):
         raise NotImplementedError()
 
     @classmethod
