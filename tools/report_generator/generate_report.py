@@ -80,7 +80,7 @@ def get_new_repeating_sents_table(pd_repeating_sents):
     return generate_html_table(pd_repeating_sents.sort_values("Count", ascending=False))
 
 
-def get_new_url_keywords_table(pd_url_keywords_count):
+def get_url_keywords_table(pd_url_keywords_count):
     return generate_html_table(
         pd_url_keywords_count.sort_values("count", ascending=False)
     )
@@ -164,10 +164,10 @@ def generate_topic_by_feed_plot(article_topic_df, lang):
     return save_fig_params(filename)
 
 
-def generate_new_topic_by_feed_plot(article_topic_df, lang):
+def generate_topic_by_feed_plot(article_topic_df, lang):
     # If I want to make topics consistant
     # https://stackoverflow.com/questions/39000115/how-can-i-set-the-colors-per-value-when-coloring-plots-by-a-dataframe-column
-    filename = f"new_topics_per_feed_lang_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
+    filename = f"topics_per_feed_lang_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     topic_monitor = (
         article_topic_df.groupby(["Language", "Feed Name"])
         .Topic.value_counts()
@@ -216,36 +216,10 @@ def generate_topic_coverage_plot(article_df, article_with_topics_df):
     return save_fig_params(filename)
 
 
-def generate_new_topic_coverage_plot(article_df, article_with_topics_df):
-    filename = f"new_topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
-    article_df.loc[:, "Has Topic"] = "No Topic"
-    from zeeguu.core.model.new_article_topic_map import TopicOriginType
-
-    article_df.loc[
-        article_df.id.isin(
-            article_with_topics_df[
-                article_with_topics_df.origin_type == TopicOriginType.HARDSET
-            ].id
-        ),
-        "Has Topic",
-    ] = "Hardset Topic"
-    article_df.loc[
-        article_df.id.isin(
-            article_with_topics_df[
-                article_with_topics_df.origin_type == TopicOriginType.URL_PARSED
-            ].id
-        ),
-        "Has Topic",
-    ] = "Url Keyword Topic"
-    article_df.loc[
-        article_df.id.isin(
-            article_with_topics_df[
-                article_with_topics_df.origin_type == TopicOriginType.INFERRED
-            ].id
-        ),
-        "Has Topic",
-    ] = "Inferred Topic"
-
+def generate_topic_coverage_plot(article_df, article_with_topics_df):
+    filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
+    article_df["has_topic"] = "No"
+    article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
     articles_with_topics = (
         article_df.groupby("Language")["Has Topic"]
         .value_counts(normalize=True)
@@ -379,41 +353,6 @@ def generate_topic_reading_time(topic_reading_time_df, lang=""):
         f"topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
         if lang == ""
         else f"topic_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
-    )
-    plot_total_reading_time = (
-        topic_reading_time_df.groupby(["Language", "Topic"])
-        .total_reading_time.sum()
-        .reset_index()
-    )
-    if lang == "":
-        ax = plt.subplot(111)
-        sns.barplot(
-            x="Language",
-            y="total_reading_time",
-            hue="Topic",
-            data=plot_total_reading_time,
-            palette=get_color_palette(len(plot_total_reading_time["Topic"].unique())),
-        )
-        set_legend_to_right_side(ax)
-        plt.title("Total Reading Time by Topic per Language")
-    else:
-        sns.barplot(
-            x="Topic",
-            y="total_reading_time",
-            hue="Topic",
-            data=plot_total_reading_time[plot_total_reading_time["Language"] == lang],
-        )
-        plt.title(f"{lang} - Total Reading time by Topic")
-    plt.xticks(rotation=35, ha="right")
-    plt.ylabel("Total Reading time (mins)")
-    return save_fig_params(filename)
-
-
-def generate_new_topic_reading_time(topic_reading_time_df, lang=""):
-    filename = (
-        f"new_topic_reading_time_plot_all_lang_{date_str}_d{DAYS_FOR_REPORT}.png"
-        if lang == ""
-        else f"new_topic_reading_time_plot_{lang}_{date_str}_d{DAYS_FOR_REPORT}.png"
     )
     plot_total_reading_time = (
         topic_reading_time_df.groupby(["Language", "Topic"])
@@ -580,7 +519,6 @@ def generate_html_page():
     feed_df = data_extractor.get_feed_df()
     article_df = data_extractor.get_article_df(feed_df)
     article_topics_df = data_extractor.get_article_topics_df(feed_df)
-    new_article_topics_df = data_extractor.get_article_new_topics_df(feed_df)
     language_df = data_extractor.get_language_df()
     bookmark_df = data_extractor.get_bookmark_df()
     data_extractor.add_stats_to_feed(feed_df, article_df)
@@ -594,7 +532,6 @@ def generate_html_page():
         )
     )
     topic_reading_time_df = data_extractor.get_topic_reading_time()
-    new_topic_reading_time_df = data_extractor.get_new_topic_reading_time()
     total_unique_articles_opened_by_users = len(
         article_df[article_df.id.isin(user_reading_time_df.id)]
     )
@@ -605,7 +542,7 @@ def generate_html_page():
     top_subscribed_searches = data_extractor.get_top_search_subscriptions()
     top_filtered_searches = data_extractor.get_top_search_filters()
     newly_added_search_subscriptions = data_extractor.get_added_search_subscriptions()
-    pd_new_url_keywords = data_extractor.get_url_keyword_counts()
+    pd_url_keywords = data_extractor.get_url_keyword_counts()
     pd_feed_innactivity_time = data_extractor.get_days_since_last_crawl()
     crawl_report = CrawlReport()
     crawl_report.load_crawl_report_data(DAYS_FOR_REPORT)
@@ -623,7 +560,6 @@ def generate_html_page():
     )
     ACTIVE_USER_ACTIVITY_TIME_MIN = 1
     articles_with_topic_count = len(article_topics_df.id.unique())
-    articles_with_new_topic_count = len(new_article_topics_df.id.unique())
     active_users = combined_user_activity_df[
         (
             combined_user_activity_df["total_reading_time"]
@@ -641,15 +577,13 @@ def generate_html_page():
           <h2 id='{lang}'>{lang}</h2>
           <h3>Articles Downloaded</h3>
           <img src="{generate_topic_by_feed_plot(article_topics_df, lang)}" />
-          <img src="{generate_new_topic_by_feed_plot(new_article_topics_df, lang)}" />
           <img src="{generate_feed_count_plots(feed_df, lang)}" />
           <h3>User Activity</h3>
           """
         if lang in active_users["Language"].values:
             lang_report += f"""
             <p><b>Total Active users</b>: {len(active_users[active_users["Language"] == lang])}</p>
-            <img src="{generate_topic_reading_time(topic_reading_time_df,lang)}" />
-            <img src="{generate_new_topic_reading_time(new_topic_reading_time_df, lang)}" />
+            <img src="{generate_topic_reading_time(topic_reading_time_df, lang)}" />
             <img src="{generate_user_reading_time(user_reading_time_df, lang)}" />
             <img src="{generate_unique_articles_read_plot(user_reading_time_df, lang)}" />
             <img src="{generate_exercise_activity(exercise_activity_df, lang)}" />
@@ -688,10 +622,8 @@ def generate_html_page():
             <hr />
                 <p><b>Total Articles Crawled: </b> {len(article_df)}</p>
                 <p><b>Total Unique Articles Opened: </b> {total_unique_articles_opened_by_users}
-                <p><b>Topic Coverage: </b> {((articles_with_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
-                <p><b>New Topic Coverage: </b> {((articles_with_new_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
+                <p><b>New Topic Coverage: </b> {((articles_with_topic_count / len(article_df)) * 100) if len(article_df) > 0 else 0:.2f}%</p>
                 <img src="{generate_topic_coverage_plot(article_df, article_topics_df)}" />
-                <img src="{generate_new_topic_coverage_plot(article_df, new_article_topics_df)}" />
                 <img src="{generate_total_article_per_language(article_df)}" />
                 <h2>Possible Innactive feeds: </h2>
                 <p><a href="#inactive-feeds">Full table</a><p>
@@ -728,7 +660,6 @@ def generate_html_page():
         <img src="{generate_unique_articles_read_plot(user_reading_time_df)}" />
         <img src="{generate_exercise_activity(exercise_activity_df)}" />
         <img src="{generate_topic_reading_time(topic_reading_time_df)}" />
-        <img src="{generate_new_topic_reading_time(new_topic_reading_time_df)}" />
         <img src="{generate_bookmarks_by_language_plot(bookmark_df)}" />
         """
     result += f"""
@@ -751,7 +682,7 @@ def generate_html_page():
     result += f"""
             <h1 id="new-url-keywords">Newly url keywords without topics:</h1>
             <p>URL Keywords that occur more than 100 times in articles and are not mapped to a topic. They are language unique.<p>
-            {get_new_url_keywords_table(pd_new_url_keywords) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
+            {get_url_keywords_table(pd_url_keywords) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
             <br />
             <h1 id="inactive-feeds">Feed activity:</h1>
             {generate_html_table(pd_feed_innactivity_time)}

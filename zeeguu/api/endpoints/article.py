@@ -1,6 +1,6 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User, NewTopic
+from zeeguu.core.model import Article, Language, User, Topic
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
@@ -124,15 +124,15 @@ def remove_ml_suggestion():
     """
     user = User.find_by_id(flask.g.user_id)
     article_id = request.form.get("article_id", "")
-    new_topic = request.form.get("new_topic", "")
+    topic = request.form.get("topic", "")
     article = Article.find_by_id(article_id)
-    new_topic = NewTopic.find(new_topic)
+    topic = Topic.find(topic)
     try:
         ArticleTopicUserFeedback.find_or_create(
             db_session,
             article,
             user,
-            new_topic,
+            topic,
             ArticleTopicUserFeedback.DO_NOT_SHOW_FEEDBACK,
         )
         return "OK"

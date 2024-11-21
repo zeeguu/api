@@ -258,26 +258,26 @@ class UserArticle(db.Model):
 
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
 
-        user_new_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
+        user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
             article, user
         )
 
-        if user_new_topics_feedback:
-            article_topic_list = returned_info["new_topics_list"]
-            new_topic_list = []
+        if user_topics_feedback:
+            article_topic_list = returned_info["topics_list"]
+            topic_list = []
             topics_to_remove = set(
                 [
-                    untf.new_topic.title
-                    for untf in user_new_topics_feedback
+                    untf.topic.title
+                    for untf in user_topics_feedback
                     if untf.feedback == ArticleTopicUserFeedback.DO_NOT_SHOW_FEEDBACK
                 ]
             )
             for each in article_topic_list:
                 title, _ = each
                 if title not in topics_to_remove:
-                    new_topic_list.append(each)
-            returned_info["new_topics_list"] = new_topic_list
-            returned_info["new_topics"] = ",".join([t for t, _ in new_topic_list])
+                    topic_list.append(each)
+            returned_info["topics_list"] = topic_list
+            returned_info["topics"] = ",".join([t for t, _ in topic_list])
 
         if not user_article_info:
             returned_info["starred"] = False

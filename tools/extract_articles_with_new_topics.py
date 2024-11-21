@@ -1,6 +1,6 @@
 from zeeguu.core.model import Article
 from zeeguu.api.app import create_app
-from zeeguu.core.model.new_article_topic_map import NewArticleTopicMap, TopicOriginType
+from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
 import numpy as np
 from tqdm import tqdm
 
@@ -17,20 +17,18 @@ app = create_app()
 app.app_context().push()
 
 articles = (
-    Article.query.join(NewArticleTopicMap)
-    .filter(NewArticleTopicMap.origin_type != TopicOriginType.INFERRED)
+    Article.query.join(ArticleTopicMap)
+    .filter(ArticleTopicMap.origin_type != TopicOriginType.INFERRED)
     .all()
 )
 
 articles_to_extract = []
 for a in tqdm(articles, total=len(articles)):
-    tuple = (
-        a.id,
-        a.content,
-        a.new_topics_as_string(),
-        a.new_topics[-1].new_topic.title,
-    )
-    articles_to_extract.append(tuple)
+    tuple = [a.id, a.content, len(a.topics)]
+    topics_data = []
+    for atm in a.topics:
+        topics_data += [atm.topic.title, atm.origin_type]
+    articles_to_extract.append((tuple + topics_data))
 
 with open("data_for_eval_new_topic.json", "w+", encoding="utf-8") as f:
     f.write(json.dumps(articles_to_extract))

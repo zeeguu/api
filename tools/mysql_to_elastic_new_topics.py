@@ -9,11 +9,12 @@ from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
-from zeeguu.core.model import NewArticleTopicMap
+from zeeguu.core.model import ArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
-from zeeguu.core.model.new_article_topic_map import TopicOriginType
+from zeeguu.core.model.article_topic_map import TopicOriginType
 import numpy as np
 from tqdm import tqdm
+import time
 
 app = create_app()
 app.app_context().push()
@@ -78,9 +79,9 @@ def main():
             [
                 a_id[0]
                 for a_id in db_session.query(Article.id)
-                .join(NewArticleTopicMap)
+                .join(ArticleTopicMap)
                 .filter(
-                    NewArticleTopicMap.origin_type != TopicOriginType.INFERRED
+                    ArticleTopicMap.origin_type != TopicOriginType.INFERRED
                 )  # Do not index Inferred topics
                 .filter(Article.broken != 1)  # Filter out documents that are broken
                 # .filter(Article.language_id == 2) If only one language
@@ -93,7 +94,7 @@ def main():
             [
                 art_id_w_topic[0]
                 for art_id_w_topic in db_session.query(
-                    NewArticleTopicMap.article_id
+                    ArticleTopicMap.article_id
                 ).distinct()
             ]
         )
