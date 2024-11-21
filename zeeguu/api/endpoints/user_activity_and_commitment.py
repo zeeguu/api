@@ -8,6 +8,7 @@ from zeeguu.core.user_statistics.activity import activity_duration_by_day
 from . import api
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
+from user_commitment import activity_and_commitment_by_user
 
 @api.route("/user_activity_and_commitment", method=("GET",))
 @cross_domain
