@@ -25,19 +25,33 @@ def user_activity_and_commitment():
 	return json_result(activity_and_commitment_by_user(user))
 	
 
-
 ## Sends the minutes and days that the user chooses to the database 
 @api.route(
-    "/user_commitment",
+    "/user_commitment_create",
     methods=["POST"],
 )
 @requires_session
-def user_commitment():
+def create_user_commitment():
     user_minutes = int(request.form.get("user_minutes", ""))
     user_days = int(request.form.get("user_days",""))
-    consecutive_weeks = int(request.form.get("consecutive_weeks",""))
-    commitment = UserCommitment(flask.g.user_id, user_minutes, user_days)
+    commitment = UserCommitment(flask.g.user_id, user_minutes, user_days, consecutive_weeks=0)
     db_session.add(commitment)
     db_session.commit()
     return json_result(dict(id=commitment.id))
 
+
+# Sends the value for consecutive weeks to the database, this will be used on a weekly basis to update the value 
+@api.route(
+    "/user_commitment_update",
+    methods=["PUT"],
+)
+@requires_session
+def update_user_commitment():
+    consecutive_weeks = int(request.form.get("consecutive_weeks", ""))
+    commitment = db_session.query(UserCommitment).filter_by(user_id=flask.g.user_id).first()
+    commitment.consecutive_weeks = consecutive_weeks
+    db_session.commit()
+    return json_result(dict(id=commitment.id))
+
+       
+   
