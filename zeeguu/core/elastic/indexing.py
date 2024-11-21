@@ -85,7 +85,7 @@ def create_or_update(article, session):
     return res
 
 
-def create_or_update_bulk_docs(article, session):
+def create_or_update_doc_for_bulk(article, session):
     es = Elasticsearch(ES_CONN_STRING)
     doc_data = document_from_article(article, session)
     doc = {}
@@ -94,7 +94,7 @@ def create_or_update_bulk_docs(article, session):
     if es.exists(index=ES_ZINDEX, id=article.id):
         current_doc = es.get(index=ES_ZINDEX, id=article.id)
         doc_data = document_from_article(
-            article, session,  current_doc=current_doc["_source"]
+            article, session, current_doc=current_doc["_source"]
         )
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
