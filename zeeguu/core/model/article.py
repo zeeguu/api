@@ -281,7 +281,7 @@ class Article(db.Model):
     def add_topic(self, topic, session, origin_type: TopicOriginType):
         
         t = ArticleTopicMap(
-            article=self, new_topic=topic, origin_type=origin_type
+            article=self, topic=topic, origin_type=origin_type
         )
         session.add(t)
 

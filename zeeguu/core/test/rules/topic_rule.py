@@ -40,11 +40,11 @@ class TopicRule(BaseRule):
         if topic_name is None:
             raise KeyError
 
-        new_topic = Topic(topic_name)
+        topic = Topic(topic_name)
 
-        cls.save(new_topic)
+        cls.save(topic)
 
-        return new_topic
+        return topic
 
     @property
     def random(self):
