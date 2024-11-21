@@ -2,7 +2,7 @@ from zeeguu.core.semantic_search import (
     add_topics_based_on_semantic_hood_search,
 )
 
-from zeeguu.core.model import Article, Language, NewArticleTopicMap
+from zeeguu.core.model import Article, Language, ArticleTopicMap
 from sklearn.metrics import classification_report
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -34,9 +34,9 @@ data_collected = []
 
 ALL_IDS = [
     a.article_id
-    for a in NewArticleTopicMap.query.join(Article)
+    for a in ArticleTopicMap.query.join(Article)
     .filter(Article.language != Language.find_by_id(19))
-    .filter(NewArticleTopicMap.origin_type != 3)
+    .filter(ArticleTopicMap.origin_type != 3)
     .all()
 ]
 
@@ -50,8 +50,10 @@ for i, doc_to_search in enumerate(sampled_ids):
         article_to_search, k_to_use
     )
 
-    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
+    neighbouring_topics = [t.topic for a in a_found_t for t in a.topics]
     neighbouring_keywords = [t.url_keyword for a in a_found_t for t in a.url_keywords]
+    if len(hits_t) == 0:
+        continue
     avg_score = sum([float(h["_score"]) for h in hits_t]) / len(hits_t)
 
     topics_counter = Counter(neighbouring_topics)
@@ -62,7 +64,7 @@ for i, doc_to_search in enumerate(sampled_ids):
     print("Keyword Counts")
     pprint(topics_key_counter)
     print()
-    og_topics = " ".join([str(t.new_topic.title) for t in article_to_search.new_topics])
+    og_topics = " ".join([str(t.topic.title) for t in article_to_search.topics])
     try:
         top_topic, count = topics_counter.most_common(1)[0]
         threshold = (

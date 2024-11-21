@@ -1,6 +1,6 @@
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
-from zeeguu.core.model.new_topic import NewTopic
+from zeeguu.core.model.topic import Topic
 from zeeguu.core.model.user import User
 from zeeguu.core.model.article import Article
 import sqlalchemy
@@ -30,21 +30,23 @@ class ArticleTopicUserFeedback(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = relationship(User)
 
-    new_topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
-    new_topic = relationship(NewTopic)
+    topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    topic = relationship(Topic)
 
     feedback = db.Column(db.String(50))
 
-    UniqueConstraint(article_id, user_id, new_topic_id)
+    UniqueConstraint(article_id, user_id, topic_id)
 
     def __init__(self, article, user, topic, feedback):
         self.article = article
         self.user = user
-        self.new_topic = topic
+        self.topic = topic
         self.feedback = feedback
 
     def __str__(self):
-        return f"User New Topic Feedback ({self.user.name}, {self.new_topic}: {self.feedback})"
+        return (
+            f"User New Topic Feedback ({self.user.name}, {self.topic}: {self.feedback})"
+        )
 
     __repr__ = __str__
 
@@ -54,7 +56,7 @@ class ArticleTopicUserFeedback(db.Model):
             return (
                 cls.query.filter(cls.article == article)
                 .filter(cls.user == user)
-                .filter(cls.new_topic == topic)
+                .filter(cls.topic == topic)
                 .filter(cls.article == article)
                 .filter(cls.feedback == feedback)
                 .one()
@@ -91,9 +93,9 @@ class ArticleTopicUserFeedback(db.Model):
         return (cls.query.filter(cls.id == i)).one()
 
     @classmethod
-    def with_topic_id(cls, new_topic_id, user):
+    def with_topic_id(cls, topic_id, user):
         return (
-            (cls.query.filter(cls.new_topic_id == new_topic_id))
+            (cls.query.filter(cls.topic_id == topic_id))
             .filter(cls.user_id == user.id)
             .one()
         )

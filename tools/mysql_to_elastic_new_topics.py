@@ -5,20 +5,20 @@ from zeeguu.core.elastic.indexing import (
     create_or_update_bulk_docs,
 )
 from sqlalchemy import func
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch.helpers import bulk
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk, scan
 import zeeguu.core
 from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
 
-from zeeguu.core.model import Topic, NewArticleTopicMap
-from zeeguu.core.model.article import article_topic_map
+from zeeguu.core.model import Topic, ArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
-from zeeguu.core.model.new_article_topic_map import TopicOriginType
+from zeeguu.core.model.article_topic_map import TopicOriginType
 import numpy as np
 from tqdm import tqdm
+import time
 
 app = create_app()
 app.app_context().push()
@@ -37,26 +37,13 @@ app.app_context().push()
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
 DELETE_INDEX = False
 INDEX_WITH_TOPIC_ONLY = True
-TOTAL_ITEMS = 5000
-ITERATION_STEP = 1000
+TOTAL_ITEMS = 1000
+ITERATION_STEP = 10
 
 print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
 db_session = zeeguu.core.model.db.session
 print(es.info())
-
-
-def find_topics(article_id, session):
-    article_topic = (
-        session.query(Topic)
-        .join(article_topic_map)
-        .filter(article_topic_map.c.article_id == article_id)
-    )
-    topics = ""
-    for t in article_topic:
-        topics = topics + str(t.title) + " "
-
-    return topics.rstrip()
 
 
 def main():
@@ -97,9 +84,9 @@ def main():
             [
                 a_id[0]
                 for a_id in db_session.query(Article.id)
-                .join(NewArticleTopicMap)
+                .join(ArticleTopicMap)
                 .filter(
-                    NewArticleTopicMap.origin_type != TopicOriginType.INFERRED
+                    ArticleTopicMap.origin_type != TopicOriginType.INFERRED
                 )  # Do not index Inferred topics
                 .filter(Article.broken != 1)  # Filter out documents that are broken
                 # .filter(Article.language_id == 2) If only one language
@@ -112,7 +99,7 @@ def main():
             [
                 art_id_w_topic[0]
                 for art_id_w_topic in db_session.query(
-                    NewArticleTopicMap.article_id
+                    ArticleTopicMap.article_id
                 ).distinct()
             ]
         )
@@ -127,10 +114,16 @@ def main():
     if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
-    target_ids_not_in_es = list(
-        filter(lambda x: not es.exists(index=ES_ZINDEX, id=x), target_ids)
+    start = time.time()
+    es_query = {"query": {"match_all": {}}}
+    ids_in_es = set(
+        [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
     )
-    print("Total articles missing: ", len(target_ids_not_in_es))
+    target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
+    end = time.time() - start
+    print(
+        f"Total articles missing: {len(target_ids_not_in_es)}, filtered in {end:.2f} seconds."
+    )
 
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0

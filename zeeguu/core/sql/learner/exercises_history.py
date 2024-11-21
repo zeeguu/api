@@ -11,9 +11,7 @@ def exercises_in_session(session_id: int):
                 e.solving_speed,
                 o_uw.word,
                 t_uw.word as translation,
-                b.id as bookmark_id,
-                b.`learned`
-
+                b.id as bookmark_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
@@ -43,9 +41,7 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
                 e.solving_speed,
                 o_uw.word,
                 t_uw.word as translation,
-                b.id as bookmark_id,
-                b.`learned`
-
+                b.id as bookmark_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
@@ -72,7 +68,9 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
     )
 
 
-def exercises_grouped_by_word(user_id: int, language_id: int, from_date: str, to_date: str):
+def exercises_grouped_by_word(
+    user_id: int, language_id: int, from_date: str, to_date: str
+):
     exercise_details_list = exercise_history(user_id, language_id, from_date, to_date)
 
     practiced_dict = {}
