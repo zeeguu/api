@@ -160,7 +160,7 @@ def main():
         db_session.commit()
         print("DONE.")
 
-    if RE_INDEX_ONLY_ARTICLES_IN_ES:
+    if RE_INDEX_ONLY_ARTICLES_IN_ES and es.indices.exists(index=ES_ZINDEX):
         print(
             "Selecting only the IDS of articles matching the keyword that are already  in ES..."
         )
