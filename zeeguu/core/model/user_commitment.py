@@ -1,18 +1,5 @@
-import json
-from datetime import datetime, timedelta
-from time import sleep
-
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
-
-from zeeguu.logging import log
-
+from sqlalchemy import Column, Integer
 import sqlalchemy
-
-from zeeguu.core.behavioral_modeling import find_last_reading_percentage
-import zeeguu
-
 from zeeguu.core.model import db
 
 
