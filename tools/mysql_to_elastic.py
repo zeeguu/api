@@ -119,7 +119,8 @@ def main():
         # The index was deleted / doesn't exist:
         target_ids_not_in_es = target_ids
 
-    print("Total articles missing: ", len(target_ids_not_in_es))
+    print(f"""Total articles missing: {len(target_ids_not_in_es)}""")
+    print(f"""Indexing a total of: {TOTAL_ITEMS}, in batches of: {ITERATION_STEP}""")
 
     # I noticed that if a document is not added then it won't let me query the ES search.
     total_added = 0

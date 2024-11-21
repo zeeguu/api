@@ -117,7 +117,7 @@ def main():
     ids_of_articles_containing_keyword = ids_of_articles_matching_url_keyword()
 
     print(
-        f"Got articles for url_keyword '{URL_KEYWORD_TO_UPDATE}', total: {len(ids_of_articles_containing_keyword)}",
+        f"Got articles for url_keyword '{URL_KEYWORD_TO_UPDATE}' total: {len(ids_of_articles_containing_keyword)}",
     )
 
     # Updating url_keyword new_topic mapping
