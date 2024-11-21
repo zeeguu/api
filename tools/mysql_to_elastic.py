@@ -106,6 +106,7 @@ def main():
         )
         print("Got articles without topics, total: ", len(target_ids))
 
+    total_articles_in_es = 0
     if len(target_ids) == 0:
         print("No articles found! Exiting...")
         return
@@ -114,11 +115,13 @@ def main():
         ids_in_es = set(
             [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
         )
+        total_articles_in_es = len(ids_in_es)
         target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
     else:
         # The index was deleted / doesn't exist:
         target_ids_not_in_es = target_ids
 
+    print(f"""Total articles in ES: {total_articles_in_es}""")
     print(f"""Total articles missing: {len(target_ids_not_in_es)}""")
     print(f"""Indexing a total of: {TOTAL_ITEMS}, in batches of: {ITERATION_STEP}""")
 
