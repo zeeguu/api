@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
+from zeeguu.core.model.article_topic_map import TopicOriginType
 from tools.crawl_summary.crawl_report import CrawlReport
 import seaborn as sns
 from data_extractor import DataExtractor
@@ -194,51 +194,50 @@ def generate_topic_by_feed_plot(article_topic_df, lang):
 
 def generate_topic_coverage_plot(article_df, article_with_topics_df):
     filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
-    article_df["has_topic"] = "No"
-    article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
-    articles_with_topics = (
-        article_df.groupby("Language")
-        .has_topic.value_counts(normalize=True)
-        .reset_index()
-    )
-    sns.barplot(
-        x="Language",
-        y="proportion",
-        hue="has_topic",
-        data=articles_with_topics,
-        palette={
-            "Yes": sns.color_palette("vlag")[0],
-            "No": sns.color_palette("vlag")[5],
-        },
-    )
-    plt.title("Proportion of Articles with Topics")
-    plt.xticks(rotation=35, ha="right")
-    return save_fig_params(filename)
-
-
-def generate_topic_coverage_plot(article_df, article_with_topics_df):
-    filename = f"topic_coverage_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
-    article_df["has_topic"] = "No"
-    article_df.loc[article_df.id.isin(article_with_topics_df.id), "has_topic"] = "Yes"
+    article_df["Has Topic"] = "No Topic"
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df.loc[
+                article_with_topics_df.origin_type == TopicOriginType.HARDSET, "id"
+            ]
+        ),
+        "Has Topic",
+    ] = "Hardset Topic"
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df.loc[
+                article_with_topics_df.origin_type == TopicOriginType.URL_PARSED, "id"
+            ]
+        ),
+        "Has Topic",
+    ] = "Url Keyword Topic"
+    article_df.loc[
+        article_df.id.isin(
+            article_with_topics_df.loc[
+                article_with_topics_df.origin_type == TopicOriginType.INFERRED, "id"
+            ]
+        ),
+        "Has Topic",
+    ] = "Inferred Topic"
     articles_with_topics = (
         article_df.groupby("Language")["Has Topic"]
         .value_counts(normalize=True)
         .reset_index()
     )
-
+    color_pallete = sns.color_palette("vlag", n_colors=15)
     sns.barplot(
         x="Language",
         y="proportion",
         hue="Has Topic",
         data=articles_with_topics,
         palette={
-            "Inferred Topic": sns.color_palette("vlag")[2],
-            "Url Keyword Topic": sns.color_palette("vlag")[0],
-            "Hardset Topic": sns.color_palette("vlag")[1],
-            "No Topic": sns.color_palette("vlag")[5],
+            "Url Keyword Topic": color_pallete[0],
+            "Hardset Topic": color_pallete[1],
+            "Inferred Topic": color_pallete[3],
+            "No Topic": color_pallete[len(color_pallete) - 1],
         },
     )
-    plt.title("Proportion of Articles with New Topics")
+    plt.title("Proportion of Articles with Topics")
     plt.xticks(rotation=35, ha="right")
     return save_fig_params(filename)
 

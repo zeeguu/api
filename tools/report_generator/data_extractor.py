@@ -24,7 +24,7 @@ class DataExtractor:
         return df
 
     def get_article_topics_df(self, feed_df):
-        print("Getting Article New Topics...")
+        print("Getting Article Topics...")
         query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
         FROM article a 
         INNER JOIN article_topic_map atm on a.id = atm.article_id 
