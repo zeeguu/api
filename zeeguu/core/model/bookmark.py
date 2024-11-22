@@ -60,8 +60,6 @@ class Bookmark(db.Model):
 
     starred = db.Column(db.Boolean, default=False)
 
-    learned = db.Column(db.Boolean, default=False)
-
     fit_for_study = db.Column(db.Boolean)
 
     learned_time = db.Column(db.DateTime)
@@ -88,7 +86,6 @@ class Bookmark(db.Model):
         self.text = text
         self.starred = False
         self.fit_for_study = fit_for_study(self)
-        self.learned = False
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
 
@@ -108,6 +105,9 @@ class Bookmark(db.Model):
             context=self.text.content,
         )
 
+    def is_learned(self):
+        return self.learned_time is not None
+
     def add_new_exercise(self, exercise):
         self.exercise_log.append(exercise)
 
@@ -115,7 +115,7 @@ class Bookmark(db.Model):
         return self.translation.word
 
     def should_be_studied(self):
-        return (self.starred or self.fit_for_study) and not self.learned
+        return (self.starred or self.fit_for_study) and not self.is_learned()
 
     def content_is_not_too_long(self):
         return len(self.text.content) < 60
@@ -200,7 +200,9 @@ class Bookmark(db.Model):
 
         word_info = Word.stats(self.origin.word, self.origin.language.code)
 
-        learned_datetime = str(self.learned_time.date()) if self.learned_time is not None else ""
+        learned_datetime = (
+            str(self.learned_time.date()) if self.learned_time is not None else ""
+        )
 
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
@@ -393,7 +395,6 @@ class Bookmark(db.Model):
         if is_learned:
             log(f"Log: {exercise_log.summary()}: bookmark {self.id} learned!")
             self.learned_time = exercise_log.last_exercise_time()
-            self.learned = True
             session.add(self)
         else:
             log(f"Log: {exercise_log.summary()}: bookmark {self.id} not learned yet.")

@@ -49,7 +49,6 @@ class TopicSubscription(db.Model):
         except sqlalchemy.orm.exc.NoResultFound:
             new = cls(user, topic)
             session.add(new)
-            session.commit()
             return new
 
     @classmethod

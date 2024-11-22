@@ -1,6 +1,8 @@
 from zeeguu.core.model import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.user_activitiy_data import UserActivityData
+import human_readable
+import datetime
 
 cheers_your_server = "\n\rCheers,\n\rYour Zeeguu Server ;)"
 
@@ -13,19 +15,23 @@ def send_new_user_account_email(username, invite_code="", cohort=""):
 
 
 def send_user_finished_exercise_session(exercise_session):
+
     details = exercise_session.exercises_in_session_string()
     user = exercise_session.user
-    main_body = f"User: {user.name} ({user.id}) Duration: {exercise_session.duration / 1000} \n\n"
+    hr_duration = human_readable.precise_delta(
+        datetime.timedelta(seconds=exercise_session.duration / 1000),
+        minimum_unit="microseconds",
+    )
+    main_body = f"User: {user.name} ({user.id}) Duration: {hr_duration} \n\n"
     main_body += f"<html><body><pre>{details}</pre></body></html>"
     ZeeguuMailer.send_mail(
         f"{exercise_session.user.name}: Finished Exercise Session",
-        [main_body,
-         cheers_your_server],
+        [main_body, cheers_your_server],
     )
 
 
 def send_notification_article_feedback(
-        feedback, user: User, article_title, article_url, article_id
+    feedback, user: User, article_title, article_url, article_id
 ):
     from datetime import datetime as dt
 

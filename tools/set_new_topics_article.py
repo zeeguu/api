@@ -2,7 +2,7 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.content_retriever.article_downloader import add_new_topics
+from zeeguu.core.content_retriever.article_downloader import add_topics
 from zeeguu.core.model import Article
 from tqdm import tqdm
 
@@ -33,10 +33,10 @@ for a_id in tqdm(all_article_id):
         if article is None:
             print("Skipping null article")
             continue
-        if len(article.new_topics) > 0:
+        if len(article.topics) > 0:
             print("This article already has topics!")
             continue
-        add_new_topics(
+        add_topics(
             article,
             article.feed,
             [auk.url_keyword for auk in article.url_keywords],

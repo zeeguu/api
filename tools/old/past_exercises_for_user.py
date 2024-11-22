@@ -56,7 +56,7 @@ def past_exercises_for(user_id):
                 f"{ex.time.day}/{ex.time.month} {bookmark.origin.word}({bookmark.id}) {ex.outcome.outcome} < ({past})"
             )
 
-        if bookmark.learned and ex.time == bookmark.learned_time:
+        if bookmark.is_learned() and ex.time == bookmark.learned_time:
             print("Learned!")
             print(" ")
 
@@ -66,7 +66,7 @@ def past_exercises_for(user_id):
         print(
             f"{btime} "
             + ("[fit_for_study] " if bookmark.fit_for_study else "")
-            + ("[Learned] " if bookmark.learned else "")
+            + ("[Learned] " if bookmark.is_learned() else "")
             + f"{bookmark.id} "
             + f"{bookmark.origin.word} / {bookmark.translation.word}"
         )
@@ -79,7 +79,7 @@ def past_exercises_for(user_id):
             f"{btime} "
             + ("[Quality] " if bookmark.quality_bookmark() else "")
             + ("[fit_for_study] " if bookmark.fit_for_study else "")
-            + ("[Learned] " if bookmark.learned else "")
+            + ("[Learned] " if bookmark.is_learned() else "")
             + f"{bookmark.id} "
             + f"{bookmark.origin.word} / {bookmark.translation.word}"
         )

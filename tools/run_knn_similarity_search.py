@@ -6,6 +6,8 @@ from zeeguu.core.semantic_search import (
 )
 
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.url_keyword import UrlKeyword
+
 from zeeguu.core.elastic.settings import ES_CONN_STRING
 from elasticsearch import Elasticsearch
 from collections import Counter
@@ -29,9 +31,6 @@ parser.add_argument("-k", "--keyword", type=str, help="keyword to search with")
 def search_similar_to_article(article_id):
     app = create_app()
     app.app_context().push()
-
-    es = Elasticsearch(ES_CONN_STRING)
-
     doc_to_search = article_id
     article_to_search = Article.find_by_id(doc_to_search)
 
@@ -45,41 +44,23 @@ def search_similar_to_article(article_id):
     print("Similar articles:")
     for hit in hits:
         print(
-            hit["_id"],
-            hit["_source"]["old_topics"],
-            hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
 
     print()
     print("Similar articles to classify:")
     for hit in hits_t:
         print(
-            hit["_id"],
-            hit["_source"]["old_topics"],
-            hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
     print()
     print("More like this articles!:")
     for hit in hits_lt:
         print(
-            hit["_id"],
-            hit["_source"]["old_topics"],
-            hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
-    neighbouring_topics = [t.new_topic for a in a_found_t for t in a.new_topics]
-    TOPICS_TO_NOT_COUNT = set(["news", "aktuell", "nyheder", "nieuws", "article"])
+    neighbouring_topics = [t.topic.title for a in a_found_t for t in a.topics]
+    TOPICS_TO_NOT_COUNT = UrlKeyword.EXCLUDE_TOPICS
     neighbouring_keywords = [
         t.url_keyword
         for a in a_found_t
@@ -96,8 +77,9 @@ def search_similar_to_article(article_id):
     print(topics_key_counter)
     print("Classification: ", topics_key_counter.most_common(1)[0])
     print()
-    print(article_to_search.title[:100])
-    print(article_to_search.content[:100])
+    print("Title: ", article_to_search.title[:100])
+    print("Content: ", article_to_search.content[:100])
+    print()
     print("Top match content (sim): ")
     print(a_found_t[0].content[:100])
     print("Top match content (sim, same lang): ")

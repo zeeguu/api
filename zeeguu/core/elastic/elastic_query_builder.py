@@ -21,7 +21,7 @@ def array_of_lowercase_topics(topics):
     return [topic.lower() for topic in topics.split()]
 
 
-def array_of_new_topics(topics):
+def array_of_topics(topics):
     return topics.split(",") if topics != "" else []
 
 
@@ -38,13 +38,11 @@ def more_like_this_query(count, article_text, language, page=0):
         .filter("term", language=language.name.lower())
     )
 
-    return {"from": page * count, "size": count, "query": s.to_dict()["query"]}
+    return {"from": page * count, "size": count, "query": s.query.to_dict()}
 
 
 def build_elastic_recommender_query(
     count,
-    topics,
-    unwanted_topics,
     user_topics,
     unwanted_user_topics,
     language,
@@ -53,11 +51,9 @@ def build_elastic_recommender_query(
     es_scale,
     es_offset,
     es_decay,
-    new_topics_to_include,
-    new_topics_to_exclude,
+    topics_to_include,
+    topics_to_exclude,
     page,
-    user_using_new_topics,
-    is_es_v7,
 ):
     """
 
@@ -109,33 +105,13 @@ def build_elastic_recommender_query(
     if not user_topics:
         user_topics = ""
 
-    # if user_topics:
-    #     search_string = user_topics
-    #     should.append(match("content", search_string))
-    #     should.append(match("title", search_string))
-
-    # Assumes if a user has new topics they won't be rolled
-    # back to not have new topics again.
-    # Essentially, if there are new topics the user won't be able
-    # to access the old topics anymore.
-    if user_using_new_topics and not is_es_v7:
-        topics_to_filter_out = array_of_new_topics(new_topics_to_exclude)
-        if len(new_topics_to_exclude) > 0:
-            should_remove_topics = []
-            for t in topics_to_filter_out:
-                should_remove_topics.append({"match": {"topics": t}})
-                should_remove_topics.append({"match": {"topics_inferred": t}})
-            must_not.append({"bool": {"should": should_remove_topics}})
-    else:
-        unwanted_old_topics_arr = array_of_lowercase_topics(unwanted_topics)
-        if len(unwanted_old_topics_arr) > 0:
-            must_not.append(
-                {
-                    "terms": {
-                        "topics" if is_es_v7 else "old_topics": unwanted_old_topics_arr
-                    }
-                }
-            )
+    topics_to_filter_out = array_of_topics(topics_to_exclude)
+    if len(topics_to_exclude) > 0:
+        should_remove_topics = []
+        for t in topics_to_filter_out:
+            should_remove_topics.append({"match": {"topics": t}})
+            should_remove_topics.append({"match": {"topics_inferred": t}})
+        must_not.append({"bool": {"should": should_remove_topics}})
 
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
@@ -143,18 +119,13 @@ def build_elastic_recommender_query(
 
     must.append(exists("published_time"))
 
-    if user_using_new_topics and not is_es_v7:
-        topics_to_find = array_of_new_topics(new_topics_to_include)
-        if len(topics_to_find) > 0:
-            should_topics = []
-            for t in topics_to_find:
-                should_topics.append({"match": {"topics": t}})
-                should_topics.append({"match": {"topics_inferred": t}})
-            must.append({"bool": {"should": should_topics}})
-    else:
-        topics_arr = array_of_lowercase_topics(topics)
-        if len(topics_arr) > 0:
-            must.append({"terms": {"topics" if is_es_v7 else "old_topics": topics_arr}})
+    topics_to_find = array_of_topics(topics_to_include)
+    if len(topics_to_find) > 0:
+        should_topics = []
+        for t in topics_to_find:
+            should_topics.append({"match": {"topics": t}})
+            should_topics.append({"match": {"topics_inferred": t}})
+        must.append({"bool": {"should": should_topics}})
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})

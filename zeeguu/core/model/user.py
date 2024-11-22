@@ -222,7 +222,7 @@ class User(db.Model):
     def has_bookmarks(self):
         return self.bookmark_count() > 0
 
-    def bookmarks_to_study(self, bookmark_count=None, scheduled_only=False):
+    def bookmarks_to_study(self, bookmark_count=100, scheduled_only=False):
         """
         We now use a logic to sort the words, if we call this everytime
         we want similar words it might bottleneck the application.
@@ -234,9 +234,13 @@ class User(db.Model):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         if scheduled_only:
-            to_study = BasicSRSchedule.priority_scheduled_bookmarks_to_study(self)
+            to_study = BasicSRSchedule.priority_scheduled_bookmarks_to_study(
+                self, bookmark_count
+            )
         else:
-            to_study = BasicSRSchedule.all_bookmarks_priority_to_study(self)
+            to_study = BasicSRSchedule.all_bookmarks_priority_to_study(
+                self, bookmark_count
+            )
         return to_study if bookmark_count is None else to_study[:bookmark_count]
 
     def get_new_bookmarks_to_study(self, bookmarks_count):
@@ -291,7 +295,7 @@ class User(db.Model):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
         words_not_started_learning = BasicSRSchedule.get_unscheduled_bookmarks_for_user(
-            self
+            self, None
         )
         return words_not_started_learning
 
@@ -490,9 +494,9 @@ class User(db.Model):
             query.join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
             .filter(Bookmark.user_id == self.id)
-            .filter(Bookmark.learned == True)
+            .filter(Bookmark.learned_time != None)
             .order_by(Bookmark.learned_time.desc())
-            .limit(400)
+            .limit(count)
         )
 
         return learned
