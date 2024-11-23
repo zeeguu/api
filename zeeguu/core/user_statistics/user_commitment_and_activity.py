@@ -34,9 +34,9 @@ def commitment_commitment_last_updated(user):
 
 def _commitment_data_by_user(user, table_name, user_commitment_data):
     query = (
-            f"SELECT {user_commitment_data}"
-            + f"FROM {table_name}"
-			+ f"WHERE user_id= :uid;"
+            f" SELECT {user_commitment_data} "
+            + f" FROM {table_name} "
+			+ " WHERE user_id= :uid;"
     )
     result_raw = zeeguu.core.model.db.session.execute(
         text(query),
