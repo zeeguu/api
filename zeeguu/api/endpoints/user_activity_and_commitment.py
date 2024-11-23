@@ -3,6 +3,7 @@
 
 import flask
 from flask import request
+from datetime import datetime
 
 
 from . import api, db_session
@@ -47,9 +48,11 @@ def create_user_commitment():
 )
 @requires_session
 def update_user_commitment():
-    consecutive_weeks = int(request.form.get("consecutive_weeks", ""))
+    consecutive_weeks = int(request.json.get("consecutive_weeks", ""))
+    commitment_last_updated = datetime(request.json.get("commitment_last_updated", ""))
     commitment = db_session.query(UserCommitment).filter_by(user_id=flask.g.user_id).first()
     commitment.consecutive_weeks = consecutive_weeks
+    commitment.commitment_last_updated = commitment_last_updated
     db_session.commit()
     return json_result(dict(id=commitment.id))
 

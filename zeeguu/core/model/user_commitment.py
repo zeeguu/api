@@ -16,4 +16,5 @@ class UserCommitment(db.Model):
     user_minutes = db.Column(db.Integer)
     user_days = db.Column(db.Integer)
     consecutive_weeks = db.Column( db.Integer)
+    commitment_last_updated = db.Column( db.DATETIME)
     id = db.Column(db.Integer)
