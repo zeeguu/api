@@ -1,16 +1,19 @@
-from activity import activity_duration_by_day, convert_to_date_seconds
+from activity import activity_duration_by_day
 from sqlalchemy import text
-import zeeguu.core
-
-
+import zeeguu.core.model
+from datetime import datetime
+	
 def activity_and_commitment_by_user(user):
-	return{ "user_minutes": commitment_mins(user),
-					"user_days": commitment_days(user),
-					"consecutive_weeks": commitment_consecutive_weeks(user),
-					"commitment_last_updated": commitment_commitment_last_updated(user),
+	return{ "user_minutes": commitment_mins(user) or 0,
+					"user_days": commitment_days(user) or 0 ,
+					"consecutive_weeks": commitment_consecutive_weeks(user) or 0,
+					"commitment_last_updated": (
+            			commitment_commitment_last_updated(user).strftime("%Y-%m-%d %H:%M:%S")
+            			if commitment_commitment_last_updated(user)
+            			else None
+        			),
 					"activity_time_by_day": activity_duration_by_day(user),
 	}
-
 
 def commitment_by_user(user):
 	return { 
