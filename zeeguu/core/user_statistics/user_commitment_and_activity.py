@@ -12,6 +12,12 @@ def activity_and_commitment_by_user(user):
 	}
 
 
+def commitment_by_user(user):
+	return { 
+		"user_minutes": commitment_mins(user),
+		"user_days": commitment_days(user),
+	}
+
 def commitment_mins(user):
 	return _commitment_data_by_user(user, "user_commitment", "user_minutes")
 def commitment_days(user):

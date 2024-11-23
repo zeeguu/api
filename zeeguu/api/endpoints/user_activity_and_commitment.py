@@ -13,6 +13,7 @@ from . import api
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from user_commitment_and_activity import activity_and_commitment_by_user
+from user_commitment_and_activity import commitment_by_user
 
 @api.route("/user_activity_and_commitment", method=("GET",))
 @cross_domain
@@ -20,11 +21,21 @@ from user_commitment_and_activity import activity_and_commitment_by_user
 
 def user_activity_and_commitment():
 	"""
-	User commitment info 
+	User activity and commitment info 
 	"""
 	user= User.find_by_id(flask.g.user_id)
 	return json_result(activity_and_commitment_by_user(user))
-	
+
+@api.route("/user_commitment", method=("GET",))
+@cross_domain
+@requires_session
+
+def user_commitment():	
+     """
+	 User activity and commitment info 
+	 """
+     user= User.find_by_id(flask.g.user_id)
+     return json_result(commitment_by_user(user))
 
 ## Sends the minutes and days that the user chooses to the database 
 @api.route(
