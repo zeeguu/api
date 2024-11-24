@@ -15,7 +15,7 @@ from zeeguu.core.model import User
 from user_commitment_and_activity import activity_and_commitment_by_user
 from user_commitment_and_activity import commitment_by_user
 
-@api.route("/user_activity_and_commitment", method=("GET",))
+@api.route("/user_activity_and_commitment", methods=("GET",))
 @cross_domain
 @requires_session
 
@@ -26,7 +26,7 @@ def user_activity_and_commitment():
 	user= User.find_by_id(flask.g.user_id)
 	return json_result(activity_and_commitment_by_user(user))
 
-@api.route("/user_commitment", method=("GET",))
+@api.route("/user_commitment", methods=("GET",))
 @cross_domain
 @requires_session
 
@@ -40,7 +40,7 @@ def user_commitment():
 ## Sends the minutes and days that the user chooses to the database 
 @api.route(
     "/user_commitment_create",
-    methods=["POST"],
+    methods=["POST"]
 )
 @requires_session
 def create_user_commitment():
@@ -55,7 +55,7 @@ def create_user_commitment():
 # Sends the value for consecutive weeks to the database, this will be used on a weekly basis to update the value 
 @api.route(
     "/user_commitment_update",
-    methods=["PUT"],
+    methods=["PUT"]
 )
 @requires_session
 def update_user_commitment():
