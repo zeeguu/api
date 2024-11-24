@@ -1,21 +1,20 @@
 #not sure yet what all this is. Have a look at it.
 #To do: Import the file where the activity_and_commitment_by_user is located
+import flask
 
-
+from zeeguu.api.utils import json_result
 from zeeguu.core.user_statistics.activity import activity_duration_by_day
 from . import api
-
-import flask
-from flask import request
-from datetime import datetime
-
-from . import api, db_session
-from ...core.model.user_commitment import UserCommitment
-from zeeguu.api.utils import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
-from user_commitment_and_activity import activity_and_commitment_by_user
-from user_commitment_and_activity import commitment_by_user, activity_and_commitment_by_user
+
+
+
+from flask import request
+from datetime import datetime
+from . import api, db_session
+from zeeguu.core.model import UserCommitment
+from zeeguu.api.utils import json_result
 from zeeguu.core.user_statistics.user_commitment_and_activity import activity_and_commitment_by_user
 from zeeguu.core.user_statistics.user_commitment_and_activity import commitment_by_user
 
@@ -26,22 +25,26 @@ def user_activity_and_commitment():
     """
     User activity and commitment info 
     """
-    user= User.find_by_id(flask.g.user_id)
+    user = User.find_by_id(flask.g.user_id)
     commitment_info = activity_and_commitment_by_user(user)
+
     return json_result(commitment_info)
 
 
 @api.route("/user_commitment", methods=("GET",))
 @cross_domain
 @requires_session
-
-def user_commitment():	
-  
+def user_commitment():
     """
     User commitment info
     """
     user = User.find_by_id(flask.g.user_id)
-    return json_result(commitment_by_user(user))
+    user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
+    #return json_result(commitment_by_user(user))
+    return json_result({
+        "user_minutes": user_commitment.user_minutes,
+        "user_days": user_commitment.user_minutes,
+    })
     
  
 
