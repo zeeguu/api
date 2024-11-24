@@ -5,37 +5,42 @@ import flask
 from flask import request
 from datetime import datetime
 
-
 from . import api, db_session
-from ...core.model import UserCommitment
+from ...core.model.user_commitment import UserCommitment
 from zeeguu.api.utils import json_result
-from . import api
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from user_commitment_and_activity import activity_and_commitment_by_user
-from user_commitment_and_activity import commitment_by_user
+from user_commitment_and_activity import commitment_by_user, activity_and_commitment_by_user
 
 @api.route("/user_activity_and_commitment", methods=("GET",))
 @cross_domain
 @requires_session
-
 def user_activity_and_commitment():
-	"""
-	User activity and commitment info 
-	"""
-	user= User.find_by_id(flask.g.user_id)
-	return json_result(activity_and_commitment_by_user(user))
+    """
+    User activity and commitment info 
+    """
+    user= User.find_by_id(flask.g.user_id)
+
+    commitment_info = activity_and_commitment_by_user(user)
+    return json_result(commitment_info)
+
 
 @api.route("/user_commitment", methods=("GET",))
 @cross_domain
 @requires_session
 
 def user_commitment():	
-     """
-	 User activity and commitment info 
-	 """
-     user= User.find_by_id(flask.g.user_id)
-     return json_result(commitment_by_user(user))
+  
+    """
+    User commitment info
+    """
+    user = User.find_by_id(flask.g.user_id)
+
+    return json_result(commitment_by_user(user))
+    
+ 
+
 
 ## Sends the minutes and days that the user chooses to the database 
 @api.route(
