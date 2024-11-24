@@ -13,7 +13,7 @@ from zeeguu.core.model import User
 from user_commitment_and_activity import activity_and_commitment_by_user
 from user_commitment_and_activity import commitment_by_user, activity_and_commitment_by_user
 
-@api.route("/user_activity_and_commitment", methods=["GET"])
+@api.route("/user_activity_and_commitment", methods=("GET",))
 @cross_domain
 @requires_session
 def user_activity_and_commitment():
@@ -21,7 +21,6 @@ def user_activity_and_commitment():
     User activity and commitment info 
     """
     user= User.find_by_id(flask.g.user_id)
-
     commitment_info = activity_and_commitment_by_user(user)
     return json_result(commitment_info)
 
