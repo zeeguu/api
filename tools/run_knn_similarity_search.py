@@ -90,8 +90,6 @@ def search_similar_to_keyword(keyword):
     app = create_app()
     app.app_context().push()
 
-    es = Elasticsearch(ES_CONN_STRING)
-
     a_found, hits = find_articles_based_on_text(keyword)
     print("------------------------------------------------")
 
@@ -100,13 +98,7 @@ def search_similar_to_keyword(keyword):
     print("Similar articles:")
     for hit in hits:
         print(
-            hit["_id"],
-            hit["_source"]["old_topics"],
-            hit["_source"]["language"],
-            f"New Topics: {hit['_source']['topics']}",
-            hit["_source"].get("url_keywords", []),
-            hit["_source"].get("url", ""),
-            hit["_score"],
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
         )
     print("Article list: ")
     print(a_found)
@@ -120,3 +112,5 @@ if __name__ == "__main__":
         search_similar_to_article(article_id)
     if keyword:
         search_similar_to_keyword(keyword)
+    if not keyword and not article_id:
+        parser.print_help()
