@@ -12,6 +12,8 @@ from datetime import datetime
 
 from zeeguu.core.model import User
 from zeeguu.core.model import UserCommitment
+import zeeguu.core.model
+
 
 from zeeguu.core.user_statistics.activity import activity_duration_by_day
 
@@ -85,6 +87,26 @@ def update_user_commitment():
     commitment.commitment_last_updated = commitment_last_updated
     db_session.commit()
     return json_result(dict(id=commitment.id))
+
+#sends the new values of user_minutes and user_days when the user updates it under settings. 
+@api.route("/user_commitment_info", methods=["POST"])
+@cross_domain
+@requires_session
+def user_commitment_info():
+    """
+    updates the number of days and minutes the user wants to practice
+    under settings
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = flask.request.form
+    user_minutes = data.get("user_minutes")
+    user_days = data.get("user_days")
+    commitment = UserCommitment.query.filter_by(user_id=user.id).first()
+    commitment.user_minutes = int(user_minutes)
+    commitment.user_days = int(user_days)
+    zeeguu.core.model.db.session.commit()
+    print("I got here :)")
+    return "OK"
 
        
    
