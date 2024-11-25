@@ -1,22 +1,21 @@
 #not sure yet what all this is. Have a look at it.
 #To do: Import the file where the activity_and_commitment_by_user is located
 import flask
-
-from zeeguu.api.utils import json_result
-from zeeguu.core.user_statistics.activity import activity_duration_by_day
-from . import api
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model import User
-
-
-
 from flask import request
-from datetime import datetime
-from . import api, db_session
-from zeeguu.core.model import UserCommitment
+
+
 from zeeguu.api.utils import json_result
+from . import api, db_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from datetime import datetime
+
+
+from zeeguu.core.model import User
+from zeeguu.core.model import UserCommitment
+
 from zeeguu.core.user_statistics.user_commitment_and_activity import activity_and_commitment_by_user
-from zeeguu.core.user_statistics.user_commitment_and_activity import commitment_by_user
+
+
 
 @api.route("/user_activity_and_commitment", methods=("GET",))
 @cross_domain
@@ -26,9 +25,15 @@ def user_activity_and_commitment():
     User activity and commitment info 
     """
     user = User.find_by_id(flask.g.user_id)
-    commitment_info = activity_and_commitment_by_user(user)
-
-    return json_result(commitment_info)
+    user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
+    #commitment_info = activity_and_commitment_by_user(user)
+    #return json_result(commitment_info)
+    return json_result({
+        "user_minutes": user_commitment.user_minutes,
+        "user_days": user_commitment.user_days,
+        "consecutive_weeks": user_commitment.consecutive_weeks,
+        "commitment_last_updated": user_commitment.commitment_last_updated,
+    })
 
 
 @api.route("/user_commitment", methods=("GET",))
@@ -40,10 +45,10 @@ def user_commitment():
     """
     user = User.find_by_id(flask.g.user_id)
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
-    #return json_result(commitment_by_user(user))
+    print(user_commitment.user_minutes)
     return json_result({
         "user_minutes": user_commitment.user_minutes,
-        "user_days": user_commitment.user_minutes,
+        "user_days": user_commitment.user_days,
     })
     
  

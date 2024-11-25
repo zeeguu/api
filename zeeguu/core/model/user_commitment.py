@@ -1,4 +1,4 @@
-from zeeguu.core.model import db
+from zeeguu.core.model import db, User
 from sqlalchemy import Column, Integer, DateTime
 
 
@@ -12,7 +12,7 @@ class UserCommitment(db.Model):
     __table_args__ = dict(mysql_collate="utf8_bin")
     __tablename__ = "user_commitment"
 
-    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, db.ForeignKey(User.id), primary_key=True)
     user_minutes = Column(Integer)
     user_days = Column(Integer)
     consecutive_weeks = Column(Integer)
