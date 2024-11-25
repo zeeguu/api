@@ -13,7 +13,7 @@ from datetime import datetime
 from zeeguu.core.model import User
 from zeeguu.core.model import UserCommitment
 
-from zeeguu.core.user_statistics.user_commitment_and_activity import activity_and_commitment_by_user
+from zeeguu.core.user_statistics.activity import activity_duration_by_day
 
 
 
@@ -26,6 +26,7 @@ def user_activity_and_commitment():
     """
     user = User.find_by_id(flask.g.user_id)
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
+    user_activities = activity_duration_by_day(user)
     #commitment_info = activity_and_commitment_by_user(user)
     #return json_result(commitment_info)
     return json_result({
@@ -33,6 +34,7 @@ def user_activity_and_commitment():
         "user_days": user_commitment.user_days,
         "consecutive_weeks": user_commitment.consecutive_weeks,
         "commitment_last_updated": user_commitment.commitment_last_updated,
+        "user_activities": user_activities,
     })
 
 
