@@ -278,9 +278,14 @@ class Article(db.Model):
     def is_owned_by(self, user):
         return self.uploader_id == user.id
 
-    def add_topic(self, topic, session, origin_type: TopicOriginType):
-        
-        t = ArticleTopicMap(
+    def add_or_replace_topic(self, topic, session, origin_type: TopicOriginType):
+        t = ArticleTopicMap.create_or_update(
+            article=self, topic=topic, origin_type=origin_type
+        )
+        session.add(t)
+
+    def add_topic_if_doesnt_exist(self, topic, session, origin_type: TopicOriginType):
+        t = ArticleTopicMap.create_if_doesnt_exists(
             article=self, topic=topic, origin_type=origin_type
         )
         session.add(t)
@@ -296,10 +301,12 @@ class Article(db.Model):
             topics.append(topic)
         self.add_topics_from_url_keyword(topics, session)
 
-
     def add_topics_from_url_keyword(self, topics, session):
         for topic in topics:
-            self.add_topic(topic, session, TopicOriginType.URL_PARSED.value)
+            t = ArticleTopicMap.create_or_update(
+                article=self, topic=topic, origin_type=TopicOriginType.URL_PARSED
+            )
+            session.add(t)
 
     def add_url_keyword(self, url_keyword, rank, session):
 

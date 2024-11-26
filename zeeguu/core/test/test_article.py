@@ -32,12 +32,33 @@ class ArticleTest(ModelTestMixIn, TestCase):
     def test_add_topic(self):
         sports = TopicRule.get_or_create_topic(1)
         health_society = TopicRule.get_or_create_topic(5)
-        self.article1.add_topic(health_society, session, TopicOriginType.HARDSET)
-        self.article1.add_topic(sports, session, TopicOriginType.HARDSET)
+        self.article1.add_topic_if_doesnt_exist(
+            health_society, session, TopicOriginType.HARDSET
+        )
+        self.article1.add_topic_if_doesnt_exist(
+            sports, session, TopicOriginType.HARDSET
+        )
         assert len(self.article1.topics) == 2
         article_topics = [atm.topic for atm in self.article1.topics]
         assert sports in article_topics
         assert health_society in article_topics
+
+    def test_topic_replacement(self):
+        health_society = TopicRule.get_or_create_topic(5)
+        self.article1.add_topic_if_doesnt_exist(
+            health_society, session, TopicOriginType.INFERRED
+        )
+        article_topics = [atm.topic for atm in self.article1.topics]
+        assert len(self.article1.topics) == 1
+        assert health_society in article_topics
+        assert TopicOriginType.INFERRED == self.article1.topics[0].origin_type
+
+        self.article1.add_or_replace_topic(
+            health_society, session, TopicOriginType.HARDSET
+        )
+        assert len(self.article1.topics) == 1
+        assert health_society in article_topics
+        assert TopicOriginType.HARDSET == self.article1.topics[0].origin_type
 
     def test_find_or_create(self):
         self.new_art = Article.find_or_create(session, URL_SPIEGEL_VENEZUELA)

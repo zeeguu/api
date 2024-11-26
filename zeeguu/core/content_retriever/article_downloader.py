@@ -343,7 +343,9 @@ def add_topics(new_article, feed, url_keywords, session):
     if feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
         topic = Topic.find_by_id(HARDCODED_FEEDS[feed.id])
-        new_article.add_topic(topic, session, TopicOriginType.HARDSET.value)
+        new_article.add_topic_if_doesnt_exist(
+            topic, session, TopicOriginType.HARDSET.value
+        )
         session.add(new_article)
         return TopicOriginType.HARDSET.value, [topic.title]
 
@@ -360,7 +362,9 @@ def add_topics(new_article, feed, url_keywords, session):
                 continue
             topics_added.add(topic.id)
             topics.append(topic)
-            new_article.add_topic(topic, session, TopicOriginType.URL_PARSED.value)
+            new_article.add_topic_if_doesnt_exist(
+                topic, session, TopicOriginType.URL_PARSED.value
+            )
 
     if len(topics) > 0:
         print("Used URL PARSED")
@@ -387,7 +391,9 @@ def add_topics(new_article, feed, url_keywords, session):
         )  # The threshold is being at least half or above rounded down
         if count >= threshold:
             print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
-            new_article.add_topic(top_topic, session, TopicOriginType.INFERRED.value)
+            new_article.add_topic_if_doesnt_exist(
+                top_topic, session, TopicOriginType.INFERRED.value
+            )
             session.add(new_article)
             return TopicOriginType.INFERRED.value, [
                 t.topic.title for t in new_article.topics
