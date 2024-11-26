@@ -278,15 +278,35 @@ class Article(db.Model):
     def is_owned_by(self, user):
         return self.uploader_id == user.id
 
-    def add_topic(self, topic, session, origin_type: TopicOriginType):
-
-        t = ArticleTopicMap(article=self, topic=topic, origin_type=origin_type)
+    def add_or_replace_topic(self, topic, session, origin_type: TopicOriginType):
+        t = ArticleTopicMap.create_or_update(
+            article=self, topic=topic, origin_type=origin_type
+        )
         session.add(t)
 
-    def set_topics(self, topics, session):
+    def add_topic_if_doesnt_exist(self, topic, session, origin_type: TopicOriginType):
+        t = ArticleTopicMap.create_if_doesnt_exists(
+            article=self, topic=topic, origin_type=origin_type
+        )
+        session.add(t)
 
-        for t in topics:
-            self.add_topic(t, session, TopicOriginType.URL_PARSED.value)
+    def recalculate_topics_from_url_keywords(self, session):
+        topics = []
+        for url_keyword in self.url_keywords:
+            topic = url_keyword.url_keyword.topic
+            if topic is None:
+                continue
+            if topic in topics:
+                continue
+            topics.append(topic)
+        self.add_topics_from_url_keyword(topics, session)
+
+    def add_topics_from_url_keyword(self, topics, session):
+        for topic in topics:
+            t = ArticleTopicMap.create_or_update(
+                article=self, topic=topic, origin_type=TopicOriginType.URL_PARSED
+            )
+            session.add(t)
 
     def add_url_keyword(self, url_keyword, rank, session):
 

@@ -39,8 +39,15 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
-def document_from_article(article, session):
+def document_from_article(article, session, current_doc=None):
     topics, topics_inferred = find_topics(article.id, session)
+    embedding_generation_required = current_doc is None
+    # Embeddings only need to be re-computed if the document
+    # doesn't exist or the text is updated.
+    # This is the most expensive operation in the indexing process, so it
+    # saves time by skipping it.
+    if current_doc is not None:
+        embedding_generation_required = current_doc["content"] != article.content
     doc = {
         "title": article.title,
         "author": article.authors,
@@ -56,10 +63,13 @@ def document_from_article(article, session):
         "language": article.language.name,
         "fk_difficulty": article.fk_difficulty,
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
-        "sem_vec": get_embedding_from_article(article),
         "url": article.url.as_string(),
         "video": article.video,
     }
+    if not embedding_generation_required and current_doc is not None:
+        doc["sem_vec"] = current_doc["sem_vec"]
+    else:
+        doc["sem_vec"] = get_embedding_from_article(article)
     return doc
 
 
@@ -75,18 +85,23 @@ def create_or_update(article, session):
     return res
 
 
-def create_or_update_bulk_docs(article, session):
+def create_or_update_doc_for_bulk(article, session):
     es = Elasticsearch(ES_CONN_STRING)
     doc_data = document_from_article(article, session)
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
-    doc["_source"] = doc_data
     if es.exists(index=ES_ZINDEX, id=article.id):
+        current_doc = es.get(index=ES_ZINDEX, id=article.id)
+        doc_data = document_from_article(
+            article, session, current_doc=current_doc["_source"]
+        )
         doc["_op_type"] = "update"
+        doc["_source"] = {"doc": doc_data}
     else:
+        doc_data = document_from_article(article, session)
         doc["_op_type"] = "create"
-
+        doc["_source"] = doc_data
     return doc
 
 
