@@ -11,7 +11,6 @@
         3. Re-index all the documents to ES. If RE_INDEX_ONLY_ARTICLES_IN_ES, only the 
         ones that were in ES are re-index, otherwise all the documents are indexed.
 
-
     This script expects the following parameters:
 
     - URL_KEYWORD_TO_UPDATE (str): the keyword we seek to update the ES
@@ -35,7 +34,7 @@ URL_KEYWORD_TO_UPDATE = "vejret"
 IS_DELETION = True
 RECALCULATE_TOPICS = True
 RE_INDEX_ONLY_ARTICLES_IN_ES = True
-ITERATION_STEP = 1000
+ITERATION_STEP = 100
 
 
 # coding=utf-8
@@ -54,8 +53,8 @@ from zeeguu.api.app import create_app
 from zeeguu.core.model import (
     ArticleUrlKeywordMap,
     UrlKeyword,
-    NewArticleTopicMap,
-    NewTopic,
+    ArticleTopicMap,
+    Topic,
 )
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
@@ -120,7 +119,7 @@ def main():
         f"Got articles for url_keyword '{URL_KEYWORD_TO_UPDATE}' total: {len(ids_of_articles_containing_keyword)}",
     )
 
-    # Updating url_keyword new_topic mapping
+    # Updating url_keyword topic mapping
     # And the topics that were added based on that keyword.
     if IS_DELETION:
         topics_ids_to_delete_mappings = []
@@ -130,17 +129,17 @@ def main():
         # so the following code would delete both danish and norwegian topics
         url_keywords = UrlKeyword.find_all_by_keyword(URL_KEYWORD_TO_UPDATE)
         for u_key in url_keywords:
-            if u_key.new_topic_id:
-                topics.append(NewTopic.find_by_id(u_key.new_topic_id))
-                topics_ids_to_delete_mappings.append(u_key.new_topic_id)
-                u_key.new_topic_id = None
+            if u_key.topic_id:
+                topics.append(Topic.find_by_id(u_key.topic_id))
+                topics_ids_to_delete_mappings.append(u_key.topic_id)
+                u_key.topic_id = None
 
         print(
-            f"Deleting new_topics '{ ','.join([t.title for t in topics])} ' for articles which have the keyword: '{URL_KEYWORD_TO_UPDATE}'"
+            f"Deleting topics '{ ','.join([t.title for t in topics])} ' for articles which have the keyword: '{URL_KEYWORD_TO_UPDATE}'"
         )
-        article_topic_mappings_to_delete = NewArticleTopicMap.query.filter(
-            NewArticleTopicMap.article_id.in_(list(ids_of_articles_containing_keyword))
-        ).filter(NewArticleTopicMap.new_topic_id.in_(topics_ids_to_delete_mappings))
+        article_topic_mappings_to_delete = ArticleTopicMap.query.filter(
+            ArticleTopicMap.article_id.in_(list(ids_of_articles_containing_keyword))
+        ).filter(ArticleTopicMap.topic_id.in_(topics_ids_to_delete_mappings))
         print(
             f"Found '{len(article_topic_mappings_to_delete.all())}' topic mappings to delete."
         )
