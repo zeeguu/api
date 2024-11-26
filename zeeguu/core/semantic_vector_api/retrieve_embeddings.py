@@ -6,6 +6,7 @@ EMB_API_CONN_STRING = os.environ.get(
     "ZEEGUU_EMB_API_CONN_STRING", "http://127.0.0.1:8000"
 )
 
+
 def get_embedding_from_article(a: Article):
     r = requests.post(
         url=f"{EMB_API_CONN_STRING}/get_article_embedding",
@@ -14,4 +15,14 @@ def get_embedding_from_article(a: Article):
             "article_language": a.language.name.lower(),
         },
     )
+    return r.json()
+
+
+def get_embedding_from_text(text: str, language: str = None):
+    data = {
+        "article_content": text,
+    }
+    if language:
+        data["article_language"] = language
+    r = requests.post(url=f"{EMB_API_CONN_STRING}/get_article_embedding", json=data)
     return r.json()

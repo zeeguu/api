@@ -297,6 +297,37 @@ def build_elastic_semantic_sim_query(
     return query
 
 
+def build_elastic_semantic_sim_query_for_text(
+    count,
+    text_embedding,
+    n_candidates=100,
+    language=None,
+):
+    """
+    Similar to build_elastic_semantic_sim_query, but taking a text embedding
+    """
+    s = Search()
+    # s = s.exclude("match", id=article.id)
+    if language:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=text_embedding,
+            filter=(Q("match", language__keyword=language.name)),
+        )
+    else:
+        s = s.knn(
+            field="sem_vec",
+            k=count,
+            num_candidates=n_candidates,
+            query_vector=text_embedding,
+        )
+
+    query = s.to_dict()
+    return query
+
+
 def build_elastic_semantic_sim_query_for_topic_cls(
     k_count,
     article,

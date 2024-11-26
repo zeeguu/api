@@ -2,13 +2,13 @@ from zeeguu.core.semantic_search import (
     articles_like_this_semantic,
     add_topics_based_on_semantic_hood_search,
     articles_like_this_tfidf,
+    find_articles_based_on_text,
 )
 
 from zeeguu.core.model.article import Article
-from zeeguu.core.model.language import Language
 from zeeguu.core.model.url_keyword import UrlKeyword
 
-from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+from zeeguu.core.elastic.settings import ES_CONN_STRING
 from elasticsearch import Elasticsearch
 from collections import Counter
 
@@ -24,7 +24,8 @@ import argparse
 parser = argparse.ArgumentParser(
     description="Utilizes the various similar document queries in ES, to analyze the results."
 )
-parser.add_argument("article_id", type=int, help="article id to search with")
+parser.add_argument("-a", "--article_id", type=int, help="article id to search with")
+parser.add_argument("-k", "--keyword", type=str, help="keyword to search with")
 
 
 def search_similar_to_article(article_id):
@@ -85,7 +86,31 @@ def search_similar_to_article(article_id):
     print(a_found[0].content[:100])
 
 
+def search_similar_to_keyword(keyword):
+    app = create_app()
+    app.app_context().push()
+
+    a_found, hits = find_articles_based_on_text(keyword)
+    print("------------------------------------------------")
+
+    print("Keyword Searched: ", keyword)
+    print()
+    print("Similar articles:")
+    for hit in hits:
+        print(
+            f"{hit["_id"]} {hit["_score"]:.4f} {hit["_source"]["language"]}, Topics: {hit['_source']['topics']} {hit["_source"].get("url_keywords", [])} {hit["_source"].get("url", "")}"
+        )
+    print("Article list: ")
+    print(a_found)
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
     article_id = args.article_id
-    search_similar_to_article(article_id)
+    keyword = args.keyword
+    if article_id:
+        search_similar_to_article(article_id)
+    if keyword:
+        search_similar_to_keyword(keyword)
+    if not keyword and not article_id:
+        parser.print_help()

@@ -1,1 +1,5 @@
-from .retrieve_embeddings import get_embedding_from_article, EMB_API_CONN_STRING
+from .retrieve_embeddings import (
+    get_embedding_from_article,
+    get_embedding_from_text,
+    EMB_API_CONN_STRING,
+)
