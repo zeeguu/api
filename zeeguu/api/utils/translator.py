@@ -30,8 +30,13 @@ logging.getLogger("python_translators").setLevel(logging.CRITICAL)
 
 MULTI_LANG_TRANSLATOR_AB_TESTING = False
 if os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING", None) is not None:
-    logger.warning("A/B testing enabled! - MULTI_LANG_TRANSLATOR_AB_TESTING")
-    MULTI_LANG_TRANSLATOR_AB_TESTING = True
+    MULTI_LANG_TRANSLATOR_AB_TESTING = (
+        os.environ.get("MULTI_LANG_TRANSLATOR_AB_TESTING") == "True"
+    )
+    logger.warning(
+        f"MULTI_LANG_TRANSLATOR_AB_TESTING: {MULTI_LANG_TRANSLATOR_AB_TESTING}"
+    )
+    # MULTI_LANG_TRANSLATOR_AB_TESTING = True
 
 
 class WordnikTranslate(BaseThirdPartyAPIService):
