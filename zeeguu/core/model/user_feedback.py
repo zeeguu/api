@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from zeeguu.core.model.user import User
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.feedback_component import FeedbackComponent
-from zeeguu.core.util.time import get_server_time_utc
+from datetime import datetime
 
 import sqlalchemy
 
@@ -42,7 +42,7 @@ class UserFeedback(db.Model):
         self.user = user
         self.feedback_component = feedback_component
         self.message = message
-        self.report_time = get_server_time_utc()
+        self.report_time = datetime.now()
         self.url = url
 
     def __str__(self):
