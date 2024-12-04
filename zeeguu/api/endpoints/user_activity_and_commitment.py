@@ -1,23 +1,16 @@
-#not sure yet what all this is. Have a look at it.
-#To do: Import the file where the activity_and_commitment_by_user is located
 import flask
 from flask import request
-
 
 from zeeguu.api.utils import json_result
 from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from datetime import datetime
 
-
 from zeeguu.core.model import User
 from zeeguu.core.model import UserCommitment
 import zeeguu.core.model
 
-
 from zeeguu.core.user_statistics.activity import activity_duration_by_day
-
-
 
 @api.route("/user_activity_and_commitment", methods=("GET",))
 @cross_domain
@@ -29,8 +22,6 @@ def user_activity_and_commitment():
     user = User.find_by_id(flask.g.user_id)
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
     user_activities = activity_duration_by_day(user)
-    #commitment_info = activity_and_commitment_by_user(user)
-    #return json_result(commitment_info)
     return json_result({
         "user_minutes": user_commitment.user_minutes,
         "user_days": user_commitment.user_days,
@@ -56,8 +47,6 @@ def user_commitment():
     })
     
  
-
-
 ## Sends the minutes and days that the user chooses to the database 
 @api.route(
     "/user_commitment_create",
@@ -105,7 +94,6 @@ def user_commitment_info():
     commitment.user_minutes = int(user_minutes)
     commitment.user_days = int(user_days)
     zeeguu.core.model.db.session.commit()
-    print("I got here :)")
     return "OK"
 
        
