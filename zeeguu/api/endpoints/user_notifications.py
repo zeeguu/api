@@ -54,6 +54,10 @@ def get_notification_for_user():
     # Is there new articles for the user?
     articles = article_recommendations_for_user(user, 3)
     last_activity_date_for_user = Session.get_last_use_for_user(user.id)
+    if last_activity_date_for_user is None:
+        # If the user has no sessions, assume they have not logged in.
+        last_activity_date_for_user = datetime.min
+
     if any([a.published_time > last_activity_date_for_user for a in articles]):
         user_notification = UserNotification.create_user_notification(
             user.id, Notification.NEW_ARTICLE_AVAILABLE, db_session
