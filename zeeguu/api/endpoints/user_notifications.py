@@ -25,7 +25,7 @@ NOTIFICATION_TYPES = {
     },
     "DAILY_LOGIN": {
         "message": "Try reading an article with Zeeguu!",
-        "url": "/artivles",
+        "url": "/articles",
     },
 }
 
