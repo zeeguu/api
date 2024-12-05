@@ -47,19 +47,34 @@ def user_commitment():
     })
     
  
-## Sends the minutes and days that the user chooses to the database 
-@api.route(
-    "/user_commitment_create",
-    methods=["POST"]
-)
+#Sends the minutes and days that the user chooses to the database 
+@api.route("/user_commitment_create", methods=["POST"])
+@cross_domain
 @requires_session
-def create_user_commitment():
-    user_minutes = int(request.form.get("user_minutes", ""))
-    user_days = int(request.form.get("user_days",""))
-    commitment = UserCommitment(flask.g.user_id, user_minutes, user_days, consecutive_weeks=0)
-    db_session.add(commitment)
-    db_session.commit()
-    return json_result(dict(id=commitment.id))
+def user_commitment_create():
+    """
+    Creates a new user commitment record
+    during registration
+    """
+    user = User.find_by_id(flask.g.user_id)
+    
+    data = flask.request.form
+
+    submitted_minutes = data.get("user_minutes")
+
+    submitted_days = data.get("user_days")
+
+    user_commitment = UserCommitment(
+        user_id=user.id,
+        user_minutes = int(submitted_minutes),
+        user_days = int(submitted_days),
+        consecutive_weeks = 0
+    )
+
+    zeeguu.core.model.db.session.add(user_commitment)
+    #zeeguu.core.model.db.commit()
+    zeeguu.core.model.db.session.commit()
+    return "OK"
 
 
 # Sends the value for consecutive weeks to the database, this will be used on a weekly basis to update the value 
