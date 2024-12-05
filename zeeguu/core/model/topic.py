@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
-from zeeguu.core.util.time import get_server_time_utc
+from datetime import datetime
 
 
 class Topic(db.Model):
@@ -103,7 +103,7 @@ class Topic(db.Model):
             )
             cls.language_topic_available_cache[language.id] = (
                 topics_for_language,
-                get_server_time_utc(),
+                datetime.now(),
             )
 
         if language is None:
@@ -115,7 +115,7 @@ class Topic(db.Model):
         if last_check is None:
             update_available_topic_cache()
         else:
-            time_since_last_check = get_server_time_utc() - last_check
+            time_since_last_check = datetime.now() - last_check
             if time_since_last_check.days > 7:
                 update_available_topic_cache()
 

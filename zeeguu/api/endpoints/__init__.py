@@ -29,6 +29,7 @@ from . import article
 from . import accounts
 from . import speech
 from . import own_texts
+from . import user_notifications
 from .student import *
 from .nlp import *
 from .reading_sessions import *

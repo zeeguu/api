@@ -4,7 +4,6 @@ import os
 import inspect
 import json
 import pathlib
-from zeeguu.core.util.time import get_server_time_utc
 
 STR_DATETIME_FORMAT = "%d_%m_%y_%H_%M_%S"
 CRAWL_REPORT_DATA = os.environ.get(
