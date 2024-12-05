@@ -66,9 +66,22 @@ class Bookmark(db.Model):
 
     learning_cycle = db.Column(db.Integer)
 
+    level = db.Column(db.Integer)
+
     user_preference = db.Column(db.Integer)
 
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
+
+    # plugging in the new scheduler
+    def get_scheduler(self):
+        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCycleSR
+        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
+
+        if is_feature_enabled_for_user("exercise_levels", self.user):
+            return LevelsSR
+        else:
+            return LearningCycleSR
 
     def __init__(
         self,
@@ -78,6 +91,7 @@ class Bookmark(db.Model):
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
+        level: int = 0,
     ):
         self.origin = origin
         self.translation = translation
@@ -88,6 +102,7 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.level = level
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -175,12 +190,12 @@ class Bookmark(db.Model):
             source, outcome, solving_speed, session_id, other_feedback
         )
         db_session.add(exercise)
+
+        scheduler = self.get_scheduler()
+        scheduler.update(db_session, self, exercise_outcome)
+
         db_session.commit()
 
-        # plugging in the new scheduler
-        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-
-        BasicSRSchedule.update(db_session, self, exercise_outcome)
         # This needs to be re-thought, currently the updates are done in
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
@@ -207,26 +222,28 @@ class Bookmark(db.Model):
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
-        from zeeguu.core.model import BasicSRSchedule
         from zeeguu.core.word_scheduling.basicSR.basicSR import (
-            MAX_INTERVAL_8_DAY,
             ONE_DAY,
         )
 
         try:
-            basic_sr_schedule = BasicSRSchedule.query.filter(
-                BasicSRSchedule.bookmark_id == self.id
+            scheduler = self.get_scheduler()
+            bookmark_scheduler = scheduler.query.filter(
+                scheduler.bookmark_id == self.id
             ).one()
-            cooling_interval = basic_sr_schedule.cooling_interval // ONE_DAY
-            next_practice_time = basic_sr_schedule.next_practice_time
+            cooling_interval = bookmark_scheduler.cooling_interval // ONE_DAY
+            next_practice_time = bookmark_scheduler.next_practice_time
             can_update_schedule = (
-                next_practice_time <= BasicSRSchedule.get_end_of_today()
+                next_practice_time <= bookmark_scheduler.get_end_of_today()
             )
-            consecutive_correct_answers = basic_sr_schedule.consecutive_correct_answers
+            consecutive_correct_answers = bookmark_scheduler.consecutive_correct_answers
+            is_last_in_cycle = bookmark_scheduler.get_max_interval() == bookmark_scheduler.cooling_interval
+
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
             can_update_schedule = None
             consecutive_correct_answers = None
+            is_last_in_cycle = None
 
         bookmark_title = ""
         if with_title:
@@ -254,8 +271,9 @@ class Bookmark(db.Model):
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
             learning_cycle=self.learning_cycle,
+            level=self.level,
             cooling_interval=cooling_interval,
-            is_last_in_cycle=cooling_interval == MAX_INTERVAL_8_DAY // ONE_DAY,
+            is_last_in_cycle=is_last_in_cycle,
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
@@ -281,6 +299,7 @@ class Bookmark(db.Model):
         _context: str,
         article_id: int,
         learning_cycle: int = LearningCycle.NOT_SET,
+        level: int = 0,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -309,7 +328,7 @@ class Bookmark(db.Model):
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                origin, translation, user, context, now, learning_cycle=learning_cycle
+                origin, translation, user, context, now, learning_cycle=learning_cycle, level=level
             )
         except Exception as e:
             raise e
