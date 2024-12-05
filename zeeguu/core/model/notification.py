@@ -1,15 +1,12 @@
 import sqlalchemy
-from zeeguu.api.utils.abort_handling import make_error
-import zeeguu.core
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer
 
 from zeeguu.core.model import db
-from zeeguu.core.model.language import Language
 
 
 class Notification(db.Model):
     """
-    A Notification reflects the diferent types of notifications
+    A Notification reflects the different types of notifications
     that the system is able to output.
 
     """
@@ -20,8 +17,8 @@ class Notification(db.Model):
     type = db.Column(db.String)
 
     # Should match the ids in the Database
-    # this class is dined to make it easier to
-    # quickly accss the code.
+    # this class is defined to make it easier to
+    # quickly access the code.
 
     EXERCISE_AVAILABLE = 1
     NEW_ARTICLE_AVAILABLE = 2

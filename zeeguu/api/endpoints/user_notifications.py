@@ -38,10 +38,10 @@ def get_notification_for_user():
     For now, we try to check if the user has any scheduled bookmarks
     to practice. Otherwise, we will invite the user to check articles.
     """
-    notification_data = {}
-    notification_data["notification_available"] = True
+    notification_data = {"notification_available": True}
     user = User.find_by_id(flask.g.user_id)
-    # Is there exercises for user?
+
+    # Is there at least one exercise for the user?
     if scheduled_bookmarks_to_study(1):
         user_notification = UserNotification.create_user_notification(
             user.id, Notification.EXERCISE_AVAILABLE, db_session

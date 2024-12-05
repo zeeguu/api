@@ -10,7 +10,7 @@ class UserNotification(db.Model):
     """
     A Notification that was sent to the user.
     If the user clicks it, the notification_click_time will have the datetime
-    when that click was performed. IF not, this field will be nulled.
+    when that click was performed. IF not, this field will be null
 
     """
 
