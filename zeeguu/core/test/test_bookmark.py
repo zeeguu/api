@@ -14,7 +14,9 @@ from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
-from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCycleSR
+from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCyclesSR
+
+
 class BookmarkTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
@@ -233,7 +235,7 @@ class BookmarkTest(ModelTestMixIn):
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
         total_exercises_productive_cycle = (
-            LearningCycleSR.get_learning_cycle_length() * 2
+            LearningCyclesSR.get_learning_cycle_length() * 2
         )
         correct_bookmark = random_bookmarks[2]
         correct_bookmark.learning_cycle = LearningCycle.PRODUCTIVE
@@ -276,7 +278,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
-        total_exercises_productive_cycle = LearningCycleSR.get_learning_cycle_length()
+        total_exercises_productive_cycle = LearningCyclesSR.get_learning_cycle_length()
         correct_bookmark = random_bookmarks[2]
         exercises = 0
         distinct_dates = set()
