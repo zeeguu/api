@@ -17,7 +17,7 @@ from zeeguu.core.user_statistics.activity import activity_duration_by_day
 @requires_session
 def user_activity_and_commitment():
     """
-    User activity and commitment info 
+    Returns all the user activity and commitment data 
     """
     user = User.find_by_id(flask.g.user_id)
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
@@ -36,7 +36,7 @@ def user_activity_and_commitment():
 @requires_session
 def user_commitment():
     """
-    User commitment info
+    Returns all user commitment data
     """
     user = User.find_by_id(flask.g.user_id)
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
@@ -53,26 +53,20 @@ def user_commitment():
 @requires_session
 def user_commitment_create():
     """
-    Creates a new user commitment record
+    Creates new user commitment record
     during registration
     """
     user = User.find_by_id(flask.g.user_id)
-    
     data = flask.request.form
-
     submitted_minutes = data.get("user_minutes")
-
     submitted_days = data.get("user_days")
-
     user_commitment = UserCommitment(
         user_id=user.id,
         user_minutes = int(submitted_minutes),
         user_days = int(submitted_days),
         consecutive_weeks = 0
     )
-
     zeeguu.core.model.db.session.add(user_commitment)
-    #zeeguu.core.model.db.commit()
     zeeguu.core.model.db.session.commit()
     return "OK"
 
@@ -98,7 +92,7 @@ def update_user_commitment():
 @requires_session
 def user_commitment_info():
     """
-    updates the number of days and minutes the user wants to practice
+    Updates the number of days and minutes the user wants to practice
     under settings
     """
     user = User.find_by_id(flask.g.user_id)
@@ -110,6 +104,3 @@ def user_commitment_info():
     commitment.user_days = int(user_days)
     zeeguu.core.model.db.session.commit()
     return "OK"
-
-       
-   
