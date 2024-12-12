@@ -86,7 +86,7 @@ def user_commitment_update():
     commitment_last_update = data.get("last_commitment_update")
     user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
     user_commitment.consecutive_weeks = int(consecutives_weeks)
-    #user_commitment.commitment_last_updated = datetime(commitment_last_update)
+    user_commitment.commitment_last_updated = datetime.fromisoformat(commitment_last_update)
     zeeguu.core.model.db.session.commit()
     return "OK"
 
