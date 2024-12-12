@@ -87,7 +87,7 @@ class LevelsSR(BasicSRSchedule):
             # Should we allow the user to "recover" their schedule
             # in the same day?
             # next_practice_date = datetime.now()
-            # ML: TODO: are we ever using this anymore? I think we should simply remove it
+            # ML: TODO: I think we are not using consecutive_correct_answers and we should remove it
             self.consecutive_correct_answers = 0
 
         # correct, but no upgrade of level or incorrect
