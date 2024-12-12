@@ -60,12 +60,16 @@ def user_commitment_create():
     data = flask.request.form
     submitted_minutes = data.get("user_minutes")
     submitted_days = data.get("user_days")
+    default_commitment_date = (datetime.now() - timedelta(days=14))
+
     user_commitment = UserCommitment(
         user_id=user.id,
         user_minutes = int(submitted_minutes),
         user_days = int(submitted_days),
-        consecutive_weeks = 0
-    )
+        consecutive_weeks = 0, 
+        commitment_last_updated = default_commitment_date,
+    ) 
+  
     zeeguu.core.model.db.session.add(user_commitment)
     zeeguu.core.model.db.session.commit()
     return "OK"
