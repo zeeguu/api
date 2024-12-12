@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 MAX_LEVEL = 4
 
+
 # We are mapping cooling intervals to levels for users that migrate to LevelsSR, so their progress won't get lost.
 COOLING_INTERVAL_TO_LEVEL_MAPPING = {
     0: 1,
@@ -12,6 +13,12 @@ COOLING_INTERVAL_TO_LEVEL_MAPPING = {
     4 * ONE_DAY: 3,
     8 * ONE_DAY: 4,
 }
+
+# Levels can be 1,2,3,4
+# When an old bookmark is migrated to the Levels scheduler the level is set to 0
+# When a new bookmark is created and the user has the LevelsSR it's level is automatically set to 1
+#
+
 
 class LevelsSR(BasicSRSchedule):
 
@@ -33,41 +40,46 @@ class LevelsSR(BasicSRSchedule):
         super(LevelsSR, self).__init__(bookmark, bookmark_id)
 
     def update_schedule(self, db_session, correctness):
+
         level = self.bookmark.level
-        is_migrated = False
+
+        first_time_scheduled_with_levels_sr = False
         if level == 0:
-            level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
-                self.cooling_interval, 1
-            )
-            is_migrated = True
+            level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(self.cooling_interval, 1)
+            first_time_scheduled_with_levels_sr = True
 
         if correctness:
+
+            # can be more than max if the bookmark was scheduled with the old scheduler
             if self.cooling_interval >= self.MAX_INTERVAL:
-                if (level < MAX_LEVEL or (level == MAX_LEVEL and is_migrated)):
+
+                # Update level for bookmark
+                if level < MAX_LEVEL:
                     # Bookmark will move to the next level
-                    self.bookmark.level = level + 1 if not is_migrated else level 
+                    self.bookmark.level = level + 1
+                    db_session.add(self.bookmark)
+                    self.cooling_interval = 0
+                    return
+                if level == MAX_LEVEL and first_time_scheduled_with_levels_sr:
                     self.cooling_interval = 0
                     db_session.add(self.bookmark)
+                    self.cooling_interval = 0
                     return
                 else:
                     self.set_bookmark_as_learned(db_session)
                     return
 
-            # Use the same logic as when selecting bookmarks
-            # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
-            # 01-01-2024 10:00 the status is not updated.
-            if self.get_end_of_today() < self.next_practice_time:
-                # a user might have arrived here by doing the
-                # bookmarks in a text for a second time...
-                # in general, as long as they didn't wait for the
-                # cooldown period, they might have arrived to do
-                # the exercise again; but it should not count
-                return
+            # Not going to next level, but update cooling interval
+            # =========================
+
             new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                 self.cooling_interval, self.MAX_INTERVAL
             )
             self.consecutive_correct_answers += 1
         else:
+            # correctness = FALSE ==> bookmark was not correct
+            # ==================================================
+
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[
                 self.cooling_interval
@@ -75,9 +87,14 @@ class LevelsSR(BasicSRSchedule):
             # Should we allow the user to "recover" their schedule
             # in the same day?
             # next_practice_date = datetime.now()
+            # ML: TODO: are we ever using this anymore? I think we should simply remove it
             self.consecutive_correct_answers = 0
-        self.bookmark.level = level
+
+        # correct, but no upgrade of level or incorrect
+        self.bookmark.level = level  # set the level for migration to be finallized
         db_session.add(self.bookmark)
+
+        # update next practice time for
         self.cooling_interval = new_cooling_interval
         next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
         self.next_practice_time = next_practice_date
@@ -116,13 +133,14 @@ class LevelsSR(BasicSRSchedule):
 
         correctness = ExerciseOutcome.is_correct(outcome)
         schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.next_practice_time > cls.get_end_of_today():
-            # The user is doing the word before it was scheduled.
-            # We do not update the schedule if that's the case.
-            # This can happen when they practice words from the
-            # Article.
+
+        if schedule.there_was_no_need_for_practice_today():
             return
         schedule.update_schedule(db_session, correctness)
+        # Duplication with learning_cycle_sr
+        # Is this line not needed? How come? There are branches in update_schedule
+        # that modify cooling interval and return w/o adding it to the session
+        db_session.add(schedule)
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):

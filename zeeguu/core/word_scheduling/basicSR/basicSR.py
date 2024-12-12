@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 ONE_DAY = 60 * 24
 
+
 class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "basic_sr_schedule"
@@ -38,12 +39,20 @@ class BasicSRSchedule(db.Model):
         db_session.delete(self)
         db_session.commit()
 
+    def there_was_no_need_for_practice_today(self):
+        # a user might have arrived here by doing the
+        # bookmarks in a text for a second time...
+        # in general, as long as they didn't wait for the
+        # cooldown period, they might have arrived to do
+        # the exercise again; but it should not count
+        return self.get_end_of_today() < self.next_practice_time
+
     def update_schedule(self, db_session, correctness):
         raise NotImplementedError()
-    
+
     def get_max_interval(self):
         raise NotImplementedError()
-    
+
     def get_cooling_interval_dictionary(self):
         raise NotImplementedError()
 
