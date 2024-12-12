@@ -4,7 +4,7 @@ from flask import request
 from zeeguu.api.utils import json_result
 from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from zeeguu.core.model import User
 from zeeguu.core.model import UserCommitment
@@ -76,19 +76,19 @@ def user_commitment_create():
 
 
 # Sends the value for consecutive weeks to the database, this will be used on a weekly basis to update the value 
-@api.route(
-    "/user_commitment_update",
-    methods=["PUT"]
-)
+@api.route("/user_commitment_update", methods=["POST"])
+@cross_domain
 @requires_session
-def update_user_commitment():
-    consecutive_weeks = int(request.json.get("consecutive_weeks", ""))
-    commitment_last_updated = datetime(request.json.get("commitment_last_updated", ""))
-    commitment = db_session.query(UserCommitment).filter_by(user_id=flask.g.user_id).first()
-    commitment.consecutive_weeks = consecutive_weeks
-    commitment.commitment_last_updated = commitment_last_updated
-    db_session.commit()
-    return json_result(dict(id=commitment.id))
+def user_commitment_update():
+    user = User.find_by_id(flask.g.user_id)
+    data = flask.request.form
+    consecutives_weeks = data.get("commitment_and_activity_data")
+    commitment_last_update = data.get("last_commitment_update")
+    user_commitment = UserCommitment.query.filter_by(user_id=user.id).first()
+    user_commitment.consecutive_weeks = int(consecutives_weeks)
+    #user_commitment.commitment_last_updated = datetime(commitment_last_update)
+    zeeguu.core.model.db.session.commit()
+    return "OK"
 
 #sends the new values of user_minutes and user_days when the user updates it under settings. 
 @api.route("/user_commitment_info", methods=["POST"])
