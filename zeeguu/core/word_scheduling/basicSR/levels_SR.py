@@ -41,63 +41,60 @@ class LevelsSR(BasicSRSchedule):
 
     def update_schedule(self, db_session, correctness):
 
-        level = self.bookmark.level
+        level_before_this_exercises = self.bookmark.level
 
-        first_time_scheduled_with_levels_sr = False
-        if level == 0:
-            level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(self.cooling_interval, 1)
-            first_time_scheduled_with_levels_sr = True
+        # handle bookmark that was migrated from the learning cycle scheduler
+        # level can only be 0 if we did never encounter this bookmark in the context of levels SR
+        if level_before_this_exercises == 0:
+
+            newly_mapped_level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
+                self.cooling_interval, 1
+            )
+            self.bookmark.level = newly_mapped_level
+            db_session.add(self.bookmark)
+
+            # if we map on max level, we reset cooling so we give the learner the chance to
+            # do one more time the final level before learning (and also because there's some
+            # issue with the front-end)
+            if newly_mapped_level == MAX_LEVEL:
+                self.cooling_interval = 0
 
         if correctness:
+            # Update level for bookmark or mark as learned
+            if self.cooling_interval == self.MAX_INTERVAL:
 
-            # can be more than max if the bookmark was scheduled with the old scheduler
-            if self.cooling_interval >= self.MAX_INTERVAL:
+                if level_before_this_exercises < MAX_LEVEL:
+                    self.bookmark.level = level_before_this_exercises + 1
+                    db_session.add(self.bookmark)
 
-                # Update level for bookmark
-                if level < MAX_LEVEL:
-                    # Bookmark will move to the next level
-                    self.bookmark.level = level + 1
-                    db_session.add(self.bookmark)
+                    # new exercise type can be done in the same day, thus cooling interval is 0
                     self.cooling_interval = 0
-                    return
-                if level == MAX_LEVEL and first_time_scheduled_with_levels_sr:
-                    self.cooling_interval = 0
-                    db_session.add(self.bookmark)
-                    self.cooling_interval = 0
-                    return
+
                 else:
                     self.set_bookmark_as_learned(db_session)
+                    # we simply return because the self object will have been deleted inside of the above call
                     return
-
-            # Not going to next level, but update cooling interval
-            # =========================
-
-            new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
-                self.cooling_interval, self.MAX_INTERVAL
-            )
-            self.consecutive_correct_answers += 1
+            else:
+                # Correct, but we're staying on the same level
+                new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
+                    self.cooling_interval, self.MAX_INTERVAL
+                )
+                self.consecutive_correct_answers += 1
         else:
-            # correctness = FALSE ==> bookmark was not correct
-            # ==================================================
+            # correctness = FALSE
 
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[
                 self.cooling_interval
             ]
-            # Should we allow the user to "recover" their schedule
-            # in the same day?
-            # next_practice_date = datetime.now()
-            # ML: TODO: I think we are not using consecutive_correct_answers and we should remove it
             self.consecutive_correct_answers = 0
-
-        # correct, but no upgrade of level or incorrect
-        self.bookmark.level = level  # set the level for migration to be finallized
-        db_session.add(self.bookmark)
 
         # update next practice time for
         self.cooling_interval = new_cooling_interval
         next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
         self.next_practice_time = next_practice_date
+
+        db_session.add(self)
 
     @classmethod
     def get_max_interval(cls, in_days: bool = False):
