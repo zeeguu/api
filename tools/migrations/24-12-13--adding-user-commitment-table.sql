@@ -6,3 +6,4 @@ CREATE TABLE user_commitment (
     commitment_last_updated datetime,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
+
