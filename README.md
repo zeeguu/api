@@ -133,7 +133,7 @@ To test the consecutive weeks count:
 
 2. **The consecutvie weeks count relies on the consectuve_weeks field in the user_commitment table and the current week.** Therefore, to test the consecutive weeks count, add exersice or reading sessions to the current week. See example in script 24-12-14--insert_exercise_session.sql
    
-3. **To test with a pre-existing conecutive weeks value >= 0.** Update the consectuive_weeks field in the user_commitment table to a value greater than 0. Add the date of the last sessions that met the weekly goal. See example in script 24-12-15--update_consecutive_weeks_and_commitment_last_updated.sql
+3. **To test with a pre-existing conecutive weeks value > 0.** Update the consectuive_weeks field in the user_commitment table to a value greater than 0. Add the date of the last sessions that met the weekly goal. See example in script 24-12-15--update_consecutive_weeks_and_commitment_last_updated.sql
 
 4. **Update goals:** You can modify goal preferences under Settings.
 
