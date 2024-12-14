@@ -118,3 +118,15 @@ I define the following:
 export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
 export MYSQLCLIENT_LDFLAGS="-L/opt/homebrew/opt/mysql-client/lib -lmysqlclient"
 ```
+
+## How to initialize user_commitment table 
+_(Chloe & Johanna, Dec 2024)_
+Script for initializing the user_commitment table: api/tools/migrations/24-12-13--adding-user-commitment-table.sql.
+
+##How to test the user commitment feature
+_(Chloe & Johanna, Dec 2024)_
+To test the consecutive weeks count:
+1. register a new test user and set the goals for the user during the registration (the feature only works for new users at the moment)
+2. The consecutvie weeks count is based on the consectuve_weeks field in the user_commitment table and the current week. To test the consecutive weeks count, add exersice or reading sessions to the current week. See example in script 24-12-14--insert_exercise_session.sql  
+3.To test the consecutive weeks count based on a current value that is greater than 0 you have to update the consectuve_weeks field in the user_commitment table. Add the date for the last sessions that resulted in the user meeting their weekly goal. See example in script 24-12-15--update_consecutive_weeks_and_commitment_last_updated.sql
+4. Update goals: You can modify goal preferences under Settings.
