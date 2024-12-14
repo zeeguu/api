@@ -128,9 +128,13 @@ Script for initializing the user_commitment table: api/tools/migrations/24-12-13
 
 _(Chloe & Johanna, Dec 2024)_
 To test the consecutive weeks count:
+
 1.**Register a new test user and set the goals** for the user during the registration (feature only works for new users at the moment)
+
 2. **The consecutvie weeks count relies on the consectuve_weeks field in the user_commitment table and the current week.** Therefore, to test the consecutive weeks count, add exersice or reading sessions to the current week. See example in script 24-12-14--insert_exercise_session.sql
+   
 3. **To test with a pre-existing conecutive weeks value >= 0.** Update the consectuive_weeks field in the user_commitment table to a value greater than 0. Add the date of the last sessions that met the weekly goal. See example in script 24-12-15--update_consecutive_weeks_and_commitment_last_updated.sql
+
 4. **Update goals:** You can modify goal preferences under Settings.
 
 Note! The consecutive weeks count, is a little difficult to test, because of the code logic. The consectuve count depends on the consecutive_weeks field, which tracks how many consecutive weeks the user has met their goals. The logic verifies valied sessions for the current week, so testing required adding sessions only to the current week.
