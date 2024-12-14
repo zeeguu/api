@@ -75,7 +75,7 @@ def user_commitment_create():
     return "OK"
 
 
-# Sends the value for consecutive weeks to the database, this will be used on a weekly basis to update the value 
+# When the user meets their weekly goal, this method updates the consecutive weeks count in database
 @api.route("/user_commitment_update", methods=["POST"])
 @cross_domain
 @requires_session
@@ -90,7 +90,6 @@ def user_commitment_update():
     zeeguu.core.model.db.session.commit()
     return "OK"
 
-#sends the new values of user_minutes and user_days when the user updates it under settings. 
 @api.route("/user_commitment_info", methods=["POST"])
 @cross_domain
 @requires_session
