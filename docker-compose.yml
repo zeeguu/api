@@ -44,8 +44,11 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
-  zapi:
+  # yaml-anchors:
+  # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
+  zapi: &zapi_default
     depends_on:
+      - mysql
       - fmd_mysql
       - elasticsearch
       - readability_server
@@ -62,7 +65,7 @@ services:
     #      - ./api.cfg:/Zeeguu-API/api.cfg
     #      - ./fmd.cfg:/Zeeguu-API/fmd.cfg
     #      - ./lu-mir-zeeguu-credentials.json:/Zeeguu-API/lu-mir-zeeguu-credentials.json
-    environment:
+    environment: &zapi_env
       ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       SENTRY_DSN: ${SENTRY_DSN}
@@ -75,11 +78,22 @@ services:
       ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
       FOLDER_FOR_REPORT_OUTPUT: /zeeguu-data/crawl-reports
       CRAWL_REPORT_DATA: /zeeguu-data/crawl-reports/data
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
 
     command: /usr/sbin/apache2ctl -D FOREGROUND
     networks:
       - zeeguu_backend
     restart: unless-stopped
+
+  zapi_dev: &zapi_dev
+    <<: *zapi_default
+    command: python /Zeeguu-API/start.py
+
+  zapi_dev_translations:
+    <<: *zapi_dev
+    environment:
+      <<: *zapi_env
+      DEV_SKIP_TRANSLATION: 1
 
 # TODO add the zapi_pink back
 
