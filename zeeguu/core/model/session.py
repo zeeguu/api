@@ -26,6 +26,18 @@ class Session(db.Model):
         self.last_use = datetime.datetime.now()
 
     @classmethod
+    def get_last_use_for_user(cls, user_id):
+        try:
+            return (
+                cls.query.filter(cls.user_id == user_id)
+                .order_by(cls.last_use.desc())
+                .limit(1)
+                .one()
+            ).last_use
+        except NoResultFound:
+            return None
+
+    @classmethod
     def create_for_user(cls, user):
 
         _uuid = uuid.uuid4().hex

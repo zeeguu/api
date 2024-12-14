@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.new_topic import NewTopic
+from zeeguu.core.model.topic import Topic
 from zeeguu.core.util import remove_duplicates_keeping_order
 import sqlalchemy
 import string
@@ -15,6 +15,12 @@ class UrlKeyword(db.Model):
     These are words extracted from the URL that can be used as keywords
     for the New Topic Table. Each keyword is associated with a language,
     as some language might have the same word for 2 different topics.
+
+    We have a url keyword entry even if it is not mapped on a topic.
+    So pretty much, every time we find a URL keyword we put it in here
+    And we also map it to the article.
+
+
     """
 
     EXCLUDE_TOPICS = set(
@@ -53,16 +59,16 @@ class UrlKeyword(db.Model):
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = relationship(Language)
 
-    new_topic_id = db.Column(db.Integer, db.ForeignKey(NewTopic.id))
-    new_topic = relationship(NewTopic)
+    topic_id = db.Column(db.Integer, db.ForeignKey(Topic.id))
+    topic = relationship(Topic)
 
     keyword = db.Column(db.String(45))
     articles = relationship("ArticleUrlKeywordMap", back_populates="url_keyword")
 
-    def __init__(self, keyword: str, language: Language, new_topic: NewTopic = None):
+    def __init__(self, keyword: str, language: Language, topic: Topic = None):
 
         self.language = language
-        self.new_topic = new_topic
+        self.topic = topic
         self.keyword = keyword
 
     def __str__(self):
@@ -74,9 +80,7 @@ class UrlKeyword(db.Model):
     __repr__ = __str__
 
     @classmethod
-    def find_or_create(
-        cls, session, keyword, language: Language, new_topic: NewTopic = None
-    ):
+    def find_or_create(cls, session, keyword, language: Language, topic: Topic = None):
         try:
             return (
                 cls.query.filter(cls.keyword == keyword)
@@ -84,7 +88,7 @@ class UrlKeyword(db.Model):
                 .one()
             )
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(keyword, language, new_topic)
+            new = cls(keyword, language, topic)
             session.add(new)
             session.commit()
             return new

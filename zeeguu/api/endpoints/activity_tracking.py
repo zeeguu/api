@@ -44,3 +44,23 @@ def upload_user_activity_data():
         ZeeguuMailer.notify_audio_experiment(request.form, user)
 
     return "OK"
+
+
+@api.route("/days_since_last_use", methods=["GET"])
+@cross_domain
+@requires_session
+def days_since_last_use():
+    """
+    Returns the number of days since the last user activity event
+    or an empty string in case there is no user activity event.
+    """
+
+    from datetime import datetime
+
+    last_active_time = UserActivityData.get_last_activity_timestamp(flask.g.user_id)
+
+    if last_active_time:
+        time_difference = datetime.now() - last_active_time
+        return str(time_difference.days)
+
+    return ""

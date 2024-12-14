@@ -27,21 +27,54 @@ services:
       - zeeguu_backend
     restart: unless-stopped
 
-  elasticsearch:
-    image: elasticsearch:7.6.2
+
+
+  elasticsearch_v8:
+    image: elasticsearch:8.12.2
+    platform: linux/amd64
+    # ports:
+    # - 9200:9200
+    # - 9300:9300
+    # Ports don't have to be exposed, but it can be nice to debug.
     environment:
       - discovery.type=single-node
-      - network.host=0.0.0.0 # is this still needed?
+      - xpack.security.enabled=false
     volumes:
-      - ${ZEEGUU_DATA_FOLDER}/elasticsearch/data:/usr/share/elasticsearch/data
+      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
     networks:
       - zeeguu_backend
     restart: unless-stopped
+
+    mem_limit: 512m # Useful to restrict the ammount of RAM used by ES.
 
   readability_server:
     image: zeeguu/readability_server
     networks:
       - zeeguu_backend
+    restart: unless-stopped
+
+  embedding_api:
+    image: zeeguu/semantic-emb-api:main
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.50'
+    environment:
+      SEMANTIC_EMB_API_PORT: 3654
+    # ports:
+    #   - 3654:3654
+    # Ports don't have to be exposed, but it can be nice to debug.
+    entrypoint: "python ./semantic-emb-api/app/app.py"
+    volumes:
+      - .:/Zeeguu-API
+      - ./data/zeeguu/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries
+    networks:
+      - zeeguu_backend
+    # When encoding certain longer documents, it might use more than
+    # the available memory allocated to the container, in that case restart the service.
+    mem_limit: 2512m # From testing usially the container needs about 2GBs to run
+    # However, as a Dev safeguard, if needed the container is restarted to avoid 
+    # taking too much memory from the host.
     restart: unless-stopped
 
   # yaml-anchors:
@@ -50,8 +83,9 @@ services:
     depends_on:
       - mysql
       - fmd_mysql
-      - elasticsearch
+      - elasticsearch_v8
       - readability_server
+      - embedding_api
     image: zeeguu/api:latest
     build: .
     ports:
@@ -75,7 +109,8 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /Zeeguu-API/lu-mir-zeeguu-credentials.json
       WORDNIK_API_KEY: ${WORDNIK_API_KEY}
       MULTI_LANG_TRANSLATOR_AB_TESTING: ${MULTI_LANG_TRANSLATOR_AB_TESTING}
-      ZEEGUU_ES_CONN_STRING: "http://elasticsearch:9200"
+      ZEEGUU_ES_CONN_STRING: 'http://elasticsearch_v8:9200'
+
       FOLDER_FOR_REPORT_OUTPUT: /zeeguu-data/crawl-reports
       CRAWL_REPORT_DATA: /zeeguu-data/crawl-reports/data
       ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
@@ -88,13 +123,11 @@ services:
   zapi_dev: &zapi_dev
     <<: *zapi_default
     command: python /Zeeguu-API/start.py
-
   zapi_dev_translations:
     <<: *zapi_dev
     environment:
       <<: *zapi_env
       DEV_SKIP_TRANSLATION: 1
-
 # TODO add the zapi_pink back
 
 networks:

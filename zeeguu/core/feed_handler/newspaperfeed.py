@@ -37,9 +37,12 @@ class NewspaperFeed(FeedHandler):
         # This makes it complicated to assign a feed and download the articles found at that time.
         # Currently, it ignores the newspaper's cache and justs uses ours.
         if self.use_cache:
-            news_feed = newspaper.build(self.url)
+            news_feed = newspaper.build(self.url, request_timeout=30)
         else:
-            news_feed = newspaper.build(self.url, memoize_articles=False)
+            print("NOT skipping cached articles...")
+            news_feed = newspaper.build(
+                self.url, memoize_articles=False, request_timeout=30
+            )
         feed_data = news_feed.articles
 
         feed_items = []

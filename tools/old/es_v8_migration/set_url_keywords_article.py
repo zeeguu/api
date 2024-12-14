@@ -8,6 +8,7 @@
 import zeeguu.core
 from zeeguu.api.app import create_app
 from zeeguu.core.model import Article, UrlKeyword
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from url_topics import get_url_keywords_from_article
 from tqdm import tqdm
 
@@ -20,7 +21,15 @@ counter = 0
 
 # languages = Language.available_languages()
 print("Adding topics keywords to articles!")
-all_article_id = [a_id[0] for a_id in db_session.query(Article.id).all()]
+already_extraced_articles = set(
+    [a_id[0] for a_id in db_session.query(ArticleUrlKeywordMap.article_id).all()]
+)
+all_article_id = [
+    a_id[0]
+    for a_id in db_session.query(Article.id).all()
+    if a_id[0] not in already_extraced_articles
+]
+print(f"Filered a total of: {len(already_extraced_articles)}")
 total_articles = len(all_article_id)
 for a_id in tqdm(all_article_id):
     counter += 1

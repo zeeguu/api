@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
 
@@ -366,3 +367,15 @@ class UserActivityData(db.Model):
 
         session.add(new_entry)
         session.commit()
+
+    @classmethod
+    def get_last_activity_timestamp(cls, user_id):
+
+        query = cls.query.filter(cls.user_id == user_id)
+        query = query.order_by(cls.id.desc()).limit(1)
+
+        last_event = query.first()
+        if last_event:
+            return last_event.time
+
+        return None

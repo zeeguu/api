@@ -2,10 +2,14 @@ beautifulsoup4
 markupsafe # added this because of this stupid breaking change with minor version bump: https://github.com/pallets/markupsafe/issues/284
 blinker
 deprecated
-elasticsearch==7.17.3
+elastic-transport==8.12.0
+elasticsearch==8.12.1
+elasticsearch-dsl==8.12.0
 Faker
 feedparser
+human-readable
 flask==2.3.2
+werkzeug==3.0.2
 Flask-Assets
 flask_cors
 flask_sqlalchemy>=3.0
@@ -19,6 +23,7 @@ mysqlclient
 newspaper3k==0.2.7
 nltk
 numpy
+tqdm
 Pillow
 pyphen
 regex
@@ -34,7 +39,6 @@ pymysql
 yagmail
 google
 protobuf
-elasticsearch_dsl
 wheel
 pytest
 # added with Tiago

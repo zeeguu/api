@@ -25,7 +25,7 @@ class DataExtractor:
 
     def get_article_topics_df(self, feed_df):
         print("Getting Article Topics...")
-        query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic
+        query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
         FROM article a 
         INNER JOIN article_topic_map atm on a.id = atm.article_id 
         INNER JOIN topic t ON atm.topic_id = t.id
@@ -36,17 +36,27 @@ class DataExtractor:
         self.__add_feed_name(df, feed_df)
         return df
 
-    def get_article_new_topics_df(self, feed_df):
-        print("Getting Article New Topics...")
-        query = f"""SELECT a.id, l.name Language, a.feed_id, t.title Topic, atm.origin_type
-        FROM article a 
-        INNER JOIN new_article_topic_map atm on a.id = atm.article_id 
-        INNER JOIN new_topic t ON atm.new_topic_id = t.id
-        INNER JOIN language l ON l.id = a.language_id
-        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
-        AND a.broken = 0"""
+    def get_days_since_last_crawl(self):
+        print("Getting Feeds Last Crawl Time...")
+        query = f"""
+            SELECT
+                feed_id,
+                f.title,
+                DATEDIFF(CURDATE(), MAX(published_time)) days_since_last_article,
+                DATEDIFF(CURDATE(), f.last_crawled_time) days_since_last_feed_crawl
+            FROM
+                article a
+                JOIN feed f ON a.feed_id = f.id
+            WHERE
+                f.deactivated = 0
+            GROUP by
+                feed_id
+            HAVING
+                days_since_last_feed_crawl <= {self.DAYS_FOR_REPORT}
+            ORDER BY
+                days_since_last_article DESC;
+        """
         df = pd.read_sql(query, con=self.db_connection)
-        self.__add_feed_name(df, feed_df)
         return df
 
     def get_article_df(self, feed_df):
@@ -59,7 +69,7 @@ class DataExtractor:
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
         return df
-    
+
     def get_url_keyword_counts(self, min_count=100):
         print("Getting URL keyword counts...")
         # Update with values from the code.
@@ -71,7 +81,7 @@ class DataExtractor:
                     ON uk.id = keyword_count.url_keyword_id
                     JOIN language l ON l.id = language_id
                     WHERE count > {min_count}
-                    AND new_topic_id is NULL
+                    AND topic_id is NULL
                     AND keyword not in (
                                         "news",
                                         "i",
@@ -251,7 +261,7 @@ class DataExtractor:
         return active_users_reading_or_exercises
 
     def get_topic_reading_time(self):
-        print("Getting Topic Reading Times...")
+        print("Getting New Topic Reading Times...")
         query = f"""SELECT l.name as Language, t.title Topic, SUM(urs.duration) total_reading_time
         FROM article a 
         LEFT JOIN article_topic_map atm on a.id = atm.article_id
@@ -262,27 +272,6 @@ class DataExtractor:
         WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
         AND u.learned_language_id = a.language_id
         GROUP BY a.language_id, atm.topic_id;"""
-        topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
-        topic_reading_time_df["total_reading_time"] = topic_reading_time_df[
-            "total_reading_time"
-        ].apply(ms_to_mins)
-        topic_reading_time_df.loc[topic_reading_time_df["Topic"].isna(), "Topic"] = (
-            "Unclassified"
-        )
-        return topic_reading_time_df
-
-    def get_new_topic_reading_time(self):
-        print("Getting New Topic Reading Times...")
-        query = f"""SELECT l.name as Language, t.title Topic, SUM(urs.duration) total_reading_time
-        FROM article a 
-        LEFT JOIN new_article_topic_map atm on a.id = atm.article_id
-        LEFT JOIN new_topic t on atm.new_topic_id = t.id
-        INNER JOIN user_reading_session urs ON urs.article_id = a.id
-        INNER JOIN language l on a.language_id = l.id
-        INNER JOIN user u ON urs.user_id = u.id
-        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
-        AND u.learned_language_id = a.language_id
-        GROUP BY a.language_id, atm.new_topic_id;"""
         topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
         topic_reading_time_df["total_reading_time"] = topic_reading_time_df[
             "total_reading_time"

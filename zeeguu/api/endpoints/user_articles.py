@@ -55,6 +55,21 @@ def user_articles_recommended(count: int = 20, page: int = 0):
 
 
 @api.route("/user_articles/saved", methods=["GET"])
+@api.route("/user_articles/saved/<int:page>", methods=["GET"])
+@cross_domain
+@requires_session
+def saved_articles(page: int = None):
+    user = User.find_by_id(flask.g.user_id)
+    if page is not None:
+        saves = PersonalCopy.get_page_for(user, page)
+    else:
+        saves = PersonalCopy.all_for(user)
+
+    article_infos = [UserArticle.user_article_info(user, e) for e in saves]
+
+    return json_result(article_infos)
+
+
 @cross_domain
 @requires_session
 def saved_articles():
