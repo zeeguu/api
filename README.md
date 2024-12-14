@@ -123,7 +123,7 @@ export MYSQLCLIENT_LDFLAGS="-L/opt/homebrew/opt/mysql-client/lib -lmysqlclient"
 _(Chloe & Johanna, Dec 2024)_
 Script for initializing the user_commitment table: api/tools/migrations/24-12-13--adding-user-commitment-table.sql.
 
-##How to test the user commitment feature
+## How to test the user commitment feature
 _(Chloe & Johanna, Dec 2024)_
 To test the consecutive weeks count:
 1. register a new test user and set the goals for the user during the registration (the feature only works for new users at the moment)
