@@ -129,7 +129,7 @@ Script for initializing the user_commitment table: api/tools/migrations/24-12-13
 _(Chloe & Johanna, Dec 2024)_
 To test the consecutive weeks count:
 
-1.**Register a new test user and set the goals** for the user during the registration (feature only works for new users at the moment)
+1. **Register a new test user and set the goals** for the user during the registration (feature only works for new users at the moment)
 
 2. **The consecutvie weeks count relies on the consectuve_weeks field in the user_commitment table and the current week.** Therefore, to test the consecutive weeks count, add exersice or reading sessions to the current week. See example in script 24-12-14--insert_exercise_session.sql
    
