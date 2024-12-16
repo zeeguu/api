@@ -34,7 +34,11 @@ class LearningCyclesSR(BasicSRSchedule):
                 self.bookmark.user
             )
         )
+
+        new_cooling_interval = 0
+
         if correctness:
+            self.consecutive_correct_answers += 1
             if self.cooling_interval == self.MAX_INTERVAL:
                 if (
                     learning_cycle == LearningCycle.RECEPTIVE
@@ -42,19 +46,18 @@ class LearningCyclesSR(BasicSRSchedule):
                 ):
                     # Switch learning_cycle to productive knowledge and reset cooling interval
                     self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
-                    self.cooling_interval = 0
+                    new_cooling_interval = 0
                     db_session.add(self.bookmark)
-                    return
                 else:
                     self.set_bookmark_as_learned(db_session)
                     return
+            else:
+                # Since we can now lose the streak on day 8,
+                # we might have to repeat it a few times to learn it.
+                new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
+                    self.cooling_interval, self.MAX_INTERVAL
+                )
 
-            # Since we can now lose the streak on day 8,
-            # we might have to repeat it a few times to learn it.
-            new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
-                self.cooling_interval, self.MAX_INTERVAL
-            )
-            self.consecutive_correct_answers += 1
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[

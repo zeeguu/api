@@ -42,11 +42,11 @@ class LevelsSR(BasicSRSchedule):
     def update_schedule(self, db_session, correctness):
 
         level_before_this_exercises = self.bookmark.level
+        new_cooling_interval = None
 
         # handle bookmark that was migrated from the learning cycle scheduler
         # level can only be 0 if we did never encounter this bookmark in the context of levels SR
         if level_before_this_exercises == 0:
-
             newly_mapped_level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
                 self.cooling_interval, 1
             )
@@ -57,18 +57,18 @@ class LevelsSR(BasicSRSchedule):
             # do one more time the final level before learning (and also because there's some
             # issue with the front-end)
             if newly_mapped_level == MAX_LEVEL:
-                self.cooling_interval = 0
+                new_cooling_interval = 0
 
         if correctness:
             # Update level for bookmark or mark as learned
+            self.consecutive_correct_answers += 1
             if self.cooling_interval == self.MAX_INTERVAL:
-
                 if level_before_this_exercises < MAX_LEVEL:
                     self.bookmark.level = level_before_this_exercises + 1
                     db_session.add(self.bookmark)
 
                     # new exercise type can be done in the same day, thus cooling interval is 0
-                    self.cooling_interval = 0
+                    new_cooling_interval = 0
 
                 else:
                     self.set_bookmark_as_learned(db_session)
@@ -79,10 +79,8 @@ class LevelsSR(BasicSRSchedule):
                 new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                     self.cooling_interval, self.MAX_INTERVAL
                 )
-                self.consecutive_correct_answers += 1
         else:
             # correctness = FALSE
-
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[
                 self.cooling_interval
