@@ -4,7 +4,9 @@ from datetime import datetime, timedelta
 from zeeguu.core.model.learning_cycle import LearningCycle
 
 
-class LearningCycleSR(BasicSRSchedule):
+# Implements either a single or a two-learning cycle schedule
+# depending on whether the user has the productive exercises enabled
+class LearningCyclesSR(BasicSRSchedule):
     MAX_INTERVAL = 8 * ONE_DAY
 
     NEXT_COOLING_INTERVAL_ON_SUCCESS = {
@@ -22,7 +24,7 @@ class LearningCycleSR(BasicSRSchedule):
     DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
     def __init__(self, bookmark=None, bookmark_id=None):
-        super(LearningCycleSR, self).__init__(bookmark, bookmark_id)
+        super(LearningCyclesSR, self).__init__(bookmark, bookmark_id)
 
     def update_schedule(self, db_session, correctness):
         learning_cycle = self.bookmark.learning_cycle
@@ -47,16 +49,6 @@ class LearningCycleSR(BasicSRSchedule):
                     self.set_bookmark_as_learned(db_session)
                     return
 
-            # Use the same logic as when selecting bookmarks
-            # Avoid case where if schedule at 01-01-2024 11:00 and user does it at
-            # 01-01-2024 10:00 the status is not updated.
-            if self.get_end_of_today() < self.next_practice_time:
-                # a user might have arrived here by doing the
-                # bookmarks in a text for a second time...
-                # in general, as long as they didn't wait for the
-                # cooldown perio, they might have arrived to do
-                # the exercise again; but it should not count
-                return
             # Since we can now lose the streak on day 8,
             # we might have to repeat it a few times to learn it.
             new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
@@ -114,13 +106,13 @@ class LearningCycleSR(BasicSRSchedule):
 
         correctness = ExerciseOutcome.is_correct(outcome)
         schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.next_practice_time > cls.get_end_of_today():
-            # The user is doing the word before it was scheduled.
-            # We do not update the schedule if that's the case.
-            # This can happen when they practice words from the
-            # Article.
+        if schedule.there_was_no_need_for_practice_today():
             return
+
         schedule.update_schedule(db_session, correctness)
+        # Is this line not needed? How come? There are branches in update_schedule
+        # that modify cooling interval and return w/o adding it to the session
+        db_session.add(schedule)
         db_session.commit()
 
     @classmethod
