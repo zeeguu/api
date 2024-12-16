@@ -13,8 +13,8 @@ werkzeug==3.0.2
 Flask-Assets
 flask_cors
 flask_sqlalchemy>=3.0
-git+https://github.com/zeeguu-ecosystem/apimux.git@master#egg=apimux
-git+https://github.com/zeeguu-ecosystem/Python-Translators.git@master#egg=python_translators
+git+https://github.com/zeeguu/apimux.git@master#egg=apimux
+git+https://github.com/zeeguu/python-translators@master#egg=python_translators
 jieba3k
 jinja2
 langdetect
@@ -32,7 +32,7 @@ requests_mock
 sentry-sdk[flask]
 sortedcontainers
 SQLAlchemy>=2.0
-git+https://github.com/zeeguu-ecosystem/Python-Wordstats.git@master#egg=wordstats
+git+https://github.com/zeeguu/python-wordstats.git@master#egg=wordstats
 google-cloud-texttospeech==2.3.0
 timeago
 pymysql
