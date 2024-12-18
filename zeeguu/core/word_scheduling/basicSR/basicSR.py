@@ -88,6 +88,20 @@ class BasicSRSchedule(db.Model):
         raise NotImplementedError
 
     @classmethod
+    def find(cls, bookmark):
+
+        results = cls.query.filter_by(bookmark=bookmark).all()
+
+        if len(results) == 1:
+            return results[0]
+
+        if len(results) > 1:
+            raise Exception(
+                f"More than one Bookmark schedule entry found for {bookmark.id}"
+            )
+        return None
+
+    @classmethod
     def update(cls, db_session, bookmark, outcome):
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
