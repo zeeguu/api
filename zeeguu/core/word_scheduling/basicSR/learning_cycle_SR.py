@@ -26,38 +26,45 @@ class LearningCyclesSR(BasicSRSchedule):
     def __init__(self, bookmark=None, bookmark_id=None):
         super(LearningCyclesSR, self).__init__(bookmark, bookmark_id)
 
-    def update_schedule(self, db_session, correctness):
+    def is_last_cycle(self):
         learning_cycle = self.bookmark.learning_cycle
-
         productive_exercises_enabled = (
             UserPreference.is_productive_exercises_preference_enabled(
                 self.bookmark.user
             )
         )
+        return not (
+            learning_cycle == LearningCycle.RECEPTIVE and productive_exercises_enabled
+        )
 
-        new_cooling_interval = 0
+    def is_last_exercise_in_cycle(self):
+        return self.cooling_interval == self.MAX_INTERVAL
+
+    def is_about_to_be_learned(self):
+        return self.is_last_cycle() and self.is_last_exercise_in_cycle()
+
+    def update_schedule(self, db_session, correctness):
+
+        new_cooling_interval = None
 
         if correctness:
             self.consecutive_correct_answers += 1
-            if self.cooling_interval == self.MAX_INTERVAL:
-                if (
-                    learning_cycle == LearningCycle.RECEPTIVE
-                    and productive_exercises_enabled
-                ):
+            if self.is_last_exercise_in_cycle():
+                if self.is_last_cycle():
+                    self.set_bookmark_as_learned(db_session)
+                    return
+                else:
                     # Switch learning_cycle to productive knowledge and reset cooling interval
                     self.bookmark.learning_cycle = LearningCycle.PRODUCTIVE
                     new_cooling_interval = 0
                     db_session.add(self.bookmark)
-                else:
-                    self.set_bookmark_as_learned(db_session)
-                    return
+
             else:
                 # Since we can now lose the streak on day 8,
                 # we might have to repeat it a few times to learn it.
                 new_cooling_interval = self.NEXT_COOLING_INTERVAL_ON_SUCCESS.get(
                     self.cooling_interval, self.MAX_INTERVAL
                 )
-
         else:
             # Decrease the cooling interval to the previous bucket
             new_cooling_interval = self.DECREASE_COOLING_INTERVAL_ON_FAIL[
@@ -92,47 +99,14 @@ class LearningCyclesSR(BasicSRSchedule):
         return len(cls.NEXT_COOLING_INTERVAL_ON_SUCCESS)
 
     @classmethod
-    def update(cls, db_session, bookmark, outcome):
-
-        if outcome == ExerciseOutcome.OTHER_FEEDBACK:
-            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-
-            schedule = cls.find_or_create(db_session, bookmark)
-            bookmark.fit_for_study = 0
-            ## Since the user has explicitly given feedback, this should
-            # be recorded as a user preference.
-            bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-            db_session.add(bookmark)
-            db_session.delete(schedule)
-            db_session.commit()
-            return
-
-        correctness = ExerciseOutcome.is_correct(outcome)
-        schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.there_was_no_need_for_practice_today():
-            return
-
-        schedule.update_schedule(db_session, correctness)
-        # Is this line not needed? How come? There are branches in update_schedule
-        # that modify cooling interval and return w/o adding it to the session
-        db_session.add(schedule)
-        db_session.commit()
-
-    @classmethod
     def find_or_create(cls, db_session, bookmark):
 
-        results = cls.query.filter_by(bookmark=bookmark).all()
-        if len(results) == 1:
-            return results[0]
+        schedule = super(LearningCyclesSR, cls).find(bookmark)
 
-        if len(results) > 1:
-            raise Exception(
-                f"More than one Bookmark schedule entry found for {bookmark.id}"
-            )
+        if not schedule:
+            schedule = cls(bookmark)
+            bookmark.learning_cycle = LearningCycle.RECEPTIVE
+            db_session.add_all([schedule, bookmark])
+            db_session.commit()
 
-        # create a new one
-        schedule = cls(bookmark)
-        bookmark.learning_cycle = LearningCycle.RECEPTIVE
-        db_session.add_all([schedule, bookmark])
-        db_session.commit()
         return schedule
