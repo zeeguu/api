@@ -41,8 +41,11 @@ def features_for_user(user):
     of Zeeguu. It can be used for usability tests and can be also
     spread by word of mouth to new participants.
 """
+
+
 def is_feature_enabled_for_user(feature_name, user):
     return feature_name in features_for_user(user)
+
 
 def _feature_map():
     return {
@@ -76,11 +79,31 @@ def _merle_exercises(user):
     )
     return right_user
 
+
 def _exercise_levels(user):
     right_user = (
         user.invitation_code == "exercise_levels"
-        or user.is_member_of_cohort in [514, 451, 523, 495, 489, 519, 511, 518, 473, 475, 506, 496, 498, 458, 474, 452, 494]
-        or user.id in [4192]
+        or user.is_member_of_cohort
+        in [
+            514,
+            451,
+            523,
+            495,
+            489,
+            519,
+            511,
+            518,
+            473,
+            475,
+            506,
+            496,
+            498,
+            458,
+            474,
+            452,
+            494,
+        ]
+        or user.id in [4192, 534, 4607, 4022]
     )
     return right_user
 

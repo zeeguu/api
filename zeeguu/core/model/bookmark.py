@@ -74,7 +74,9 @@ class Bookmark(db.Model):
 
     # plugging in the new scheduler
     def get_scheduler(self):
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCyclesSR
+        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
+            LearningCyclesSR,
+        )
         from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
         from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
 
@@ -237,13 +239,19 @@ class Bookmark(db.Model):
                 next_practice_time <= bookmark_scheduler.get_end_of_today()
             )
             consecutive_correct_answers = bookmark_scheduler.consecutive_correct_answers
-            is_last_in_cycle = bookmark_scheduler.get_max_interval() == bookmark_scheduler.cooling_interval
+            is_last_in_cycle = (
+                bookmark_scheduler.get_max_interval()
+                == bookmark_scheduler.cooling_interval
+            )
+
+            is_about_to_be_learned = bookmark_scheduler.is_about_to_be_learned()
 
         except sqlalchemy.exc.NoResultFound:
             cooling_interval = None
             can_update_schedule = None
             consecutive_correct_answers = None
             is_last_in_cycle = None
+            is_about_to_be_learned = None
 
         bookmark_title = ""
         if with_title:
@@ -270,10 +278,11 @@ class Bookmark(db.Model):
             created_day=created_day,  # human readable stuff...
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
-            learning_cycle=self.learning_cycle,
             level=self.level,
             cooling_interval=cooling_interval,
+            learning_cycle=self.learning_cycle,
             is_last_in_cycle=is_last_in_cycle,
+            is_about_to_be_learned=is_about_to_be_learned,
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
@@ -328,7 +337,13 @@ class Bookmark(db.Model):
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                origin, translation, user, context, now, learning_cycle=learning_cycle, level=level
+                origin,
+                translation,
+                user,
+                context,
+                now,
+                learning_cycle=learning_cycle,
+                level=level,
             )
         except Exception as e:
             raise e

@@ -1,5 +1,4 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
-from zeeguu.core.model import db, ExerciseOutcome
 from datetime import datetime, timedelta
 
 MAX_LEVEL = 4
@@ -38,6 +37,13 @@ class LevelsSR(BasicSRSchedule):
 
     def __init__(self, bookmark=None, bookmark_id=None):
         super(LevelsSR, self).__init__(bookmark, bookmark_id)
+
+    def is_about_to_be_learned(self):
+        level_before_this_exercises = self.bookmark.level
+        return (
+            self.cooling_interval == self.MAX_INTERVAL
+            and level_before_this_exercises < MAX_LEVEL
+        )
 
     def update_schedule(self, db_session, correctness):
 
@@ -112,49 +118,14 @@ class LevelsSR(BasicSRSchedule):
         return len(cls.NEXT_COOLING_INTERVAL_ON_SUCCESS)
 
     @classmethod
-    def update(cls, db_session, bookmark, outcome):
-
-        if outcome == ExerciseOutcome.OTHER_FEEDBACK:
-            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-
-            schedule = cls.find_or_create(db_session, bookmark)
-            bookmark.fit_for_study = 0
-            ## Since the user has explicitly given feedback, this should
-            # be recorded as a user preference.
-            bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-            db_session.add(bookmark)
-            db_session.delete(schedule)
-            return
-
-        correctness = ExerciseOutcome.is_correct(outcome)
-        schedule = cls.find_or_create(db_session, bookmark)
-
-        if schedule.there_was_no_need_for_practice_today():
-            return
-        schedule.update_schedule(db_session, correctness)
-        # Duplication with learning_cycle_sr
-        # Is this line not needed? How come? There are branches in update_schedule
-        # that modify cooling interval and return w/o adding it to the session
-        db_session.add(schedule)
-
-    @classmethod
     def find_or_create(cls, db_session, bookmark):
 
-        results = cls.query.filter_by(bookmark=bookmark).all()
-        print(results)
-        if len(results) == 1:
-            print(len(results))
-            print("getting the first element in results")
-            return results[0]
+        schedule = super(LevelsSR, cls).find(bookmark)
 
-        if len(results) > 1:
-            raise Exception(
-                f"More than one Bookmark schedule entry found for {bookmark.id}"
-            )
+        if not schedule:
+            schedule = cls(bookmark)
+            bookmark.level = 1
+            db_session.add_all([schedule, bookmark])
+            db_session.commit()
 
-        # create a new one
-        schedule = cls(bookmark)
-        bookmark.level = 1
-        db_session.add_all([schedule, bookmark])
-        db_session.commit()
         return schedule

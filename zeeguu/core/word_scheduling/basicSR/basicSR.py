@@ -48,13 +48,13 @@ class BasicSRSchedule(db.Model):
         return self.get_end_of_today() < self.next_practice_time
 
     def update_schedule(self, db_session, correctness):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_max_interval(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_cooling_interval_dictionary(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @classmethod
     def clear_bookmark_schedule(cls, db_session, bookmark):
@@ -62,10 +62,6 @@ class BasicSRSchedule(db.Model):
         if schedule is not None:
             db_session.delete(schedule)
             db_session.commit()
-
-    @classmethod
-    def update(cls, db_session, bookmark, outcome):
-        raise NotImplementedError()
 
     @classmethod
     def get_end_of_today(cls):
@@ -89,7 +85,31 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    @classmethod
+    def update(cls, db_session, bookmark, outcome):
+
+        if outcome == ExerciseOutcome.OTHER_FEEDBACK:
+            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+
+            schedule = cls.find_or_create(db_session, bookmark)
+            bookmark.fit_for_study = 0
+            ## Since the user has explicitly given feedback, this should
+            # be recorded as a user preference.
+            bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+            db_session.add(bookmark)
+            db_session.delete(schedule)
+            db_session.commit()
+            return
+
+        correctness = ExerciseOutcome.is_correct(outcome)
+        schedule = cls.find_or_create(db_session, bookmark)
+        if schedule.there_was_no_need_for_practice_today():
+            return
+
+        schedule.update_schedule(db_session, correctness)
+        db_session.commit()
 
     @classmethod
     def get_scheduled_bookmarks_for_user(cls, user, limit):
