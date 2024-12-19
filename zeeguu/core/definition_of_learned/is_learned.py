@@ -1,6 +1,3 @@
-from zeeguu.core.word_scheduling import get_scheduler
-
-
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     """
     Checks if the user has reported the exercise as too easy or looks into the
@@ -25,7 +22,7 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     # For a bookmark to be learned it needs to have 1 or 2 cycles
     # completed depending on the user preference.
 
-    scheduler = get_scheduler(exercise_log.bookmark.user)
+    scheduler = exercise_log.bookmark.get_scheduler()
 
     learning_cycle_length = len(scheduler.get_cooling_interval_dictionary())
 

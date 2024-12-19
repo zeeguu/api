@@ -21,9 +21,9 @@ from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
-import zeeguu
 
 from zeeguu.core.model import db
+
 
 bookmark_exercise_mapping = Table(
     "bookmark_exercise_mapping",
@@ -112,6 +112,11 @@ class Bookmark(db.Model):
     def is_learned(self):
         return self.learned_time is not None
 
+    def get_scheduler(self):
+        from zeeguu.core.word_scheduling import get_scheduler
+
+        return get_scheduler(self.user)
+
     def add_new_exercise(self, exercise):
         self.exercise_log.append(exercise)
 
@@ -184,7 +189,7 @@ class Bookmark(db.Model):
         )
         db_session.add(exercise)
 
-        scheduler = self.get_scheduler(self.user)
+        scheduler = self.get_scheduler()
         scheduler.update(db_session, self, exercise_outcome, time)
 
         db_session.commit()
@@ -218,7 +223,7 @@ class Bookmark(db.Model):
         from zeeguu.core.word_scheduling import ONE_DAY
 
         try:
-            scheduler = self.get_scheduler(self.user)
+            scheduler = self.get_scheduler()
             bookmark_scheduler = scheduler.query.filter(
                 scheduler.bookmark_id == self.id
             ).one()
