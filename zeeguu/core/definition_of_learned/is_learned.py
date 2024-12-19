@@ -1,20 +1,12 @@
+from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
+
 from zeeguu.core.word_scheduling import (
     TwoLearningCyclesPerWord,
     FourLevelsPerWord,
 )
 
-from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
-
 
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
-
-    def get_scheduler():
-
-        if is_feature_enabled_for_user("exercise_levels", exercise_log.bookmark.user):
-            return FourLevelsPerWord
-        else:
-            return TwoLearningCyclesPerWord
-
     """
     Checks if the user has reported the exercise as too easy or looks into the
     streaks of this exercise log. Currently (14/06/2024), Zeeguu uses 2 cycles of
@@ -37,7 +29,7 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     if exercise_log.last_exercise().is_too_easy():
         return True
 
-    scheduler = get_scheduler()
+    scheduler = get_scheduler(exercise_log.bookmark.user)
 
     learning_cycle_length = len(scheduler.get_cooling_interval_dictionary())
 
@@ -48,3 +40,11 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
         return full_cycles_completed == 2
     else:
         return full_cycles_completed == 1
+
+
+def get_scheduler(user):
+
+    if is_feature_enabled_for_user("exercise_levels", user):
+        return FourLevelsPerWord
+    else:
+        return TwoLearningCyclesPerWord
