@@ -42,7 +42,7 @@ class UserPreference(db.Model):
     PRODUCTIVE_EXERCISES = "productive_exercises"
     TRANSLATE_IN_READER = "translate_reader"
     PRONOUNCE_IN_READER = "pronounce_reader"
-    
+
     def __init__(self, user: User, key=None, value=None):
         self.user = user
         self.key = key
@@ -73,7 +73,7 @@ class UserPreference(db.Model):
     @classmethod
     def get_productive_exercises_setting(cls, user: User):
         produtive_setting = UserPreference.query.filter_by(
-            user_id=user.id, key="productive_exercises"
+            user_id=user.id, key=cls.PRODUCTIVE_EXERCISES
         ).first()
         return produtive_setting.value
 
