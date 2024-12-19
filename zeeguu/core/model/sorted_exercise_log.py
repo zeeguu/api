@@ -70,24 +70,33 @@ class SortedExerciseLog(object):
             distinct_days.add(exercise.time.date())
         return distinct_days
 
-    def count_number_of_streaks(self):
-        def save_streak(count_dict, current_count):
-            count_dict[current_count] = count_dict.get(current_count, 0) + 1
+    def exercise_streaks_of_given_length(self) -> dict:
+        # returns the number of "exercise streaks" of a given length
+        # a streak is finished either at
+        #   1. end of sequence of corrects
+        #   2. when it arrives at the length of the learning cycle length
 
-        current_streak = 0
-        total_streak_counts = {}
+        def save_new_streak(streaks_of_length, current_streak_length):
+            streaks_of_length[current_streak_length] = (
+                streaks_of_length.get(current_streak_length, 0) + 1
+            )
+
+        streaks_of_given_length = {}
+
+        current_streak_length = 0
         for exercise in self.exercises:
             is_correct = exercise.is_correct()
             if is_correct:
-                current_streak += 1
-            if not is_correct or current_streak == self.learning_cycle_length:
+                current_streak_length += 1
+            if not is_correct or current_streak_length == self.learning_cycle_length:
                 # To move to a next cycle you need a streak of 4 exercises.
                 # If the exercise is not correct or is at the end of the cycle
                 # We store that information
-                save_streak(total_streak_counts, current_streak)
-                current_streak = 0
+                save_new_streak(streaks_of_given_length, current_streak_length)
+                current_streak_length = 0
 
-        save_streak(total_streak_counts, current_streak)
+        save_new_streak(streaks_of_given_length, current_streak_length)
+
         # If we want the resulting dictionary sorted by keys.
-        # return dict(sorted(total_streak_counts.items()))
-        return total_streak_counts
+        # return dict(sorted(streaks_of_given_length.items()))
+        return streaks_of_given_length

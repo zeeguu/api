@@ -34,8 +34,8 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
 
     learning_cycle_length = len(scheduler.get_cooling_interval_dictionary())
 
-    streak_counts = exercise_log.count_number_of_streaks()
-    full_cycles_completed = streak_counts.get(learning_cycle_length)
+    streaks_by_length = exercise_log.exercise_streaks_of_given_length()
+    full_cycles_completed = streaks_by_length.get(learning_cycle_length)
 
     if is_productive:
         return full_cycles_completed == 2
