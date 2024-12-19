@@ -1,9 +1,4 @@
-from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
-
-from zeeguu.core.word_scheduling import (
-    TwoLearningCyclesPerWord,
-    FourLevelsPerWord,
-)
+from zeeguu.core.word_scheduling import get_scheduler
 
 
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
@@ -41,11 +36,3 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
         return full_cycles_completed == 2
     else:
         return full_cycles_completed == 1
-
-
-def get_scheduler(user):
-
-    if is_feature_enabled_for_user("exercise_levels", user):
-        return FourLevelsPerWord
-    else:
-        return TwoLearningCyclesPerWord

@@ -72,20 +72,6 @@ class Bookmark(db.Model):
 
     bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
-    # plugging in the new scheduler
-    def get_scheduler(self):
-        from zeeguu.core.word_scheduling import (
-            TwoLearningCyclesPerWord,
-            FourLevelsPerWord,
-        )
-
-        from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
-
-        if is_feature_enabled_for_user("exercise_levels", self.user):
-            return FourLevelsPerWord
-        else:
-            return TwoLearningCyclesPerWord
-
     def __init__(
         self,
         origin: UserWord,
@@ -198,7 +184,7 @@ class Bookmark(db.Model):
         )
         db_session.add(exercise)
 
-        scheduler = self.get_scheduler()
+        scheduler = self.get_scheduler(self.user)
         scheduler.update(db_session, self, exercise_outcome, time)
 
         db_session.commit()
@@ -234,7 +220,7 @@ class Bookmark(db.Model):
         )
 
         try:
-            scheduler = self.get_scheduler()
+            scheduler = self.get_scheduler(self.user)
             bookmark_scheduler = scheduler.query.filter(
                 scheduler.bookmark_id == self.id
             ).one()
