@@ -148,7 +148,7 @@ class SchedulerTest(ModelTestMixIn):
         )
         self.assert_schedule(schedule, 2, 0, ONE_DAY_COOLING, 6)
 
-        seven_date = six_date + timedelta(days=1, seconds=1)
+        seven_date = six_date + ONE_DAY_LATER
         schedule = self._new_schedule_after_exercise(
             bookmark,
             OutcomeRule().correct,
@@ -477,7 +477,7 @@ class SchedulerTest(ModelTestMixIn):
             first_date,
         )
 
-        second_date = first_date + timedelta(days=1, seconds=1)
+        second_date = first_date + ONE_DAY_LATER
         print(schedule.next_practice_time, second_date)
         schedule = self._new_schedule_after_exercise(
             bookmark,
