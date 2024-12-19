@@ -39,13 +39,13 @@ class BasicSRSchedule(db.Model):
         db_session.delete(self)
         db_session.commit()
 
-    def there_was_no_need_for_practice_today(self):
+    def there_was_no_need_for_practice_today(self, date: datetime = None):
         # a user might have arrived here by doing the
         # bookmarks in a text for a second time...
         # in general, as long as they didn't wait for the
         # cooldown period, they might have arrived to do
         # the exercise again; but it should not count
-        return self.get_end_of_today() < self.next_practice_time
+        return self.get_end_of_date(date) < self.next_practice_time
 
     def update_schedule(self, db_session, correctness):
         raise NotImplementedError
@@ -64,14 +64,16 @@ class BasicSRSchedule(db.Model):
             db_session.commit()
 
     @classmethod
-    def get_end_of_today(cls):
+    def get_end_of_date(cls, date: datetime = None):
         """
         Retrieves midnight date of the following date,
         essentially ensures we get all the bookmarks
         scheduled for the current day. < (cur_day+1)
         """
+        if not date:
+            date = datetime.now()
         # Get tomorrow date
-        tomorrows_date = (datetime.now() + timedelta(days=1)).date()
+        tomorrows_date = (date + timedelta(days=1)).date()
         # Create an object that matches midnight of next day
         return datetime.combine(tomorrows_date, datetime.min.time())
 
@@ -102,7 +104,7 @@ class BasicSRSchedule(db.Model):
         return None
 
     @classmethod
-    def update(cls, db_session, bookmark, outcome):
+    def update(cls, db_session, bookmark, outcome, time: datetime = None):
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
             from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
@@ -119,15 +121,15 @@ class BasicSRSchedule(db.Model):
 
         correctness = ExerciseOutcome.is_correct(outcome)
         schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.there_was_no_need_for_practice_today():
+        if schedule.there_was_no_need_for_practice_today(time):
             return
 
-        schedule.update_schedule(db_session, correctness)
+        schedule.update_schedule(db_session, correctness, time)
         db_session.commit()
 
     @classmethod
     def get_scheduled_bookmarks_for_user(cls, user, limit):
-        end_of_day = cls.get_end_of_today()
+        end_of_day = cls.get_end_of_date()
         # Get the candidates, words that are to practice
         scheduled_candidates_query = (
             Bookmark.query.join(cls)
@@ -247,7 +249,7 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def bookmarks_to_study(cls, user, required_count):
-        end_of_day = cls.get_end_of_today()
+        end_of_day = cls.get_end_of_date()
         # Get the candidates, words that are to practice
         scheduled = (
             Bookmark.query.join(cls)

@@ -43,7 +43,10 @@ class LearningCyclesSR(BasicSRSchedule):
     def is_about_to_be_learned(self):
         return self.is_last_cycle() and self.is_last_exercise_in_cycle()
 
-    def update_schedule(self, db_session, correctness):
+    def update_schedule(self, db_session, correctness, exercise_time: datetime = None):
+
+        if not exercise_time:
+            exercise_time = datetime.now()
 
         new_cooling_interval = None
 
@@ -72,13 +75,12 @@ class LearningCyclesSR(BasicSRSchedule):
             ]
             # Should we allow the user to "recover" their schedule
             # in the same day?
-            # next_practice_date = datetime.now()
+            # next_practice_date = exercise_time
             self.consecutive_correct_answers = 0
 
         self.cooling_interval = new_cooling_interval
-        next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
+        next_practice_date = exercise_time + timedelta(minutes=new_cooling_interval)
         self.next_practice_time = next_practice_date
-
         db_session.add(self)
 
     @classmethod
