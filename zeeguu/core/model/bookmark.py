@@ -215,16 +215,14 @@ class Bookmark(db.Model):
         created_day = "today" if self.time.date() == datetime.now().date() else ""
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
-        from zeeguu.core.word_scheduling.basicSR.basicSR import (
-            ONE_DAY,
-        )
+        from zeeguu.core.word_scheduling import ONE_DAY
 
         try:
             scheduler = self.get_scheduler(self.user)
             bookmark_scheduler = scheduler.query.filter(
                 scheduler.bookmark_id == self.id
             ).one()
-            cooling_interval = bookmark_scheduler.cooling_interval // ONE_DAY
+            cooling_interval_in_days = bookmark_scheduler.cooling_interval // ONE_DAY
             next_practice_time = bookmark_scheduler.next_practice_time
             can_update_schedule = (
                 next_practice_time <= bookmark_scheduler.get_end_of_today()
@@ -238,7 +236,7 @@ class Bookmark(db.Model):
             is_about_to_be_learned = bookmark_scheduler.is_about_to_be_learned()
 
         except sqlalchemy.exc.NoResultFound:
-            cooling_interval = None
+            cooling_interval_in_days = None
             can_update_schedule = None
             consecutive_correct_answers = None
             is_last_in_cycle = None
@@ -270,7 +268,7 @@ class Bookmark(db.Model):
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
             level=self.level,
-            cooling_interval=cooling_interval,
+            cooling_interval=cooling_interval_in_days,
             learning_cycle=self.learning_cycle,
             is_last_in_cycle=is_last_in_cycle,
             is_about_to_be_learned=is_about_to_be_learned,
