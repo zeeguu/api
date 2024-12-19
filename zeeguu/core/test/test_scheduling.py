@@ -471,29 +471,29 @@ class SchedulerTest(ModelTestMixIn):
 
         first_date = datetime.now()
 
-        schedule = self._new_schedule_after_exercise(
+        self._new_schedule_after_exercise(
             bookmark,
             OutcomeRule().correct,
             first_date,
         )
 
         second_date = first_date + ONE_DAY_LATER
-        print(schedule.next_practice_time, second_date)
-        schedule = self._new_schedule_after_exercise(
+
+        self._new_schedule_after_exercise(
             bookmark,
             OutcomeRule().correct,
             second_date,
         )
 
         third_date = second_date + TWO_DAYS_LATER
-        schedule = self._new_schedule_after_exercise(
+        self._new_schedule_after_exercise(
             bookmark,
             OutcomeRule().correct,
             third_date,
         )
 
         fourth_date = third_date + FOUR_DAYS_LATER
-        schedule = self._new_schedule_after_exercise(
+        self._new_schedule_after_exercise(
             bookmark,
             OutcomeRule().correct,
             fourth_date,
