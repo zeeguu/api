@@ -10,10 +10,10 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     """
     Checks if the user has reported the exercise as too easy or looks into the
     streaks of this exercise log. Currently (14/06/2024), Zeeguu uses 2 cycles of
-    4 different days in spaced repetition to concider a word learned.
+    4 different days in spaced repetition to consider a word learned.
 
-    If a user has 2 streaks of 4, it means they have completed a 2 full cycles,
-    and therefor have learned the word.
+    If a user has 2 streaks of 4, it means they have completed two full cycles,
+    and therefore have learned the word.
 
     The user also has the option of saying they do not want productive exercises.
     In this case, we only need to have a single streak of 4 to consider the bookmark
