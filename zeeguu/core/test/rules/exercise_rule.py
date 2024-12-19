@@ -4,6 +4,7 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.source_rule import SourceRule
 from zeeguu.core.model.exercise import Exercise
+from datetime import datetime
 
 
 class ExerciseRule(BaseRule):
@@ -12,20 +13,24 @@ class ExerciseRule(BaseRule):
     Creates a Exercise object with random data and saves it to the database.
     """
 
-    def __init__(self, session):
+    def __init__(self, session, outcome: OutcomeRule = None, date: datetime = None):
         super().__init__()
 
-        self.exercise = self._create_model_object(session.id)
+        self.exercise = self._create_model_object(session.id, outcome, date)
 
         self.save(self.exercise)
 
-    def _create_model_object(self, session_id):
-        random_outcome = OutcomeRule().random
+    def _create_model_object(
+        self, session_id, outcome: OutcomeRule = None, date: datetime = None
+    ):
+
+        random_outcome = outcome if outcome else OutcomeRule().random
         random_source = SourceRule().random
         random_speed = random.randint(500, 5000)
-        random_time = self.faker.date_time_this_year()
-
-        new_exercise = Exercise(random_outcome, random_source, random_speed, random_time, session_id)
+        random_time = date if date else self.faker.date_time_this_year()
+        new_exercise = Exercise(
+            random_outcome, random_source, random_speed, random_time, session_id
+        )
 
         if self._exists_in_db(new_exercise):
             return self._create_model_object()
