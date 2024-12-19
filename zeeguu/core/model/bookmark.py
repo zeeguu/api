@@ -160,12 +160,15 @@ class Bookmark(db.Model):
         exercise_solving_speed,
         session_id: int,
         other_feedback="",
+        time: datetime = None,
     ):
+        if not time:
+            time = datetime.now()
         exercise = Exercise(
             exercise_outcome,
             exercise_source,
             exercise_solving_speed,
-            datetime.now(),
+            time,
             session_id,
             other_feedback,
         )
@@ -183,18 +186,19 @@ class Bookmark(db.Model):
         session_id,
         other_feedback,
         db_session,
+        time: datetime = None,
     ):
 
         source = ExerciseSource.find_or_create(db_session, exercise_source)
         outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
         exercise = self.add_new_exercise_result(
-            source, outcome, solving_speed, session_id, other_feedback
+            source, outcome, solving_speed, session_id, other_feedback, time=time
         )
         db_session.add(exercise)
 
         scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome)
+        scheduler.update(db_session, self, exercise_outcome, time)
 
         db_session.commit()
 

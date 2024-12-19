@@ -45,7 +45,10 @@ class LevelsSR(BasicSRSchedule):
             and level_before_this_exercises < MAX_LEVEL
         )
 
-    def update_schedule(self, db_session, correctness):
+    def update_schedule(self, db_session, correctness, exercise_time: datetime = None):
+
+        if not exercise_time:
+            exercise_time = datetime.now()
 
         level_before_this_exercises = self.bookmark.level
         new_cooling_interval = None
@@ -95,7 +98,7 @@ class LevelsSR(BasicSRSchedule):
 
         # update next practice time for
         self.cooling_interval = new_cooling_interval
-        next_practice_date = datetime.now() + timedelta(minutes=new_cooling_interval)
+        next_practice_date = exercise_time + timedelta(minutes=new_cooling_interval)
         self.next_practice_time = next_practice_date
 
         db_session.add(self)
