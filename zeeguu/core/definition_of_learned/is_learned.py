@@ -24,10 +24,11 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
     if exercise_log.is_empty():
         return False
 
-    # For a bookmark to be learned it needs to have 1 or 2 cycles
-    # completed depending on the user preference.
     if exercise_log.last_exercise().is_too_easy():
         return True
+
+    # For a bookmark to be learned it needs to have 1 or 2 cycles
+    # completed depending on the user preference.
 
     scheduler = get_scheduler(exercise_log.bookmark.user)
 
