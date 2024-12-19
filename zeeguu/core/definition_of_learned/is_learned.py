@@ -1,14 +1,17 @@
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
 
     def get_scheduler():
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import LearningCyclesSR
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
+            FourLevelsPerWord,
+        )
+
         from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
 
         if is_feature_enabled_for_user("exercise_levels", exercise_log.bookmark.user):
-            return LevelsSR
+            return FourLevelsPerWord
         else:
-            return LearningCyclesSR
+            return TwoLearningCyclesPerWord
 
     """
     Checks if the user has reported the exercise as too easy or looks into the

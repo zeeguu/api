@@ -1,12 +1,12 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
-from zeeguu.core.model import UserPreference, db, ExerciseOutcome
+from zeeguu.core.model import UserPreference
 from datetime import datetime, timedelta
 from zeeguu.core.model.learning_cycle import LearningCycle
 
 
 # Implements either a single or a two-learning cycle schedule
 # depending on whether the user has the productive exercises enabled
-class LearningCyclesSR(BasicSRSchedule):
+class TwoLearningCyclesPerWord(BasicSRSchedule):
     MAX_INTERVAL = 8 * ONE_DAY
 
     NEXT_COOLING_INTERVAL_ON_SUCCESS = {
@@ -24,7 +24,7 @@ class LearningCyclesSR(BasicSRSchedule):
     DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
     def __init__(self, bookmark=None, bookmark_id=None):
-        super(LearningCyclesSR, self).__init__(bookmark, bookmark_id)
+        super(TwoLearningCyclesPerWord, self).__init__(bookmark, bookmark_id)
 
     def is_last_cycle(self):
         learning_cycle = self.bookmark.learning_cycle
@@ -103,7 +103,7 @@ class LearningCyclesSR(BasicSRSchedule):
     @classmethod
     def find_or_create(cls, db_session, bookmark):
 
-        schedule = super(LearningCyclesSR, cls).find(bookmark)
+        schedule = super(TwoLearningCyclesPerWord, cls).find(bookmark)
 
         if not schedule:
             schedule = cls(bookmark)
