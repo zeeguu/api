@@ -364,7 +364,7 @@ class SchedulerTest(ModelTestMixIn):
     def test_learning_cycle_productive_doesnt_go_down_to_receptive(self):
         """
         A bookmark shouldn't go down a cycle, meaning if we get to
-        productive then the bookmark doesn't go back to learning cycle 1
+        productive then the bookmark doesn't go back to receptive.
         """
         from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
             LearningCyclesSR,
@@ -390,6 +390,9 @@ class SchedulerTest(ModelTestMixIn):
         assert schedule.cooling_interval == 0
 
     def test_level_schedule_is_created(self):
+        """
+        Testing if LevelsSR creates the schedule once the bookmark is practiced.
+        """
         from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
@@ -411,6 +414,11 @@ class SchedulerTest(ModelTestMixIn):
         self._helper_assert_bookmark_schedule(random_bookmark_2, schedule, 0, 1, 0, 0)
 
     def test_level_full_cycle(self):
+        """
+        Test the full progression through all the 4 levels with 2 intervals each.
+        All values are hardset and asserted to ensure we catch any changes to the
+        scheduler.
+        """
         from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
@@ -542,6 +550,10 @@ class SchedulerTest(ModelTestMixIn):
         )
 
     def test_level_wrong(self):
+        """
+        If a user gets the bookmark wrong they should go one interval down in the
+        LevelSR.
+        """
         from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
@@ -583,6 +595,10 @@ class SchedulerTest(ModelTestMixIn):
         )
 
     def test_level_doesnt_go_back_to_lower_level(self):
+        """
+        Test if when a user moves to a new level, they don't go down a level if
+        they commit a mistake.
+        """
         from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
