@@ -81,7 +81,7 @@ def get_one_translation(from_lang_code, to_lang_code):
                     "query": query,
                     "context": context,
                 },
-                number_of_results=1,
+                number_of_results=3,
             ).translations
             best_guess = translations[0]["translation"]
             likelihood = translations[0].pop("quality")
