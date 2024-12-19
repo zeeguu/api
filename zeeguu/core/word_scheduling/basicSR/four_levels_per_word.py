@@ -19,7 +19,7 @@ COOLING_INTERVAL_TO_LEVEL_MAPPING = {
 #
 
 
-class LevelsSR(BasicSRSchedule):
+class FourLevelsPerWord(BasicSRSchedule):
 
     MAX_INTERVAL = 2 * ONE_DAY
 
@@ -36,7 +36,7 @@ class LevelsSR(BasicSRSchedule):
     DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
     def __init__(self, bookmark=None, bookmark_id=None):
-        super(LevelsSR, self).__init__(bookmark, bookmark_id)
+        super(FourLevelsPerWord, self).__init__(bookmark, bookmark_id)
 
     def is_about_to_be_learned(self):
         level_before_this_exercises = self.bookmark.level
@@ -123,7 +123,7 @@ class LevelsSR(BasicSRSchedule):
     @classmethod
     def find_or_create(cls, db_session, bookmark):
 
-        schedule = super(LevelsSR, cls).find(bookmark)
+        schedule = super(FourLevelsPerWord, cls).find(bookmark)
 
         if not schedule:
             schedule = cls(bookmark)

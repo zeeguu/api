@@ -74,16 +74,17 @@ class Bookmark(db.Model):
 
     # plugging in the new scheduler
     def get_scheduler(self):
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
+            FourLevelsPerWord,
         )
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+
         from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
 
         if is_feature_enabled_for_user("exercise_levels", self.user):
-            return LevelsSR
+            return FourLevelsPerWord
         else:
-            return LearningCyclesSR
+            return TwoLearningCyclesPerWord
 
     def __init__(
         self,

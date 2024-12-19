@@ -5,7 +5,7 @@ from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.test.rules.scheduler_rule import SchedulerRule
-from zeeguu.core.word_scheduling.basicSR.basicSR import ONE_DAY
+from zeeguu.core.word_scheduling import ONE_DAY
 from zeeguu.core.model import db
 from datetime import datetime, timedelta
 
@@ -42,8 +42,8 @@ class SchedulerTest(ModelTestMixIn):
         )
 
     def _helper_simulate_progression_up_to_productive_cycle(self, bookmark):
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         first_date = datetime.now()
@@ -51,7 +51,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             first_date,
         )
 
@@ -60,7 +60,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             second_date,
         )
 
@@ -68,7 +68,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             third_date,
         )
 
@@ -76,7 +76,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fourth_date,
         )
 
@@ -84,7 +84,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fifth_date,
         )
         return fifth_date, schedule
@@ -108,14 +108,17 @@ class SchedulerTest(ModelTestMixIn):
         return schedule
 
     def test_learning_cycle_schedule_is_created(self):
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         random_bookmark = BookmarkRule(self.user_l_cycle).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LearningCyclesSR, datetime.now()
+            random_bookmark,
+            OutcomeRule().correct,
+            TwoLearningCyclesPerWord,
+            datetime.now(),
         )
 
         self._helper_assert_bookmark_schedule(
@@ -125,14 +128,17 @@ class SchedulerTest(ModelTestMixIn):
         random_bookmark_2 = BookmarkRule(self.user_l_cycle).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark_2, OutcomeRule().wrong, LearningCyclesSR, datetime.now()
+            random_bookmark_2,
+            OutcomeRule().wrong,
+            TwoLearningCyclesPerWord,
+            datetime.now(),
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark_2, schedule, 1, 0, 0, 0)
 
     def test_learning_cycle_two_correct_exercises_in_a_day(self):
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         """
@@ -143,7 +149,10 @@ class SchedulerTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user_l_cycle).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LearningCyclesSR, datetime.now()
+            random_bookmark,
+            OutcomeRule().correct,
+            TwoLearningCyclesPerWord,
+            datetime.now(),
         )
 
         self._helper_assert_bookmark_schedule(
@@ -151,7 +160,10 @@ class SchedulerTest(ModelTestMixIn):
         )
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LearningCyclesSR, datetime.now()
+            random_bookmark,
+            OutcomeRule().correct,
+            TwoLearningCyclesPerWord,
+            datetime.now(),
         )
 
         self._helper_assert_bookmark_schedule(
@@ -160,8 +172,8 @@ class SchedulerTest(ModelTestMixIn):
 
     def test_learning_cycle_full_cycle(self):
 
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         """
@@ -176,7 +188,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             first_date,
         )
 
@@ -189,7 +201,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             second_date,
         )
 
@@ -201,7 +213,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             third_date,
         )
 
@@ -213,7 +225,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fourth_date,
         )
 
@@ -225,7 +237,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fifth_date,
         )
 
@@ -235,7 +247,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             six_date,
         )
 
@@ -247,7 +259,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             seven_date,
         )
 
@@ -259,7 +271,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             eight_date,
         )
 
@@ -271,7 +283,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             nine_date,
         )
 
@@ -283,7 +295,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             ten_date,
         )
 
@@ -291,8 +303,8 @@ class SchedulerTest(ModelTestMixIn):
 
     def test_learning_cycle_wrong(self):
 
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         """
@@ -306,7 +318,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             first_date,
         )
 
@@ -319,7 +331,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().wrong,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             second_date,
         )
 
@@ -329,7 +341,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             third_date,
         )
 
@@ -341,7 +353,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().correct,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fourth_date,
         )
 
@@ -353,7 +365,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().wrong,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fifth_date,
         )
 
@@ -366,8 +378,8 @@ class SchedulerTest(ModelTestMixIn):
         A bookmark shouldn't go down a cycle, meaning if we get to
         productive then the bookmark doesn't go back to receptive.
         """
-        from zeeguu.core.word_scheduling.basicSR.learning_cycle_SR import (
-            LearningCyclesSR,
+        from zeeguu.core.word_scheduling import (
+            TwoLearningCyclesPerWord,
         )
 
         random_bookmark = BookmarkRule(self.user_l_cycle).bookmark
@@ -381,7 +393,7 @@ class SchedulerTest(ModelTestMixIn):
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
             random_bookmark,
             OutcomeRule().wrong,
-            LearningCyclesSR,
+            TwoLearningCyclesPerWord,
             fifth_date,
         )
 
@@ -391,14 +403,16 @@ class SchedulerTest(ModelTestMixIn):
 
     def test_level_schedule_is_created(self):
         """
-        Testing if LevelsSR creates the schedule once the bookmark is practiced.
+        Testing if FourLevelsSchedule creates the schedule once the bookmark is practiced.
         """
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            FourLevelsPerWord,
+        )
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, datetime.now()
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, datetime.now()
         )
 
         self._helper_assert_bookmark_schedule(
@@ -408,7 +422,7 @@ class SchedulerTest(ModelTestMixIn):
         random_bookmark_2 = BookmarkRule(self.user_levels).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark_2, OutcomeRule().wrong, LevelsSR, datetime.now()
+            random_bookmark_2, OutcomeRule().wrong, FourLevelsPerWord, datetime.now()
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark_2, schedule, 0, 1, 0, 0)
@@ -419,13 +433,15 @@ class SchedulerTest(ModelTestMixIn):
         All values are hardset and asserted to ensure we catch any changes to the
         scheduler.
         """
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            FourLevelsPerWord,
+        )
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
 
         first_date = datetime.now()
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, first_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, first_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -434,7 +450,7 @@ class SchedulerTest(ModelTestMixIn):
 
         second_date = first_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, second_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, second_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -443,14 +459,14 @@ class SchedulerTest(ModelTestMixIn):
 
         third_date = second_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, third_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, third_date
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark, schedule, 0, 2, 0, 3)
 
         fourth_date = third_date + timedelta(days=0, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, fourth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, fourth_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -459,7 +475,7 @@ class SchedulerTest(ModelTestMixIn):
 
         fifth_date = fourth_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, fifth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, fifth_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -468,14 +484,14 @@ class SchedulerTest(ModelTestMixIn):
 
         sixth_date = fifth_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, sixth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, sixth_date
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark, schedule, 0, 3, 0, 6)
 
         seventh_date = sixth_date + timedelta(days=0, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, seventh_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, seventh_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -484,7 +500,7 @@ class SchedulerTest(ModelTestMixIn):
 
         eighth_date = seventh_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, eighth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, eighth_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -493,14 +509,14 @@ class SchedulerTest(ModelTestMixIn):
 
         nineth_date = eighth_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, nineth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, nineth_date
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark, schedule, 0, 4, 0, 9)
 
         tenth_date = nineth_date + timedelta(days=0, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, tenth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, tenth_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -509,7 +525,7 @@ class SchedulerTest(ModelTestMixIn):
 
         eleventh_date = tenth_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, eleventh_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, eleventh_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -518,7 +534,7 @@ class SchedulerTest(ModelTestMixIn):
 
         twelth_date = eleventh_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, twelth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, twelth_date
         )
 
         # Should be learned.
@@ -529,12 +545,14 @@ class SchedulerTest(ModelTestMixIn):
         When a user does the same bookmark with a positive outcome in a day,
         the scheduler should not update.
         """
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            FourLevelsPerWord,
+        )
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, datetime.now()
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, datetime.now()
         )
 
         self._helper_assert_bookmark_schedule(
@@ -542,7 +560,7 @@ class SchedulerTest(ModelTestMixIn):
         )
 
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, datetime.now()
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, datetime.now()
         )
 
         self._helper_assert_bookmark_schedule(
@@ -554,13 +572,15 @@ class SchedulerTest(ModelTestMixIn):
         If a user gets the bookmark wrong they should go one interval down in the
         LevelSR.
         """
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            FourLevelsPerWord,
+        )
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
 
         first_date = datetime.now()
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, first_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, first_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -569,7 +589,7 @@ class SchedulerTest(ModelTestMixIn):
 
         second_date = first_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, second_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, second_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -578,7 +598,7 @@ class SchedulerTest(ModelTestMixIn):
 
         third_date = second_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().wrong, LevelsSR, third_date
+            random_bookmark, OutcomeRule().wrong, FourLevelsPerWord, third_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -587,7 +607,7 @@ class SchedulerTest(ModelTestMixIn):
 
         fourth_date = third_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, fourth_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, fourth_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -599,13 +619,15 @@ class SchedulerTest(ModelTestMixIn):
         Test if when a user moves to a new level, they don't go down a level if
         they commit a mistake.
         """
-        from zeeguu.core.word_scheduling.basicSR.levels_SR import LevelsSR
+        from zeeguu.core.word_scheduling import (
+            FourLevelsPerWord,
+        )
 
         random_bookmark = BookmarkRule(self.user_levels).bookmark
 
         first_date = datetime.now()
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, first_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, first_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -614,7 +636,7 @@ class SchedulerTest(ModelTestMixIn):
 
         second_date = first_date + timedelta(days=1, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, second_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, second_date
         )
 
         self._helper_assert_bookmark_schedule(
@@ -623,14 +645,14 @@ class SchedulerTest(ModelTestMixIn):
 
         third_date = second_date + timedelta(days=2, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().correct, LevelsSR, third_date
+            random_bookmark, OutcomeRule().correct, FourLevelsPerWord, third_date
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark, schedule, 0, 2, 0, 3)
 
         fourth_date = third_date + timedelta(days=0, seconds=1)
         schedule = self._helper_create_exercise_for_bookmark_and_get_schedule(
-            random_bookmark, OutcomeRule().wrong, LevelsSR, fourth_date
+            random_bookmark, OutcomeRule().wrong, FourLevelsPerWord, fourth_date
         )
 
         self._helper_assert_bookmark_schedule(random_bookmark, schedule, 0, 2, 0, 0)
