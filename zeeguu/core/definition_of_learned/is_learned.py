@@ -1,12 +1,14 @@
+from zeeguu.core.word_scheduling import (
+    TwoLearningCyclesPerWord,
+    FourLevelsPerWord,
+)
+
+from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
+
+
 def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
 
     def get_scheduler():
-        from zeeguu.core.word_scheduling import (
-            TwoLearningCyclesPerWord,
-            FourLevelsPerWord,
-        )
-
-        from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
 
         if is_feature_enabled_for_user("exercise_levels", exercise_log.bookmark.user):
             return FourLevelsPerWord
@@ -37,10 +39,11 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
 
     scheduler = get_scheduler()
 
-    LEARNING_CYCLE_LENGTH = len(scheduler.get_cooling_interval_dictionary())
+    learning_cycle_length = len(scheduler.get_cooling_interval_dictionary())
 
     streak_counts = exercise_log.count_number_of_streaks()
-    full_cycles_completed = streak_counts.get(LEARNING_CYCLE_LENGTH)
+    full_cycles_completed = streak_counts.get(learning_cycle_length)
+
     if is_productive:
         return full_cycles_completed == 2
     else:
