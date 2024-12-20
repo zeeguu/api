@@ -75,7 +75,7 @@ def _merle_exercises(user):
         or user.invitation_code == "MerleITU"
         or user.invitation_code == "PTCT"
         or user.invitation_code == "zeeguu-preview"
-        or user.id in [534, 2953, 4022, 4089, 4607]
+        or user.id in [2953, 4089]
     )
     return right_user
 
