@@ -42,11 +42,13 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
+    from pprint import pprint
 
     word_str = request.form["word"].strip(punctuation_extended)
+    word_index_start = request.form.get("word_text_index_start", None)
     context = request.form.get("context", "").strip()
+    content_origin_index = request.form.get("content_origin_index", None)
     article_id = request.form.get("articleID", None)
-
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
@@ -96,6 +98,8 @@ def get_one_translation(from_lang_code, to_lang_code):
             to_lang_code,
             context,
             article_id,
+            origin_index_at_text=word_index_start,
+            text_origin_index=content_origin_index,
         )
 
     return json_result(
@@ -192,13 +196,20 @@ def update_translation(bookmark_id):
     translation = UserWord.find_or_create(
         db_session, translation_str, bookmark.translation.language
     )
+    prev_text = Text.find_by_id(bookmark.text_id)
+    is_same_context = prev_text.content == context_str
     text = Text.find_or_create(
         db_session,
         context_str,
         bookmark.origin.language,
         bookmark.text.url,
-        bookmark.text.article,
+        bookmark.text.article if is_same_context else None,
+        prev_text.content_origin_index if is_same_context else None,
     )
+
+    # In the frontend it's mandatory that the bookmark is in the text,
+    # so we update the pointer.
+    bookmark.text_origin_index = context_str.find(word_str)
     bookmark.origin = origin
     bookmark.translation = translation
     bookmark.text = text

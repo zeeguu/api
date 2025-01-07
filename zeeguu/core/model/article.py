@@ -147,6 +147,17 @@ class Article(db.Model):
     def __repr__(self):
         return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
 
+    def __content_to_paragraphs(self):
+        paragraphDelimiter = re.compile("\n\n")
+        paragraphList = []
+        currentStart = 0
+        for match in paragraphDelimiter.finditer(self.content):
+            endIndex = match.span()[-1]
+            paragraphList.append((self.content[currentStart:endIndex], currentStart))
+            currentStart = endIndex
+        paragraphList.append((self.content[currentStart:], currentStart))
+        return paragraphList
+
     def vote_broken(self):
         # somebody could vote that this article is broken
         self.broken += 1
@@ -262,6 +273,7 @@ class Article(db.Model):
         if with_content:
             result_dict["content"] = self.content
             result_dict["htmlContent"] = self.htmlContent
+            result_dict["paragraphs"] = self.__content_to_paragraphs()
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 

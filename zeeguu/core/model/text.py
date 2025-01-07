@@ -30,12 +30,23 @@ class Text(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
     article = db.relationship(Article)
 
-    def __init__(self, content, language, url, article):
+    # content_origin_index
+    # The starting index of this context in the ArticleID specified.
+    # This is used to re-render words in the frontend.
+    # The location of the Bookmark can be given by:
+    #       t.content_origin_index + b.text_origin_index
+    # Note if the translation comes from the title, the article_id is set, but the
+    # content_origin_index will be null.
+
+    content_origin_index = db.Column(db.Integer)
+
+    def __init__(self, content, language, url, article, content_origin_index):
         self.content = content
         self.language = language
         self.url = url
         self.content_hash = text_hash(content)
         self.article = article
+        self.content_origin_index = content_origin_index
 
     def __repr__(self):
         return "<Text %r>" % (self.content)
@@ -107,7 +118,13 @@ class Text(db.Model):
         )
 
     @classmethod
-    def find_or_create(cls, session, text, language, url, article):
+    def find_by_id(cls, text_id):
+        return cls.query.filter_by(id=text_id).one()
+
+    @classmethod
+    def find_or_create(
+        cls, session, text, language, url, article, content_origin_index
+    ):
         """
         :param text: string
         :param language: Language (object)
@@ -128,7 +145,7 @@ class Text(db.Model):
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
-                new = cls(clean_text, language, url, article)
+                new = cls(clean_text, language, url, article, content_origin_index)
                 session.add(new)
                 session.commit()
                 return new

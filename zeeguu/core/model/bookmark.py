@@ -52,6 +52,9 @@ class Bookmark(db.Model):
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
 
+    # The index where the word starts at the text.
+    origin_index_at_text = db.Column(db.Integer)
+
     time = db.Column(db.DateTime)
 
     exercise_log = relationship(
@@ -78,6 +81,7 @@ class Bookmark(db.Model):
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
+        origin_index_at_text: int = None,
     ):
         self.origin = origin
         self.translation = translation
@@ -88,6 +92,7 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.origin_index_at_text = origin_index_at_text
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -259,6 +264,7 @@ class Bookmark(db.Model):
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
+            origin_index_at_text=self.origin_index_at_text,
         )
 
         if self.text.article:
@@ -281,6 +287,8 @@ class Bookmark(db.Model):
         _context: str,
         article_id: int,
         learning_cycle: int = LearningCycle.NOT_SET,
+        origin_index_at_text: int = None,
+        text_origin_index: int = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -294,7 +302,9 @@ class Bookmark(db.Model):
 
         article = Article.query.filter_by(id=article_id).one()
 
-        context = Text.find_or_create(session, _context, origin_lang, None, article)
+        context = Text.find_or_create(
+            session, _context, origin_lang, None, article, text_origin_index
+        )
 
         translation = UserWord.find_or_create(session, _translation, translation_lang)
 
@@ -309,7 +319,13 @@ class Bookmark(db.Model):
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                origin, translation, user, context, now, learning_cycle=learning_cycle
+                origin,
+                translation,
+                user,
+                context,
+                now,
+                learning_cycle=learning_cycle,
+                origin_index_at_text=origin_index_at_text,
             )
         except Exception as e:
             raise e
