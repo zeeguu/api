@@ -70,15 +70,21 @@ class SortedExerciseLog(object):
         return distinct_days
 
     def count_number_of_streaks(self):
+        from datetime import datetime
+
         def save_streak(count_dict, current_count):
             count_dict[current_count] = count_dict.get(current_count, 0) + 1
 
         current_streak = 0
+        last_exercise_date = datetime.min.date()
         total_streak_counts = {}
-        for exercise in self.exercises:
+        # Go from least recent to most recent.
+        for exercise in self.exercises[::-1]:
             is_correct = exercise.is_correct()
-            if is_correct:
+            exercise_date = exercise.time.date()
+            if is_correct and (exercise_date > last_exercise_date):
                 current_streak += 1
+                last_exercise_date = exercise_date
             if not is_correct or current_streak == LEARNING_CYCLE_LENGTH:
                 # To move to a next cycle you need a streak of 4 exercises.
                 # If the exercise is not correct or is at the end of the cycle
