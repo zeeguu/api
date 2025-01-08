@@ -42,7 +42,7 @@ class FourLevelsPerWord(BasicSRSchedule):
         level_before_this_exercises = self.bookmark.level
         return (
             self.cooling_interval == self.MAX_INTERVAL
-            and level_before_this_exercises < MAX_LEVEL
+            and level_before_this_exercises == MAX_LEVEL
         )
 
     def update_schedule(self, db_session, correctness, exercise_time: datetime = None):
