@@ -28,6 +28,7 @@ def is_learned_based_on_exercise_outcomes(exercise_log, is_productive=True):
 
     streak_counts = exercise_log.count_number_of_streaks()
     full_cycles_completed = streak_counts.get(LEARNING_CYCLE_LENGTH)
+
     if is_productive:
         return full_cycles_completed == 2
     else:

@@ -63,12 +63,13 @@ def mp3_of_full_article():
 
     db_session = zeeguu.core.model.db.session
 
-    text_to_pronounce = request.form.get("text", "")
-    language_id = request.form.get("language_id", "")
+    # TR: Get this from the database, rather than the front end.
+    # Otherwise, it should be more generic.
+    # text_to_pronounce = request.form.get("text", "")
+    # language_id = request.form.get("language_id", "")
     article_id = request.form.get("article_id", "")
 
     print("ID:" + article_id)
-    print("LANG ID:" + language_id)
 
     if (not text_to_pronounce) or (not article_id) or (not language_id):
         return ""

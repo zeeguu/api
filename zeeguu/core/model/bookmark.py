@@ -104,10 +104,13 @@ class Bookmark(db.Model):
         )
 
     def serializable_dictionary(self):
+        from zeeguu.core.util.text import tokenize_text
+
         return dict(
             origin=self.origin.word,
             translation=self.translation.word,
             context=self.text.content,
+            context_tokenized=tokenize_text(self.text.content, self.origin.language),
         )
 
     def is_learned(self):
@@ -272,7 +275,13 @@ class Bookmark(db.Model):
 
         result["from"] = self.origin.word
         if with_context:
+            from zeeguu.core.util.text import tokenize_text
+
             result["context"] = self.text.content
+            result["context_tokenized"] = tokenize_text(
+                self.text.content, self.origin.language
+            )
+
         return result
 
     @classmethod

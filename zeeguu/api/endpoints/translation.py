@@ -42,7 +42,6 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-    from pprint import pprint
 
     word_str = request.form["word"].strip(punctuation_extended)
     word_index_start = request.form.get("word_text_index_start", None)

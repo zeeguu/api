@@ -40,7 +40,7 @@ class Text(db.Model):
 
     content_origin_index = db.Column(db.Integer)
 
-    def __init__(self, content, language, url, article, content_origin_index):
+    def __init__(self, content, language, url, article, content_origin_index=None):
         self.content = content
         self.language = language
         self.url = url
