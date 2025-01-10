@@ -1,13 +1,31 @@
+/* Text update */
 ALTER TABLE
     `zeeguu_test`.`text`
 ADD
-    COLUMN `content_origin_index` INT NULL
+    COLUMN `paragraph_i` INT NULL
 AFTER
-    `article_id`;
+    `article_id`,
+ADD
+    COLUMN `sentence_i` INT NULL
+AFTER
+    `paragraph_i`,
+ADD
+    COLUMN `token_i` INT NULL
+AFTER
+    `sentence_i`;
 
+/* Bookmark update */
 ALTER TABLE
     `zeeguu_test`.`bookmark`
 ADD
-    COLUMN `origin_index_at_text` INT NULL
+    COLUMN `sentence_i` INT NULL
 AFTER
-    `learned`;
+    `learned`
+ADD
+    COLUMN `token_i` INT NULL
+AFTER
+    `sentence_i`,
+ADD
+    COLUMN `total_tokens` INT NULL
+AFTER
+    `token_i`;

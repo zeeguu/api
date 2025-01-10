@@ -52,8 +52,17 @@ class Bookmark(db.Model):
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
 
-    # The index where the word starts at the text.
-    origin_index_at_text = db.Column(db.Integer)
+    """
+        The bookmarks will have a reference to the sentence / token in relation
+        to the text they are associaed with. So sentence_i and token_i refer to the
+        start of the text. 
+
+        Since the words can be merged to give a better translation, in those cases we 
+        have the first word and then the total tokens after it that were merged.
+    """
+    sentence_i = db.Column(db.Integer)
+    token_i = db.Column(db.Integer)
+    total_tokens = db.Column(db.Integer)
 
     time = db.Column(db.DateTime)
 
@@ -81,7 +90,9 @@ class Bookmark(db.Model):
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
-        origin_index_at_text: int = None,
+        sentence_i: int = None,
+        token_i: int = None,
+        total_tokens: int = None,
     ):
         self.origin = origin
         self.translation = translation
@@ -92,7 +103,9 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
-        self.origin_index_at_text = origin_index_at_text
+        self.sentence_i = sentence_i
+        self.token_i = token_i
+        self.total_tokens = total_tokens
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -104,13 +117,17 @@ class Bookmark(db.Model):
         )
 
     def serializable_dictionary(self):
-        from zeeguu.core.util.text import tokenize_text
 
         return dict(
             origin=self.origin.word,
             translation=self.translation.word,
             context=self.text.content,
-            context_tokenized=tokenize_text(self.text.content, self.origin.language),
+            t_sentence_i=self.sentence_i,
+            t_token_i=self.token_i,
+            t_total_token=self.total_tokens,
+            context_paragraph=self.text.paragraph_i,
+            context_sent=self.text.sentence_i,
+            context_token=self.text.token_i,
         )
 
     def is_learned(self):
@@ -267,7 +284,6 @@ class Bookmark(db.Model):
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
-            origin_index_at_text=self.origin_index_at_text,
         )
 
         if self.text.article:
@@ -296,8 +312,12 @@ class Bookmark(db.Model):
         _context: str,
         article_id: int,
         learning_cycle: int = LearningCycle.NOT_SET,
-        origin_index_at_text: int = None,
-        text_origin_index: int = None,
+        sentence_i: int = None,
+        token_i: int = None,
+        total_tokens: int = None,
+        c_paragraph_i: int = None,
+        c_sentence_i: int = None,
+        c_token_i: int = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -312,7 +332,14 @@ class Bookmark(db.Model):
         article = Article.query.filter_by(id=article_id).one()
 
         context = Text.find_or_create(
-            session, _context, origin_lang, None, article, text_origin_index
+            session,
+            _context,
+            origin_lang,
+            None,
+            article,
+            c_paragraph_i,
+            c_sentence_i,
+            c_token_i,
         )
 
         translation = UserWord.find_or_create(session, _translation, translation_lang)
@@ -334,7 +361,9 @@ class Bookmark(db.Model):
                 context,
                 now,
                 learning_cycle=learning_cycle,
-                origin_index_at_text=origin_index_at_text,
+                sentence_i=sentence_i,
+                token_i=token_i,
+                total_tokens=total_tokens,
             )
         except Exception as e:
             raise e

@@ -42,11 +42,17 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
+    from pprint import pprint
 
+    pprint(request.form)
     word_str = request.form["word"].strip(punctuation_extended)
-    word_index_start = request.form.get("word_text_index_start", None)
+    w_sent_i = request.form.get("w_sent_i", None)
+    w_token_i = request.form.get("w_token_i", None)
+    w_total_tokens = request.form.get("w_total_tokens", None)
     context = request.form.get("context", "").strip()
-    content_origin_index = request.form.get("content_origin_index", None)
+    c_paragraph_i = request.form.get("c_paragraph_i", None)
+    c_sent_i = request.form.get("c_sent_i", None)
+    c_token_i = request.form.get("c_token_i", None)
     article_id = request.form.get("articleID", None)
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -97,8 +103,12 @@ def get_one_translation(from_lang_code, to_lang_code):
             to_lang_code,
             context,
             article_id,
-            origin_index_at_text=word_index_start,
-            text_origin_index=content_origin_index,
+            c_paragraph_i=c_paragraph_i,
+            c_sentence_i=c_sent_i,
+            c_token_i=c_token_i,
+            sentence_i=w_sent_i,
+            token_i=w_token_i,
+            total_tokens=w_total_tokens,
         )
 
     return json_result(

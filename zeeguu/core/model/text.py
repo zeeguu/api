@@ -38,15 +38,32 @@ class Text(db.Model):
     # Note if the translation comes from the title, the article_id is set, but the
     # content_origin_index will be null.
 
-    content_origin_index = db.Column(db.Integer)
+    """
+        The coordinates of the first token of the text.
+        This is used to find where the span is located in the content of the article.
+    """
+    paragraph_i = db.Column(db.Integer)
+    sentence_i = db.Column(db.Integer)
+    token_i = db.Column(db.Integer)
 
-    def __init__(self, content, language, url, article, content_origin_index=None):
+    def __init__(
+        self,
+        content,
+        language,
+        url,
+        article,
+        paragraph_i=None,
+        sentence_i=None,
+        token_i=None,
+    ):
         self.content = content
         self.language = language
         self.url = url
         self.content_hash = text_hash(content)
         self.article = article
-        self.content_origin_index = content_origin_index
+        self.paragraph_i = paragraph_i
+        self.sentence_i = sentence_i
+        self.token_i = token_i
 
     def __repr__(self):
         return "<Text %r>" % (self.content)
@@ -123,7 +140,15 @@ class Text(db.Model):
 
     @classmethod
     def find_or_create(
-        cls, session, text, language, url, article, content_origin_index
+        cls,
+        session,
+        text,
+        language,
+        url,
+        article,
+        paragraph_i,
+        sentence_i,
+        token_i,
     ):
         """
         :param text: string
@@ -145,7 +170,15 @@ class Text(db.Model):
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
-                new = cls(clean_text, language, url, article, content_origin_index)
+                new = cls(
+                    clean_text,
+                    language,
+                    url,
+                    article,
+                    paragraph_i,
+                    sentence_i,
+                    token_i,
+                )
                 session.add(new)
                 session.commit()
                 return new
