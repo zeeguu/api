@@ -70,16 +70,18 @@ def tokenize_text(text: str, language: Language, as_serializable_dictionary=True
     try:
         tokens = [
             [
-                (
-                    Token(w, par_i, sent_i, w_i).as_serializable_dictionary()
-                    if as_serializable_dictionary
-                    else Token(w, par_i, sent_i, w_i)
-                )
+                [
+                    (
+                        Token(w, par_i, sent_i, w_i).as_serializable_dictionary()
+                        if as_serializable_dictionary
+                        else Token(w, par_i, sent_i, w_i)
+                    )
+                    for w_i, w in enumerate(
+                        nltk.word_tokenize(sent, language=language.name.lower())
+                    )
+                ]
                 for sent_i, sent in enumerate(
                     sent_tokenizer_text(paragraph, language=language)
-                )
-                for w_i, w in enumerate(
-                    nltk.word_tokenize(sent, language=language.name.lower())
                 )
             ]
             for par_i, paragraph in enumerate(split_into_paragraphs(text))
@@ -96,13 +98,15 @@ def tokenize_text(text: str, language: Language, as_serializable_dictionary=True
         log(2, e)
         tokens = [
             [
-                (
-                    Token(w, par_i, sent_i, w_i).as_serializable_dictionary()
-                    if as_serializable_dictionary
-                    else Token(w, par_i, sent_i, w_i)
-                )
+                [
+                    (
+                        Token(w, par_i, sent_i, w_i).as_serializable_dictionary()
+                        if as_serializable_dictionary
+                        else Token(w, par_i, sent_i, w_i)
+                    )
+                    for w_i, w in enumerate(nltk.word_tokenize(sent))
+                ]
                 for sent_i, sent in enumerate(sent_tokenizer_text(paragraph))
-                for w_i, w in enumerate(nltk.word_tokenize(sent))
             ]
             for par_i, paragraph in enumerate(split_into_paragraphs(text))
         ]
