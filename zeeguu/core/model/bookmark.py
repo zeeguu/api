@@ -119,6 +119,7 @@ class Bookmark(db.Model):
     def serializable_dictionary(self):
 
         return dict(
+            bookmark_id=self.id,
             origin=self.origin.word,
             translation=self.translation.word,
             context=self.text.content,

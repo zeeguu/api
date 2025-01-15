@@ -42,9 +42,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
-    from pprint import pprint
 
-    pprint(request.form)
     word_str = request.form["word"].strip(punctuation_extended)
     w_sent_i = request.form.get("w_sent_i", None)
     w_token_i = request.form.get("w_token_i", None)
@@ -213,15 +211,35 @@ def update_translation(bookmark_id):
         bookmark.origin.language,
         bookmark.text.url,
         bookmark.text.article if is_same_context else None,
-        prev_text.content_origin_index if is_same_context else None,
+        prev_text.paragraph_i if is_same_context else None,
+        prev_text.sentence_i if is_same_context else None,
+        prev_text.token_i if is_same_context else None,
     )
 
-    # In the frontend it's mandatory that the bookmark is in the text,
-    # so we update the pointer.
-    bookmark.text_origin_index = context_str.find(word_str)
     bookmark.origin = origin
     bookmark.translation = translation
     bookmark.text = text
+
+    if not is_same_context or bookmark.origin.word != word_str:
+        # In the frontend it's mandatory that the bookmark is in the text,
+        # so we update the pointer.
+        from zeeguu.core.util.text import tokenize_text_flat_array
+
+        # Tokenized text returns paragraph, sents, token
+        # Since we know there is not multiple paragraphs, we take the first
+        tokenized_text = tokenize_text_flat_array(
+            text.content, bookmark.origin.language, False
+        )
+        tokenized_bookmark = tokenize_text_flat_array(
+            word_str, bookmark.origin.language, False
+        )
+        first_token_ocurrence = next(
+            filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
+        )
+
+        bookmark.sentence_i = first_token_ocurrence.sent_i
+        bookmark.token_i = first_token_ocurrence.token_i
+        bookmark.total_tokens = len(tokenized_bookmark)
 
     db_session.add(bookmark)
     db_session.commit()
@@ -257,10 +275,6 @@ def contribute_translation(from_lang_code, to_lang_code):
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")
-
-    print(request.form)
-    print(url)
-
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
@@ -290,8 +304,6 @@ def contribute_translation(from_lang_code, to_lang_code):
         context_str,
         article_id,
     )
-
-    print(bookmark)
 
     # Inform apimux about translation selection
     data = {
