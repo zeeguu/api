@@ -129,6 +129,7 @@ class Bookmark(db.Model):
             context_paragraph=self.text.paragraph_i,
             context_sent=self.text.sentence_i,
             context_token=self.text.token_i,
+            in_content=self.text.in_content,
         )
 
     def is_learned(self):
@@ -319,6 +320,7 @@ class Bookmark(db.Model):
         c_paragraph_i: int = None,
         c_sentence_i: int = None,
         c_token_i: int = None,
+        in_content: bool = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -341,6 +343,7 @@ class Bookmark(db.Model):
             c_paragraph_i,
             c_sentence_i,
             c_token_i,
+            in_content,
         )
 
         translation = UserWord.find_or_create(session, _translation, translation_lang)

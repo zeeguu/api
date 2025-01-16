@@ -45,6 +45,7 @@ class Text(db.Model):
     paragraph_i = db.Column(db.Integer)
     sentence_i = db.Column(db.Integer)
     token_i = db.Column(db.Integer)
+    in_content = db.Column(db.Boolean)
 
     def __init__(
         self,
@@ -55,6 +56,7 @@ class Text(db.Model):
         paragraph_i=None,
         sentence_i=None,
         token_i=None,
+        in_content=None,
     ):
         self.content = content
         self.language = language
@@ -64,6 +66,7 @@ class Text(db.Model):
         self.paragraph_i = paragraph_i
         self.sentence_i = sentence_i
         self.token_i = token_i
+        self.in_content = in_content
 
     def __repr__(self):
         return "<Text %r>" % (self.content)
@@ -149,6 +152,7 @@ class Text(db.Model):
         paragraph_i,
         sentence_i,
         token_i,
+        in_content,
     ):
         """
         :param text: string
@@ -178,6 +182,7 @@ class Text(db.Model):
                     paragraph_i,
                     sentence_i,
                     token_i,
+                    in_content,
                 )
                 session.add(new)
                 session.commit()

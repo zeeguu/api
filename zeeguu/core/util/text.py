@@ -128,7 +128,7 @@ def replace_email_url_with_placeholder(text: str):
         text = text.replace(email, "_EMAIL_ ")
 
     url_links = [url[0] if _has_protocol(url) else "https://" + url[0] for url in urls]
-    print(text, emails, url_links)
+
     return (
         text,
         emails,

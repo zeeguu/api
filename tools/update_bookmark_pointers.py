@@ -3,6 +3,7 @@ from zeeguu.core.model import Bookmark, Article
 from zeeguu.api.app import create_app
 from tqdm import tqdm
 from zeeguu.core.util.text import tokenize_text_flat_array
+from time import time
 
 
 def update_bookmark_pointer(bookmark):
@@ -49,6 +50,7 @@ def update_bookmark_pointer(bookmark):
     text.paragraph_i = context_current_start.par_i
     text.sentence_i = context_current_start.sent_i
     text.token_i = context_current_start.token_i
+    text.in_content = True
     try:
         first_token_ocurrence = next(
             filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
@@ -78,6 +80,7 @@ app.app_context().push()
 db_session = zeeguu.core.model.db.session
 
 
+start = time()
 all_bookmarks = db_session.query(Bookmark).all()
 counter_total_updated_bookmarks = 0
 for i, b in tqdm(enumerate(all_bookmarks[::-1]), total=len(all_bookmarks)):
@@ -87,3 +90,8 @@ for i, b in tqdm(enumerate(all_bookmarks[::-1]), total=len(all_bookmarks)):
     if (i + 1) % 1000 == 0:
         print("Completed 1000, saving progress...")
         db_session.commit()
+
+end = time() - start
+print(
+    f"Total updated bookmarks: {counter_total_updated_bookmarks} out of {len(all_bookmarks)}, time taken: {end:.2f}"
+)

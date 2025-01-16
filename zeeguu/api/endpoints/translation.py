@@ -20,6 +20,7 @@ from zeeguu.core.model.user_word import UserWord
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -52,6 +53,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     c_sent_i = request.form.get("c_sent_i", None)
     c_token_i = request.form.get("c_token_i", None)
     article_id = request.form.get("articleID", None)
+    in_content = parse_json_boolean(request.form.get("in_content", None))
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
@@ -104,6 +106,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             c_paragraph_i=c_paragraph_i,
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
+            in_content=in_content,
             sentence_i=w_sent_i,
             token_i=w_token_i,
             total_tokens=w_total_tokens,
@@ -214,6 +217,7 @@ def update_translation(bookmark_id):
         prev_text.paragraph_i if is_same_context else None,
         prev_text.sentence_i if is_same_context else None,
         prev_text.token_i if is_same_context else None,
+        prev_text.in_content if is_same_context else None,
     )
 
     bookmark.origin = origin
