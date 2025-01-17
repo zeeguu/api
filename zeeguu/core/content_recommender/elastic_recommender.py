@@ -59,7 +59,6 @@ def _prepare_user_constraints(user):
     print(f"Topics to exclude: {excluded_topics}")
 
     # 3. Topics subscribed, and thus to include
-    # Filter out topics that aren't available in the language.
     # =========================================
     topic_subscriptions = TopicSubscription.all_for_user(user)
     topics_to_include = [
