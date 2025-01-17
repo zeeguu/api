@@ -5,6 +5,7 @@ from flask import request
 
 from zeeguu.api.endpoints import api
 from zeeguu.api.utils import cross_domain, requires_session
+from zeeguu.core.model import Article
 
 DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
 
@@ -70,6 +71,12 @@ def mp3_of_full_article():
     article_id = request.form.get("article_id", "")
 
     print("ID:" + article_id)
+    if not article_id:
+        return ""
+
+    article = Article.find_by_id(article_id)
+    text_to_pronounce = article.content
+    language_id = article.language_id
 
     if (not text_to_pronounce) or (not article_id) or (not language_id):
         return ""
