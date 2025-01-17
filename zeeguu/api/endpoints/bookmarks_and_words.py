@@ -10,7 +10,7 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+from zeeguu.core.word_scheduling import BasicSRSchedule
 
 
 @api.route("/user_words", methods=["GET"])
