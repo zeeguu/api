@@ -53,12 +53,12 @@ class Bookmark(db.Model):
     text = db.relationship(Text)
 
     """
-        The bookmarks will have a reference to the sentence / token in relation
-        to the text they are associaed with. So sentence_i and token_i refer to the
-        start of the text. 
+    The bookmarks will have a reference to the sentence / token in relation
+    to the text they are associaed with. So sentence_i and token_i refer to the
+    start of the text. 
 
-        Since the words can be merged to give a better translation, in those cases we 
-        have the first word and then the total tokens after it that were merged.
+    Since the words can be merged to give a better translation, in those cases we 
+    have the first word and then the total tokens after it that were merged.
     """
     sentence_i = db.Column(db.Integer)
     token_i = db.Column(db.Integer)

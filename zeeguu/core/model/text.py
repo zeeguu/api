@@ -30,17 +30,14 @@ class Text(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
     article = db.relationship(Article)
 
-    # content_origin_index
-    # The starting index of this context in the ArticleID specified.
-    # This is used to re-render words in the frontend.
-    # The location of the Bookmark can be given by:
-    #       t.content_origin_index + b.text_origin_index
-    # Note if the translation comes from the title, the article_id is set, but the
-    # content_origin_index will be null.
-
     """
-        The coordinates of the first token of the text.
-        This is used to find where the span is located in the content of the article.
+     The coordinates of the first token of the text from its' source.
+     This can be an article, in which case in_content is true, or some other source, 
+    which isn't the content where this will be false. At the moment, this is used for 
+    text from titles.
+     In case a user changes the context, so that this is not found in the text, all the 
+    values will be set to null. This means that the bookmark will no longer be highligted,
+    in the article, but it will still be found within the text.
     """
     paragraph_i = db.Column(db.Integer)
     sentence_i = db.Column(db.Integer)
