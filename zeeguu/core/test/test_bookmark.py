@@ -241,23 +241,24 @@ class BookmarkTest(ModelTestMixIn):
         )
         correct_bookmark = random_bookmarks[2]
         correct_bookmark.learning_cycle = LearningCycle.PRODUCTIVE
-        exercises = 0
+        day_interval = 1
         distinct_dates = set()
         last_exercise_date = None
         while not (
-            exercises >= (total_exercises_productive_cycle)
+            day_interval >= (total_exercises_productive_cycle)
             and len(distinct_dates) >= total_exercises_productive_cycle
         ):
             correct_exercise = ExerciseRule(exercise_session).exercise
             correct_exercise.outcome = OutcomeRule().correct
             correct_bookmark.add_new_exercise(correct_exercise)
-            exercises += 1
+
             if not last_exercise_date:
                 last_exercise_date = correct_exercise.time
             else:
                 correct_exercise.time = last_exercise_date + timedelta(
-                    days=exercises * 2
+                    days=day_interval
                 )
+                day_interval += 1
             last_exercise_date = correct_exercise.time
             distinct_dates.add(last_exercise_date.date())
 
