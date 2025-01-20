@@ -1,12 +1,8 @@
 import random
 
 from zeeguu.core.bookmark_quality import top_bookmarks, bad_quality_bookmark
-from zeeguu.core.definition_of_learned import (
-    is_learned_based_on_exercise_outcomes,
-    LEARNING_CYCLE_LENGTH,
-)
+from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-from zeeguu.core.definition_of_learned import LEARNING_CYCLE_LENGTH
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -18,6 +14,9 @@ from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
+from zeeguu.core.word_scheduling import (
+    TwoLearningCyclesPerWord,
+)
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -237,7 +236,9 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
-        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH * 2
+        total_exercises_productive_cycle = (
+            TwoLearningCyclesPerWord.get_learning_cycle_length() * 2
+        )
         correct_bookmark = random_bookmarks[2]
         correct_bookmark.learning_cycle = LearningCycle.PRODUCTIVE
         exercises = 0
@@ -261,6 +262,7 @@ class BookmarkTest(ModelTestMixIn):
             distinct_dates.add(last_exercise_date.date())
 
         correct_bookmark.update_learned_status(db.session)
+        db.session.commit()
 
         learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
         assert learned
@@ -270,14 +272,14 @@ class BookmarkTest(ModelTestMixIn):
         result_time = log.last_exercise_time()
         assert result_time == learned_time_from_log
 
-        # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row
+        # returns False, None
         wrong_exercise_bookmark = random_bookmarks[3]
         wrong_exercise = ExerciseRule(exercise_session).exercise
         wrong_exercise.outcome = OutcomeRule().wrong
         wrong_exercise_bookmark.add_new_exercise(wrong_exercise)
 
         learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
-        print("Testing is not learned")
         assert not learned
 
     def test_is_learned_based_on_exercise_outcomes_receptive_not_set(self):
@@ -286,7 +288,9 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
-        total_exercises_productive_cycle = LEARNING_CYCLE_LENGTH
+        total_exercises_productive_cycle = (
+            TwoLearningCyclesPerWord.get_learning_cycle_length()
+        )
         correct_bookmark = random_bookmarks[2]
         exercises = 0
         distinct_dates = set()
@@ -303,6 +307,7 @@ class BookmarkTest(ModelTestMixIn):
         correct_bookmark.update_learned_status(db.session)
 
         learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
+        db.session.commit()
 
         assert learned
 

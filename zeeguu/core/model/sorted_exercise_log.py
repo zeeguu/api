@@ -1,11 +1,12 @@
-from zeeguu.core.definition_of_learned import LEARNING_CYCLE_LENGTH
-
-
 class SortedExerciseLog(object):
 
     def __init__(self, bookmark):
         self.exercises = sorted(
             bookmark.exercise_log, key=lambda x: x.time, reverse=True
+        )
+        self.bookmark = bookmark
+        self.learning_cycle_length = (
+            bookmark.get_scheduler().get_learning_cycle_length()
         )
 
     # string rep for logging
@@ -27,7 +28,7 @@ class SortedExerciseLog(object):
         distinct_days = self.most_recent_correct_dates()
 
         result = []
-        for day in list(distinct_days)[:LEARNING_CYCLE_LENGTH]:
+        for day in list(distinct_days)[: self.learning_cycle_length]:
             result.append(day.strftime("%b.%d "))
         return " ".join(result)
 
@@ -69,30 +70,33 @@ class SortedExerciseLog(object):
             distinct_days.add(exercise.time.date())
         return distinct_days
 
-    def count_number_of_streaks(self):
-        from datetime import datetime
+    def exercise_streaks_of_given_length(self) -> dict:
+        # returns the number of "exercise streaks" of a given length
+        # a streak is finished either at
+        #   1. end of sequence of corrects
+        #   2. when it arrives at the length of the learning cycle length
 
-        def save_streak(count_dict, current_count):
-            count_dict[current_count] = count_dict.get(current_count, 0) + 1
+        def save_new_streak(streaks_of_length, current_streak_length):
+            streaks_of_length[current_streak_length] = (
+                streaks_of_length.get(current_streak_length, 0) + 1
+            )
 
-        current_streak = 0
-        last_exercise_date = datetime.min.date()
-        total_streak_counts = {}
-        # Go from least recent to most recent.
-        for exercise in self.exercises[::-1]:
+        streaks_of_given_length = {}
+
+        current_streak_length = 0
+        for exercise in self.exercises:
             is_correct = exercise.is_correct()
-            exercise_date = exercise.time.date()
-            if is_correct and (exercise_date > last_exercise_date):
-                current_streak += 1
-                last_exercise_date = exercise_date
-            if not is_correct or current_streak == LEARNING_CYCLE_LENGTH:
+            if is_correct:
+                current_streak_length += 1
+            if not is_correct or current_streak_length == self.learning_cycle_length:
                 # To move to a next cycle you need a streak of 4 exercises.
                 # If the exercise is not correct or is at the end of the cycle
                 # We store that information
-                save_streak(total_streak_counts, current_streak)
-                current_streak = 0
+                save_new_streak(streaks_of_given_length, current_streak_length)
+                current_streak_length = 0
 
-        save_streak(total_streak_counts, current_streak)
+        save_new_streak(streaks_of_given_length, current_streak_length)
+
         # If we want the resulting dictionary sorted by keys.
-        # return dict(sorted(total_streak_counts.items()))
-        return total_streak_counts
+        # return dict(sorted(streaks_of_given_length.items()))
+        return streaks_of_given_length

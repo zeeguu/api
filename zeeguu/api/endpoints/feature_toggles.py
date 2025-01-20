@@ -43,6 +43,10 @@ def features_for_user(user):
 """
 
 
+def is_feature_enabled_for_user(feature_name, user):
+    return feature_name in features_for_user(user)
+
+
 def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
@@ -51,6 +55,7 @@ def _feature_map():
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
         "merle_exercises": _merle_exercises,
+        "exercise_levels": _exercise_levels,
     }
 
 
@@ -70,7 +75,35 @@ def _merle_exercises(user):
         or user.invitation_code == "MerleITU"
         or user.invitation_code == "PTCT"
         or user.invitation_code == "zeeguu-preview"
-        or user.id in [534, 2953, 4022, 4089, 4607]
+        or user.id in [2953, 4089]
+    )
+    return right_user
+
+
+def _exercise_levels(user):
+    right_user = (
+        user.invitation_code == "exercise_levels"
+        or user.is_member_of_cohort
+        in [
+            514,
+            451,
+            523,
+            495,
+            489,
+            519,
+            511,
+            518,
+            473,
+            475,
+            506,
+            496,
+            498,
+            458,
+            474,
+            452,
+            494,
+        ]
+        or user.id in [4192, 534, 4607, 4022]
     )
     return right_user
 
