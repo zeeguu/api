@@ -7,7 +7,7 @@ from flask import request
 from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
 from zeeguu.core.nlp_pipeline import AutoGECTagging, ContextReducer
 from zeeguu.core.model.language import Language
-from zeeguu.core.util.text import (
+from zeeguu.core.tokenization.tokenizer import (
     tokenize_text,
     sent_tokenizer_text,
     split_into_paragraphs,

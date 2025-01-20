@@ -2,7 +2,7 @@ import zeeguu
 from zeeguu.core.model import Bookmark, Article
 from zeeguu.api.app import create_app
 from tqdm import tqdm
-from zeeguu.core.util.text import tokenize_text_flat_array
+from zeeguu.core.tokenization.tokenizer import tokenize_text_flat_array
 from time import time
 
 

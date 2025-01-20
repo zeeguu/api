@@ -227,7 +227,7 @@ def update_translation(bookmark_id):
     if not is_same_context or bookmark.origin.word != word_str:
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
-        from zeeguu.core.util.text import tokenize_text_flat_array
+        from zeeguu.core.tokenization.tokenizer import tokenize_text_flat_array
 
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
@@ -237,9 +237,16 @@ def update_translation(bookmark_id):
         tokenized_bookmark = tokenize_text_flat_array(
             word_str, bookmark.origin.language, False
         )
-        first_token_ocurrence = next(
-            filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
-        )
+        try:
+            first_token_ocurrence = next(
+                filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
+            )
+        except StopIteration as e:
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+            print(e)
+            return "ERROR"
 
         bookmark.sentence_i = first_token_ocurrence.sent_i
         bookmark.token_i = first_token_ocurrence.token_i

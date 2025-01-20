@@ -37,7 +37,7 @@ def test_contribute_own_translation(client):
 
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark = _first_bookmark_on_day1(all_bookmarks)
-    assert ("companion" in str(bookmark))
+    assert "companion" in str(bookmark)
 
 
 def test_update_bookmark(client):
@@ -46,13 +46,12 @@ def test_update_bookmark(client):
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
     bookmark1_id = bookmark1["id"]
-
     # WHEN
     data = dict(
         word=bookmark1["from"],
         url=bookmark1["url"],
         title=bookmark1["title"],
-        context="a new context",
+        context="a new context Freund",
         translation="companion",
     )
 
@@ -61,8 +60,9 @@ def test_update_bookmark(client):
     # THEN
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark = _first_bookmark_on_day1(all_bookmarks)
-    assert ("companion" in str(bookmark))
-    assert ("a new context" in str(bookmark))
+
+    assert "companion" == bookmark["to"]
+    assert "a new context Freund" == bookmark["context"]
 
 
 # Basic hitting of the /top_bookmarks endpoint
@@ -113,6 +113,7 @@ def test_get_known_bookmarks_after_date(client):
 
 
 # # # # # # # # # # # # # # # # # Helper Functions
+
 
 def _get_bookmarks_by_day(client, with_context=True):
     if with_context:

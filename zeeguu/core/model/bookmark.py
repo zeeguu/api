@@ -314,7 +314,7 @@ class Bookmark(db.Model):
 
         result["from"] = self.origin.word
         if with_context:
-            from zeeguu.core.util.text import tokenize_text
+            from zeeguu.core.tokenization.tokenizer import tokenize_text
 
             result["context"] = self.text.content
             result["context_tokenized"] = tokenize_text(
