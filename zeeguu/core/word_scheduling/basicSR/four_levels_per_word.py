@@ -8,9 +8,9 @@ MAX_LEVEL = 4
 COOLING_INTERVAL_TO_LEVEL_MAPPING = {
     0: 1,
     ONE_DAY: 1,
-    2 * ONE_DAY: 2,
-    4 * ONE_DAY: 3,
-    8 * ONE_DAY: 4,
+    2 * ONE_DAY: 1,
+    4 * ONE_DAY: 2,
+    8 * ONE_DAY: 2,
 }
 
 # Levels can be 1,2,3,4
@@ -51,22 +51,25 @@ class FourLevelsPerWord(BasicSRSchedule):
             exercise_time = datetime.now()
 
         level_before_this_exercises = self.bookmark.level
-        new_cooling_interval = None
 
+        # ================================================================================================
         # handle bookmark that was migrated from the learning cycle scheduler
         # level can only be 0 if we did never encounter this bookmark in the context of levels SR
+        # ================================================================================================
         if level_before_this_exercises == 0:
             newly_mapped_level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
                 self.cooling_interval, 1
             )
+            # if the user was in learning_cycle 2 we offset the levels with 2
+            if self.bookmark.learning_cycle == 2:
+                newly_mapped_level += 2
             self.bookmark.level = newly_mapped_level
-            db_session.add(self.bookmark)
 
-            # if we map on max level, we reset cooling so we give the learner the chance to
-            # do one more time the final level before learning (and also because there's some
-            # issue with the front-end)
-            if newly_mapped_level == MAX_LEVEL:
-                new_cooling_interval = 0
+            # cooling interval is always reset
+            self.bookmark.cooling_interval = 0
+
+            db_session.add(self.bookmark)
+            # end of bookmark migration
 
         if correctness:
             # Update level for bookmark or mark as learned
