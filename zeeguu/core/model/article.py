@@ -274,7 +274,9 @@ class Article(db.Model):
             result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
                 self.content, flatten=False
             )
-            result_dict["tokenized_title"] = tokenizer.tokenize_text(self.title)
+            result_dict["tokenized_title"] = tokenizer.tokenize_text(
+                self.title, flatten=False
+            )
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 
