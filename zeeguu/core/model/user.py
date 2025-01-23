@@ -624,6 +624,7 @@ class User(db.Model):
         article_id,
         with_context,
         with_title=False,
+        with_tokens=False,
         good_for_study=False,
         json=True,
     ):
@@ -654,7 +655,11 @@ class User(db.Model):
             return bookmarks
 
         for each in bookmarks:
-            json_bookmarks.append(each.json_serializable_dict(with_context, with_title))
+            json_bookmarks.append(
+                each.json_serializable_dict(
+                    with_context, with_title, with_tokens=with_tokens
+                )
+            )
 
         return json_bookmarks
 
