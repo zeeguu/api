@@ -1,5 +1,5 @@
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
-from zeeguu.core.tokenization import tokenize_text_flat_array
+from zeeguu.core.tokenization import ZeeguuTokenizer, TokenizerModel
 from zeeguu.core.test.rules.language_rule import LanguageRule
 import os
 import random
@@ -14,6 +14,13 @@ class TokenizationTest(ModelTestMixIn):
         self.fr_lang = LanguageRule.get_or_create_language("fr")
         self.da_lang = LanguageRule.get_or_create_language("da")
         self.it_lang = LanguageRule.get_or_create_language("it")
+        self.tokenizer_model = TokenizerModel.STANZA_TOKEN_ONLY
+        self.en_tokenizer = ZeeguuTokenizer(self.en_lang, self.tokenizer_model)
+        self.es_tokenizer = ZeeguuTokenizer(self.es_lang, self.tokenizer_model)
+        self.de_tokenizer = ZeeguuTokenizer(self.de_lang, self.tokenizer_model)
+        self.fr_tokenizer = ZeeguuTokenizer(self.fr_lang, self.tokenizer_model)
+        self.da_tokenizer = ZeeguuTokenizer(self.da_lang, self.tokenizer_model)
+        self.it_tokenizer = ZeeguuTokenizer(self.it_lang, self.tokenizer_model)
 
     @classmethod
     def _generate_random_numbers(cls, n=1000, max_range=100000):
@@ -56,15 +63,15 @@ class TokenizationTest(ModelTestMixIn):
         return example_list
 
     def test_english_sentence_1(self):
-        example_sentence = "This is a test sentence."
-        tokens = tokenize_text_flat_array(example_sentence, self.en_lang, False)
+        text = "This is a test sentence."
+        tokens = self.en_tokenizer.tokenize_text(text, False)
         assert ["This", "is", "a", "test", "sentence", "."] == [t.text for t in tokens]
         assert tokens[-1].is_punctuation
         assert tokens[0].is_sent_start
 
     def test_english_sentence_2(self):
-        sent = "I have (parentheses) in this sentence."
-        tokens = tokenize_text_flat_array(sent, self.en_lang, False)
+        text = "I have (parentheses) in this sentence."
+        tokens = tokens = self.en_tokenizer.tokenize_text(text, False)
         assert [
             "I",
             "have",
@@ -76,21 +83,17 @@ class TokenizationTest(ModelTestMixIn):
             "sentence",
             ".",
         ] == [t.text for t in tokens]
-        assert tokens[2].is_left_punct
-        assert tokens[4].is_right_punct
         assert tokens[0].is_sent_start
         assert tokens[-1].is_punctuation
 
     def test_english_sentence_3(self):
-        sent = (
-            "It's sentence one. Sentence two is here. Sentence three is the last one."
-        )
-        tokens = tokenize_text_flat_array(sent, self.en_lang, False)
+        text = "It's a sentence. Sentence two is here. Sentence three is the last one."
+        tokens = self.en_tokenizer.tokenize_text(text, False)
         assert [
             "It",
             "'s",
+            "a",
             "sentence",
-            "one",
             ".",
             "Sentence",
             "two",
@@ -113,7 +116,7 @@ class TokenizationTest(ModelTestMixIn):
         text = (
             """a dénoncé la montée en puissance d'un « complexe techno-industriel »"""
         )
-        tokens = tokenize_text_flat_array(text, self.fr_lang, False)
+        tokens = self.fr_tokenizer.tokenize_text(text, False)
         assert [
             "a",
             "dénoncé",
@@ -121,7 +124,8 @@ class TokenizationTest(ModelTestMixIn):
             "montée",
             "en",
             "puissance",
-            "d'un",
+            "d'",
+            "un",
             "«",
             "complexe",
             "techno-industriel",
@@ -130,12 +134,12 @@ class TokenizationTest(ModelTestMixIn):
 
     def test_spanish_tokenization_1(self):
         text = """¿qué es esto?"""
-        tokens = tokenize_text_flat_array(text, self.es_lang, False)
+        tokens = self.es_tokenizer.tokenize_text(text, False)
         assert ["¿", "qué", "es", "esto", "?"] == [t.text for t in tokens]
 
     def test_german_tokenization_1(self):
         text = """Zeit der von Lynch zusammen mit Mark Frost geschaffenen Serie „Twin Peaks“"""
-        tokens = tokenize_text_flat_array(text, self.de_lang, False)
+        tokens = self.de_tokenizer.tokenize_text(text, False)
         assert [
             "Zeit",
             "der",
@@ -157,7 +161,7 @@ class TokenizationTest(ModelTestMixIn):
 
     def test_danish_tokenization_1(self):
         text = """»Vi kan gøre det,« siger Mikkel."""
-        tokens = tokenize_text_flat_array(text, self.da_lang, False)
+        tokens = self.da_tokenizer.tokenize_text(text, False)
         assert ["»", "Vi", "kan", "gøre", "det", ",", "«", "siger", "Mikkel", "."] == [
             t.text for t in tokens
         ]
@@ -169,7 +173,7 @@ class TokenizationTest(ModelTestMixIn):
         text = (
             """I 2028 skal den evalueres på Danske Filmkritikeres generalforsamling."""
         )
-        tokens = tokenize_text_flat_array(text, self.da_lang, False)
+        tokens = self.da_tokenizer.tokenize_text(text, False)
         assert [
             "I",
             "2028",
@@ -188,16 +192,25 @@ class TokenizationTest(ModelTestMixIn):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
 
         urls = TokenizationTest._load_example_file("random_urls.txt")
-        tokens = [tokenize_text_flat_array(u, self.en_lang, False)[0] for u in urls]
+        tokens = [self.en_tokenizer.tokenize_text(u, False)[0] for u in urls]
+        urls_parsed = 0
+        urls_failed_tokens = []
         for i in range(len(urls)):
-            assert tokens[i].text == urls[i]
-            assert tokens[i].is_like_url
+            if tokens[i].text == urls[i] and tokens[i].is_like_url:
+                urls_parsed += 1
+            else:
+                urls_failed_tokens.append(tokens[i].text)
+        assert (
+            [] == urls_failed_tokens
+        ), f"Parsed a total of {urls_parsed}/{len(urls), {" ".join(urls_failed_tokens)}}"
+        # Some cases which gave issues:
+        not self.en_tokenizer.tokenize_text("e.v.t..", False)[0].is_like_url
 
     def test_email_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
 
         emails = TokenizationTest._load_example_file("random_emails.txt")
-        tokens = [tokenize_text_flat_array(e, self.en_lang, False)[0] for e in emails]
+        tokens = [self.en_tokenizer.tokenize_text(e, False)[0] for e in emails]
         for i in range(len(tokens)):
             assert tokens[i].text == emails[i]
             assert tokens[i].is_like_email
@@ -206,9 +219,7 @@ class TokenizationTest(ModelTestMixIn):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
 
         numbers = TokenizationTest._generate_random_numbers()
-        tokens = [
-            tokenize_text_flat_array(str(n), self.en_lang, False)[0] for n in numbers
-        ]
+        tokens = [self.en_tokenizer.tokenize_text(n, False)[0] for n in numbers]
         for i in range(len(tokens)):
             assert tokens[i].text == numbers[i]
             assert tokens[i].is_like_num

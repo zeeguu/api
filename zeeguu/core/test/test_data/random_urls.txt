@@ -1,4 +1,4 @@
-# Random URLs from https://www.randomlists.com/urls?qty=50
+# Random URLs from https://www.randomlists.com/urls?qty=50 
 https://acoustics.example.com/
 https://www.example.com/
 https://www.example.org/act
@@ -49,3 +49,12 @@ https://birds.example.com/badge
 https://www.example.com/air/attraction.html
 http://www.example.com/
 http://example.com/behavior.html
+www.example.com/
+www.example.org/
+www.example.org/arithmetic
+www.example.com/?bite=babies
+www.example.com/bear/badge#bite
+www.example.com/?afterthought=afternoon
+www.example.com/?berry=bedroom
+www.example.com/air/attraction.html
+www.example.com/
