@@ -3,17 +3,17 @@ from string import punctuation
 
 
 class Token:
-    PUNCTUATION = "»«" + punctuation + "–—“‘”“’„¿"
-    LEFT_PUNCTUATION = "«<({#„¿[“"
-    RIGHT_PUNCTUATION = "»>)}]”"
+    PUNCTUATION = "»«" + punctuation + "–—“‘”“’„¿»«"
+    LEFT_PUNCTUATION = "<({#„¿[“"
+    RIGHT_PUNCTUATION = ">)}]”"
     NUM_REGEX = re.compile(r"[0-9]+(\.|,)*[0-9]*")
 
     # I started from a generated Regex from Co-Pilot and then tested it
     # against a variety of reandom generated links. Generally it seems to work fine,
     # but not likely to be perfect in all situations.
-    EMAIL_REGEX = re.compile(r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)")
+    EMAIL_REGEX = re.compile(r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{1,4})")
     URL_REGEX = re.compile(
-        r"(((http|https)://)?(www\.)?([a-zA-Z0-9@\-/\.]+\.[a-z]{1,4}/([a-zA-Z0-9?=\.&#/]+)?)+)"
+        r"(((http|https)://)?(www\.)?([a-zA-Z0-9@\-/\.]+\.[a-z]{2,4}/?([a-zA-Z0-9?=\.&#/]+)?)+)"
     )
 
     @classmethod
@@ -26,7 +26,7 @@ class Token:
 
     @classmethod
     def is_punctuation(cls, text):
-        return text in Token.PUNCTUATION or text == "..."
+        return text in Token.PUNCTUATION or text == "..." or text == "…"
 
     @classmethod
     def _token_punctuation_processing(cls, text):
@@ -38,7 +38,9 @@ class Token:
         text = text.replace("''", '"')
         return text
 
-    def __init__(self, text, par_i=None, sent_i=None, token_i=None):
+    def __init__(
+        self, text, par_i=None, sent_i=None, token_i=None, has_space=None, pos=None
+    ):
         """
         sent_i - the sentence in the overall text.
         token_i - the index of the token in the original sentence.
@@ -54,6 +56,8 @@ class Token:
         self.is_like_email = Token.is_like_email(text)
         self.is_like_url = Token.is_like_url(text)
         self.is_like_num = Token.NUM_REGEX.match(text) is not None
+        self.has_space = has_space
+        self.pos = pos
 
     def __repr__(self):
         return self.text
@@ -71,4 +75,6 @@ class Token:
             "paragraph_i": self.par_i,
             "is_like_email": self.is_like_email,
             "is_like_url": self.is_like_url,
+            "has_space": self.has_space,
+            "pos": self.pos,
         }
