@@ -227,16 +227,14 @@ def update_translation(bookmark_id):
     if not is_same_context or bookmark.origin.word != word_str:
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
-        from zeeguu.core.tokenization.tokenizer import tokenize_text_flat_array
+        from zeeguu.core.tokenization.tokenizer import ZeeguuTokenizer
+        from zeeguu.core.tokenization import TOKENIZER_MODEL
 
+        tokenizer = ZeeguuTokenizer(bookmark.origin.language, TOKENIZER_MODEL)
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
-        tokenized_text = tokenize_text_flat_array(
-            text.content, bookmark.origin.language, False
-        )
-        tokenized_bookmark = tokenize_text_flat_array(
-            word_str, bookmark.origin.language, False
-        )
+        tokenized_text = tokenizer.tokenize_text(text.content, False)
+        tokenized_bookmark = tokenizer.tokenize_text(word_str, False)
         try:
             first_token_ocurrence = next(
                 filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)

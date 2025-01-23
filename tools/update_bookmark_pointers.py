@@ -2,7 +2,8 @@ import zeeguu
 from zeeguu.core.model import Bookmark, Article
 from zeeguu.api.app import create_app
 from tqdm import tqdm
-from zeeguu.core.tokenization.tokenizer import tokenize_text_flat_array
+from zeeguu.core.tokenization.tokenizer import ZeeguuTokenizer
+from zeeguu.core.tokenization import TOKENIZER_MODEL
 from time import time
 
 
@@ -17,15 +18,10 @@ def update_bookmark_pointer(bookmark):
     article = Article.find_by_id(text.article_id)
     if not article:
         return False
-    tokenize_article_content = tokenize_text_flat_array(
-        article.content, article.language, False
-    )
-    tokenized_text = tokenize_text_flat_array(
-        text.content, bookmark.origin.language, False
-    )
-    tokenized_bookmark = tokenize_text_flat_array(
-        bookmark.origin.word, bookmark.origin.language, False
-    )
+    tokenizer = ZeeguuTokenizer(article.language, TOKENIZER_MODEL)
+    tokenize_article_content = tokenizer.tokenize_text(article.content, False)
+    tokenized_text = tokenizer.tokenize_text(text.content, False)
+    tokenized_bookmark = tokenizer.tokenize_text(bookmark.origin.word, False)
 
     # Find the first token of the context
     context_found = False

@@ -226,7 +226,9 @@ class Bookmark(db.Model):
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
 
-    def json_serializable_dict(self, with_context=True, with_title=False):
+    def json_serializable_dict(
+        self, with_context=True, with_title=False, with_tokens=False
+    ):
         try:
             translation_word = self.translation.word
             translation_language = self.translation.language.code
@@ -314,13 +316,17 @@ class Bookmark(db.Model):
 
         result["from"] = self.origin.word
         if with_context:
-            from zeeguu.core.tokenization.tokenizer import tokenize_text
-
             result["context"] = self.text.content
-            result["context_tokenized"] = tokenize_text(
-                self.text.content, self.origin.language
-            )
+            if with_tokens:
+                from zeeguu.core.tokenization.tokenizer import (
+                    ZeeguuTokenizer,
+                )
+                from zeeguu.core.tokenization import TOKENIZER_MODEL
 
+                tokenizer = ZeeguuTokenizer(self.origin.language, TOKENIZER_MODEL)
+                result["context_tokenized"] = tokenizer.tokenize_text(
+                    self.text.content, flatten=False
+                )
         return result
 
     @classmethod
