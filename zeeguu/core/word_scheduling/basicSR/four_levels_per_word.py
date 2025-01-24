@@ -68,6 +68,11 @@ class FourLevelsPerWord(BasicSRSchedule):
             # cooling interval is always reset
             self.bookmark.cooling_interval = 0
 
+            # extra bonus for receptive and cooling cycle 8
+            if self.bookmark.learning_cycle == 1:
+                if self.bookmark.cooling_interval == ONE_DAY * 8:
+                    self.bookmark.level += 1
+
             db_session.add(self.bookmark)
             # end of bookmark migration
 
