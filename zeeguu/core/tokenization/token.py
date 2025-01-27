@@ -4,8 +4,9 @@ from string import punctuation
 
 class Token:
     PUNCTUATION = "»«" + punctuation + "–—“‘”“’„¿»«"
-    LEFT_PUNCTUATION = "<({#„¿[“"
-    RIGHT_PUNCTUATION = ">)}]”"
+    SYMBOLS = "©€£$#&@<=>§¢¥¤®º"
+    LEFT_PUNCTUATION = "({#„¿[“"
+    RIGHT_PUNCTUATION = ")}]”"
     NUM_REGEX = re.compile(r"[0-9]+(\.|,)*[0-9]*")
 
     # I started from a generated Regex from Co-Pilot and then tested it
@@ -22,6 +23,10 @@ class Token:
 
     @classmethod
     def is_like_url(cls, text):
+        return Token.URL_REGEX.match(text) is not None
+
+    @classmethod
+    def is_like_symbols(cls, text):
         return Token.URL_REGEX.match(text) is not None
 
     @classmethod
@@ -48,6 +53,7 @@ class Token:
         self.text = Token._token_punctuation_processing(text)
         self.is_sent_start = token_i == 0
         self.is_punct = Token.is_punctuation(self.text)
+        self.is_symbol = Token.is_like_symbols(self.text)
         self.is_left_punct = text in Token.LEFT_PUNCTUATION
         self.is_right_punct = text in Token.RIGHT_PUNCTUATION
         self.par_i = par_i
@@ -67,6 +73,7 @@ class Token:
             "text": self.text,
             "is_sent_start": self.is_sent_start,
             "is_punct": self.is_punct,
+            "is_symbol": self.is_symbol,
             "is_left_punct": self.is_left_punct,
             "is_right_punct": self.is_right_punct,
             "is_like_num": self.is_like_num,
