@@ -90,6 +90,26 @@ So for running the development server this is ok, but for actual development, th
 - run `docker compose up`
 - once everything is up, go to `localhost:8080/available_languages`: if you see an array like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
+### Note on non x84/x64 Chips 
+
+If you have a Mac with the M chips, then you might find the following error when running `docker-compose`:
+
+```
+Error response from daemon: no matching manifest for linux/arm64/v8 in the manifest list entries: no match for platform in manifest: not found
+```
+
+To solve this make sure to add the following line to the docker-compose containers with mysql: platform: `linux/amd64`, e.g:
+
+```
+services:
+  # main db
+  mysql:
+    image: mysql:5.7
+    platform: linux/amd64
+...
+```
+
+
 ## Developing
 
 Once you make changes to the code you have to restart the apache2ctl inside the container. To test this do the following:
