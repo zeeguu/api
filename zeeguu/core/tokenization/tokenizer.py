@@ -229,7 +229,7 @@ class ZeeguuTokenizer:
                 if len(t_dict) > 1:
                     # We have a composed token (of multiple tokens)
                     # The first is the composed token
-                    t_dict = t_dict[1:]
+                    t_dict = [t_dict[0]]
                 for t_details in t_dict:
                     has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
                     sent_list.append(
