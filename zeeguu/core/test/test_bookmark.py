@@ -14,9 +14,7 @@ from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
-from zeeguu.core.word_scheduling import (
-    TwoLearningCyclesPerWord,
-)
+from zeeguu.core.word_scheduling import TwoLearningCyclesPerWord, FourLevelsPerWord
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -26,6 +24,11 @@ class BookmarkTest(ModelTestMixIn):
         self.user_rule = UserRule()
         self.user_rule.add_bookmarks(random.randint(3, 5))
         self.user = self.user_rule.user
+
+        self.user_rule_cycle = UserRule()
+        self.user_rule_cycle.add_bookmarks(random.randint(3, 5))
+        self.user_learning_cycle = self.user_rule_cycle.user
+        self.user_learning_cycle.invitation_code = "learning-cycle"
 
     def test_user_has_bookmarks(self):
         assert self.user.has_bookmarks()
@@ -232,8 +235,10 @@ class BookmarkTest(ModelTestMixIn):
         from zeeguu.core.model.learning_cycle import LearningCycle
         from datetime import timedelta
 
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_bookmarks = [
+            BookmarkRule(self.user_learning_cycle).bookmark for _ in range(0, 4)
+        ]
+        exercise_session = ExerciseSessionRule(self.user_learning_cycle).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
         total_exercises_productive_cycle = (
@@ -285,8 +290,10 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_is_learned_based_on_exercise_outcomes_receptive_not_set(self):
 
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        random_bookmarks = [
+            BookmarkRule(self.user_learning_cycle).bookmark for _ in range(0, 4)
+        ]
+        exercise_session = ExerciseSessionRule(self.user_learning_cycle).exerciseSession
         # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
         # returns true and the time of the last exercise
         total_exercises_productive_cycle = (
@@ -298,6 +305,47 @@ class BookmarkTest(ModelTestMixIn):
         while not (
             exercises >= (total_exercises_productive_cycle)
             and len(distinct_dates) >= total_exercises_productive_cycle
+        ):
+            correct_exercise = ExerciseRule(exercise_session).exercise
+            correct_exercise.outcome = OutcomeRule().correct
+            correct_bookmark.add_new_exercise(correct_exercise)
+            exercises += 1
+            distinct_dates.add(correct_exercise.time.date())
+
+        correct_bookmark.update_learned_status(db.session)
+
+        learned = correct_bookmark.is_learned_based_on_exercise_outcomes()
+        db.session.commit()
+
+        assert learned
+
+        log = SortedExerciseLog(correct_bookmark)
+        learned_time_from_log = log.last_exercise_time()
+        result_time = log.last_exercise_time()
+        assert result_time == learned_time_from_log
+
+        # A bookmark with no TOO EASY outcome or less than 5 correct exercises in a row returns False, None
+        wrong_exercise_bookmark = random_bookmarks[3]
+        wrong_exercise = ExerciseRule(exercise_session).exercise
+        wrong_exercise.outcome = OutcomeRule().wrong
+        random_bookmarks[3].add_new_exercise(wrong_exercise)
+
+        learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
+        assert not learned
+
+    def test_is_learned_based_on_exercise_outcomes_levels(self):
+
+        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        # A bookmark with CORRECTS_IN_A_ROW_FOR_LEARNED correct exercises in a row
+        # returns true and the time of the last exercise
+        total_exercises_levels = FourLevelsPerWord.get_learning_cycle_length()
+        correct_bookmark = random_bookmarks[2]
+        exercises = 0
+        distinct_dates = set()
+        while not (
+            exercises >= (total_exercises_levels)
+            and len(distinct_dates) >= total_exercises_levels
         ):
             correct_exercise = ExerciseRule(exercise_session).exercise
             correct_exercise.outcome = OutcomeRule().correct
