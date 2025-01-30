@@ -77,6 +77,28 @@ def banned_url(url):
     return False
 
 
+def extract_article_image(np_article):
+    if np_article.top_image != "":
+        # from https://stackoverflow.com/questions/7391945/how-do-i-read-image-data-from-a-url-in-python
+        from PIL import Image
+        import requests
+        from io import BytesIO
+
+        try:
+            response = requests.get(np_article.top_image)
+            im = Image.open(BytesIO(response.content))
+            im_x, im_y = im.size
+            # Quality Check that the image is at least 300x300 ( not an icon )
+            if im_x < 300 and im_y < 300:
+                print("Skipped image due to low resolution")
+            else:
+                return np_article.top_image
+        except Exception as e:
+            print(f"Failed to parse image: '{e}'")
+            return ""
+        return ""
+
+
 def download_from_feed(
     feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True
 ):
@@ -314,23 +336,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         session.add(new_article)
         raise SkippedForLowQuality(reason)
 
-    if np_article.top_image != "":
-        # from https://stackoverflow.com/questions/7391945/how-do-i-read-image-data-from-a-url-in-python
-        from PIL import Image
-        import requests
-        from io import BytesIO
-
-        try:
-            response = requests.get(np_article.top_image)
-            im = Image.open(BytesIO(response.content))
-            im_x, im_y = im.size
-            # Quality Check that the image is at least 300x300 ( not an icon )
-            if im_x < 300 and im_y < 300:
-                print("Skipped image due to low resolution")
-            else:
-                new_article.img_url = Url.find_or_create(session, np_article.top_image)
-        except Exception as e:
-            print(f"Failed to parse image: '{e}'")
+    img_url = extract_article_image(np_article)
+    if img_url != "":
+        new_article.img_url = Url.find_or_create(session, img_url)
 
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
@@ -346,7 +354,7 @@ def add_topics(new_article, feed, url_keywords, session):
         121: 8,  # Lercio IT
     }
     # Handle Hard coded Feeds
-    if feed.id in HARDCODED_FEEDS:
+    if feed is not None and feed.id in HARDCODED_FEEDS:
         print("Used HARDCODED feed")
         topic = Topic.find_by_id(HARDCODED_FEEDS[feed.id])
         new_article.add_topic_if_doesnt_exist(
