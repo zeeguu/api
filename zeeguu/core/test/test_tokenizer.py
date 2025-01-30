@@ -14,6 +14,7 @@ class TokenizationTest(ModelTestMixIn):
         self.fr_lang = LanguageRule.get_or_create_language("fr")
         self.da_lang = LanguageRule.get_or_create_language("da")
         self.it_lang = LanguageRule.get_or_create_language("it")
+        self.pt_lang = LanguageRule.get_or_create_language("pt")
         self.tokenizer_model = TokenizerModel.STANZA_TOKEN_ONLY
         self.en_tokenizer = ZeeguuTokenizer(self.en_lang, self.tokenizer_model)
         self.es_tokenizer = ZeeguuTokenizer(self.es_lang, self.tokenizer_model)
@@ -21,6 +22,7 @@ class TokenizationTest(ModelTestMixIn):
         self.fr_tokenizer = ZeeguuTokenizer(self.fr_lang, self.tokenizer_model)
         self.da_tokenizer = ZeeguuTokenizer(self.da_lang, self.tokenizer_model)
         self.it_tokenizer = ZeeguuTokenizer(self.it_lang, self.tokenizer_model)
+        self.pt_tokenizer = ZeeguuTokenizer(self.pt_lang, self.tokenizer_model)
 
     @classmethod
     def _generate_random_numbers(cls, n=1000, max_range=100000):
@@ -136,6 +138,31 @@ class TokenizationTest(ModelTestMixIn):
         tokens = self.es_tokenizer.tokenize_text(text, False)
         assert ["¿", "qué", "es", "esto", "?"] == [t.text for t in tokens]
 
+    def test_spanish_tokenization_2(self):
+        text = """La alternativa a este modelo es la «hipótesis monogenista», conocida popularmente como «Eva africana»"""
+        tokens = self.es_tokenizer.tokenize_text(text, False)
+        assert [
+            "La",
+            "alternativa",
+            "a",
+            "este",
+            "modelo",
+            "es",
+            "la",
+            "«",
+            "hipótesis",
+            "monogenista",
+            "»",
+            ",",
+            "conocida",
+            "popularmente",
+            "como",
+            "«",
+            "Eva",
+            "africana",
+            "»",
+        ] == [t.text for t in tokens]
+
     def test_german_tokenization_1(self):
         text = """Zeit der von Lynch zusammen mit Mark Frost geschaffenen Serie „Twin Peaks“"""
         tokens = self.de_tokenizer.tokenize_text(text, False)
@@ -186,6 +213,24 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[1].is_like_num
+
+    def test_danish_tokenization_2(self):
+        text = """Eu estou a testar o Tokenizer nas frazes do Zeeguu."""
+        tokens = self.pt_tokenizer.tokenize_text(text, False)
+        assert [
+            "Eu",
+            "estou",
+            "a",
+            "testar",
+            "o",
+            "Tokenizer",
+            "nas",
+            "frazes",
+            "do",
+            "Zeeguu",
+            ".",
+        ] == [t.text for t in tokens]
+        assert tokens[0].is_sent_start
 
     def test_url_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
