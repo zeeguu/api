@@ -57,10 +57,11 @@ while True:
         print("#" * 10 + " NLTK " + "#" * 10)
         for token in tokens:
             pprint(token)
-            print("####")
+            print("#" * 5)
         print("#" * 10 + " stanza " + "#" * 10)
         for token in stanza_tokens:
-            print(token)
+            pprint(token)
+            print("#" * 5)
         print("#" * 10 + " spaCy " + "#" * 10)
         for t in spacy_tokens:
             print(t, t.lemma_, t.pos_, t.dep_)

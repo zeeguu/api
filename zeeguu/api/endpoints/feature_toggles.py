@@ -74,38 +74,14 @@ def _merle_exercises(user):
         user.invitation_code == "Merle"
         or user.invitation_code == "MerleITU"
         or user.invitation_code == "PTCT"
-        or user.invitation_code == "zeeguu-preview"
-        or user.id in [2953, 4089]
+        or user.id in [2953]
     )
     return right_user
 
 
 def _exercise_levels(user):
-    right_user = (
-        user.invitation_code == "exercise_levels"
-        or user.is_member_of_cohort
-        in [
-            514,
-            451,
-            523,
-            495,
-            489,
-            519,
-            511,
-            518,
-            473,
-            475,
-            506,
-            496,
-            498,
-            458,
-            474,
-            452,
-            494,
-        ]
-        or user.id in [4192, 534, 4607, 4022]
-    )
-    return right_user
+    "This is such a cool feature that it should be used by everybody"
+    return True
 
 
 def _no_audio_exercises(user):
