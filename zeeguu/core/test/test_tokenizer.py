@@ -90,8 +90,7 @@ class TokenizationTest(ModelTestMixIn):
         text = "It's a sentence. Sentence two is here. Sentence three is the last one."
         tokens = self.en_tokenizer.tokenize_text(text, False)
         assert [
-            "It",
-            "'s",
+            "It's",
             "a",
             "sentence",
             ".",
@@ -109,8 +108,8 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[-1].is_punctuation
-        assert tokens[5].is_sent_start
-        assert tokens[10].is_sent_start
+        assert tokens[4].is_sent_start
+        assert tokens[9].is_sent_start
 
     def test_french_tokenization_1(self):
         text = (
