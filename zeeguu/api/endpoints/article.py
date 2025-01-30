@@ -31,17 +31,12 @@ def find_or_create_article():
     """
 
     url = request.form.get("url", "")
-    html_content = request.form.get("htmlContent", "")
-    title = request.form.get("title", "")
-    authors = request.form.get("authors", "")
 
     if not url:
         flask.abort(400)
 
     try:
-        article = Article.find_or_create(
-            db_session, url, html_content=html_content, title=title, authors=authors
-        )
+        article = Article.find_or_create(db_session, url)
         return json_result(article.article_info())
     except NoResultFound as e:
         flask.abort(406, "Language not supported")
