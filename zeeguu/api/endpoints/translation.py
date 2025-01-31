@@ -220,10 +220,8 @@ def update_translation(bookmark_id):
         prev_text.in_content if is_same_context else None,
     )
 
-    bookmark.origin = origin
     bookmark.translation = translation
     bookmark.text = text
-
     if not is_same_context or bookmark.origin.word != word_str:
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
@@ -249,6 +247,8 @@ def update_translation(bookmark_id):
         bookmark.sentence_i = first_token_ocurrence.sent_i
         bookmark.token_i = first_token_ocurrence.token_i
         bookmark.total_tokens = len(tokenized_bookmark)
+
+    bookmark.origin = origin
 
     db_session.add(bookmark)
     db_session.commit()
