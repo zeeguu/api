@@ -33,7 +33,9 @@ def top_bookmarks_route(count):
     """
     user = User.find_by_id(flask.g.user_id)
     bookmarks = top_bookmarks(user, count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -46,7 +48,9 @@ def learned_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.learned_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -59,7 +63,9 @@ def starred_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.starred_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -134,19 +140,31 @@ def bookmarks_for_article(article_id, user_id):
     return json_result(dict(bookmarks=bookmarks, article_title=article.title))
 
 
-@api.route("/bookmarks_to_study_for_article/<int:article_id>", methods=["POST", "GET"])
+@api.route(
+    "/bookmarks_to_study_for_article/<int:article_id>",
+    methods=["POST", "GET"],
+)
+@api.route(
+    "/bookmarks_to_study_for_article/<int:article_id>/<with_tokens>",
+    methods=["POST", "GET"],
+)
 @cross_domain
 @requires_session
-def bookmarks_to_study_for_article(article_id):
-
+def bookmarks_to_study_for_article(article_id, with_tokens=None):
+    with_tokens = with_tokens == "with_tokens"
     user = User.find_by_id(flask.g.user_id)
-    article = Article.query.filter_by(id=article_id).one()
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True, good_for_study=True
+        article_id,
+        with_context=True,
+        with_title=True,
+        good_for_study=True,
+        with_tokens=with_tokens,
+        json=True,
     )
+    print(bookmarks)
 
-    return json_result(dict(bookmarks=bookmarks, article_title=article.title))
+    return json_result(bookmarks)
 
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])
