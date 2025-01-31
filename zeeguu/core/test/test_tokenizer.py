@@ -133,6 +133,7 @@ class TokenizationTest(ModelTestMixIn):
             "techno-industriel",
             "»",
         ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_spanish_tokenization_1(self):
         text = """¿qué es esto?"""
