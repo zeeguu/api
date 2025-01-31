@@ -39,6 +39,8 @@ NLTK_SUPPORTED_LANGUAGES = set(
 
 PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
+PARTICLE_APOSTROPHE_BEFORE_WORD = re.compile(r"(\w+('|’))")
+
 URL_PLACEHOLDER = "#URL#"
 EMAIL_PLACEHOLDER = "#EMAIL#"
 
@@ -224,17 +226,34 @@ class ZeeguuTokenizer:
         for sentence in doc.sentences:
             sent_list = []
             is_new_paragraph = False
-            for t_i, token in enumerate(sentence.tokens):
+            accumulator = ""
+            t_i = 0
+            for token in sentence.tokens:
                 t_dict = token.to_dict()
                 if len(t_dict) > 1:
                     # We have a composed token (of multiple tokens)
                     # The first is the composed token
                     t_dict = [t_dict[0]]
                 for t_details in t_dict:
+                    text = t_details["text"]
+                    apostrophe = PARTICLE_APOSTROPHE_BEFORE_WORD.match(
+                        t_details["text"]
+                    )
+                    if apostrophe and apostrophe.group(0) == text:
+                        # Handle the case where in French and Italian the tokens are seperated
+                        # e.g. l'un, we want l'un as a token rather than l' and un
+                        accumulator += text
+                        break
+
+                    if accumulator != "":
+                        # Combine the acumulated token with the current token.
+                        text = accumulator + text
+                        accumulator = ""
+
                     has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
                     sent_list.append(
                         self._get_token(
-                            t_details["text"],
+                            text,
                             len(result),
                             s_i,
                             t_i,
@@ -245,6 +264,7 @@ class ZeeguuTokenizer:
                             pos=t_details.get("upos", None),
                         )
                     )
+                    t_i += 1
                     if PARAGRAPH_DELIMITER.search(t_details.get("misc", "")):
                         is_new_paragraph = True
             current_paragraph.append(sent_list)

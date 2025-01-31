@@ -68,6 +68,7 @@ class TokenizationTest(ModelTestMixIn):
         text = "This is a test sentence."
         tokens = self.en_tokenizer.tokenize_text(text, False)
         assert ["This", "is", "a", "test", "sentence", "."] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
         assert tokens[-1].is_punctuation
         assert tokens[0].is_sent_start
 
@@ -85,6 +86,7 @@ class TokenizationTest(ModelTestMixIn):
             "sentence",
             ".",
         ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
         assert tokens[0].is_sent_start
         assert tokens[-1].is_punctuation
 
@@ -125,8 +127,7 @@ class TokenizationTest(ModelTestMixIn):
             "montée",
             "en",
             "puissance",
-            "d'",
-            "un",
+            "d'un",
             "«",
             "complexe",
             "techno-industriel",
@@ -137,6 +138,7 @@ class TokenizationTest(ModelTestMixIn):
         text = """¿qué es esto?"""
         tokens = self.es_tokenizer.tokenize_text(text, False)
         assert ["¿", "qué", "es", "esto", "?"] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_spanish_tokenization_2(self):
         text = """La alternativa a este modelo es la «hipótesis monogenista», conocida popularmente como «Eva africana»"""
@@ -162,6 +164,7 @@ class TokenizationTest(ModelTestMixIn):
             "africana",
             "»",
         ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_german_tokenization_1(self):
         text = """Zeit der von Lynch zusammen mit Mark Frost geschaffenen Serie „Twin Peaks“"""
@@ -182,8 +185,27 @@ class TokenizationTest(ModelTestMixIn):
             "Peaks",
             "“",
         ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
         # assert tokens[10].is_left_punct
         # assert tokens[12].is_right_punct
+
+    def test_italian_tokenization_1(self):
+        text = """La scelta di affidare l’interpretazione del cantautore all’idolo della generazione..."""
+        tokens = self.de_tokenizer.tokenize_text(text, False)
+        assert [
+            "La",
+            "scelta",
+            "di",
+            "affidare",
+            "l’interpretazione",
+            "del",
+            "cantautore",
+            "all’idolo",
+            "della",
+            "generazione",
+            "...",
+        ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_danish_tokenization_1(self):
         text = """»Vi kan gøre det,« siger Mikkel."""
@@ -213,6 +235,7 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[1].is_like_num
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_danish_tokenization_2(self):
         text = """Eu estou a testar o Tokenizer nas frazes do Zeeguu."""
@@ -231,6 +254,7 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[0].is_sent_start
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
 
     def test_url_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
