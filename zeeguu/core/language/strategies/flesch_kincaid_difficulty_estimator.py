@@ -74,7 +74,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
         # Constants & references https://github.com/Yoast/YoastSEO.js/issues/267#issue-132433796
         # INFO: es/it/nl use ( syllables / 100 words ) instead of ( total syllables / total words )
         # Multiplying the constants by 100 should approximate this
-        if language.code == "es":
+        if language.code in ["es", "pt"]:
             return {"start": 206.84, "sentence": 1.02, "word": 60}
         if language.code == "it":
             return {"start": 217, "sentence": 1.3, "word": 60}
@@ -82,9 +82,9 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
             return {"start": 206.84, "sentence": 0.93, "word": 77}
         if language.code == "fr":
             return {"start": 207, "sentence": 1.015, "word": 73.6}
-        if language.code == "ru":
-            return {"start": 206.835, "sentence": 1.3, "word": 73.6}
-        if language.code in ["de", "pl", "da"]:
+        if language.code in ["ru", "pl"]:
+            return {"start": 206.835, "sentence": 1.3, "word": 60.1}
+        if language.code in ["de", "da"]:
             return {"start": 180, "sentence": 1, "word": 58.5}
         return {"start": 206.835, "sentence": 1.015, "word": 84.6}
 
