@@ -273,7 +273,7 @@ class TokenizationTest(ModelTestMixIn):
             [] == urls_failed_tokens
         ), f"Parsed a total of {urls_parsed}/{len(urls), {" ".join(urls_failed_tokens)}}"
         # Some cases which gave issues:
-        not self.en_tokenizer.tokenize_text("e.v.t..", False)[0].is_like_url
+        assert not self.en_tokenizer.tokenize_text("e.v.t..", False)[0].is_like_url
 
     def test_email_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
