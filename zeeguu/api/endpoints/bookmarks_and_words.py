@@ -9,6 +9,7 @@ from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseO
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
 
@@ -144,15 +145,11 @@ def bookmarks_for_article(article_id, user_id):
     "/bookmarks_to_study_for_article/<int:article_id>",
     methods=["POST", "GET"],
 )
-@api.route(
-    "/bookmarks_to_study_for_article/<int:article_id>/<with_tokens>",
-    methods=["POST", "GET"],
-)
 @cross_domain
 @requires_session
-def bookmarks_to_study_for_article(article_id, with_tokens=None):
-    with_tokens = with_tokens == "with_tokens"
+def bookmarks_to_study_for_article(article_id):
     user = User.find_by_id(flask.g.user_id)
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
 
     bookmarks = user.bookmarks_for_article(
         article_id,
@@ -162,7 +159,6 @@ def bookmarks_to_study_for_article(article_id, with_tokens=None):
         with_tokens=with_tokens,
         json=True,
     )
-    print(bookmarks)
 
     return json_result(bookmarks)
 

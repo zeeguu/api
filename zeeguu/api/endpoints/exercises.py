@@ -6,32 +6,29 @@ from zeeguu.core.model import Bookmark, User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from . import api, db_session
 from flask import request
 
 
-def _get_with_tokens(url_str: str):
-    return url_str == "with_tokens"
-
-
 @api.route(
-    "/scheduled_bookmarks_to_study/<bookmark_count>/<with_tokens>", methods=["GET"]
+    "/scheduled_bookmarks_to_study/<bookmark_count>",
+    methods=["GET", "POST"],
 )
 @cross_domain
 @requires_session
-def scheduled_bookmarks_to_study(bookmark_count, with_tokens):
+def scheduled_bookmarks_to_study(bookmark_count):
     """
     Returns a number of <bookmark_count> bookmarks that
     are in the pipeline and are due today
 
     """
-
     int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
-    with_token = with_token == "with_token"
+    with_token = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = user.bookmarks_to_study(bookmark_count=int_count, scheduled_only=True)
     json_bookmarks = [
-        bookmark.json_serializable_dict(with_tokens=True) for bookmark in to_study
+        bookmark.json_serializable_dict(with_tokens=with_token) for bookmark in to_study
     ]
     return json_result(json_bookmarks)
 
@@ -41,8 +38,9 @@ def scheduled_bookmarks_to_study(bookmark_count, with_tokens):
 @requires_session
 def top_bookmarks_count():
     """
-    Return all the possible bookmarks a user has to study ordered by
-    how common it is in the language and how close they are to being learned.
+    Return the number of bookmarks the user has available to study (both in pipeline and
+    not started yet). Can be used to determine how many bookmarks we should pull for
+    the exercises.
     """
     user = User.find_by_id(flask.g.user_id)
     to_study = user.bookmarks_to_study(scheduled_only=False)
@@ -66,18 +64,16 @@ def top_bookmarks_to_study(bookmark_count):
     return json_result(json_bookmarks)
 
 
-@api.route("/bookmarks_to_learn_not_scheduled", methods=["GET"])
-@api.route("/bookmarks_to_learn_not_scheduled/<with_tokens>", methods=["GET"])
+@api.route("/bookmarks_to_learn_not_scheduled", methods=["GET", "POST"])
 @cross_domain
 @requires_session
-def bookmarks_to_learn_not_scheduled(with_tokens=None):
+def bookmarks_to_learn_not_scheduled():
     """
     Return all the bookmarks that aren't learned and haven't been
     scheduled to the user.
     """
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = _get_with_tokens(with_tokens)
-    print("With tokens has the value: ", with_tokens)
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = user.bookmarks_to_learn_not_in_pipeline()
     json_bookmarks = [
         bookmark.json_serializable_dict(with_tokens=with_tokens)
@@ -87,8 +83,7 @@ def bookmarks_to_learn_not_scheduled(with_tokens=None):
     return json_result(json_bookmarks)
 
 
-@api.route("/bookmarks_in_pipeline", methods=["GET"])
-@api.route("/bookmarks_in_pipeline/<with_tokens>", methods=["GET"])
+@api.route("/bookmarks_in_pipeline", methods=["GET", "POST"])
 @cross_domain
 @requires_session
 def bookmarks_in_pipeline(with_tokens=None):
@@ -97,7 +92,7 @@ def bookmarks_in_pipeline(with_tokens=None):
     Is used to render the Words tab in Zeeguu
     """
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = _get_with_tokens(with_tokens)
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     bookmarks_in_pipeline = user.bookmarks_in_pipeline()
     json_bookmarks = [
         bookmark.json_serializable_dict(with_tokens=with_tokens)
