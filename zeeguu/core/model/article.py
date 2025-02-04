@@ -261,13 +261,9 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.tokenization.tokenizer import (
-                ZeeguuTokenizer,
-                TokenizerModel,
-            )
-            from zeeguu.core.tokenization import TOKENIZER_MODEL
+            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
-            tokenizer = ZeeguuTokenizer(self.language, TOKENIZER_MODEL)
+            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
 
             result_dict["content"] = self.content
             result_dict["htmlContent"] = self.htmlContent

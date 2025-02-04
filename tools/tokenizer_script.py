@@ -1,23 +1,25 @@
 from zeeguu.core.model.language import Language
 from zeeguu.api.app import create_app
-from zeeguu.core.tokenization.tokenizer import ZeeguuTokenizer, TokenizerModel
-
+from zeeguu.core.tokenization import get_tokenizer, TokenizerModel
 import os
 import time
 from pprint import pprint
+
+
+def print_token_list(token_list):
+    print([t["text"] for t in token_list])
 
 
 def clear_terminal():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-download_method = None
 app = create_app()
 app.app_context().push()
 
-language = Language.find("fr")
-nltk_tokenizer = ZeeguuTokenizer(language, TokenizerModel.NLTK)
-stanza_tokenizer = ZeeguuTokenizer(language, TokenizerModel.STANZA_TOKEN_ONLY)
+language = Language.find("es")
+nltk_tokenizer = get_tokenizer(language, TokenizerModel.NLTK)
+stanza_tokenizer = get_tokenizer(language, TokenizerModel.STANZA_TOKEN_ONLY)
 
 text = """"5 enero 2025 
 
@@ -97,17 +99,19 @@ stanza_start = time.time()
 stanza_tokens = stanza_tokenizer.tokenize_text(text)
 stanza_end = time.time() - stanza_start
 nltk_start = time.time()
-tokens = nltk_tokenizer.tokenize_text(text)
+nltk_tokens = nltk_tokenizer.tokenize_text(text)
 nltk_end = time.time() - nltk_start
 print("Total chars: ", len(text))
-print(f"Processing NLTK time: {nltk_end:.2f} seconds, for {len(tokens)} tokens")
+print(f"Processing NLTK time: {nltk_end:.2f} seconds, for {len(nltk_tokens)} tokens")
+print_token_list(nltk_tokens)
 print(
     f"Processing stanza time: {stanza_end:.2f} seconds, for {len(stanza_tokens)} tokens"
 )
+print_token_list(stanza_tokens)
 if input("Enter 'n' to skip token details: ") != "n":
     print()
     print("#" * 10 + " NLTK " + "#" * 10)
-    for token in tokens:
+    for token in nltk_tokens:
         pprint(token)
         print("####")
     print("#" * 10 + " stanza " + "#" * 10)

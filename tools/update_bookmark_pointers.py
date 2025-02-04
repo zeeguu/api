@@ -2,8 +2,7 @@ import zeeguu
 from zeeguu.core.model import Bookmark, Article
 from zeeguu.api.app import create_app
 from tqdm import tqdm
-from zeeguu.core.tokenization.tokenizer import ZeeguuTokenizer
-from zeeguu.core.tokenization import TOKENIZER_MODEL
+from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 from time import time
 
 
@@ -18,7 +17,7 @@ def update_bookmark_pointer(bookmark):
     article = Article.find_by_id(text.article_id)
     if not article:
         return False
-    tokenizer = ZeeguuTokenizer(article.language, TOKENIZER_MODEL)
+    tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
     tokenize_article_content = tokenizer.tokenize_text(article.content, False)
     tokenized_text = tokenizer.tokenize_text(text.content, False)
     tokenized_bookmark = tokenizer.tokenize_text(bookmark.origin.word, False)

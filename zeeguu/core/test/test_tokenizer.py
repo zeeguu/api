@@ -1,8 +1,13 @@
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
-from zeeguu.core.tokenization import ZeeguuTokenizer, TokenizerModel
+from zeeguu.core.tokenization import get_tokenizer, TokenizerModel
 from zeeguu.core.test.rules.language_rule import LanguageRule
 import os
 import random
+
+"""
+    These tests are done for the Stanza tokenizer, as this is the model we are expecting
+    to use in production.
+"""
 
 
 class TokenizationTest(ModelTestMixIn):
@@ -16,13 +21,23 @@ class TokenizationTest(ModelTestMixIn):
         self.it_lang = LanguageRule.get_or_create_language("it")
         self.pt_lang = LanguageRule.get_or_create_language("pt")
         self.tokenizer_model = TokenizerModel.STANZA_TOKEN_ONLY
-        self.en_tokenizer = ZeeguuTokenizer(self.en_lang, self.tokenizer_model)
-        self.es_tokenizer = ZeeguuTokenizer(self.es_lang, self.tokenizer_model)
-        self.de_tokenizer = ZeeguuTokenizer(self.de_lang, self.tokenizer_model)
-        self.fr_tokenizer = ZeeguuTokenizer(self.fr_lang, self.tokenizer_model)
-        self.da_tokenizer = ZeeguuTokenizer(self.da_lang, self.tokenizer_model)
-        self.it_tokenizer = ZeeguuTokenizer(self.it_lang, self.tokenizer_model)
-        self.pt_tokenizer = ZeeguuTokenizer(self.pt_lang, self.tokenizer_model)
+        self.en_tokenizer = get_tokenizer(self.en_lang, self.tokenizer_model)
+        self.es_tokenizer = get_tokenizer(self.es_lang, self.tokenizer_model)
+        self.de_tokenizer = get_tokenizer(self.de_lang, self.tokenizer_model)
+        self.fr_tokenizer = get_tokenizer(self.fr_lang, self.tokenizer_model)
+        self.da_tokenizer = get_tokenizer(self.da_lang, self.tokenizer_model)
+        self.it_tokenizer = get_tokenizer(self.it_lang, self.tokenizer_model)
+        self.pt_tokenizer = get_tokenizer(self.pt_lang, self.tokenizer_model)
+
+    @classmethod
+    def assert_sentence_i_token_i_is_correct(cls, token_list, sent_i=0):
+        """
+        Used to check if the tokens all belog to the same sentence and have the
+        right coordinates.
+        """
+        assert all(
+            [t.sent_i == sent_i and t.token_i == i for i, t in enumerate(token_list)]
+        )
 
     @classmethod
     def _generate_random_numbers(cls, n=1000, max_range=100000):
@@ -68,7 +83,7 @@ class TokenizationTest(ModelTestMixIn):
         text = "This is a test sentence."
         tokens = self.en_tokenizer.tokenize_text(text, False)
         assert ["This", "is", "a", "test", "sentence", "."] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
         assert tokens[-1].is_punctuation
         assert tokens[0].is_sent_start
 
@@ -86,7 +101,7 @@ class TokenizationTest(ModelTestMixIn):
             "sentence",
             ".",
         ] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
         assert tokens[0].is_sent_start
         assert tokens[-1].is_punctuation
 
@@ -112,8 +127,33 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[-1].is_punctuation
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens[:4])
         assert tokens[4].is_sent_start
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens[4:9], 1)
         assert tokens[9].is_sent_start
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens[9:], 2)
+
+    def test_english_sentence_4(self):
+        text = "Paragraph 1.\n\nParagraph 2.\n\nLong text here in paragraph 3."
+        tokens = self.en_tokenizer.tokenize_text(text, False)
+        assert [
+            "Paragraph",
+            "1",
+            ".",
+            "Paragraph",
+            "2",
+            ".",
+            "Long",
+            "text",
+            "here",
+            "in",
+            "paragraph",
+            "3",
+            ".",
+        ] == [t.text for t in tokens]
+        assert tokens[0].par_i == 0
+        assert tokens[3].par_i == 1
+        assert tokens[6].par_i == 2
 
     def test_french_tokenization_1(self):
         text = (
@@ -139,7 +179,7 @@ class TokenizationTest(ModelTestMixIn):
         text = """¿qué es esto?"""
         tokens = self.es_tokenizer.tokenize_text(text, False)
         assert ["¿", "qué", "es", "esto", "?"] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
     def test_spanish_tokenization_2(self):
         text = """La alternativa a este modelo es la «hipótesis monogenista», conocida popularmente como «Eva africana»"""
@@ -165,7 +205,7 @@ class TokenizationTest(ModelTestMixIn):
             "africana",
             "»",
         ] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
     def test_german_tokenization_1(self):
         text = """Zeit der von Lynch zusammen mit Mark Frost geschaffenen Serie „Twin Peaks“"""
@@ -186,13 +226,13 @@ class TokenizationTest(ModelTestMixIn):
             "Peaks",
             "“",
         ] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
         # assert tokens[10].is_left_punct
         # assert tokens[12].is_right_punct
 
     def test_italian_tokenization_1(self):
-        text = """La scelta di affidare l’interpretazione del cantautore all’idolo della generazione..."""
-        tokens = self.de_tokenizer.tokenize_text(text, False)
+        text = """La scelta di affidare l’interpretazione del cantautore all’idolo della..."""
+        tokens = self.it_tokenizer.tokenize_text(text, False)
         assert [
             "La",
             "scelta",
@@ -203,10 +243,9 @@ class TokenizationTest(ModelTestMixIn):
             "cantautore",
             "all’idolo",
             "della",
-            "generazione",
             "...",
         ] == [t.text for t in tokens]
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
     def test_danish_tokenization_1(self):
         text = """»Vi kan gøre det,« siger Mikkel."""
@@ -214,6 +253,7 @@ class TokenizationTest(ModelTestMixIn):
         assert ["»", "Vi", "kan", "gøre", "det", ",", "«", "siger", "Mikkel", "."] == [
             t.text for t in tokens
         ]
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
         # Question? should it be like this?
         # assert tokens[0].is_left_punct
         # assert tokens[6].is_right_punct
@@ -236,9 +276,9 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[1].is_like_num
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
-    def test_danish_tokenization_2(self):
+    def test_portuguese_tokenization_1(self):
         text = """Eu estou a testar o Tokenizer nas frazes do Zeeguu."""
         tokens = self.pt_tokenizer.tokenize_text(text, False)
         assert [
@@ -255,7 +295,7 @@ class TokenizationTest(ModelTestMixIn):
             ".",
         ] == [t.text for t in tokens]
         assert tokens[0].is_sent_start
-        assert all([t.token_i == i for i, t in enumerate(tokens)])
+        TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
     def test_url_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50

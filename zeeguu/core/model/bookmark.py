@@ -318,12 +318,9 @@ class Bookmark(db.Model):
         if with_context:
             result["context"] = self.text.content
             if with_tokens:
-                from zeeguu.core.tokenization.tokenizer import (
-                    ZeeguuTokenizer,
-                )
-                from zeeguu.core.tokenization import TOKENIZER_MODEL
+                from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
 
-                tokenizer = ZeeguuTokenizer(self.origin.language, TOKENIZER_MODEL)
+                tokenizer = get_tokenizer(self.origin.language, TOKENIZER_MODEL)
                 result["context_tokenized"] = tokenizer.tokenize_text(
                     self.text.content, flatten=False
                 )

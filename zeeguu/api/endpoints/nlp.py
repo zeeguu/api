@@ -7,8 +7,7 @@ from flask import request
 from zeeguu.core.nlp_pipeline import SpacyWrappers, NoiseWordsGenerator
 from zeeguu.core.nlp_pipeline import AutoGECTagging, ContextReducer
 from zeeguu.core.model.language import Language
-from zeeguu.core.tokenization.tokenizer import ZeeguuTokenizer
-from zeeguu.core.tokenization import TOKENIZER_MODEL
+from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +123,7 @@ def get_tokenize_text():
     text = request.form.get("text", "")
     lang_code = request.form.get("language", "")
     language = Language.find(lang_code)
-    tokenizer = ZeeguuTokenizer(language, TOKENIZER_MODEL)
+    tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
     result = tokenizer.tokenize_text(text, language)
     return json_result(result)
 
@@ -142,7 +141,7 @@ def get_tokenize_sents():
     text = request.form.get("text", "")
     lang_code = request.form.get("language", "")
     language = Language.find(lang_code)
-    tokenizer = ZeeguuTokenizer(language, TOKENIZER_MODEL)
+    tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
     result = tokenizer.get_sentences(text)
     return json_result(result)
 
@@ -157,5 +156,5 @@ def get_paragraphs():
     Returns the pagraphs of a text.
     """
     text = request.form.get("text", "")
-    result = ZeeguuTokenizer.split_into_paragraphs(text)
+    result = get_tokenizer.split_into_paragraphs(text)
     return json_result(result)
