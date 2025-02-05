@@ -121,6 +121,8 @@ services:
 
   zapi_dev: &zapi_dev
     <<: *zapi_default
+    ports:
+      - "127.0.0.1:8080:9001"
     command: python /Zeeguu-API/start.py
 
   zapi_dev_translations:
