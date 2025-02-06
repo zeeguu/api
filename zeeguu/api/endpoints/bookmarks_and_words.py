@@ -9,6 +9,7 @@ from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseO
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
 
@@ -33,7 +34,9 @@ def top_bookmarks_route(count):
     """
     user = User.find_by_id(flask.g.user_id)
     bookmarks = top_bookmarks(user, count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -46,7 +49,9 @@ def learned_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.learned_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -59,7 +64,9 @@ def starred_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.starred_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [
+        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
+    ]
     return json_result(json_bookmarks)
 
 
@@ -134,19 +141,26 @@ def bookmarks_for_article(article_id, user_id):
     return json_result(dict(bookmarks=bookmarks, article_title=article.title))
 
 
-@api.route("/bookmarks_to_study_for_article/<int:article_id>", methods=["POST", "GET"])
+@api.route(
+    "/bookmarks_to_study_for_article/<int:article_id>",
+    methods=["POST", "GET"],
+)
 @cross_domain
 @requires_session
 def bookmarks_to_study_for_article(article_id):
-
     user = User.find_by_id(flask.g.user_id)
-    article = Article.query.filter_by(id=article_id).one()
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True, good_for_study=True
+        article_id,
+        with_context=True,
+        with_title=True,
+        good_for_study=True,
+        with_tokens=with_tokens,
+        json=True,
     )
 
-    return json_result(dict(bookmarks=bookmarks, article_title=article.title))
+    return json_result(bookmarks)
 
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])

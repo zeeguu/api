@@ -15,6 +15,7 @@ from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 
+
 from zeeguu.core.model import db
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
@@ -260,8 +261,19 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
+            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
+            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
+
             result_dict["content"] = self.content
             result_dict["htmlContent"] = self.htmlContent
+            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(self.content)
+            result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
+                self.content, flatten=False
+            )
+            result_dict["tokenized_title"] = tokenizer.tokenize_text(
+                self.title, flatten=False
+            )
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 
@@ -442,7 +454,12 @@ class Article(db.Model):
             - if htmlContent is present, create article for that
             - if not, download and create article then return
         """
-        from zeeguu.core.model import Url, Article, Language
+        from zeeguu.core.model import Url, Language
+        from zeeguu.core.content_retriever.article_downloader import (
+            extract_article_image,
+            add_topics,
+            add_url_keywords,
+        )
 
         canonical_url = Url.extract_canonical_url(url)
 
@@ -451,34 +468,16 @@ class Article(db.Model):
             if found:
                 return found
 
-            if html_content:
-                # TODO: Why is this code here?
-                # it seems that we are sometimes creating a new article from the extension
-                # by sending the html from there. but don't we clean it up before? Must check!
-                # This code looks ugly here
-                text = re.sub(HTML_TAG_CLEANR, "", html_content)
+            from zeeguu.core.content_retriever import readability_download_and_parse
 
-                # replace many newlines with max two; in some
-                # cases many newlines are left after stripping the html tags
-                text = re.sub(MULTIPLE_NEWLINES, "\n\n", text)
-                text = text.strip()
+            np_article = readability_download_and_parse(canonical_url)
 
-                summary = text[0:MAX_CHAR_COUNT_IN_SUMMARY]
-                lang = detect(text)
-            else:
-                # TODO: consequently, as above, this is probably not called because
-                # the only place where we call the endpoint is from the extension
-                # and there we have to htmlContent
-                from zeeguu.core.content_retriever import download_and_parse
-
-                np_article = download_and_parse(canonical_url)
-
-                text = np_article.text
-                html_content = np_article.htmlContent
-                summary = np_article.summary
-                title = np_article.title
-                authors = ", ".join(np_article.authors or [])
-                lang = np_article.meta_lang
+            text = np_article.text
+            html_content = np_article.htmlContent
+            summary = np_article.summary
+            title = np_article.title
+            authors = ", ".join(np_article.authors or [])
+            lang = np_article.meta_lang
 
             language = Language.find(lang)
 
@@ -496,6 +495,14 @@ class Article(db.Model):
                 language,
                 html_content,
             )
+
+            img_url = extract_article_image(np_article)
+            if img_url != "":
+                new_article.img_url = Url.find_or_create(session, img_url)
+
+            url_keywords = add_url_keywords(new_article, session)
+            add_topics(new_article, None, url_keywords, session)
+
             session.add(new_article)
             session.commit()
 

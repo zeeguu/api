@@ -11,7 +11,6 @@ except:
     print("didn't find env_var_defs. hopefully there's envvars defined")
 
 from zeeguu.api.app import create_app
-import os
 
 application = create_app()
 
