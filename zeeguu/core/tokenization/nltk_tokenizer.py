@@ -115,7 +115,13 @@ class NLTKTokenizer(ZeeguuTokenizer):
         return nltk.tokenize.sent_tokenize(text, language=language.name.lower())
 
     def tokenize_text(
-        self, text: str, as_serializable_dictionary: bool = True, flatten: bool = True
+        self,
+        text: str,
+        as_serializable_dictionary: bool = True,
+        flatten: bool = True,
+        start_token_i: int = 0,
+        start_sentence_i: int = 0,
+        start_paragraph_i: int = 0,
     ):
         language = self.language
         if not self.is_language_supported(language):
@@ -133,9 +139,9 @@ class NLTKTokenizer(ZeeguuTokenizer):
                     (
                         self._get_token(
                             w,
-                            par_i,
-                            sent_i,
-                            w_i,
+                            par_i + start_paragraph_i,
+                            sent_i + start_sentence_i,
+                            w_i + start_token_i,
                             True,
                             email,
                             url,

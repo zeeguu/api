@@ -38,11 +38,16 @@ class Text(db.Model):
      In case a user changes the context, so that this is not found in the text, all the 
     values will be set to null. This means that the bookmark will no longer be highligted,
     in the article, but it will still be found within the text.
+
+    - left/right_ellipsis, is set based on when the context is created so that in exercises
+    we can render the elipsis without having to create it as a token.
     """
     paragraph_i = db.Column(db.Integer)
     sentence_i = db.Column(db.Integer)
     token_i = db.Column(db.Integer)
     in_content = db.Column(db.Boolean)
+    left_ellipsis = db.Column(db.Boolean)
+    right_ellipsis = db.Column(db.Boolean)
 
     def __init__(
         self,
@@ -54,6 +59,8 @@ class Text(db.Model):
         sentence_i=None,
         token_i=None,
         in_content=None,
+        left_ellipsis=None,
+        right_ellipsis=None,
     ):
         self.content = content
         self.language = language
@@ -64,6 +71,8 @@ class Text(db.Model):
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.in_content = in_content
+        self.left_ellipsis = left_ellipsis
+        self.right_ellipsis = right_ellipsis
 
     def __repr__(self):
         return "<Text %r>" % (self.content)
@@ -121,6 +130,11 @@ class Text(db.Model):
 
         return Bookmark.find_all_for_text_and_user(self, user)
 
+    def all_bookmarks_for_text(self):
+        from zeeguu.core.model import Bookmark
+
+        return Text.query.join(Bookmark).filter(Bookmark.text_id == self.id).all()
+
     @classmethod
     def find_all(cls, text, language):
         """
@@ -150,6 +164,8 @@ class Text(db.Model):
         sentence_i,
         token_i,
         in_content,
+        left_elipsis,
+        right_elipsis,
     ):
         """
         :param text: string
@@ -180,6 +196,8 @@ class Text(db.Model):
                     sentence_i,
                     token_i,
                     in_content,
+                    left_elipsis,
+                    right_elipsis,
                 )
                 session.add(new)
                 session.commit()

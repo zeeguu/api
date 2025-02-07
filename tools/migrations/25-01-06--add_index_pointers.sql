@@ -16,7 +16,15 @@ AFTER
 ADD
     COLUMN `in_content` TINYINT NULL
 AFTER
-    `token_i`;
+    `token_i`,
+ADD
+    COLUMN `right_ellipsis` TINYINT NULL
+AFTER
+    `in_content`,
+ADD
+    COLUMN `left_ellipsis` TINYINT NULL
+AFTER
+    `right_ellipsis`;
 
 /* Bookmark update */
 ALTER TABLE

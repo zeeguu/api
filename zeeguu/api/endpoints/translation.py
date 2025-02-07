@@ -54,6 +54,8 @@ def get_one_translation(from_lang_code, to_lang_code):
     c_token_i = request.form.get("c_token_i", None)
     article_id = request.form.get("articleID", None)
     in_content = parse_json_boolean(request.form.get("in_content", None))
+    left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
+    right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
@@ -107,6 +109,8 @@ def get_one_translation(from_lang_code, to_lang_code):
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
             in_content=in_content,
+            left_ellipsis=left_ellipsis,
+            right_ellipsis=right_ellipsis,
             sentence_i=w_sent_i,
             token_i=w_token_i,
             total_tokens=w_total_tokens,
@@ -218,6 +222,8 @@ def update_translation(bookmark_id):
         prev_text.sentence_i if is_same_context else None,
         prev_text.token_i if is_same_context else None,
         prev_text.in_content if is_same_context else None,
+        prev_text.left_ellipsis if is_same_context else None,
+        prev_text.right_ellipsis if is_same_context else None,
     )
 
     bookmark.translation = translation
@@ -248,8 +254,12 @@ def update_translation(bookmark_id):
         bookmark.total_tokens = len(tokenized_bookmark)
 
     bookmark.origin = origin
-
     db_session.add(bookmark)
+
+    if len(prev_text.all_bookmarks_for_text()) == 0:
+        # The text doesn't have any bookmarks
+        db_session.delete(prev_text)
+
     db_session.commit()
 
     return bookmark_id

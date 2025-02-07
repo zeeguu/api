@@ -25,6 +25,7 @@ def update_bookmark_pointer(bookmark):
     # Find the first token of the context
     context_found = False
     context_current_start = None
+    has_right_ellipsis = True
     for article_token_i in range(len(tokenize_article_content)):
         context_current_start = tokenize_article_content[article_token_i]
         for i in range(len(tokenized_text)):
@@ -35,6 +36,14 @@ def update_bookmark_pointer(bookmark):
             context_token = tokenized_text[i]
             if candidate_token.text == context_token.text:
                 context_found = True
+                has_right_ellipsis = False
+                # Unless, we are not at the end of a text / sentence
+                if (
+                    i < len(tokenized_text) - 1
+                    and not tokenized_text[i + 1].is_sent_start
+                ):
+                    has_right_ellipsis = True
+
             else:
                 context_found = False
                 break
@@ -46,11 +55,12 @@ def update_bookmark_pointer(bookmark):
     text.sentence_i = context_current_start.sent_i
     text.token_i = context_current_start.token_i
     text.in_content = True
+    text.left_ellipsis = context_current_start.token_i != 0
+    text.right_ellipsis = has_right_ellipsis
     try:
         first_token_ocurrence = next(
             filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
         )
-
         bookmark.sentence_i = first_token_ocurrence.sent_i
         bookmark.token_i = first_token_ocurrence.token_i
         bookmark.total_tokens = len(tokenized_bookmark)
@@ -63,6 +73,18 @@ def update_bookmark_pointer(bookmark):
             "------------------------------------------------------------------------"
         )
         return False
+    except Exception as e:
+        print(e)
+        print(tokenized_text)
+        print(tokenized_bookmark)
+        print(f"Couldn't find bookmark {bookmark.id} in text {text.id}.")
+        print(
+            f"Bookmark ({bookmark.origin.word}) is substring of text: {bookmark.origin.word in text.content}"
+        )
+        print(
+            "------------------------------------------------------------------------"
+        )
+        input("Continue..?")
 
     db_session.add(text)
     db_session.add(bookmark)

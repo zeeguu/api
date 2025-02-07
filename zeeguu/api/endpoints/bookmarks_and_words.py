@@ -5,6 +5,7 @@ from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.bookmark_quality import top_bookmarks
+from zeeguu.core.model.text import Text
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
@@ -30,13 +31,11 @@ def studied_words():
 @requires_session
 def top_bookmarks_route(count):
     """
-    Returns a list of the words that the user is currently studying.
+    Returns a list of the "top" words that the user is currently studying.
     """
     user = User.find_by_id(flask.g.user_id)
     bookmarks = top_bookmarks(user, count)
-    json_bookmarks = [
-        b.json_serializable_dict(True, with_tokens=False) for b in bookmarks
-    ]
+    json_bookmarks = [b.as_dictionary() for b in bookmarks]
     return json_result(json_bookmarks)
 
 
@@ -45,14 +44,24 @@ def top_bookmarks_route(count):
 @requires_session
 def learned_bookmarks(count):
     """
-    Returns a list of the words that the user is currently studying.
+    Returns a list of the words that the user has learned.
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.learned_bookmarks(count)
-    json_bookmarks = [
-        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
-    ]
+    json_bookmarks = [b.as_dictionary(with_exercise_info=True) for b in top_bookmarks]
     return json_result(json_bookmarks)
+
+
+@api.route("/total_learned_bookmarks", methods=["GET"])
+@cross_domain
+@requires_session
+def total_learned_bookmarks():
+    """
+    Returns a list of the words that the user has learned.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    total_bookmarks_learned = user.total_learned_bookmarks()
+    return json_result(total_bookmarks_learned)
 
 
 @api.route("/starred_bookmarks/<int:count>", methods=["GET"])
@@ -64,9 +73,7 @@ def starred_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.starred_bookmarks(count)
-    json_bookmarks = [
-        b.json_serializable_dict(True, with_tokens=False) for b in top_bookmarks
-    ]
+    json_bookmarks = [b.as_dictionary() for b in top_bookmarks]
     return json_result(json_bookmarks)
 
 
@@ -82,8 +89,7 @@ def get_bookmarks_by_day(return_context):
 
     """
     user = User.find_by_id(flask.g.user_id)
-    with_context = return_context == "with_context"
-    return json_result(user.bookmarks_by_day(with_context))
+    return json_result(user.bookmarks_by_day())
 
 
 @api.route("/bookmarks_by_day", methods=["POST"])
@@ -135,7 +141,7 @@ def bookmarks_for_article(article_id, user_id):
     article = Article.query.filter_by(id=article_id).one()
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True
+        article_id, with_exercise_info=True, with_title=True
     )
 
     return json_result(dict(bookmarks=bookmarks, article_title=article.title))
@@ -153,7 +159,7 @@ def bookmarks_to_study_for_article(article_id):
 
     bookmarks = user.bookmarks_for_article(
         article_id,
-        with_context=True,
+        with_exercise_info=True,
         with_title=True,
         good_for_study=True,
         with_tokens=with_tokens,
@@ -189,7 +195,13 @@ def bookmarks_for_article_2(article_id):
 def delete_bookmark(bookmark_id):
     try:
         bookmark = Bookmark.find(bookmark_id)
+        bookmark_text = Text.find_by_id(bookmark.text_id)
+
         db_session.delete(bookmark)
+        if len(bookmark_text.all_bookmarks_for_text()) == 0:
+            print("Deleting text: ", bookmark_text)
+            db_session.delete(bookmark_text)
+
         db_session.commit()
     except NoResultFound:
         return "Inexistent"

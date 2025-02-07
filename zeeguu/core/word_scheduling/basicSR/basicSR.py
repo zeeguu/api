@@ -216,7 +216,7 @@ class BasicSRSchedule(db.Model):
         def priority_by_rank(bookmark):
             # If this is updated remember to update the order_by in
             # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
-            bookmark_info = bookmark.json_serializable_dict(with_context=False)
+            bookmark_info = bookmark.as_dictionary(with_exercise_info=True)
             cooling_interval = bookmark_info["cooling_interval"]
             cooling_interval = cooling_interval if cooling_interval is not None else -1
             word_rank = bookmark_info["origin_rank"]

@@ -65,9 +65,15 @@ class StanzaTokenizer(ZeeguuTokenizer):
         return token
 
     def tokenize_text(
-        self, text: str, as_serializable_dictionary: bool = True, flatten: bool = True
+        self,
+        text: str,
+        as_serializable_dictionary: bool = True,
+        flatten: bool = True,
+        start_token_i: int = 0,
+        start_sentence_i: int = 0,
+        start_paragraph_i: int = 0,
     ):
-        result = []
+        paragraphs = []
         doc = self.nlp_pipeline(text)
         current_paragraph = []
         s_i = 0
@@ -76,13 +82,18 @@ class StanzaTokenizer(ZeeguuTokenizer):
             is_new_paragraph = False
             accumulator = ""
             t_i = 0
-            for token in sentence.tokens:
+            for i, token in enumerate(sentence.tokens):
                 # Stanza's to_dict returns a list of token dictionaries.
                 # This is because some tokens can be "composed."
                 t_details = token.to_dict()[0]
                 text = t_details["text"]
                 apostrophe = PARTICLE_APOSTROPHE_BEFORE_WORD.match(t_details["text"])
-                if apostrophe and apostrophe.group(0) == text:
+                if (
+                    apostrophe
+                    and apostrophe.group(0) == text
+                    and i + i >= len(sentence.tokens)
+                ):
+                    # Do not accumulate in case it's the only token in the sentence.
                     # Handle the case where in French and Italian the tokens are seperated
                     # e.g. l'un, we want l'un as a token rather than l' and un
                     accumulator += text
@@ -97,9 +108,9 @@ class StanzaTokenizer(ZeeguuTokenizer):
                 sent_list.append(
                     self._get_token(
                         text,
-                        len(result),
-                        s_i,
-                        t_i,
+                        len(paragraphs) + start_paragraph_i,
+                        s_i + start_sentence_i,
+                        t_i + start_token_i,
                         has_space,
                         as_serializable_dictionary,
                         pos=t_details.get("upos", None),
@@ -111,14 +122,14 @@ class StanzaTokenizer(ZeeguuTokenizer):
             current_paragraph.append(sent_list)
             s_i += 1
             if is_new_paragraph:
-                result.append(current_paragraph)
+                paragraphs.append(current_paragraph)
                 current_paragraph = []
                 s_i = 0
-        result.append(current_paragraph)
+        paragraphs.append(current_paragraph)
 
         if flatten:
-            result = self._flatten_paragraph_list(result)
-        return result
+            paragraphs = self._flatten_paragraph_list(paragraphs)
+        return paragraphs
 
     def get_sentences(self, text: str):
         doc = self.nlp_pipeline(text)

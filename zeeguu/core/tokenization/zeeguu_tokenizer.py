@@ -41,7 +41,15 @@ class ZeeguuTokenizer:
     def sentencizer(self, text: str):
         raise NotImplementedError
 
-    def tokenize_text(self, text: str, as_serializable_dictionary=True, flatten=True):
+    def tokenize_text(
+        self,
+        text: str,
+        as_serializable_dictionary=True,
+        flatten=True,
+        start_token_i: int = 0,
+        start_sentence_i: int = 0,
+        start_paragraph_i: int = 0,
+    ):
         """
         Returns a tokenize text as a list of pargraphs, containing a list of sentences
         containing a list of tokens.

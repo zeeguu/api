@@ -155,6 +155,15 @@ class TokenizationTest(ModelTestMixIn):
         assert tokens[3].par_i == 1
         assert tokens[6].par_i == 2
 
+    def test_english_sentence_4(self):
+        """
+        Tests a case where the accumulator wouldn't have anything to accumulate
+        and if not checking for this condition it wouldn't return any tokens.
+        """
+        text = "Year’"
+        tokens = self.en_tokenizer.tokenize_text(text, False)
+        assert ["Year’"] == [t.text for t in tokens]
+
     def test_french_tokenization_1(self):
         text = (
             """a dénoncé la montée en puissance d'un « complexe techno-industriel »"""

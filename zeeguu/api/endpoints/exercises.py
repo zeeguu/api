@@ -28,15 +28,18 @@ def scheduled_bookmarks_to_study(bookmark_count):
     with_token = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = user.bookmarks_to_study(bookmark_count=int_count, scheduled_only=True)
     json_bookmarks = [
-        bookmark.json_serializable_dict(with_tokens=with_token) for bookmark in to_study
+        bookmark.as_dictionary(
+            with_exercise_info=True, with_context_tokenized=with_token
+        )
+        for bookmark in to_study
     ]
     return json_result(json_bookmarks)
 
 
-@api.route("/top_bookmarks_count", methods=["GET"])
+@api.route("/top_bookmarks_to_study_count", methods=["GET"])
 @cross_domain
 @requires_session
-def top_bookmarks_count():
+def top_bookmarks_to_study_count():
     """
     Return the number of bookmarks the user has available to study (both in pipeline and
     not started yet). Can be used to determine how many bookmarks we should pull for
@@ -59,7 +62,8 @@ def top_bookmarks_to_study(bookmark_count):
     user = User.find_by_id(flask.g.user_id)
     to_study = user.bookmarks_to_study(int_count, scheduled_only=False)
     json_bookmarks = [
-        bookmark.json_serializable_dict(with_tokens=True) for bookmark in to_study
+        bookmark.as_dictionary(with_exercise_info=True, with_context_tokenized=True)
+        for bookmark in to_study
     ]
     return json_result(json_bookmarks)
 
@@ -76,7 +80,9 @@ def bookmarks_to_learn_not_scheduled():
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = user.bookmarks_to_learn_not_in_pipeline()
     json_bookmarks = [
-        bookmark.json_serializable_dict(with_tokens=with_tokens)
+        bookmark.as_dictionary(
+            with_exercise_info=True, with_context_tokenized=with_tokens
+        )
         for bookmark in to_study
     ]
 
@@ -95,7 +101,9 @@ def bookmarks_in_pipeline(with_tokens=None):
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     bookmarks_in_pipeline = user.bookmarks_in_pipeline()
     json_bookmarks = [
-        bookmark.json_serializable_dict(with_tokens=with_tokens)
+        bookmark.as_dictionary(
+            with_exercise_info=True, with_context_tokenized=with_tokens
+        )
         for bookmark in bookmarks_in_pipeline
     ]
     return json_result(json_bookmarks)
@@ -138,7 +146,7 @@ def new_bookmarks_to_study(bookmark_count):
     int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
     new_to_study = user.get_new_bookmarks_to_study(int_count)
-    json_bookmarks = [bookmark.json_serializable_dict() for bookmark in new_to_study]
+    json_bookmarks = [bookmark.as_dictionary() for bookmark in new_to_study]
     return json_result(json_bookmarks)
 
 
