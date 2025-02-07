@@ -1,6 +1,6 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User, Topic
+from zeeguu.core.model import Article, Language, User, Topic, UserArticle
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
@@ -23,21 +23,22 @@ def find_or_create_article():
 
         returns the article at that URL or creates an article and returns it
         - url of the article: str
-        - htmlContent: str
-        - title: str
 
     :return: article id as json (e.g. {article_id: 123})
 
     """
 
     url = request.form.get("url", "")
+    user = User.find_by_id(flask.g.user_id)
 
     if not url:
         flask.abort(400)
 
     try:
         article = Article.find_or_create(db_session, url)
-        return json_result(article.article_info())
+        return json_result(
+            UserArticle.user_article_info(user, article, with_content=True)
+        )
     except NoResultFound as e:
         flask.abort(406, "Language not supported")
     except Exception as e:
