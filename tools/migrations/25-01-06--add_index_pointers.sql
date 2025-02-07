@@ -12,7 +12,7 @@ AFTER
 ADD
     COLUMN `token_i` INT NULL
 AFTER
-    `sentence_i`
+    `sentence_i`,
 ADD
     COLUMN `in_content` TINYINT NULL
 AFTER
