@@ -32,7 +32,7 @@ ALTER TABLE
 ADD
     COLUMN `sentence_i` INT NULL
 AFTER
-    `learned_time`
+    `learned_time`,
 ADD
     COLUMN `token_i` INT NULL
 AFTER
