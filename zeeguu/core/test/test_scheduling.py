@@ -32,13 +32,13 @@ class SchedulerTest(ModelTestMixIn):
         # A user with the two cycles rule
         self.user_rule_cycle = UserRule()
         self.two_cycles_user = self.user_rule_cycle.user
+        self.two_cycles_user.invitation_code = "learning-cycle"
         self.two_cycles_bookmark1 = BookmarkRule(self.two_cycles_user).bookmark
         self.two_cycles_bookmark2 = BookmarkRule(self.two_cycles_user).bookmark
 
         # A user with the four levels
         self.user_rule_levels = UserRule()
         self.four_levels_user = self.user_rule_levels.user
-        self.four_levels_user.invitation_code = "exercise_levels"
 
         db_session.add(self.four_levels_user)
         db_session.commit()
