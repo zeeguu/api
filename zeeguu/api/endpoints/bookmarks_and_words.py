@@ -77,25 +77,10 @@ def starred_bookmarks(count):
     return json_result(json_bookmarks)
 
 
-@api.route("/bookmarks_by_day/<return_context>", methods=["GET"])
-@cross_domain
-@requires_session
-def get_bookmarks_by_day(return_context):
-    """
-    Returns the bookmarks of this user organized by date
-    :param return_context: If "with_context" it also returns the
-    text where the bookmark was found. If <return_context>
-    is anything else, the context is not returned.
-
-    """
-    user = User.find_by_id(flask.g.user_id)
-    return json_result(user.bookmarks_by_day())
-
-
 @api.route("/bookmarks_by_day", methods=["POST"])
 @cross_domain
 @requires_session
-def post_bookmarks_by_day():
+def bookmarks_by_day():
     """
     Returns the bookmarks of this user organized by date. Based on the
     POST arguments, it can return also the context of the bookmark as
@@ -103,20 +88,11 @@ def post_bookmarks_by_day():
 
     :param (POST) with_context: If this parameter is "true", the endpoint
     also returns the text where the bookmark was found.
-
-    :param (POST) after_date: the date after which to start retrieving
-     the bookmarks. if no date is specified, all the bookmarks are returned.
-     The date format is: %Y-%m-%dT%H:%M:%S. E.g. 2001-01-01T01:55:00
-
     """
-    with_context = request.form.get("with_context", "false") in ["True", "true"]
-    with_title = request.form.get("with_title", "false") in ["True", "true"]
-    after_date_string = request.form.get("after_date", "1970-01-01T00:00:00")
-    after_date = datetime.strptime(after_date_string, "%Y-%m-%dT%H:%M:%S")
+
+    with_context = parse_json_boolean(request.form.get("with_context", "false"))
     user = User.find_by_id(flask.g.user_id)
-    return json_result(
-        user.bookmarks_by_day(with_context, after_date, with_title=with_title)
-    )
+    return json_result(user.bookmarks_by_day(with_context=with_context))
 
 
 @api.route("/bookmarks_for_article/<int:article_id>/<int:user_id>", methods=["POST"])

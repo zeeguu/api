@@ -211,31 +211,44 @@ class Bookmark(db.Model):
         # self.update_learned_status(db_session)
 
     def to_json(
-        self, with_exercise_info=False, with_title=False, with_context_tokenized=False
+        self,
+        with_context,
+        with_exercise_info=False,
+        with_title=False,
+        with_context_tokenized=False,
     ):
         return self.as_dictionary(
-            with_exercise_info, with_title, with_context_tokenized
+            with_exercise_info=with_exercise_info,
+            with_title=with_title,
+            with_context=with_context,
+            with_context_tokenized=with_context_tokenized,
         )
 
     def as_dictionary(
         self,
         with_exercise_info=False,
         with_title=False,
+        with_context=True,
         with_context_tokenized=False,
     ):
         result = dict(
             id=self.id,
             origin=self.origin.word,
             translation=self.translation.word,
-            context=self.text.content,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
-            context_paragraph=self.text.paragraph_i,
-            context_sent=self.text.sentence_i,
-            context_token=self.text.token_i,
-            in_content=self.text.in_content,
         )
+
+        if with_context:
+            context_info_dict = dict(
+                context=self.text.content,
+                context_paragraph=self.text.paragraph_i,
+                context_sent=self.text.sentence_i,
+                context_token=self.text.token_i,
+                in_content=self.text.in_content,
+            )
+            result = {**result, **context_info_dict}
 
         bookmark_title = ""
 

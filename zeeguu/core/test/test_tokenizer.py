@@ -320,7 +320,7 @@ class TokenizationTest(ModelTestMixIn):
                 urls_failed_tokens.append(tokens[i].text)
         assert (
             [] == urls_failed_tokens
-        ), f"Parsed a total of {urls_parsed}/{len(urls), {" ".join(urls_failed_tokens)}}"
+        ), f"Parsed a total of {urls_parsed}/{len(urls)}, {" ".join(urls_failed_tokens)}"
         # Some cases which gave issues:
         assert not self.en_tokenizer.tokenize_text("e.v.t..", False)[0].is_like_url
 

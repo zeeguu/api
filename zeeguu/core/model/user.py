@@ -618,6 +618,7 @@ class User(db.Model):
         after_date=None,
         max=42,
         with_title=True,
+        with_context=False,
         language_id=None,
     ):
         if after_date is None:
@@ -636,7 +637,9 @@ class User(db.Model):
             sorted_date_bookmarks,
             "bookmarks",
             lambda bookmark: bookmark.to_json(
-                with_title=with_title, with_exercise_info=True
+                with_context,
+                with_title=with_title,
+                with_exercise_info=True,
             ),
         )
         return result

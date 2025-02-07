@@ -117,9 +117,11 @@ def test_get_known_bookmarks_after_date(client):
 
 def _get_bookmarks_by_day(client, with_context=True):
     if with_context:
-        return client.get("/bookmarks_by_day/with_context")
+        return client.post(
+            "/bookmarks_by_day", {"with_context": str(with_context).lower()}
+        )
     else:
-        return client.get("/bookmarks_by_day/no_context")
+        return client.post("/bookmarks_by_day")
 
 
 def _first_bookmark_on_day1(bookmarks_by_day):
