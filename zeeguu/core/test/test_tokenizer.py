@@ -162,7 +162,7 @@ class TokenizationTest(ModelTestMixIn):
         """
         text = "Year’"
         tokens = self.en_tokenizer.tokenize_text(text, False)
-        assert ["Year’"] == [t.text for t in tokens]
+        assert ["Year", "’"] == [t.text for t in tokens]
 
     def test_french_tokenization_1(self):
         text = (

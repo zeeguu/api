@@ -91,7 +91,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
                 if (
                     apostrophe
                     and apostrophe.group(0) == text
-                    and i + i >= len(sentence.tokens)
+                    and i + 1 < len(sentence.tokens)
                 ):
                     # Do not accumulate in case it's the only token in the sentence.
                     # Handle the case where in French and Italian the tokens are seperated
@@ -103,7 +103,6 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     # Combine the acumulated token with the current token.
                     text = accumulator + text
                     accumulator = ""
-
                 has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
                 sent_list.append(
                     self._get_token(
