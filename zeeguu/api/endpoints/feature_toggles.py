@@ -70,19 +70,15 @@ def _tiago_exercises(user):
 
 
 def _merle_exercises(user):
-    right_user = (
-        user.invitation_code == "Merle"
-        or user.invitation_code == "MerleITU"
-        or user.invitation_code == "PTCT"
-        or user.invitation_code == "zeeguu-preview"
-        or user.id in [2953, 4089]
-    )
+    ## This is the exercises with 2 stages.
+    right_user = user.invitation_code == "learning-cycle"
     return right_user
 
 
 def _exercise_levels(user):
     "This is such a cool feature that it should be used by everybody"
-    return True
+    # A user can only have either _merle_exercies or _exercise_levels.
+    return True and user.invitation_code != "learning-cycle"
 
 
 def _no_audio_exercises(user):
