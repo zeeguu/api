@@ -1,6 +1,7 @@
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.tokenization import get_tokenizer, TokenizerModel
 from zeeguu.core.test.rules.language_rule import LanguageRule
+from zeeguu.core.test.mocking_the_web import TESTDATA_FOLDER
 import os
 import random
 
@@ -70,9 +71,7 @@ class TokenizationTest(ModelTestMixIn):
 
     @classmethod
     def _load_example_file(cls, filename):
-        path_to_file = os.path.join(
-            "/Zeeguu-API", "zeeguu", "core", "test", "test_data", filename
-        )
+        path_to_file = os.path.join(TESTDATA_FOLDER, filename)
         example_list = []
         with open(path_to_file, "r", encoding="utf-8") as f:
             # Skip the first line.
