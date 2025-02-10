@@ -93,7 +93,6 @@ VOLUME /Zeeguu-API
 RUN mkdir /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
-COPY ./install_stanza_models.py /Zeeguu-API/install_stanza_models.py
 
 # Install requirements and setup
 WORKDIR /Zeeguu-API
@@ -101,14 +100,16 @@ WORKDIR /Zeeguu-API
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
 
-# ZEEGUU_DATA is needed for the install_stanza_models
-ENV ZEEGUU_DATA_FOLDER=/zeeguu-data
-RUN python install_stanza_models.py
+
 
 # Copy the rest of the files
 # (this is done after the requirements are installed, so that the cache is not invalidated)
 WORKDIR /Zeeguu-API
 COPY . /Zeeguu-API
+
+# ZEEGUU_DATA is needed for the install_stanza_models
+ENV ZEEGUU_DATA_FOLDER=/zeeguu-data
+RUN python install_stanza_models.py
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
