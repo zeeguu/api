@@ -19,6 +19,13 @@ URL_PLACEHOLDER = "#URL#"
 EMAIL_PLACEHOLDER = "#EMAIL#"
 
 
+STANZA_RESOURCE_DIR = (
+    os.path.join(ZEEGUU_DATA_FOLDER, "stanza_resources")
+    if ZEEGUU_DATA_FOLDER
+    else os.path.join(os.path.expanduser("~"), "stanza_resources")
+)
+
+
 class StanzaTokenizer(ZeeguuTokenizer):
     STANZA_MODELS = set(
         [TokenizerModel.STANZA_TOKEN_ONLY, TokenizerModel.STANZA_TOKEN_POS]
@@ -44,7 +51,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     lang=self.language.code,
                     processors=StanzaTokenizer._get_processor(model),
                     download_method=None,
-                    model_dir=os.path.join(ZEEGUU_DATA_FOLDER, "stanza_resources"),
+                    model_dir=STANZA_RESOURCE_DIR,
                 )
                 StanzaTokenizer.CACHED_NLP_PIPELINES[key] = pipeline
         self.nlp_pipeline = StanzaTokenizer.CACHED_NLP_PIPELINES[key]
