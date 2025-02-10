@@ -1,18 +1,18 @@
 name: Unit Testing
 
-on: 
-    pull_request:
-        branches:
-            - master
-    push:
-    workflow_dispatch: 
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [ 3.12 ]
 
     steps:
       - uses: actions/checkout@v2
