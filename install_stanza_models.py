@@ -9,3 +9,6 @@ def stanza_model_installation():
 
     for l_code in Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED:
         stanza.download(l_code, processors="tokenize,pos", model_dir=ZEEGUU_DATA_FOLDER)
+
+
+stanza_model_installation()

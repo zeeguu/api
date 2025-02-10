@@ -99,6 +99,7 @@ WORKDIR /Zeeguu-API
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
+RUN python install_stanza_models.py
 
 # Copy the rest of the files
 # (this is done after the requirements are installed, so that the cache is not invalidated)
