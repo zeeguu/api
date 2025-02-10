@@ -189,7 +189,7 @@ class User(db.Model):
 
         # disable the exercises and reading for all the other languages
         all_other_languages = (
-            UserLanguage.query.filter(User.id == self.id)
+            UserLanguage.query.filter(UserLanguage.user_id == self.id)
             .filter(UserLanguage.doing_exercises == True)
             .all()
         )
