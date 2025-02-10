@@ -2,12 +2,15 @@ from zeeguu.core.tokenization.token import Token
 from zeeguu.core.tokenization.zeeguu_tokenizer import ZeeguuTokenizer, TokenizerModel
 from zeeguu.core.model.language import Language
 import re
+from os import getenv
 
 import stanza
 
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
 PARTICLE_APOSTROPHE_BEFORE_WORD = re.compile(r"(\w+('|’))")
+ZEEGUU_DATA_FOLDER = getenv("ZEEGUU_DATA_FOLDER")
+
 # Handle the case where in French and Italian the tokens are seperated
 # e.g. l'un, we want l'un as a token rather than l' and un
 
@@ -40,6 +43,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     lang=self.language.code,
                     processors=StanzaTokenizer._get_processor(model),
                     download_method=None,
+                    model_dir=ZEEGUU_DATA_FOLDER,
                 )
                 StanzaTokenizer.CACHED_NLP_PIPELINES[key] = pipeline
         self.nlp_pipeline = StanzaTokenizer.CACHED_NLP_PIPELINES[key]
@@ -73,6 +77,13 @@ class StanzaTokenizer(ZeeguuTokenizer):
         start_sentence_i: int = 0,
         start_paragraph_i: int = 0,
     ):
+        # Backwards compatability (to texts without coordinates.)
+        if start_token_i is None:
+            start_token_i = 0
+        if start_sentence_i is None:
+            start_sentence_i = 0
+        if start_paragraph_i is None:
+            start_paragraph_i = 0
         paragraphs = []
         doc = self.nlp_pipeline(text)
         current_paragraph = []
