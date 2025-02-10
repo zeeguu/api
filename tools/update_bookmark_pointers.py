@@ -19,7 +19,7 @@ def update_bookmark_pointer(bookmark):
         return False
     tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
     tokenize_article_content = tokenizer.tokenize_text(article.content, False)
-    tokenized_text = tokenizer.tokenize_text(text.content, False)
+    tokenized_context = tokenizer.tokenize_text(text.content, False)
     tokenized_bookmark = tokenizer.tokenize_text(bookmark.origin.word, False)
 
     # Find the first token of the context
@@ -28,26 +28,28 @@ def update_bookmark_pointer(bookmark):
     has_right_ellipsis = True
     for article_token_i in range(len(tokenize_article_content)):
         context_current_start = tokenize_article_content[article_token_i]
-        for i in range(len(tokenized_text)):
+        for i in range(len(tokenized_context)):
             if article_token_i + i >= len(tokenize_article_content):
                 context_found = False
                 break
             candidate_token = tokenize_article_content[article_token_i + i]
-            context_token = tokenized_text[i]
+            context_token = tokenized_context[i]
             if candidate_token.text == context_token.text:
                 context_found = True
                 has_right_ellipsis = False
-                # Unless, we are not at the end of a text / sentence
-                if (
-                    i < len(tokenized_text) - 1
-                    and not tokenized_text[i + 1].is_sent_start
-                ):
-                    has_right_ellipsis = True
-
             else:
                 context_found = False
                 break
         if context_found:
+            # Unless, we are not at the end of a text / sentence
+            index_token_after_context = article_token_i + len(tokenized_context)
+            if (
+                index_token_after_context < len(tokenize_article_content)
+                and not tokenize_article_content[
+                    index_token_after_context
+                ].is_sent_start
+            ):
+                has_right_ellipsis = True
             break
     if not context_found:
         return False
@@ -59,7 +61,7 @@ def update_bookmark_pointer(bookmark):
     text.right_ellipsis = has_right_ellipsis
     try:
         first_token_ocurrence = next(
-            filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
+            filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_context)
         )
         bookmark.sentence_i = first_token_ocurrence.sent_i
         bookmark.token_i = first_token_ocurrence.token_i
@@ -75,7 +77,7 @@ def update_bookmark_pointer(bookmark):
         return False
     except Exception as e:
         print(e)
-        print(tokenized_text)
+        print(tokenized_context)
         print(tokenized_bookmark)
         print(f"Couldn't find bookmark {bookmark.id} in text {text.id}.")
         print(
@@ -84,8 +86,6 @@ def update_bookmark_pointer(bookmark):
         print(
             "------------------------------------------------------------------------"
         )
-        input("Continue..?")
-
     db_session.add(text)
     db_session.add(bookmark)
     return True
