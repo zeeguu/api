@@ -132,7 +132,11 @@ class UserReadingSession(db.Model):
         """
         from .user_cohort_map import UserCohortMap
 
-        query = cls.query.join(User).join(UserCohortMap).filter(UserCohortMap.cohort_id == cohort)
+        query = (
+            cls.query.join(User)
+            .join(UserCohortMap)
+            .filter(UserCohortMap.cohort_id == cohort)
+        )
         query = query.filter(UserReadingSession.start_time >= from_date)
         query = query.filter(UserReadingSession.start_time <= to_date)
 
@@ -157,8 +161,13 @@ class UserReadingSession(db.Model):
         return: object or None if not found
         """
         from .user_cohort_map import UserCohortMap
+
         if cohort is not None:
-            query = cls.query.join(User).join(UserCohortMap).filter(UserCohortMap.cohort_id == cohort)
+            query = (
+                cls.query.join(User)
+                .join(UserCohortMap)
+                .filter(UserCohortMap.cohort_id == cohort)
+            )
         else:
             query = cls.query
         query = query.filter(cls.article_id == article)
@@ -188,7 +197,7 @@ class UserReadingSession(db.Model):
         sessions = query.all()
         return sessions
 
-    def json_serializable_dict(self):
+    def to_json(self):
         return {
             "id": self.id,
             "user_id": self.user_id,

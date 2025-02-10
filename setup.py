@@ -9,12 +9,14 @@ class DevelopScript(develop):
     def run(self):
         develop.run(self)
         ntlk_install_packages()
+        stanza_model_installation()
 
 
 class InstallScript(install):
     def run(self):
         install.run(self)
         ntlk_install_packages()
+        stanza_model_installation()
 
 
 def ntlk_install_packages():
@@ -32,6 +34,14 @@ def ntlk_install_packages():
         nltk.download("punkt")
         nltk.download("punkt_tab")
         nltk.download("averaged_perceptron_tagger")
+
+
+def stanza_model_installation():
+    from zeeguu.core.model.language import Language
+    import stanza
+
+    for l_code in Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED:
+        stanza.download(l_code, processors="tokenize,pos")
 
 
 setuptools.setup(

@@ -20,8 +20,9 @@ class LanguageRule(BaseRule):
         "en": "English",
         "es": "Spanish",
         "fr": "French",
-        # "it": "Italian",
+        "it": "Italian",
         "nl": "Dutch",
+        "pt": "Portuguese",
         # "no": "Norwegian",
         # "pt": "Portuguese",
         # "ro": "Romanian"

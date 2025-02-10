@@ -15,7 +15,7 @@ def test_create_and_delete_bookmark(client):
     assert new_bookmark
     new_bookmark_id = new_bookmark["bookmark_id"]
 
-    bookmarks_by_day = client.get("/bookmarks_by_day/with_context")
+    bookmarks_by_day = client.post("/bookmarks_by_day")
     assert len(bookmarks_by_day) == 1
 
     response = client.post(f"/delete_bookmark/{new_bookmark_id}")

@@ -30,12 +30,49 @@ class Text(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
     article = db.relationship(Article)
 
-    def __init__(self, content, language, url, article):
+    """
+     The coordinates of the first token of the text from its' source.
+     This can be an article, in which case in_content is true, or some other source, 
+    which isn't the content where this will be false. At the moment, this is used for 
+    text from titles.
+     In case a user changes the context, so that this is not found in the text, all the 
+    values will be set to null. This means that the bookmark will no longer be highligted,
+    in the article, but it will still be found within the text.
+
+    - left/right_ellipsis, is set based on when the context is created so that in exercises
+    we can render the elipsis without having to create it as a token.
+    """
+    paragraph_i = db.Column(db.Integer)
+    sentence_i = db.Column(db.Integer)
+    token_i = db.Column(db.Integer)
+    in_content = db.Column(db.Boolean)
+    left_ellipsis = db.Column(db.Boolean)
+    right_ellipsis = db.Column(db.Boolean)
+
+    def __init__(
+        self,
+        content,
+        language,
+        url,
+        article,
+        paragraph_i=None,
+        sentence_i=None,
+        token_i=None,
+        in_content=None,
+        left_ellipsis=None,
+        right_ellipsis=None,
+    ):
         self.content = content
         self.language = language
         self.url = url
         self.content_hash = text_hash(content)
         self.article = article
+        self.paragraph_i = paragraph_i
+        self.sentence_i = sentence_i
+        self.token_i = token_i
+        self.in_content = in_content
+        self.left_ellipsis = left_ellipsis
+        self.right_ellipsis = right_ellipsis
 
     def __repr__(self):
         return "<Text %r>" % (self.content)
@@ -93,6 +130,11 @@ class Text(db.Model):
 
         return Bookmark.find_all_for_text_and_user(self, user)
 
+    def all_bookmarks_for_text(self):
+        from zeeguu.core.model import Bookmark
+
+        return Text.query.join(Bookmark).filter(Bookmark.text_id == self.id).all()
+
     @classmethod
     def find_all(cls, text, language):
         """
@@ -107,7 +149,24 @@ class Text(db.Model):
         )
 
     @classmethod
-    def find_or_create(cls, session, text, language, url, article):
+    def find_by_id(cls, text_id):
+        return cls.query.filter_by(id=text_id).one()
+
+    @classmethod
+    def find_or_create(
+        cls,
+        session,
+        text,
+        language,
+        url,
+        article,
+        paragraph_i,
+        sentence_i,
+        token_i,
+        in_content,
+        left_elipsis,
+        right_elipsis,
+    ):
         """
         :param text: string
         :param language: Language (object)
@@ -128,7 +187,18 @@ class Text(db.Model):
             )
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
-                new = cls(clean_text, language, url, article)
+                new = cls(
+                    clean_text,
+                    language,
+                    url,
+                    article,
+                    paragraph_i,
+                    sentence_i,
+                    token_i,
+                    in_content,
+                    left_elipsis,
+                    right_elipsis,
+                )
                 session.add(new)
                 session.commit()
                 return new

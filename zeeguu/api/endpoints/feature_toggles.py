@@ -72,6 +72,7 @@ def _tiago_exercises(user):
 def _merle_exercises(user):
     ## This is the exercises with 2 stages.
     right_user = user.invitation_code == "learning-cycle"
+
     return right_user
 
 

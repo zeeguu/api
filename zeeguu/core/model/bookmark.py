@@ -52,6 +52,18 @@ class Bookmark(db.Model):
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
 
+    """
+    The bookmarks will have a reference to the sentence / token in relation
+    to the text they are associaed with. So sentence_i and token_i refer to the
+    start of the text. 
+
+    Since the words can be merged to give a better translation, in those cases we 
+    have the first word and then the total tokens after it that were merged.
+    """
+    sentence_i = db.Column(db.Integer)
+    token_i = db.Column(db.Integer)
+    total_tokens = db.Column(db.Integer)
+
     time = db.Column(db.DateTime)
 
     exercise_log = relationship(
@@ -80,6 +92,9 @@ class Bookmark(db.Model):
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
+        sentence_i: int = None,
+        token_i: int = None,
+        total_tokens: int = None,
         level: int = 0,
     ):
         self.origin = origin
@@ -91,6 +106,9 @@ class Bookmark(db.Model):
         self.fit_for_study = fit_for_study(self)
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.sentence_i = sentence_i
+        self.token_i = token_i
+        self.total_tokens = total_tokens
         self.level = level
 
     def __repr__(self):
@@ -100,13 +118,6 @@ class Bookmark(db.Model):
             self.text.content[0:10],
             self.id,
             self.user_id,
-        )
-
-    def serializable_dictionary(self):
-        return dict(
-            origin=self.origin.word,
-            translation=self.translation.word,
-            context=self.text.content,
         )
 
     def is_learned(self):
@@ -199,7 +210,73 @@ class Bookmark(db.Model):
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
 
-    def json_serializable_dict(self, with_context=True, with_title=False):
+    def to_json(
+        self,
+        with_context,
+        with_exercise_info=False,
+        with_title=False,
+        with_context_tokenized=False,
+    ):
+        return self.as_dictionary(
+            with_exercise_info=with_exercise_info,
+            with_title=with_title,
+            with_context=with_context,
+            with_context_tokenized=with_context_tokenized,
+        )
+
+    def as_dictionary(
+        self,
+        with_exercise_info=False,
+        with_title=False,
+        with_context=True,
+        with_context_tokenized=False,
+    ):
+        result = dict(
+            id=self.id,
+            origin=self.origin.word,
+            translation=self.translation.word,
+            t_sentence_i=self.sentence_i,
+            t_token_i=self.token_i,
+            t_total_token=self.total_tokens,
+        )
+
+        if with_context:
+            context_info_dict = dict(
+                context=self.text.content,
+                context_paragraph=self.text.paragraph_i,
+                context_sent=self.text.sentence_i,
+                context_token=self.text.token_i,
+                in_content=self.text.in_content,
+            )
+            result = {**result, **context_info_dict}
+
+        bookmark_title = ""
+
+        if with_title:
+            try:
+                bookmark_title = self.text.article.title
+            except Exception as e:
+                from sentry_sdk import capture_exception
+
+                capture_exception(e)
+                print(f"could not find article title for bookmark with id: {self.id}")
+            result["title"] = bookmark_title
+
+        if with_context_tokenized:
+            from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
+
+            tokenizer = get_tokenizer(self.origin.language, TOKENIZER_MODEL)
+            result["context_tokenized"] = tokenizer.tokenize_text(
+                self.text.content,
+                flatten=False,
+                start_token_i=self.text.token_i,
+                start_sentence_i=self.text.sentence_i,
+                start_paragraph_i=self.text.paragraph_i,
+            )
+
+        if not with_exercise_info:
+            return result
+
         try:
             translation_word = self.translation.word
             translation_language = self.translation.language.code
@@ -247,22 +324,10 @@ class Bookmark(db.Model):
             is_last_in_cycle = None
             is_about_to_be_learned = None
 
-        bookmark_title = ""
-        if with_title:
-            try:
-                bookmark_title = self.text.article.title
-            except Exception as e:
-                from sentry_sdk import capture_exception
-
-                capture_exception(e)
-                print(f"could not find article title for bookmark with id: {self.id}")
-
-        result = dict(
-            id=self.id,
+        exercise_info_dict = dict(
             to=translation_word,
             from_lang=self.origin.language.code,
             to_lang=translation_language,
-            title=bookmark_title,
             url=self.text.url(),
             origin_importance=word_info.importance,
             learned_datetime=learned_datetime,
@@ -280,14 +345,13 @@ class Bookmark(db.Model):
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
+            context_in_content=self.text.in_content,
+            left_ellipsis=self.text.left_ellipsis,
+            right_ellipsis=self.text.right_ellipsis,
         )
 
-        if self.text.article:
-            result["article_title"] = self.text.article.title
-
-        result["from"] = self.origin.word
-        if with_context:
-            result["context"] = self.text.content
+        exercise_info_dict["from"] = self.origin.word
+        result = {**result, **exercise_info_dict}
         return result
 
     @classmethod
@@ -302,6 +366,15 @@ class Bookmark(db.Model):
         _context: str,
         article_id: int,
         learning_cycle: int = LearningCycle.NOT_SET,
+        sentence_i: int = None,
+        token_i: int = None,
+        total_tokens: int = None,
+        c_paragraph_i: int = None,
+        c_sentence_i: int = None,
+        c_token_i: int = None,
+        in_content: bool = None,
+        left_ellipsis: bool = None,
+        right_ellipsis: bool = None,
         level: int = 0,
     ):
         """
@@ -316,7 +389,19 @@ class Bookmark(db.Model):
 
         article = Article.query.filter_by(id=article_id).one()
 
-        context = Text.find_or_create(session, _context, origin_lang, None, article)
+        context = Text.find_or_create(
+            session,
+            _context,
+            origin_lang,
+            None,
+            article,
+            c_paragraph_i,
+            c_sentence_i,
+            c_token_i,
+            in_content,
+            left_ellipsis,
+            right_ellipsis,
+        )
 
         translation = UserWord.find_or_create(session, _translation, translation_lang)
 
@@ -337,6 +422,9 @@ class Bookmark(db.Model):
                 context,
                 now,
                 learning_cycle=learning_cycle,
+                sentence_i=sentence_i,
+                token_i=token_i,
+                total_tokens=total_tokens,
                 level=level,
             )
         except Exception as e:

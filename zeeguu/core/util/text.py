@@ -7,11 +7,15 @@ from collections import Counter
 from nltk import SnowballStemmer
 from zeeguu.core.model.language import Language
 
-AVERAGE_SYLLABLE_LENGTH = 2.5
-
 """
     Collection of simple text processing functions
 """
+
+AVERAGE_SYLLABLE_LENGTH = 2.5
+
+
+def number_of_sentences(text):
+    return len(nltk.sent_tokenize(text))
 
 
 def split_words_from_text(text):
@@ -32,10 +36,6 @@ def length(text):
 def unique_length(text, language: Language):
     words_unique = split_unique_words_from_text(text, language)
     return len(words_unique)
-
-
-def number_of_sentences(text):
-    return len(nltk.sent_tokenize(text))
 
 
 def average_sentence_length(text):

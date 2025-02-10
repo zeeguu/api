@@ -189,7 +189,7 @@ class User(db.Model):
 
         # disable the exercises and reading for all the other languages
         all_other_languages = (
-            UserLanguage.query.filter(User.id == self.id)
+            UserLanguage.query.filter(UserLanguage.user_id == self.id)
             .filter(UserLanguage.doing_exercises == True)
             .all()
         )
@@ -437,12 +437,14 @@ class User(db.Model):
 
     def all_bookmarks(
         self,
-        after_date=datetime.datetime(1970, 1, 1),
+        after_date=None,
         before_date=None,
         language_id=None,
     ):
         from zeeguu.core.model import Bookmark, UserWord
 
+        if after_date is None:
+            after_date = datetime.datetime(1970, 1, 1)
         if before_date is None:
             before_date = datetime.date.today() + datetime.timedelta(days=1)
         query = zeeguu.core.model.db.session.query(Bookmark)
@@ -501,6 +503,19 @@ class User(db.Model):
 
         return learned
 
+    def total_learned_bookmarks(self):
+        from zeeguu.core.model import Bookmark, UserWord
+
+        query = zeeguu.core.model.db.session.query(Bookmark)
+        learned = (
+            query.join(UserWord, Bookmark.origin_id == UserWord.id)
+            .filter(UserWord.language_id == self.learned_language_id)
+            .filter(Bookmark.user_id == self.id)
+            .filter(Bookmark.learned_time != None)
+            .all()
+        )
+        return len(learned)
+
     def _datetime_to_date(self, date_time):
         """
         we define datetime as being any datetime object,
@@ -523,13 +538,13 @@ class User(db.Model):
 
         return date_dict
 
-    def _to_serializable(self, tuple_list, key_name, *args):
+    def _group_by_date_and_serialize(self, tuple_list, key_name, to_json_func):
         """
         :param tuple_list: a list of tuples with
             1. position: date
-            2. position: list of objects with 'json_serializable_dict()' method
+            2. position: list of objects with 'to_json()' method
         :param key_name: the key name of the final serialized objects in the result list
-        :param *args: the list of arguments that should be passed down to the 'json_serializable_dict()' method
+        :param kargs: the list of key arguments that should be passed down to the 'to_json()' method
         :return:
         """
         result = []
@@ -537,7 +552,7 @@ class User(db.Model):
         for date, object_list in tuple_list:
             serialized_objects = []
             for obj in object_list:
-                serialized_objects.append(obj.json_serializable_dict(*args))
+                serialized_objects.append(to_json_func(obj))
             date_entry = dict(
                 date=date.strftime("%A, %d %B %Y"),
             )
@@ -569,8 +584,10 @@ class User(db.Model):
                 :max
             ]
 
-        result = self._to_serializable(
-            sorted_date_reading_sessions_tuples, key_name="reading_sessions"
+        result = self._group_by_date_and_serialize(
+            sorted_date_reading_sessions_tuples,
+            key_name="reading_sessions",
+            to_json_func=lambda rs: rs.to_json(),
         )
 
         return result
@@ -598,12 +615,14 @@ class User(db.Model):
 
     def bookmarks_by_day(
         self,
-        with_context,
-        after_date=datetime.datetime(2010, 1, 1),
+        after_date=None,
         max=42,
-        with_title=False,
+        with_title=True,
+        with_context=False,
         language_id=None,
     ):
+        if after_date is None:
+            after_date = datetime.datetime(2010, 1, 1)
 
         bookmarks = self.all_bookmarks(after_date, language_id=language_id)
         date_bookmarks_dict = self._to_date_dict(dict_list=bookmarks, date_key="time")
@@ -614,16 +633,23 @@ class User(db.Model):
         if len(sorted_date_bookmarks) > max:
             sorted_date_bookmarks = sorted_date_bookmarks[:max]
 
-        result = self._to_serializable(
-            sorted_date_bookmarks, "bookmarks", with_context, with_title
+        result = self._group_by_date_and_serialize(
+            sorted_date_bookmarks,
+            "bookmarks",
+            lambda bookmark: bookmark.to_json(
+                with_context,
+                with_title=with_title,
+                with_exercise_info=True,
+            ),
         )
         return result
 
     def bookmarks_for_article(
         self,
         article_id,
-        with_context,
+        with_exercise_info=False,
         with_title=False,
+        with_tokens=False,
         good_for_study=False,
         json=True,
     ):
@@ -654,7 +680,13 @@ class User(db.Model):
             return bookmarks
 
         for each in bookmarks:
-            json_bookmarks.append(each.json_serializable_dict(with_context, with_title))
+            json_bookmarks.append(
+                each.as_dictionary(
+                    with_exercise_info=with_exercise_info,
+                    with_title=with_title,
+                    with_context_tokenized=with_tokens,
+                )
+            )
 
         return json_bookmarks
 

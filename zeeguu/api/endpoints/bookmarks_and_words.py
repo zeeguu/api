@@ -5,10 +5,12 @@ from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.bookmark_quality import top_bookmarks
+from zeeguu.core.model.text import Text
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
 
@@ -29,11 +31,11 @@ def studied_words():
 @requires_session
 def top_bookmarks_route(count):
     """
-    Returns a list of the words that the user is currently studying.
+    Returns a list of the "top" words that the user is currently studying.
     """
     user = User.find_by_id(flask.g.user_id)
     bookmarks = top_bookmarks(user, count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in bookmarks]
+    json_bookmarks = [b.as_dictionary() for b in bookmarks]
     return json_result(json_bookmarks)
 
 
@@ -42,12 +44,24 @@ def top_bookmarks_route(count):
 @requires_session
 def learned_bookmarks(count):
     """
-    Returns a list of the words that the user is currently studying.
+    Returns a list of the words that the user has learned.
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.learned_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [b.as_dictionary(with_exercise_info=True) for b in top_bookmarks]
     return json_result(json_bookmarks)
+
+
+@api.route("/total_learned_bookmarks", methods=["GET"])
+@cross_domain
+@requires_session
+def total_learned_bookmarks():
+    """
+    Returns a list of the words that the user has learned.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    total_bookmarks_learned = user.total_learned_bookmarks()
+    return json_result(total_bookmarks_learned)
 
 
 @api.route("/starred_bookmarks/<int:count>", methods=["GET"])
@@ -59,30 +73,14 @@ def starred_bookmarks(count):
     """
     user = User.find_by_id(flask.g.user_id)
     top_bookmarks = user.starred_bookmarks(count)
-    json_bookmarks = [b.json_serializable_dict(True) for b in top_bookmarks]
+    json_bookmarks = [b.as_dictionary() for b in top_bookmarks]
     return json_result(json_bookmarks)
-
-
-@api.route("/bookmarks_by_day/<return_context>", methods=["GET"])
-@cross_domain
-@requires_session
-def get_bookmarks_by_day(return_context):
-    """
-    Returns the bookmarks of this user organized by date
-    :param return_context: If "with_context" it also returns the
-    text where the bookmark was found. If <return_context>
-    is anything else, the context is not returned.
-
-    """
-    user = User.find_by_id(flask.g.user_id)
-    with_context = return_context == "with_context"
-    return json_result(user.bookmarks_by_day(with_context))
 
 
 @api.route("/bookmarks_by_day", methods=["POST"])
 @cross_domain
 @requires_session
-def post_bookmarks_by_day():
+def bookmarks_by_day():
     """
     Returns the bookmarks of this user organized by date. Based on the
     POST arguments, it can return also the context of the bookmark as
@@ -90,20 +88,11 @@ def post_bookmarks_by_day():
 
     :param (POST) with_context: If this parameter is "true", the endpoint
     also returns the text where the bookmark was found.
-
-    :param (POST) after_date: the date after which to start retrieving
-     the bookmarks. if no date is specified, all the bookmarks are returned.
-     The date format is: %Y-%m-%dT%H:%M:%S. E.g. 2001-01-01T01:55:00
-
     """
-    with_context = request.form.get("with_context", "false") in ["True", "true"]
-    with_title = request.form.get("with_title", "false") in ["True", "true"]
-    after_date_string = request.form.get("after_date", "1970-01-01T00:00:00")
-    after_date = datetime.strptime(after_date_string, "%Y-%m-%dT%H:%M:%S")
+
+    with_context = parse_json_boolean(request.form.get("with_context", "false"))
     user = User.find_by_id(flask.g.user_id)
-    return json_result(
-        user.bookmarks_by_day(with_context, after_date, with_title=with_title)
-    )
+    return json_result(user.bookmarks_by_day(with_context=with_context))
 
 
 @api.route("/bookmarks_for_article/<int:article_id>/<int:user_id>", methods=["POST"])
@@ -128,25 +117,32 @@ def bookmarks_for_article(article_id, user_id):
     article = Article.query.filter_by(id=article_id).one()
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True
+        article_id, with_exercise_info=True, with_title=True
     )
 
     return json_result(dict(bookmarks=bookmarks, article_title=article.title))
 
 
-@api.route("/bookmarks_to_study_for_article/<int:article_id>", methods=["POST", "GET"])
+@api.route(
+    "/bookmarks_to_study_for_article/<int:article_id>",
+    methods=["POST", "GET"],
+)
 @cross_domain
 @requires_session
 def bookmarks_to_study_for_article(article_id):
-
     user = User.find_by_id(flask.g.user_id)
-    article = Article.query.filter_by(id=article_id).one()
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
 
     bookmarks = user.bookmarks_for_article(
-        article_id, with_context=True, with_title=True, good_for_study=True
+        article_id,
+        with_exercise_info=True,
+        with_title=True,
+        good_for_study=True,
+        with_tokens=with_tokens,
+        json=True,
     )
 
-    return json_result(dict(bookmarks=bookmarks, article_title=article.title))
+    return json_result(bookmarks)
 
 
 @api.route("/bookmarks_for_article/<int:article_id>", methods=["POST", "GET"])
@@ -175,7 +171,13 @@ def bookmarks_for_article_2(article_id):
 def delete_bookmark(bookmark_id):
     try:
         bookmark = Bookmark.find(bookmark_id)
+        bookmark_text = Text.find_by_id(bookmark.text_id)
+
         db_session.delete(bookmark)
+        if len(bookmark_text.all_bookmarks_for_text()) == 0:
+            print("Deleting text: ", bookmark_text)
+            db_session.delete(bookmark_text)
+
         db_session.commit()
     except NoResultFound:
         return "Inexistent"

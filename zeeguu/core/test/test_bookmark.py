@@ -93,7 +93,7 @@ class BookmarkTest(ModelTestMixIn):
         assert len(self.user.all_bookmarks()) > 0
 
     def test_bookmark_is_serializable(self):
-        assert self.user.all_bookmarks()[0].json_serializable_dict()
+        assert self.user.all_bookmarks()[0].as_dictionary()
 
     def test_bad_quality_bookmark(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 3)]

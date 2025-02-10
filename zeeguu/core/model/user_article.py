@@ -302,7 +302,7 @@ class UserArticle(db.Model):
             if with_translations:
                 translations = Bookmark.find_all_for_user_and_article(user, article)
                 returned_info["translations"] = [
-                    each.serializable_dictionary() for each in translations
+                    each.as_dictionary() for each in translations
                 ]
 
         if PersonalCopy.exists_for(user, article):
