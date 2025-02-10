@@ -99,6 +99,9 @@ WORKDIR /Zeeguu-API
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
+
+# ZEEGUU_DATA is needed for the install_stanza_models
+ENV ZEEGUU_DATA=/zeeguu-data
 RUN python install_stanza_models.py
 
 # Copy the rest of the files
