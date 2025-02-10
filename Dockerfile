@@ -93,6 +93,7 @@ VOLUME /Zeeguu-API
 RUN mkdir /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
+COPY ./install_stanza_models.py /Zeeguu-API/install_stanza_models.py
 
 # Install requirements and setup
 WORKDIR /Zeeguu-API
