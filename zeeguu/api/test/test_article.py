@@ -1,9 +1,14 @@
-from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA, URL_FAZ_LEIGHTATHLETIK
+from zeeguu.core.test.mocking_the_web import (
+    URL_SPIEGEL_VENEZUELA,
+    URL_FAZ_LEIGHTATHLETIK,
+)
 from fixtures import logged_in_client as client
 
 
 def test_create_article(client):
-    response_data = client.post("/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA))
+    response_data = client.post(
+        "/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA)
+    )
 
     assert response_data
     assert response_data["id"] == 1
@@ -16,7 +21,9 @@ def test_starred_or_liked(client):
     assert len(result) == 0
 
     # Star article
-    article_id = client.post("/find_or_create_article", dict(url=URL_FAZ_LEIGHTATHLETIK))["id"]
+    article_id = client.post(
+        "/find_or_create_article", dict(url=URL_FAZ_LEIGHTATHLETIK)
+    )["id"]
     client.post(f"/user_article", data=dict(starred="True", article_id=article_id))
 
     # One article is starred eventually

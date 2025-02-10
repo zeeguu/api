@@ -46,6 +46,9 @@ def find_or_create_article():
 
         capture_exception(e)
         flask.abort(500)
+        import traceback
+
+        traceback.print_stack()
 
 
 # ---------------------------------------------------------------------------

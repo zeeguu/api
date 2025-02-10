@@ -5,6 +5,7 @@ import re
 from os import getenv
 
 import stanza
+import os
 
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
@@ -43,7 +44,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     lang=self.language.code,
                     processors=StanzaTokenizer._get_processor(model),
                     download_method=None,
-                    dir=ZEEGUU_DATA_FOLDER,
+                    model_dir=os.path.join(ZEEGUU_DATA_FOLDER, "stanza_resources"),
                 )
                 StanzaTokenizer.CACHED_NLP_PIPELINES[key] = pipeline
         self.nlp_pipeline = StanzaTokenizer.CACHED_NLP_PIPELINES[key]
