@@ -40,6 +40,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
             # Store used models.
             if key not in StanzaTokenizer.CACHED_NLP_PIPELINES:
                 pipeline = stanza.Pipeline(
+                    dir="/root/stanza_resources",
                     lang=self.language.code,
                     processors=StanzaTokenizer._get_processor(model),
                     download_method=None,
