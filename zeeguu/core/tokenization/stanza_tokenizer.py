@@ -107,14 +107,18 @@ class StanzaTokenizer(ZeeguuTokenizer):
                 t_details = token.to_dict()[0]
                 text = t_details["text"]
                 apostrophe = PARTICLE_APOSTROPHE_BEFORE_WORD.match(t_details["text"])
+                has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
                 if (
                     apostrophe
                     and apostrophe.group(0) == text
                     and i + 1 < len(sentence.tokens)
+                    and len(sentence.tokens[i + 1].text) > 1
+                    and not has_space
                 ):
                     # Do not accumulate in case it's the only token in the sentence.
                     # Handle the case where in French and Italian the tokens are seperated
                     # e.g. l'un, we want l'un as a token rather than l' and un
+                    #      avoid also cases where it would find a punctuation (typen'?)
                     accumulator += text
                     continue
 
@@ -122,7 +126,7 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     # Combine the acumulated token with the current token.
                     text = accumulator + text
                     accumulator = ""
-                has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
+
                 sent_list.append(
                     self._get_token(
                         text,
