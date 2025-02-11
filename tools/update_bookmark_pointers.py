@@ -8,6 +8,10 @@ from time import time
 CHECKPOINT_COMMIT_AFTER_ROWS = 10000
 
 
+def get_text_list(l):
+    return [t.text for t in l]
+
+
 def update_bookmark_pointer(bookmark):
     # Tokenized text returns paragraph, sents, token
     # Since we know there is not multiple paragraphs, we take the first
@@ -24,27 +28,24 @@ def update_bookmark_pointer(bookmark):
     tokenized_context = tokenizer.tokenize_text(text.content, False)
     tokenized_bookmark = tokenizer.tokenize_text(bookmark.origin.word, False)
 
+    text_article_content = get_text_list(tokenize_article_content)
+    text_context = get_text_list(tokenized_context)
+    context_len = len(text_context)
     # Find the first token of the context
     context_found = False
     context_current_start = None
-    has_right_ellipsis = True
-    for article_token_i in range(len(tokenize_article_content)):
-        context_current_start = tokenize_article_content[article_token_i]
-        for i in range(len(tokenized_context)):
-            if article_token_i + i >= len(tokenize_article_content):
-                context_found = False
-                break
-            candidate_token = tokenize_article_content[article_token_i + i]
-            context_token = tokenized_context[i]
-            if candidate_token.text == context_token.text:
-                context_found = True
-                has_right_ellipsis = False
-            else:
-                context_found = False
-                break
+    has_right_ellipsis = False
+    for article_text_i in range(len(tokenize_article_content) - len(text_context) - 1):
+        if (
+            text_article_content[article_text_i : article_text_i + context_len]
+            == text_context
+        ):
+            context_found = True
+            context_current_start = tokenize_article_content[article_text_i]
+
         if context_found:
             # Unless, we are not at the end of a text / sentence
-            index_token_after_context = article_token_i + len(tokenized_context)
+            index_token_after_context = article_text_i + context_len
             if (
                 index_token_after_context < len(tokenize_article_content)
                 and not tokenize_article_content[
@@ -120,8 +121,13 @@ for i, b in tqdm(enumerate(all_bookmarks[::-1]), total=len(all_bookmarks)):
             counter_total_updated_bookmarks += 1
     if (i + 1) % CHECKPOINT_COMMIT_AFTER_ROWS == 0:
         print(f"Completed {CHECKPOINT_COMMIT_AFTER_ROWS}, saving progress...")
+        print(f"Added coordinates to {counter_total_updated_bookmarks}  bookmarks.")
         print(
             "Skipped bookmarks due to already having coordinates: ", skipped_bookmarks
+        )
+        print(
+            "Number of failed updates: ",
+            i + 1 - skipped_bookmarks - counter_total_updated_bookmarks,
         )
         db_session.commit()
 
