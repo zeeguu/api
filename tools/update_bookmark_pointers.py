@@ -5,6 +5,8 @@ from tqdm import tqdm
 from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 from time import time
 
+CHECKPOINT_COMMIT_AFTER_ROWS = 10000
+
 
 def update_bookmark_pointer(bookmark):
     # Tokenized text returns paragraph, sents, token
@@ -91,6 +93,14 @@ def update_bookmark_pointer(bookmark):
     return True
 
 
+def bookmark_has_coordinates(b):
+    return (
+        b.sentence_i is not None
+        and b.token_i is not None
+        and b.total_tokens is not None
+    )
+
+
 app = create_app()
 app.app_context().push()
 
@@ -100,15 +110,24 @@ db_session = zeeguu.core.model.db.session
 start = time()
 all_bookmarks = db_session.query(Bookmark).all()
 counter_total_updated_bookmarks = 0
+skipped_bookmarks = 0
 for i, b in tqdm(enumerate(all_bookmarks[::-1]), total=len(all_bookmarks)):
-    if update_bookmark_pointer(b):
-        counter_total_updated_bookmarks += 1
 
-    if (i + 1) % 1000 == 0:
-        print("Completed 1000, saving progress...")
+    if bookmark_has_coordinates(b):
+        skipped_bookmarks += 1
+    else:
+        if update_bookmark_pointer(b):
+            counter_total_updated_bookmarks += 1
+    if (i + 1) % CHECKPOINT_COMMIT_AFTER_ROWS == 0:
+        print(f"Completed {CHECKPOINT_COMMIT_AFTER_ROWS}, saving progress...")
+        print(
+            "Skipped bookmarks due to already having coordinates: ", skipped_bookmarks
+        )
         db_session.commit()
+
 
 end = time() - start
 print(
     f"Total updated bookmarks: {counter_total_updated_bookmarks} out of {len(all_bookmarks)}, time taken: {end:.2f}"
 )
+print(f"Total bookmarks that had coordinates: ", skipped_bookmarks)
