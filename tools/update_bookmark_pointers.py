@@ -11,13 +11,13 @@ TEXTS_NOT_FOUND = 0
 ALREADY_SEARCHED_TEXTS = set()
 
 
-def strip_trainling_punctuation(s):
+def strip_trailing_punctuation(s):
     return s.strip(Token.PUNCTUATION) if (len(s)) > 1 else s
 
 
 def get_text_list(l, apply_string_stripping=False):
     return [
-        strip_trainling_punctuation(t.text) if apply_string_stripping else t.text
+        strip_trailing_punctuation(t.text) if apply_string_stripping else t.text
         for t in l
     ]
 
@@ -118,7 +118,7 @@ def update_bookmark_pointer(bookmark):
         first_token_i = find_sublist_in_list(text_context, text_bookmark)
         if first_token_i == -1:
             # We didn't find it, we try with the punctuation stripped.
-            text_bookmark = [strip_trainling_punctuation(t) for t in text_bookmark]
+            text_bookmark = [strip_trailing_punctuation(t) for t in text_bookmark]
             second_tokenization = text_bookmark
             first_token_i = find_sublist_in_list(text_context, text_bookmark)
             if first_token_i == -1:
@@ -128,7 +128,7 @@ def update_bookmark_pointer(bookmark):
                 # end. In this case, we can try to find it in the context, if we also remove
                 # trailing punctuation.
                 first_token_i = find_sublist_in_list(
-                    [strip_trainling_punctuation(t) for t in text_context],
+                    [strip_trailing_punctuation(t) for t in text_context],
                     text_bookmark,
                 )
                 if first_token_i == -1:
@@ -138,7 +138,7 @@ def update_bookmark_pointer(bookmark):
                     # 2. ['cessez', '-le-feu', 'sera']
                     # 3. (This code) ['cessez-le-feu', 'sera']
                     # ['Guerre', 'en', 'Ukraine', ':', 'Macron', 'assure', 'qu’un', 'cessez-le-feu', 'sera', 'demandé', 'à', 'la', 'Russie', 'durant', 'les', 'JO', 'de', 'Paris']
-                    text_bookmark = strip_trainling_punctuation(
+                    text_bookmark = strip_trailing_punctuation(
                         bookmark.origin.word
                     ).split()
                     first_token_i = find_sublist_in_list(text_context, text_bookmark)
@@ -167,9 +167,9 @@ def update_bookmark_pointer(bookmark):
         if not is_bookmark_substring_of_context:
             print("Context: ")
             print(text.content)
-        print(
-            "------------------------------------------------------------------------"
-        )
+        print(f"Deleting bookmark id: {bookmark.id}")
+        print("-" * 20)
+        db_session.delete(bookmark)
         return False
 
 
@@ -203,6 +203,8 @@ for i, b in tqdm(
         if update_bookmark_pointer(b):
             counter_total_updated_bookmarks += 1
     if (i + 1) % CHECKPOINT_COMMIT_AFTER_ROWS == 0:
+        db_session.commit()
+        print("#" * 20)
         print(f"Completed {CHECKPOINT_COMMIT_AFTER_ROWS}, saving progress...")
         print(f"Added coordinates to {counter_total_updated_bookmarks}  bookmarks.")
         print(f"A total of {TEXTS_NOT_FOUND} texts were not found in articles.")
@@ -213,7 +215,7 @@ for i, b in tqdm(
             "Number of failed updates: ",
             i + 1 - skipped_bookmarks - counter_total_updated_bookmarks,
         )
-        db_session.commit()
+        print("#" * 20)
 
 
 end = time() - start
