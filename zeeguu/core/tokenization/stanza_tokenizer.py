@@ -9,11 +9,11 @@ import os
 
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
-PARTICLE_APOSTROPHE_BEFORE_WORD = re.compile(r"(\w+('|’))")
+
+# This is used to capture the l' from l'autheur
+PARTICLE_WITH_APOSTROPHE = re.compile(r"(\w+('|’))")
 ZEEGUU_DATA_FOLDER = getenv("ZEEGUU_DATA_FOLDER")
 
-# Handle the case where in French and Italian the tokens are seperated
-# e.g. l'un, we want l'un as a token rather than l' and un
 
 URL_PLACEHOLDER = "#URL#"
 EMAIL_PLACEHOLDER = "#EMAIL#"
@@ -106,17 +106,20 @@ class StanzaTokenizer(ZeeguuTokenizer):
                 # This is because some tokens can be "composed."
                 t_details = token.to_dict()[0]
                 text = t_details["text"]
-                apostrophe = PARTICLE_APOSTROPHE_BEFORE_WORD.match(t_details["text"])
+                particle_with_apostrophe = PARTICLE_WITH_APOSTROPHE.match(
+                    t_details["text"]
+                )
                 has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
                 if (
-                    apostrophe
-                    and apostrophe.group(0) == text
+                    particle_with_apostrophe
+                    and particle_with_apostrophe.group(0) == text
                     and i + 1 < len(sentence.tokens)
-                    and len(sentence.tokens[i + 1].text) > 1
+                    and len(sentence.tokens[i + 1].text)
+                    > 1  # avoid situations like call'? where it's followed by a punctuation
                     and not has_space
                 ):
                     # Do not accumulate in case it's the only token in the sentence.
-                    # Handle the case where in French and Italian the tokens are seperated
+                    # Handles the case where in French and Italian the tokens are seperated
                     # e.g. l'un, we want l'un as a token rather than l' and un
                     #      avoid also cases where it would find a punctuation (typen'?)
                     accumulator += text

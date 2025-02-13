@@ -54,10 +54,16 @@ def update_bookmark_pointer(bookmark):
         article = Article.find_by_id(text.article_id)
 
     tokenizer = get_tokenizer(bookmark.origin.language, TOKENIZER_MODEL)
-    tokenized_context = tokenizer.tokenize_text(text.content, False)
-    text_context = get_text_list(tokenized_context)
+
+    tokenized_context = tokenizer.tokenize_text(
+        text.content, as_serializable_dictionary=False
+    )  # list of toke objects [t1,t2]
+    text_context = get_text_list(
+        tokenized_context
+    )  # list of string representations of the token objects
     if article and text.id not in ALREADY_SEARCHED_TEXTS:
-        # So if we have an article, we try to find the context and anchor it.
+
+        # We have an article; we try to find the context and anchor it.
         tokenized_article_content = tokenizer.tokenize_text(article.content, False)
 
         text_article_content = get_text_list(tokenized_article_content)
@@ -102,10 +108,12 @@ def update_bookmark_pointer(bookmark):
                     index_token_after_context, tokenized_article_title
                 )
             )
+            # By here we have the ancors or the context, so we save it to the DB
+            db_session.add(text)
         else:
             print(f"Text {bookmark.text_id} was not found in article.")
             TEXTS_NOT_FOUND += 1
-        db_session.add(text)
+
         ALREADY_SEARCHED_TEXTS.add(text.id)
 
     # We anchor the bookmark in the context, if we find it.
@@ -117,6 +125,7 @@ def update_bookmark_pointer(bookmark):
         first_tokenization = text_bookmark
         first_token_i = find_sublist_in_list(text_context, text_bookmark)
         if first_token_i == -1:
+
             # We didn't find it, we try with the punctuation stripped.
             text_bookmark = [strip_trailing_punctuation(t) for t in text_bookmark]
             second_tokenization = text_bookmark
@@ -144,6 +153,7 @@ def update_bookmark_pointer(bookmark):
                     first_token_i = find_sublist_in_list(text_context, text_bookmark)
 
     if first_token_i > -1:
+        # By here we anchored the bookmark and we save it
         first_token_ocurrence = tokenized_context[first_token_i]
         bookmark.sentence_i = first_token_ocurrence.sent_i
         bookmark.token_i = first_token_ocurrence.token_i
