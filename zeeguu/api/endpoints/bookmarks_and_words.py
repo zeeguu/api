@@ -131,7 +131,7 @@ def bookmarks_for_article(article_id, user_id):
 @requires_session
 def bookmarks_to_study_for_article(article_id):
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
 
     bookmarks = user.bookmarks_for_article(
         article_id,
