@@ -107,6 +107,9 @@ RUN chown -R www-data:www-data /zeeguu-resources
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
+# this installs the nltk in the /zeeguu_resources/nltk_data
+# but for the nltk to find it we need to set an envvar
+ENV NLTK_DATA=/zeeguu-resources/nltk_data/
 
 
 # Copy the rest of the files
