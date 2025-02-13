@@ -85,8 +85,9 @@ So for running the development server this is ok, but for actual development, th
 
 - create a local folder where you want to store zeeguu data, e.g. `mkdir /Users/mircea/zeeguu-data`
 - make sure that you have `envsubst` installed (i.e. `brew install gettext`)
-- copy the content of `default_env` to a newly created `.env` file
-- run `generate-configs.sh`; verify that `api.cfg` and `fmd.cfg` have meaningful values inside
+- copy the content of `default.env` to a newly created `.env` file
+- update `ZEEGUU_DATA_FOLDER` in the newly created `.env` file
+- run `generate_configs.sh`; verify that `api.cfg` and `fmd.cfg` have meaningful values inside
 - run `docker compose up`
 - once everything is up, go to `localhost:8080/available_languages`: if you see an array like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
