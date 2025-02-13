@@ -354,3 +354,9 @@ class TokenizationTest(ModelTestMixIn):
         for i in range(len(tokens)):
             assert tokens[i].text == numbers[i]
             assert tokens[i].is_like_num
+
+        token_number_with_text = self.da_tokenizer.tokenize_text(
+            "En 20-årig mand", False
+        )
+        assert ["En", "20-årig", "mand"] == [t.text for t in token_number_with_text]
+        assert not token_number_with_text[1].is_like_num
