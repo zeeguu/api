@@ -73,6 +73,7 @@ RUN echo '\n\
 </VirtualHost>' > /etc/apache2/sites-available/zeeguu-api.conf
 
 
+# ML: is this needed?
 RUN chown -R www-data:www-data /var/www
 
 
@@ -97,9 +98,15 @@ COPY ./setup.py /Zeeguu-API/setup.py
 # Install requirements and setup
 WORKDIR /Zeeguu-API
 
+
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
+RUN mkdir /zeeguu-resources
+RUN chown -R www-data:www-data /zeeguu-resources
+
+
+
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
-
 
 
 # Copy the rest of the files
@@ -107,8 +114,7 @@ RUN python setup.py develop
 WORKDIR /Zeeguu-API
 COPY . /Zeeguu-API
 
-# ZEEGUU_DATA is needed for the install_stanza_models
-ENV ZEEGUU_DATA_FOLDER=/zeeguu-data
+# We can only run this here, because it depends on the zeeguuu.core.languages
 RUN python install_stanza_models.py
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
