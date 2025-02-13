@@ -133,7 +133,7 @@ class Text(db.Model):
     def all_bookmarks_for_text(self):
         from zeeguu.core.model import Bookmark
 
-        return Text.query.join(Bookmark).filter(Bookmark.text_id == self.id).all()
+        return Bookmark.query.join(Text).filter(Bookmark.text_id == self.id).all()
 
     @classmethod
     def find_all(cls, text, language):

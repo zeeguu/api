@@ -286,6 +286,23 @@ class TokenizationTest(ModelTestMixIn):
         assert tokens[1].is_like_num
         TokenizationTest.assert_sentence_i_token_i_is_correct(tokens)
 
+    def test_danish_tokenization_3(self):
+        # Found an error where "summer'i" was getting tokenized together.
+        # Ensure the new changes prevent this from happening.
+        text = """Sommeren 2024 fik tilnavnet 'cruel summer' i modebranchen."""
+        tokens = self.da_tokenizer.tokenize_text(text, False)
+        assert [
+            "Sommeren",
+            "2024",
+            "fik",
+            "tilnavnet",
+            "'cruel",
+            "summer'",
+            "i",
+            "modebranchen",
+            ".",
+        ] == [t.text for t in tokens]
+
     def test_portuguese_tokenization_1(self):
         text = """Eu estou a testar o Tokenizer nas frazes do Zeeguu."""
         tokens = self.pt_tokenizer.tokenize_text(text, False)
@@ -337,3 +354,9 @@ class TokenizationTest(ModelTestMixIn):
         for i in range(len(tokens)):
             assert tokens[i].text == numbers[i]
             assert tokens[i].is_like_num
+
+        token_number_with_text = self.da_tokenizer.tokenize_text(
+            "En 20-årig mand", False
+        )
+        assert ["En", "20-årig", "mand"] == [t.text for t in token_number_with_text]
+        assert not token_number_with_text[1].is_like_num
