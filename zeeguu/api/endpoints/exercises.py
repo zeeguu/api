@@ -77,7 +77,7 @@ def bookmarks_to_learn_not_scheduled():
     scheduled to the user.
     """
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
     to_study = user.bookmarks_to_learn_not_in_pipeline()
     json_bookmarks = [
         bookmark.as_dictionary(
@@ -98,7 +98,7 @@ def bookmarks_in_pipeline(with_tokens=None):
     Is used to render the Words tab in Zeeguu
     """
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
     bookmarks_in_pipeline = user.bookmarks_in_pipeline()
     json_bookmarks = [
         bookmark.as_dictionary(
