@@ -4,9 +4,9 @@ import setuptools
 from setuptools.command.develop import develop
 from setuptools.command.install import install
 
-from os import getenv
+from os import getenv, path
 
-ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER") or "/zeeguu-resources/"
+ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER") or path.expanduser("~")
 
 
 class DevelopScript(develop):

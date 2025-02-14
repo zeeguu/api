@@ -17,11 +17,7 @@ URL_PLACEHOLDER = "#URL#"
 EMAIL_PLACEHOLDER = "#EMAIL#"
 
 
-STANZA_RESOURCE_DIR = (
-    os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources")
-    if ZEEGUU_RESOURCES_FOLDER
-    else os.path.join(os.path.expanduser("~"), "stanza_resources")
-)
+STANZA_RESOURCE_DIR = os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources")
 
 
 class StanzaTokenizer(ZeeguuTokenizer):
