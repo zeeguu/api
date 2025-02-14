@@ -96,9 +96,6 @@ COPY ./requirements.txt /Zeeguu-API/requirements.txt
 
 
 
-RUN mkdir /zeeguu-resources
-RUN chown -R www-data:www-data /zeeguu-resources
-ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 
 # Installs NLTK in the /zeeguu_resources
 COPY ./setup.py /Zeeguu-API/setup.py
@@ -108,7 +105,8 @@ WORKDIR /Zeeguu-API
 
 
 
-
+RUN mkdir /zeeguu-resources
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
@@ -122,13 +120,23 @@ ENV NLTK_DATA=/zeeguu-resources/nltk_data/
 WORKDIR /Zeeguu-API
 COPY . /Zeeguu-API
 
+# We can now change the ownership of zeeguu-resources
+RUN chown -R :www-data ZEEGUU_RESOURCES_FOLDER
+
+# Now ensure permissions
+RUN chmod -R 775 ZEEGUU_RESOURCES_FOLDER
+    # Owner (root): Read, write, execute (7)
+    # Group (www-data): Read, write, execute (7)
+    # Others: Read and execute (5)
+
+
 # We can only run this here, because it depends on the zeeguuu.core.languages
 RUN python install_stanza_models.py
+
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data
-
 
 RUN a2dissite 000-default.conf
 RUN a2ensite zeeguu-api
