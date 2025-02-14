@@ -27,7 +27,7 @@ class Token:
 
     @classmethod
     def is_like_symbols(cls, text):
-        return Token.URL_REGEX.match(text) is not None
+        return text in Token.SYMBOLS
 
     @classmethod
     def is_punctuation(cls, text):

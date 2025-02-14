@@ -183,6 +183,35 @@ class TokenizationTest(ModelTestMixIn):
         ] == [t.text for t in tokens]
         assert all([t.token_i == i for i, t in enumerate(tokens)])
 
+    def test_french_tokenization_2(self):
+        text = """Un jour, en hiver, une reine qui n'a pas d'enfants se pique le doigt en cousant devant sa fenêtre."""
+        tokens = self.fr_tokenizer.tokenize_text(text, False)
+        assert [
+            "Un",
+            "jour",
+            ",",
+            "en",
+            "hiver",
+            ",",
+            "une",
+            "reine",
+            "qui",
+            "n'a",
+            "pas",
+            "d'enfants",
+            "se",
+            "pique",
+            "le",
+            "doigt",
+            "en",
+            "cousant",
+            "devant",
+            "sa",
+            "fenêtre",
+            ".",
+        ] == [t.text for t in tokens]
+        assert all([t.token_i == i for i, t in enumerate(tokens)])
+
     def test_spanish_tokenization_1(self):
         text = """¿qué es esto?"""
         tokens = self.es_tokenizer.tokenize_text(text, False)

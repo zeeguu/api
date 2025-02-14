@@ -114,8 +114,8 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     particle_with_apostrophe
                     and particle_with_apostrophe.group(0) == text
                     and i + 1 < len(sentence.tokens)
-                    and len(sentence.tokens[i + 1].text)
-                    > 1  # avoid situations like call'? where it's followed by a punctuation
+                    and sentence.tokens[i + 1].text
+                    not in Token.PUNCTUATION  # avoid situations like call'? where it's followed by a punctuation
                     and not has_space
                 ):
                     # Do not accumulate in case it's the only token in the sentence.
