@@ -7,12 +7,12 @@ class Token:
     SYMBOLS = "©€£$#&@<=>§¢¥¤®º"
     LEFT_PUNCTUATION = "({#„¿[“"
     RIGHT_PUNCTUATION = ")}]”"
-    NUM_REGEX = re.compile(r"\b[0-9]+(\.|,)*[0-9]*\b")
+    NUM_REGEX = re.compile(r"^([0-9]+(\.|,)*[0-9]*)+$")
 
     # I started from a generated Regex from Co-Pilot and then tested it
     # against a variety of reandom generated links. Generally it seems to work fine,
     # but not likely to be perfect in all situations.
-    EMAIL_REGEX = re.compile(r"(\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{1,4}\b)")
+    EMAIL_REGEX = re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{1,4}$)")
     URL_REGEX = re.compile(
         r"(((http|https)://)?(www\.)?([a-zA-Z0-9@\-/\.]+\.[a-z]{2,4}/?([a-zA-Z0-9?=\.&#/]+)?)+)"
     )
@@ -27,7 +27,7 @@ class Token:
 
     @classmethod
     def is_like_symbols(cls, text):
-        return Token.URL_REGEX.match(text) is not None
+        return text in Token.SYMBOLS
 
     @classmethod
     def is_punctuation(cls, text):
