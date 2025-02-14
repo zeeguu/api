@@ -93,15 +93,20 @@ VOLUME /Zeeguu-API
 # not have to start from scratch
 RUN mkdir /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
+
+
+
+RUN mkdir /zeeguu-resources
+RUN chown -R www-data:www-data /zeeguu-resources
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
+
+# Installs NLTK in the /zeeguu_resources
 COPY ./setup.py /Zeeguu-API/setup.py
 
 # Install requirements and setup
 WORKDIR /Zeeguu-API
 
 
-ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
-RUN mkdir /zeeguu-resources
-RUN chown -R www-data:www-data /zeeguu-resources
 
 
 
