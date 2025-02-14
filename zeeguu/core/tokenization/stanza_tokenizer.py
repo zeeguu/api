@@ -11,8 +11,6 @@ STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
 # This is used to capture the l' from l'autheur
 PARTICLE_WITH_APOSTROPHE = re.compile(r"(\w+('|’))")
-ZEEGUU_DATA_FOLDER = getenv("ZEEGUU_DATA_FOLDER")
-
 
 
 URL_PLACEHOLDER = "#URL#"
