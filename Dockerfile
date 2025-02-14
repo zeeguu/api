@@ -121,10 +121,10 @@ WORKDIR /Zeeguu-API
 COPY . /Zeeguu-API
 
 # We can now change the ownership of zeeguu-resources
-RUN chown -R :www-data ZEEGUU_RESOURCES_FOLDER
+RUN chown -R :www-data $ZEEGUU_RESOURCES_FOLDER
 
 # Now ensure permissions
-RUN chmod -R 775 ZEEGUU_RESOURCES_FOLDER
+RUN chmod -R 775 $ZEEGUU_RESOURCES_FOLDER
     # Owner (root): Read, write, execute (7)
     # Group (www-data): Read, write, execute (7)
     # Others: Read and execute (5)
