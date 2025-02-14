@@ -2,17 +2,15 @@ from zeeguu.core.tokenization.token import Token
 from zeeguu.core.tokenization.zeeguu_tokenizer import ZeeguuTokenizer, TokenizerModel
 from zeeguu.core.model.language import Language
 import re
-from os import getenv
+from zeeguu.config import ZEEGUU_RESOURCES_FOLDER
 
 import stanza
 import os
 
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
-
 # This is used to capture the l' from l'autheur
 PARTICLE_WITH_APOSTROPHE = re.compile(r"(\w+('|’))")
-ZEEGUU_DATA_FOLDER = getenv("ZEEGUU_DATA_FOLDER")
 
 
 URL_PLACEHOLDER = "#URL#"
@@ -20,8 +18,8 @@ EMAIL_PLACEHOLDER = "#EMAIL#"
 
 
 STANZA_RESOURCE_DIR = (
-    os.path.join(ZEEGUU_DATA_FOLDER, "stanza_resources")
-    if ZEEGUU_DATA_FOLDER
+    os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources")
+    if ZEEGUU_RESOURCES_FOLDER
     else os.path.join(os.path.expanduser("~"), "stanza_resources")
 )
 
