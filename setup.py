@@ -6,8 +6,7 @@ from setuptools.command.install import install
 
 from os import getenv
 
-ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER")
-print(ZEEGUU_RESOURCES_FOLDER)
+ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER") or "/zeeguu-resources/"
 
 
 class DevelopScript(develop):
