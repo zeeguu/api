@@ -27,6 +27,7 @@ def requires_session(view):
         print("--> /" + view.__name__)
         try:
             session_uuid = flask.request.args["session"]
+
             user_id, session_expiry_time = SESSION_CACHE.get(
                 session_uuid,
                 (
@@ -40,11 +41,12 @@ def requires_session(view):
                     force_user_to_relog,
                 )
 
-                print("----------- Updating Cache! -----------")
                 session_object = Session.find(session_uuid)
                 if session_object is None:
+                    print("-- Session inexistent")
                     flask.abort(401)
                 if is_session_too_old(session_object):
+                    print("-- Session is too old")
                     force_user_to_relog(session_object)
                     flask.abort(401)
                 user_id = session_object.user_id
@@ -59,6 +61,7 @@ def requires_session(view):
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
             # but in any case, we should simply abort if this happens
+            print("-- Missing session key, or some other Bad Request Error")
             flask.abort(401)
 
         except Exception as e:
@@ -67,6 +70,7 @@ def requires_session(view):
 
             capture_exception(e)
             traceback.print_exc()
+            print("-- Some other exception. Aborting")
             flask.abort(401)
 
         return view(*args, **kwargs)
