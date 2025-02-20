@@ -49,10 +49,12 @@ def find_or_create_article():
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        flask.abort(500)
+
         import traceback
 
         traceback.print_stack()
+
+        flask.abort(500)
 
 
 # ---------------------------------------------------------------------------
