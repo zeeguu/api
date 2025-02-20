@@ -29,16 +29,20 @@ def find_or_create_article():
     """
 
     url = request.form.get("url", "")
+    print("-- url: " + url)
     user = User.find_by_id(flask.g.user_id)
+    print("-- user: " + str(user.id))
 
     if not url:
+        print("-- missing url: aborting")
         flask.abort(400)
 
     try:
         article = Article.find_or_create(db_session, url)
-        return json_result(
-            UserArticle.user_article_info(user, article, with_content=True)
-        )
+        print("-- article found or created: " + str(article.id))
+        uai = UserArticle.user_article_info(user, article, with_content=True)
+        print("-- returning user article info: " + str(uai))
+        return json_result(uai)
     except NoResultFound as e:
         flask.abort(406, "Language not supported")
     except Exception as e:
