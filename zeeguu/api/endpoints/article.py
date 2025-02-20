@@ -52,7 +52,7 @@ def find_or_create_article():
 
         import traceback
 
-        traceback.print_stack()
+        traceback.print_exc()
 
         flask.abort(500)
 
