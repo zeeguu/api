@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta
 from time import sleep
 
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, desc
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
@@ -19,7 +19,10 @@ from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
 )
-from zeeguu.core.behavioral_modeling import find_last_reading_percentage
+from zeeguu.core.behavioral_modeling import (
+    find_last_reading_percentage,
+    last_reading_point_with_viewport,
+)
 import zeeguu
 
 from zeeguu.core.model import db
@@ -292,6 +295,35 @@ class UserActivityData(db.Model):
             return self.article_id
 
         return self._find_article_in_value_or_extra_data(db_session)
+
+    @classmethod
+    def get_reading_completion_for_article(
+        cls, article_id, user_id, number_of_activity_rows=2, threshold_for_read=0.9
+    ):
+        reading_activity = (
+            cls.query.filter(cls.article_id == article_id)
+            .filter(cls.user_id == user_id)
+            .filter(cls.event == "SCROLL")
+            .order_by(desc(cls.id))
+            .limit(number_of_activity_rows)
+            .all()
+        )
+        max_percentage_read = 0
+        for ra_row in reading_activity:
+            if not ra_row.value or not ra_row.extra_data:
+                continue
+            scroll_data = json.loads(ra_row.extra_data)
+            viewport_data = json.loads(ra_row.value)
+            if type(viewport_data) != dict:
+                return 0
+            total_percentage_read = last_reading_point_with_viewport(
+                scroll_data, viewport_data
+            )
+            max_percentage_read = max(max_percentage_read, total_percentage_read)
+        if max_percentage_read > threshold_for_read:
+            return 1
+        else:
+            return max_percentage_read
 
     @classmethod
     def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):

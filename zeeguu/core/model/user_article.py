@@ -1,5 +1,4 @@
 from datetime import datetime
-import random
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -8,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Boolean,
     or_,
+    desc,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
@@ -250,6 +250,7 @@ class UserArticle(db.Model):
     ):
 
         from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
 
         # Initialize returned info with the default article info
         returned_info = article.article_info(with_content=with_content)
@@ -286,6 +287,11 @@ class UserArticle(db.Model):
             returned_info["translations"] = []
 
         else:
+            returned_info["reading_completion"] = (
+                UserActivityData.get_reading_completion_for_article(
+                    user_article_info.article_id, user_article_info.user_id
+                )
+            )
             returned_info["starred"] = user_article_info.starred is not None
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
