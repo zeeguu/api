@@ -259,10 +259,12 @@ def update_translation(bookmark_id):
     if len(prev_text.all_bookmarks_for_text()) == 0:
         # The text doesn't have any bookmarks
         db_session.delete(prev_text)
-
+    updated_bookmark = bookmark.as_dictionary(
+        with_exercise_info=True, with_context_tokenized=True, with_context=True
+    )
     db_session.commit()
 
-    return bookmark_id
+    return json_result(updated_bookmark)
 
 
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
