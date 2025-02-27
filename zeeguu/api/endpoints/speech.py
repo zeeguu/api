@@ -6,8 +6,7 @@ from flask import request
 from zeeguu.api.endpoints import api
 from zeeguu.api.utils import cross_domain, requires_session
 from zeeguu.core.model import Article
-
-DATA_FOLDER = os.environ.get("ZEEGUU_DATA_FOLDER")
+from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 # See: https://cloud.google.com/text-to-speech/docs/voices
 PREFERRED_VOICES = {
@@ -48,7 +47,7 @@ def tts():
 
     audio_file_path = _file_name_for_user_word(user_word, language_id)
 
-    if not os.path.isfile(DATA_FOLDER + audio_file_path):
+    if not os.path.isfile(ZEEGUU_DATA_FOLDER + audio_file_path):
         _save_speech_to_file(user_word.word, language_id, audio_file_path)
 
     print(audio_file_path)
@@ -85,7 +84,7 @@ def mp3_of_full_article():
         text_to_pronounce, language_id, article_id
     )
 
-    if not os.path.isfile(DATA_FOLDER + audio_file_path):
+    if not os.path.isfile(ZEEGUU_DATA_FOLDER + audio_file_path):
         _save_speech_to_file(text_to_pronounce, language_id, audio_file_path)
 
     print(audio_file_path)
@@ -118,7 +117,7 @@ def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
     )
 
     # The response's audio_content is binary.
-    with open(DATA_FOLDER + audio_file_path, "wb") as out:
+    with open(ZEEGUU_DATA_FOLDER + audio_file_path, "wb") as out:
         # Write the response to the output file.
         out.write(response.audio_content)
 

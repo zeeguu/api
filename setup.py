@@ -6,6 +6,9 @@ from setuptools.command.install import install
 
 from os import getenv, path
 
+# Note: This is duplicate with zeeguu/config/__init__.py but we can't avoid it
+# because at the time we're running the setup.py we don't have the packages installed yet
+# and also we can't import it from there with a relative import
 ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER") or path.expanduser("~")
 
 
