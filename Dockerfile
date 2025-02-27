@@ -73,6 +73,7 @@ RUN echo '\n\
 </VirtualHost>' > /etc/apache2/sites-available/zeeguu-api.conf
 
 
+# ML: is this needed?
 RUN chown -R www-data:www-data /var/www
 
 
@@ -94,27 +95,58 @@ RUN mkdir /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
-# Install requirements and setup
+# setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
+RUN mkdir /zeeguu-resources
+RUN chown -R :www-data $ZEEGUU_RESOURCES_FOLDER
+
+# Allow rwx for group
+RUN sudo chmod 770 $ZEEGUU_RESOURCES_FOLDER
+# before it used to be 755... though I don't see
+# Owner (root): Read, write, execute (7)
+# Group (www-data): Read, write, execute (7)
+# Others: Read and execute (5)
+# Set Default Permissions for Future Files and Directories
+
+RUN sudo setfacl -d -m g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
+
+
+
+# Install requirements and run the setup.py
 WORKDIR /Zeeguu-API
 
 RUN python -m pip install -r requirements.txt
 RUN python setup.py develop
+    # this installs the nltk in the /zeeguu_resources/nltk_data
 
+
+# but for the nltk to know where to look we need to set an envvar
+ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
 
 # Copy the rest of the files
-# (this is done after the requirements are installed, so that the cache is not invalidated)
-WORKDIR /Zeeguu-API
+# (this is done after the requirements are installed, so that the layer does not need to be changed
+# if only the code is being changed...
 COPY . /Zeeguu-API
 
-# ZEEGUU_DATA is needed for the install_stanza_models
-ENV ZEEGUU_DATA_FOLDER=/zeeguu-data
+
+
+# We can only run this here, after we copied the files,
+# because it depends on the zeeguuu.core.languages
 RUN python install_stanza_models.py
+
+
+# Create the temporary folder for newspaper and make sure that it can be
+# written by www-data
+RUN mkdir /tmp/.newspaper_scraper
+RUN chown -R :www-data /tmp/.newspaper_scraper
+RUN sudo chmod 770 /tmp/.newspaper_scraper
+RUN sudo setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
+
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data
-
+VOLUME /zeeguu-resources
 
 RUN a2dissite 000-default.conf
 RUN a2ensite zeeguu-api
