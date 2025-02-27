@@ -135,6 +135,14 @@ COPY . /Zeeguu-API
 RUN python install_stanza_models.py
 
 
+# Create the temporary folder for newspaper and make sure that it can be
+# written by www-data
+RUN mkdir /tmp/.newspaper_scraper
+RUN chown -R :www-data /tmp/.newspaper_scraper
+RUN sudo chmod 770 /tmp/.newspaper_scraper
+RUN sudo setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
+
+
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data
