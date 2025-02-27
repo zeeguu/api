@@ -5,6 +5,9 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get dist-upgrade -y
 
+# We use ACL to modify folder permissions later
+RUN apt-get install acl
+
 # Git
 # ---
 # required by github dependencies in requirements.txt
@@ -107,7 +110,6 @@ RUN chmod 770 $ZEEGUU_RESOURCES_FOLDER
 # Group (www-data): Read, write, execute (7)
 # Others: Read and execute (5)
 # Set Default Permissions for Future Files and Directories
-RUN apt-get install acl # install acl because it is not available
 RUN setfacl -d -m g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
 
 
