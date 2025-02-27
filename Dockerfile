@@ -96,18 +96,19 @@ COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
 # setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
-RUN mkdir /zeeguu-resources
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
+RUN mkdir $ZEEGUU_RESOURCES_FOLDER
 RUN chown -R :www-data $ZEEGUU_RESOURCES_FOLDER
 
 # Allow rwx for group
-RUN sudo chmod 770 $ZEEGUU_RESOURCES_FOLDER
+RUN chmod 770 $ZEEGUU_RESOURCES_FOLDER
 # before it used to be 755... though I don't see
 # Owner (root): Read, write, execute (7)
 # Group (www-data): Read, write, execute (7)
 # Others: Read and execute (5)
 # Set Default Permissions for Future Files and Directories
-
-RUN sudo setfacl -d -m g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
+RUN apt-get install acl # install acl because it is not available
+RUN setfacl -d -m g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
 
 
 
@@ -139,8 +140,8 @@ RUN python install_stanza_models.py
 # written by www-data
 RUN mkdir /tmp/.newspaper_scraper
 RUN chown -R :www-data /tmp/.newspaper_scraper
-RUN sudo chmod 770 /tmp/.newspaper_scraper
-RUN sudo setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
+RUN chmod 770 /tmp/.newspaper_scraper
+RUN setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
 
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
