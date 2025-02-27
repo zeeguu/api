@@ -140,7 +140,7 @@ RUN python install_stanza_models.py
 
 # Create the temporary folder for newspaper and make sure that it can be
 # written by www-data
-RUN mkdir /tmp/.newspaper_scraper
+RUN mkdir -p /tmp/.newspaper_scraper # -p does not report error if folder already exists
 RUN chown -R :www-data /tmp/.newspaper_scraper
 RUN chmod 770 /tmp/.newspaper_scraper
 RUN setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
