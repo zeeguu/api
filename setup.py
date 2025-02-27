@@ -9,6 +9,9 @@ from os import getenv, path
 # Note: This is duplicate with zeeguu/config/__init__.py but we can't avoid it
 # because at the time we're running the setup.py we don't have the packages installed yet
 # and also we can't import it from there with a relative import
+# I guess everything would be easier if by default, we would work with in /zeeguu-resources
+# that would make the container preparation easier, because we would not have to define
+# zeeguu_resources ... come on, that's not that hard
 ZEEGUU_RESOURCES_FOLDER = getenv("ZEEGUU_RESOURCES_FOLDER") or path.expanduser("~")
 
 
