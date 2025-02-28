@@ -102,7 +102,6 @@ services:
     environment: &zapi_env
       ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
-      ZEEGUU_RESOURCES_FOLDER: /zeeguu-resources
       SENTRY_DSN: ${SENTRY_DSN}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
