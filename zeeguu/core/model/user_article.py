@@ -1,5 +1,4 @@
 from datetime import datetime
-import random
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -250,6 +249,7 @@ class UserArticle(db.Model):
     ):
 
         from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.article_title_context import ArticleTitleContext
 
         # Initialize returned info with the default article info
         returned_info = article.article_info(with_content=with_content)
@@ -286,6 +286,10 @@ class UserArticle(db.Model):
             returned_info["translations"] = []
 
         else:
+            from zeeguu.core.model.article_fragment_context import (
+                ArticleFragmentContext,
+            )
+
             returned_info["starred"] = user_article_info.starred is not None
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
@@ -304,6 +308,19 @@ class UserArticle(db.Model):
                 returned_info["translations"] = [
                     each.as_dictionary() for each in translations
                 ]
+
+            for i, fragment in enumerate(returned_info["tokenized_fragments"]):
+                fragment["past_bookmarks"] = (
+                    ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
+                        user.id, fragment["fragment_id"]
+                    )
+                )
+
+            returned_info["tokenized_title_new"]["past_bookmarks"] = (
+                ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                    user.id, article.id
+                )
+            )
 
         if PersonalCopy.exists_for(user, article):
             returned_info["has_personal_copy"] = True

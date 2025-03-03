@@ -4,16 +4,18 @@ from datetime import datetime
 import time
 
 import sqlalchemy
-from langdetect import detect
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
+
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+from zeeguu.core.model.context import ContextSources
 
 
 from zeeguu.core.model import db
@@ -48,8 +50,9 @@ class Article(db.Model):
     id = Column(Integer, primary_key=True)
 
     title = Column(String(512))
-    authors = Column(UnicodeText)
+    authors = Column(String(128))
     content = Column(UnicodeText())
+
     htmlContent = Column(UnicodeText())
     summary = Column(UnicodeText)
     word_count = Column(Integer)
@@ -67,13 +70,18 @@ class Article(db.Model):
 
     from zeeguu.core.model.url_keyword import UrlKeyword
 
+    from zeeguu.core.model.plaintext import Plaintext
+
+    plaintext_id = Column(Integer, ForeignKey(Plaintext.id), unique=True)
+    plaintext = relationship(Plaintext, foreign_keys="Article.plaintext_id")
+
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
-    img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
+    main_img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
     url = relationship(Url, foreign_keys="Article.url_id")
-    img_url = relationship(Url, foreign_keys="Article.img_url_id")
+    main_img_url = relationship(Url, foreign_keys="Article.main_img_url_id")
 
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
@@ -128,7 +136,7 @@ class Article(db.Model):
         self.broken = broken
         self.deleted = deleted
         self.video = video
-        self.img_url = img_url
+        self.main_img_url = img_url
         self.fk_cefr_level = None
 
         self.convertHTML2TextIfNeeded()
@@ -139,11 +147,17 @@ class Article(db.Model):
         fk_difficulty = fk_estimator.estimate_difficulty(
             self.content, self.language, None
         )
+        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
 
         # easier to store integer in the DB
         # otherwise we have to use Decimal, and it's not supported on all dbs
-        self.fk_difficulty = fk_difficulty["grade"]
-        self.word_count = len(self.content.split())
+        fk_difficulty = fk_difficulty["grade"]
+        word_count = len(tokenizer.tokenize_text(self.content))
+
+        self.fk_difficulty = fk_difficulty
+        self.word_count = word_count
+
+        return (fk_difficulty, word_count)
 
     def __repr__(self):
         return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
@@ -190,6 +204,18 @@ class Article(db.Model):
         self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         self.compute_fk_and_wordcount()
+
+    def create_article_fragments(self, session):
+        """
+        Dummy implmentation which just creates paragraphs tags.
+        The idea is that we parse the readability parse, and create the
+        different tags as needed.
+        """
+        from zeeguu.core.model.article_fragment import ArticleFragment
+
+        for i, paragraph in enumerate(self.content.split("\n\n")):
+            af = ArticleFragment(self, i, paragraph.strip(), "p")
+            session.add(af)
 
     def article_info(self, with_content=False):
         """
@@ -244,8 +270,8 @@ class Article(db.Model):
 
         if self.url:
             result_dict["url"] = self.url.as_string()
-        if self.img_url:
-            result_dict["img_url"] = self.img_url.as_string()
+        if self.main_img_url:
+            result_dict["img_url"] = self.main_img_url.as_string()
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
@@ -262,6 +288,7 @@ class Article(db.Model):
 
         if with_content:
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+            from zeeguu.core.model.article_fragment import ArticleFragment
 
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
 
@@ -271,6 +298,20 @@ class Article(db.Model):
             result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
                 self.content, flatten=False
             )
+            result_dict["tokenized_fragments"] = []
+            for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
+                result_dict["tokenized_fragments"].append(
+                    {
+                        "context_type": ContextSources.ArticleFragment,
+                        "fragment_id": fragment.id,
+                        "fragment_formatting": fragment.formatting,
+                        "tokens": tokenizer.tokenize_text(fragment.text, flatten=True),
+                    }
+                )
+            result_dict["tokenized_title_new"] = {
+                "context_type": ContextSources.ArticleTitle,
+                "tokens": tokenizer.tokenize_text(self.title, flatten=True),
+            }
             result_dict["tokenized_title"] = tokenizer.tokenize_text(
                 self.title, flatten=False
             )
@@ -446,6 +487,8 @@ class Article(db.Model):
         title=None,
         authors: str = "",
     ):
+        from zeeguu.core.model.article_fragment import ArticleFragment
+
         """
 
         If article for url found, return ID
@@ -455,6 +498,7 @@ class Article(db.Model):
             - if not, download and create article then return
         """
         from zeeguu.core.model import Url, Language
+        from zeeguu.core.model.plaintext import Plaintext
         from zeeguu.core.content_retriever.article_downloader import (
             extract_article_image,
             add_topics,
@@ -473,6 +517,7 @@ class Article(db.Model):
             np_article = readability_download_and_parse(canonical_url)
 
             text = np_article.text
+
             html_content = np_article.htmlContent
             summary = np_article.summary
             title = np_article.title
@@ -495,10 +540,17 @@ class Article(db.Model):
                 language,
                 html_content,
             )
+            plaintext = Plaintext.find_or_create(
+                session,
+                np_article.text,
+                language,
+            )
+            new_article.plaintext = plaintext
+            new_article.create_article_fragments(session)
 
-            img_url = extract_article_image(np_article)
-            if img_url != "":
-                new_article.img_url = Url.find_or_create(session, img_url)
+            main_img_url = extract_article_image(np_article)
+            if main_img_url != "":
+                new_article.main_img_url = Url.find_or_create(session, main_img_url)
 
             url_keywords = add_url_keywords(new_article, session)
             add_topics(new_article, None, url_keywords, session)
@@ -518,7 +570,6 @@ class Article(db.Model):
                     print("Exception of second degree in article..." + str(i))
                     time.sleep(0.3)
                     continue
-                break
 
     @classmethod
     def find_by_id(cls, id: int):

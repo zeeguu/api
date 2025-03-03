@@ -33,6 +33,7 @@ from .domain_name import DomainName
 from .article import Article
 from .bookmark import Bookmark
 from .text import Text
+from .context import Context
 from .user_word import UserWord
 from .user_preference import UserPreference
 from .session import Session

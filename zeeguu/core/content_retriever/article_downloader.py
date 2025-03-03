@@ -280,6 +280,8 @@ def download_from_feed(
 
 
 def download_feed_item(session, feed, feed_item, url, crawl_report):
+    from zeeguu.core.model.plaintext import Plaintext
+
     title = feed_item["title"]
 
     published_datetime = feed_item["published_datetime"]
@@ -325,7 +327,15 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         feed.language,
         htmlContent=np_article.htmlContent,
     )
+    plaintext = Plaintext.find_or_create(
+        session,
+        np_article.text,
+        feed.language,
+    )
     session.add(new_article)
+    session.add(plaintext)
+    new_article.plaintext = plaintext
+    new_article.create_article_fragments(session)
 
     if not is_quality_article:
         MAX_WORD_FOR_BROKEN_ARTICLE = 10000
@@ -336,9 +346,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         session.add(new_article)
         raise SkippedForLowQuality(reason)
 
-    img_url = extract_article_image(np_article)
-    if img_url != "":
-        new_article.img_url = Url.find_or_create(session, img_url)
+    main_img_url = extract_article_image(np_article)
+    if main_img_url != "":
+        new_article.main_img_url = Url.find_or_create(session, main_img_url)
 
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")

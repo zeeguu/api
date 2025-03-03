@@ -31,9 +31,9 @@ app.app_context().push()
 # NOTE: If you want to index all the articles, you shoud pass a number that's higher
 # or equal to the number of articles in the DB
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
-DELETE_INDEX = False
+DELETE_INDEX = True
 INDEX_WITH_TOPIC_ONLY = True
-TOTAL_ITEMS = 1000
+TOTAL_ITEMS = 10000
 ITERATION_STEP = 100
 
 print(ES_CONN_STRING)
@@ -45,7 +45,9 @@ print(es.info())
 def main():
     if DELETE_INDEX:
         try:
-            es.options(ignore_status=[400, 404]).indices.delete(index=ES_ZINDEX)
+            es.options(ignore_status=[400, 404], request_timeout=120).indices.delete(
+                index=ES_ZINDEX
+            )
             print("Deleted index 'zeeguu'!")
         except Exception as e:
             print(f"Failed to delete: {e}")
@@ -150,7 +152,6 @@ def main():
 
 if __name__ == "__main__":
 
-    print("waiting for the ES process to boot up")
     start = datetime.now()
     print(f"started at: {start}")
     main()

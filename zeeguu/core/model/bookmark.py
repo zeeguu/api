@@ -20,6 +20,7 @@ from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.context import Context
 
 
 from zeeguu.core.model import db
@@ -51,6 +52,9 @@ class Bookmark(db.Model):
 
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
+
+    context_id = db.Column(db.Integer, db.ForeignKey(Context.id))
+    context = db.relationship(Context)
 
     """
     The bookmarks will have a reference to the sentence / token in relation
@@ -381,7 +385,6 @@ class Bookmark(db.Model):
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
         """
-
         origin_lang = Language.find_or_create(_origin_lang)
         translation_lang = Language.find_or_create(_translation_lang)
 
@@ -389,7 +392,11 @@ class Bookmark(db.Model):
 
         article = Article.query.filter_by(id=article_id).one()
 
-        context = Text.find_or_create(
+        context = Context.find_or_create(
+            session, _context, origin_lang, left_ellipsis, right_ellipsis
+        )
+
+        text = Text.find_or_create(
             session,
             _context,
             origin_lang,
@@ -409,7 +416,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_text(user, origin, context)
+            bookmark = Bookmark.find_by_user_word_and_text(user, origin, text)
 
             # update the translation
             bookmark.translation = translation
@@ -419,7 +426,7 @@ class Bookmark(db.Model):
                 origin,
                 translation,
                 user,
-                context,
+                text,
                 now,
                 learning_cycle=learning_cycle,
                 sentence_i=sentence_i,

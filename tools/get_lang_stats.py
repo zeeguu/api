@@ -9,6 +9,7 @@ from tqdm import tqdm
 import os
 from pprint import pprint
 import pyphen
+import copy
 
 
 app = create_app()
@@ -17,63 +18,64 @@ app.app_context().push()
 db_session = zeeguu.core.model.db.session
 TOTAL_ARTCILE_SAMPLE = 500
 LANGUAGES_TO_CALCULATE_STATS_FOR = [
-    "da",
-    "nl",
-    "en",
-    "fr",
-    "de",
-    "hu",
-    "it",
-    "no",
-    "pl",
-    "pt",
-    "ru",
+    # Languages we have FK values for
     "es",
-    "sv",
+    "it",
+    "nl",
+    "fr",
+    "ru",
+    "de",
+    "en",
+    # Languages WITHOUT FK values for
+    "da",
+    "ro",
 ]
 RESULTS = {}
+CALCULATED_STATS = ["token_length_list", "token_syllables", "sentence_length_list"]
 
 
-def token_len_sent_len_vec(lang_code):
-    lang_stats = RESULTS[lang_code]
-    np_token_length_list = np.array(lang_stats["token_length_list"])
-    np_token_syl_list = np.array(lang_stats["token_syllables"])
-    np_sentence_length_list = np.array(lang_stats["sentence_length_list"])
-    return np.array(
-        (
-            np_token_length_list.mean(),
-            np_token_syl_list.mean(),
-            np_sentence_length_list.mean(),
-        )
-    )
+def token_len_sent_len_vec(lang_code, result_dict):
+    vector = []
+    counts = []
+    for stat in CALCULATED_STATS:
+        counts += [len(result_dict[lang_code][stat])]
+        vector += [np.array(result_dict[lang_code][stat]).mean()]
+    return np.array(vector), counts
 
 
-def print_stats_for_lang(lang_code):
-    lang_stats = RESULTS[lang_code]
-    np_token_length_list = np.array(lang_stats["token_length_list"])
-    np_sentence_length_list = np.array(lang_stats["sentence_length_list"])
-    np_token_syl_list = np.array(lang_stats["token_syllables"])
-    print("#" * 10 + f" Results for {lang_code} " + "#" * 10)
-    print(
-        f"Token AVG Length: {np_token_length_list.mean():.2f}, std: {np_token_length_list.std():.2f}"
-    )
-    print(
-        f"Token Syllable AVG Length: {np_token_syl_list.mean():.2f}, std: {np_token_syl_list.std():.2f}"
-    )
-    print(
-        f"Sentence AVG Length: {np_sentence_length_list.mean():.2f}, std: {np_sentence_length_list.std():.2f}"
-    )
-    print(
-        f"Unique tokens: {lang_stats["unique_vocab"]} out of a total of {lang_stats["total_tokens"]}"
-    )
+def normalize_results(result_dict, outlier_threshold_per_stat=[0.01, 0.01, 0.01]):
+    for i, stat in enumerate(CALCULATED_STATS):
+        accumulated = []
+        outlier_threshold = outlier_threshold_per_stat[i]
+        for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
+            lang_stats = np.array(result_dict[lang_code][stat])
+            accumulated += lang_stats[
+                (lang_stats > np.quantile(lang_stats, outlier_threshold))
+                & (lang_stats < np.quantile(lang_stats, 1 - outlier_threshold))
+            ].tolist()
+        np_accumulated = np.array(accumulated)
+        mean = np_accumulated.mean()
+        std = np_accumulated.std()
+        for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
+            lang_stats = np.array(result_dict[lang_code][stat])
+            lang_stats_outliers_removed = lang_stats[
+                (lang_stats > np.quantile(lang_stats, outlier_threshold))
+                & (lang_stats < np.quantile(lang_stats, 1 - outlier_threshold))
+            ]
+            np_normalized = (lang_stats_outliers_removed - mean) / std
+            result_dict[lang_code][stat] = np_normalized.tolist()
+    return result_dict
+
+
+def print_stats_for_lang(lang_code, result_dict):
     dist_to_other_languages = []
-    lang_code_vec = token_len_sent_len_vec(lang_code)
+    lang_code_vec, _ = token_len_sent_len_vec(lang_code, result_dict)
     for code in LANGUAGES_TO_CALCULATE_STATS_FOR:
         if code == lang_code:
             continue
-        other_lang_vec = token_len_sent_len_vec(code)
+        other_lang_vec, _ = token_len_sent_len_vec(code, result_dict)
         dist = np.linalg.norm(lang_code_vec - other_lang_vec)
-        dist_to_other_languages.append((f"{lang_code}-{code}", dist))
+        dist_to_other_languages.append((f"{lang_code}-{code}", round(dist, 4)))
     dist_to_other_languages.sort(key=lambda x: x[1])
     pprint(dist_to_other_languages)
 
@@ -124,7 +126,23 @@ for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
     RESULTS[lang_code] = stats
 
 os.system("cls" if os.name == "nt" else "clear")
+normalized_outlier_removed_results = normalize_results(copy.deepcopy(RESULTS))
+print("################## Normalized and outlier removed results ##################")
 for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
-    print_stats_for_lang(lang_code)
+    print("## Results for language: ", lang_code)
+    vector, counts = token_len_sent_len_vec(
+        lang_code, normalized_outlier_removed_results
+    )
+    print("Vector: ", vector)
+    print("Counts per stat: ", counts)
+    print_stats_for_lang(lang_code, normalized_outlier_removed_results)
     print()
+print()
+print("################## Original results ##################")
+for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
+    print("## Results for language: ", lang_code)
+    vector, counts = token_len_sent_len_vec(lang_code, RESULTS)
+    print("Vector: ", vector)
+    print("Counts per stat: ", counts)
+    print_stats_for_lang(lang_code, RESULTS)
     print()
