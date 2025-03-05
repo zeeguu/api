@@ -88,10 +88,10 @@ So for running the development server this is ok, but for actual development, th
 - copy the content of `default.env` to a newly created `.env` file
 - update `ZEEGUU_DATA_FOLDER` in the newly created `.env` file
 - run `generate_configs.sh`; verify that `api.cfg` and `fmd.cfg` have meaningful values inside
-- run `docker compose up`
+- run `docker compose up zapi_dev_translations`
 - once everything is up, go to `localhost:8080/available_languages`: if you see an array like `["de", "es", "fr", "nl", "en"]` you have the API working.
 
-### Note on non x84/x64 Chips 
+### Note on non x84/x64 Chips
 
 If you have a Mac with the M chips, then you might find the following error when running `docker-compose`:
 
@@ -109,7 +109,6 @@ services:
     platform: linux/amd64
 ...
 ```
-
 
 ## Developing
 
