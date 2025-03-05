@@ -19,6 +19,7 @@ CREATE TABLE `yt_channel` (
 CREATE TABLE `video` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `video_id` varchar(512) NOT NULL,
+  `title` varchar(512) NULL,
   `description` mediumtext,
   `published_at` datetime DEFAULT NULL,
   `channel_id` int(11) DEFAULT NULL,
