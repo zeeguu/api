@@ -170,7 +170,7 @@ def user_settings():
     cefr_level = data.get("cefr_level", None)
     submitted_learned_language_code = data.get("learned_language", None)
 
-    if submitted_learned_language_code and cefr_level:
+    if submitted_learned_language_code:
         user.set_learned_language(
             submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
         )
@@ -199,9 +199,7 @@ def send_feedback():
     if url is not None:
         url = Url.find_or_create(session, url)
 
-    user_feedback = UserFeedback.create(
-        session, user, feedback_component, message, url
-    )
+    user_feedback = UserFeedback.create(session, user, feedback_component, message, url)
     session.commit()
     ZeeguuMailer.send_feedback(
         "Feedback", feedback_component.component_type, message, user

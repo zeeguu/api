@@ -76,7 +76,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
         # Multiplying the constants by 100 should approximate this
         if language.code in ["es", "pt"]:
             return {"start": 206.84, "sentence": 1.02, "word": 60}
-        if language.code == "it":
+        if language.code in ["it", "ro"]:
             return {"start": 217, "sentence": 1.3, "word": 60}
         if language.code == "nl":
             return {"start": 206.84, "sentence": 0.93, "word": 77}
