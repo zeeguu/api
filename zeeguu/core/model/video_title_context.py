@@ -1,11 +1,11 @@
-from zeeguu.core.model import Article, Context
+from zeeguu.core.model import Context
 from zeeguu.core.model import db
 import sqlalchemy
 
 
-class ArticleTitleContext(db.Model):
+class VideoTitleContext(db.Model):
     """
-    A context that is found in a title of an Article.
+    A context that is found in a title of an Video.
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -14,8 +14,8 @@ class ArticleTitleContext(db.Model):
     context_id = db.Column(db.Integer, db.ForeignKey(Context.id), nullable=False)
     context = db.relationship(Context)
 
-    article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
-    article = db.relationship(Article)
+    video_id = db.Column(db.Integer, db.ForeignKey("Video.id"))
+    video = db.relationship("Video")
 
     # Defines the start of context (sentence_i and token_i) in the fragment.
     sentence_i = db.Column(db.Integer)
@@ -24,17 +24,17 @@ class ArticleTitleContext(db.Model):
     def __init__(
         self,
         context,
-        article,
+        video,
         sentence_i,
         token_i,
     ):
         self.context = context
-        self.article = article
+        self.video = video
         self.sentence_i = sentence_i
         self.token_i = token_i
 
     def __repr__(self):
-        return f"<ArticleTitleContext a:{self.article_id}, c:{self.context_id}>"
+        return f"<VideoTitleContext v:{self.video_id}, c:{self.context_id}>"
 
     @classmethod
     def find_by_context_id(cls, context_id: int):
@@ -48,7 +48,7 @@ class ArticleTitleContext(db.Model):
         cls,
         session,
         context,
-        article,
+        video,
         sentence_i,
         token_i,
         commit=True,
@@ -56,14 +56,14 @@ class ArticleTitleContext(db.Model):
         try:
             return cls.query.filter(
                 cls.context == context,
-                cls.article == article,
+                cls.video == video,
                 cls.sentence_i == sentence_i,
                 cls.token_i == token_i,
             ).one()
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             new = cls(
                 context,
-                article,
+                video,
                 sentence_i,
                 token_i,
             )
@@ -71,17 +71,3 @@ class ArticleTitleContext(db.Model):
             if commit:
                 session.commit()
             return new
-
-    @classmethod
-    def get_all_user_bookmarks_for_article_title(
-        cls, user_id: int, article_id: int, as_json_serializable: bool = True
-    ):
-        from zeeguu.core.model.bookmark import Bookmark
-
-        result = (
-            Bookmark.query.filter(Bookmark.user_id == user_id)
-            .join(cls, Bookmark.context_id == cls.context_id)
-            .filter(cls.article_id == article_id)
-        ).all()
-
-        return [each.to_json(True) if as_json_serializable else each for each in result]

@@ -214,8 +214,9 @@ class Article(db.Model):
         from zeeguu.core.model.article_fragment import ArticleFragment
 
         for i, paragraph in enumerate(self.content.split("\n\n")):
-            af = ArticleFragment(self, i, paragraph.strip(), "p")
-            session.add(af)
+            ArticleFragment.find_or_create(
+                session, self.id, paragraph.strip(), i, "p", commit=False
+            )
 
     def article_info(self, with_content=False):
         """
@@ -299,18 +300,21 @@ class Article(db.Model):
                 self.content, flatten=False
             )
             result_dict["tokenized_fragments"] = []
+
             for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
                 result_dict["tokenized_fragments"].append(
                     {
                         "context_type": ContextSources.ArticleFragment,
                         "fragment_id": fragment.id,
-                        "fragment_formatting": fragment.formatting,
-                        "tokens": tokenizer.tokenize_text(fragment.text, flatten=True),
+                        "formatting": fragment.formatting,
+                        "tokens": tokenizer.tokenize_text(fragment.text, flatten=False),
+                        "past_bookmarks": [],
                     }
                 )
             result_dict["tokenized_title_new"] = {
                 "context_type": ContextSources.ArticleTitle,
-                "tokens": tokenizer.tokenize_text(self.title, flatten=True),
+                "tokens": tokenizer.tokenize_text(self.title, flatten=False),
+                "past_bookmarks": [],
             }
             result_dict["tokenized_title"] = tokenizer.tokenize_text(
                 self.title, flatten=False
@@ -487,8 +491,6 @@ class Article(db.Model):
         title=None,
         authors: str = "",
     ):
-        from zeeguu.core.model.article_fragment import ArticleFragment
-
         """
 
         If article for url found, return ID
@@ -507,69 +509,58 @@ class Article(db.Model):
 
         canonical_url = Url.extract_canonical_url(url)
 
-        try:
-            found = cls.find(canonical_url)
-            if found:
-                return found
+        found = cls.find(canonical_url)
+        if found:
+            return found
 
-            from zeeguu.core.content_retriever import readability_download_and_parse
+        from zeeguu.core.content_retriever import readability_download_and_parse
 
-            np_article = readability_download_and_parse(canonical_url)
+        np_article = readability_download_and_parse(canonical_url)
 
-            text = np_article.text
+        text = np_article.text
 
-            html_content = np_article.htmlContent
-            summary = np_article.summary
-            title = np_article.title
-            authors = ", ".join(np_article.authors or [])
-            lang = np_article.meta_lang
+        html_content = np_article.htmlContent
+        summary = np_article.summary
+        title = np_article.title
+        authors = ", ".join(np_article.authors or [])
+        lang = np_article.meta_lang
 
-            language = Language.find(lang)
+        language = Language.find(lang)
 
-            # Create new article and save it to DB
-            url_object = Url.find_or_create(session, canonical_url)
+        # Create new article and save it to DB
+        url_object = Url.find_or_create(session, canonical_url)
 
-            new_article = Article(
-                url_object,
-                title,
-                authors,
-                text,
-                summary,
-                datetime.now(),
-                None,
-                language,
-                html_content,
-            )
-            plaintext = Plaintext.find_or_create(
-                session,
-                np_article.text,
-                language,
-            )
-            new_article.plaintext = plaintext
-            new_article.create_article_fragments(session)
+        new_article = Article(
+            url_object,
+            title,
+            authors,
+            text,
+            summary,
+            datetime.now(),
+            None,
+            language,
+            html_content,
+        )
+        session.add(new_article)
+        plaintext = Plaintext.find_or_create(
+            session,
+            np_article.text,
+            language,
+        )
+        new_article.plaintext = plaintext
+        new_article.create_article_fragments(session)
 
-            main_img_url = extract_article_image(np_article)
-            if main_img_url != "":
-                new_article.main_img_url = Url.find_or_create(session, main_img_url)
+        main_img_url = extract_article_image(np_article)
+        if main_img_url != "":
+            new_article.main_img_url = Url.find_or_create(session, main_img_url)
 
-            url_keywords = add_url_keywords(new_article, session)
-            add_topics(new_article, None, url_keywords, session)
+        url_keywords = add_url_keywords(new_article, session)
+        add_topics(new_article, None, url_keywords, session)
 
-            session.add(new_article)
-            session.commit()
-
-            return new_article
-        except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
-            for i in range(10):
-                try:
-                    session.rollback()
-                    u = cls.find(canonical_url)
-                    print("Found article by url after recovering from race")
-                    return u
-                except:
-                    print("Exception of second degree in article..." + str(i))
-                    time.sleep(0.3)
-                    continue
+        session.add(new_article)
+        session.commit()
+        print(new_article)
+        return new_article
 
     @classmethod
     def find_by_id(cls, id: int):

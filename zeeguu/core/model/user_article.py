@@ -308,19 +308,20 @@ class UserArticle(db.Model):
                 returned_info["translations"] = [
                     each.as_dictionary() for each in translations
                 ]
-
-            for i, fragment in enumerate(returned_info["tokenized_fragments"]):
-                fragment["past_bookmarks"] = (
-                    ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
-                        user.id, fragment["fragment_id"]
+            if "tokenized_fragments" in returned_info:
+                for i, fragment in enumerate(returned_info["tokenized_fragments"]):
+                    returned_info["tokenized_fragments"][i]["past_bookmarks"] = (
+                        ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
+                            user.id, fragment["fragment_id"]
+                        )
+                    )
+                    print(i, returned_info["tokenized_fragments"][i]["past_bookmarks"])
+            if "tokenized_title_new" in returned_info:
+                returned_info["tokenized_title_new"]["past_bookmarks"] = (
+                    ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                        user.id, article.id
                     )
                 )
-
-            returned_info["tokenized_title_new"]["past_bookmarks"] = (
-                ArticleTitleContext.get_all_user_bookmarks_for_article_title(
-                    user.id, article.id
-                )
-            )
 
         if PersonalCopy.exists_for(user, article):
             returned_info["has_personal_copy"] = True

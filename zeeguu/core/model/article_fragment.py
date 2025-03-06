@@ -21,14 +21,14 @@ class ArticleFragment(db.Model):
     text = Column(UnicodeText)
     formatting = Column(String(20))
 
-    def __init__(self, article: Article, order: int, text: str, formatting: str):
+    def __init__(self, article: Article, text: str, order: int, formatting: str):
         self.article = article
         self.text = text
         self.formatting = formatting
         self.order = order
 
     @classmethod
-    def find(cls, id: int):
+    def find_by_id(cls, id: int):
         """
         Retrieve a specific ArticleFragment by its ID.
         Args:
@@ -37,7 +37,18 @@ class ArticleFragment(db.Model):
             ArticleFragment instance or None if not found.
         """
         try:
-            return cls.query.filter_by(id=id).order_by(cls.date.desc()).first()
+            return cls.query.filter_by(id=id).one()
+        except NoResultFound:
+            return None
+
+    @classmethod
+    def find_by_article_order(cls, article_id: int, order: int):
+        try:
+            return (
+                cls.query.filter(cls.article_id == article_id)
+                .filter(cls.order == order)
+                .one()
+            )
         except NoResultFound:
             return None
 
@@ -49,7 +60,13 @@ class ArticleFragment(db.Model):
 
     @classmethod
     def find_or_create(
-        cls, session, article_id: int, text: str, order: int, formatting: str
+        cls,
+        session,
+        article_id: int,
+        text: str,
+        order: int,
+        formatting: str = None,
+        commit=True,
     ):
         try:
             return cls.query.filter_by(
@@ -60,5 +77,6 @@ class ArticleFragment(db.Model):
             article = Article.find_by_id(article_id)
             new = cls(article, text, order, formatting)
             session.add(new)
-            session.commit()
+            if commit:
+                session.commit()
             return new

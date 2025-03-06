@@ -22,7 +22,6 @@ from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context import Context
 
-
 from zeeguu.core.model import db
 
 
@@ -55,6 +54,10 @@ class Bookmark(db.Model):
 
     context_id = db.Column(db.Integer, db.ForeignKey(Context.id))
     context = db.relationship(Context)
+
+    # This will store the information of which type of context the bookmark was
+    # created from. This is the same as the ContextType Enum in the code.
+    context_type = db.Column(db.String(45))
 
     """
     The bookmarks will have a reference to the sentence / token in relation
@@ -99,6 +102,8 @@ class Bookmark(db.Model):
         sentence_i: int = None,
         token_i: int = None,
         total_tokens: int = None,
+        context: Context = None,
+        context_type: str = None,
         level: int = 0,
     ):
         self.origin = origin
@@ -113,6 +118,8 @@ class Bookmark(db.Model):
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
+        self.context = context
+        self.context_type = context_type
         self.level = level
 
     def __repr__(self):
@@ -245,13 +252,33 @@ class Bookmark(db.Model):
         )
 
         if with_context:
+            from zeeguu.core.model.context import (
+                Context,
+            )
+            from zeeguu.core.model.context_type import ContextType
+
             context_info_dict = dict(
                 context=self.text.content,
                 context_paragraph=self.text.paragraph_i,
                 context_sent=self.text.sentence_i,
                 context_token=self.text.token_i,
                 in_content=self.text.in_content,
+                context_type=self.context_type,
+                fragment_id=None,
             )
+            if self.context_type:
+                context_mapping = Context.get_context_type_mappings()
+                context_type_row = context_mapping[
+                    self.context_type
+                ].find_by_context_id(self.context_id)
+                if (
+                    self.context_type == ContextType.ARTICLE_FRAGMENT
+                    and context_type_row
+                ):
+                    context_info_dict["fragment_id"] = (
+                        context_type_row.article_fragment_id
+                    )
+
             result = {**result, **context_info_dict}
 
         bookmark_title = ""
@@ -358,6 +385,58 @@ class Bookmark(db.Model):
         result = {**result, **exercise_info_dict}
         return result
 
+    def create_context_mapping(
+        self,
+        session,
+        sentence_i,
+        token_i,
+        article_fragment=None,
+        article=None,
+        commit=False,
+    ):
+        """
+        Creates a mapping between a context and a context source.
+
+        :param context: The Context object to map.
+        :param context_source: The ContextSources object representing the source of the context.
+        :param context_id: The ID of the context source.
+
+        :return: The created mapping object.
+        """
+        from zeeguu.core.model.context_type import ContextType
+
+        if self.context_type == None:
+            return None
+        print(ContextType.ARTICLE_FRAGMENT)
+        mapped_context = None
+        match self.context_type:
+            case ContextType.ARTICLE_FRAGMENT:
+                if article_fragment is None:
+                    return None
+                mapped_context = (
+                    ContextType.ARTICLE_FRAGMENT_CONTEXT_TABLE.find_or_create(
+                        session,
+                        self.context,
+                        article_fragment,
+                        sentence_i,
+                        token_i,
+                        commit=commit,
+                    )
+                )
+            case ContextType.ARTICLE_TITLE:
+                if article is None:
+                    return None
+                mapped_context = ContextType.ARTICLE_TITLE_CONTEXT_TABLE.find_or_create(
+                    session, self.context, article, sentence_i, token_i, commit=commit
+                )
+            case _:
+                print(
+                    f"## Something went wrong, the context {self.context} did not match any case."
+                )
+        session.add(mapped_context)
+        print(f"## Mapped context: {mapped_context}")
+        return mapped_context
+
     @classmethod
     def find_or_create(
         cls,
@@ -379,6 +458,8 @@ class Bookmark(db.Model):
         in_content: bool = None,
         left_ellipsis: bool = None,
         right_ellipsis: bool = None,
+        context_type: str = None,
+        fragment_id: int = None,
         level: int = 0,
     ):
         """
@@ -432,12 +513,21 @@ class Bookmark(db.Model):
                 sentence_i=sentence_i,
                 token_i=token_i,
                 total_tokens=total_tokens,
+                context=context,
+                context_type=context_type,
                 level=level,
             )
         except Exception as e:
             raise e
 
         session.add(bookmark)
+        if context_type is not None:
+            from zeeguu.core.model.article_fragment import ArticleFragment
+
+            fragment = ArticleFragment.find_by_id(fragment_id)
+            bookmark.create_context_mapping(
+                session, c_sentence_i, c_token_i, fragment, article
+            )
         session.commit()
 
         return bookmark

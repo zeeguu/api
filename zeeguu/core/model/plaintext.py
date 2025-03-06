@@ -69,7 +69,7 @@ class Plaintext(db.Model):
             return None
 
     @classmethod
-    def find_or_create(cls, session, text: str, language: Language):
+    def find_or_create(cls, session, text: str, language: Language, commit=True):
         """
         Finds an existing plaintext with the given text and language or creates a new
         one if it does not exist.
@@ -90,5 +90,6 @@ class Plaintext(db.Model):
         except NoResultFound:
             new = cls(text, language)
             session.add(new)
-            session.commit()
+            if commit:
+                session.commit()
             return new

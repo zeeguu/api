@@ -14,7 +14,7 @@ from zeeguu.core.model.user_article import UserArticle
 class UserArticleRule(BaseRule):
     """
 
-        Creates a User Article object with random data and saves it to the database.
+    Creates a User Article object with random data and saves it to the database.
 
     """
 

@@ -28,8 +28,10 @@ JUNK_PATTERNS_TO_REMOVE = [
 ]
 
 JUNK_PATTERNS_DATA_FOLDER = os.path.dirname(__file__)
-JUNK_COUNT_FILEPATH = os.path.join(JUNK_PATTERNS_DATA_FOLDER, 'data', 'junk_patterns_found.json')
- 
+JUNK_COUNT_FILEPATH = os.path.join(
+    JUNK_PATTERNS_DATA_FOLDER, "data", "junk_patterns_found.json"
+)
+
 with open(JUNK_COUNT_FILEPATH, "r", encoding="utf-8") as f:
     json_data = json.load(f)
     JUNK_COUNT_PATTERNS = [sent for lang in json_data.values() for sent in lang]

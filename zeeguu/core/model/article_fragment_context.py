@@ -24,55 +24,67 @@ class ArticleFragmentContext(db.Model):
     def __init__(
         self,
         context,
-        article,
+        article_fragment,
         sentence_i,
         token_i,
     ):
         self.context = context
-        self.article = article
+        self.article_fragment = article_fragment
         self.sentence_i = sentence_i
         self.token_i = token_i
 
     def __repr__(self):
-        return f"<ArticleFragmentContext a:{self.article_fragment_id}, c:{self.context_id}>"
+        return f"<ArticleFragmentContext a_fragment:{self.article_fragment_id}, c:{self.context_id}>"
+
+    @classmethod
+    def find_by_context_id(cls, context_id: int):
+        try:
+            return cls.query.filter(cls.context_id == context_id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
+
+    @classmethod
+    def find_by_id(cls, article_fragment_id: int):
+        try:
+            return cls.query.filter(
+                cls.article_fragment_id == article_fragment_id
+            ).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
 
     @classmethod
     def find_or_create(
-        cls,
-        session,
-        content,
-        article,
-        sentence_i,
-        token_i,
+        cls, session, context, article_fragment, sentence_i, token_i, commit=True
     ):
         try:
             return cls.query.filter(
-                cls.context_id == content.id,
-                cls.article_fragment_id == article.id,
+                cls.context == context,
+                cls.article_fragment == article_fragment,
                 cls.sentence_i == sentence_i,
                 cls.token_i == token_i,
             ).one()
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             new = cls(
-                content,
-                article,
+                context,
+                article_fragment,
                 sentence_i,
                 token_i,
             )
             session.add(new)
-            session.commit()
+            if commit:
+                session.commit()
             return new
 
     @classmethod
     def get_all_user_bookmarks_for_article_fragment(
-        cls, user_id: int, article_fragment_id: int
+        cls, user_id: int, article_fragment_id: int, as_json_serializable: bool = True
     ):
         from zeeguu.core.model.bookmark import Bookmark
 
         result = (
             Bookmark.query.filter(Bookmark.user_id == user_id)
-            .filter(Bookmark.context_id == cls.context_id)
+            .join(cls, Bookmark.context_id == cls.context_id)
             .filter(cls.article_fragment_id == article_fragment_id)
         ).all()
 
-        return [each for each in result]
+        return [each.to_json(True) if as_json_serializable else each for each in result]

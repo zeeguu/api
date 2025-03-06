@@ -27,7 +27,7 @@ class Context(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(1000))
+    content = db.Column(db.String(1024))
 
     content_hash = db.Column(db.String(64))
 
@@ -91,6 +91,18 @@ class Context(db.Model):
         return cls.query.filter_by(id=context_id).one()
 
     @classmethod
+    def get_context_type_mappings(cls):
+        from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
+        from zeeguu.core.model.article_title_context import ArticleTitleContext
+
+        CONTEXT_SOURCE_TABLE_MAPPING = {
+            ContextSources.ArticleFragment: ArticleFragmentContext,
+            ContextSources.ArticleTitle: ArticleTitleContext,
+        }
+
+        return CONTEXT_SOURCE_TABLE_MAPPING
+
+    @classmethod
     def find_or_create(
         cls,
         session,
@@ -98,6 +110,7 @@ class Context(db.Model):
         language,
         left_ellipsis=None,
         right_ellipsis=None,
+        commit=True,
     ):
         """
         Finds a Context with the given content and language, or creates it if it does
@@ -125,7 +138,8 @@ class Context(db.Model):
                     right_ellipsis,
                 )
                 session.add(new)
-                session.commit()
+                if commit:
+                    session.commit()
                 return new
             except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
                 for i in range(10):
