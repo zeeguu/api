@@ -304,6 +304,8 @@ class UserActivityData(db.Model):
             cls.query.filter(cls.article_id == article_id)
             .filter(cls.user_id == user_id)
             .filter(cls.event == "SCROLL")
+            .filter(cls.extra_data != "")
+            .filter(cls.value != "")
             .order_by(desc(cls.id))
             .limit(number_of_activity_rows)
             .all()
@@ -312,14 +314,18 @@ class UserActivityData(db.Model):
         for ra_row in reading_activity:
             if not ra_row.value or not ra_row.extra_data:
                 continue
-            scroll_data = json.loads(ra_row.extra_data)
-            viewport_data = json.loads(ra_row.value)
-            if type(viewport_data) != dict:
-                return 0
-            total_percentage_read = last_reading_point_with_viewport(
-                scroll_data, viewport_data
-            )
-            max_percentage_read = max(max_percentage_read, total_percentage_read)
+            try:
+                scroll_data = json.loads(ra_row.extra_data)
+                viewport_data = json.loads(ra_row.value)
+                if type(viewport_data) != dict:
+                    return 0
+                total_percentage_read = last_reading_point_with_viewport(
+                    scroll_data, viewport_data
+                )
+                max_percentage_read = max(max_percentage_read, total_percentage_read)
+            except json.decoder.JSONDecodeError:
+                print("Failed to parse JSON data. Skipping row.")
+
         if max_percentage_read > threshold_for_read:
             return 1
         else:
