@@ -129,7 +129,7 @@ RUN python install_stanza_models.py
 
 # Create the temporary folder for newspaper and make sure that it can be
 # written by www-data
-ENV SCRAPER_FOLDER=/tmp/.newspaper_scraper2
+ENV SCRAPER_FOLDER=/tmp/.newspaper_scraper
 RUN mkdir -p $SCRAPER_FOLDER # -p does not report error if folder already exists
 
 
