@@ -98,21 +98,20 @@ RUN mkdir /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
-# setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
-ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
-RUN mkdir $ZEEGUU_RESOURCES_FOLDER
-#RUN chmod -R uog+rwx $ZEEGUU_RESOURCES_FOLDER
-RUN setfacl -d -m u:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
-
-
 WORKDIR /Zeeguu-API
 
 # Install requirements and run the setup.py
 RUN python -m pip install -r requirements.txt
+
+
+# setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
+RUN mkdir -p $ZEEGUU_RESOURCES_FOLDER
+
+
 RUN python setup.py develop #Installs the nltk resources in the /zeeguu_resources/nltk_data
 
-
-# but for the nltk to know where to look we need to set an envvar inside of the image
+# For nltk to know where to look we need to set an envvar inside of the image
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
 
@@ -130,15 +129,20 @@ RUN python install_stanza_models.py
 
 # Create the temporary folder for newspaper and make sure that it can be
 # written by www-data
-RUN mkdir -p /tmp/.newspaper_scraper # -p does not report error if folder already exists
-RUN chown -R :www-data /tmp/.newspaper_scraper
-RUN chmod 770 /tmp/.newspaper_scraper
-RUN setfacl -d -m u:www-data:rwx,g:www-data:rwx /tmp/.newspaper_scraper
+ENV SCRAPER_FOLDER=/tmp/.newspaper_scraper2
+RUN mkdir -p $SCRAPER_FOLDER # -p does not report error if folder already exists
+
+
 
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data
+
+# Ensure that apache processes have acess to relevant folders
+RUN chown -R www-data:www-data $SCRAPER_FOLDER
+RUN chown -R www-data:www-data $ZEEGUU_RESOURCES_FOLDER
+
 
 RUN a2dissite 000-default.conf
 RUN a2ensite zeeguu-api
