@@ -133,16 +133,14 @@ ENV SCRAPER_FOLDER=/tmp/.newspaper_scraper
 RUN mkdir -p $SCRAPER_FOLDER # -p does not report error if folder already exists
 
 
+# Ensure that apache processes have acess to relevant folders
+RUN chown -R www-data:www-data $SCRAPER_FOLDER
+RUN chown -R www-data:www-data $ZEEGUU_RESOURCES_FOLDER
 
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
 VOLUME /zeeguu-data
-
-# Ensure that apache processes have acess to relevant folders
-RUN chown -R www-data:www-data $SCRAPER_FOLDER
-RUN chown -R www-data:www-data $ZEEGUU_RESOURCES_FOLDER
-
 
 RUN a2dissite 000-default.conf
 RUN a2ensite zeeguu-api
