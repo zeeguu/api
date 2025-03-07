@@ -60,6 +60,8 @@ def video_query(search_term, categoryId, lang):
             "title": snippet["title"],
             "description": snippet.get("description", ""),
             "publishedAt": snippet["publishedAt"],
+
+            # TODO: find_or_create channel with channel_id then use channel.id as channel_id
             "channelId": snippet["channelId"],
             "thumbnail": snippet["thumbnails"].get("maxres", {}).get("url", "No maxres thumbnail available"),
             "tags": snippet.get("tags", []),
@@ -162,4 +164,3 @@ def fetch_channel_info(channel_id, lang):
         "language": lang,
         #"rss_url": f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}",
     }
-
