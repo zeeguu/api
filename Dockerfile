@@ -101,8 +101,8 @@ COPY ./setup.py /Zeeguu-API/setup.py
 # setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 RUN mkdir $ZEEGUU_RESOURCES_FOLDER
-RUN chmod -R uog+rwx $ZEEGUU_RESOURCES_FOLDER
-RUN setfacl -d -m u:www-data:rwx,g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
+#RUN chmod -R uog+rwx $ZEEGUU_RESOURCES_FOLDER
+RUN setfacl -d -m u:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
 
 
 WORKDIR /Zeeguu-API
@@ -131,9 +131,9 @@ RUN python install_stanza_models.py
 # Create the temporary folder for newspaper and make sure that it can be
 # written by www-data
 RUN mkdir -p /tmp/.newspaper_scraper # -p does not report error if folder already exists
-RUN chown -R :www-data /tmp/.newspaper_scraper
-RUN chmod 770 /tmp/.newspaper_scraper
-RUN setfacl -d -m g:www-data:rwx /tmp/.newspaper_scraper
+RUN #chown -R :www-data /tmp/.newspaper_scraper
+RUN #chmod 770 /tmp/.newspaper_scraper
+RUN setfacl -d -m u:www-data:rwx /tmp/.newspaper_scraper
 
 
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
