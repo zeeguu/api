@@ -101,28 +101,18 @@ COPY ./setup.py /Zeeguu-API/setup.py
 # setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 RUN mkdir $ZEEGUU_RESOURCES_FOLDER
-RUN chown -R :www-data $ZEEGUU_RESOURCES_FOLDER
-
-# Allow rwx for group
-RUN chmod 770 $ZEEGUU_RESOURCES_FOLDER
-# before it used to be 755... though I don't see
-# Owner (root): Read, write, execute (7)
-# Group (www-data): Read, write, execute (7)
-# Others: Read and execute (5)
-# Set Default Permissions for Future Files and Directories
-RUN setfacl -d -m g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
+RUN chmod -R uog+rwx $ZEEGUU_RESOURCES_FOLDER
+RUN setfacl -d -m u:www-data:rwx,g:www-data:rwx $ZEEGUU_RESOURCES_FOLDER
 
 
-
-# Install requirements and run the setup.py
 WORKDIR /Zeeguu-API
 
+# Install requirements and run the setup.py
 RUN python -m pip install -r requirements.txt
-RUN python setup.py develop
-    # this installs the nltk in the /zeeguu_resources/nltk_data
+RUN python setup.py develop #Installs the nltk resources in the /zeeguu_resources/nltk_data
 
 
-# but for the nltk to know where to look we need to set an envvar
+# but for the nltk to know where to look we need to set an envvar inside of the image
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
 
