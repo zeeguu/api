@@ -51,16 +51,15 @@ CREATE TABLE `caption` (
 
 CREATE TABLE `video_tag` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `text` varchar(512) NOT NULL,
+  `tag` varchar(512) NOT NULL,
   PRIMARY KEY (`id`)
 );
 
 -- Assuming 'video' and 'video_tag' tables exist
 CREATE TABLE `video_tag_map` (
-  `id` int NOT NULL AUTO_INCREMENT,
   `video_id` int NOT NULL,
   `tag_id` int NOT NULL,
-  PRIMARY KEY (`id`),
+  PRIMARY KEY (`video_id, tag_id`),
   KEY `video_tag_map_video_FK` (`video_id`),
   KEY `video_tag_map_tag_FK` (`tag_id`),
   CONSTRAINT `video_tag_map_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
