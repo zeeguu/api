@@ -1,13 +1,13 @@
--- Step 1: Create the `yt_channel` table (assuming 'language' table exists)
+-- Assuming 'language' table exists
 CREATE TABLE `yt_channel` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `channel_id` varchar(512) NOT NULL,
   `name` varchar(512) DEFAULT NULL,
   `description` mediumtext,
-  `views` bigint(20) DEFAULT NULL,
-  `subscribers` int(10) unsigned DEFAULT NULL,
-  `language_id` int(11) DEFAULT NULL,
-  `should_crawl` int(11) DEFAULT NULL,
+  `views` bigint DEFAULT NULL,
+  `subscribers` int unsigned DEFAULT NULL,
+  `language_id` int DEFAULT NULL,
+  `should_crawl` int DEFAULT NULL,
   `last_crawled` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `yt_channel_unique_channel_id` (`channel_id`),
@@ -15,18 +15,18 @@ CREATE TABLE `yt_channel` (
   CONSTRAINT `yt_channel_language_FK` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`)
 );
 
--- Step 2: Create the `video` table (assuming `yt_channel` table exists)
+-- Assuming 'yt_channel' table exists
 CREATE TABLE `video` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `video_id` varchar(512) NOT NULL,
   `title` varchar(512) NULL,
   `description` mediumtext,
   `published_at` datetime DEFAULT NULL,
-  `channel_id` int(11) DEFAULT NULL,
+  `channel_id` int DEFAULT NULL,
   `thumbnail_url` varchar(512) DEFAULT NULL,
   `tags` mediumtext,
-  `duration` int(11) DEFAULT NULL,
-  `language_id` int(11) DEFAULT NULL,
+  `duration` int DEFAULT NULL,
+  `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
   `plain_text` mediumtext,
   PRIMARY KEY (`id`),
@@ -37,18 +37,36 @@ CREATE TABLE `video` (
   CONSTRAINT `video_yt_channel_FK` FOREIGN KEY (`channel_id`) REFERENCES `yt_channel` (`id`)
 );
 
--- Step 3: Create the `caption` table (assuming 'video' table exists)
+-- Assuming 'video' table exists
 CREATE TABLE `caption` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `video_id` int(11) NOT NULL,
-  `time_start` int(11) DEFAULT NULL,
-  `time_end` int(11) DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `video_id` int NOT NULL,
+  `time_start` int DEFAULT NULL,
+  `time_end` int DEFAULT NULL,
   `text` varchar(512) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `caption_video_FK` (`video_id`),
   CONSTRAINT `caption_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
 );
 
--- Step 4: Insert sample data
+CREATE TABLE `video_tag` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `text` varchar(512) NOT NULL,
+  PRIMARY KEY (`id`)
+);
+
+-- Assuming 'video' and 'video_tag' tables exist
+CREATE TABLE `video_tag_map` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `video_id` int NOT NULL,
+  `tag_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `video_tag_map_video_FK` (`video_id`),
+  KEY `video_tag_map_tag_FK` (`tag_id`),
+  CONSTRAINT `video_tag_map_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
+  CONSTRAINT `video_tag_map_tag_FK` FOREIGN KEY (`tag_id`) REFERENCES `video_tag` (`id`)
+);
+
+
 -- INSERT INTO yt_channel(channel_id, name, description, views, subscribers, language_id, should_crawl, last_crawled) VALUES ('UCMNMJW01ZNlSERud6oUnMyg', 'Naturen i Danmark', 'blabla', 756786, 8260, 2, 1, NOW());
 -- INSERT INTO video(video_id, description, published_at, channel_id, thumbnail_url, tags, duration, language_id, vtt, plain_text) VALUES ('EWnStY9O4CA', 'blablabla', NOW(), 1, 'https://i.ytimg.com/vi/EWnStY9O4CA/hqdefault.jpg', 'tag1, tag2', 609, 2, 'vtt', 'plain text');
