@@ -10,6 +10,7 @@
   "views": {
     "top-level-view-depth-1": {
       "packages": [
+        "archlens_cli.py",
         {
           "path": "*",
           "depth": 1
@@ -29,12 +30,29 @@
         "core"
       ]
     },
-    "inside-core": {
+    "inside-core-model": {
       "packages": [
         {
-          "path": "core",
-          "depth": 1
+          "path": "core/model",
+          "depth": 3
         }
+      ],
+      "ignorePackages": [
+        "*test*",
+        "core"
+      ]
+    },
+    "content-retrieval": {
+      "packages": [
+        "core.content_cleaning",
+        "core.content_quality",
+        "core.content_retriever",
+        "core.elastic",
+        "core.ml_models",
+        "core.feed_handler",
+        "core.nlp_pipeline",
+        "core.semantic_search",
+        "core.tokenization"
       ],
       "ignorePackages": [
         "*test*",
