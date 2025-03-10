@@ -310,19 +310,22 @@ class UserActivityData(db.Model):
             .limit(number_of_activity_rows)
             .all()
         )
+        article = Article.find_by_id(article_id)
         max_percentage_read = 0
         for ra_row in reading_activity:
-            if not ra_row.value or not ra_row.extra_data:
+            if max_percentage_read == 1:
+                break
+            if not ra_row.extra_data:
                 continue
             try:
                 scroll_data = json.loads(ra_row.extra_data)
-                viewport_data = json.loads(ra_row.value)
-                if type(viewport_data) != dict:
-                    return 0
-                total_percentage_read = last_reading_point_with_viewport(
-                    scroll_data, viewport_data
-                )
-                max_percentage_read = max(max_percentage_read, total_percentage_read)
+                total_percentage_read = find_last_reading_percentage(scroll_data)
+                if article.word_count < 150 and scroll_data[-1][0] >= 60:
+                    max_percentage_read = 1
+                else:
+                    max_percentage_read = max(
+                        max_percentage_read, total_percentage_read
+                    )
             except json.decoder.JSONDecodeError:
                 print("Failed to parse JSON data. Skipping row.")
 
