@@ -25,7 +25,7 @@ class Video(db.Model):
     vtt = db.Column(db.Text)
     plain_text = db.Column(db.Text)
 
-    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, tags, duration, language, vtt, plain_text):
+    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, tags, duration, language_id, vtt, plain_text):
         self.video_id = video_id
         self.title = title
         self.description = description
@@ -34,7 +34,7 @@ class Video(db.Model):
         self.thumbnail_url = thumbnail_url
         self.tags = tags
         self.duration = duration
-        self.language = language
+        self.language_id = language_id
         self.vtt = vtt
         self.plain_text = plain_text
 
@@ -52,7 +52,7 @@ class Video(db.Model):
             thumbnail_url=self.thumbnail_url,
             tags=self.tags,
             duration=self.duration,
-            language=self.language.code,
+            language_id=self.language.id,
             vtt=self.vtt,
             plain_text=self.plain_text
         )
