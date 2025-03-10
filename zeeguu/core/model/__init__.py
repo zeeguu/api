@@ -85,3 +85,6 @@ from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .personal_copy import PersonalCopy
 
 from .difficulty_lingo_rank import DifficultyLingoRank
+
+from .yt_channel import YTChannel
+from .video import Video
