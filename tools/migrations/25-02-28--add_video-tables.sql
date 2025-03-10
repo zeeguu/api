@@ -37,16 +37,16 @@ CREATE TABLE `video` (
   CONSTRAINT `video_yt_channel_FK` FOREIGN KEY (`channel_id`) REFERENCES `yt_channel` (`id`)
 );
 
--- Step 3: Create the `subtitle_line` table (assuming 'video' table exists)
-CREATE TABLE `subtitle_line` (
+-- Step 3: Create the `caption` table (assuming 'video' table exists)
+CREATE TABLE `caption` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `video_id` int(11) NOT NULL,
   `time_start` int(11) DEFAULT NULL,
   `time_end` int(11) DEFAULT NULL,
   `text` varchar(512) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `subtitle_line_video_FK` (`video_id`),
-  CONSTRAINT `subtitle_line_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
+  KEY `caption_video_FK` (`video_id`),
+  CONSTRAINT `caption_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
 );
 
 -- Step 4: Insert sample data
