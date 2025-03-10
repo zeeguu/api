@@ -14,26 +14,23 @@ class YTChannel(db.Model):
     channel_id = db.Column(db.String(512), unique=True, nullable=False)
     name = db.Column(db.String(512))
     description = db.Column(db.Text)
-
     #TODO: make integers unsigned
     views = db.Column(db.BigInteger)
     subscribers = db.Column(db.Integer)
-
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
-    language = db.relationship("Language")
-
     should_crawl = db.Column(db.Integer)
     last_crawled = db.Column(db.DateTime)
 
     videos = relationship("Video", back_populates="channel")
+    language = db.relationship("Language")
 
-    def __init__(self, channel_id, name, description, views, subscribers, language_id, should_crawl, last_crawled):
+    def __init__(self, channel_id, name, description, views, subscribers, language, should_crawl, last_crawled):
         self.channel_id = channel_id
         self.name = name
         self.description = description
         self.views = views
         self.subscribers = subscribers
-        self.language_id = language_id
+        self.language = language
         self.should_crawl = should_crawl
         self.last_crawled = last_crawled
 
@@ -48,7 +45,7 @@ class YTChannel(db.Model):
             description=self.description,
             views=self.views,
             subscribers=self.subscribers,
-            language=self.language.code,
+            language_id=self.language.id,
             should_crawl=self.should_crawl,
             last_crawled=self.last_crawled
         )
@@ -62,7 +59,7 @@ class YTChannel(db.Model):
         description=None,
         views=None,
         subscribers=None,
-        language_id=None,
+        language=None,
         should_crawl=None,
         last_crawled=None
     ):
@@ -77,7 +74,7 @@ class YTChannel(db.Model):
             description = description,
             views = views,
             subscribers = subscribers,
-            language_id = language_id,
+            language = language,
             should_crawl = should_crawl,
             last_crawled = last_crawled
         )

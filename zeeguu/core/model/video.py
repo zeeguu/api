@@ -16,16 +16,18 @@ class Video(db.Model):
     description = db.Column(db.Text)
     published_at = db.Column(db.DateTime)
     channel_id = db.Column(db.Integer, db.ForeignKey("yt_channel.id"))
-    channel = db.relationship("YTChannel", back_populates="videos")
     thumbnail_url = db.Column(db.String(512))
     tags = db.Column(db.Text)
     duration = db.Column(db.Integer)
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
-    language = db.relationship("Language")
     vtt = db.Column(db.Text)
     plain_text = db.Column(db.Text)
 
-    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, tags, duration, language_id, vtt, plain_text):
+    channel = db.relationship("YTChannel", back_populates="videos")
+    language = db.relationship("Language")
+    captions = db.relationship("Caption", back_populates="video")
+
+    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, tags, duration, language, vtt, plain_text):
         self.video_id = video_id
         self.title = title
         self.description = description
@@ -34,7 +36,7 @@ class Video(db.Model):
         self.thumbnail_url = thumbnail_url
         self.tags = tags
         self.duration = duration
-        self.language_id = language_id
+        self.language = language
         self.vtt = vtt
         self.plain_text = plain_text
 
@@ -69,7 +71,7 @@ class Video(db.Model):
         thumbnail_url=None, 
         tags=None, 
         duration=None, 
-        language_id=None, 
+        language=None, 
         vtt=None, 
         plain_text=None
     ):
@@ -87,7 +89,7 @@ class Video(db.Model):
             thumbnail_url = thumbnail_url,
             tags = tags,
             duration = duration,
-            language_id = language_id,
+            language = language,
             vtt = vtt,
             plain_text = plain_text
         )
