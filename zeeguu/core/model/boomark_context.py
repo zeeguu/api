@@ -5,19 +5,37 @@ from zeeguu.core.model import db
 import sqlalchemy
 import re
 import time
-from enum import Enum
 
 
-class ContextSources(str, Enum):
-    ArticleFragment = "ArticleFragment"
-    ArticleTitle = "ArticleTitle"
-    ArticleSummary = "ArticleSummary"
-    VideoTitle = "VideoTitle"
-    VideoSubtitle = "VideoSubtitle"
-    WebFragment = "WebFragment"
+class ContextInformation:
+    def __init__(
+        self,
+        bookmark_id,
+        context_type,
+        article_fragment_id=None,
+        article_id=None,
+        video_id=None,
+    ):
+        self.bookmark_id = bookmark_id
+        self.context_type = context_type
+        self.article_fragment_id = article_fragment_id
+        self.article_id = article_id
+        self.video_id = video_id
+
+    def __repr__(self):
+        return f"<ContextInformation bookmark_id={self.bookmark_id} context_type={self.context_type}>"
+
+    def as_dictionary(self):
+        return {
+            "bookmark_id": self.bookmark_id,
+            "context_type": self.context_type.type,
+            "article_fragment_id": self.article_fragment_id,
+            "article_id": self.article_id,
+            "video_id": self.video_id,
+        }
 
 
-class Context(db.Model):
+class BookmarkContext(db.Model):
     """
     Used to be known as text before. The idea is that now table only stores
     the fragments and then is linked to the diverse sources through mapping tables
@@ -89,18 +107,6 @@ class Context(db.Model):
     @classmethod
     def find_by_id(cls, context_id):
         return cls.query.filter_by(id=context_id).one()
-
-    @classmethod
-    def get_context_type_mappings(cls):
-        from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
-        from zeeguu.core.model.article_title_context import ArticleTitleContext
-
-        CONTEXT_SOURCE_TABLE_MAPPING = {
-            ContextSources.ArticleFragment: ArticleFragmentContext,
-            ContextSources.ArticleTitle: ArticleTitleContext,
-        }
-
-        return CONTEXT_SOURCE_TABLE_MAPPING
 
     @classmethod
     def find_or_create(

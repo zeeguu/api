@@ -1,22 +1,15 @@
 import re
 
 from datetime import datetime
-import time
 
-import sqlalchemy
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
 
-
-from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-from zeeguu.core.model.context import ContextSources
-
 
 from zeeguu.core.model import db
 
@@ -70,18 +63,18 @@ class Article(db.Model):
 
     from zeeguu.core.model.url_keyword import UrlKeyword
 
-    from zeeguu.core.model.plaintext import Plaintext
+    from zeeguu.core.model.source import Source
 
-    plaintext_id = Column(Integer, ForeignKey(Plaintext.id), unique=True)
-    plaintext = relationship(Plaintext, foreign_keys="Article.plaintext_id")
+    source_id = Column(Integer, ForeignKey(Source.id), unique=True)
+    source = relationship(Source, foreign_keys="Article.source_id")
 
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
-    main_img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
+    img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
     url = relationship(Url, foreign_keys="Article.url_id")
-    main_img_url = relationship(Url, foreign_keys="Article.main_img_url_id")
+    img_url = relationship(Url, foreign_keys="Article.img_url_id")
 
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
@@ -105,7 +98,7 @@ class Article(db.Model):
         url,
         title,
         authors,
-        content,
+        source,
         summary,
         published_time,
         feed,
@@ -120,12 +113,12 @@ class Article(db.Model):
     ):
 
         if not summary:
-            summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = source.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         self.url = url
         self.title = title
         self.authors = authors
-        self.content = content
+        self.source = source
         self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
@@ -136,31 +129,43 @@ class Article(db.Model):
         self.broken = broken
         self.deleted = deleted
         self.video = video
-        self.main_img_url = img_url
+        self.img_url = img_url
         self.fk_cefr_level = None
-
-        self.convertHTML2TextIfNeeded()
-        self.compute_fk_and_wordcount()
-
-    def compute_fk_and_wordcount(self):
-        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(
-            self.content, self.language, None
-        )
-        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-
-        # easier to store integer in the DB
-        # otherwise we have to use Decimal, and it's not supported on all dbs
-        fk_difficulty = fk_difficulty["grade"]
-        word_count = len(tokenizer.tokenize_text(self.content))
-
-        self.fk_difficulty = fk_difficulty
-        self.word_count = word_count
-
-        return (fk_difficulty, word_count)
 
     def __repr__(self):
         return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
+
+    def get_content(self):
+        return self.content if self.source_id is None else self.source.get_content()
+
+    def update_content(self, session, content=None, commit=True):
+        from zeeguu.core.content_retriever import download_and_parse
+        from zeeguu.core.model.source import Source
+        from zeeguu.core.model.source_type import SourceType
+        from zeeguu.core.content_quality.quality_filter import (
+            sufficient_quality_plain_text,
+        )
+
+        if content is None:
+            content = download_and_parse(self.url.as_string()).text
+
+            quality, reason, _ = sufficient_quality_plain_text(self.content)
+            if not quality:
+                print("Marking as broken. Reason: " + reason)
+                self.mark_as_low_quality_and_remove_from_index()
+
+        self.source_id = Source.find_or_create(
+            session,
+            content,
+            SourceType.find_by_type(SourceType.ARTICLE),
+            self.language,
+            self.is_broken,
+            commit=False,
+        )
+
+        session.add(self)
+        if commit:
+            session.commit()
 
     def vote_broken(self):
         # somebody could vote that this article is broken
@@ -186,24 +191,13 @@ class Article(db.Model):
                 return True
         return False
 
-    def convertHTML2TextIfNeeded(self):
-        # why this? because in some cases we might have htmlContent
-        # but not content; and the following lines that compute
-        # difficulty and length work on content
-        if self.htmlContent and not self.content:
-            self.content = re.sub(HTML_TAG_CLEANR, "", self.htmlContent)
-
     def update(self, language, content, htmlContent, title):
         self.language = language
-        self.content = content
+        self.update_content(content)
         self.title = title
         self.htmlContent = htmlContent
 
-        self.convertHTML2TextIfNeeded()
-
-        self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
-
-        self.compute_fk_and_wordcount()
+        self.summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
 
     def create_article_fragments(self, session):
         """
@@ -213,10 +207,22 @@ class Article(db.Model):
         """
         from zeeguu.core.model.article_fragment import ArticleFragment
 
-        for i, paragraph in enumerate(self.content.split("\n\n")):
+        for i, paragraph in enumerate(self.source.get_content().split("\n\n")):
             ArticleFragment.find_or_create(
-                session, self.id, paragraph.strip(), i, "p", commit=False
+                session, self, paragraph.strip(), i, "p", commit=False
             )
+
+    def get_fk_difficulty(self):
+        if self.fk_difficulty:
+            return self.fk_difficulty
+        else:
+            return self.source.fk_difficulty
+
+    def get_word_count(self):
+        if self.word_count:
+            return self.word_count
+        else:
+            return self.source.word_count
 
     def article_info(self, with_content=False):
         """
@@ -245,8 +251,8 @@ class Article(db.Model):
             else:
                 return "C2"
 
-        summary = self.content[:MAX_CHAR_COUNT_IN_SUMMARY]
-
+        summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        fk_difficulty = self.get_fk_difficulty()
         result_dict = dict(
             id=self.id,
             title=self.title,
@@ -256,9 +262,9 @@ class Article(db.Model):
             topics_list=self.topics_as_tuple(),
             video=self.video,
             metrics=dict(
-                difficulty=self.fk_difficulty / 100,
-                word_count=self.word_count,
-                cefr_level=fk_to_cefr(self.fk_difficulty),
+                difficulty=fk_difficulty / 100,
+                word_count=self.get_word_count(),
+                cefr_level=fk_to_cefr(fk_difficulty),
             ),
         )
 
@@ -271,8 +277,8 @@ class Article(db.Model):
 
         if self.url:
             result_dict["url"] = self.url.as_string()
-        if self.main_img_url:
-            result_dict["img_url"] = self.main_img_url.as_string()
+        if self.img_url:
+            result_dict["img_url"] = self.img_url.as_string()
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
@@ -288,31 +294,41 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+            from zeeguu.core.model.bookmark_context import ContextInformation
+            from zeeguu.core.model.context_type import ContextType
+
             from zeeguu.core.model.article_fragment import ArticleFragment
+            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-
-            result_dict["content"] = self.content
+            content = self.get_content()
+            result_dict["content"] = content
             result_dict["htmlContent"] = self.htmlContent
-            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(self.content)
+            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(content)
             result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
-                self.content, flatten=False
+                content, flatten=False
             )
             result_dict["tokenized_fragments"] = []
 
             for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
                 result_dict["tokenized_fragments"].append(
                     {
-                        "context_type": ContextSources.ArticleFragment,
-                        "fragment_id": fragment.id,
+                        "context_information": ContextInformation(
+                            ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT),
+                            article_fragment_id=fragment.id,
+                        ).as_dictionary(),
                         "formatting": fragment.formatting,
-                        "tokens": tokenizer.tokenize_text(fragment.text, flatten=False),
+                        "tokens": tokenizer.tokenize_text(
+                            fragment.text.content, flatten=False
+                        ),
                         "past_bookmarks": [],
                     }
                 )
             result_dict["tokenized_title_new"] = {
-                "context_type": ContextSources.ArticleTitle,
+                "context_information": ContextInformation(
+                    ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT),
+                    article_id=self.id,
+                ).as_dictionary(),
                 "tokens": tokenizer.tokenize_text(self.title, flatten=False),
                 "past_bookmarks": [],
             }
@@ -380,6 +396,8 @@ class Article(db.Model):
 
         article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
         self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
+        if self.source:
+            self.source.broken = broken_code
         session.add(article_broken_map)
         session.add(self)
         session.commit()
@@ -405,26 +423,6 @@ class Article(db.Model):
 
         remove_from_index(self)
 
-    def update_content(self, session):
-        from zeeguu.core.content_retriever import download_and_parse
-
-        parsed = download_and_parse(self.url.as_string())
-        self.content = parsed.text
-        self.htmlContent = parsed.htmlContent
-        self.compute_fk_and_wordcount()
-
-        from zeeguu.core.content_quality.quality_filter import (
-            sufficient_quality_plain_text,
-        )
-
-        quality, reason, _ = sufficient_quality_plain_text(self.content)
-        if not quality:
-            print("Marking as broken. Reason: " + reason)
-            self.mark_as_low_quality_and_remove_from_index()
-
-        session.add(self)
-        session.commit()
-
     @classmethod
     def own_texts_for_user(cls, user, ignore_deleted=True):
 
@@ -446,7 +444,7 @@ class Article(db.Model):
             None,
             source.title,
             None,
-            source.content,
+            source.source,
             source.summary,
             current_time,
             None,
@@ -500,7 +498,7 @@ class Article(db.Model):
             - if not, download and create article then return
         """
         from zeeguu.core.model import Url, Language
-        from zeeguu.core.model.plaintext import Plaintext
+        from zeeguu.core.model.source import Source
         from zeeguu.core.content_retriever.article_downloader import (
             extract_article_image,
             add_topics,
@@ -542,7 +540,7 @@ class Article(db.Model):
             html_content,
         )
         session.add(new_article)
-        plaintext = Plaintext.find_or_create(
+        plaintext = Source.find_or_create(
             session,
             np_article.text,
             language,
@@ -552,7 +550,7 @@ class Article(db.Model):
 
         main_img_url = extract_article_image(np_article)
         if main_img_url != "":
-            new_article.main_img_url = Url.find_or_create(session, main_img_url)
+            new_article.img_url = Url.find_or_create(session, main_img_url)
 
         url_keywords = add_url_keywords(new_article, session)
         add_topics(new_article, None, url_keywords, session)

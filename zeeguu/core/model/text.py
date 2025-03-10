@@ -2,7 +2,6 @@ import re
 
 import sqlalchemy.orm
 import time
-import zeeguu.core
 from zeeguu.core.model import Article
 
 from zeeguu.core.util import text_hash
@@ -11,6 +10,7 @@ from zeeguu.core.model.url import Url
 from zeeguu.core.model.user_word import UserWord
 
 from zeeguu.core.model import db
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 
 class Text(db.Model):
@@ -19,7 +19,7 @@ class Text(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(10000))
 
-    content_hash = db.Column(db.String(255))
+    content_hash = db.Column(db.String(64))
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
@@ -75,7 +75,7 @@ class Text(db.Model):
         self.right_ellipsis = right_ellipsis
 
     def __repr__(self):
-        return "<Text %r>" % (self.content)
+        return f"<Text {self.content}>"
 
     def update_content(self, new_content):
         self.content = new_content

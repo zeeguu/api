@@ -17,7 +17,7 @@ from zeeguu.core.crowd_translations import (
 )
 from zeeguu.core.model import Bookmark, Article, Text, User
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.context import Context, ContextSources
+from zeeguu.core.model.bookmark_context import BookmarkContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -216,11 +216,11 @@ def update_translation(bookmark_id):
         db_session, translation_str, bookmark.translation.language
     )
 
-    prev_context = Context.find_by_id(bookmark.context_id)
+    prev_context = BookmarkContext.find_by_id(bookmark.context_id)
     prev_text = Text.find_by_id(bookmark.text_id)
 
     is_same_text = prev_text.content == context_str
-    is_same_context = prev_context.content == context_str
+    is_same_context = prev_context and prev_context.get_content() == context_str
 
     text = Text.find_or_create(
         db_session,
@@ -235,10 +235,12 @@ def update_translation(bookmark_id):
         prev_text.left_ellipsis if is_same_text else None,
         prev_text.right_ellipsis if is_same_text else None,
     )
-
-    context = Context.find_or_create(
+    from zeeguu.core.model.context_type import ContextType
+     
+    context = BookmarkContext.find_or_create(
         db_session,
         context_str,
+        ContextType.ARTICLE_FRAGMENT,
         bookmark.origin.language,
         prev_context.left_ellipsis if is_same_context else None,
         prev_context.right_ellipsis if is_same_context else None,
@@ -256,7 +258,7 @@ def update_translation(bookmark_id):
         tokenizer = get_tokenizer(bookmark.origin.language, TOKENIZER_MODEL)
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
-        tokenized_text = tokenizer.tokenize_text(text.content, False)
+        tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
         tokenized_bookmark = tokenizer.tokenize_text(word_str, False)
         try:
             first_token_ocurrence = next(
@@ -275,7 +277,7 @@ def update_translation(bookmark_id):
         if not is_same_context:
             from zeeguu.core.model.context_type import ContextType
 
-            bookmark.context_type = ContextType.USER_EDITED
+            bookmark.context.context_type = ContextType.USER_EDITED
 
     bookmark.origin = origin
     db_session.add(bookmark)

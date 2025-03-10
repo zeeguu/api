@@ -1,7 +1,7 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, UnicodeText
+from sqlalchemy import Column, String, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core.model.article import Article
+
 from zeeguu.core.model import db
 
 
@@ -11,14 +11,19 @@ class ArticleFragment(db.Model):
     We use this to keep some of the rich formatting from the webpage, such as H1, Imgs etc.
     """
 
+    from zeeguu.core.model.new_text import NewText
+    from zeeguu.core.model.article import Article
+
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True)
     article_id = Column(Integer, ForeignKey(Article.id))
     article = relationship(Article)
-    order = Column(Integer)
 
-    text = Column(UnicodeText)
+    text_id = Column(Integer, ForeignKey(NewText.id))
+    text = relationship(NewText, foreign_keys="ArticleFragment.text_id")
+
+    order = Column(Integer)
     formatting = Column(String(20))
 
     def __init__(self, article: Article, text: str, order: int, formatting: str):
@@ -62,20 +67,22 @@ class ArticleFragment(db.Model):
     def find_or_create(
         cls,
         session,
-        article_id: int,
+        article,
         text: str,
         order: int,
         formatting: str = None,
         commit=True,
     ):
+        from zeeguu.core.model.new_text import NewText
+
+        text_row = NewText.find_or_create(session, text, commit=commit)
         try:
             return cls.query.filter_by(
-                article_id=article_id, text=text, order=order, formatting=formatting
+                article=article, text_id=text_row.id, order=order, formatting=formatting
             ).one()
 
         except NoResultFound:
-            article = Article.find_by_id(article_id)
-            new = cls(article, text, order, formatting)
+            new = cls(article, text_row, order, formatting)
             session.add(new)
             if commit:
                 session.commit()

@@ -47,11 +47,11 @@ def document_from_article(article, session, current_doc=None):
     # This is the most expensive operation in the indexing process, so it
     # saves time by skipping it.
     if current_doc is not None:
-        embedding_generation_required = current_doc["content"] != article.content
+        embedding_generation_required = current_doc["content"] != article.get_content()
     doc = {
         "title": article.title,
         "author": article.authors,
-        "content": article.content,
+        "content": article.get_content(),
         "summary": article.summary,
         "word_count": article.word_count,
         "published_time": article.published_time,

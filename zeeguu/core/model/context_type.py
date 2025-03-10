@@ -1,4 +1,3 @@
-import zeeguu.core
 from zeeguu.core.model import db
 
 
@@ -9,12 +8,6 @@ class ContextType(db.Model):
 
     Maybe we could use this? https://docs.sqlalchemy.org/en/20/core/type_api.html#sqlalchemy.types.ExternalType.cache_ok
     """
-
-    from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
-    from zeeguu.core.model.article_title_context import ArticleTitleContext
-
-    ARTICLE_FRAGMENT_CONTEXT_TABLE = ArticleFragmentContext
-    ARTICLE_TITLE_CONTEXT_TABLE = ArticleTitleContext
 
     ARTICLE_FRAGMENT = "ArticleFragment"
     ARTICLE_TITLE = "ArticleTitle"
@@ -44,7 +37,7 @@ class ContextType(db.Model):
     @classmethod
     def find_by_id(cls, context_type_id: int):
         if id not in cls.ID_TYPE_CACHE:
-            row = cls.query.filter_by(id=context_type_id).one()
+            row = cls.query.filter(cls.id == context_type_id).one()
             cls.ID_TYPE_CACHE[row.id] = row
             cls.TYPE_ID_CACHE[row.type] = row
         return cls.ID_TYPE_CACHE[context_type_id]
@@ -52,7 +45,18 @@ class ContextType(db.Model):
     @classmethod
     def find_by_type(cls, type: str):
         if type not in cls.TYPE_ID_CACHE:
-            row = cls.query.filter_by(type=type).one()
+            row = cls.query.filter(cls.type == type).one()
             cls.ID_TYPE_CACHE[row.id] = row
             cls.TYPE_ID_CACHE[row.type] = row
         return cls.TYPE_ID_CACHE[type]
+
+    @classmethod
+    def get_table_corresponding_to_type(cls, type: str):
+        from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
+        from zeeguu.core.model.article_title_context import ArticleTitleContext
+
+        match type:
+            case cls.ARTICLE_FRAGMENT:
+                return ArticleFragmentContext
+            case cls.ARTICLE_TITLE:
+                return ArticleTitleContext

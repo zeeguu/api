@@ -54,7 +54,7 @@ def identify_repeating_patterns(article_df, sents_filtered_set: set):
         return total_counts
 
     print("Evaluating new repeating patterns...")
-    total_counts = get_total_sent_counts(article_df.content)
+    total_counts = get_total_sent_counts(article_df.get_content())
     sents_occur_more_than_10 = [
         [sent, count]
         for sent, count in total_counts.items()

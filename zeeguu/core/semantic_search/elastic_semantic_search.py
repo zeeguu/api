@@ -30,7 +30,7 @@ def article_semantic_search_for_user(
 
 @time_this
 def articles_like_this_tfidf(article: Article):
-    query_body = more_like_this_query(10, article.content, article.language)
+    query_body = more_like_this_query(10, article.get_content(), article.language)
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     final_article_mix = []

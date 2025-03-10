@@ -105,7 +105,7 @@ for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
     unique_vocab = set()
     for a_id in tqdm(sampled_ids, total=len(sampled_ids)):
         article = Article.find_by_id(a_id)
-        doc = nlp(article.content)
+        doc = nlp(article.get_content())
         for sent in doc.sentences:
             stats["sentence_length_list"].append(len(sent.tokens))
             for token in sent.tokens:

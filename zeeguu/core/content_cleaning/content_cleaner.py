@@ -133,12 +133,12 @@ def cleanup_non_content_bits(text: str):
 
 
 def cleanup_all_articles_in_language(language_code):
+    db_session = zeeguu.core.model.db.session
     language_id = Language.find(language_code).id
     all_articles = Article.query.filter_by(language_id=language_id).all()
     for each in all_articles:
-        cleaned_content = cleanup_non_content_bits(each.content)
-        if cleaned_content != each.content:
-            each.content = cleaned_content
-            zeeguu.core.model.db.session.add(each)
+        cleaned_content = cleanup_non_content_bits(each.get_content())
+        if cleaned_content != each.get_content():
+            each.update_content(db_session, content=cleaned_content, commit=False)
             print(each.title + "\n\n")
-    zeeguu.core.model.db.session.commit()
+    db_session.commit()
