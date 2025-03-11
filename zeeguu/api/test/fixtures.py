@@ -6,6 +6,9 @@ import requests_mock
 from zeeguu.api.app import create_app
 import zeeguu
 from zeeguu.core.test.mocking_the_web import mock_requests_get
+from zeeguu.core.model import db
+
+db_session = db.session
 
 
 @pytest.fixture
@@ -19,7 +22,7 @@ def client():
             yield client
 
     with app.app_context():
-        zeeguu.core.model.db.session.remove()
+        db_session.remove()
         zeeguu.core.model.db.drop_all()
 
 
@@ -33,7 +36,7 @@ def test_app():
         yield app
 
     with app.app_context():
-        zeeguu.core.model.db.session.remove()
+        db_session.remove()
         zeeguu.core.model.db.drop_all()
 
 
@@ -53,7 +56,7 @@ def logged_in_client():
                 yield logged_in_client
 
     with app.app_context():
-        zeeguu.core.model.db.session.remove()
+        db_session.remove()
         zeeguu.core.model.db.drop_all()
 
 
@@ -73,7 +76,7 @@ def logged_in_teacher():
                 yield logged_in_client
 
     with app.app_context():
-        zeeguu.core.model.db.session.remove()
+        db_session.remove()
         zeeguu.core.model.db.drop_all()
 
 
@@ -136,8 +139,8 @@ class LoggedInTeacher(LoggedInClient):
         from zeeguu.core.model import db
 
         u = User.find(self.email)
-        db.session.add(Teacher(u))
-        db.session.commit()
+        db_session.add(Teacher(u))
+        db_session.commit()
 
 
 def add_one_bookmark(logged_in_client):
@@ -155,3 +158,17 @@ def add_one_bookmark(logged_in_client):
     bookmark_id = bookmark["bookmark_id"]
 
     return bookmark_id
+
+
+def add_context_types():
+    from zeeguu.core.model.context_type import ContextType
+
+    for type in ContextType.ALL_TYPES:
+        ContextType.find_or_create(db_session, type, commit=True)
+
+
+def add_source_types():
+    from zeeguu.core.model.source_type import SourceType
+
+    for type in SourceType.ALL_TYPES:
+        SourceType.find_or_create(db_session, type, commit=True)

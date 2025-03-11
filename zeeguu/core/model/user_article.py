@@ -255,15 +255,11 @@ class UserArticle(db.Model):
 
         # Initialize returned info with the default article info
         returned_info = article.article_info(with_content=with_content)
-
         user_article_info = UserArticle.find(user, article)
-
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
-
         user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
             article, user
         )
-
         if user_topics_feedback:
             article_topic_list = returned_info["topics_list"]
             topic_list = []
@@ -282,6 +278,7 @@ class UserArticle(db.Model):
             returned_info["topics"] = ",".join([t for t, _ in topic_list])
 
         if not user_article_info:
+            print("No Article Info")
             returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
@@ -319,7 +316,8 @@ class UserArticle(db.Model):
                 for i, fragment in enumerate(returned_info["tokenized_fragments"]):
                     returned_info["tokenized_fragments"][i]["past_bookmarks"] = (
                         ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
-                            user.id, fragment["fragment_id"]
+                            user.id,
+                            fragment["context_information"]["article_fragment_id"],
                         )
                     )
                     print(i, returned_info["tokenized_fragments"][i]["past_bookmarks"])

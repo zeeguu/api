@@ -3,14 +3,13 @@ import time
 
 from zeeguu.core.util import text_long_hash
 from zeeguu.core.model import db
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 
 class NewText(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(10000))
+    content = db.Column(db.String(64000))
     content_hash = db.Column(db.String(64))
 
     def __init__(
@@ -72,7 +71,8 @@ class NewText(db.Model):
                         ).one()
                         print("found text after recovering from race")
                         return t
-                    except:
+                    except Exception as e:
+                        print(f"Exception: '{e}'")
                         print("exception of second degree in find NewText..." + str(i))
                         time.sleep(0.3)
                         continue

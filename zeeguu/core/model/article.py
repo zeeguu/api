@@ -159,7 +159,7 @@ class Article(db.Model):
             content,
             SourceType.find_by_type(SourceType.ARTICLE),
             self.language,
-            self.is_broken,
+            self.broken,
             commit=False,
         )
 
@@ -170,6 +170,9 @@ class Article(db.Model):
     def vote_broken(self):
         # somebody could vote that this article is broken
         self.broken += 1
+
+    def get_broken(self):
+        return self.broken if self.broken else self.source.broken
 
     def topics_as_string(self):
         topics = ""
@@ -314,7 +317,7 @@ class Article(db.Model):
                 result_dict["tokenized_fragments"].append(
                     {
                         "context_information": ContextInformation(
-                            ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT),
+                            ContextType.ARTICLE_FRAGMENT,
                             article_fragment_id=fragment.id,
                         ).as_dictionary(),
                         "formatting": fragment.formatting,
@@ -326,7 +329,7 @@ class Article(db.Model):
                 )
             result_dict["tokenized_title_new"] = {
                 "context_information": ContextInformation(
-                    ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT),
+                    ContextType.ARTICLE_FRAGMENT,
                     article_id=self.id,
                 ).as_dictionary(),
                 "tokens": tokenizer.tokenize_text(self.title, flatten=False),
@@ -499,6 +502,8 @@ class Article(db.Model):
         """
         from zeeguu.core.model import Url, Language
         from zeeguu.core.model.source import Source
+        from zeeguu.core.model.source_type import SourceType
+
         from zeeguu.core.content_retriever.article_downloader import (
             extract_article_image,
             add_topics,
@@ -515,8 +520,6 @@ class Article(db.Model):
 
         np_article = readability_download_and_parse(canonical_url)
 
-        text = np_article.text
-
         html_content = np_article.htmlContent
         summary = np_article.summary
         title = np_article.title
@@ -527,12 +530,21 @@ class Article(db.Model):
 
         # Create new article and save it to DB
         url_object = Url.find_or_create(session, canonical_url)
+        source_type = SourceType.find_by_type(SourceType.ARTICLE)
+
+        source = Source.find_or_create(
+            session,
+            np_article.text,
+            source_type,
+            language,
+            0,
+        )
 
         new_article = Article(
             url_object,
             title,
             authors,
-            text,
+            source,
             summary,
             datetime.now(),
             None,
@@ -540,12 +552,7 @@ class Article(db.Model):
             html_content,
         )
         session.add(new_article)
-        plaintext = Source.find_or_create(
-            session,
-            np_article.text,
-            language,
-        )
-        new_article.plaintext = plaintext
+
         new_article.create_article_fragments(session)
 
         main_img_url = extract_article_image(np_article)
@@ -557,7 +564,6 @@ class Article(db.Model):
 
         session.add(new_article)
         session.commit()
-        print(new_article)
         return new_article
 
     @classmethod

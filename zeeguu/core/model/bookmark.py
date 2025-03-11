@@ -101,7 +101,6 @@ class Bookmark(db.Model):
         token_i: int = None,
         total_tokens: int = None,
         context: BookmarkContext = None,
-        context_type: str = None,
         level: int = 0,
     ):
         self.origin = origin
@@ -255,8 +254,6 @@ class Bookmark(db.Model):
         )
 
         if with_context:
-            from zeeguu.core.model.context_type import ContextType
-
             context_info_dict = dict(
                 context=self.text.content,
                 context_paragraph=self.text.paragraph_i,
@@ -269,19 +266,24 @@ class Bookmark(db.Model):
                 from zeeguu.core.model.bookmark_context import ContextInformation
                 from zeeguu.core.model.context_type import ContextType
 
+                print("Creating a context information")
                 context_information = ContextInformation(
-                    self.context.context_type,
+                    self.context.context_type.type,
                 )
                 context_type_row = ContextType.get_table_corresponding_to_type(
                     self.context.context_type.type
-                ).find_by_bookmark(self)
+                )
                 match self.context.context_type:
                     case ContextType.ARTICLE_FRAGMENT:
                         context_information.fragment_id = (
-                            context_type_row.article_fragment_id
+                            context_type_row.find_by_bookmark(self).article_fragment_id
                         )
                     case ContextType.ARTICLE_TITLE:
-                        context_information.article_id = context_type_row.article_id
+                        context_information.article_id = (
+                            context_type_row.find_by_bookmark(self).article_id
+                        )
+                    case _:
+                        print("### Got a type without a mapped table!")
                 result["context_information"] = context_information.as_dictionary()
             result = {**result, **context_info_dict}
 
@@ -475,7 +477,14 @@ class Bookmark(db.Model):
         article = Article.query.filter_by(id=article_id).one()
 
         context = BookmarkContext.find_or_create(
-            session, _context, context_type, origin_lang, left_ellipsis, right_ellipsis
+            session,
+            _context,
+            context_type,
+            origin_lang,
+            c_sentence_i,
+            c_token_i,
+            left_ellipsis,
+            right_ellipsis,
         )
 
         text = Text.find_or_create(
@@ -515,7 +524,6 @@ class Bookmark(db.Model):
                 token_i=token_i,
                 total_tokens=total_tokens,
                 context=context,
-                context_type=context_type,
                 level=level,
             )
         except Exception as e:

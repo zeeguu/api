@@ -1,4 +1,5 @@
 from zeeguu.core.model import db
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class SourceType(db.Model):
@@ -12,6 +13,8 @@ class SourceType(db.Model):
 
     VIDEO = "Video"
     ARTICLE = "Article"
+
+    ALL_TYPES = [VIDEO, ARTICLE]
 
     TYPE_ID_CACHE = {}
     ID_TYPE_CACHE = {}
@@ -32,16 +35,19 @@ class SourceType(db.Model):
 
     @classmethod
     def find_by_id(cls, source_type_id: int):
-        if id not in cls.ID_TYPE_CACHE:
-            row = cls.query.filter(cls.id == source_type_id).one()
-            cls.ID_TYPE_CACHE[row.id] = row
-            cls.TYPE_ID_CACHE[row.type] = row
-        return cls.ID_TYPE_CACHE[source_type_id]
+        return cls.query.filter(cls.id == source_type_id).one()
 
     @classmethod
     def find_by_type(cls, type: str):
-        if type not in cls.TYPE_ID_CACHE:
-            row = cls.query.filter(cls.type == type).one()
-            cls.ID_TYPE_CACHE[row.id] = row
-            cls.TYPE_ID_CACHE[row.type] = row
-        return cls.TYPE_ID_CACHE[type]
+        return cls.query.filter(cls.type == type).one()
+
+    @classmethod
+    def find_or_create(cls, session, type: str, commit=False):
+        try:
+            return cls.query.filter(cls.type == type).one()
+        except NoResultFound:
+            new_source_type = cls(type=type)
+            session.add(new_source_type)
+            if commit:
+                session.commit()
+            return new_source_type

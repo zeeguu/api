@@ -24,7 +24,7 @@ class ContextInformation:
 
     def as_dictionary(self):
         return {
-            "context_type": self.context_type.type,
+            "context_type": self.context_type,
             "article_fragment_id": self.article_fragment_id,
             "article_id": self.article_id,
             "video_id": self.video_id,
@@ -56,18 +56,24 @@ class BookmarkContext(db.Model):
 
     right_ellipsis = db.Column(db.Boolean)
     left_ellipsis = db.Column(db.Boolean)
+    sentence_i = db.Column(db.Integer)
+    token_i = db.Column(db.Integer)
 
     def __init__(
         self,
         text,
         context_type,
         language,
+        sentence_i,
+        token_i,
         left_ellipsis=None,
         right_ellipsis=None,
     ):
         self.text = text
         self.language = language
         self.context_type = context_type
+        self.sentence_i = sentence_i
+        self.token_i = token_i
         self.left_ellipsis = left_ellipsis
         self.right_ellipsis = right_ellipsis
 
@@ -89,7 +95,10 @@ class BookmarkContext(db.Model):
 
     @classmethod
     def find_by_id(cls, context_id):
-        return cls.query.filter_by(id=context_id).one()
+        try:
+            return cls.query.filter_by(id=context_id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
 
     @classmethod
     def find_or_create(
@@ -98,6 +107,8 @@ class BookmarkContext(db.Model):
         content,
         context_type,
         language,
+        sentence_i,
+        token_i,
         left_ellipsis=None,
         right_ellipsis=None,
         commit=True,
@@ -118,7 +129,9 @@ class BookmarkContext(db.Model):
 
         text_row = NewText.find_or_create(session, content, commit=commit)
         if context_type:
+            print("Getting context type")
             context_type = ContextType.find_by_type(context_type)
+            print(context_type)
 
         try:
             return (
@@ -133,6 +146,8 @@ class BookmarkContext(db.Model):
                     text_row,
                     context_type,
                     language,
+                    sentence_i,
+                    token_i,
                     left_ellipsis,
                     right_ellipsis,
                 )

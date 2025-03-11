@@ -54,6 +54,8 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
             t.content,
             context_type,
             t.language,
+            t.sentence_i,
+            t.token_i,
             t.left_ellipsis,
             t.right_ellipsis,
             commit=False,

@@ -6,6 +6,8 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import Article
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.test.mocking_the_web import URL_FAZ_LEIGHTATHLETIK
 
 
@@ -35,10 +37,18 @@ class ArticleRule(BaseRule):
         published = datetime.now() - timedelta(minutes=randint(0, 7200))
         feed = FeedRule().feed
         language = LanguageRule().random
+        source = Source.find_or_create(
+            ArticleRule.db.session,
+            content,
+            SourceType.find_by_type(SourceType.ARTICLE),
+            language,
+            0,
+            commit=True,
+        )
         url = UrlRule().url
 
         article = Article(
-            url, title, authors, content, summary, published, feed, language
+            url, title, authors, source, summary, published, feed, language
         )
 
         if self._exists_in_db(article):

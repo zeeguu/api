@@ -1,4 +1,5 @@
 from zeeguu.core.model import db
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class ContextType(db.Model):
@@ -17,8 +18,15 @@ class ContextType(db.Model):
     WEB_FRAGMENT = "WebFragment"
     USER_EDITED = "UserEdited"
 
-    TYPE_ID_CACHE = {}
-    ID_TYPE_CACHE = {}
+    ALL_TYPES = [
+        ARTICLE_FRAGMENT,
+        ARTICLE_TITLE,
+        ARTICLE_SUMMARY,
+        VIDEO_TITLE,
+        VIDEO_SUBTITLE,
+        WEB_FRAGMENT,
+        USER_EDITED,
+    ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -36,19 +44,22 @@ class ContextType(db.Model):
 
     @classmethod
     def find_by_id(cls, context_type_id: int):
-        if id not in cls.ID_TYPE_CACHE:
-            row = cls.query.filter(cls.id == context_type_id).one()
-            cls.ID_TYPE_CACHE[row.id] = row
-            cls.TYPE_ID_CACHE[row.type] = row
-        return cls.ID_TYPE_CACHE[context_type_id]
+        return cls.query.filter(cls.id == context_type_id).one()
 
     @classmethod
     def find_by_type(cls, type: str):
-        if type not in cls.TYPE_ID_CACHE:
-            row = cls.query.filter(cls.type == type).one()
-            cls.ID_TYPE_CACHE[row.id] = row
-            cls.TYPE_ID_CACHE[row.type] = row
-        return cls.TYPE_ID_CACHE[type]
+        return cls.query.filter(cls.type == type).one()
+
+    @classmethod
+    def find_or_create(cls, session, type: str, commit=False):
+        try:
+            return cls.query.filter(cls.type == type).one()
+        except NoResultFound:
+            new_source_type = cls(type=type)
+            session.add(new_source_type)
+            if commit:
+                session.commit()
+            return new_source_type
 
     @classmethod
     def get_table_corresponding_to_type(cls, type: str):
@@ -60,3 +71,5 @@ class ContextType(db.Model):
                 return ArticleFragmentContext
             case cls.ARTICLE_TITLE:
                 return ArticleTitleContext
+            case _:
+                return None

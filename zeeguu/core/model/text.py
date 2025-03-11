@@ -10,14 +10,13 @@ from zeeguu.core.model.url import Url
 from zeeguu.core.model.user_word import UserWord
 
 from zeeguu.core.model import db
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 
 class Text(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(10000))
+    content = db.Column(db.String(64000))
 
     content_hash = db.Column(db.String(64))
 
@@ -150,7 +149,10 @@ class Text(db.Model):
 
     @classmethod
     def find_by_id(cls, text_id):
-        return cls.query.filter_by(id=text_id).one()
+        try:
+            return cls.query.filter_by(id=text_id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
 
     @classmethod
     def find_or_create(

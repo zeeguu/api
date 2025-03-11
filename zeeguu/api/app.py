@@ -33,7 +33,7 @@ def create_app(testing=False):
     # *** Creating and starting the App *** #
     app = Flask("Zeeguu-API")
     CORS(app)
-
+    app.testing = False
     if testing:
         app.testing = True
 

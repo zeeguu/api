@@ -1,6 +1,4 @@
 from zeeguu.core.model import db
-from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.article_fragment import ArticleFragment
 import sqlalchemy
 
 
@@ -12,8 +10,12 @@ class ArticleFragmentContext(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
+    from zeeguu.core.model.bookmark import Bookmark
+
     bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
     bookmark = db.relationship(Bookmark)
+
+    from zeeguu.core.model.article_fragment import ArticleFragment
 
     article_fragment_id = db.Column(db.Integer, db.ForeignKey(ArticleFragment.id))
     article_fragment = db.relationship(ArticleFragment)
@@ -57,10 +59,11 @@ class ArticleFragmentContext(db.Model):
     def get_all_user_bookmarks_for_article_fragment(
         cls, user_id: int, article_fragment_id: int, as_json_serializable: bool = True
     ):
+        from zeeguu.core.model.bookmark import Bookmark
 
         result = (
-            Bookmark.query.join(ArticleFragmentContext)
-            .filter(ArticleFragmentContext.article_fragment_id == article_fragment_id)
+            Bookmark.query.join(cls)
+            .filter(cls.article_fragment_id == article_fragment_id)
             .filter(Bookmark.user_id == user_id)
         ).all()
 

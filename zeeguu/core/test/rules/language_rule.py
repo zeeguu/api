@@ -23,10 +23,9 @@ class LanguageRule(BaseRule):
         "it": "Italian",
         "nl": "Dutch",
         "pt": "Portuguese",
-        # "no": "Norwegian",
-        # "pt": "Portuguese",
-        # "ro": "Romanian"
-        "zh-CN": "Chinese",
+        "no": "Norwegian",
+        "ro": "Romanian",
+        # "zh-CN": "Chinese",
     }
 
     @classmethod

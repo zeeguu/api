@@ -59,9 +59,14 @@ class ArticleFragment(db.Model):
 
     @classmethod
     def get_all_article_fragments_in_order(cls, article_id: int):
-        return (
-            cls.query.filter_by(article_id=article_id).order_by(cls.order.asc()).all()
-        )
+        try:
+            return (
+                cls.query.filter_by(article_id=article_id)
+                .order_by(cls.order.asc())
+                .all()
+            )
+        except NoResultFound:
+            return []
 
     @classmethod
     def find_or_create(
