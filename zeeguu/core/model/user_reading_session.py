@@ -146,12 +146,19 @@ class UserReadingSession(db.Model):
 
     @classmethod
     def get_total_reading_for_user_article(cls, article, user):
-        return (
-            cls.query(sum(cls.duration))
-            .filter(cls.article == article)
-            .filter(cls.user == user)
-            .one()
-        )
+        try:
+            return (
+                db.session.query(sum(cls.duration))
+                .filter(cls.article == article)
+                .filter(cls.user == user)
+                .one()
+            )[0]
+        except Exception as e:
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+            print(e)
+            return 0
 
     @classmethod
     def find_by_article(

@@ -332,12 +332,11 @@ class UserActivityData(db.Model):
                     )
                     from zeeguu.core.util import ms_to_m, estimate_read_time
 
-                    last_reading_session = (
+                    total_reading_time = (
                         UserReadingSession.get_total_reading_for_user_article(
                             article, ra_row.user
                         )
                     )
-                    total_reading_time = last_reading_session.duration
                     if ms_to_m(total_reading_time) >= estimate_read_time(
                         article.word_count, ceil=False
                     ):
