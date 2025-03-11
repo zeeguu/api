@@ -105,7 +105,7 @@ class BookmarkContext(db.Model):
         cls,
         session,
         content,
-        context_type,
+        context_type: str,
         language,
         sentence_i,
         token_i,
@@ -129,9 +129,7 @@ class BookmarkContext(db.Model):
 
         text_row = NewText.find_or_create(session, content, commit=commit)
         if context_type:
-            print("Getting context type")
             context_type = ContextType.find_by_type(context_type)
-            print(context_type)
 
         try:
             return (
