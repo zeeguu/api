@@ -278,7 +278,6 @@ class UserArticle(db.Model):
             returned_info["topics"] = ",".join([t for t, _ in topic_list])
 
         if not user_article_info:
-            print("No Article Info")
             returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
@@ -320,7 +319,6 @@ class UserArticle(db.Model):
                             fragment["context_information"]["article_fragment_id"],
                         )
                     )
-                    print(i, returned_info["tokenized_fragments"][i]["past_bookmarks"])
             if "tokenized_title_new" in returned_info:
                 returned_info["tokenized_title_new"]["past_bookmarks"] = (
                     ArticleTitleContext.get_all_user_bookmarks_for_article_title(

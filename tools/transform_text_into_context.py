@@ -8,7 +8,7 @@ from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
 from tqdm import tqdm
-from sqlalchemy import desc
+from sqlalchemy import asc
 
 app = create_app()
 app.app_context().push()
@@ -36,78 +36,87 @@ def add_to_log(s):
 
 
 ITERATION_STEP = 500
-texts = Text.query.order_by(desc(Text.article_id)).all()
+texts = Text.query.order_by(asc(Text.article_id)).all()
 for i, t in tqdm(enumerate(texts), total=len(texts)):
     if len(t.content) > 1000:
         bookmarks = t.all_bookmarks_for_text()
         for b in bookmarks:
             db_session.delete(b)
         continue
-
-    bookmarks = t.all_bookmarks_for_text()
-    add_to_log(f"Processing text {t.id} with {len(bookmarks)} bookmarks")
-    for b in bookmarks:
-        context_type = None
-        if t.article_id:
-            context_type = (
-                ContextType.ARTICLE_FRAGMENT
-                if t.in_content
-                else ContextType.ARTICLE_TITLE
-            )
-        else:
-            context_type = ContextType.USER_EDITED
-
-        context = BookmarkContext.find_or_create(
-            db_session,
-            t.content,
-            context_type,
-            t.language,
-            t.sentence_i,
-            t.token_i,
-            t.left_ellipsis,
-            t.right_ellipsis,
-            commit=False,
+    if not t.article or not t.article.source_id:
+        add_to_log(
+            f"<Text {t.id} (a:{t.article_id})> did not have a source mapping. Possibly, hasn't been migrated."
         )
-        db_session.add(context)
-        b.context = context
+    else:
+        bookmarks = t.all_bookmarks_for_text()
+        add_to_log(f"Processing text {t.id} with {len(bookmarks)} bookmarks")
+        for b in bookmarks:
+            context_type = None
+            if t.article_id:
+                context_type = (
+                    ContextType.ARTICLE_FRAGMENT
+                    if t.in_content
+                    else ContextType.ARTICLE_TITLE
+                )
+            else:
+                context_type = ContextType.USER_EDITED
 
-        fragment_id = None
-        db_session.add(b)
-        if not t.article_id:
-            add_to_log(f"{b} did not have an article mapping.")
-            continue
-        b.source_id = t.article.source_id
-        # Give a context type:
-        if t.in_content:
-            fragment = ArticleFragment.find_by_article_order(
-                t.article_id, t.paragraph_i
+            context = BookmarkContext.find_or_create(
+                db_session,
+                t.content,
+                context_type,
+                t.language,
+                t.sentence_i,
+                t.token_i,
+                t.left_ellipsis,
+                t.right_ellipsis,
+                commit=False,
             )
-            if fragment is None:
-                add_to_log(
-                    f"Fragment not found for article {t.article_id}, skipping..",
-                )
+            db_session.add(context)
+            b.context = context
+
+            fragment_id = None
+            db_session.add(b)
+            if not t.article_id:
+                add_to_log(f"{b} did not have an article mapping.")
                 continue
-            ArticleFragmentContext.find_or_create(db_session, b, fragment, commit=False)
-        elif not t.in_content:
-            ArticleTitleContext.find_or_create(db_session, b, t.article, commit=False)
-            if t.article is None:
-                add_to_log(
-                    f"Article not found for article {t.article_id}, skipping..",
+
+            b.source_id = t.article.source_id
+            # Give a context type:
+            if t.in_content:
+                fragment = ArticleFragment.find_by_article_order(
+                    t.article_id, t.paragraph_i
                 )
-                continue
-        else:
-            add_to_log(
-                f"No context type found for article {t.article_id}, skipping..",
-            )
-            add_to_log(f"{t.id}, {t.in_content}, {t.article_id}")
-        db_session.add(b)
+                if fragment is None:
+                    add_to_log(
+                        f"Fragment not found for article {t.article_id}, skipping..",
+                    )
+                    continue
+                ArticleFragmentContext.find_or_create(
+                    db_session, b, fragment, commit=False
+                )
+            elif not t.in_content:
+                ArticleTitleContext.find_or_create(
+                    db_session, b, t.article, commit=False
+                )
+                if t.article is None:
+                    add_to_log(
+                        f"Article not found for article {t.article_id}, skipping..",
+                    )
+                    continue
+            else:
+                add_to_log(
+                    f"No context type found for article {t.article_id}, skipping..",
+                )
+                add_to_log(f"{t.id}, {t.in_content}, {t.article_id}")
+            db_session.add(b)
 
     if i % ITERATION_STEP == 0 and i > 0:
         print(f"Processed {i} texts")
-        print("Commiting...")
         print("Log during this batch:")
         print(ACCUMULATED_LOG)
         print("#" * 30)
         ACCUMULATED_LOG = ""
+        print("Commiting...")
         db_session.commit()
 db_session.commit()

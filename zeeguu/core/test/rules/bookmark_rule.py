@@ -72,7 +72,7 @@ class BookmarkRule(BaseRule):
             random_article = ArticleRule(real=True).article
 
             bookmark = Bookmark(
-                random_origin, random_translation, user, random_text, random_date
+                random_origin, random_translation, user, random_text, None, random_date
             )
             if force_quality and bad_quality_bookmark(bookmark):
                 print("random bookmark was of low quality. retrying...")

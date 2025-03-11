@@ -107,7 +107,8 @@ CREATE TABLE `bookmark_context` (
     `right_ellipsis` TINYINT DEFAULT NULL,
     `left_ellipsis` TINYINT DEFAULT NULL,
     `sentence_i` INT DEFAULT NULL,
-    `token_i` INT DEFAULT NULL PRIMARY KEY (`id`),
+    `token_i` INT DEFAULT NULL,
+    PRIMARY KEY (`id`),
     KEY `language_id` (`language_id`),
     CONSTRAINT `bookmark_context_ibfk_1` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`),
     KEY `text_id` (`text_id`),
@@ -149,28 +150,6 @@ CREATE TABLE `zeeguu_test`.`article_title_context` (
     CONSTRAINT `article_title_context_ibfk_2` FOREIGN KEY (`article_id`) REFERENCES `zeeguu_test`.`article` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
-CREATE TABLE `zeeguu_test`.`video_title_context` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `bookmark_id` INT NULL,
-    `video_id` INT NULL,
-    PRIMARY KEY (`id`),
-    INDEX `video_title_context_ibfk_1_idx` (`bookmark_id` ASC),
-    INDEX `video_title_context_ibfk_2_idx` (`video_id` ASC),
-    CONSTRAINT `video_title_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `zeeguu_test`.`bookmark` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT `video_title_context_ibfk_2` FOREIGN KEY (`video_id`) REFERENCES `zeeguu_test`.`video` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-);
-
-CREATE TABLE `zeeguu_test`.`web_fragment_context` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `bookmark_id` INT NULL,
-    `web_fragment_id` INT NULL,
-    PRIMARY KEY (`id`),
-    INDEX `web_fragment_context_ibfk_1_idx` (`bookmark_id` ASC),
-    INDEX `web_fragment_context_ibfk_2_idx` (`video_id` ASC),
-    CONSTRAINT `web_fragment_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `zeeguu_test`.`bookmark` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT `web_fragment_context_ibfk_2` FOREIGN KEY (`web_fragment_id`) REFERENCES `zeeguu_test`.`web_fragment` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-);
-
 ALTER TABLE
     `zeeguu_test`.`bookmark`
 ADD
@@ -204,3 +183,28 @@ ALTER TABLE
     `zeeguu_test`.`article`
 ADD
     CONSTRAINT `article_ibfk_6` FOREIGN KEY (`source_id`) REFERENCES `zeeguu_test`.`source` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+##                ##
+## DO NOT RUN YET ##
+##                ##
+CREATE TABLE `zeeguu_test`.`video_title_context` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `bookmark_id` INT NULL,
+    `video_id` INT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `video_title_context_ibfk_1_idx` (`bookmark_id` ASC),
+    INDEX `video_title_context_ibfk_2_idx` (`video_id` ASC),
+    CONSTRAINT `video_title_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `zeeguu_test`.`bookmark` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `video_title_context_ibfk_2` FOREIGN KEY (`video_id`) REFERENCES `zeeguu_test`.`video` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+);
+
+CREATE TABLE `zeeguu_test`.`web_fragment_context` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `bookmark_id` INT NULL,
+    `web_fragment_id` INT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `web_fragment_context_ibfk_1_idx` (`bookmark_id` ASC),
+    INDEX `web_fragment_context_ibfk_2_idx` (`web_fragment_id` ASC),
+    CONSTRAINT `web_fragment_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `zeeguu_test`.`bookmark` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `web_fragment_context_ibfk_2` FOREIGN KEY (`web_fragment_id`) REFERENCES `zeeguu_test`.`web_fragment` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+);

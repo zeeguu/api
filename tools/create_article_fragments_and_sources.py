@@ -6,7 +6,7 @@ from zeeguu.core.model import Article
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
 from tqdm import tqdm
-from sqlalchemy import desc
+from sqlalchemy import asc
 
 app = create_app()
 app.app_context().push()
@@ -30,7 +30,7 @@ def main():
         range(0, total_articles, ITERATION_STEP), total=total_articles // ITERATION_STEP
     ):
         articles = (
-            non_migrated_articles_query.order_by(desc(Article.id))
+            non_migrated_articles_query.order_by(asc(Article.id))
             .limit(ITERATION_STEP)
             .offset(a_offset)
             .all()
@@ -49,7 +49,7 @@ def main():
                 # Only create fragments if the article isn't broken?
                 a.create_article_fragments(session=db_session)
         print(f"Processed {a_offset + ITERATION_STEP} articles...")
-        print(f"Last processed article id: ", a.id)
+        print(f"Last processed article id: {a.id}")
         db_session.commit()
     db_session.commit()
 

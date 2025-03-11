@@ -13,6 +13,7 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
@@ -50,6 +51,9 @@ class Bookmark(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = db.relationship(User)
+
+    source_id = db.Column(db.Integer, db.ForeignKey(Source.id))
+    source = db.relationship(Source)
 
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
@@ -94,6 +98,7 @@ class Bookmark(db.Model):
         origin: UserWord,
         translation: UserWord,
         user: "User",
+        source: Source,
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
@@ -106,6 +111,7 @@ class Bookmark(db.Model):
         self.origin = origin
         self.translation = translation
         self.user = user
+        self.source = source
         self.time = time
         self.text = text
         self.starred = False
@@ -517,6 +523,7 @@ class Bookmark(db.Model):
                 origin,
                 translation,
                 user,
+                None,
                 text,
                 now,
                 learning_cycle=learning_cycle,
