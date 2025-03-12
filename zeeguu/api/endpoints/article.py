@@ -11,7 +11,6 @@ from zeeguu.core.model.article import HTML_TAG_CLEANR
 
 import re
 from langdetect import detect
-from pprint import pprint
 import json
 
 
@@ -44,7 +43,6 @@ def find_or_create_article():
         print("-- article found or created: " + str(article.id))
         uai = UserArticle.user_article_info(user, article, with_content=True)
         print("-- returning user article info: ", json.dumps(uai)[:50])
-        # pprint(uai)
         return json_result(uai)
     except NoResultFound as e:
         print(f"Exception: '{e}'")

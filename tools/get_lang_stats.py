@@ -105,7 +105,7 @@ for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
     unique_vocab = set()
     for a_id in tqdm(sampled_ids, total=len(sampled_ids)):
         article = Article.find_by_id(a_id)
-        doc = nlp(article.get_content())
+        doc = nlp(article.content)
         for sent in doc.sentences:
             stats["sentence_length_list"].append(len(sent.tokens))
             for token in sent.tokens:
@@ -136,13 +136,4 @@ for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
     print("Vector: ", vector)
     print("Counts per stat: ", counts)
     print_stats_for_lang(lang_code, normalized_outlier_removed_results)
-    print()
-print()
-print("################## Original results ##################")
-for lang_code in LANGUAGES_TO_CALCULATE_STATS_FOR:
-    print("## Results for language: ", lang_code)
-    vector, counts = token_len_sent_len_vec(lang_code, RESULTS)
-    print("Vector: ", vector)
-    print("Counts per stat: ", counts)
-    print_stats_for_lang(lang_code, RESULTS)
     print()

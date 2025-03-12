@@ -5,7 +5,7 @@ from zeeguu.core.elastic.indexing import create_or_update, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core
-from sqlalchemy.orm import sessionmaker, registry
+from sqlalchemy.orm import sessionmaker
 from zeeguu.core.model import Article
 import sys
 from datetime import datetime
@@ -21,7 +21,6 @@ DB_URI = app.config["SQLALCHEMY_DATABASE_URI"]
 engine = database.create_engine(DB_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
-registry().metadata.create_all(engine)
 
 
 def main(starting_index):
@@ -33,7 +32,7 @@ def main(starting_index):
         max_id = 0
     if min_id is None:
         min_id = 0
-
+    
     print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
 

@@ -111,7 +111,6 @@ class Article(db.Model):
         video=0,
         img_url=None,
     ):
-
         if not summary:
             summary = source.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
 
@@ -119,6 +118,8 @@ class Article(db.Model):
         self.title = title
         self.authors = authors
         self.source = source
+        # Remove once we have source migration complete.
+        self.content = source.get_content()
         self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
@@ -131,6 +132,9 @@ class Article(db.Model):
         self.video = video
         self.img_url = img_url
         self.fk_cefr_level = None
+        # Delete once it's migrated.
+        self.word_count = source.word_count
+        self.fk_difficulty = source.fk_difficulty
 
     def __repr__(self):
         return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
@@ -162,6 +166,8 @@ class Article(db.Model):
             self.broken,
             commit=False,
         )
+        # Remove once migration is done.
+        self.content = content
 
         session.add(self)
         if commit:
@@ -385,12 +391,10 @@ class Article(db.Model):
             session.add(t)
 
     def add_url_keyword(self, url_keyword, rank, session):
-
         a = ArticleUrlKeywordMap(article=self, url_keyword=url_keyword, rank=rank)
         session.add(a)
 
     def set_url_keywords(self, url_keywords, session):
-
         for rank, t in enumerate(url_keywords):
             self.add_url_keyword(t, rank, session)
 
@@ -428,7 +432,6 @@ class Article(db.Model):
 
     @classmethod
     def own_texts_for_user(cls, user, ignore_deleted=True):
-
         query = cls.query.filter(cls.uploader_id == user.id)
 
         if ignore_deleted:
@@ -464,7 +467,6 @@ class Article(db.Model):
     def create_from_upload(
         cls, session, title, content, htmlContent, uploader, language
     ):
-
         current_time = datetime.now()
         new_article = Article(
             None,
@@ -551,6 +553,8 @@ class Article(db.Model):
             language,
             html_content,
         )
+        # Remove once migration is complete
+
         session.add(new_article)
 
         new_article.create_article_fragments(session)

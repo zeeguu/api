@@ -249,28 +249,26 @@ class Feed(db.Model):
         """
 
         from zeeguu.core.model import Article
-        from zeeguu.core.model.source import Source
 
         if not after_date:
             after_date = datetime(2001, 1, 1)
 
         try:
             q = (
-                Article.query.join(Source)
-                .filter(Article.feed == self)
-                .filter(Source.broken == 0)
+                Article.query.filter(Article.feed == self)
+                .filter(Article.broken == 0)
                 .filter(Article.published_time >= after_date)
-                .filter(Source.word_count > Article.MINIMUM_WORD_COUNT)
+                .filter(Article.word_count > Article.MINIMUM_WORD_COUNT)
             )
 
             if most_recent_first:
                 q = q.order_by(Article.published_time.desc())
             if easiest_first:
-                q = q.order_by(Source.fk_difficulty)
+                q = q.order_by(Article.fk_difficulty)
 
             return q.limit(limit).all()
 
         except Exception as e:
-            print(f"########## {e}")
+            print(e)
             raise (e)
             return None

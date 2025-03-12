@@ -80,7 +80,7 @@ def mp3_of_full_article():
         return ""
 
     article = Article.find_by_id(article_id)
-    text_to_pronounce = article.get_content()
+    text_to_pronounce = article.content
     language_id = article.language_id
 
     if (not text_to_pronounce) or (not article_id) or (not language_id):

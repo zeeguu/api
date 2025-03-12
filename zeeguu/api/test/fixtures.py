@@ -164,11 +164,13 @@ def add_context_types():
     from zeeguu.core.model.context_type import ContextType
 
     for type in ContextType.ALL_TYPES:
-        ContextType.find_or_create(db_session, type, commit=True)
+        ContextType.find_or_create(db_session, type, commit=False)
+    db_session.commit()
 
 
 def add_source_types():
     from zeeguu.core.model.source_type import SourceType
 
     for type in SourceType.ALL_TYPES:
-        SourceType.find_or_create(db_session, type, commit=True)
+        SourceType.find_or_create(db_session, type, commit=False)
+    db_session.commit()

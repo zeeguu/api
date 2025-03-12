@@ -208,19 +208,14 @@ def update_translation(bookmark_id):
     word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
     translation_str = request.form["translation"]
     context_str = request.form.get("context", "").strip()
-    print("Getting Bookmark")
     bookmark = Bookmark.find(bookmark_id)
 
     origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
     translation = UserWord.find_or_create(
         db_session, translation_str, bookmark.translation.language
     )
-    print("Getting Context: ")
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
-    print(prev_context)
-    print("Getting Text")
     prev_text = Text.find_by_id(bookmark.text_id)
-    print(prev_text)
 
     is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
@@ -251,8 +246,6 @@ def update_translation(bookmark_id):
         prev_context.left_ellipsis if is_same_context else None,
         prev_context.right_ellipsis if is_same_context else None,
     )
-    print("Context created")
-    print(context)
 
     bookmark.translation = translation
     bookmark.text = text
@@ -268,7 +261,6 @@ def update_translation(bookmark_id):
         # Since we know there is not multiple paragraphs, we take the first
         tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
         tokenized_bookmark = tokenizer.tokenize_text(word_str, False)
-        print("Tokenized the text!")
         try:
             first_token_ocurrence = next(
                 filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
@@ -285,7 +277,6 @@ def update_translation(bookmark_id):
         if not is_same_context:
             from zeeguu.core.model.context_type import ContextType
 
-            print("Adapted context_type")
             bookmark.context.context_type = ContextType.find_by_type(
                 ContextType.USER_EDITED
             )
@@ -296,7 +287,6 @@ def update_translation(bookmark_id):
     if len(prev_text.all_bookmarks_for_text()) == 0:
         # The text doesn't have any bookmarks
         db_session.delete(prev_text)
-    print("Getting bookmark as dictionary")
     updated_bookmark = bookmark.as_dictionary(
         with_exercise_info=True, with_context_tokenized=True, with_context=True
     )
