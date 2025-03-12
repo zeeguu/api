@@ -317,7 +317,7 @@ class UserActivityData(db.Model):
             try:
                 scroll_data = json.loads(ra_row.extra_data)
                 total_percentage_read = find_last_reading_percentage(scroll_data)
-                if article.get_word_count() < 200:
+                if article.word_count < 200:
                     """
                     The method to estimate the reading percentage doesn't work well for
                     very small texts. For that reason, we check if the reading time, is
