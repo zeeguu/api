@@ -1,8 +1,3 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import relationship
-
-import zeeguu.core
-
 from zeeguu.core.model import db
 
 class Caption(db.Model):

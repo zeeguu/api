@@ -1,7 +1,3 @@
-from sqlalchemy import Column, Integer, String
-
-import zeeguu.core
-
 from zeeguu.core.model import db
 
 class VideoTag(db.Model):

@@ -1,9 +1,3 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
-
-import zeeguu.core
-
 from zeeguu.core.model import db
 
 class Video(db.Model):
@@ -17,7 +11,6 @@ class Video(db.Model):
     published_at = db.Column(db.DateTime)
     channel_id = db.Column(db.Integer, db.ForeignKey("yt_channel.id"))
     thumbnail_url = db.Column(db.String(512))
-    tags = db.Column(db.Text)
     duration = db.Column(db.Integer)
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
     vtt = db.Column(db.Text)
@@ -27,14 +20,13 @@ class Video(db.Model):
     language = db.relationship("Language")
     captions = db.relationship("Caption", back_populates="video")
 
-    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, tags, duration, language, vtt, plain_text):
+    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, duration, language, vtt, plain_text):
         self.video_id = video_id
         self.title = title
         self.description = description
         self.published_at = published_at
         self.channel = channel
         self.thumbnail_url = thumbnail_url
-        self.tags = tags
         self.duration = duration
         self.language = language
         self.vtt = vtt
@@ -52,7 +44,6 @@ class Video(db.Model):
             published_at=self.published_at,
             channel=self.channel.as_dictionary(),
             thumbnail_url=self.thumbnail_url,
-            tags=self.tags,
             duration=self.duration,
             language_id=self.language.id,
             vtt=self.vtt,
@@ -69,7 +60,6 @@ class Video(db.Model):
         published_at=None, 
         channel=None, 
         thumbnail_url=None, 
-        tags=None, 
         duration=None, 
         language=None, 
         vtt=None, 
@@ -87,7 +77,6 @@ class Video(db.Model):
             published_at = published_at,
             channel = channel,
             thumbnail_url = thumbnail_url,
-            tags = tags,
             duration = duration,
             language = language,
             vtt = vtt,

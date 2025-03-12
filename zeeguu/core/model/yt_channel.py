@@ -1,9 +1,4 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, BigInteger, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
-
-import zeeguu.core
-
+from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 
 class YTChannel(db.Model):
@@ -14,14 +9,13 @@ class YTChannel(db.Model):
     channel_id = db.Column(db.String(512), unique=True, nullable=False)
     name = db.Column(db.String(512))
     description = db.Column(db.Text)
-    #TODO: make integers unsigned
-    views = db.Column(db.BigInteger)
-    subscribers = db.Column(db.Integer)
+    views = db.Column(BIGINT(unsigned=True))
+    subscribers = db.Column(INTEGER(unsigned=True))
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
     should_crawl = db.Column(db.Integer)
     last_crawled = db.Column(db.DateTime)
 
-    videos = relationship("Video", back_populates="channel")
+    videos = db.relationship("Video", back_populates="channel")
     language = db.relationship("Language")
 
     def __init__(self, channel_id, name, description, views, subscribers, language, should_crawl, last_crawled):
