@@ -1,4 +1,5 @@
 from zeeguu.core.model import db
+from zeeguu.core.model.language import Language
 
 class Video(db.Model):
     __tablename__ = 'video'
@@ -69,6 +70,9 @@ class Video(db.Model):
 
         if video:
             return video
+        
+        if isinstance(language, str):
+            language = session.query(Language).filter_by(code=language).first()
         
         new_video = cls(
             video_id = video_id,

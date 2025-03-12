@@ -1,5 +1,6 @@
 from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
+from zeeguu.core.model.language import Language
 
 class YTChannel(db.Model):
     __tablename__ = 'yt_channel'
@@ -61,6 +62,9 @@ class YTChannel(db.Model):
 
         if channel:
             return channel
+
+        if isinstance(language, str):
+            language = session.query(Language).filter_by(code=language).first()
 
         new_channel = cls(
             channel_id = channel_id,
