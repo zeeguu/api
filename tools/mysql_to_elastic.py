@@ -31,9 +31,9 @@ app.app_context().push()
 # NOTE: If you want to index all the articles, you shoud pass a number that's higher
 # or equal to the number of articles in the DB
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
-DELETE_INDEX = True
+DELETE_INDEX = False
 INDEX_WITH_TOPIC_ONLY = True
-TOTAL_ITEMS = 10000
+TOTAL_ITEMS = 1000
 ITERATION_STEP = 100
 
 print(ES_CONN_STRING)
@@ -151,10 +151,9 @@ def main():
 
 
 if __name__ == "__main__":
-
     start = datetime.now()
     print(f"started at: {start}")
     main()
     end = datetime.now()
     print(f"ended at: {end}")
-    print(f"Process took: {end-start}")
+    print(f"Process took: {end - start}")

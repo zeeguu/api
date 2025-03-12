@@ -36,8 +36,7 @@ def add_to_log(s):
     ACCUMULATED_LOG += f"{s}\n"
 
 
-ITERATION_STEP = 50000
-missing_articles_in_db = 0
+ITERATION_STEP = 1000
 articles_broken = 0
 texts = Text.query.order_by(asc(Text.article_id)).all()
 for i, t in tqdm(enumerate(texts), total=len(texts)):

@@ -13,13 +13,13 @@ all_articles = Article.query.filter_by(broken=0).filter_by(feed_id=feed.id).orde
 user_selected_all = False
 for each in all_articles:
 
-    cleaned_up = cleanup_non_content_bits(each.get_content())
-    if (cleaned_up != each.get_content()):
+    cleaned_up = cleanup_non_content_bits(each.content)
+    if (cleaned_up != each.content):
         print(each.title)
         print(each.url)
         print(each.id)
         print("============")
-        print(each.get_content())
+        print(each.content)
         print("============")
         print(cleaned_up)
 
@@ -30,7 +30,7 @@ for each in all_articles:
             user_selected_all = True
 
         if user_selected_all or (a == 'y'):
-            each.get_content() = cleaned_up
+            each.content = cleaned_up
             db.session.add(each)
             db.session.commit()
             print("cleaned up")
