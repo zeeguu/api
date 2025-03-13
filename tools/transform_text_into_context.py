@@ -4,7 +4,6 @@ from zeeguu.api.app import create_app
 from zeeguu.core.model import Text
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.article_fragment import ArticleFragment
-from zeeguu.core.model.article import Article
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
@@ -41,10 +40,13 @@ articles_broken = 0
 texts = Text.query.order_by(asc(Text.article_id)).all()
 for i, t in tqdm(enumerate(texts), total=len(texts)):
     if len(t.content) > 1000:
+        add_to_log(
+            f"<Text {t.id} (a:{t.article_id})> was too long (> 1000 chars). Deleting Text and Bookmarks."
+        )
         bookmarks = t.all_bookmarks_for_text()
         for b in bookmarks:
             db_session.delete(b)
-            db_session.delete(t)
+        db_session.delete(t)
         continue
 
     bookmarks = t.all_bookmarks_for_text()
