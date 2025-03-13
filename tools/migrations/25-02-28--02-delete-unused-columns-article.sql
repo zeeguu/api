@@ -40,6 +40,7 @@ DELETE from
 where
     video = 1;
 
+-- SLOW!!!
 ALTER TABLE
     `zeeguu_test`.`article` DROP COLUMN `video`,
     DROP COLUMN `fk_difficulty`,
