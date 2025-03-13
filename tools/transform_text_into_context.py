@@ -44,65 +44,70 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
         bookmarks = t.all_bookmarks_for_text()
         for b in bookmarks:
             db_session.delete(b)
+            db_session.delete(t)
         continue
-    if not t.article or not t.article.source_id:
-        add_to_log(
-            f"<Text {t.id} (a:{t.article_id})> did not have a source mapping. Possibly, hasn't been migrated."
-        )
-    elif t.article.broken > 0:
-        add_to_log(
-            f"<Text {t.id} (a:{t.article_id})> article is broken. Consider for deletion."
-        )
-        articles_broken += 1
-    else:
-        bookmarks = t.all_bookmarks_for_text()
-        add_to_log(f"Processing text {t.id} with {len(bookmarks)} bookmarks")
-        for b in bookmarks:
-            context_type = None
-            if t.article_id:
-                context_type = (
-                    ContextType.ARTICLE_FRAGMENT
-                    if t.in_content
-                    else ContextType.ARTICLE_TITLE
-                )
-            else:
-                context_type = ContextType.USER_EDITED_TEXT
 
-            context = BookmarkContext.find_or_create(
-                db_session,
-                t.content,
-                context_type,
-                t.language,
-                t.sentence_i,
-                t.token_i,
-                t.left_ellipsis,
-                t.right_ellipsis,
-                commit=False,
+    bookmarks = t.all_bookmarks_for_text()
+    add_to_log(f"Processing text {t.id} with {len(bookmarks)} bookmarks")
+    for b in bookmarks:
+        context_type = None
+        if t.article_id:
+            context_type = (
+                ContextType.ARTICLE_FRAGMENT
+                if t.in_content
+                else ContextType.ARTICLE_TITLE
             )
-            db_session.add(context)
-            b.context = context
+        else:
+            context_type = ContextType.USER_EDITED_TEXT
 
-            fragment_id = None
-            db_session.add(b)
-            if not t.article_id:
-                add_to_log(f"{b} did not have an article mapping.")
-                continue
+        context = BookmarkContext.find_or_create(
+            db_session,
+            t.content,
+            context_type,
+            t.language,
+            t.sentence_i,
+            t.token_i,
+            t.left_ellipsis,
+            t.right_ellipsis,
+            commit=False,
+        )
+        db_session.add(context)
+        b.context = context
 
-            b.source_id = t.article.source_id
-            # Give a context type:
-            if t.in_content:
+        db_session.add(b)
+        if not t.article_id:
+            add_to_log(
+                f"{b} did not have an article mapping. Considered 'UserEditedText'."
+            )
+            continue
+        elif not t.article.source_id:
+            add_to_log(
+                f"<Text {t.id} (a:{t.article_id})> did not have a source mapping. Possibly, hasn't been migrated."
+            )
+            continue
+        elif t.article.broken > 0:
+            add_to_log(
+                f"<Text {t.id} (a:{t.article_id})> article is broken. Consider for deletion."
+            )
+            articles_broken += 1
+            continue
+
+        b.source_id = t.article.source_id
+        # Give a context type:
+        match context_type:
+            case ContextType.ARTICLE_FRAGMENT:
                 fragment = ArticleFragment.find_by_article_order(
                     t.article_id, t.paragraph_i
                 )
                 if fragment is None:
                     add_to_log(
-                        f"Fragment not found for article {t.article_id}, skipping..",
+                        f"Fragment (a:{t.article_id}, o: {t.paragraph_i}) not found. This is likely because the article was broken. Skipping..",
                     )
                     continue
                 ArticleFragmentContext.find_or_create(
                     db_session, b, fragment, commit=False
                 )
-            elif not t.in_content:
+            case ContextType.ARTICLE_TITLE:
                 ArticleTitleContext.find_or_create(
                     db_session, b, t.article, commit=False
                 )
@@ -111,12 +116,12 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
                         f"Article not found for article {t.article_id}, skipping..",
                     )
                     continue
-            else:
+            case _:
                 add_to_log(
                     f"No context type found for article {t.article_id}, skipping..",
                 )
                 add_to_log(f"{t.id}, {t.in_content}, {t.article_id}")
-            db_session.add(b)
+        db_session.add(b)
 
     if i % ITERATION_STEP == 0 and i > 0:
         print(f"Processed {i} texts")
