@@ -66,7 +66,7 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
                     else ContextType.ARTICLE_TITLE
                 )
             else:
-                context_type = ContextType.USER_EDITED
+                context_type = ContextType.USER_EDITED_TEXT
 
             context = BookmarkContext.find_or_create(
                 db_session,

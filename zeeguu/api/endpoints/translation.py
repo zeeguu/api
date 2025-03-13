@@ -278,7 +278,7 @@ def update_translation(bookmark_id):
             from zeeguu.core.model.context_type import ContextType
 
             bookmark.context.context_type = ContextType.find_by_type(
-                ContextType.USER_EDITED
+                ContextType.USER_EDITED_TEXT
             )
 
     bookmark.origin = origin
