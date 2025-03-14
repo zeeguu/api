@@ -20,7 +20,7 @@ class ContextIdentifier:
         self.video_id = video_id
 
     def __repr__(self):
-        return f"<ContextInformation context_type={self.context_type}>"
+        return f"<ContextIdentifier context_type={self.context_type}>"
 
     def as_dictionary(self):
         return {

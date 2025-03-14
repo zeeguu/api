@@ -23,7 +23,7 @@ class ContextInformation:
         self.video_id = video_id
 
     def __repr__(self):
-        return f"<ContextInformation bookmark_id={self.bookmark_id} context_type={self.context_type}>"
+        return f"<ContextIdentifier bookmark_id={self.bookmark_id} context_type={self.context_type}>"
 
     def as_dictionary(self):
         return {
