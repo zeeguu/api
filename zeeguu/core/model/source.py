@@ -63,10 +63,7 @@ class Source(db.Model):
         source_text = SourceText.find_or_create(session, text, commit=commit)
         try:
             return cls.query.filter_by(
-                source_text=source_text,
-                source_type=source_type,
-                language=language,
-                broken=broken,
+                source_text=source_text, source_type=source_type, language=language
             ).one()
 
         except NoResultFound:
