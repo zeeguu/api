@@ -83,7 +83,7 @@ class ArticleFragment(db.Model):
         text_row = NewText.find_or_create(session, text, commit=commit)
         try:
             return cls.query.filter_by(
-                article=article, text_id=text_row.id, order=order, formatting=formatting
+                article=article, text_id=text_row.id, order=order
             ).one()
 
         except NoResultFound:

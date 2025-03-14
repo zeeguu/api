@@ -23,6 +23,7 @@ class Source(db.Model):
     source_type_id = Column(Integer, ForeignKey(SourceType.id))
     source_type = relationship(SourceType, foreign_keys="Source.source_type_id")
 
+    # TODO: Tiago - move article title to here
     language_id = Column(Integer, ForeignKey(Language.id))
     language = relationship(Language)
 

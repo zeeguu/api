@@ -260,6 +260,7 @@ class Bookmark(db.Model):
         )
 
         if with_context:
+            # TODO Tiago: content and anchors should come from context
             context_info_dict = dict(
                 context=self.text.content,
                 context_paragraph=self.text.paragraph_i,
@@ -267,30 +268,10 @@ class Bookmark(db.Model):
                 context_token=self.text.token_i,
                 in_content=self.text.in_content,
             )
-            # If we have the new model, then we need to check the type.
-            if self.context and self.context.context_type:
-                from zeeguu.core.model.bookmark_context import ContextIdentifier
-                from zeeguu.core.model.context_type import ContextType
 
-                print("Creating a context information")
-                context_identifier = ContextIdentifier(
-                    self.context.context_type.type,
-                )
-                context_type_row = ContextType.get_table_corresponding_to_type(
-                    self.context.context_type.type
-                )
-                match self.context.context_type:
-                    case ContextType.ARTICLE_FRAGMENT:
-                        context_identifier.fragment_id = (
-                            context_type_row.find_by_bookmark(self).article_fragment_id
-                        )
-                    case ContextType.ARTICLE_TITLE:
-                        context_identifier.article_id = (
-                            context_type_row.find_by_bookmark(self).article_id
-                        )
-                    case _:
-                        print("### Got a type without a mapped table!")
-                result["context_identifier"] = context_identifier.as_dictionary()
+            if self.context and self.context.context_type:
+                result["context_identifier"] = self.get_context_identifier()
+
             result = {**result, **context_info_dict}
 
         bookmark_title = ""
@@ -396,6 +377,30 @@ class Bookmark(db.Model):
         exercise_info_dict["from"] = self.origin.word
         result = {**result, **exercise_info_dict}
         return result
+
+    def get_context_identifier(self):
+        from zeeguu.core.model.bookmark_context import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+
+        print("Creating a context information")
+        context_identifier = ContextIdentifier(
+            self.context.context_type.type,
+        )
+        context_type_table = ContextType.get_table_corresponding_to_type(
+            self.context.context_type.type
+        )
+        match self.context.context_type:
+            case ContextType.ARTICLE_FRAGMENT:
+                context_identifier.fragment_id = context_type_table.find_by_bookmark(
+                    self
+                ).article_fragment_id
+            case ContextType.ARTICLE_TITLE:
+                context_identifier.article_id = context_type_table.find_by_bookmark(
+                    self
+                ).article_id
+            case _:
+                print("### Got a type without a mapped table!")
+        return context_identifier.as_dictionary()
 
     def create_context_mapping(
         self,
