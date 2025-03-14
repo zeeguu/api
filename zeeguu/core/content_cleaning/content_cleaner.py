@@ -28,8 +28,10 @@ JUNK_PATTERNS_TO_REMOVE = [
 ]
 
 JUNK_PATTERNS_DATA_FOLDER = os.path.dirname(__file__)
-JUNK_COUNT_FILEPATH = os.path.join(JUNK_PATTERNS_DATA_FOLDER, 'data', 'junk_patterns_found.json')
- 
+JUNK_COUNT_FILEPATH = os.path.join(
+    JUNK_PATTERNS_DATA_FOLDER, "data", "junk_patterns_found.json"
+)
+
 with open(JUNK_COUNT_FILEPATH, "r", encoding="utf-8") as f:
     json_data = json.load(f)
     JUNK_COUNT_PATTERNS = [sent for lang in json_data.values() for sent in lang]
@@ -131,12 +133,12 @@ def cleanup_non_content_bits(text: str):
 
 
 def cleanup_all_articles_in_language(language_code):
+    db_session = zeeguu.core.model.db.session
     language_id = Language.find(language_code).id
     all_articles = Article.query.filter_by(language_id=language_id).all()
     for each in all_articles:
-        cleaned_content = cleanup_non_content_bits(each.content)
-        if cleaned_content != each.content:
-            each.content = cleaned_content
-            zeeguu.core.model.db.session.add(each)
+        cleaned_content = cleanup_non_content_bits(each.get_content())
+        if cleaned_content != each.get_content():
+            each.update_content(db_session, content=cleaned_content, commit=False)
             print(each.title + "\n\n")
-    zeeguu.core.model.db.session.commit()
+    db_session.commit()

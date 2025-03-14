@@ -21,7 +21,7 @@ for i, article in enumerate(articles_to_update):
         print(f"Difficulty before: {article.fk_difficulty} for {article.title}")
     fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
     fk_difficulty = fk_estimator.estimate_difficulty(
-        article.content, article.language, None
+        article.get_content(), article.language, None
     )["grade"]
 
     article.fk_difficulty = fk_difficulty

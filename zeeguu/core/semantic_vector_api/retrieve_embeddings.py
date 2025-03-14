@@ -11,7 +11,7 @@ def get_embedding_from_article(a: Article):
     r = requests.post(
         url=f"{EMB_API_CONN_STRING}/get_article_embedding",
         json={
-            "article_content": a.content,
+            "article_content": a.get_content(),
             "article_language": a.language.name.lower(),
         },
     )

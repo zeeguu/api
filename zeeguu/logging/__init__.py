@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import logging
-
+from sentry_sdk import capture_exception
 import sys
 
 
@@ -35,3 +35,8 @@ def critical(msg):
 def logp(msg):
     log(msg)
     print(msg)
+
+
+def print_and_log_to_sentry(e: Exception):
+    print(f"#### Exception: '{e}'")
+    capture_exception(e)

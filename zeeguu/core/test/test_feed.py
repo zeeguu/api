@@ -42,8 +42,8 @@ class FeedTest(ModelTestMixIn, TestCase):
         ordered_by_difficulty = self.spiegel.get_articles(easiest_first=True)
         print(self.spiegel.get_articles(easiest_first=True))
         assert (
-            ordered_by_difficulty[0].fk_difficulty
-            <= ordered_by_difficulty[1].fk_difficulty
+            ordered_by_difficulty[0].get_fk_difficulty()
+            <= ordered_by_difficulty[1].get_fk_difficulty()
         )
 
         ordered_by_time = self.spiegel.get_articles(most_recent_first=True)

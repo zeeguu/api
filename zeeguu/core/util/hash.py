@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-from hashlib import sha1
+from hashlib import sha1, sha256
 
 
 def text_hash(text: str) -> str:
@@ -12,9 +12,19 @@ def text_hash(text: str) -> str:
     return sha1(text).hexdigest()
 
 
+def text_long_hash(text: str) -> str:
+    """
+    :param text: str:
+    :return: str
+    """
+    if isinstance(text, str):
+        text = text.encode("utf8")
+    return sha256(text).hexdigest()
+
+
 def password_hash(password: str, salt: bytes) -> str:
     """
-    
+
     :return: bytes
 
     """

@@ -250,19 +250,16 @@ class UserArticle(db.Model):
     ):
 
         from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.user_activitiy_data import UserActivityData
 
         # Initialize returned info with the default article info
         returned_info = article.article_info(with_content=with_content)
-
         user_article_info = UserArticle.find(user, article)
-
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
-
         user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
             article, user
         )
-
         if user_topics_feedback:
             article_topic_list = returned_info["topics_list"]
             topic_list = []
@@ -287,6 +284,10 @@ class UserArticle(db.Model):
             returned_info["translations"] = []
 
         else:
+            from zeeguu.core.model.article_fragment_context import (
+                ArticleFragmentContext,
+            )
+
             returned_info["reading_completion"] = (
                 UserActivityData.get_reading_completion_for_article(
                     user_article_info.article_id, user_article_info.user_id
@@ -310,6 +311,20 @@ class UserArticle(db.Model):
                 returned_info["translations"] = [
                     each.as_dictionary() for each in translations
                 ]
+            if "tokenized_fragments" in returned_info:
+                for i, fragment in enumerate(returned_info["tokenized_fragments"]):
+                    returned_info["tokenized_fragments"][i]["past_bookmarks"] = (
+                        ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
+                            user.id,
+                            fragment["context_identifier"]["article_fragment_id"],
+                        )
+                    )
+            if "tokenized_title_new" in returned_info:
+                returned_info["tokenized_title_new"]["past_bookmarks"] = (
+                    ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                        user.id, article.id
+                    )
+                )
 
         if PersonalCopy.exists_for(user, article):
             returned_info["has_personal_copy"] = True

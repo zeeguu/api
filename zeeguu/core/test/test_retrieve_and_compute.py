@@ -25,7 +25,7 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         self.user = UserRule().user
         self.lan = LanguageRule().de
 
-    def testDifficultyOfFeedItems(self):
+    def test_difficulty_of_feed_items(self):
         feed = FeedRule().feed1
         crawl_report = CrawlReport()
         crawl_report.add_feed(feed)
@@ -34,9 +34,9 @@ class TestRetrieveAndCompute(ModelTestMixIn):
         articles = feed.get_articles(limit=2)
 
         assert len(articles) == 2
-        assert articles[0].fk_difficulty
+        assert articles[0].get_fk_difficulty()
 
-    def testDownloadWithTopic(self):
+    def test_download_with_topic(self):
         ## Check if topic associated with the keyword is correctly added.
         feed = FeedRule().feed1
         topic = TopicRule.get_or_create_topic(7)

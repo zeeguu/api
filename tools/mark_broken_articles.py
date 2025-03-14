@@ -10,13 +10,16 @@ app.app_context().push()
 article_count = input("How many articles to clean?  ")
 article_count = int(article_count)
 
-all_articles = Article.query.filter_by(broken=0).order_by(Article.id.desc()).limit(article_count)
+all_articles = (
+    Article.query.filter_by(broken=0).order_by(Article.id.desc()).limit(article_count)
+)
 print(
-    f"evaluating articles that are not already marked as broken between {all_articles[0].id} and {all_articles[-1].id}")
+    f"evaluating articles that are not already marked as broken between {all_articles[0].id} and {all_articles[-1].id}"
+)
 
 broken = 0
 for each in all_articles:
-    sufficient_quality, reason = sufficient_quality_plain_text(each.content)
+    sufficient_quality, reason = sufficient_quality_plain_text(each.each_content())
     if not sufficient_quality:
         each.vote_broken()
         db.session.add(each)

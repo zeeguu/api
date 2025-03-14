@@ -45,7 +45,9 @@ print(es.info())
 def main():
     if DELETE_INDEX:
         try:
-            es.options(ignore_status=[400, 404]).indices.delete(index=ES_ZINDEX)
+            es.options(ignore_status=[400, 404], request_timeout=120).indices.delete(
+                index=ES_ZINDEX
+            )
             print("Deleted index 'zeeguu'!")
         except Exception as e:
             print(f"Failed to delete: {e}")
@@ -149,11 +151,9 @@ def main():
 
 
 if __name__ == "__main__":
-
-    print("waiting for the ES process to boot up")
     start = datetime.now()
     print(f"started at: {start}")
     main()
     end = datetime.now()
     print(f"ended at: {end}")
-    print(f"Process took: {end-start}")
+    print(f"Process took: {end - start}")

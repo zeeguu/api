@@ -7,7 +7,7 @@ from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.topic_rule import TopicRule
-from zeeguu.core.model import Article, Topic
+from zeeguu.core.model import Article
 from zeeguu.core.test.mocking_the_web import (
     URL_CNN_KATHMANDU,
     URL_SPIEGEL_VENEZUELA,
@@ -62,7 +62,7 @@ class ArticleTest(ModelTestMixIn, TestCase):
 
     def test_find_or_create(self):
         self.new_art = Article.find_or_create(session, URL_SPIEGEL_VENEZUELA)
-        assert self.new_art.fk_difficulty
+        assert self.new_art.get_fk_difficulty()
 
     def test_load_article_without_language_information(self):
         art = Article.find_or_create(session, URL_CNN_KATHMANDU)

@@ -27,11 +27,10 @@ def remove_user():
         return "OK"
 
     except Exception as e:
-        from sentry_sdk import capture_exception
+        from zeeguu.logging import print_and_log_to_sentry
 
-        capture_exception(e)
+        print_and_log_to_sentry(e)
         log(f"Attempt to delete user failed with session: '{flask.g.session_uuid}'")
-        log(e)
         return make_error(400, str(e))
 
 

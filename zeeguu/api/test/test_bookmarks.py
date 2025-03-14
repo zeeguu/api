@@ -1,8 +1,10 @@
-from fixtures import logged_in_client as client
+from fixtures import logged_in_client as client, add_context_types, add_source_types
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
 def test_create_and_delete_bookmark(client):
+    add_context_types()
+    add_source_types()
     new_bookmark = client.post(
         "/contribute_translation/de/en",
         data=dict(

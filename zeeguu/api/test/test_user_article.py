@@ -1,4 +1,4 @@
-from fixtures import logged_in_client as client
+from fixtures import logged_in_client as client, add_source_types, add_context_types
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
@@ -13,6 +13,7 @@ def test_article_info(client):
 
 
 def test_article_update(client):
+
     # Article is not starred initially
     article_id = _create_new_article(client)
 
@@ -43,6 +44,10 @@ def test_article_update(client):
 
 
 def _create_new_article(client):
-    article = client.post("/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA))
+    add_source_types()
+    add_context_types()
+    article = client.post(
+        "/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA)
+    )
     article_id = article["id"]
     return article_id

@@ -6,9 +6,6 @@ import zeeguu.core
 
 from time import time
 from tqdm import tqdm
-from pprint import pprint
-from zeeguu.core.content_retriever import download_and_parse
-import numpy as np
 
 """
     Goes through all articles that don't have an image to attempt to fetch an image.

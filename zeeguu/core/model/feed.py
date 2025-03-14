@@ -269,5 +269,6 @@ class Feed(db.Model):
             return q.limit(limit).all()
 
         except Exception as e:
+            print(e)
             raise (e)
             return None

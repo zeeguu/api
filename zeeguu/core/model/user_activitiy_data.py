@@ -12,7 +12,6 @@ from zeeguu.logging import log
 import sqlalchemy
 
 from zeeguu.core.model import Article, User, Url
-from zeeguu.core.model.user_reading_session import UserReadingSession
 from zeeguu.core.constants import (
     JSON_TIME_FORMAT,
     EVENT_LIKE_ARTICLE,
@@ -21,7 +20,6 @@ from zeeguu.core.constants import (
 )
 from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
-    last_reading_point_with_viewport,
 )
 import zeeguu
 
@@ -265,7 +263,6 @@ class UserActivityData(db.Model):
         """
 
         if self.event in ALL_ARTICLE_INTERACTION_ACTIONS:
-
             if self.value.startswith("http"):
                 url = self.value
             else:
@@ -402,7 +399,6 @@ class UserActivityData(db.Model):
 
     @classmethod
     def create_from_post_data(cls, session, data, user):
-
         _time = data.get("time", None)
         time = None
         if _time:
@@ -431,7 +427,6 @@ class UserActivityData(db.Model):
 
     @classmethod
     def get_last_activity_timestamp(cls, user_id):
-
         query = cls.query.filter(cls.user_id == user_id)
         query = query.order_by(cls.id.desc()).limit(1)
 
