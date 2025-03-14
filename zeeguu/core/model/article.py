@@ -137,7 +137,7 @@ class Article(db.Model):
         self.fk_difficulty = source.fk_difficulty
 
     def __repr__(self):
-        return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
+        return f"<Article {self.title} ({self.url})>"
 
     def get_content(self):
         return self.content if self.source_id is None else self.source.get_content()
@@ -178,6 +178,7 @@ class Article(db.Model):
         self.broken += 1
 
     def get_broken(self):
+        # remember to remove self.broken after migration
         return self.broken if self.broken else self.source.broken
 
     def topics_as_string(self):
@@ -200,13 +201,13 @@ class Article(db.Model):
                 return True
         return False
 
-    def update(self, language, content, htmlContent, title):
+    def update(self, db_session, language, content, htmlContent, title):
         self.language = language
-        self.update_content(content)
+        self.update_content(db_session, content, commit=False)
         self.title = title
         self.htmlContent = htmlContent
-
         self.summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        db_session.commit()
 
     def create_article_fragments(self, session):
         """
