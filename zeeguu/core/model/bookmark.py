@@ -269,11 +269,11 @@ class Bookmark(db.Model):
             )
             # If we have the new model, then we need to check the type.
             if self.context and self.context.context_type:
-                from zeeguu.core.model.bookmark_context import ContextInformation
+                from zeeguu.core.model.bookmark_context import ContextIdentifier
                 from zeeguu.core.model.context_type import ContextType
 
                 print("Creating a context information")
-                context_information = ContextInformation(
+                context_identifier = ContextIdentifier(
                     self.context.context_type.type,
                 )
                 context_type_row = ContextType.get_table_corresponding_to_type(
@@ -281,16 +281,16 @@ class Bookmark(db.Model):
                 )
                 match self.context.context_type:
                     case ContextType.ARTICLE_FRAGMENT:
-                        context_information.fragment_id = (
+                        context_identifier.fragment_id = (
                             context_type_row.find_by_bookmark(self).article_fragment_id
                         )
                     case ContextType.ARTICLE_TITLE:
-                        context_information.article_id = (
+                        context_identifier.article_id = (
                             context_type_row.find_by_bookmark(self).article_id
                         )
                     case _:
                         print("### Got a type without a mapped table!")
-                result["context_information"] = context_information.as_dictionary()
+                result["context_identifier"] = context_identifier.as_dictionary()
             result = {**result, **context_info_dict}
 
         bookmark_title = ""

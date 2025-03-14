@@ -316,7 +316,7 @@ class UserArticle(db.Model):
                     returned_info["tokenized_fragments"][i]["past_bookmarks"] = (
                         ArticleFragmentContext.get_all_user_bookmarks_for_article_fragment(
                             user.id,
-                            fragment["context_information"]["article_fragment_id"],
+                            fragment["context_identifier"]["article_fragment_id"],
                         )
                     )
             if "tokenized_title_new" in returned_info:

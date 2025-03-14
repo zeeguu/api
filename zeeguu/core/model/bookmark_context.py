@@ -6,7 +6,7 @@ import sqlalchemy
 import time
 
 
-class ContextInformation:
+class ContextIdentifier:
     def __init__(
         self,
         context_type,

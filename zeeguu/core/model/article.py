@@ -304,7 +304,7 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.model.bookmark_context import ContextInformation
+            from zeeguu.core.model.bookmark_context import ContextIdentifier
             from zeeguu.core.model.context_type import ContextType
 
             from zeeguu.core.model.article_fragment import ArticleFragment
@@ -323,7 +323,7 @@ class Article(db.Model):
             for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
                 result_dict["tokenized_fragments"].append(
                     {
-                        "context_information": ContextInformation(
+                        "context_identifier": ContextIdentifier(
                             ContextType.ARTICLE_FRAGMENT,
                             article_fragment_id=fragment.id,
                         ).as_dictionary(),
@@ -331,16 +331,14 @@ class Article(db.Model):
                         "tokens": tokenizer.tokenize_text(
                             fragment.text.content, flatten=False
                         ),
-                        "past_bookmarks": [],
                     }
                 )
             result_dict["tokenized_title_new"] = {
-                "context_information": ContextInformation(
+                "context_identifier": ContextIdentifier(
                     ContextType.ARTICLE_FRAGMENT,
                     article_id=self.id,
                 ).as_dictionary(),
                 "tokens": tokenizer.tokenize_text(self.title, flatten=False),
-                "past_bookmarks": [],
             }
             result_dict["tokenized_title"] = tokenizer.tokenize_text(
                 self.title, flatten=False
