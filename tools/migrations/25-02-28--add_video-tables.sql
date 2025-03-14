@@ -24,7 +24,6 @@ CREATE TABLE `video` (
   `published_at` datetime DEFAULT NULL,
   `channel_id` int DEFAULT NULL,
   `thumbnail_url` varchar(512) DEFAULT NULL,
-  `tags` mediumtext,
   `duration` int DEFAULT NULL,
   `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
