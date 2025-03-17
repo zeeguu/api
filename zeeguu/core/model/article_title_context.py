@@ -63,7 +63,6 @@ class ArticleTitleContext(db.Model):
     def get_all_user_bookmarks_for_article_title(
         cls, user_id: int, article_id: int, as_json_serializable: bool = True
     ):
-
         result = (
             Bookmark.query.join(ArticleTitleContext)
             .filter(ArticleTitleContext.article_id == article_id)
