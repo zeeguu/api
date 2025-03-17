@@ -92,9 +92,9 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
                 f"<Text {t.id} (a:{t.article_id})> article is broken. Consider for deletion."
             )
             articles_broken += 1
-            continue
 
         b.source_id = t.article.source_id
+        db_session.add(b)
         # Give a context type:
         match context_type:
             case ContextType.ARTICLE_FRAGMENT:
@@ -113,11 +113,10 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
                 ArticleTitleContext.find_or_create(
                     db_session, b, t.article, commit=False
                 )
-                if t.article is None:
-                    add_to_log(
-                        f"Article not found for article {t.article_id}, skipping..",
-                    )
-                    continue
+            case ContextType.USER_EDITED_TEXT:
+                add_to_log(
+                    "User edited context added...",
+                )
             case _:
                 add_to_log(
                     f"No context type found for article {t.article_id}, skipping..",
