@@ -380,24 +380,25 @@ class Bookmark(db.Model):
         from zeeguu.core.model.bookmark_context import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
 
-        print("Creating a context information")
+        context_type = self.context.context_type.type
+        print(f"Creating a context information for context type: {context_type}")
         context_identifier = ContextIdentifier(
-            self.context.context_type.type,
+            context_type,
         )
-        context_type_table = ContextType.get_table_corresponding_to_type(
-            self.context.context_type.type
-        )
-        match self.context.context_type:
-            case ContextType.ARTICLE_FRAGMENT:
-                context_identifier.fragment_id = context_type_table.find_by_bookmark(
-                    self
-                ).article_fragment_id
-            case ContextType.ARTICLE_TITLE:
-                context_identifier.article_id = context_type_table.find_by_bookmark(
-                    self
-                ).article_id
-            case _:
-                print("### Got a type without a mapped table!")
+        context_type_table = ContextType.get_table_corresponding_to_type(context_type)
+        if context_type_table:
+            result = context_type_table.find_by_bookmark(self)
+            match context_type:
+                case ContextType.ARTICLE_FRAGMENT:
+                    context_identifier.article_fragment_id = (
+                        result.article_fragment_id if result else None
+                    )
+                case ContextType.ARTICLE_TITLE:
+                    context_identifier.article_id = (
+                        result.article_id if result else None
+                    )
+                case _:
+                    print("### Got a type without a mapped table!")
         return context_identifier.as_dictionary()
 
     def create_context_mapping(
@@ -419,11 +420,11 @@ class Bookmark(db.Model):
         if not self.context or self.context.context_type == None:
             return None
         mapped_context = None
-        print("Context type is: ", self.context.context_type)
+        print("Context type is: ", self.context.context_type.type)
         context_specific_table = ContextType.get_table_corresponding_to_type(
             self.context.context_type.type
         )
-        match self.context.context_type:
+        match self.context.context_type.type:
             case ContextType.ARTICLE_FRAGMENT:
                 if context_identifier.article_fragment_id is None:
                     return None
@@ -449,7 +450,7 @@ class Bookmark(db.Model):
                 session.add(mapped_context)
             case _:
                 print(
-                    f"## Something went wrong, the context {self.context} did not match any case."
+                    f"## Something went wrong, the context {self.context.context_type.type} did not match any case."
                 )
 
         print(f"## Mapped context: {mapped_context}")
