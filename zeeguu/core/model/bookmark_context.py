@@ -4,12 +4,13 @@ from zeeguu.core.model.new_text import NewText
 from zeeguu.core.model import db
 import sqlalchemy
 import time
+import json
 
 
 class ContextIdentifier:
     def __init__(
         self,
-        context_type,
+        context_type: str,
         article_fragment_id=None,
         article_id=None,
         video_id=None,
@@ -21,6 +22,21 @@ class ContextIdentifier:
 
     def __repr__(self):
         return f"<ContextIdentifier context_type={self.context_type}>"
+
+    @classmethod
+    def from_dictionary(cls, dictionary):
+        if dictionary is None:
+            return None
+        return ContextIdentifier(
+            dictionary.get("context_type", None),
+            dictionary.get("article_fragment_id", None),
+            dictionary.get("article_id", None),
+            dictionary.get("video_id", None),
+        )
+
+    @classmethod
+    def from_json_string(cls, json_string):
+        return cls.from_dictionary(json.loads(json_string))
 
     def as_dictionary(self):
         return {

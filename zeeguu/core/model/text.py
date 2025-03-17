@@ -76,6 +76,9 @@ class Text(db.Model):
     def __repr__(self):
         return f"<Text {self.content}>"
 
+    def get_content(self):
+        return self.content
+
     def update_content(self, new_content):
         self.content = new_content
         self.content_hash = text_hash(new_content)

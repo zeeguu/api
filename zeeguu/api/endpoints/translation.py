@@ -22,6 +22,7 @@ from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.core.model.bookmark_context import ContextIdentifier
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -57,7 +58,10 @@ def get_one_translation(from_lang_code, to_lang_code):
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_indentifier = request.form.get("context_indentifier", None)
+    context_identifier = request.form.get("context_identifier", None)
+    if context_identifier is not None:
+        context_identifier = ContextIdentifier.from_json_string(context_identifier)
+
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
@@ -116,7 +120,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             sentence_i=w_sent_i,
             token_i=w_token_i,
             total_tokens=w_total_tokens,
-            context_indentifier=context_indentifier,
+            context_identifier=context_identifier,
         )
 
     return json_result(
@@ -233,11 +237,11 @@ def update_translation(bookmark_id):
     )
     from zeeguu.core.model.context_type import ContextType
 
-    print("Creating Bookmark Context")
+    ## TO-DO: Update context type once web sends that information.
     context = BookmarkContext.find_or_create(
         db_session,
         context_str,
-        ContextType.ARTICLE_FRAGMENT,
+        None,
         bookmark.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
@@ -329,7 +333,9 @@ def contribute_translation(from_lang_code, to_lang_code):
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_indentifier = request.form.get("context_indentifier", None)
+    context_identifier = request.form.get("context_identifier", None)
+    if context_identifier is not None:
+        context_identifier = ContextIdentifier.from_json_string(context_identifier)
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")
@@ -370,7 +376,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         sentence_i=w_sent_i,
         token_i=w_token_i,
         total_tokens=w_total_tokens,
-        context_indentifier=context_indentifier,
+        context_identifier=context_identifier,
     )
 
     # Inform apimux about translation selection

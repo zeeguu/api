@@ -416,14 +416,14 @@ class Bookmark(db.Model):
         """
         from zeeguu.core.model.context_type import ContextType
 
-        if self.context_type == None:
+        if not self.context or self.context.context_type == None:
             return None
         mapped_context = None
-        print("Context type is: ", self.context_type)
+        print("Context type is: ", self.context.context_type)
         context_specific_table = ContextType.get_table_corresponding_to_type(
-            ContextType.find_by_id(self.context_type)
+            self.context.context_type.type
         )
-        match self.context_type:
+        match self.context.context_type:
             case ContextType.ARTICLE_FRAGMENT:
                 if context_identifier.article_fragment_id is None:
                     return None
@@ -438,6 +438,7 @@ class Bookmark(db.Model):
                     fragment,
                     commit=commit,
                 )
+                session.add(mapped_context)
             case ContextType.ARTICLE_TITLE:
                 if context_identifier.article_id is None:
                     return None
@@ -445,11 +446,12 @@ class Bookmark(db.Model):
                 mapped_context = context_specific_table.find_or_create(
                     session, self, article, commit=commit
                 )
+                session.add(mapped_context)
             case _:
                 print(
                     f"## Something went wrong, the context {self.context} did not match any case."
                 )
-        session.add(mapped_context)
+
         print(f"## Mapped context: {mapped_context}")
         return mapped_context
 
@@ -474,7 +476,7 @@ class Bookmark(db.Model):
         in_content: bool = None,
         left_ellipsis: bool = None,
         right_ellipsis: bool = None,
-        context_indentifier: ContextIdentifier = None,
+        context_identifier: ContextIdentifier = None,
         level: int = 0,
     ):
         """
@@ -491,7 +493,7 @@ class Bookmark(db.Model):
         context = BookmarkContext.find_or_create(
             session,
             _context,
-            context_indentifier.context_type,
+            context_identifier.context_type if context_identifier else None,
             origin_lang,
             c_sentence_i,
             c_token_i,
@@ -543,7 +545,7 @@ class Bookmark(db.Model):
             raise e
 
         session.add(bookmark)
-        bookmark.create_context_mapping(session, context_indentifier, commit=False)
+        bookmark.create_context_mapping(session, context_identifier, commit=False)
         session.add(bookmark)
         session.commit()
         return bookmark
