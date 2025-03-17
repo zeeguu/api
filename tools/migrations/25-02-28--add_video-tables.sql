@@ -28,6 +28,7 @@ CREATE TABLE `video` (
   `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
   `plain_text` mediumtext,
+  `fk_difficulty`int DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `video_unique_video_id` (`video_id`),
   KEY `video_language_FK` (`language_id`),

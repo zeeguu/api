@@ -4,6 +4,7 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
+from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
@@ -26,6 +27,7 @@ class Video(db.Model):
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
     vtt = db.Column(db.Text)
     plain_text = db.Column(db.Text)
+    fk_difficulty = db.Column(db.Integer)
 
     channel = db.relationship("YTChannel", back_populates="videos")
     language = db.relationship("Language")
@@ -42,6 +44,7 @@ class Video(db.Model):
         self.language = language
         self.vtt = vtt
         self.plain_text = plain_text
+        self.compute_fk_difficulty()
 
     def __repr__(self):
         return f'<Video {self.title} ({self.video_id})>'
@@ -60,6 +63,13 @@ class Video(db.Model):
             vtt=self.vtt,
             plain_text=self.plain_text
         )
+
+    def compute_fk_difficulty(self):
+        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
+        fk_difficulty = fk_estimator.estimate_difficulty(
+            self.plain_text, self.language, None
+            )
+        self.fk_difficulty = fk_difficulty["grade"]
 
     @classmethod
     def find_or_create(
