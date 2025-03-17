@@ -19,7 +19,7 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from zeeguu.core.model.bookmark_context import BookmarkContext
+from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 
 from zeeguu.core.model import db
 
@@ -210,7 +210,6 @@ class Bookmark(db.Model):
         db_session,
         time: datetime = None,
     ):
-
         source = ExerciseSource.find_or_create(db_session, exercise_source)
         outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
@@ -268,10 +267,9 @@ class Bookmark(db.Model):
                 context_token=self.text.token_i,
                 in_content=self.text.in_content,
             )
-
+            # If we have the new model, then we need to check the type.
             if self.context and self.context.context_type:
                 result["context_identifier"] = self.get_context_identifier()
-
             result = {**result, **context_info_dict}
 
         bookmark_title = ""
@@ -405,8 +403,7 @@ class Bookmark(db.Model):
     def create_context_mapping(
         self,
         session,
-        article_fragment=None,
-        article=None,
+        context_identifier: ContextIdentifier,
         commit=False,
     ):
         """
@@ -428,18 +425,23 @@ class Bookmark(db.Model):
         )
         match self.context_type:
             case ContextType.ARTICLE_FRAGMENT:
-                if article_fragment is None:
+                if context_identifier.article_fragment_id is None:
                     return None
+                from zeeguu.core.model.article_fragment import ArticleFragment
 
+                fragment = ArticleFragment.find_by_id(
+                    context_identifier.article_fragment_id
+                )
                 mapped_context = context_specific_table.find_or_create(
                     session,
                     self,
-                    article_fragment,
+                    fragment,
                     commit=commit,
                 )
             case ContextType.ARTICLE_TITLE:
-                if article is None:
+                if context_identifier.article_id is None:
                     return None
+                article = Article.find_by_id(context_identifier.article_id)
                 mapped_context = context_specific_table.find_or_create(
                     session, self, article, commit=commit
                 )
@@ -472,8 +474,7 @@ class Bookmark(db.Model):
         in_content: bool = None,
         left_ellipsis: bool = None,
         right_ellipsis: bool = None,
-        context_type: str = None,
-        fragment_id: int = None,
+        context_indentifier: ContextIdentifier = None,
         level: int = 0,
     ):
         """
@@ -490,7 +491,7 @@ class Bookmark(db.Model):
         context = BookmarkContext.find_or_create(
             session,
             _context,
-            context_type,
+            context_indentifier.context_type,
             origin_lang,
             c_sentence_i,
             c_token_i,
@@ -542,15 +543,9 @@ class Bookmark(db.Model):
             raise e
 
         session.add(bookmark)
-        if context_type is not None:
-            from zeeguu.core.model.article_fragment import ArticleFragment
-
-            fragment = ArticleFragment.find_by_id(fragment_id)
-            bookmark.create_context_mapping(
-                session, c_sentence_i, c_token_i, fragment, article
-            )
+        bookmark.create_context_mapping(session, context_indentifier, commit=False)
+        session.add(bookmark)
         session.commit()
-
         return bookmark
 
     def sorted_exercise_log(self):

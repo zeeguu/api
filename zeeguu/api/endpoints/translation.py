@@ -57,8 +57,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_type = request.form.get("context_type", None)
-    fragment_id = request.form.get("fragment_id", None)
+    context_indentifier = request.form.get("context_indentifier", None)
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
@@ -117,8 +116,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             sentence_i=w_sent_i,
             token_i=w_token_i,
             total_tokens=w_total_tokens,
-            context_type=context_type,
-            fragment_id=fragment_id,
+            context_indentifier=context_indentifier,
         )
 
     return json_result(
@@ -331,8 +329,7 @@ def contribute_translation(from_lang_code, to_lang_code):
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_type = request.form.get("context_type", None)
-    fragment_id = request.form.get("fragment_id", None)
+    context_indentifier = request.form.get("context_indentifier", None)
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")
@@ -373,8 +370,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         sentence_i=w_sent_i,
         token_i=w_token_i,
         total_tokens=w_total_tokens,
-        context_type=context_type,
-        fragment_id=fragment_id,
+        context_indentifier=context_indentifier,
     )
 
     # Inform apimux about translation selection
