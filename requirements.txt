@@ -66,3 +66,6 @@ pydantic>=1.10.8
 
 # nlp pipeline
 stanza==1.10.1
+
+webvtt-py
+yt-dlp
