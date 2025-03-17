@@ -1,5 +1,15 @@
+from io import StringIO
+import os
+import isodate
+import requests
+import webvtt
+import yt_dlp
 from zeeguu.core.model import db
+from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.video_tag import VideoTag
+from zeeguu.core.model.video_tag_map import VideoTagMap
+from zeeguu.core.model.yt_channel import YTChannel
 
 class Video(db.Model):
     __tablename__ = 'video'
@@ -55,36 +65,41 @@ class Video(db.Model):
     def find_or_create(
         cls, 
         session, 
-        video_id, 
-        title=None, 
-        description=None, 
-        published_at=None, 
-        channel=None, 
-        thumbnail_url=None, 
-        duration=None, 
-        language=None, 
-        vtt=None, 
-        plain_text=None
+        video_id,
+        language, 
     ):
         video = session.query(cls).filter_by(video_id=video_id).first()
 
         if video:
             return video
         
+        try:
+            video_info = cls.fetch_video_info(video_id, language)
+        except ValueError as e:
+            print(f"Error fetching video info for {video_id}: {e}")
+            return None
+
+        if video_info is None:
+            return None
+
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
+
+        print(video_info)
+
+        channel = YTChannel.find_or_create(session, video_info["channelId"], language)
         
         new_video = cls(
             video_id = video_id,
-            title = title,
-            description = description,
-            published_at = published_at,
+            title = video_info["title"],
+            description = video_info["description"],
+            published_at = video_info["publishedAt"],
             channel = channel,
-            thumbnail_url = thumbnail_url,
-            duration = duration,
+            thumbnail_url = video_info["thumbnail"],
+            duration = video_info["duration"],
             language = language,
-            vtt = vtt,
-            plain_text = plain_text
+            vtt = video_info["vtt"],
+            plain_text = video_info["text"]
         )
         session.add(new_video)
 
@@ -93,5 +108,126 @@ class Video(db.Model):
         except Exception as e:
             session.rollback()
             raise e
+        
+
+        try:
+            for caption in video_info["captions"]:
+                new_caption = Caption(
+                    video=new_video,
+                    time_start=caption["time_start"],
+                    time_end=caption["time_end"],
+                    text=caption["text"]
+                )
+                session.add(new_caption)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        
+        try:
+            for tag in video_info["tags"]:
+                new_tag = VideoTag.find_or_create(session, tag)
+                video_tag_map = VideoTagMap(
+                    video=new_video,
+                    tag=new_tag
+                )
+                session.add(new_tag)
+                session.add(video_tag_map)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+
 
         return new_video
+    
+    @staticmethod
+    def fetch_video_info(videoId, lang):
+        VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
+        YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+        if not YOUTUBE_API_KEY:
+            raise ValueError("Missing YOUTUBE_API_KEY environment variable")
+        params = {
+            "part": "snippet,contentDetails",
+            "id": videoId,
+            "key": YOUTUBE_API_KEY,
+        }
+
+        response = requests.get(VIDEO_URL, params=params)
+        video_data = response.json()
+
+        if "items" not in video_data or not video_data["items"]:
+            raise ValueError(f"Video {videoId} not found, or API quota exceeded")
+        
+        captions = Video.get_captions(videoId, lang)
+        if captions is None:
+            print(f"Could not fetch captions for video {videoId}")
+            return None
+        
+        item = video_data["items"][0]
+
+        video_info = {
+            "videoId": videoId,
+            "title": item["snippet"]["title"],
+            "description": item["snippet"].get("description", ""),
+            "publishedAt": isodate.parse_datetime(item["snippet"]["publishedAt"]).replace(tzinfo=None),
+            "channelId": item["snippet"]["channelId"],
+            "thumbnail": item["snippet"]["thumbnails"].get("maxres", {}).get("url", "No maxres thumbnail available"),
+            "tags": item["snippet"].get("tags", []),
+            "duration": int(isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()),
+            "vtt": captions["vtt"],
+            "text": captions["text"],
+            "captions": captions["captions"]
+        }
+
+        return video_info
+
+    @staticmethod
+    def get_captions(video_id, lang):
+        ydl_opts = {
+            "quiet": True,
+            "skip_download": True,
+            "writesubtitles": True,
+            "subtitleslangs": [lang],
+            "subtitlesformat": "vtt",
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            try:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                subtitles = info.get("subtitles", {})
+
+                if lang in subtitles:
+                    url = subtitles[lang][-1]["url"]
+
+                    response = requests.get(url)
+                    if response.status_code == 200:
+                        vtt_content = response.text
+                        return Video.parse_vtt(vtt_content)
+                return None
+            except Exception as e:
+                print(f"Error fethcing subtitles for {video_id}: {e}")
+                return None
+
+    @staticmethod
+    def parse_vtt(vtt_content):
+        captions_list = []
+        full_text = []
+
+        vtt_file = StringIO(vtt_content)
+        captions = webvtt.read_buffer(vtt_file)
+
+        for caption in captions:
+            captions_list.append({
+                "time_start": caption.start_in_seconds,
+                "time_end": caption.end_in_seconds,
+                "text": caption.text,
+            })
+            full_text.append(caption.text)
+        
+        return {
+            "vtt": vtt_content,
+            "text": "\n".join(full_text),
+            "captions": captions_list
+        }

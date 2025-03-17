@@ -18,3 +18,25 @@ class VideoTag(db.Model):
             id=self.id,
             tag=self.tag
        )
+
+    @classmethod
+    def find_or_create(
+        cls, 
+        session, 
+        tag,
+    ):
+        tag = session.query(cls).filter_by(tag=tag).first()
+
+        if tag:
+            return tag
+        
+        new_tag = cls(tag)
+        session.add(new_tag)
+
+        try:
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        
+        return new_tag

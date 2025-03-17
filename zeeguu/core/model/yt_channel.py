@@ -1,3 +1,5 @@
+import os
+import requests
 from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
@@ -50,31 +52,27 @@ class YTChannel(db.Model):
         cls, 
         session, 
         channel_id, 
-        name=None, 
-        description=None,
-        views=None,
-        subscribers=None,
-        language=None,
-        should_crawl=None,
-        last_crawled=None
+        language,
     ):
         channel = session.query(cls).filter_by(channel_id=channel_id).first()
 
         if channel:
             return channel
 
-        if isinstance(language, str):
-            language = session.query(Language).filter_by(code=language).first()
+        # if isinstance(language, str):
+        #     language = session.query(Language).filter_by(code=language).first()
+
+        channel_info = cls.fetch_channel_info(channel_id)
 
         new_channel = cls(
             channel_id = channel_id,
-            name = name,
-            description = description,
-            views = views,
-            subscribers = subscribers,
+            name = channel_info["channelName"],
+            description = channel_info["description"],
+            views = channel_info["viewCount"],
+            subscribers = channel_info["subscriberCount"],
             language = language,
-            should_crawl = should_crawl,
-            last_crawled = last_crawled
+            should_crawl = None,
+            last_crawled = None
         )
         session.add(new_channel)
 
@@ -85,3 +83,31 @@ class YTChannel(db.Model):
             raise e
         
         return new_channel
+    
+    @staticmethod 
+    def fetch_channel_info(channel_id):
+        CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
+        YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+        channel_params = {
+            "part": "snippet,statistics",
+            "id": channel_id,
+            "key": YOUTUBE_API_KEY,
+        }
+
+        response = requests.get(CHANNEL_URL, params=channel_params)
+        channel_data = response.json()
+
+        channel = channel_data.get("items", [])[0]
+        snippet = channel["snippet"]
+        statistics = channel["statistics"]
+
+        channel_info = {
+            "channelId": channel_id,
+            "channelName": snippet["title"],
+            "description": snippet.get("description", ""),
+            "viewCount": statistics["viewCount"],
+            "subscriberCount": statistics["subscriberCount"],
+        }
+
+        return channel_info
