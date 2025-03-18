@@ -265,6 +265,7 @@ class Article(db.Model):
         fk_difficulty = self.get_fk_difficulty()
         result_dict = dict(
             id=self.id,
+            source_id=self.source_id,
             title=self.title,
             summary=summary,
             language=self.language.code,
@@ -333,9 +334,11 @@ class Article(db.Model):
                         ),
                     }
                 )
+
+            ## TO-DO : Update once migration is complete.
             result_dict["tokenized_title_new"] = {
                 "context_identifier": ContextIdentifier(
-                    ContextType.ARTICLE_FRAGMENT,
+                    ContextType.ARTICLE_TITLE,
                     article_id=self.id,
                 ).as_dictionary(),
                 "tokens": tokenizer.tokenize_text(self.title, flatten=False),

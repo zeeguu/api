@@ -253,6 +253,7 @@ class Bookmark(db.Model):
             id=self.id,
             origin=self.origin.word,
             translation=self.translation.word,
+            source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
