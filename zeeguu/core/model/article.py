@@ -1,20 +1,15 @@
 import re
 
 from datetime import datetime
-import time
 
-import sqlalchemy
-from langdetect import detect
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, Table
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
 
-from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
-
 
 from zeeguu.core.model import db
 
@@ -48,8 +43,9 @@ class Article(db.Model):
     id = Column(Integer, primary_key=True)
 
     title = Column(String(512))
-    authors = Column(UnicodeText)
+    authors = Column(String(128))
     content = Column(UnicodeText())
+
     htmlContent = Column(UnicodeText())
     summary = Column(UnicodeText)
     word_count = Column(Integer)
@@ -66,6 +62,11 @@ class Article(db.Model):
     from zeeguu.core.model.language import Language
 
     from zeeguu.core.model.url_keyword import UrlKeyword
+
+    from zeeguu.core.model.source import Source
+
+    source_id = Column(Integer, ForeignKey(Source.id), unique=True)
+    source = relationship(Source, foreign_keys="Article.source_id")
 
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
@@ -97,7 +98,7 @@ class Article(db.Model):
         url,
         title,
         authors,
-        content,
+        source,
         summary,
         published_time,
         feed,
@@ -110,14 +111,15 @@ class Article(db.Model):
         video=0,
         img_url=None,
     ):
-
         if not summary:
-            summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
+            summary = source.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
 
         self.url = url
         self.title = title
         self.authors = authors
-        self.content = content
+        self.source = source
+        # Remove once we have source migration complete.
+        self.content = source.get_content()
         self.htmlContent = htmlContent
         self.summary = summary
         self.published_time = published_time
@@ -130,27 +132,54 @@ class Article(db.Model):
         self.video = video
         self.img_url = img_url
         self.fk_cefr_level = None
-
-        self.convertHTML2TextIfNeeded()
-        self.compute_fk_and_wordcount()
-
-    def compute_fk_and_wordcount(self):
-        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(
-            self.content, self.language, None
-        )
-
-        # easier to store integer in the DB
-        # otherwise we have to use Decimal, and it's not supported on all dbs
-        self.fk_difficulty = fk_difficulty["grade"]
-        self.word_count = len(self.content.split())
+        # Delete once it's migrated.
+        self.word_count = source.word_count
+        self.fk_difficulty = source.fk_difficulty
 
     def __repr__(self):
-        return f"<Article {self.title} (w: {self.word_count}, d: {self.fk_difficulty}) ({self.url})>"
+        return f"<Article {self.title} ({self.url})>"
+
+    def get_content(self):
+        return self.content if self.source_id is None else self.source.get_content()
+
+    def update_content(self, session, content=None, commit=True):
+        from zeeguu.core.content_retriever import download_and_parse
+        from zeeguu.core.model.source import Source
+        from zeeguu.core.model.source_type import SourceType
+        from zeeguu.core.content_quality.quality_filter import (
+            sufficient_quality_plain_text,
+        )
+
+        if content is None:
+            content = download_and_parse(self.url.as_string()).text
+
+            quality, reason, _ = sufficient_quality_plain_text(self.content)
+            if not quality:
+                print("Marking as broken. Reason: " + reason)
+                self.mark_as_low_quality_and_remove_from_index()
+
+        self.source_id = Source.find_or_create(
+            session,
+            content,
+            SourceType.find_by_type(SourceType.ARTICLE),
+            self.language,
+            self.broken,
+            commit=False,
+        )
+        # Remove once migration is done.
+        self.content = content
+
+        session.add(self)
+        if commit:
+            session.commit()
 
     def vote_broken(self):
         # somebody could vote that this article is broken
         self.broken += 1
+
+    def get_broken(self):
+        # remember to remove self.broken after migration
+        return self.broken if self.broken else self.source.broken
 
     def topics_as_string(self):
         topics = ""
@@ -172,24 +201,38 @@ class Article(db.Model):
                 return True
         return False
 
-    def convertHTML2TextIfNeeded(self):
-        # why this? because in some cases we might have htmlContent
-        # but not content; and the following lines that compute
-        # difficulty and length work on content
-        if self.htmlContent and not self.content:
-            self.content = re.sub(HTML_TAG_CLEANR, "", self.htmlContent)
-
-    def update(self, language, content, htmlContent, title):
+    def update(self, db_session, language, content, htmlContent, title):
         self.language = language
-        self.content = content
+        self.update_content(db_session, content, commit=False)
         self.title = title
         self.htmlContent = htmlContent
+        self.summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        db_session.commit()
 
-        self.convertHTML2TextIfNeeded()
+    def create_article_fragments(self, session):
+        """
+        Dummy implmentation which just creates paragraphs tags.
+        The idea is that we parse the readability parse, and create the
+        different tags as needed.
+        """
+        from zeeguu.core.model.article_fragment import ArticleFragment
 
-        self.summary = content[:MAX_CHAR_COUNT_IN_SUMMARY]
+        for i, paragraph in enumerate(self.source.get_content().split("\n\n")):
+            ArticleFragment.find_or_create(
+                session, self, paragraph.strip(), i, "p", commit=False
+            )
 
-        self.compute_fk_and_wordcount()
+    def get_fk_difficulty(self):
+        if self.fk_difficulty:
+            return self.fk_difficulty
+        else:
+            return self.source.fk_difficulty
+
+    def get_word_count(self):
+        if self.word_count:
+            return self.word_count
+        else:
+            return self.source.word_count
 
     def article_info(self, with_content=False):
         """
@@ -218,10 +261,11 @@ class Article(db.Model):
             else:
                 return "C2"
 
-        summary = self.content[:MAX_CHAR_COUNT_IN_SUMMARY]
-
+        summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        fk_difficulty = self.get_fk_difficulty()
         result_dict = dict(
             id=self.id,
+            source_id=self.source_id,
             title=self.title,
             summary=summary,
             language=self.language.code,
@@ -229,9 +273,9 @@ class Article(db.Model):
             topics_list=self.topics_as_tuple(),
             video=self.video,
             metrics=dict(
-                difficulty=self.fk_difficulty / 100,
-                word_count=self.word_count,
-                cefr_level=fk_to_cefr(self.fk_difficulty),
+                difficulty=fk_difficulty / 100,
+                word_count=self.get_word_count(),
+                cefr_level=fk_to_cefr(fk_difficulty),
             ),
         )
 
@@ -261,16 +305,44 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
+            from zeeguu.core.model.bookmark_context import ContextIdentifier
+            from zeeguu.core.model.context_type import ContextType
+
+            from zeeguu.core.model.article_fragment import ArticleFragment
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-
-            result_dict["content"] = self.content
+            content = self.get_content()
+            result_dict["content"] = content
             result_dict["htmlContent"] = self.htmlContent
-            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(self.content)
+            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(content)
             result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
-                self.content, flatten=False
+                content, flatten=False
             )
+            result_dict["tokenized_fragments"] = []
+
+            for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
+                result_dict["tokenized_fragments"].append(
+                    {
+                        "context_identifier": ContextIdentifier(
+                            ContextType.ARTICLE_FRAGMENT,
+                            article_fragment_id=fragment.id,
+                        ).as_dictionary(),
+                        "formatting": fragment.formatting,
+                        "tokens": tokenizer.tokenize_text(
+                            fragment.text.content, flatten=False
+                        ),
+                    }
+                )
+
+            ## TO-DO : Update once migration is complete.
+            result_dict["tokenized_title_new"] = {
+                "context_identifier": ContextIdentifier(
+                    ContextType.ARTICLE_TITLE,
+                    article_id=self.id,
+                ).as_dictionary(),
+                "tokens": tokenizer.tokenize_text(self.title, flatten=False),
+            }
             result_dict["tokenized_title"] = tokenizer.tokenize_text(
                 self.title, flatten=False
             )
@@ -321,12 +393,10 @@ class Article(db.Model):
             session.add(t)
 
     def add_url_keyword(self, url_keyword, rank, session):
-
         a = ArticleUrlKeywordMap(article=self, url_keyword=url_keyword, rank=rank)
         session.add(a)
 
     def set_url_keywords(self, url_keywords, session):
-
         for rank, t in enumerate(url_keywords):
             self.add_url_keyword(t, rank, session)
 
@@ -335,6 +405,8 @@ class Article(db.Model):
 
         article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
         self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
+        if self.source:
+            self.source.broken = broken_code
         session.add(article_broken_map)
         session.add(self)
         session.commit()
@@ -360,29 +432,8 @@ class Article(db.Model):
 
         remove_from_index(self)
 
-    def update_content(self, session):
-        from zeeguu.core.content_retriever import download_and_parse
-
-        parsed = download_and_parse(self.url.as_string())
-        self.content = parsed.text
-        self.htmlContent = parsed.htmlContent
-        self.compute_fk_and_wordcount()
-
-        from zeeguu.core.content_quality.quality_filter import (
-            sufficient_quality_plain_text,
-        )
-
-        quality, reason, _ = sufficient_quality_plain_text(self.content)
-        if not quality:
-            print("Marking as broken. Reason: " + reason)
-            self.mark_as_low_quality_and_remove_from_index()
-
-        session.add(self)
-        session.commit()
-
     @classmethod
     def own_texts_for_user(cls, user, ignore_deleted=True):
-
         query = cls.query.filter(cls.uploader_id == user.id)
 
         if ignore_deleted:
@@ -401,7 +452,7 @@ class Article(db.Model):
             None,
             source.title,
             None,
-            source.content,
+            source.source,
             source.summary,
             current_time,
             None,
@@ -418,7 +469,6 @@ class Article(db.Model):
     def create_from_upload(
         cls, session, title, content, htmlContent, uploader, language
     ):
-
         current_time = datetime.now()
         new_article = Article(
             None,
@@ -455,6 +505,9 @@ class Article(db.Model):
             - if not, download and create article then return
         """
         from zeeguu.core.model import Url, Language
+        from zeeguu.core.model.source import Source
+        from zeeguu.core.model.source_type import SourceType
+
         from zeeguu.core.content_retriever.article_downloader import (
             extract_article_image,
             add_topics,
@@ -463,62 +516,61 @@ class Article(db.Model):
 
         canonical_url = Url.extract_canonical_url(url)
 
-        try:
-            found = cls.find(canonical_url)
-            if found:
-                return found
+        found = cls.find(canonical_url)
+        if found:
+            return found
 
-            from zeeguu.core.content_retriever import readability_download_and_parse
+        from zeeguu.core.content_retriever import readability_download_and_parse
 
-            np_article = readability_download_and_parse(canonical_url)
+        np_article = readability_download_and_parse(canonical_url)
 
-            text = np_article.text
-            html_content = np_article.htmlContent
-            summary = np_article.summary
-            title = np_article.title
-            authors = ", ".join(np_article.authors or [])
-            lang = np_article.meta_lang
+        html_content = np_article.htmlContent
+        summary = np_article.summary
+        title = np_article.title
+        authors = ", ".join(np_article.authors or [])
+        lang = np_article.meta_lang
 
-            language = Language.find(lang)
+        language = Language.find(lang)
 
-            # Create new article and save it to DB
-            url_object = Url.find_or_create(session, canonical_url)
+        # Create new article and save it to DB
+        url_object = Url.find_or_create(session, canonical_url)
+        source_type = SourceType.find_by_type(SourceType.ARTICLE)
 
-            new_article = Article(
-                url_object,
-                title,
-                authors,
-                text,
-                summary,
-                datetime.now(),
-                None,
-                language,
-                html_content,
-            )
+        source = Source.find_or_create(
+            session,
+            np_article.text,
+            source_type,
+            language,
+            0,
+        )
 
-            img_url = extract_article_image(np_article)
-            if img_url != "":
-                new_article.img_url = Url.find_or_create(session, img_url)
+        new_article = Article(
+            url_object,
+            title,
+            authors,
+            source,
+            summary,
+            datetime.now(),
+            None,
+            language,
+            html_content,
+        )
+        # Remove once migration is complete
 
-            url_keywords = add_url_keywords(new_article, session)
-            add_topics(new_article, None, url_keywords, session)
+        session.add(new_article)
 
-            session.add(new_article)
-            session.commit()
+        new_article.create_article_fragments(session)
 
-            return new_article
-        except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
-            for i in range(10):
-                try:
-                    session.rollback()
-                    u = cls.find(canonical_url)
-                    print("Found article by url after recovering from race")
-                    return u
-                except:
-                    print("Exception of second degree in article..." + str(i))
-                    time.sleep(0.3)
-                    continue
-                break
+        main_img_url = extract_article_image(np_article)
+        if main_img_url != "":
+            new_article.img_url = Url.find_or_create(session, main_img_url)
+
+        url_keywords = add_url_keywords(new_article, session)
+        add_topics(new_article, None, url_keywords, session)
+
+        session.add(new_article)
+        session.commit()
+        return new_article
 
     @classmethod
     def find_by_id(cls, id: int):

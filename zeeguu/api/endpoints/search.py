@@ -87,10 +87,9 @@ def unsubscribe_from_search():
         db_session.commit()
 
     except Exception as e:
-        from sentry_sdk import capture_exception
+        from zeeguu.logging import print_and_log_to_sentry
 
-        print(e)
-        capture_exception(e)
+        print_and_log_to_sentry(e)
         log(str(e))
         return "OOPS. SEARCH AIN'T THERE IT SEEMS (" + str(e) + ")"
 
@@ -120,10 +119,9 @@ def get_subscribed_searches():
         try:
             searches_list.append(subs.as_dictionary())
         except Exception as e:
-            log(str(e))
-            from sentry_sdk import capture_exception
+            from zeeguu.logging import print_and_log_to_sentry
 
-            capture_exception(e)
+            print_and_log_to_sentry(e)
 
     return json_result(searches_list)
 

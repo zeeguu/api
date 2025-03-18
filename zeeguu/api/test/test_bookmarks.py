@@ -1,8 +1,15 @@
-from fixtures import logged_in_client as client
+from fixtures import logged_in_client as client, add_context_types, add_source_types
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
 def test_create_and_delete_bookmark(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.core.model.bookmark_context import ContextIdentifier
+    from zeeguu.core.model.context_type import ContextType
+    import json
+
+    context_i = ContextIdentifier(ContextType.USER_EDITED_TEXT)
     new_bookmark = client.post(
         "/contribute_translation/de/en",
         data=dict(
@@ -10,6 +17,7 @@ def test_create_and_delete_bookmark(client):
             translation="friend",
             context="Mein Freund lächelte",
             url=URL_SPIEGEL_VENEZUELA,
+            context_identifier=json.dumps(context_i.as_dictionary()),
         ),
     )
     assert new_bookmark

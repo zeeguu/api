@@ -23,18 +23,17 @@ class LanguageRule(BaseRule):
         "it": "Italian",
         "nl": "Dutch",
         "pt": "Portuguese",
-        # "no": "Norwegian",
-        # "pt": "Portuguese",
-        # "ro": "Romanian"
-        "zh-CN": "Chinese",
+        "no": "Norwegian",
+        "ro": "Romanian",
+        # "zh-CN": "Chinese",
     }
 
     @classmethod
-    def get_or_create_language(cls, language_id):
+    def get_or_create_language(cls, language_code):
         try:
-            return Language.find(language_id)
+            return Language.find(language_code)
         except (NoResultFound, OperationalError, ObjectDeletedError):
-            return cls.__create_new_language(language_id)
+            return cls.__create_new_language(language_code)
 
     @classmethod
     def __create_new_language(cls, language_id):

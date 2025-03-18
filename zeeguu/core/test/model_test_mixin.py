@@ -9,11 +9,14 @@ from unittest import TestCase
 
 from zeeguu.api.app import create_app
 from zeeguu.core.test.mocking_the_web import mock_requests_get
+from zeeguu.api.test.fixtures import add_context_types, add_source_types
 
 
 class ModelTestMixIn(TestCase):
     def setUp(self):
         self.faker = Faker()
+        add_context_types()
+        add_source_types()
 
     def tearDown(self):
         super(ModelTestMixIn, self).tearDown()

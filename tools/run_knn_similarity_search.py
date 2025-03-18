@@ -78,12 +78,12 @@ def search_similar_to_article(article_id):
     print("Classification: ", topics_key_counter.most_common(1)[0])
     print()
     print("Title: ", article_to_search.title[:100])
-    print("Content: ", article_to_search.content[:100])
+    print("Content: ", article_to_search.get_content()[:100])
     print()
     print("Top match content (sim): ")
-    print(a_found_t[0].content[:100])
+    print(a_found_t[0].get_content()[:100])
     print("Top match content (sim, same lang): ")
-    print(a_found[0].content[:100])
+    print(a_found[0].get_content()[:100])
 
 
 def search_similar_to_keyword(keyword):

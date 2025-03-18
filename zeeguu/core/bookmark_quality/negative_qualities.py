@@ -14,7 +14,7 @@ def split_words_from_context(bookmark):
     import re
 
     result = []
-    bookmark_content_words = re.findall(r"(?u)\w+", bookmark.text.content)
+    bookmark_content_words = re.findall(r"(?u)\w+", bookmark.get_context())
     for word in bookmark_content_words:
         if word.lower() != bookmark.origin.word.lower():
             result.append(word)

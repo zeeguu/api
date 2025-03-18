@@ -104,7 +104,7 @@ class ZeeguuMailer(object):
         content += f"https://www.zeeguu.org/read/article?id={article.id}" + "\n\n"
 
         content += "\n\n" + article.title + "\n\n"
-        content += article.content
+        content += article.get_content()
 
         if old_content:
             content += "\n\n\n\n\n\n\n\n\n\n\n\n"

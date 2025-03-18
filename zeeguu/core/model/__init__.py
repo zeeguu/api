@@ -24,6 +24,8 @@ import zeeguu
 
 
 # the core model
+
+from .article_fragment import ArticleFragment
 from .article_url_keyword_map import ArticleUrlKeywordMap
 from .article_topic_map import ArticleTopicMap
 from .user_cohort_map import UserCohortMap
@@ -38,6 +40,7 @@ from .user_preference import UserPreference
 from .session import Session
 from .unique_code import UniqueCode
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
+from .article_fragment_context import ArticleFragmentContext
 
 from .user import User
 from .cohort import Cohort
