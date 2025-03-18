@@ -12,7 +12,7 @@ def text_hash(text: str) -> str:
     return sha1(text).hexdigest()
 
 
-def text_long_hash(text: str) -> str:
+def long_hash(text: str) -> str:
     """
     :param text: str:
     :return: str

@@ -1,7 +1,7 @@
 import sqlalchemy.orm
 import time
 
-from zeeguu.core.util import text_long_hash
+from zeeguu.core.util import long_hash
 from zeeguu.core.model import db
 
 
@@ -21,14 +21,14 @@ class NewText(db.Model):
         content,
     ):
         self.content = content
-        self.content_hash = text_long_hash(content)
+        self.content_hash = long_hash(content)
 
     def __repr__(self):
         return f"<NewText {self.content[:50]}>"
 
     def update_content(self, new_content):
         self.content = new_content
-        self.content_hash = text_long_hash(new_content)
+        self.content_hash = long_hash(new_content)
 
     @classmethod
     def find_by_id(cls, text_id):
@@ -54,9 +54,7 @@ class NewText(db.Model):
         # we fix it here now
         clean_text = text.strip()
         try:
-            return cls.query.filter(
-                cls.content_hash == text_long_hash(clean_text)
-            ).one()
+            return cls.query.filter(cls.content_hash == long_hash(clean_text)).one()
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
             try:
                 new = cls(
@@ -71,7 +69,7 @@ class NewText(db.Model):
                     try:
                         session.rollback()
                         t = cls.query.filter(
-                            cls.content_hash == text_long_hash(clean_text)
+                            cls.content_hash == long_hash(clean_text)
                         ).one()
                         print("found text after recovering from race")
                         return t
