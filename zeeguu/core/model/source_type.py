@@ -16,9 +16,6 @@ class SourceType(db.Model):
 
     ALL_TYPES = [VIDEO, ARTICLE]
 
-    TYPE_ID_CACHE = {}
-    ID_TYPE_CACHE = {}
-
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
