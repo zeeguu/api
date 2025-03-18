@@ -252,6 +252,9 @@ class UserArticle(db.Model):
         from zeeguu.core.model import Bookmark
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.user_activitiy_data import UserActivityData
+        from zeeguu.core.model.article_fragment_context import (
+            ArticleFragmentContext,
+        )
 
         # Initialize returned info with the default article info
         returned_info = article.article_info(with_content=with_content)
@@ -284,10 +287,6 @@ class UserArticle(db.Model):
             returned_info["translations"] = []
 
         else:
-            from zeeguu.core.model.article_fragment_context import (
-                ArticleFragmentContext,
-            )
-
             returned_info["reading_completion"] = (
                 UserActivityData.get_reading_completion_for_article(
                     user_article_info.article_id, user_article_info.user_id
