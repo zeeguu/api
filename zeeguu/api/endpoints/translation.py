@@ -297,6 +297,8 @@ def update_translation(bookmark_id):
     return json_result(updated_bookmark)
 
 
+# Only used from the tests at the moment. The front-end user contributing their own translation
+# is done via /update_bookmark
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session

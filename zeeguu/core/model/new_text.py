@@ -5,11 +5,15 @@ from zeeguu.core.util import text_long_hash
 from zeeguu.core.model import db
 
 
+# Enough to model Proust's longest paragraph
+TWENTY_FIVE_KB = 24 * 10**3
+
+
 class NewText(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(64000))
+    content = db.Column(db.String(TWENTY_FIVE_KB))
     content_hash = db.Column(db.String(64))
 
     def __init__(

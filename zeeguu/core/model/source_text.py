@@ -5,11 +5,14 @@ from zeeguu.core.util import text_hash
 from zeeguu.core.model import db
 
 
+TWO_MB = 2 * 10**6
+
+
 class SourceText(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(16000000))
+    content = db.Column(db.String(TWO_MB))
     content_hash = db.Column(db.String(64))
 
     def __init__(
