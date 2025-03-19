@@ -11,6 +11,7 @@ from zeeguu.core.model.article import HTML_TAG_CLEANR
 
 import re
 from langdetect import detect
+import json
 
 
 # ---------------------------------------------------------------------------
@@ -41,14 +42,15 @@ def find_or_create_article():
         article = Article.find_or_create(db_session, url)
         print("-- article found or created: " + str(article.id))
         uai = UserArticle.user_article_info(user, article, with_content=True)
-        print("-- returning user article info: " + str(uai))
+        print("-- returning user article info: ", json.dumps(uai)[:50])
         return json_result(uai)
     except NoResultFound as e:
+        print(f"Exception: '{e}'")
         flask.abort(406, "Language not supported")
     except Exception as e:
-        from sentry_sdk import capture_exception
+        from zeeguu.logging import print_and_log_to_sentry
 
-        capture_exception(e)
+        print_and_log_to_sentry(e)
 
         import traceback
 
@@ -142,8 +144,7 @@ def remove_ml_suggestion():
         )
         return "OK"
     except Exception as e:
-        from sentry_sdk import capture_exception
+        from zeeguu.logging import print_and_log_to_sentry
 
-        capture_exception(e)
-        print(e)
+        print_and_log_to_sentry(e)
         return "Something went wrong!"

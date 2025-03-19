@@ -1,13 +1,10 @@
-import sqlalchemy
-import zeeguu.core
-
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from zeeguu.core.model import User, Article
 
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
-
+from sqlalchemy.sql.functions import sum
 from zeeguu.core.model import db
 
 VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
@@ -146,6 +143,22 @@ class UserReadingSession(db.Model):
 
         sessions = query.all()
         return sessions
+
+    @classmethod
+    def get_total_reading_for_user_article(cls, article, user):
+        try:
+            return (
+                db.session.query(sum(cls.duration))
+                .filter(cls.article == article)
+                .filter(cls.user == user)
+                .one()
+            )[0]
+        except Exception as e:
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+            print(e)
+            return 0
 
     @classmethod
     def find_by_article(

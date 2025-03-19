@@ -15,15 +15,15 @@ db_session = zeeguu.core.model.db.session
 
 def update_article(id):
     a = Article.find_by_id(id)
-    old_content = a.content
+    old_content = a.get_content()
     print("====================================")
     print(a.title)
     print("====================================")
     # print(">>>>>> BEFORE <<<<<<")
-    # print(a.content)
+    # print(a.get_content())
     a.update_content(db_session)
     # print("\n\n>>>>>> AFTER <<<<<<\n")
-    # print(a.content)
+    # print(a.get_content())
     ZeeguuMailer.send_content_retrieved_notification(a, old_content)
 
 
@@ -39,6 +39,7 @@ def update_articles(selected_articles):
 
         except Exception as e:
             import traceback
+
             traceback.print_stack()
 
 

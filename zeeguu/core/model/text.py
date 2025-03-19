@@ -2,7 +2,6 @@ import re
 
 import sqlalchemy.orm
 import time
-import zeeguu.core
 from zeeguu.core.model import Article
 
 from zeeguu.core.util import text_hash
@@ -17,9 +16,9 @@ class Text(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(10000))
+    content = db.Column(db.String(64000))
 
-    content_hash = db.Column(db.String(255))
+    content_hash = db.Column(db.String(64))
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
@@ -75,7 +74,10 @@ class Text(db.Model):
         self.right_ellipsis = right_ellipsis
 
     def __repr__(self):
-        return "<Text %r>" % (self.content)
+        return f"<Text {self.content}>"
+
+    def get_content(self):
+        return self.content
 
     def update_content(self, new_content):
         self.content = new_content
@@ -150,7 +152,10 @@ class Text(db.Model):
 
     @classmethod
     def find_by_id(cls, text_id):
-        return cls.query.filter_by(id=text_id).one()
+        try:
+            return cls.query.filter_by(id=text_id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
 
     @classmethod
     def find_or_create(

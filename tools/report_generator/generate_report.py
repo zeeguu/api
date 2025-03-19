@@ -122,10 +122,10 @@ def generate_feed_count_plots(feed_df, lang):
     return save_fig_params(filename)
 
 
-def generate_bookmarks_by_language_plot(boomark_df):
+def generate_bookmarks_by_language_plot(bookmark_df):
     filename = f"bookmarks_plot_{date_str}_d{DAYS_FOR_REPORT}.png"
     bookmark_plot = (
-        boomark_df.groupby(["Language", "Has Exercised"])[["user_id"]]
+        bookmark_df.groupby(["Language", "Has Exercised"])[["user_id"]]
         .count()
         .reset_index()
         .rename(columns={"user_id": "Count"})

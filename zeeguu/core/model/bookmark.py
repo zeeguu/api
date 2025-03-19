@@ -4,25 +4,28 @@ import sqlalchemy
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
-from wordstats import Word
 
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-
+from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 
 from zeeguu.core.model import db
+
+from zeeguu.core.util.encoding import datetime_to_json
+
+from wordstats import Word
 
 
 bookmark_exercise_mapping = Table(
@@ -49,8 +52,14 @@ class Bookmark(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = db.relationship(User)
 
+    source_id = db.Column(db.Integer, db.ForeignKey(Source.id))
+    source = db.relationship(Source)
+
     text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
     text = db.relationship(Text)
+
+    context_id = db.Column(db.Integer, db.ForeignKey(BookmarkContext.id))
+    context = db.relationship(BookmarkContext)
 
     """
     The bookmarks will have a reference to the sentence / token in relation
@@ -89,17 +98,20 @@ class Bookmark(db.Model):
         origin: UserWord,
         translation: UserWord,
         user: "User",
+        source: Source,
         text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
         sentence_i: int = None,
         token_i: int = None,
         total_tokens: int = None,
+        context: BookmarkContext = None,
         level: int = 0,
     ):
         self.origin = origin
         self.translation = translation
         self.user = user
+        self.source = source
         self.time = time
         self.text = text
         self.starred = False
@@ -109,19 +121,26 @@ class Bookmark(db.Model):
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
+        self.context = context
         self.level = level
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
             self.origin.word,
             self.translation.word,
-            self.text.content[0:10],
+            self.context.get_content()[0:10],
             self.id,
             self.user_id,
         )
 
     def is_learned(self):
         return self.learned_time is not None
+
+    def get_context(self):
+        if self.context:
+            return self.context.get_content()
+        else:
+            return self.text.content
 
     def get_scheduler(self):
         from zeeguu.core.word_scheduling import get_scheduler
@@ -191,7 +210,6 @@ class Bookmark(db.Model):
         db_session,
         time: datetime = None,
     ):
-
         source = ExerciseSource.find_or_create(db_session, exercise_source)
         outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
@@ -235,12 +253,14 @@ class Bookmark(db.Model):
             id=self.id,
             origin=self.origin.word,
             translation=self.translation.word,
+            source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
         )
 
         if with_context:
+            # TODO Tiago: content and anchors should come from context
             context_info_dict = dict(
                 context=self.text.content,
                 context_paragraph=self.text.paragraph_i,
@@ -248,6 +268,9 @@ class Bookmark(db.Model):
                 context_token=self.text.token_i,
                 in_content=self.text.in_content,
             )
+            # If we have the new model, then we need to check the type.
+            if self.context and self.context.context_type:
+                result["context_identifier"] = self.get_context_identifier()
             result = {**result, **context_info_dict}
 
         bookmark_title = ""
@@ -354,6 +377,86 @@ class Bookmark(db.Model):
         result = {**result, **exercise_info_dict}
         return result
 
+    def get_context_identifier(self):
+        from zeeguu.core.model.bookmark_context import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+
+        context_type = self.context.context_type.type
+        print(f"Creating a context information for context type: {context_type}")
+        context_identifier = ContextIdentifier(
+            context_type,
+        )
+        context_type_table = ContextType.get_table_corresponding_to_type(context_type)
+        if context_type_table:
+            result = context_type_table.find_by_bookmark(self)
+            match context_type:
+                case ContextType.ARTICLE_FRAGMENT:
+                    context_identifier.article_fragment_id = (
+                        result.article_fragment_id if result else None
+                    )
+                case ContextType.ARTICLE_TITLE:
+                    context_identifier.article_id = (
+                        result.article_id if result else None
+                    )
+                case _:
+                    print("### Got a type without a mapped table!")
+        return context_identifier.as_dictionary()
+
+    def create_context_mapping(
+        self,
+        session,
+        context_identifier: ContextIdentifier,
+        commit=False,
+    ):
+        """
+        Creates a mapping between a context and a context source.
+
+        :param context: The Context object to map.
+        :param context_id: The ID of the context source.
+
+        :return: The created mapping object.
+        """
+        from zeeguu.core.model.context_type import ContextType
+
+        if not self.context or self.context.context_type == None:
+            return None
+        mapped_context = None
+        print("Context type is: ", self.context.context_type.type)
+        context_specific_table = ContextType.get_table_corresponding_to_type(
+            self.context.context_type.type
+        )
+        match self.context.context_type.type:
+            case ContextType.ARTICLE_FRAGMENT:
+                if context_identifier.article_fragment_id is None:
+                    return None
+                from zeeguu.core.model.article_fragment import ArticleFragment
+
+                fragment = ArticleFragment.find_by_id(
+                    context_identifier.article_fragment_id
+                )
+                mapped_context = context_specific_table.find_or_create(
+                    session,
+                    self,
+                    fragment,
+                    commit=commit,
+                )
+                session.add(mapped_context)
+            case ContextType.ARTICLE_TITLE:
+                if context_identifier.article_id is None:
+                    return None
+                article = Article.find_by_id(context_identifier.article_id)
+                mapped_context = context_specific_table.find_or_create(
+                    session, self, article, commit=commit
+                )
+                session.add(mapped_context)
+            case _:
+                print(
+                    f"## Something went wrong, the context {self.context.context_type.type} did not match any case."
+                )
+
+        print(f"## Mapped context: {mapped_context}")
+        return mapped_context
+
     @classmethod
     def find_or_create(
         cls,
@@ -375,13 +478,13 @@ class Bookmark(db.Model):
         in_content: bool = None,
         left_ellipsis: bool = None,
         right_ellipsis: bool = None,
+        context_identifier: ContextIdentifier = None,
         level: int = 0,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
         """
-
         origin_lang = Language.find_or_create(_origin_lang)
         translation_lang = Language.find_or_create(_translation_lang)
 
@@ -389,7 +492,18 @@ class Bookmark(db.Model):
 
         article = Article.query.filter_by(id=article_id).one()
 
-        context = Text.find_or_create(
+        context = BookmarkContext.find_or_create(
+            session,
+            _context,
+            context_identifier.context_type if context_identifier else None,
+            origin_lang,
+            c_sentence_i,
+            c_token_i,
+            left_ellipsis,
+            right_ellipsis,
+        )
+
+        text = Text.find_or_create(
             session,
             _context,
             origin_lang,
@@ -409,7 +523,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_text(user, origin, context)
+            bookmark = Bookmark.find_by_user_word_and_text(user, origin, text)
 
             # update the translation
             bookmark.translation = translation
@@ -419,20 +533,23 @@ class Bookmark(db.Model):
                 origin,
                 translation,
                 user,
-                context,
+                None,
+                text,
                 now,
                 learning_cycle=learning_cycle,
                 sentence_i=sentence_i,
                 token_i=token_i,
                 total_tokens=total_tokens,
+                context=context,
                 level=level,
             )
         except Exception as e:
             raise e
 
         session.add(bookmark)
+        bookmark.create_context_mapping(session, context_identifier, commit=False)
+        session.add(bookmark)
         session.commit()
-
         return bookmark
 
     def sorted_exercise_log(self):

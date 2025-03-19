@@ -1,7 +1,14 @@
-from fixtures import logged_in_client as client, add_one_bookmark
+from fixtures import (
+    logged_in_client as client,
+    add_one_bookmark,
+    add_context_types,
+    add_source_types,
+)
 
 
 def test_delete(client):
+    add_context_types()
+    add_source_types()
     bookmark_id = add_one_bookmark(client)
     client.post(f"delete_bookmark/{bookmark_id}")
 
@@ -10,6 +17,8 @@ def test_delete(client):
 
 
 def test_last_bookmark_added_is_first_in_bookmarks_by_day(client):
+    add_context_types()
+    add_source_types()
     bookmark_id = add_one_bookmark(client)
 
     bookmarks = _get_bookmarks_by_day(client)
@@ -18,11 +27,40 @@ def test_last_bookmark_added_is_first_in_bookmarks_by_day(client):
 
 
 def test_contribute_own_translation(client):
+    import json
+
+    add_context_types()
+    add_source_types()
     bookmark_id = add_one_bookmark(client)
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
 
-    # WHEN
+    data = dict(
+        word=bookmark1["from"],
+        url=bookmark1["url"],
+        title=bookmark1["title"],
+        context=bookmark1["context"],
+        translation="companion",
+        context_identifier=json.dumps(bookmark1["context_identifier"]),
+    )
+
+    client.post("contribute_translation/de/en", data)
+
+    # THEN
+
+    all_bookmarks = _get_bookmarks_by_day(client)
+    bookmark = _first_bookmark_on_day1(all_bookmarks)
+    assert "companion" in str(bookmark)
+
+
+def test_contribute_own_translation_no_context_type(client):
+    ## Can be removed after Migration with Sources
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    all_bookmarks = _get_bookmarks_by_day(client)
+    bookmark1 = _first_bookmark_on_day1(all_bookmarks)
+
     data = dict(
         word=bookmark1["from"],
         url=bookmark1["url"],
@@ -41,6 +79,8 @@ def test_contribute_own_translation(client):
 
 
 def test_update_bookmark(client):
+    add_context_types()
+    add_source_types()
     _ = add_one_bookmark(client)
 
     all_bookmarks = _get_bookmarks_by_day(client)
@@ -67,6 +107,8 @@ def test_update_bookmark(client):
 
 # Basic hitting of the /top_bookmarks endpoint
 def test_top_bookmarks(client):
+    add_context_types()
+    add_source_types()
     _ = add_one_bookmark(client)
 
     top_bookmarks = client.get("/top_bookmarks/10")
@@ -74,6 +116,8 @@ def test_top_bookmarks(client):
 
 
 def test_context_parameter_functions_in_bookmarks_by_day(client):
+    add_context_types()
+    add_source_types()
     _ = add_one_bookmark(client)
 
     all_bookmarks = _get_bookmarks_by_day(client)
@@ -92,6 +136,9 @@ def test_context_parameter_functions_in_bookmarks_by_day(client):
 
 
 def test_get_known_bookmarks_after_date(client):
+    add_context_types()
+    add_source_types()
+
     # Observation here... we have /bookmarks_by_day via POST which can take more query arguments as this test shows
     def first_day_of(year):
         return str(year) + "-01-01T00:00:00"

@@ -43,8 +43,9 @@ class BookmarkRule(BaseRule):
         bookmark = None
 
         while not bookmark:
-
             from zeeguu.core.test.rules.text_rule import TextRule
+            from zeeguu.core.model.context_type import ContextType
+            from zeeguu.core.model.bookmark_context import BookmarkContext
 
             random_text = TextRule().text
 
@@ -68,12 +69,28 @@ class BookmarkRule(BaseRule):
             random_date = self.faker.date_time_this_month()
 
             from zeeguu.core.test.rules.article_rule import ArticleRule
+            from zeeguu.core.model.new_text import NewText
 
             random_article = ArticleRule(real=True).article
+            new_text = NewText(random_text.content)
+            context = BookmarkContext(
+                new_text,
+                ContextType.find_by_type(ContextType.USER_EDITED_TEXT),
+                random_article.language,
+                0,
+                0,
+            )
 
             bookmark = Bookmark(
-                random_origin, random_translation, user, random_text, random_date
+                random_origin,
+                random_translation,
+                user,
+                None,
+                random_text,
+                random_date,
+                context=context,
             )
+
             if force_quality and bad_quality_bookmark(bookmark):
                 print("random bookmark was of low quality. retrying...")
                 bookmark = False

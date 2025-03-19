@@ -1,13 +1,12 @@
 """
 
-    Goes through all the interesting sources that the server knows
-    about and downloads new articles saving them in the DB.  
+Goes through all the interesting sources that the server knows
+about and downloads new articles saving them in the DB.
 
 
 """
 
 import newspaper
-from collections import Counter
 from time import time
 from pymysql import DataError
 
@@ -19,9 +18,11 @@ from zeeguu.core import model
 from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
 from zeeguu.core.model.article_topic_map import TopicOriginType
+from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.model.source import Source
+
 import requests
 
 from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
@@ -34,6 +35,7 @@ from zeeguu.core.content_retriever import (
 )
 
 TIMEOUT_SECONDS = 10
+MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 
 
 import zeeguu
@@ -280,6 +282,7 @@ def download_from_feed(
 
 
 def download_feed_item(session, feed, feed_item, url, crawl_report):
+
     title = feed_item["title"]
 
     published_datetime = feed_item["published_datetime"]
@@ -313,32 +316,43 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if len(summary) < 10:
         summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
+    # Create the Source
+    new_source = Source.find_or_create(
+        session,
+        np_article.text,
+        SourceType.find_by_type(SourceType.ARTICLE),
+        feed.language,
+        0,
+        commit=False,
+    )
     # Create new article and save it to DB
     new_article = zeeguu.core.model.Article(
         Url.find_or_create(session, url),
         title,
         ", ".join(np_article.authors),
-        np_article.text,
+        new_source,
         summary,
         published_datetime,
         feed,
         feed.language,
         htmlContent=np_article.htmlContent,
     )
+
     session.add(new_article)
 
     if not is_quality_article:
-        MAX_WORD_FOR_BROKEN_ARTICLE = 10000
         crawl_report.add_non_quality_reason(feed, code, str(url))
         new_article.set_as_broken(session, code)
-        if len(new_article.content.split()) > MAX_WORD_FOR_BROKEN_ARTICLE:
-            new_article.content = new_article.content[:MAX_WORD_FOR_BROKEN_ARTICLE]
         session.add(new_article)
+        print(f"Article was skipped, reason: '{reason}'")
         raise SkippedForLowQuality(reason)
 
-    img_url = extract_article_image(np_article)
-    if img_url != "":
-        new_article.img_url = Url.find_or_create(session, img_url)
+    # Create fragments only if article isn't broken.
+    new_article.create_article_fragments(session)
+
+    main_img_url = extract_article_image(np_article)
+    if main_img_url != "":
+        new_article.img_url = Url.find_or_create(session, main_img_url)
 
     url_keywords = add_url_keywords(new_article, session)
     logp(f"Topic Keywords: ({url_keywords})")
