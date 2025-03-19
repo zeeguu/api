@@ -189,7 +189,7 @@ ADD
     UNIQUE INDEX `HASH_INDEX` (`content_hash` ASC);
 
 ALTER TABLE
-    `zeeguu_test`.`new_text` a
+    `zeeguu_test`.`new_text`
 ADD
     UNIQUE INDEX `HASH_INDEX` (`content_hash` ASC);
 
