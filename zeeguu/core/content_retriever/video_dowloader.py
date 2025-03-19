@@ -1,28 +1,26 @@
-from dotenv import load_dotenv
 import requests
 import os
-import json
-import yt_dlp
-from io import StringIO
-import webvtt
-import isodate
 
-load_dotenv()
+import zeeguu.core
+from zeeguu.core import model
+
+db_session = zeeguu.core.model.db.session
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-def video_query(search_term, categoryId, lang):
+def video_query(lang, categoryId=None, topicId=None):
 
     SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
-    VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
 
     search_params = {
         "part": "id",
         "videoCategoryId": categoryId,
+        "topicId": topicId,
         "type": "video",
         "videoCaption": "closedCaption",
         "videoEmbeddable": "true",
         "relevanceLanguage": lang,
+        "videoDuration": "medium",
         "maxResults": 50,
         "key": YOUTUBE_API_KEY,
     }
@@ -34,133 +32,71 @@ def video_query(search_term, categoryId, lang):
     if not video_ids:
         return []
 
+    return video_ids
 
-    video_params = {
-        "part": "snippet,contentDetails",
-        "id": ",".join(video_ids),
-        "key": YOUTUBE_API_KEY,
+def crawl():
+
+    from zeeguu.core.model import Language
+
+    languages = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
+    topicIds = {
+        # Sports topics
+        "Sports": "/m/06ntj",
+
+        # Entertainment topics
+        "Entertainment": "/m/02jjt",
+        "Humor": "/m/09kqc",
+        "Movies": "/m/02vxn",
+        "Performing arts": "/m/05qjc",
+
+        # Lifestyle topics
+        "Lifestyle": "/m/019_rr",
+        "Fashion": "/m/032tl",
+        "Fitness": "/m/027x7n",
+        "Food": "/m/02wbm",
+        "Hobby": "/m/03glg",
+        "Pets": "/m/068hy",
+        "Technology": "/m/07c1v",
+        "Tourism": "/m/07bxq",
+        "Vehicles": "/m/07yv9",
+
+        # Society topics
+        "Society (parent topic)": "/m/098wr",
+        "Business": "/m/09s1f",
+        "Health": "/m/0kt51",
+        "Military": "/m/01h6rj",
+        "Politics": "/m/05qt0",
+
+        # Other topics
+        "Knowledge": "/m/01k8wb"
     }
 
-    response = requests.get(VIDEO_URL, params=video_params)
-    video_data = response.json()
-
-    videos = []
-
-    for item in video_data.get("items", []):
-        video_id = item["id"]
-        snippet = item["snippet"]
-        content_details = item["contentDetails"]
-        
-        captions = get_captions(video_id, lang)
-        if captions is None:
-            continue
-
-        video_info = {
-            "videoId": video_id,
-            "title": snippet["title"],
-            "description": snippet.get("description", ""),
-            "publishedAt": snippet["publishedAt"],
-
-            # TODO: find_or_create channel with channel_id then use channel.id as channel_id
-            "channelId": snippet["channelId"],
-            "thumbnail": snippet["thumbnails"].get("maxres", {}).get("url", "No maxres thumbnail available"),
-            "tags": snippet.get("tags", []),
-            "duration": int(isodate.parse_duration(content_details["duration"]).total_seconds()),
-            "language": lang,
-            "vtt": captions["vtt"],
-            "text": captions["text"],
-            "captions": captions["captions"]
-        }
-
-        videos.append(video_info)
-
-        with open("video_result.json", "w", encoding="utf-8") as file:
-            json.dump(videos, file, ensure_ascii=False, indent=4)
-
-# def has_manual_captions(video_id, lang):
-#     ydl_opts = {
-#         "quiet": True,
-#         "list_subs": True,
-#     }
-
-#     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#         try:
-#             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-#             subtitles = info.get("subtitles", {})
-#             return lang in subtitles
-#         except Exception as e:
-#             print(f"Error fethcing subtitles for {video_id}: {e}")
-#             return False
-
-def get_captions(video_id, lang):
-    ydl_opts = {
-        "quiet": True,
-        "skip_download": True,
-        "writesubtitles": True,
-        "subtitleslangs": [lang],
-        "subtitlesformat": "vtt",
+    categoryIds = {
+        "Film & Animation": 1,
+        "Autos & Vehicles": 2,
+        "Pets & Animals": 15,
+        "Sports": 17,
+        "Travel & Events": 19,
+        "Gaming": 20,
+        "Videoblogging": 21,
+        "People & Blogs": 22,
+        "Comedy": 23,
+        "Entertainment": 24,
+        "News & Politics": 25,
+        "Howto & Style": 26,
+        "Education": 27,
+        "Science & Technology": 28,
+        "Nonprofits & Activism": 29,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            subtitles = info.get("subtitles", {})
+    for topicName, topicId in topicIds.items():
+        print("Crawling topic: " + topicName)
+        video_ids = video_query("da", topicId=topicId)
+        for video_id in video_ids:
+            model.Video.find_or_create(db_session, video_id, "da")
 
-            if lang in subtitles:
-                url = subtitles[lang][-1]["url"]
-
-                response = requests.get(url)
-                if response.status_code == 200:
-                    vtt_content = response.text
-                    return parse_vtt(vtt_content)
-            return None
-        except Exception as e:
-            print(f"Error fethcing subtitles for {video_id}: {e}")
-            return None
-
-def parse_vtt(vtt_content):
-    captions_list = []
-    full_text = []
-
-    vtt_file = StringIO(vtt_content)
-    captions = webvtt.read_buffer(vtt_file)
-
-    for caption in captions:
-        captions_list.append({
-            "time_start": caption.start_in_seconds,
-            "time_end": caption.end_in_seconds,
-            "text": caption.text,
-        })
-        full_text.append(caption.text)
-    
-    return {
-        "vtt": vtt_content,
-        "text": "\n".join(full_text),
-        "captions": captions_list
-    }
-
-def fetch_channel_info(channel_id, lang):
-    CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
-    
-    channel_params = {
-        "part": "snippet,statistics",
-        "id": channel_id,
-        "key": YOUTUBE_API_KEY,
-    }
-
-    response = requests.get(CHANNEL_URL, params=channel_params)
-    channel_data = response.json()
-
-    channel = channel_data.get("items", [])[0]
-    snippet = channel["snippet"]
-    statistics = channel["statistics"]
-
-    channel_info = {
-        "channelId": channel_id,
-        "channelName": snippet["title"],
-        "description": snippet.get("description", ""),
-        "viewCount": statistics["viewCount"],
-        "subscriberCount": statistics["subscriberCount"],
-        "language": lang,
-        #"rss_url": f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}",
-    }
+    for categoryName, categoryId in categoryIds.items():
+        print("Crawling category: " + categoryName)
+        video_ids = video_query("da", categoryId=categoryId)
+        for video_id in video_ids:
+            model.Video.find_or_create(db_session, video_id, "da")
