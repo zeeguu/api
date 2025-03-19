@@ -331,9 +331,13 @@ def build_elastic_semantic_sim_query_for_text(
 def build_elastic_semantic_sim_query_for_topic_cls(
     k_count,
     sem_vec,
-    filter_ids: list[int] = [],
+    filter_ids: list[int] = None,
     n_candidates=3000,
 ):
+
+    if filter_ids is None:
+        filter_ids = []
+
     s = Search()
     s = s.knn(
         field="sem_vec",

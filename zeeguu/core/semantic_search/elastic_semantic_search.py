@@ -64,7 +64,11 @@ def articles_like_this_semantic(article: Article):
     return [], []
 
 
-def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=[]):
+def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=None):
+
+    if filter_ids is None:
+        filter_ids = []
+
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
         k, get_embedding_from_text(text), filter_ids=filter_ids
     )
@@ -90,10 +94,13 @@ def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=[
 def get_topic_classification_based_on_similar_content(
     text,
     k: int = 9,
-    filter_ids: list[int] = [],
+    filter_ids: list[int] = None,
     verbose=False,
 ):
     from collections import Counter
+
+    if filter_ids is None:
+        filter_ids = []
 
     found_articles, _ = get_article_w_topics_based_on_text_similarity(
         text, k, filter_ids=filter_ids
