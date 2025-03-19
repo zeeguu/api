@@ -182,6 +182,17 @@ ADD
 ADD
     CONSTRAINT `article_ibfk_6` FOREIGN KEY (`source_id`) REFERENCES `zeeguu_test`.`source` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
+## Create Indexes for HASH Matching
+ALTER TABLE
+    `zeeguu_test`.`source_text`
+ADD
+    UNIQUE INDEX `HASH_INDEX` (`content_hash` ASC);
+
+ALTER TABLE
+    `zeeguu_test`.`new_text` a
+ADD
+    UNIQUE INDEX `HASH_INDEX` (`content_hash` ASC);
+
 # ##                ##
 # ## DO NOT RUN YET ##
 # ##                ##
