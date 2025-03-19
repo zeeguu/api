@@ -64,12 +64,9 @@ def articles_like_this_semantic(article: Article):
     return [], []
 
 
-@time_this
-def add_topics_based_on_semantic_hood_search(
-    article: Article, k: int = 9
-):  # hood = (slang) neighborhood
+def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=[]):
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
-        k, article, get_embedding_from_article(article)
+        k, get_embedding_from_text(text), filter_ids=filter_ids
     )
     final_article_mix = []
 
@@ -88,6 +85,38 @@ def add_topics_based_on_semantic_hood_search(
     except Exception as e:
         print(f"Error encountered: {e}")
     return [], []
+
+
+def get_topic_classification_based_on_similar_content(
+    text,
+    k: int = 9,
+    filter_ids: list[int] = [],
+    verbose=False,
+):
+    from collections import Counter
+
+    found_articles, _ = get_article_w_topics_based_on_text_similarity(
+        text, k, filter_ids=filter_ids
+    )
+    neighbouring_topics = [t.topic for a in found_articles for t in a.topics]
+    if len(neighbouring_topics) > 0:
+        topics_counter = Counter(neighbouring_topics)
+
+        if verbose:
+            from pprint import pprint
+
+            pprint(topics_counter)
+
+        top_topic, count = topics_counter.most_common(1)[0]
+        threshold = (
+            sum(topics_counter.values()) // 2
+        )  # The threshold is being at least half or above rounded down
+
+        if count >= threshold:
+            if verbose:
+                print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
+            return top_topic
+    return None
 
 
 @time_this

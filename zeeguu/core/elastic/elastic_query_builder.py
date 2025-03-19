@@ -233,7 +233,7 @@ def build_elastic_semantic_sim_query(
     language,
     article_sem_vec,
     article,
-    n_candidates=100,
+    n_candidates=1000,
 ):
     """
     Builds an elastic search based on the KNN semantic embeddings, the filter can be a query object.
@@ -300,7 +300,7 @@ def build_elastic_semantic_sim_query(
 def build_elastic_semantic_sim_query_for_text(
     count,
     text_embedding,
-    n_candidates=100,
+    n_candidates=1000,
     language=None,
 ):
     """
@@ -330,18 +330,18 @@ def build_elastic_semantic_sim_query_for_text(
 
 def build_elastic_semantic_sim_query_for_topic_cls(
     k_count,
-    article,
-    article_sem_vec,
-    n_candidates=10000,
+    sem_vec,
+    filter_ids: list[int] = [],
+    n_candidates=3000,
 ):
     s = Search()
     s = s.knn(
         field="sem_vec",
         k=k_count,
         num_candidates=n_candidates,
-        query_vector=article_sem_vec,
+        query_vector=sem_vec,
         filter=(
-            ~Q("ids", values=[article.id])
+            ~Q("ids", values=filter_ids)
             # & ~Q("match", **{"url_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
             & Q(
