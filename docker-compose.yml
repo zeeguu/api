@@ -40,7 +40,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
     volumes:
-      - ./data/elasticsearch_db_v8/data:/usr/share/elasticsearch/data
+      - "${ZEEGUU_DATA_FOLDER}/elasticsearch/data:/usr/share/elasticsearch/data"
     networks:
       - zeeguu_backend
     restart: unless-stopped
@@ -66,7 +66,7 @@ services:
     entrypoint: "python ./semantic-emb-api/app/app.py"
     volumes:
       - .:/Zeeguu-API
-      - ./data/zeeguu/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries
+      - "${ZEEGUU_RESOURCES_FOLDER}/language-models:/semantic-emb-api/semantic-emb-api/app/semantic_vector/binaries"
     networks:
       - zeeguu_backend
     # When encoding certain longer documents, it might use more than
@@ -109,7 +109,7 @@ services:
       WORDNIK_API_KEY: ${WORDNIK_API_KEY}
       MULTI_LANG_TRANSLATOR_AB_TESTING: ${MULTI_LANG_TRANSLATOR_AB_TESTING}
       ZEEGUU_ES_CONN_STRING: "http://elasticsearch_v8:9200"
-      ZEEGUU_EMB_API_CONN_STRING: "http://semantic_emb_api:3654"
+      ZEEGUU_EMB_API_CONN_STRING: "http://embedding_api:3654"
 
       # TODO: remove these two envvars and simply use the $ZEEGUU_DATA_FOLDER
       FOLDER_FOR_REPORT_OUTPUT: /zeeguu-data/crawl-reports
@@ -123,8 +123,6 @@ services:
 
   zapi_dev: &zapi_dev
     <<: *zapi_default
-    ports:
-      - "127.0.0.1:8080:9001"
     command: python /Zeeguu-API/start.py
 
   zapi_dev_translations:

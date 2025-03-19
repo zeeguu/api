@@ -5,7 +5,6 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model import db
-from zeeguu.core.util import compute_fk_and_wordcount
 
 
 class Source(db.Model):
@@ -32,6 +31,8 @@ class Source(db.Model):
     broken = Column(Integer)
 
     def __init__(self, source_text, source_type, language: Language, broken=0):
+        from zeeguu.core.util import compute_fk_and_wordcount
+
         self.source_text = source_text
         self.source_type = source_type
         self.language = language

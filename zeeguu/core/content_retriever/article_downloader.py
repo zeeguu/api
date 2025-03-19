@@ -15,7 +15,9 @@ from zeeguu.logging import log, logp
 
 from zeeguu.core import model
 
-from zeeguu.core.semantic_search import add_topics_based_on_semantic_hood_search
+from zeeguu.core.semantic_search import (
+    get_topic_classification_based_on_similar_content,
+)
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
 from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
@@ -406,26 +408,17 @@ def add_topics(new_article, feed, url_keywords, session):
     from collections import Counter
 
     # Add based on KK neighbours:
-    found_articles, _ = add_topics_based_on_semantic_hood_search(new_article)
-    neighbouring_topics = [t.topic for a in found_articles for t in a.topics]
-    if len(neighbouring_topics) > 0:
-        from pprint import pprint
-
-        topics_counter = Counter(neighbouring_topics)
-        pprint(topics_counter)
-        top_topic, count = topics_counter.most_common(1)[0]
-        threshold = (
-            sum(topics_counter.values()) // 2
-        )  # The threshold is being at least half or above rounded down
-        if count >= threshold:
-            print(f"Used INFERRED: {top_topic}, {count}, with t={threshold}")
-            new_article.add_topic_if_doesnt_exist(
-                top_topic, session, TopicOriginType.INFERRED.value
-            )
-            session.add(new_article)
-            return TopicOriginType.INFERRED.value, [
-                t.topic.title for t in new_article.topics
-            ]
+    topic_to_assign = get_topic_classification_based_on_similar_content(
+        new_article.content, filter_ids=[new_article.id], verbose=True
+    )
+    if topic_to_assign:
+        new_article.add_topic_if_doesnt_exist(
+            topic_to_assign, session, TopicOriginType.INFERRED.value
+        )
+        session.add(new_article)
+        return TopicOriginType.INFERRED.value, [
+            t.topic.title for t in new_article.topics
+        ]
 
     return (
         (None, [])
