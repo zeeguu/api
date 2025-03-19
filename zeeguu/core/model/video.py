@@ -11,6 +11,7 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.model.video_tag import VideoTag
 from zeeguu.core.model.video_tag_map import VideoTagMap
 from zeeguu.core.model.yt_channel import YTChannel
+from langdetect import detect
 
 class Video(db.Model):
     __tablename__ = 'video'
@@ -95,7 +96,9 @@ class Video(db.Model):
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
 
-        print(video_info)
+        if detect(video_info["title"]) != language.code and detect(video_info["description"]) != language.code:
+            print(f"Video {video_id} is not in {language.code}")
+            return None
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
         
