@@ -54,11 +54,14 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
     for b in bookmarks:
         context_type = None
         if t.article_id:
-            context_type = (
-                ContextType.ARTICLE_FRAGMENT
-                if t.in_content
-                else ContextType.ARTICLE_TITLE
-            )
+            if t.article:
+                context_type = (
+                    ContextType.ARTICLE_FRAGMENT
+                    if t.in_content
+                    else ContextType.ARTICLE_TITLE
+                )
+            else:
+                context_type = ContextType.ORPHAN_CONTEXT
         else:
             context_type = ContextType.USER_EDITED_TEXT
 
@@ -80,6 +83,11 @@ for i, t in tqdm(enumerate(texts), total=len(texts)):
         if not t.article_id:
             add_to_log(
                 f"{b} did not have an article mapping. Considered 'UserEditedText'."
+            )
+            continue
+        elif not t.article:
+            add_to_log(
+                f"<Text {t.id} (a:{t.article_id})> did not find an article. The article might have been delted. Considered 'OrphanContext'."
             )
             continue
         elif not t.article.source_id:
