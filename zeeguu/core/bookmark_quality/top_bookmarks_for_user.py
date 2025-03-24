@@ -1,6 +1,5 @@
 import zeeguu.core
 from wordstats import Word
-from zeeguu.core.bookmark_quality import quality_top_bookmark
 
 
 def top_bookmarks(self, count=50):
@@ -19,11 +18,7 @@ def top_bookmarks(self, count=50):
         .limit(400)
     )
 
-    single_word_bookmarks = [
-        each for each in all_bookmarks if quality_top_bookmark(each)
-    ]
-
-    sorted_bookmarks = sorted(single_word_bookmarks, key=lambda b: rank(b))
+    sorted_bookmarks = sorted(all_bookmarks, key=lambda b: rank(b))
     sorted_bookmarks = sorted_bookmarks[:count]
 
     return sorted_bookmarks

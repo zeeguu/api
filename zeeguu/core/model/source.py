@@ -46,9 +46,9 @@ class Source(db.Model):
         return self.source_text.content
 
     @classmethod
-    def find(cls, id: int):
+    def find_by_id(cls, id: int):
         try:
-            return cls.query.filter_by(id=id).order_by(cls.date.desc()).first()
+            return cls.query.filter_by(id=id).first()
         except NoResultFound:
             return None
 

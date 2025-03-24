@@ -5,7 +5,6 @@ from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.bookmark_quality import top_bookmarks
-from zeeguu.core.model.text import Text
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session

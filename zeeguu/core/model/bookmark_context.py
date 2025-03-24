@@ -1,5 +1,5 @@
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.new_text import NewText
+from zeeguu.core.model.text import Text
 
 from zeeguu.core.model import db
 import sqlalchemy
@@ -59,8 +59,8 @@ class BookmarkContext(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    text_id = db.Column(db.Integer, db.ForeignKey(NewText.id))
-    text = db.relationship(NewText, foreign_keys="BookmarkContext.text_id")
+    text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
+    text = db.relationship(Text, foreign_keys="BookmarkContext.text_id")
 
     context_type_id = db.Column(db.Integer, db.ForeignKey(ContextType.id))
     context_type = db.relationship(
@@ -97,17 +97,36 @@ class BookmarkContext(db.Model):
         return f"<BookmarkContext {self.get_content()}>"
 
     def get_content(self):
+        if not self.text:
+            return "[Context deleted]"
         return self.text.content
 
     def all_bookmarks(self, user):
         from zeeguu.core.model import Bookmark
 
-        return Bookmark.find_all_for_text_and_user(self, user)
+        return Bookmark.find_all_for_context_and_user(self, user)
 
     def all_bookmarks_for_context(self):
         from zeeguu.core.model import Bookmark
 
         return Bookmark.query.join(self).filter(Bookmark.context_id == self.id).all()
+
+    @classmethod
+    def find_all(cls, text, language):
+        """
+        there could be multiple texts
+        in multiple articles actually...
+        """
+        from zeeguu.core.util import long_hash
+        from zeeguu.core.model.text import Text
+
+        hash = long_hash(text)
+        return (
+            cls.query.join(Text)
+            .filter(Text.content_hash == hash)
+            .filter(cls.language_id == language.id)
+            .all()
+        )
 
     @classmethod
     def find_by_id(cls, context_id):
@@ -143,10 +162,11 @@ class BookmarkContext(db.Model):
         """
         from zeeguu.core.model.context_type import ContextType
 
-        text_row = NewText.find_or_create(session, content, commit=commit)
+        print("Creating BookmarkContext!")
+        text_row = Text.find_or_create(session, content, commit=commit)
         if context_type:
             context_type = ContextType.find_by_type(context_type)
-
+        print("Got text: ", text_row)
         try:
             return (
                 cls.query.filter(cls.text == text_row)

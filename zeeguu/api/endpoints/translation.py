@@ -15,7 +15,7 @@ from python_translators.translation_query import TranslationQuery
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, Article, Text, User
+from zeeguu.core.model import Bookmark, User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from . import api, db_session
@@ -26,6 +26,15 @@ from zeeguu.core.model.bookmark_context import ContextIdentifier
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
+
+
+def helper_get_context_identifier(form: dict):
+    return ContextIdentifier(
+        form.get("context_identifier[context_type]", None),
+        article_fragment_id=form.get("context_identifier[article_fragment_id]", None),
+        article_id=form.get("context_identifier[article_id]", None),
+        video_id=form.get("context_identifier[video_id]", None),
+    )
 
 
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -51,16 +60,18 @@ def get_one_translation(from_lang_code, to_lang_code):
     w_token_i = request.form.get("w_token_i", None)
     w_total_tokens = request.form.get("w_total_tokens", None)
     context = request.form.get("context", "").strip()
-    c_paragraph_i = request.form.get("c_paragraph_i", None)
     c_sent_i = request.form.get("c_sent_i", None)
     c_token_i = request.form.get("c_token_i", None)
-    article_id = request.form.get("articleID", None)
-    in_content = parse_json_boolean(request.form.get("in_content", None))
+    source_id = request.form.get("source_id", None)
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
     context_identifier = request.form.get("context_identifier", None)
+    # The front end send the data in the following format:
+    # ('context_identifier[context_type]', 'ArticleFragment')
     if context_identifier is not None:
         context_identifier = ContextIdentifier.from_json_string(context_identifier)
+    else:
+        context_identifier = helper_get_context_identifier(request.form)
 
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -110,11 +121,9 @@ def get_one_translation(from_lang_code, to_lang_code):
             best_guess,
             to_lang_code,
             context,
-            article_id,
-            c_paragraph_i=c_paragraph_i,
+            source_id,
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
-            in_content=in_content,
             left_ellipsis=left_ellipsis,
             right_ellipsis=right_ellipsis,
             sentence_i=w_sent_i,
@@ -210,6 +219,7 @@ def update_translation(bookmark_id):
     word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
     translation_str = request.form["translation"]
     context_str = request.form.get("context", "").strip()
+    context_type = request.form.get("context_type", None)
     bookmark = Bookmark.find(bookmark_id)
 
     origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
@@ -217,31 +227,16 @@ def update_translation(bookmark_id):
         db_session, translation_str, bookmark.translation.language
     )
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
-    prev_text = Text.find_by_id(bookmark.text_id)
 
-    is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
 
-    text = Text.find_or_create(
-        db_session,
-        context_str,
-        bookmark.origin.language,
-        bookmark.text.url,
-        bookmark.text.article if is_same_text else None,
-        prev_text.paragraph_i if is_same_text else None,
-        prev_text.sentence_i if is_same_text else None,
-        prev_text.token_i if is_same_text else None,
-        prev_text.in_content if is_same_text else None,
-        prev_text.left_ellipsis if is_same_text else None,
-        prev_text.right_ellipsis if is_same_text else None,
-    )
     from zeeguu.core.model.context_type import ContextType
 
     ## TO-DO: Update context type once web sends that information.
     context = BookmarkContext.find_or_create(
         db_session,
         context_str,
-        None,
+        context_type,
         bookmark.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
@@ -250,10 +245,9 @@ def update_translation(bookmark_id):
     )
 
     bookmark.translation = translation
-    bookmark.text = text
     bookmark.context = context
 
-    if not is_same_text or not is_same_context or bookmark.origin.word != word_str:
+    if not is_same_context or bookmark.origin.word != word_str:
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
@@ -286,9 +280,6 @@ def update_translation(bookmark_id):
     bookmark.origin = origin
     db_session.add(bookmark)
 
-    if len(prev_text.all_bookmarks_for_text()) == 0:
-        # The text doesn't have any bookmarks
-        db_session.delete(prev_text)
     updated_bookmark = bookmark.as_dictionary(
         with_exercise_info=True, with_context_tokenized=True, with_context=True
     )
@@ -328,11 +319,9 @@ def contribute_translation(from_lang_code, to_lang_code):
     w_token_i = request.form.get("w_token_i", None)
     w_total_tokens = request.form.get("w_total_tokens", None)
     context = request.form.get("context", "").strip()
-    c_paragraph_i = request.form.get("c_paragraph_i", None)
     c_sent_i = request.form.get("c_sent_i", None)
     c_token_i = request.form.get("c_token_i", None)
-    article_id = request.form.get("articleID", None)
-    in_content = parse_json_boolean(request.form.get("in_content", None))
+    source_id = request.form.get("source_id", None)
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
     context_identifier = request.form.get("context_identifier", None)
@@ -341,19 +330,6 @@ def contribute_translation(from_lang_code, to_lang_code):
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")
-    article_id = None
-    if "articleID" in url:
-        article_id = url.split("articleID=")[-1]
-        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
-    elif "articleURL" in url:
-        url = url.split("articleURL=")[-1]
-    elif "article?id=" in url:
-        article_id = url.split("article?id=")[-1]
-        url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
-    else:
-        # the url comes from elsewhere not from the reader, so we find or create the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
 
     # Optional POST param
     selected_from_predefined_choices = request.form.get(
@@ -368,11 +344,9 @@ def contribute_translation(from_lang_code, to_lang_code):
         translation_str,
         to_lang_code,
         context,
-        article_id,
-        c_paragraph_i=c_paragraph_i,
+        source_id,
         c_sentence_i=c_sent_i,
         c_token_i=c_token_i,
-        in_content=in_content,
         left_ellipsis=left_ellipsis,
         right_ellipsis=right_ellipsis,
         sentence_i=w_sent_i,

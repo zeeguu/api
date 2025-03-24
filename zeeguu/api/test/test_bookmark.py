@@ -37,36 +37,11 @@ def test_contribute_own_translation(client):
 
     data = dict(
         word=bookmark1["from"],
-        url=bookmark1["url"],
         title=bookmark1["title"],
         context=bookmark1["context"],
         translation="companion",
+        source_id=bookmark1["source_id"],
         context_identifier=json.dumps(bookmark1["context_identifier"]),
-    )
-
-    client.post("contribute_translation/de/en", data)
-
-    # THEN
-
-    all_bookmarks = _get_bookmarks_by_day(client)
-    bookmark = _first_bookmark_on_day1(all_bookmarks)
-    assert "companion" in str(bookmark)
-
-
-def test_contribute_own_translation_no_context_type(client):
-    ## Can be removed after Migration with Sources
-    add_context_types()
-    add_source_types()
-    bookmark_id = add_one_bookmark(client)
-    all_bookmarks = _get_bookmarks_by_day(client)
-    bookmark1 = _first_bookmark_on_day1(all_bookmarks)
-
-    data = dict(
-        word=bookmark1["from"],
-        url=bookmark1["url"],
-        title=bookmark1["title"],
-        context=bookmark1["context"],
-        translation="companion",
     )
 
     client.post("contribute_translation/de/en", data)
@@ -89,7 +64,6 @@ def test_update_bookmark(client):
     # WHEN
     data = dict(
         word=bookmark1["from"],
-        url=bookmark1["url"],
         title=bookmark1["title"],
         context="a new context Freund",
         translation="companion",
@@ -125,7 +99,7 @@ def test_context_parameter_functions_in_bookmarks_by_day(client):
     assert day1_bookmarks["date"]
 
     some_bookmark = day1_bookmarks["bookmarks"][0]
-    for key in ["from", "to", "id", "context", "title", "url"]:
+    for key in ["from", "to", "id", "context", "title"]:
         assert key in some_bookmark
 
     # if we don't pass the context argument, we don't get the context

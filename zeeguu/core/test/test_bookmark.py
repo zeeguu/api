@@ -9,8 +9,8 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.exercise_rule import ExerciseRule
 from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
-from zeeguu.core.test.rules.source_rule import SourceRule
-from zeeguu.core.test.rules.text_rule import TextRule
+from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
+
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
@@ -60,16 +60,19 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        article = random_bookmark.text.article
 
         # each bookmark belongs to a random text / article so the
         # combo of user/article will always result in one bookmark
-        assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
+        assert 1 == len(
+            Bookmark.find_all_for_user_and_source(self.user, random_bookmark.source)
+        )
 
     def test_text_is_not_too_long(self):
+        from zeeguu.core.test.rules.bookmark_context_rule import BookmarkContextRule
+
         random_bookmark = BookmarkRule(self.user).bookmark
-        random_text_short = TextRule(length=10).text
-        random_bookmark.text = random_text_short
+        random_text_short = self.faker.text(max_nb_chars=10)
+        random_bookmark.context = BookmarkContextRule(text=random_text_short).context
 
         assert random_bookmark.content_is_not_too_long()
 
@@ -126,7 +129,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
         random_bookmark.add_new_exercise_result(
-            SourceRule().random,
+            ExerciseSourceRule().random,
             OutcomeRule().random,
             random.randint(100, 1000),
             exercise_session.id,
@@ -150,10 +153,10 @@ class BookmarkTest(ModelTestMixIn):
         for b in list_should_be:
             assert b in list_to_check
 
-    def find_all_for_user_and_text(self):
+    def find_all_for_user_and_source(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_all_for_text_and_user(
-            bookmark_should_be.text, self.user
+        bookmark_to_check = Bookmark.find_all_for_user_and_source(
+            self.user, bookmark_should_be.source
         )
 
         assert bookmark_should_be in bookmark_to_check
@@ -171,14 +174,6 @@ class BookmarkTest(ModelTestMixIn):
         )
 
         assert bookmark_should_be in bookmark_to_check
-
-    def test_find_by_user_word_and_text(self):
-        bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_by_user_word_and_text(
-            self.user, bookmark_should_be.origin, bookmark_should_be.text
-        )
-
-        assert bookmark_to_check == bookmark_should_be
 
     def test_exists(self):
         random_bookmark = self.user.all_bookmarks()[0]

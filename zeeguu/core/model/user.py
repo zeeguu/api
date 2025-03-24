@@ -654,15 +654,14 @@ class User(db.Model):
         json=True,
     ):
 
-        from zeeguu.core.model import Bookmark, Text
+        from zeeguu.core.model import Bookmark, Article
 
         json_bookmarks = []
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
-            query.join(Text)
+            query.join(Article, Bookmark.source_id == Article.source_id)
             .filter(Bookmark.user_id == self.id)
-            .filter(Text.article_id == article_id)
             .order_by(Bookmark.id.asc())
             .all()
         )
