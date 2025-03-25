@@ -24,16 +24,17 @@ def main():
     The script uses pagination to process articles in batches of 1000 at a time. It logs
     progress using tqdm.
     """
-    non_migrated_articles_query = Article.query.filter(Article.source_id == None)
+    non_migrated_articles_query = Article.query.filter(
+        Article.source_id == None
+    ).order_by(asc(Article.id))
     total_articles = non_migrated_articles_query.count()
     for a_offset in tqdm(
         range(0, total_articles, ITERATION_STEP), total=total_articles // ITERATION_STEP
     ):
-        articles = (
-            non_migrated_articles_query.order_by(asc(Article.id))
-            .limit(ITERATION_STEP)
-            .offset(a_offset)
-            .all()
+        articles = non_migrated_articles_query.limit(ITERATION_STEP).all()
+        ids = [a.id for a in articles]
+        print(
+            f"Got articles from {a_offset} ({min(ids)}) to {a_offset + ITERATION_STEP} ({max(ids)})"
         )
         for a in tqdm(articles, total=len(articles)):
             source = Source.find_or_create(
@@ -52,6 +53,14 @@ def main():
         print(f"Last processed article id: {a.id}")
         db_session.commit()
     db_session.commit()
+    print("Completed... Running query to check for any articles without sources.")
+    total_articles_after = non_migrated_articles_query.count()
+    print(f"Articles without sources: {total_articles_after}")
+    if total_articles_after == 0:
+        print("All articles have sources.")
+    else:
+        print("#" * 20, " INFO ", "#" * 20)
+        print("Some articles do not have sources.")
 
 
 if __name__ == "__main__":
