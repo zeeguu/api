@@ -17,6 +17,7 @@ class ContextType(db.Model):
     VIDEO_SUBTITLE = "VideoSubtitle"
     WEB_FRAGMENT = "WebFragment"
     USER_EDITED_TEXT = "UserEditedText"
+    ORPHAN_CONTEXT = "OrphanContext"
 
     ALL_TYPES = [
         ARTICLE_FRAGMENT,
@@ -26,6 +27,7 @@ class ContextType(db.Model):
         VIDEO_SUBTITLE,
         WEB_FRAGMENT,
         USER_EDITED_TEXT,
+        ORPHAN_CONTEXT,
     ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
