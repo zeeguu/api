@@ -63,8 +63,8 @@ class Bookmark(db.Model):
 
     """
     The bookmarks will have a reference to the sentence / token in relation
-    to the text they are associaed with. So sentence_i and token_i refer to the
-    start of the text. 
+    to the context they are associaed with. So sentence_i and token_i refer to the
+    start of the context. 
 
     Since the words can be merged to give a better translation, in those cases we 
     have the first word and then the total tokens after it that were merged.
@@ -115,7 +115,6 @@ class Bookmark(db.Model):
         self.time = time
         self.text = text
         self.starred = False
-        self.fit_for_study = fit_for_study(self)
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
         self.sentence_i = sentence_i
@@ -123,6 +122,7 @@ class Bookmark(db.Model):
         self.total_tokens = total_tokens
         self.context = context
         self.level = level
+        self.fit_for_study = fit_for_study(self)
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
@@ -157,7 +157,7 @@ class Bookmark(db.Model):
         return (self.starred or self.fit_for_study) and not self.is_learned()
 
     def content_is_not_too_long(self):
-        return len(self.text.content) < 60
+        return len(self.get_context()) < 60
 
     def update_fit_for_study(self, session=None):
         """
@@ -242,6 +242,28 @@ class Bookmark(db.Model):
             with_context_tokenized=with_context_tokenized,
         )
 
+    def get_source_title(self):
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.article import Article
+
+        if self.context.context_type.type == ContextType.ARTICLE_TITLE:
+            from zeeguu.core.model.article_title_context import ArticleTitleContext
+
+            return Article.find_by_id(
+                ArticleTitleContext.find_by_bookmark(self).article_id
+            ).title
+        if self.context.context_type.type == ContextType.ARTICLE_FRAGMENT:
+            from zeeguu.core.model.article_fragment_context import (
+                ArticleFragmentContext,
+            )
+
+            return Article.find_by_id(
+                ArticleFragmentContext.find_by_bookmark(
+                    self
+                ).article_fragment.article_id
+            ).title
+        return "[No title]"
+
     def as_dictionary(
         self,
         with_exercise_info=False,
@@ -260,16 +282,12 @@ class Bookmark(db.Model):
         )
 
         if with_context:
-            # TODO Tiago: content and anchors should come from context
             context_info_dict = dict(
-                context=self.text.content,
-                context_paragraph=self.text.paragraph_i,
-                context_sent=self.text.sentence_i,
-                context_token=self.text.token_i,
-                in_content=self.text.in_content,
+                context=self.get_context(),
+                context_sent=self.context.sentence_i,
+                context_token=self.context.token_i,
             )
-            # If we have the new model, then we need to check the type.
-            if self.context and self.context.context_type:
+            if self.context.context_type:
                 result["context_identifier"] = self.get_context_identifier()
             result = {**result, **context_info_dict}
 
@@ -277,7 +295,7 @@ class Bookmark(db.Model):
 
         if with_title:
             try:
-                bookmark_title = self.text.article.title
+                bookmark_title = self.get_source_title()
             except Exception as e:
                 from sentry_sdk import capture_exception
 
@@ -290,11 +308,10 @@ class Bookmark(db.Model):
 
             tokenizer = get_tokenizer(self.origin.language, TOKENIZER_MODEL)
             result["context_tokenized"] = tokenizer.tokenize_text(
-                self.text.content,
+                self.context.get_content(),
                 flatten=False,
-                start_token_i=self.text.token_i,
-                start_sentence_i=self.text.sentence_i,
-                start_paragraph_i=self.text.paragraph_i,
+                start_token_i=self.context.token_i,
+                start_sentence_i=self.context.sentence_i,
             )
 
         if not with_exercise_info:
@@ -357,6 +374,7 @@ class Bookmark(db.Model):
             origin_rank=word_info.rank if word_info.rank != 100000 else "",
             starred=self.starred if self.starred is not None else False,
             article_id=self.text.article_id if self.text.article_id else "",
+            source_id=self.source_id,
             created_day=created_day,  # human readable stuff...
             time=datetime_to_json(self.time),
             fit_for_study=self.fit_for_study == 1,
@@ -369,8 +387,8 @@ class Bookmark(db.Model):
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
             context_in_content=self.text.in_content,
-            left_ellipsis=self.text.left_ellipsis,
-            right_ellipsis=self.text.right_ellipsis,
+            left_ellipsis=self.context.left_ellipsis,
+            right_ellipsis=self.context.right_ellipsis,
         )
 
         exercise_info_dict["from"] = self.origin.word
@@ -382,7 +400,6 @@ class Bookmark(db.Model):
         from zeeguu.core.model.context_type import ContextType
 
         context_type = self.context.context_type.type
-        print(f"Creating a context information for context type: {context_type}")
         context_identifier = ContextIdentifier(
             context_type,
         )
@@ -468,6 +485,7 @@ class Bookmark(db.Model):
         _translation_lang: str,
         _context: str,
         article_id: int,
+        source_id: int,
         learning_cycle: int = LearningCycle.NOT_SET,
         sentence_i: int = None,
         token_i: int = None,
@@ -489,8 +507,14 @@ class Bookmark(db.Model):
         translation_lang = Language.find_or_create(_translation_lang)
 
         origin = UserWord.find_or_create(session, _origin, origin_lang)
-
-        article = Article.query.filter_by(id=article_id).one()
+        source = Source.find_by_id(source_id)
+        print("Source retrieved: ", source)
+        # TODO: This will be temporary.
+        article = None
+        if source_id and not article_id:
+            article = Article.find_by_source_id(source_id)
+        if article_id:
+            article = Article.query.filter_by(id=article_id).one()
 
         context = BookmarkContext.find_or_create(
             session,
@@ -523,7 +547,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_text(user, origin, text)
+            bookmark = Bookmark.find_by_user_word_and_text(user, origin, context)
 
             # update the translation
             bookmark.translation = translation
@@ -533,7 +557,7 @@ class Bookmark(db.Model):
                 origin,
                 translation,
                 user,
-                None,
+                source,
                 text,
                 now,
                 learning_cycle=learning_cycle,
@@ -566,16 +590,26 @@ class Bookmark(db.Model):
         return cls.query.filter().all()
 
     @classmethod
-    def find_all_for_text_and_user(cls, text, user):
-        return Bookmark.query.filter_by(text=text, user=user).all()
+    def find_all_for_context_and_user(cls, context, user):
+        return Bookmark.query.filter_by(context=context, user=user).all()
 
     @classmethod
     def find_all_for_user_and_article(cls, user, article):
         return (
-            cls.query.join(Text)
-            .filter(Text.article_id == article.id)
+            cls.query.join(Source)
+            .filter(Source.id == article.source_id)
             .filter(Bookmark.user == user)
             .all()
+        )
+
+    @classmethod
+    def find_all_for_text_and_user(cls, text, user):
+        return Bookmark.query.filter_by(text=text, user=user).all()
+
+    @classmethod
+    def find_all_for_user_and_source(cls, user, source):
+        return (
+            cls.query.filter(cls.source_id == source.id).filter(cls.user == user).all()
         )
 
     @classmethod
@@ -587,8 +621,8 @@ class Bookmark(db.Model):
         return cls.query.filter_by(user=user, origin=word).all()
 
     @classmethod
-    def find_by_user_word_and_text(cls, user, word, text):
-        return cls.query.filter_by(user=user, origin=word, text=text).one()
+    def find_by_user_word_and_text(cls, user, word, context):
+        return cls.query.filter_by(user=user, origin=word, context=context).one()
 
     @classmethod
     def exists(cls, bookmark):

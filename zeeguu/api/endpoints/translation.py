@@ -28,6 +28,15 @@ punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
+def helper_get_context_identifier(form: dict):
+    return ContextIdentifier(
+        form.get("context_identifier[context_type]", None),
+        article_fragment_id=form.get("context_identifier[article_fragment_id]", None),
+        article_id=form.get("context_identifier[article_id]", None),
+        video_id=form.get("context_identifier[video_id]", None),
+    )
+
+
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session
@@ -45,7 +54,9 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     :return: json array with translations
     """
+    from pprint import pprint
 
+    pprint(request.form)
     word_str = request.form["word"].strip(punctuation_extended)
     w_sent_i = request.form.get("w_sent_i", None)
     w_token_i = request.form.get("w_token_i", None)
@@ -55,12 +66,17 @@ def get_one_translation(from_lang_code, to_lang_code):
     c_sent_i = request.form.get("c_sent_i", None)
     c_token_i = request.form.get("c_token_i", None)
     article_id = request.form.get("articleID", None)
+    source_id = request.form.get("source_id", None)
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
     context_identifier = request.form.get("context_identifier", None)
+    # The front end send the data in the following format:
+    # ('context_identifier[context_type]', 'ArticleFragment')
     if context_identifier is not None:
         context_identifier = ContextIdentifier.from_json_string(context_identifier)
+    else:
+        context_identifier = helper_get_context_identifier(request.form)
 
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -111,6 +127,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             to_lang_code,
             context,
             article_id,
+            source_id,
             c_paragraph_i=c_paragraph_i,
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
@@ -210,6 +227,7 @@ def update_translation(bookmark_id):
     word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
     translation_str = request.form["translation"]
     context_str = request.form.get("context", "").strip()
+    context_type = request.form.get("context_type", None)
     bookmark = Bookmark.find(bookmark_id)
 
     origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
@@ -241,7 +259,7 @@ def update_translation(bookmark_id):
     context = BookmarkContext.find_or_create(
         db_session,
         context_str,
-        None,
+        context_type,
         bookmark.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
@@ -286,9 +304,6 @@ def update_translation(bookmark_id):
     bookmark.origin = origin
     db_session.add(bookmark)
 
-    if len(prev_text.all_bookmarks_for_text()) == 0:
-        # The text doesn't have any bookmarks
-        db_session.delete(prev_text)
     updated_bookmark = bookmark.as_dictionary(
         with_exercise_info=True, with_context_tokenized=True, with_context=True
     )
@@ -332,6 +347,7 @@ def contribute_translation(from_lang_code, to_lang_code):
     c_sent_i = request.form.get("c_sent_i", None)
     c_token_i = request.form.get("c_token_i", None)
     article_id = request.form.get("articleID", None)
+    source_id = request.form.get("source_id", None)
     in_content = parse_json_boolean(request.form.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
@@ -352,8 +368,9 @@ def contribute_translation(from_lang_code, to_lang_code):
         url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
     else:
         # the url comes from elsewhere not from the reader, so we find or create the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
+        if url != "":
+            article = Article.find_or_create(db_session, url)
+            article_id = article.id
 
     # Optional POST param
     selected_from_predefined_choices = request.form.get(
@@ -369,6 +386,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         to_lang_code,
         context,
         article_id,
+        source_id=source_id,
         c_paragraph_i=c_paragraph_i,
         c_sentence_i=c_sent_i,
         c_token_i=c_token_i,

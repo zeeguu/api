@@ -97,17 +97,36 @@ class BookmarkContext(db.Model):
         return f"<BookmarkContext {self.get_content()}>"
 
     def get_content(self):
+        if not self.text:
+            return "[Context deleted]"
         return self.text.content
 
     def all_bookmarks(self, user):
         from zeeguu.core.model import Bookmark
 
-        return Bookmark.find_all_for_text_and_user(self, user)
+        return Bookmark.find_all_for_context_and_user(self, user)
 
     def all_bookmarks_for_context(self):
         from zeeguu.core.model import Bookmark
 
         return Bookmark.query.join(self).filter(Bookmark.context_id == self.id).all()
+
+    @classmethod
+    def find_all(cls, text, language):
+        """
+        there could be multiple texts
+        in multiple articles actually...
+        """
+        from zeeguu.core.util import long_hash
+        from zeeguu.core.model.new_text import NewText
+
+        hash = long_hash(text)
+        return (
+            cls.query.join(NewText)
+            .filter(NewText.content_hash == hash)
+            .filter(cls.language_id == language.id)
+            .all()
+        )
 
     @classmethod
     def find_by_id(cls, context_id):
