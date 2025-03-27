@@ -664,6 +664,7 @@ class User(db.Model):
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
             query.join(Article, Bookmark.source_id == Article.source_id)
+            .filter(Article.id == article_id)
             .filter(Bookmark.user_id == self.id)
             .order_by(Bookmark.id.asc())
             .all()
