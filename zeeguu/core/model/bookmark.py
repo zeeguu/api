@@ -262,7 +262,7 @@ class Bookmark(db.Model):
                     self
                 ).article_fragment.article_id
             ).title
-        return "[No title]"
+        return None
 
     def as_dictionary(
         self,

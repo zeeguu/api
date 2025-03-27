@@ -393,14 +393,17 @@ class UserActivityData(db.Model):
         event = data.get("event", "")
         value = data.get("value", "")
         extra_data = data.get("extra_data", "")
-        source_id = data.get("source_id", None)
+        source_id = data.get("source_id", "")
 
         article_id = None
         if data.get("article_id", None):
             article_id = int(data["article_id"])
 
-        if article_id and source_id is None:
+        if article_id and source_id == "":
             source_id = Article.find_by_id(article_id).source_id
+
+        if source_id == "":
+            source_id = None
 
         log(
             f"{event} value[:42]: {value[:42]} extra_data[:42]: {extra_data[:42]} source_id: {source_id}"

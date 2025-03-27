@@ -459,6 +459,9 @@ class User(db.Model):
         query = query.filter(Bookmark.user_id == self.id)
         query = query.filter(Bookmark.time >= after_date)
         query = query.filter(Bookmark.time <= before_date)
+        # Tempory, at some point all bookmarks should keep source
+        # (It should be a meaning rather than a bookmark (for exercises))
+        query = query.filter(Bookmark.source_id != None)
         query = query.order_by(Bookmark.time)
 
         return query.all()
