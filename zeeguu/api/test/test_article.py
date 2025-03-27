@@ -16,6 +16,7 @@ def test_create_article(client):
     assert response_data
     assert response_data["id"] == 1
     assert "Venezuela" in response_data["title"]
+    return response_data
 
 
 def test_starred_or_liked(client):
