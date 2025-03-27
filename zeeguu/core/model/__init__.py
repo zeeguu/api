@@ -41,6 +41,7 @@ from .session import Session
 from .unique_code import UniqueCode
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
 from .article_fragment_context import ArticleFragmentContext
+from .article_title_context import ArticleTitleContext
 
 from .user import User
 from .cohort import Cohort

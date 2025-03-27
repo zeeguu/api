@@ -86,7 +86,7 @@ def main():
                     ArticleTopicMap.origin_type != TopicOriginType.INFERRED
                 )  # Do not index Inferred topics
                 .filter(Article.broken != 1)  # Filter out documents that are broken
-                # .filter(Article.language_id == 2) If only one language
+                # .filter(Article.language_id == 2)  # If only one language
                 .distinct()
             ]
         )

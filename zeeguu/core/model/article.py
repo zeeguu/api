@@ -577,6 +577,10 @@ class Article(db.Model):
         return Article.query.filter(Article.id == id).first()
 
     @classmethod
+    def find_by_source_id(cls, source_id: int):
+        return Article.query.filter(Article.source_id == source_id).first()
+
+    @classmethod
     def uploaded_by(cls, uploader_id: int):
         return Article.query.filter(Article.uploader_id == uploader_id).all()
 

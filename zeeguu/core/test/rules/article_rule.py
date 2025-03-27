@@ -6,8 +6,7 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.model import Article
-from zeeguu.core.model.source import Source
-from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.test.rules.source_rule import SourceRule
 from zeeguu.core.test.mocking_the_web import URL_FAZ_LEIGHTATHLETIK
 
 
@@ -30,6 +29,8 @@ class ArticleRule(BaseRule):
             self.save(self.article)
 
     def _create_model_object(self):
+        # Update this to take the SourceRule rather than creating an object
+        # and then update the BookmarkRule.
         title = " ".join(self.faker.text().split()[:4])
         authors = self.faker.name()
         content = self.faker.text()
@@ -37,14 +38,7 @@ class ArticleRule(BaseRule):
         published = datetime.now() - timedelta(minutes=randint(0, 7200))
         feed = FeedRule().feed
         language = LanguageRule().random
-        source = Source.find_or_create(
-            ArticleRule.db.session,
-            content,
-            SourceType.find_by_type(SourceType.ARTICLE),
-            language,
-            0,
-            commit=True,
-        )
+        source = SourceRule().source
         url = UrlRule().url
 
         article = Article(

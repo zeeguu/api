@@ -459,6 +459,9 @@ class User(db.Model):
         query = query.filter(Bookmark.user_id == self.id)
         query = query.filter(Bookmark.time >= after_date)
         query = query.filter(Bookmark.time <= before_date)
+        # Tempory, at some point all bookmarks should keep source
+        # (It should be a meaning rather than a bookmark (for exercises))
+        query = query.filter(Bookmark.source_id != None)
         query = query.order_by(Bookmark.time)
 
         return query.all()
@@ -654,15 +657,15 @@ class User(db.Model):
         json=True,
     ):
 
-        from zeeguu.core.model import Bookmark, Text
+        from zeeguu.core.model import Bookmark, Article
 
         json_bookmarks = []
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
-            query.join(Text)
+            query.join(Article, Bookmark.source_id == Article.source_id)
+            .filter(Article.id == article_id)
             .filter(Bookmark.user_id == self.id)
-            .filter(Text.article_id == article_id)
             .order_by(Bookmark.id.asc())
             .all()
         )

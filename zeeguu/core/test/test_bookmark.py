@@ -9,7 +9,7 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.exercise_rule import ExerciseRule
 from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
-from zeeguu.core.test.rules.source_rule import SourceRule
+from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
@@ -61,7 +61,6 @@ class BookmarkTest(ModelTestMixIn):
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         article = random_bookmark.text.article
-
         # each bookmark belongs to a random text / article so the
         # combo of user/article will always result in one bookmark
         assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
@@ -126,7 +125,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
         random_bookmark.add_new_exercise_result(
-            SourceRule().random,
+            ExerciseSourceRule().random,
             OutcomeRule().random,
             random.randint(100, 1000),
             exercise_session.id,
