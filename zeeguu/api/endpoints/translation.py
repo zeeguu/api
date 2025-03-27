@@ -29,15 +29,6 @@ punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
-def helper_get_context_identifier(form: dict):
-    return ContextIdentifier(
-        form.get("context_identifier[context_type]", None),
-        article_fragment_id=form.get("context_identifier[article_fragment_id]", None),
-        article_id=form.get("context_identifier[article_id]", None),
-        video_id=form.get("context_identifier[video_id]", None),
-    )
-
-
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session
@@ -69,13 +60,11 @@ def get_one_translation(from_lang_code, to_lang_code):
     in_content = parse_json_boolean(request.json.get("in_content", None))
     left_ellipsis = parse_json_boolean(request.json.get("left_ellipsis", None))
     right_ellipsis = parse_json_boolean(request.json.get("right_ellipsis", None))
-    context_identifier = request.json.get("context_identifier", None)
+    context_identifier = ContextIdentifier.from_dictionary(
+        request.json.get("context_identifier", None)
+    )
     # The front end send the data in the following format:
     # ('context_identifier[context_type]', 'ArticleFragment')
-    if context_identifier is not None:
-        context_identifier = ContextIdentifier.from_json_string(context_identifier)
-    else:
-        context_identifier = helper_get_context_identifier(request.form)
 
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -333,26 +322,26 @@ def contribute_translation(from_lang_code, to_lang_code):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.form["word"])
-    translation_str = request.form["translation"]
-    url = request.form.get("url", "")
-    context_str = request.form.get("context", "")
-    title_str = request.form.get("title", "")
-    w_sent_i = request.form.get("w_sent_i", None)
-    w_token_i = request.form.get("w_token_i", None)
-    w_total_tokens = request.form.get("w_total_tokens", None)
-    context = request.form.get("context", "").strip()
-    c_paragraph_i = request.form.get("c_paragraph_i", None)
-    c_sent_i = request.form.get("c_sent_i", None)
-    c_token_i = request.form.get("c_token_i", None)
-    article_id = request.form.get("articleID", None)
-    source_id = request.form.get("source_id", None)
-    in_content = parse_json_boolean(request.form.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_identifier = request.form.get("context_identifier", None)
-    if context_identifier is not None:
-        context_identifier = ContextIdentifier.from_json_string(context_identifier)
+    word_str = unquote_plus(request.json["word"])
+    translation_str = request.json["translation"]
+    url = request.json.get("url", "")
+    context_str = request.json.get("context", "")
+    title_str = request.json.get("title", "")
+    w_sent_i = request.json.get("w_sent_i", None)
+    w_token_i = request.json.get("w_token_i", None)
+    w_total_tokens = request.json.get("w_total_tokens", None)
+    context = request.json.get("context", "").strip()
+    c_paragraph_i = request.json.get("c_paragraph_i", None)
+    c_sent_i = request.json.get("c_sent_i", None)
+    c_token_i = request.json.get("c_token_i", None)
+    article_id = request.json.get("articleID", None)
+    source_id = request.json.get("source_id", None)
+    in_content = parse_json_boolean(request.json.get("in_content", None))
+    left_ellipsis = parse_json_boolean(request.json.get("left_ellipsis", None))
+    right_ellipsis = parse_json_boolean(request.json.get("right_ellipsis", None))
+    context_identifier = ContextIdentifier.from_dictionary(
+        request.json.get("context_identifier", None)
+    )
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
     service_name = request.form.get("servicename_translation", "MANUAL")

@@ -35,17 +35,16 @@ def test_contribute_own_translation(client):
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
 
-    data = dict(
-        word=bookmark1["from"],
-        url=bookmark1["url"],
-        title=bookmark1["title"],
-        context=bookmark1["context"],
-        translation="companion",
-        source_id=bookmark1["source_id"],
-        context_identifier=json.dumps(bookmark1["context_identifier"]),
-    )
+    data = {
+        "word": bookmark1["from"],
+        "url": bookmark1["url"],
+        "title": bookmark1["title"],
+        "context": bookmark1["context"],
+        "translation": "companion",
+        "context_identifier": bookmark1["context_identifier"],
+    }
 
-    client.post("contribute_translation/de/en", data)
+    client.post("contribute_translation/de/en", json=data)
 
     # THEN
 

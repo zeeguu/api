@@ -26,7 +26,7 @@ class ContextIdentifier:
     @classmethod
     def from_dictionary(cls, dictionary):
         if dictionary is None:
-            return None
+            return ContextIdentifier(None)
         return ContextIdentifier(
             dictionary.get("context_type", None),
             dictionary.get("article_fragment_id", None),

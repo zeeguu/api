@@ -12,21 +12,21 @@ def test_create_and_delete_bookmark(client):
     add_source_types()
     from zeeguu.core.model.bookmark_context import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
-    import json
 
     article = create_and_get_article(client)
     context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     new_bookmark = client.post(
         "/contribute_translation/de/en",
-        data=dict(
-            word="Freund",
-            translation="friend",
-            context="Mein Freund lächelte",
-            url=URL_SPIEGEL_VENEZUELA,
-            source_id=article["source_id"],
-            context_identifier=json.dumps(context_i.as_dictionary()),
-        ),
+        json={
+            "word": "Freund",
+            "translation": "friend",
+            "context": "Mein Freund lächelte",
+            "url": URL_SPIEGEL_VENEZUELA,
+            "source_id": article["source_id"],
+            "context_identifier": context_i.as_dictionary(),
+        },
     )
+
     assert new_bookmark
     new_bookmark_id = new_bookmark["bookmark_id"]
 

@@ -1,4 +1,4 @@
-import json
+from json import loads
 
 import pytest
 import requests_mock
@@ -105,7 +105,7 @@ class LoggedInClient:
         url = self.append_session(endpoint)
         result = self.client.get(url).data
         try:
-            return json.loads(result)
+            return loads(result)
         except:
             return result
 
@@ -120,11 +120,15 @@ class LoggedInClient:
         response = self.client.post(self.append_session(endpoint), data=data)
         return response
 
-    def post(self, endpoint, data=dict()):
-        response = self.client.post(self.append_session(endpoint), data=data)
+    def post(self, endpoint, data=dict(), json=None):
+        if json is not None:
+            response = self.client.post(self.append_session(endpoint), json=json)
+        else:
+            response = self.client.post(self.append_session(endpoint), data=data)
         try:
-            return json.loads(response.data)
-        except:
+            return loads(response.data)
+        except Exception as e:
+            print("Failed json parsing: ", e)
             return response.data
 
 
@@ -152,24 +156,21 @@ def create_and_get_article(client):
 def add_one_bookmark(logged_in_client):
     from zeeguu.core.model.bookmark_context import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
-    from zeeguu.core.model.bookmark_context import ContextIdentifier
-
-    import json
 
     article = create_and_get_article(logged_in_client)
     context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     bookmark = logged_in_client.post(
         "/contribute_translation/de/en",
-        data=dict(
-            word="Freund",
-            translation="friend",
-            context="Mein Freund lächelte",
-            url=URL_SPIEGEL_VENEZUELA,
-            source_id=article["source_id"],
-            context_identifier=json.dumps(context_i.as_dictionary()),
-        ),
+        json={
+            "word": "Freund",
+            "translation": "friend",
+            "context": "Mein Freund lächelte",
+            "url": URL_SPIEGEL_VENEZUELA,
+            "source_id": article["source_id"],
+            "context_identifier": context_i.as_dictionary(),
+        },
     )
-
+    print(bookmark)
     bookmark_id = bookmark["bookmark_id"]
 
     return bookmark_id
