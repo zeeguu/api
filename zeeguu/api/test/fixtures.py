@@ -3,9 +3,10 @@ import json
 import pytest
 import requests_mock
 
-from zeeguu.api.app import create_app
 import zeeguu
+from zeeguu.api.app import create_app
 from zeeguu.core.test.mocking_the_web import mock_requests_get
+from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 from zeeguu.core.model import db
 
 db_session = db.session
@@ -143,6 +144,11 @@ class LoggedInTeacher(LoggedInClient):
         db_session.commit()
 
 
+def create_and_get_article(client):
+
+    return client.post("/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA))
+
+
 def add_one_bookmark(logged_in_client):
     from zeeguu.core.model.bookmark_context import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
@@ -150,15 +156,16 @@ def add_one_bookmark(logged_in_client):
 
     import json
 
-    context_i = ContextIdentifier(ContextType.USER_EDITED_TEXT)
-    # Create one bookmark too
+    article = create_and_get_article(logged_in_client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     bookmark = logged_in_client.post(
         "/contribute_translation/de/en",
         data=dict(
             word="Freund",
             translation="friend",
             context="Mein Freund lächelte",
-            source_id=None,
+            url=URL_SPIEGEL_VENEZUELA,
+            source_id=article["source_id"],
             context_identifier=json.dumps(context_i.as_dictionary()),
         ),
     )

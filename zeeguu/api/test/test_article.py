@@ -3,20 +3,17 @@ from zeeguu.core.test.mocking_the_web import (
     URL_FAZ_LEIGHTATHLETIK,
 )
 from fixtures import logged_in_client as client
-from fixtures import add_context_types, add_source_types
+from fixtures import add_context_types, add_source_types, create_and_get_article
 
 
 def test_create_article(client):
     add_source_types()
     add_context_types()
-    response_data = client.post(
-        "/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA)
-    )
+    response_data = create_and_get_article(client)
 
     assert response_data
     assert response_data["id"] == 1
     assert "Venezuela" in response_data["title"]
-    return response_data
 
 
 def test_starred_or_liked(client):
