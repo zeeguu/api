@@ -361,14 +361,14 @@ class UserActivityData(db.Model):
             parsed_data = json.loads(e.extra_data)
             viewportSettings = e.value
             if (
-                e.Article.id is None
-                or e.Article.id in seen_articles
+                e.source_id is None
+                or e.source_id in seen_articles
                 or len(parsed_data) == 0
                 or viewportSettings == ""
             ):
                 continue
-            article_data = Article.find_by_id(e.Article.id)
-            seen_articles.add(e.Article.id)
+            article_data = Article.find_by_source_id(e.source_id)
+            seen_articles.add(e.source_id)
             if article_data.language_id != user.learned_language_id:
                 # Article doesn't match learned language
                 continue
@@ -377,7 +377,7 @@ class UserActivityData(db.Model):
             # seconds_ago = date_ago.seconds
             last_percentage = find_last_reading_percentage(parsed_data)
             list_of_sessions.append(
-                (e.article_id, e.time, json.loads(viewportSettings), last_percentage)
+                (article_data.id, e.time, json.loads(viewportSettings), last_percentage)
             )
             if len(list_of_sessions) >= limit:
                 break
