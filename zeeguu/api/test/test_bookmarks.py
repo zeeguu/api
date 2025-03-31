@@ -18,9 +18,9 @@ def test_create_and_delete_bookmark(client):
     new_bookmark = client.post(
         "/contribute_translation/de/en",
         json={
-            "word": "Freund",
-            "translation": "friend",
-            "context": "Mein Freund lächelte",
+            "word": "hinter",
+            "translation": "behind",
+            "context": "stellt sich hinter Präsident",
             "url": URL_SPIEGEL_VENEZUELA,
             "source_id": article["source_id"],
             "context_identifier": context_i.as_dictionary(),

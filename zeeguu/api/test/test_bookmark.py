@@ -66,8 +66,8 @@ def test_update_bookmark(client):
         word=bookmark1["from"],
         url=bookmark1["url"],
         title=bookmark1["title"],
-        context="a new context Freund",
-        translation="companion",
+        context="hinter den Horizon",
+        translation="beyond",
     )
 
     client.post(f"update_bookmark/{bookmark1_id}", data)
@@ -76,8 +76,8 @@ def test_update_bookmark(client):
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark = _first_bookmark_on_day1(all_bookmarks)
 
-    assert "companion" == bookmark["to"]
-    assert "a new context Freund" == bookmark["context"]
+    assert "beyond" == bookmark["to"]
+    assert "hinter den Horizon" == bookmark["context"]
 
 
 # Basic hitting of the /top_bookmarks endpoint
