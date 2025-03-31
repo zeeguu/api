@@ -13,6 +13,10 @@ from zeeguu.core.model.video_tag_map import VideoTagMap
 from zeeguu.core.model.yt_channel import YTChannel
 from langdetect import detect
 
+from zeeguu.core.util.encoding import datetime_to_json
+
+MAX_CHAR_COUNT_IN_SUMMARY = 300
+
 class Video(db.Model):
     __tablename__ = 'video'
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -244,3 +248,60 @@ class Video(db.Model):
             "text": "\n".join(full_text),
             "captions": captions_list
         }
+    
+    def video_info(self):
+        def fk_to_cefr(fk_difficulty):
+            if fk_difficulty < 17:
+                return "A1"
+            elif fk_difficulty < 34:
+                return "A2"
+            elif fk_difficulty < 51:
+                return "B1"
+            elif fk_difficulty < 68:
+                return "B2"
+            elif fk_difficulty < 85:
+                return "C1"
+            else:
+                return "C2"
+            
+        summary = self.plain_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+        result_dict = dict(
+            id=self.id,
+            video_id=self.video_id,
+            title=self.title,
+            description=self.description,
+            summary=summary,
+            channel=self.channel.as_dictionary(),
+            thumbnail_url=self.thumbnail_url,
+            duration=self.duration,
+            language_code=self.language.code,
+            vtt=self.vtt,
+            plain_text=self.plain_text,
+            metrics=dict(
+                difficulty=self.fk_difficulty / 100,
+                cefr_level=fk_to_cefr(self.fk_difficulty),
+            )
+        )
+
+        if self.thumbnail_url:
+            result_dict["thumbnail_url"] = self.thumbnail_url
+
+        if self.published_at:
+            result_dict["published_at"] = datetime_to_json(self.published_at)
+        
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
+        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
+        result_dict["captions"] = [
+            {
+                "time_start": caption.time_start,
+                "time_end": caption.time_end,
+                "text": caption.text,
+                "tokenized_text": tokenizer.tokenize_text(caption.text, flatten=False),
+            }
+            for caption in self.captions
+        ]
+
+        result_dict["tokenized_title"] = tokenizer.tokenize_text(self.title, flatten=False)
+        
+        return result_dict
