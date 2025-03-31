@@ -34,16 +34,6 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 @requires_session
 def get_one_translation(from_lang_code, to_lang_code):
     """
-
-    To think about:
-    - it would also make sense to separate translation from
-    "logging"; or at least, allow for situations where a translation
-    is not associated with an url... or?
-    - jul 2021 - Bjorn would like to have the possibility of getting
-    a translation without an article; can be done; allow for the
-    articleID to be empty; what would be the downside of that?
-    - hmm. maybe he can simply work with get_multiple_translations
-
     :return: json array with translations
     """
 
@@ -308,6 +298,8 @@ def update_translation(bookmark_id):
 def contribute_translation(from_lang_code, to_lang_code):
     """
 
+    NOTE: This is only used by the tests
+
         User contributes a translation they think is appropriate for
          a given :param word in :param from_lang_code in a given :param context
 
@@ -322,29 +314,28 @@ def contribute_translation(from_lang_code, to_lang_code):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.json["word"])
-    translation_str = request.json["translation"]
-    url = request.json.get("url", "")
-    context_str = request.json.get("context", "")
-    title_str = request.json.get("title", "")
-    w_sent_i = request.json.get("w_sent_i", None)
-    w_token_i = request.json.get("w_token_i", None)
-    w_total_tokens = request.json.get("w_total_tokens", None)
-    context = request.json.get("context", "").strip()
-    c_paragraph_i = request.json.get("c_paragraph_i", None)
-    c_sent_i = request.json.get("c_sent_i", None)
-    c_token_i = request.json.get("c_token_i", None)
-    article_id = request.json.get("articleID", None)
-    source_id = request.json.get("source_id", None)
-    in_content = parse_json_boolean(request.json.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request.json.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request.json.get("right_ellipsis", None))
+    request_params = request.json
+    word_str = unquote_plus(request_params["word"])
+    translation_str = request_params["translation"]
+    url = request_params.get("url", "")
+    context_str = request_params.get("context", "")
+    w_sent_i = request_params.get("w_sent_i", None)
+    w_token_i = request_params.get("w_token_i", None)
+    w_total_tokens = request_params.get("w_total_tokens", None)
+    context = request_params.get("context", "").strip()
+    c_paragraph_i = request_params.get("c_paragraph_i", None)
+    c_sent_i = request_params.get("c_sent_i", None)
+    c_token_i = request_params.get("c_token_i", None)
+    source_id = request_params.get("source_id", None)
+    in_content = parse_json_boolean(request_params.get("in_content", None))
+    left_ellipsis = parse_json_boolean(request_params.get("left_ellipsis", None))
+    right_ellipsis = parse_json_boolean(request_params.get("right_ellipsis", None))
     context_identifier = ContextIdentifier.from_dictionary(
-        request.json.get("context_identifier", None)
+        request_params.get("context_identifier", None)
     )
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
-    service_name = request.form.get("servicename_translation", "MANUAL")
+    service_name = request_params.get("servicename_translation", "MANUAL")
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
@@ -361,7 +352,7 @@ def contribute_translation(from_lang_code, to_lang_code):
             article_id = article.id
 
     # Optional POST param
-    selected_from_predefined_choices = request.form.get(
+    selected_from_predefined_choices = request_params.get(
         "selected_from_predefined_choices", ""
     )
     user = User.find_by_id(flask.g.user_id)
