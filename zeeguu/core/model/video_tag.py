@@ -23,14 +23,14 @@ class VideoTag(db.Model):
     def find_or_create(
         cls, 
         session, 
-        tag,
+        tag_text,
     ):
-        tag = session.query(cls).filter_by(tag=tag).first()
+        tag = session.query(cls).filter_by(tag=tag_text).first()
 
         if tag:
             return tag
         
-        new_tag = cls(tag)
+        new_tag = cls(tag_text)
         session.add(new_tag)
 
         try:

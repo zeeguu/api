@@ -99,8 +99,11 @@ class Video(db.Model):
 
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
+        
+        title_lang = detect(video_info["title"]) if video_info["title"] else None
+        desc_lang = detect(video_info["description"]) if video_info["description"] else None
 
-        if detect(video_info["title"]) != language.code and detect(video_info["description"]) != language.code:
+        if title_lang and title_lang != language.code and desc_lang and desc_lang != language.code:
             print(f"Video {video_id} is not in {language.code}")
             return None
 
@@ -142,8 +145,8 @@ class Video(db.Model):
             raise e
         
         try:
-            for tag in video_info["tags"]:
-                new_tag = VideoTag.find_or_create(session, tag)
+            for tag_text in video_info["tags"]:
+                new_tag = VideoTag.find_or_create(session, tag_text)
                 video_tag_map = VideoTagMap(
                     video=new_video,
                     tag=new_tag
