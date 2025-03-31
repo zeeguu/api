@@ -64,7 +64,11 @@ def get_one_translation(from_lang_code, to_lang_code):
     # even if not exactly this context
     # - a teacher's translation or a senior user's should still
     # be considered here
+
     print("getting own past translation....")
+    # This has become less relevant since Tiago implemented the highlighting of the past translations
+    # In the exercises however, if one translates a word, this can still be useful ... unless we create the
+    # same history highlighting in the exercises
     user = User.find_by_id(flask.g.user_id)
     bookmark = get_own_past_translation(
         user, word_str, from_lang_code, to_lang_code, context

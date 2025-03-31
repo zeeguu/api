@@ -337,7 +337,9 @@ class UserActivityData(db.Model):
             return max_percentage_read
 
     @classmethod
-    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):
+    def get_articles_with_reading_percentages_for_user_in_date_range(
+        cls, user, days_range=7, limit=1
+    ):
         """
         Returns a list of parsed scroll user events containing the last point which was "read"
 

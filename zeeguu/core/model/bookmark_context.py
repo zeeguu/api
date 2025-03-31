@@ -25,8 +25,9 @@ class ContextIdentifier:
 
     @classmethod
     def from_dictionary(cls, dictionary):
-        if dictionary is None:
-            return ContextIdentifier(None)
+        assert dictionary is not None
+        assert "context_type" in dictionary, f"Context type must be provided"
+
         return ContextIdentifier(
             dictionary.get("context_type", None),
             dictionary.get("article_fragment_id", None),
@@ -97,8 +98,6 @@ class BookmarkContext(db.Model):
         return f"<BookmarkContext {self.get_content()}>"
 
     def get_content(self):
-        if not self.text:
-            return "[Context deleted]"
         return self.text.content
 
     def all_bookmarks(self, user):
@@ -120,10 +119,10 @@ class BookmarkContext(db.Model):
         from zeeguu.core.util import long_hash
         from zeeguu.core.model.new_text import NewText
 
-        hash = long_hash(text)
+        hash_string = long_hash(text)
         return (
             cls.query.join(NewText)
-            .filter(NewText.content_hash == hash)
+            .filter(NewText.content_hash == hash_string)
             .filter(cls.language_id == language.id)
             .all()
         )
