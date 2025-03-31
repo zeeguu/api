@@ -547,7 +547,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_text(user, origin, context)
+            bookmark = Bookmark.find_by_user_word_and_context(user, origin, context)
 
             # update the translation
             bookmark.translation = translation
@@ -604,6 +604,7 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_all_for_text_and_user(cls, text, user):
+        # TODO: Tiago remember to also delete the only places that calls this
         return Bookmark.query.filter_by(text=text, user=user).all()
 
     @classmethod
@@ -621,7 +622,7 @@ class Bookmark(db.Model):
         return cls.query.filter_by(user=user, origin=word).all()
 
     @classmethod
-    def find_by_user_word_and_text(cls, user, word, context):
+    def find_by_user_word_and_context(cls, user, word, context):
         return cls.query.filter_by(user=user, origin=word, context=context).one()
 
     @classmethod

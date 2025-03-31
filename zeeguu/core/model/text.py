@@ -128,6 +128,7 @@ class Text(db.Model):
         return shorter_text
 
     def all_bookmarks(self, user):
+        # TODO: Tiago, Delete after Text is deleted
         from zeeguu.core.model import Bookmark
 
         return Bookmark.find_all_for_text_and_user(self, user)
