@@ -206,10 +206,11 @@ def update_translation(bookmark_id):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
-    translation_str = request.form["translation"]
-    context_str = request.form.get("context", "").strip()
-    context_type = request.form.get("context_type", None)
+    word_str = unquote_plus(request.json["word"]).strip(punctuation_extended)
+    translation_str = request.json["translation"]
+    context_str = request.json.get("context", "").strip()
+    context_identifier = request.json.get("context_identifier", None)
+    context_type = context_identifier["context_type"]
     bookmark = Bookmark.find(bookmark_id)
 
     origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
