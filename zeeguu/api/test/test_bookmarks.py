@@ -16,7 +16,7 @@ def test_create_and_delete_bookmark(client):
             word="Freund",
             translation="friend",
             context="Mein Freund lächelte",
-            url=URL_SPIEGEL_VENEZUELA,
+            source_id=None,
             context_identifier=json.dumps(context_i.as_dictionary()),
         ),
     )

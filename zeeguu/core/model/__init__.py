@@ -34,7 +34,6 @@ from .url import Url
 from .domain_name import DomainName
 from .article import Article
 from .bookmark import Bookmark
-from .text import Text
 from .user_word import UserWord
 from .user_preference import UserPreference
 from .session import Session

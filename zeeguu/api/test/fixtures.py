@@ -146,8 +146,10 @@ class LoggedInTeacher(LoggedInClient):
 def add_one_bookmark(logged_in_client):
     from zeeguu.core.model.bookmark_context import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
+    from zeeguu.core.test.rules.article_rule import ArticleRule
     import json
 
+    article = ArticleRule().article
     context_i = ContextIdentifier(ContextType.USER_EDITED_TEXT)
     # Create one bookmark too
     bookmark = logged_in_client.post(
@@ -156,7 +158,7 @@ def add_one_bookmark(logged_in_client):
             word="Freund",
             translation="friend",
             context="Mein Freund lächelte",
-            url="http://www.derkleineprinz-online.de/text/2-kapitel/",
+            source_id=article.source_id,
             context_identifier=json.dumps(context_i.as_dictionary()),
         ),
     )
