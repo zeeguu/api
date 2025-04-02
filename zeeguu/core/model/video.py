@@ -8,12 +8,23 @@ from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimato
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.topic import Topic
 from zeeguu.core.model.video_tag import VideoTag
 from zeeguu.core.model.video_tag_map import VideoTagMap
+from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
 from langdetect import detect
+# from tools.run_knn_classification_with_text import get_topic_classification_based_on_similar_content
 
 from zeeguu.core.util.encoding import datetime_to_json
+
+from dotenv import load_dotenv
+load_dotenv()
+
+languages = {
+    "da": os.getenv("YOUTUBE_API_KEY_DA"),
+    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+}
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
@@ -159,12 +170,32 @@ class Video(db.Model):
             raise e
 
 
+        # add topic
+        print("Adding topic")
+        try:
+            #topic_title = get_topic_classification_based_on_similar_content(new_video.plain_text)
+            topic_title = "Technology & Science"
+            print(f"Topic title: {topic_title}")
+            if topic_title:
+                topic = session.query(Topic).filter_by(title=topic_title).first()
+                print(f"Topic: {topic}")
+                video_topic_map = VideoTopicMap(
+                    video=new_video,
+                    topic=topic
+                )
+                print(f"Video topic map: {video_topic_map}")
+                session.add(video_topic_map)
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+
         return new_video
     
     @staticmethod
     def fetch_video_info(videoId, lang):
         VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
-        YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+        YOUTUBE_API_KEY = languages.get(lang)
 
         if not YOUTUBE_API_KEY:
             raise ValueError("Missing YOUTUBE_API_KEY environment variable")

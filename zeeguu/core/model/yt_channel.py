@@ -4,6 +4,14 @@ from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 
+from dotenv import load_dotenv
+load_dotenv()
+
+languages = {
+    "da": os.getenv("YOUTUBE_API_KEY_DA"),
+    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+}
+
 class YTChannel(db.Model):
     __tablename__ = 'yt_channel'
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -62,7 +70,7 @@ class YTChannel(db.Model):
         # if isinstance(language, str):
         #     language = session.query(Language).filter_by(code=language).first()
 
-        channel_info = cls.fetch_channel_info(channel_id)
+        channel_info = cls.fetch_channel_info(channel_id, language)
 
         new_channel = cls(
             channel_id = channel_id,
@@ -85,9 +93,9 @@ class YTChannel(db.Model):
         return new_channel
     
     @staticmethod 
-    def fetch_channel_info(channel_id):
+    def fetch_channel_info(channel_id, language):
         CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
-        YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+        YOUTUBE_API_KEY = languages.get(language)
 
         channel_params = {
             "part": "snippet,statistics",
