@@ -69,3 +69,4 @@ stanza==1.10.1
 
 webvtt-py
 yt-dlp
+ffmpeg

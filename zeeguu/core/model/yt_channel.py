@@ -105,7 +105,7 @@ class YTChannel(db.Model):
     @staticmethod
     def fetch_channel_info(channel_id, language):
 
-        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language)
+        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language.code)
 
         channel_params = {
             "part": "snippet,statistics",

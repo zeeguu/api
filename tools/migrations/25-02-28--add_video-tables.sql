@@ -73,6 +73,7 @@ CREATE TABLE `video_tag_map` (
 CREATE TABLE `video_topic_map` (
   `video_id` int NOT NULL,
   `topic_id` int NOT NULL,
+  `origin_type` int NOT NULL,
   PRIMARY KEY (`video_id`, `topic_id`),
   KEY `video_topic_map_video_FK` (`video_id`),
   KEY `video_topic_map_tag_FK` (`topic_id`),

@@ -92,7 +92,7 @@ class Video(db.Model):
     def as_dictionary(self):
         return dict(
             id=self.id,
-            video_id=self.video_unique_key,
+            video_unique_key=self.video_unique_key,
             title=self.title,
             description=self.description,
             published_at=self.published_at,
@@ -108,18 +108,22 @@ class Video(db.Model):
     def find_or_create(
         cls,
         session,
-        video_id,
+        video_unique_key,
         language,
+        upload_index=True,
     ):
-        video = session.query(cls).filter_by(video_id=video_id).first()
+        from zeeguu.core.elastic.indexing import create_or_update_video
+
+        video = session.query(cls).filter_by(video_unique_key=video_unique_key).first()
 
         if video:
+            print("Video already crawled returning...")
             return video
 
         try:
-            video_info = cls.fetch_video_info(video_id, language)
+            video_info = cls.fetch_video_info(video_unique_key, language)
         except ValueError as e:
-            print(f"Error fetching video info for {video_id}: {e}")
+            print(f"Error fetching video info for {video_unique_key}: {e}")
             return None
 
         if video_info is None:
@@ -139,7 +143,7 @@ class Video(db.Model):
             and desc_lang
             and desc_lang != language.code
         ):
-            print(f"Video {video_id} is not in {language.code}")
+            print(f"Video {video_unique_key} is not in {language.code}")
             return None
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
@@ -152,7 +156,7 @@ class Video(db.Model):
             False,
         )
         new_video = cls(
-            video_id=video_id,
+            video_unique_key=video_unique_key,
             title=video_info["title"],
             source=source,
             description=video_info["description"],
@@ -200,20 +204,23 @@ class Video(db.Model):
         # add topic
         print("Adding topic")
         try:
-            topic_title = get_topic_classification_based_on_similar_content(
-                new_video.plain_text
+            from zeeguu.core.model.article_topic_map import TopicOriginType
+
+            topic = get_topic_classification_based_on_similar_content(
+                new_video.get_content()
             )
-            if topic_title:
-                topic = session.query(Topic).filter_by(title=topic_title).first()
+            if topic:
                 print(f"Topic inferred: {topic}")
-                video_topic_map = VideoTopicMap(video=new_video, topic=topic)
+                video_topic_map = VideoTopicMap(
+                    video=new_video, topic=topic, origin_type=TopicOriginType.INFERRED
+                )
                 print(f"Video topic map: {video_topic_map}")
                 session.add(video_topic_map)
                 session.commit()
         except Exception as e:
             session.rollback()
             raise e
-
+        create_or_update_video(new_video, session)
         return new_video
 
     @staticmethod
@@ -328,11 +335,11 @@ class Video(db.Model):
         }
 
     def video_info(self):
-
-        summary = self.plain_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+        text = self.get_content()
+        summary = text[:MAX_CHAR_COUNT_IN_SUMMARY]
         result_dict = dict(
-            id=self.id,
-            video_id=self.video_unique_key,
+            video_id=self.id,
+            video_unique_key=self.video_unique_key,
             source_id=self.source.id,
             title=self.title,
             description=self.description,
@@ -342,7 +349,7 @@ class Video(db.Model):
             duration=self.duration,
             language_code=self.language.code,
             vtt=self.vtt,
-            plain_text=self.get_content(),
+            plain_text=text,
             metrics=dict(
                 difficulty=self.fk_difficulty / 100,
                 cefr_level=fk_to_cefr(self.fk_difficulty),
