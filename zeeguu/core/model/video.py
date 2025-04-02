@@ -182,7 +182,7 @@ class Video(db.Model):
         
         captions = Video.get_captions(videoId, lang)
         if captions is None:
-            print(f"Could not fetch captions for video {videoId}")
+            print(f"Could not fetch captions for video {videoId} in {lang}")
             return None
         
         item = video_data["items"][0]
@@ -227,7 +227,7 @@ class Video(db.Model):
                         return Video.parse_vtt(vtt_content)
                 return None
             except Exception as e:
-                print(f"Error fethcing subtitles for {video_id}: {e}")
+                print(f"Error fetching subtitles for {video_id}: {e}")
                 return None
 
     @staticmethod
