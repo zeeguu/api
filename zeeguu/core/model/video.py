@@ -224,7 +224,10 @@ class Video(db.Model):
             "description": item["snippet"].get("description", ""),
             "publishedAt": isodate.parse_datetime(item["snippet"]["publishedAt"]).replace(tzinfo=None),
             "channelId": item["snippet"]["channelId"],
-            "thumbnail": item["snippet"]["thumbnails"].get("maxres", {}).get("url", "No maxres thumbnail available"),
+            "thumbnail": item["snippet"]["thumbnails"].get("maxres", {}).get("url") or 
+                         item["snippet"]["thumbnails"].get("high", {}).get("url") or 
+                         item["snippet"]["thumbnails"].get("medium", {}).get("url") or 
+                         item["snippet"]["thumbnails"].get("default", {}).get("url", "No thumbnail available"),
             "tags": item["snippet"].get("tags", []),
             "duration": int(isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()),
             "vtt": captions["vtt"],
@@ -316,9 +319,6 @@ class Video(db.Model):
                 cefr_level=fk_to_cefr(self.fk_difficulty),
             )
         )
-
-        if self.thumbnail_url:
-            result_dict["thumbnail_url"] = self.thumbnail_url
 
         if self.published_at:
             result_dict["published_at"] = datetime_to_json(self.published_at)
