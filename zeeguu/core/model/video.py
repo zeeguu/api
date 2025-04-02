@@ -338,7 +338,7 @@ class Video(db.Model):
         text = self.get_content()
         summary = text[:MAX_CHAR_COUNT_IN_SUMMARY]
         result_dict = dict(
-            video_id=self.id,
+            id=self.id,
             video_unique_key=self.video_unique_key,
             source_id=self.source.id,
             title=self.title,
@@ -354,6 +354,7 @@ class Video(db.Model):
                 difficulty=self.fk_difficulty / 100,
                 cefr_level=fk_to_cefr(self.fk_difficulty),
             ),
+            video=True,
         )
 
         if self.published_at:
