@@ -1,11 +1,12 @@
-import json
+from json import loads
 
 import pytest
 import requests_mock
 
-from zeeguu.api.app import create_app
 import zeeguu
+from zeeguu.api.app import create_app
 from zeeguu.core.test.mocking_the_web import mock_requests_get
+from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 from zeeguu.core.model import db
 
 db_session = db.session
@@ -104,7 +105,7 @@ class LoggedInClient:
         url = self.append_session(endpoint)
         result = self.client.get(url).data
         try:
-            return json.loads(result)
+            return loads(result)
         except:
             return result
 
@@ -119,11 +120,15 @@ class LoggedInClient:
         response = self.client.post(self.append_session(endpoint), data=data)
         return response
 
-    def post(self, endpoint, data=dict()):
-        response = self.client.post(self.append_session(endpoint), data=data)
+    def post(self, endpoint, data=dict(), json=None):
+        if json is not None:
+            response = self.client.post(self.append_session(endpoint), json=json)
+        else:
+            response = self.client.post(self.append_session(endpoint), data=data)
         try:
-            return json.loads(response.data)
-        except:
+            return loads(response.data)
+        except Exception as e:
+            print("Failed json parsing: ", e)
             return response.data
 
 
@@ -143,24 +148,28 @@ class LoggedInTeacher(LoggedInClient):
         db_session.commit()
 
 
+def create_and_get_article(client):
+
+    return client.post("/find_or_create_article", data=dict(url=URL_SPIEGEL_VENEZUELA))
+
+
 def add_one_bookmark(logged_in_client):
     from zeeguu.core.model.bookmark_context import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
-    import json
 
-    context_i = ContextIdentifier(ContextType.USER_EDITED_TEXT)
-    # Create one bookmark too
+    article = create_and_get_article(logged_in_client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     bookmark = logged_in_client.post(
         "/contribute_translation/de/en",
-        data=dict(
-            word="Freund",
-            translation="friend",
-            context="Mein Freund lächelte",
-            url="http://www.derkleineprinz-online.de/text/2-kapitel/",
-            context_identifier=json.dumps(context_i.as_dictionary()),
-        ),
+        json={
+            "word": "hinter",
+            "translation": "behind",
+            "context": "stellt sich hinter Präsident",
+            "url": URL_SPIEGEL_VENEZUELA,
+            "source_id": article["source_id"],
+            "context_identifier": context_i.as_dictionary(),
+        },
     )
-
     bookmark_id = bookmark["bookmark_id"]
 
     return bookmark_id
