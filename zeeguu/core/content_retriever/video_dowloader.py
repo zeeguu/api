@@ -6,9 +6,15 @@ from zeeguu.core import model
 
 db_session = zeeguu.core.model.db.session
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+from dotenv import load_dotenv
+load_dotenv()
 
-def video_query(lang, categoryId=None, topicId=None):
+languages = {
+    "da": os.getenv("YOUTUBE_API_KEY_DA"),
+    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+}
+
+def video_query(lang, apiKey, categoryId=None, topicId=None):
 
     SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
@@ -22,7 +28,7 @@ def video_query(lang, categoryId=None, topicId=None):
         "relevanceLanguage": lang,
         "videoDuration": "medium",
         "maxResults": 50,
-        "key": YOUTUBE_API_KEY,
+        "key": apiKey,
     }
 
     response = requests.get(SEARCH_URL, params=search_params)
@@ -35,10 +41,6 @@ def video_query(lang, categoryId=None, topicId=None):
     return video_ids
 
 def crawl():
-
-    from zeeguu.core.model import Language
-
-    languages = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
     topicIds = {
         # Sports topics
         "Sports": "/m/06ntj",
@@ -89,14 +91,16 @@ def crawl():
         "Nonprofits & Activism": 29,
     }
 
-    for topicName, topicId in topicIds.items():
-        print("Crawling topic: " + topicName)
-        video_ids = video_query("da", topicId=topicId)
-        for video_id in video_ids:
-            model.Video.find_or_create(db_session, video_id, "da")
+    for lang, apiKey in languages.items():
+        print("Crawling language: " + lang)
+        for topicName, topicId in topicIds.items():
+            print("Crawling topic: " + topicName)
+            video_ids = video_query(lang, apiKey, topicId=topicId)
+            for video_id in video_ids:
+                print(model.Video.find_or_create(db_session, video_id, lang))
 
-    for categoryName, categoryId in categoryIds.items():
-        print("Crawling category: " + categoryName)
-        video_ids = video_query("da", categoryId=categoryId)
-        for video_id in video_ids:
-            model.Video.find_or_create(db_session, video_id, "da")
+        for categoryName, categoryId in categoryIds.items():
+            print("Crawling category: " + categoryName)
+            video_ids = video_query(lang, apiKey, categoryId=categoryId)
+            for video_id in video_ids:
+                print(model.Video.find_or_create(db_session, video_id, lang))
