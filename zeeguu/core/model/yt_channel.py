@@ -4,16 +4,16 @@ from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 
-from dotenv import load_dotenv
-load_dotenv()
+CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
 
-languages = {
+API_FOR_LANGUAGE = {
     "da": os.getenv("YOUTUBE_API_KEY_DA"),
     "es": os.getenv("YOUTUBE_API_KEY_ES"),
 }
 
+
 class YTChannel(db.Model):
-    __tablename__ = 'yt_channel'
+    __tablename__ = "yt_channel"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -29,7 +29,17 @@ class YTChannel(db.Model):
     videos = db.relationship("Video", back_populates="channel")
     language = db.relationship("Language")
 
-    def __init__(self, channel_id, name, description, views, subscribers, language, should_crawl, last_crawled):
+    def __init__(
+        self,
+        channel_id,
+        name,
+        description,
+        views,
+        subscribers,
+        language,
+        should_crawl,
+        last_crawled,
+    ):
         self.channel_id = channel_id
         self.name = name
         self.description = description
@@ -40,7 +50,7 @@ class YTChannel(db.Model):
         self.last_crawled = last_crawled
 
     def __repr__(self):
-        return f'<YTChannel {self.name} ({self.channel_id})>'
+        return f"<YTChannel {self.name} ({self.channel_id})>"
 
     def as_dictionary(self):
         return dict(
@@ -52,14 +62,14 @@ class YTChannel(db.Model):
             subscribers=self.subscribers,
             language_id=self.language.id,
             should_crawl=self.should_crawl,
-            last_crawled=self.last_crawled
+            last_crawled=self.last_crawled,
         )
 
     @classmethod
     def find_or_create(
-        cls, 
-        session, 
-        channel_id, 
+        cls,
+        session,
+        channel_id,
         language,
     ):
         channel = session.query(cls).filter_by(channel_id=channel_id).first()
@@ -73,14 +83,14 @@ class YTChannel(db.Model):
         channel_info = cls.fetch_channel_info(channel_id, language)
 
         new_channel = cls(
-            channel_id = channel_id,
-            name = channel_info["channelName"],
-            description = channel_info["description"],
-            views = channel_info["viewCount"],
-            subscribers = channel_info["subscriberCount"],
-            language = language,
-            should_crawl = None,
-            last_crawled = None
+            channel_id=channel_id,
+            name=channel_info["channelName"],
+            description=channel_info["description"],
+            views=channel_info["viewCount"],
+            subscribers=channel_info["subscriberCount"],
+            language=language,
+            should_crawl=None,
+            last_crawled=None,
         )
         session.add(new_channel)
 
@@ -89,13 +99,13 @@ class YTChannel(db.Model):
         except Exception as e:
             session.rollback()
             raise e
-        
+
         return new_channel
-    
-    @staticmethod 
+
+    @staticmethod
     def fetch_channel_info(channel_id, language):
-        CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
-        YOUTUBE_API_KEY = languages.get(language)
+
+        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language)
 
         channel_params = {
             "part": "snippet,statistics",

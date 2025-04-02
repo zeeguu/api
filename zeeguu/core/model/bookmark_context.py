@@ -14,11 +14,13 @@ class ContextIdentifier:
         article_fragment_id=None,
         article_id=None,
         video_id=None,
+        video_caption_id=None,
     ):
         self.context_type = context_type
         self.article_fragment_id = article_fragment_id
         self.article_id = article_id
         self.video_id = video_id
+        self.video_caption_id = video_caption_id
 
     def __repr__(self):
         return f"<ContextIdentifier context_type={self.context_type}>"
@@ -31,7 +33,8 @@ class ContextIdentifier:
             dictionary.get("context_type", None),
             dictionary.get("article_fragment_id", None),
             dictionary.get("article_id", None),
-            dictionary.get("video_id", None),
+            video_id=dictionary.get("video_id", None),
+            video_caption_id=dictionary.get("video_caption_id", None),
         )
 
     @classmethod

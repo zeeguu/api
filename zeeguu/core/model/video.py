@@ -13,27 +13,34 @@ from zeeguu.core.model.video_tag import VideoTag
 from zeeguu.core.model.video_tag_map import VideoTagMap
 from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.semantic_search import (
+    get_topic_classification_based_on_similar_content,
+)
 from langdetect import detect
+from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model.context_type import ContextType
+from zeeguu.core.util.fk_to_cefr import fk_to_cefr
+
 # from tools.run_knn_classification_with_text import get_topic_classification_based_on_similar_content
 
 from zeeguu.core.util.encoding import datetime_to_json
 
-from dotenv import load_dotenv
-load_dotenv()
-
-languages = {
+API_FOR_LANGUAGE = {
     "da": os.getenv("YOUTUBE_API_KEY_DA"),
     "es": os.getenv("YOUTUBE_API_KEY_ES"),
 }
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 
+
 class Video(db.Model):
-    __tablename__ = 'video'
+    __tablename__ = "video"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    video_id = db.Column(db.String(512), unique=True, nullable=False)
+    video_unique_key = db.Column(db.String(512), unique=True, nullable=False)
     title = db.Column(db.String(512))
     description = db.Column(db.Text)
     published_at = db.Column(db.DateTime)
@@ -42,16 +49,32 @@ class Video(db.Model):
     duration = db.Column(db.Integer)
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
     vtt = db.Column(db.Text)
-    plain_text = db.Column(db.Text)
+
+    source_id = db.Column(db.Integer, db.ForeignKey(Source.id), unique=True)
+    source = db.relationship(Source, foreign_keys="Video.source_id")
+
     fk_difficulty = db.Column(db.Integer)
 
     channel = db.relationship("YTChannel", back_populates="videos")
     language = db.relationship("Language")
     captions = db.relationship("Caption", back_populates="video")
 
-    def __init__(self, video_id, title, description, published_at, channel, thumbnail_url, duration, language, vtt, plain_text):
-        self.video_id = video_id
+    def __init__(
+        self,
+        video_unique_key,
+        title,
+        source,
+        description,
+        published_at,
+        channel,
+        thumbnail_url,
+        duration,
+        language,
+        vtt,
+    ):
+        self.video_unique_key = video_unique_key
         self.title = title
+        self.source = source
         self.description = description
         self.published_at = published_at
         self.channel = channel
@@ -59,16 +82,17 @@ class Video(db.Model):
         self.duration = duration
         self.language = language
         self.vtt = vtt
-        self.plain_text = plain_text
-        self.compute_fk_difficulty()
 
     def __repr__(self):
-        return f'<Video {self.title} ({self.video_id})>'
+        return f"<Video {self.title} ({self.video_unique_key})>"
+
+    def get_content(self):
+        return self.source.get_content()
 
     def as_dictionary(self):
         return dict(
             id=self.id,
-            video_id=self.video_id,
+            video_id=self.video_unique_key,
             title=self.title,
             description=self.description,
             published_at=self.published_at,
@@ -77,28 +101,21 @@ class Video(db.Model):
             duration=self.duration,
             language_id=self.language.id,
             vtt=self.vtt,
-            plain_text=self.plain_text
+            plain_text=self.plain_text,
         )
-
-    def compute_fk_difficulty(self):
-        fk_estimator = DifficultyEstimatorFactory.get_difficulty_estimator("fk")
-        fk_difficulty = fk_estimator.estimate_difficulty(
-            self.plain_text, self.language, None
-            )
-        self.fk_difficulty = fk_difficulty["grade"]
 
     @classmethod
     def find_or_create(
-        cls, 
-        session, 
+        cls,
+        session,
         video_id,
-        language, 
+        language,
     ):
         video = session.query(cls).filter_by(video_id=video_id).first()
 
         if video:
             return video
-        
+
         try:
             video_info = cls.fetch_video_info(video_id, language)
         except ValueError as e:
@@ -110,27 +127,41 @@ class Video(db.Model):
 
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
-        
-        title_lang = detect(video_info["title"]) if video_info["title"] else None
-        desc_lang = detect(video_info["description"]) if video_info["description"] else None
 
-        if title_lang and title_lang != language.code and desc_lang and desc_lang != language.code:
+        title_lang = detect(video_info["title"]) if video_info["title"] else None
+        desc_lang = (
+            detect(video_info["description"]) if video_info["description"] else None
+        )
+
+        if (
+            title_lang
+            and title_lang != language.code
+            and desc_lang
+            and desc_lang != language.code
+        ):
             print(f"Video {video_id} is not in {language.code}")
             return None
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
-        
+        source = Source.find_or_create(
+            session,
+            video_info["text"],
+            SourceType.find_by_type(SourceType.VIDEO),
+            language,
+            False,
+            False,
+        )
         new_video = cls(
-            video_id = video_id,
-            title = video_info["title"],
-            description = video_info["description"],
-            published_at = video_info["publishedAt"],
-            channel = channel,
-            thumbnail_url = video_info["thumbnail"],
-            duration = video_info["duration"],
-            language = language,
-            vtt = video_info["vtt"],
-            plain_text = video_info["text"]
+            video_id=video_id,
+            title=video_info["title"],
+            source=source,
+            description=video_info["description"],
+            published_at=video_info["publishedAt"],
+            channel=channel,
+            thumbnail_url=video_info["thumbnail"],
+            duration=video_info["duration"],
+            language=language,
+            vtt=video_info["vtt"],
         )
         session.add(new_video)
 
@@ -139,29 +170,26 @@ class Video(db.Model):
         except Exception as e:
             session.rollback()
             raise e
-        
 
         try:
             for caption in video_info["captions"]:
-                new_caption = Caption(
+                new_caption = Caption.create(
+                    session=session,
                     video=new_video,
                     time_start=caption["time_start"],
                     time_end=caption["time_end"],
-                    text=caption["text"]
+                    text=caption["text"],
                 )
                 session.add(new_caption)
             session.commit()
         except Exception as e:
             session.rollback()
             raise e
-        
+
         try:
             for tag_text in video_info["tags"]:
                 new_tag = VideoTag.find_or_create(session, tag_text)
-                video_tag_map = VideoTagMap(
-                    video=new_video,
-                    tag=new_tag
-                )
+                video_tag_map = VideoTagMap(video=new_video, tag=new_tag)
                 session.add(new_tag)
                 session.add(video_tag_map)
             session.commit()
@@ -169,20 +197,16 @@ class Video(db.Model):
             session.rollback()
             raise e
 
-
         # add topic
         print("Adding topic")
         try:
-            #topic_title = get_topic_classification_based_on_similar_content(new_video.plain_text)
-            topic_title = "Technology & Science"
-            print(f"Topic title: {topic_title}")
+            topic_title = get_topic_classification_based_on_similar_content(
+                new_video.plain_text
+            )
             if topic_title:
                 topic = session.query(Topic).filter_by(title=topic_title).first()
-                print(f"Topic: {topic}")
-                video_topic_map = VideoTopicMap(
-                    video=new_video,
-                    topic=topic
-                )
+                print(f"Topic inferred: {topic}")
+                video_topic_map = VideoTopicMap(video=new_video, topic=topic)
                 print(f"Video topic map: {video_topic_map}")
                 session.add(video_topic_map)
                 session.commit()
@@ -191,11 +215,21 @@ class Video(db.Model):
             raise e
 
         return new_video
-    
+
     @staticmethod
     def fetch_video_info(videoId, lang):
+        def _get_thumbnail(item):
+            return (
+                item["snippet"]["thumbnails"].get("maxres", {}).get("url")
+                or item["snippet"]["thumbnails"].get("high", {}).get("url")
+                or item["snippet"]["thumbnails"].get("medium", {}).get("url")
+                or item["snippet"]["thumbnails"]
+                .get("default", {})
+                .get("url", "No thumbnail available")
+            )
+
         VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
-        YOUTUBE_API_KEY = languages.get(lang)
+        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(lang)
 
         if not YOUTUBE_API_KEY:
             raise ValueError("Missing YOUTUBE_API_KEY environment variable")
@@ -210,29 +244,32 @@ class Video(db.Model):
 
         if "items" not in video_data or not video_data["items"]:
             raise ValueError(f"Video {videoId} not found, or API quota exceeded")
-        
+
         captions = Video.get_captions(videoId, lang)
         if captions is None:
             print(f"Could not fetch captions for video {videoId} in {lang}")
             return None
-        
+
         item = video_data["items"][0]
 
         video_info = {
             "videoId": videoId,
             "title": item["snippet"]["title"],
             "description": item["snippet"].get("description", ""),
-            "publishedAt": isodate.parse_datetime(item["snippet"]["publishedAt"]).replace(tzinfo=None),
+            "publishedAt": isodate.parse_datetime(
+                item["snippet"]["publishedAt"]
+            ).replace(tzinfo=None),
             "channelId": item["snippet"]["channelId"],
-            "thumbnail": item["snippet"]["thumbnails"].get("maxres", {}).get("url") or 
-                         item["snippet"]["thumbnails"].get("high", {}).get("url") or 
-                         item["snippet"]["thumbnails"].get("medium", {}).get("url") or 
-                         item["snippet"]["thumbnails"].get("default", {}).get("url", "No thumbnail available"),
+            "thumbnail": _get_thumbnail(item),
             "tags": item["snippet"].get("tags", []),
-            "duration": int(isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()),
+            "duration": int(
+                isodate.parse_duration(
+                    item["contentDetails"]["duration"]
+                ).total_seconds()
+            ),
             "vtt": captions["vtt"],
             "text": captions["text"],
-            "captions": captions["captions"]
+            "captions": captions["captions"],
         }
 
         return video_info
@@ -249,7 +286,9 @@ class Video(db.Model):
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
-                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                info = ydl.extract_info(
+                    f"https://www.youtube.com/watch?v={video_id}", download=False
+                )
                 subtitles = info.get("subtitles", {})
 
                 if lang in subtitles:
@@ -273,38 +312,28 @@ class Video(db.Model):
         captions = webvtt.read_buffer(vtt_file)
 
         for caption in captions:
-            captions_list.append({
-                "time_start": caption.start_in_seconds,
-                "time_end": caption.end_in_seconds,
-                "text": caption.text,
-            })
+            captions_list.append(
+                {
+                    "time_start": caption.start_in_seconds,
+                    "time_end": caption.end_in_seconds,
+                    "text": caption.text,
+                }
+            )
             full_text.append(caption.text)
-        
+
         return {
             "vtt": vtt_content,
             "text": "\n".join(full_text),
-            "captions": captions_list
+            "captions": captions_list,
         }
-    
+
     def video_info(self):
-        def fk_to_cefr(fk_difficulty):
-            if fk_difficulty < 17:
-                return "A1"
-            elif fk_difficulty < 34:
-                return "A2"
-            elif fk_difficulty < 51:
-                return "B1"
-            elif fk_difficulty < 68:
-                return "B2"
-            elif fk_difficulty < 85:
-                return "C1"
-            else:
-                return "C2"
-            
+
         summary = self.plain_text[:MAX_CHAR_COUNT_IN_SUMMARY]
         result_dict = dict(
             id=self.id,
-            video_id=self.video_id,
+            video_id=self.video_unique_key,
+            source_id=self.source.id,
             title=self.title,
             description=self.description,
             summary=summary,
@@ -313,16 +342,16 @@ class Video(db.Model):
             duration=self.duration,
             language_code=self.language.code,
             vtt=self.vtt,
-            plain_text=self.plain_text,
+            plain_text=self.get_content(),
             metrics=dict(
                 difficulty=self.fk_difficulty / 100,
                 cefr_level=fk_to_cefr(self.fk_difficulty),
-            )
+            ),
         )
 
         if self.published_at:
             result_dict["published_at"] = datetime_to_json(self.published_at)
-        
+
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
         tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
@@ -330,12 +359,22 @@ class Video(db.Model):
             {
                 "time_start": caption.time_start,
                 "time_end": caption.time_end,
-                "text": caption.text,
-                "tokenized_text": tokenizer.tokenize_text(caption.text, flatten=False),
+                "text": caption.get_content(),
+                "tokenized_text": tokenizer.tokenize_text(
+                    caption.get_content(), flatten=False
+                ),
+                "context_identifier": ContextIdentifier(
+                    ContextType.VIDEO_CAPTION, video_caption_id=caption.id
+                ),
             }
             for caption in self.captions
         ]
 
-        result_dict["tokenized_title"] = tokenizer.tokenize_text(self.title, flatten=False)
-        
+        result_dict["tokenized_title"] = {
+            "tokenized_title": tokenizer.tokenize_text(self.title, flatten=False),
+            "context_identifier": ContextIdentifier(
+                ContextType.VIDEO_TITLE, video_id=self.id
+            ),
+        }
+
         return result_dict

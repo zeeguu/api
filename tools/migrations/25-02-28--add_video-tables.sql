@@ -4,7 +4,7 @@ CREATE TABLE `yt_channel` (
   `channel_id` varchar(512) NOT NULL,
   `name` varchar(512) DEFAULT NULL,
   `description` mediumtext,
-  `views` bigint DEFAULT NULL,
+  `views` bigint unsigned DEFAULT NULL,
   `subscribers` int unsigned DEFAULT NULL,
   `language_id` int DEFAULT NULL,
   `should_crawl` int DEFAULT NULL,
@@ -18,7 +18,8 @@ CREATE TABLE `yt_channel` (
 -- Assuming 'yt_channel' table exists
 CREATE TABLE `video` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `video_id` varchar(512) NOT NULL,
+  `source_id` int NULL,
+  `video_unique_key` varchar(512) NOT NULL,
   `title` varchar(512) NULL,
   `description` mediumtext,
   `published_at` datetime DEFAULT NULL,
@@ -27,12 +28,13 @@ CREATE TABLE `video` (
   `duration` int DEFAULT NULL,
   `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
-  `plain_text` mediumtext,
-  `fk_difficulty`int DEFAULT NULL,
+  `fk_difficulty` int DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `video_unique_video_id` (`video_id`),
+  UNIQUE KEY `video_unique_key_constraint` (`video_unique_key`),
   KEY `video_language_FK` (`language_id`),
   KEY `video_yt_channel_FK` (`channel_id`),
+  KEY `source_id_FK` (`source_id`),
+  CONSTRAINT `source_id_FK` FOREIGN KEY (`source_id`) REFERENCES `zeeguu_test`.`source` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `video_language_FK` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`),
   CONSTRAINT `video_yt_channel_FK` FOREIGN KEY (`channel_id`) REFERENCES `yt_channel` (`id`)
 );
@@ -41,12 +43,14 @@ CREATE TABLE `video` (
 CREATE TABLE `caption` (
   `id` int NOT NULL AUTO_INCREMENT,
   `video_id` int NOT NULL,
+  `text_id` int NULL,
   `time_start` int DEFAULT NULL,
   `time_end` int DEFAULT NULL,
-  `text` varchar(512) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `caption_video_FK` (`video_id`),
-  CONSTRAINT `caption_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
+  KEY `text_FK` (`text_id`),
+  CONSTRAINT `caption_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
+  CONSTRAINT `text_FK` FOREIGN KEY (`text_id`) REFERENCES `new_text` (`id`)
 );
 
 CREATE TABLE `video_tag` (
@@ -59,13 +63,19 @@ CREATE TABLE `video_tag` (
 CREATE TABLE `video_tag_map` (
   `video_id` int NOT NULL,
   `tag_id` int NOT NULL,
-  PRIMARY KEY (`video_id, tag_id`),
+  PRIMARY KEY (`video_id`, `tag_id`),
   KEY `video_tag_map_video_FK` (`video_id`),
   KEY `video_tag_map_tag_FK` (`tag_id`),
   CONSTRAINT `video_tag_map_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
   CONSTRAINT `video_tag_map_tag_FK` FOREIGN KEY (`tag_id`) REFERENCES `video_tag` (`id`)
 );
 
-
--- INSERT INTO yt_channel(channel_id, name, description, views, subscribers, language_id, should_crawl, last_crawled) VALUES ('UCMNMJW01ZNlSERud6oUnMyg', 'Naturen i Danmark', 'blabla', 756786, 8260, 2, 1, NOW());
--- INSERT INTO video(video_id, description, published_at, channel_id, thumbnail_url, tags, duration, language_id, vtt, plain_text) VALUES ('EWnStY9O4CA', 'blablabla', NOW(), 1, 'https://i.ytimg.com/vi/EWnStY9O4CA/hqdefault.jpg', 'tag1, tag2', 609, 2, 'vtt', 'plain text');
+CREATE TABLE `video_topic_map` (
+  `video_id` int NOT NULL,
+  `topic_id` int NOT NULL,
+  PRIMARY KEY (`video_id`, `topic_id`),
+  KEY `video_topic_map_video_FK` (`video_id`),
+  KEY `video_topic_map_tag_FK` (`topic_id`),
+  CONSTRAINT `video_topic_map_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
+  CONSTRAINT `video_topic_map_tag_FK` FOREIGN KEY (`topic_id`) REFERENCES `topic` (`id`)
+);
