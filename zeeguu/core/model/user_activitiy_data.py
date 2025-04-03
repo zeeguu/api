@@ -387,7 +387,6 @@ class UserActivityData(db.Model):
 
     @classmethod
     def create_from_post_data(cls, session, data, user):
-        print("DATA THAT I GOT!: ", data)
         _time = data.get("time", None)
         time = None
         if _time:

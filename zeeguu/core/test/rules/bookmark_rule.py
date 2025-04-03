@@ -8,7 +8,6 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_word_rule import UserWordRule
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.source import Source
 
 
 class BookmarkRule(BaseRule):
@@ -68,7 +67,6 @@ class BookmarkRule(BaseRule):
                 random_translation_word, random_translation_language
             ).user_word
             random_date = self.faker.date_time_this_month()
-            from zeeguu.core.test.rules.source_rule import SourceRule
 
             source_article = random_text.article.source
 

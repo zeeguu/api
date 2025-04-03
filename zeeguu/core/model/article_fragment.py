@@ -11,7 +11,7 @@ class ArticleFragment(db.Model):
     We use this to keep some of the rich formatting from the webpage, such as H1, Imgs etc.
     """
 
-    from zeeguu.core.model.text import Text
+    from zeeguu.core.model.new_text import NewText
     from zeeguu.core.model.article import Article
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -20,8 +20,8 @@ class ArticleFragment(db.Model):
     article_id = Column(Integer, ForeignKey(Article.id))
     article = relationship(Article)
 
-    text_id = Column(Integer, ForeignKey(Text.id))
-    text = relationship(Text, foreign_keys="ArticleFragment.text_id")
+    text_id = Column(Integer, ForeignKey(NewText.id))
+    text = relationship(NewText, foreign_keys="ArticleFragment.text_id")
 
     order = Column(Integer)
     formatting = Column(String(20))
@@ -78,9 +78,9 @@ class ArticleFragment(db.Model):
         formatting: str = None,
         commit=True,
     ):
-        from zeeguu.core.model.text import Text
+        from zeeguu.core.model.new_text import NewText
 
-        text_row = Text.find_or_create(session, text, commit=commit)
+        text_row = NewText.find_or_create(session, text, commit=commit)
         try:
             return cls.query.filter_by(
                 article=article, text_id=text_row.id, order=order

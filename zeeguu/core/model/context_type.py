@@ -44,11 +44,6 @@ class ContextType(db.Model):
     def __repr__(self):
         return f"<ContextType {self.type}>"
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return self.type == other.type
-
     @classmethod
     def find_by_id(cls, context_type_id: int):
         return cls.query.filter(cls.id == context_type_id).one()

@@ -29,15 +29,6 @@ punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
-def helper_get_context_identifier(form: dict):
-    return ContextIdentifier(
-        form.get("context_identifier[context_type]", None),
-        article_fragment_id=form.get("context_identifier[article_fragment_id]", None),
-        article_id=form.get("context_identifier[article_id]", None),
-        video_id=form.get("context_identifier[video_id]", None),
-    )
-
-
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session

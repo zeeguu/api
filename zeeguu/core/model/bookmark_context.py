@@ -1,5 +1,5 @@
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.text import Text
+from zeeguu.core.model.new_text import NewText
 
 from zeeguu.core.model import db
 import sqlalchemy
@@ -63,8 +63,8 @@ class BookmarkContext(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
-    text = db.relationship(Text, foreign_keys="BookmarkContext.text_id")
+    text_id = db.Column(db.Integer, db.ForeignKey(NewText.id))
+    text = db.relationship(NewText, foreign_keys="BookmarkContext.text_id")
 
     context_type_id = db.Column(db.Integer, db.ForeignKey(ContextType.id))
     context_type = db.relationship(
@@ -166,11 +166,10 @@ class BookmarkContext(db.Model):
         """
         from zeeguu.core.model.context_type import ContextType
 
-        print("Creating BookmarkContext!")
-        text_row = Text.find_or_create(session, content, commit=commit)
+        text_row = NewText.find_or_create(session, content, commit=commit)
         if context_type:
             context_type = ContextType.find_by_type(context_type)
-        print("Got text: ", text_row)
+
         try:
             return (
                 cls.query.filter(cls.text == text_row)

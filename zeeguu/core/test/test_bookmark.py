@@ -63,16 +63,12 @@ class BookmarkTest(ModelTestMixIn):
         article = random_bookmark.text.article
         # each bookmark belongs to a random text / article so the
         # combo of user/article will always result in one bookmark
-        assert 1 == len(
-            Bookmark.find_all_for_user_and_source(self.user, random_bookmark.source)
-        )
+        assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
 
     def test_text_is_not_too_long(self):
-        from zeeguu.core.test.rules.bookmark_context_rule import BookmarkContextRule
-
         random_bookmark = BookmarkRule(self.user).bookmark
-        random_text_short = self.faker.text(max_nb_chars=10)
-        random_bookmark.context = BookmarkContextRule(text=random_text_short).context
+        random_text_short = TextRule(length=10).text
+        random_bookmark.text = random_text_short
 
         assert random_bookmark.content_is_not_too_long()
 
