@@ -1,9 +1,9 @@
 """
 
- Recommender that uses ElasticSearch instead of mysql for searching.
- Based on mixed recommender.
- Still uses MySQL to find relations between the user and things such as:
-   - topics, language and user subscriptions.
+Recommender that uses ElasticSearch instead of mysql for searching.
+Based on mixed recommender.
+Still uses MySQL to find relations between the user and things such as:
+  - topics, language and user subscriptions.
 
 """
 
@@ -215,6 +215,8 @@ def article_search_for_user(
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
+    print([(hit["_source"]["title"], hit["_id"], hit["_score"]) for hit in hit_list])
+
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
     final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
@@ -294,6 +296,7 @@ def _to_articles_from_ES_hits(hits):
     articles = []
     for hit in hits:
         articles.append(Article.find_by_id(hit.get("_id")))
+
     return articles
 
 

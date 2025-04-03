@@ -14,7 +14,6 @@ from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.source import Source
-from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.learning_cycle import LearningCycle
@@ -54,9 +53,6 @@ class Bookmark(db.Model):
 
     source_id = db.Column(db.Integer, db.ForeignKey(Source.id))
     source = db.relationship(Source)
-
-    text_id = db.Column(db.Integer, db.ForeignKey(Text.id))
-    text = db.relationship(Text)
 
     context_id = db.Column(db.Integer, db.ForeignKey(BookmarkContext.id))
     context = db.relationship(BookmarkContext)
@@ -99,7 +95,6 @@ class Bookmark(db.Model):
         translation: UserWord,
         user: "User",
         source: Source,
-        text: str,
         time: datetime,
         learning_cycle: int = LearningCycle.NOT_SET,
         sentence_i: int = None,
@@ -113,7 +108,6 @@ class Bookmark(db.Model):
         self.user = user
         self.source = source
         self.time = time
-        self.text = text
         self.starred = False
         self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
@@ -137,10 +131,7 @@ class Bookmark(db.Model):
         return self.learned_time is not None
 
     def get_context(self):
-        if self.context:
-            return self.context.get_content()
-        else:
-            return self.text.content
+        return self.context.get_content()
 
     def get_scheduler(self):
         from zeeguu.core.word_scheduling import get_scheduler
@@ -300,6 +291,7 @@ class Bookmark(db.Model):
                 from sentry_sdk import capture_exception
 
                 capture_exception(e)
+                print(e)
                 print(f"could not find article title for bookmark with id: {self.id}")
             result["title"] = bookmark_title
 
@@ -368,7 +360,6 @@ class Bookmark(db.Model):
             to=translation_word,
             from_lang=self.origin.language.code,
             to_lang=translation_language,
-            url=self.text.url(),
             origin_importance=word_info.importance,
             learned_datetime=learned_datetime,
             origin_rank=word_info.rank if word_info.rank != 100000 else "",
@@ -490,10 +481,8 @@ class Bookmark(db.Model):
         sentence_i: int = None,
         token_i: int = None,
         total_tokens: int = None,
-        c_paragraph_i: int = None,
         c_sentence_i: int = None,
         c_token_i: int = None,
-        in_content: bool = None,
         left_ellipsis: bool = None,
         right_ellipsis: bool = None,
         context_identifier: ContextIdentifier = None,
@@ -527,20 +516,6 @@ class Bookmark(db.Model):
             right_ellipsis,
         )
 
-        text = Text.find_or_create(
-            session,
-            _context,
-            origin_lang,
-            None,
-            article,
-            c_paragraph_i,
-            c_sentence_i,
-            c_token_i,
-            in_content,
-            left_ellipsis,
-            right_ellipsis,
-        )
-
         translation = UserWord.find_or_create(session, _translation, translation_lang)
 
         now = datetime.now()
@@ -553,6 +528,21 @@ class Bookmark(db.Model):
             bookmark.translation = translation
 
         except sqlalchemy.orm.exc.NoResultFound as e:
+            print("Trying to create bookmark")
+            print(
+                (origin, type(origin)),
+                (translation, type(translation)),
+                (user, type(user)),
+                (source,),
+                now,
+                learning_cycle,
+                sentence_i,
+                token_i,
+                total_tokens,
+                context,
+                _context,
+                level,
+            )
             bookmark = cls(
                 origin,
                 translation,

@@ -64,9 +64,21 @@ class Source(db.Model):
     ):
         source_text = SourceText.find_or_create(session, text, commit=commit)
         try:
-            return cls.query.filter_by(
+            source = cls.query.filter_by(
                 source_text=source_text, source_type=source_type, language=language
             ).one()
+
+            if source.broken == 0 and broken > 0:
+                # If we find the source, and passed a broken flag, then update the
+                # source to be broken. This is relevant for when we have multiple articles
+                # and in the past, we weren't as good at filtering "broken" documents.
+                # In this way, if any have been marked as broken, all others will also be
+                # marked as broken.
+                source.broken = broken
+                session.add(source)
+                if commit:
+                    session.commit()
+            return source
 
         except NoResultFound:
             new = cls(

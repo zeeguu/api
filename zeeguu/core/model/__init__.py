@@ -34,7 +34,6 @@ from .url import Url
 from .domain_name import DomainName
 from .article import Article
 from .bookmark import Bookmark
-from .text import Text
 from .user_word import UserWord
 from .user_preference import UserPreference
 from .session import Session
@@ -89,3 +88,9 @@ from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .personal_copy import PersonalCopy
 
 from .difficulty_lingo_rank import DifficultyLingoRank
+
+from .yt_channel import YTChannel
+from .video import Video
+from .caption import Caption
+from .video_tag import VideoTag
+from .video_tag_map import VideoTagMap
