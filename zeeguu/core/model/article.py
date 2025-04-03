@@ -406,7 +406,7 @@ class Article(db.Model):
         article_broken_map = ArticleBrokenMap.find_or_create(session, self, broken_code)
         self.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         if self.source:
-            self.source.broken = broken_code
+            self.source.broken = MARKED_BROKEN_DUE_TO_LOW_QUALITY
         session.add(article_broken_map)
         session.add(self)
         session.commit()
