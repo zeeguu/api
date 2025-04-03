@@ -217,9 +217,24 @@ def update_translation(bookmark_id):
         db_session, translation_str, bookmark.translation.language
     )
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
+    prev_text = Text.find_by_id(bookmark.text_id)
 
+    is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
 
+    text = Text.find_or_create(
+        db_session,
+        context_str,
+        bookmark.origin.language,
+        bookmark.text.url,
+        bookmark.text.article if is_same_text else None,
+        prev_text.paragraph_i if is_same_text else None,
+        prev_text.sentence_i if is_same_text else None,
+        prev_text.token_i if is_same_text else None,
+        prev_text.in_content if is_same_text else None,
+        prev_text.left_ellipsis if is_same_text else None,
+        prev_text.right_ellipsis if is_same_text else None,
+    )
     from zeeguu.core.model.context_type import ContextType
 
     ## TO-DO: Update context type once web sends that information.
@@ -235,9 +250,10 @@ def update_translation(bookmark_id):
     )
 
     bookmark.translation = translation
+    bookmark.text = text
     bookmark.context = context
 
-    if not is_same_context or bookmark.origin.word != word_str:
+    if not is_same_text or not is_same_context or bookmark.origin.word != word_str:
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
@@ -357,6 +373,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         c_paragraph_i=c_paragraph_i,
         c_sentence_i=c_sent_i,
         c_token_i=c_token_i,
+        in_content=in_content,
         left_ellipsis=left_ellipsis,
         right_ellipsis=right_ellipsis,
         sentence_i=w_sent_i,

@@ -14,7 +14,7 @@ class ContextType(db.Model):
     ARTICLE_TITLE = "ArticleTitle"
     ARTICLE_SUMMARY = "ArticleSummary"
     VIDEO_TITLE = "VideoTitle"
-    VIDEO_CAPTION = "VideoSubtitle"
+    VIDEO_CAPTION = "VideoCaption"
     WEB_FRAGMENT = "WebFragment"
     USER_EDITED_TEXT = "UserEditedText"
     ORPHAN_CONTEXT = "OrphanContext"
