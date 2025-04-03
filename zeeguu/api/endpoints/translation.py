@@ -24,6 +24,8 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.text import Text
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
