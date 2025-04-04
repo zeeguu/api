@@ -1,15 +1,14 @@
 """
 
- Recommender that uses ElasticSearch instead of mysql for searching.
- Based on mixed recommender.
- Still uses MySQL to find relations between the user and things such as:
-   - topics, language and user subscriptions.
+Recommender that uses ElasticSearch instead of mysql for searching.
+Based on mixed recommender.
+Still uses MySQL to find relations between the user and things such as:
+  - topics, language and user subscriptions.
 
 """
 
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Q, SF
-from pprint import pprint
+from elasticsearch_dsl import Search, Q
 
 from zeeguu.core.model import (
     Article,
@@ -28,6 +27,7 @@ from zeeguu.core.elastic.elastic_query_builder import (
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+from zeeguu.core.model.user_activitiy_data import UserActivityData
 
 
 def filter_hits_on_score(hits, score_threshold):
@@ -77,6 +77,10 @@ def _prepare_user_constraints(user):
         wanted_user_searches.append(sub.search.keywords)
     print(f"keywords to include: {wanted_user_searches}")
 
+    # 7. User ignored sources
+    # =========================================
+    user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
+
     return (
         language,
         upper_bounds,
@@ -85,6 +89,7 @@ def _prepare_user_constraints(user):
         _topics_to_string(topics_to_exclude),
         _list_to_string(wanted_user_searches),
         _list_to_string(unwanted_user_searches),
+        user_ignored_sources,
     )
 
 
@@ -124,10 +129,11 @@ def article_recommendations_for_user(
         topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
+        user_ignored_sources,
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
-
+    print("User ignored_sources: ", user_ignored_sources)
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -141,6 +147,7 @@ def article_recommendations_for_user(
         es_decay,
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
+        user_ignored_sources=user_ignored_sources,
         page=page,
     )
 
@@ -195,6 +202,7 @@ def article_search_for_user(
         topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
+        _,
     ) = _prepare_user_constraints(user)
 
     # build the query using elastic_query_builder
@@ -293,7 +301,7 @@ def _topics_to_string(input_list):
 def _to_articles_from_ES_hits(hits):
     articles = []
     for hit in hits:
-        articles.append(Article.find_by_id(hit.get("_id")))
+        articles.append(Article.find_by_id(hit["_source"]["article_id"]))
     return articles
 
 
@@ -321,7 +329,8 @@ def __find_articles_like(
     fields = ["content", "title"]
     language = Language.find_by_id(language_id)
     like_documents = [
-        {"_index": ES_ZINDEX, "_id": str(doc_id)} for doc_id in recommended_articles_ids
+        {"_index": ES_ZINDEX, "article_id": str(doc_id)}
+        for doc_id in recommended_articles_ids
     ]
 
     mlt_query = build_elastic_more_like_this_query(

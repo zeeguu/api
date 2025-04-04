@@ -153,5 +153,5 @@ def find_articles_based_on_text(text, k: int = 9):  # hood = (slang) neighborhoo
 def _to_articles_from_ES_hits(hits):
     articles = []
     for hit in hits:
-        articles.append(Article.find_by_id(hit.get("_id")))
+        articles.append(Article.find_by_id(hit["_source"]["article_id"]))
     return articles

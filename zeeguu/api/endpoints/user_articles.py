@@ -38,8 +38,11 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     user = User.find_by_id(flask.g.user_id)
     try:
         articles = article_recommendations_for_user(user, count, page)
+    except Exception as e:
+        import traceback
 
-    except:
+        print(traceback.format_exc())
+        print("### ES Query failed with: ", e)
         # we failed to get recommendations from elastic
         # return something
         articles = (
