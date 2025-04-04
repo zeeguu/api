@@ -43,7 +43,9 @@ def origin_is_subsumed_in_other_bookmark(self):
     """
     from zeeguu.core.model.bookmark import Bookmark
 
-    all_bookmarks_in_text = Bookmark.find_all_for_text_and_user(self.text, self.user)
+    all_bookmarks_in_text = Bookmark.find_all_for_context_and_user(
+        self.context, self.user
+    )
 
     for each in all_bookmarks_in_text:
         if each != self:
@@ -66,5 +68,5 @@ def translation_already_in_context_bug(self):
     # where the translation is inserted in the text
     # till we fix it, we should not show this
 
-    if self.translation.word in self.text.content:
+    if self.translation.word in self.get_context():
         return True

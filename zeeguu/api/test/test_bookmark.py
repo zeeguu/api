@@ -35,41 +35,16 @@ def test_contribute_own_translation(client):
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
 
-    data = dict(
-        word=bookmark1["from"],
-        url=bookmark1["url"],
-        title=bookmark1["title"],
-        context=bookmark1["context"],
-        translation="companion",
-        context_identifier=json.dumps(bookmark1["context_identifier"]),
-    )
+    data = {
+        "word": bookmark1["from"],
+        "url": bookmark1["url"],
+        "title": bookmark1["title"],
+        "context": bookmark1["context"],
+        "translation": "companion",
+        "context_identifier": bookmark1["context_identifier"],
+    }
 
-    client.post("contribute_translation/de/en", data)
-
-    # THEN
-
-    all_bookmarks = _get_bookmarks_by_day(client)
-    bookmark = _first_bookmark_on_day1(all_bookmarks)
-    assert "companion" in str(bookmark)
-
-
-def test_contribute_own_translation_no_context_type(client):
-    ## Can be removed after Migration with Sources
-    add_context_types()
-    add_source_types()
-    bookmark_id = add_one_bookmark(client)
-    all_bookmarks = _get_bookmarks_by_day(client)
-    bookmark1 = _first_bookmark_on_day1(all_bookmarks)
-
-    data = dict(
-        word=bookmark1["from"],
-        url=bookmark1["url"],
-        title=bookmark1["title"],
-        context=bookmark1["context"],
-        translation="companion",
-    )
-
-    client.post("contribute_translation/de/en", data)
+    client.post("contribute_translation/de/en", json=data)
 
     # THEN
 
@@ -87,22 +62,23 @@ def test_update_bookmark(client):
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
     bookmark1_id = bookmark1["id"]
     # WHEN
-    data = dict(
-        word=bookmark1["from"],
-        url=bookmark1["url"],
-        title=bookmark1["title"],
-        context="a new context Freund",
-        translation="companion",
-    )
+    data = {
+        "word": bookmark1["from"],
+        "url": bookmark1["url"],
+        "title": bookmark1["title"],
+        "context": "hinter den Horizon",
+        "translation": "beyond",
+        "context_identifier": bookmark1["context_identifier"],
+    }
 
-    client.post(f"update_bookmark/{bookmark1_id}", data)
+    client.post(f"update_bookmark/{bookmark1_id}", json=data)
 
     # THEN
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark = _first_bookmark_on_day1(all_bookmarks)
 
-    assert "companion" == bookmark["to"]
-    assert "a new context Freund" == bookmark["context"]
+    assert "beyond" == bookmark["to"]
+    assert "hinter den Horizon" == bookmark["context"]
 
 
 # Basic hitting of the /top_bookmarks endpoint

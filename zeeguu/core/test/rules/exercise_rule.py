@@ -2,7 +2,7 @@ import random
 
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
-from zeeguu.core.test.rules.source_rule import SourceRule
+from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.model.exercise import Exercise
 from datetime import datetime
 
@@ -25,7 +25,7 @@ class ExerciseRule(BaseRule):
     ):
 
         random_outcome = outcome if outcome else OutcomeRule().random
-        random_source = SourceRule().random
+        random_source = ExerciseSourceRule().random
         random_speed = random.randint(500, 5000)
         random_time = date if date else self.faker.date_time_this_year()
         new_exercise = Exercise(

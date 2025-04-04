@@ -104,8 +104,10 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
 
     """
     user = User.find_by_id(flask.g.user_id)
-    last_sessions = UserActivityData.get_scroll_events_for_user_in_date_range(
-        user, limit=total_sessions
+    last_sessions = (
+        UserActivityData.get_articles_with_reading_percentages_for_user_in_date_range(
+            user, limit=total_sessions
+        )
     )
     list_result = []
     for s in last_sessions:

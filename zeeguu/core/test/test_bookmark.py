@@ -1,6 +1,6 @@
 import random
 
-from zeeguu.core.bookmark_quality import top_bookmarks, bad_quality_bookmark
+from zeeguu.core.bookmark_quality import bad_quality_bookmark
 from zeeguu.core.definition_of_learned import is_learned_based_on_exercise_outcomes
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -9,7 +9,7 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.exercise_rule import ExerciseRule
 from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
-from zeeguu.core.test.rules.source_rule import SourceRule
+from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
@@ -61,7 +61,6 @@ class BookmarkTest(ModelTestMixIn):
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
         article = random_bookmark.text.article
-
         # each bookmark belongs to a random text / article so the
         # combo of user/article will always result in one bookmark
         assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
@@ -126,7 +125,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
         random_bookmark.add_new_exercise_result(
-            SourceRule().random,
+            ExerciseSourceRule().random,
             OutcomeRule().random,
             random.randint(100, 1000),
             exercise_session.id,
@@ -150,10 +149,10 @@ class BookmarkTest(ModelTestMixIn):
         for b in list_should_be:
             assert b in list_to_check
 
-    def find_all_for_user_and_text(self):
+    def test_find_all_for_user_and_context(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_all_for_text_and_user(
-            bookmark_should_be.text, self.user
+        bookmark_to_check = Bookmark.find_all_for_context_and_user(
+            bookmark_should_be.context, self.user
         )
 
         assert bookmark_should_be in bookmark_to_check
@@ -172,10 +171,10 @@ class BookmarkTest(ModelTestMixIn):
 
         assert bookmark_should_be in bookmark_to_check
 
-    def test_find_by_user_word_and_text(self):
+    def test_find_by_user_word_and_context(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_by_user_word_and_text(
-            self.user, bookmark_should_be.origin, bookmark_should_be.text
+        bookmark_to_check = Bookmark.find_by_user_word_and_context(
+            self.user, bookmark_should_be.origin, bookmark_should_be.context
         )
 
         assert bookmark_to_check == bookmark_should_be
@@ -373,6 +372,3 @@ class BookmarkTest(ModelTestMixIn):
 
         learned = wrong_exercise_bookmark.is_learned_based_on_exercise_outcomes()
         assert not learned
-
-    def test_top_bookmarks(self):
-        assert top_bookmarks(self.user)
