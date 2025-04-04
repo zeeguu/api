@@ -11,6 +11,8 @@ services:
       MYSQL_PASSWORD: ${ZEEGUU_MYSQL_USER_PASSWORD}
     networks:
       - zeeguu_backend
+    ports:
+      - "3306:3306"
     restart: unless-stopped
 
   # main db

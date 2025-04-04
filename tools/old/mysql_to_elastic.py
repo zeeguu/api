@@ -1,7 +1,7 @@
 # coding=utf-8
 import sqlalchemy as database
 from zeeguu.api.app import create_app
-from zeeguu.core.elastic.indexing import create_or_update, document_from_article
+from zeeguu.core.elastic.indexing import create_or_update_article, document_from_source
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core
@@ -32,7 +32,7 @@ def main(starting_index):
         max_id = 0
     if min_id is None:
         min_id = 0
-    
+
     print(f"starting import at: {starting_index}")
     print(f"max id in db: {max_id}")
 
@@ -44,7 +44,7 @@ def main(starting_index):
             if article:
                 print(article.title)
                 print(article.id)
-                res = create_or_update(article, session)
+                res = create_or_update_article(article, session)
                 print(res)
         except NoResultFound:
             print(f"fail for: {i}")
