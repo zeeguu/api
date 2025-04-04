@@ -297,10 +297,11 @@ class Bookmark(db.Model):
             try:
                 bookmark_title = self.get_source_title()
             except Exception as e:
-                from sentry_sdk import capture_exception
+                from zeeguu.logging import print_and_log_to_sentry
 
-                capture_exception(e)
                 print(f"could not find article title for bookmark with id: {self.id}")
+                print_and_log_to_sentry(e)
+
             result["title"] = bookmark_title
 
         if with_context_tokenized:

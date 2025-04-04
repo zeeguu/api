@@ -2,9 +2,22 @@ import os
 import requests
 from zeeguu.core.model import Article
 
+
 EMB_API_CONN_STRING = os.environ.get(
     "ZEEGUU_EMB_API_CONN_STRING", "http://127.0.0.1:8000"
 )
+
+
+def get_embedding_from_video(v):
+
+    r = requests.post(
+        url=f"{EMB_API_CONN_STRING}/get_article_embedding",
+        json={
+            "article_content": v.get_content(),
+            "article_language": v.language.name.lower(),
+        },
+    )
+    return r.json()
 
 
 def get_embedding_from_article(a: Article):

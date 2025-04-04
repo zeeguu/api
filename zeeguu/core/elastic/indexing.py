@@ -4,10 +4,15 @@ from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.semantic_vector_api import get_embedding_from_article
+from zeeguu.core.semantic_vector_api import (
+    get_embedding_from_article,
+    get_embedding_from_video,
+)
+from zeeguu.core.model.video_topic_map import VideoTopicMap
+from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
 
 
-def find_topics(article_id, session):
+def find_topics_article(article_id, session):
     article_topics = (
         session.query(Topic)
         .join(ArticleTopicMap)
@@ -25,6 +30,24 @@ def find_topics(article_id, session):
     return article_topics, inferred_article_topics
 
 
+def find_topics_video(video_id, session):
+    video_topics = (
+        session.query(Topic)
+        .join(VideoTopicMap)
+        .filter(VideoTopicMap.video_id == video_id)
+        .filter(VideoTopicMap.origin_type != TopicOriginType.INFERRED.value)
+        .all()
+    )
+    inferred_video_topics = (
+        session.query(Topic)
+        .join(VideoTopicMap)
+        .filter(VideoTopicMap.video_id == video_id)
+        .filter(VideoTopicMap.origin_type == TopicOriginType.INFERRED.value)
+        .all()
+    )
+    return video_topics, inferred_video_topics
+
+
 def find_filter_url_keywords(article_id, session):
     article_url_keywords = (
         session.query(UrlKeyword)
@@ -39,8 +62,35 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
+def document_from_video(video, session, current_doc=None):
+    topics, topics_inferred = find_topics_video(video.id, session)
+    embedding_generation_required = True
+    video_text = video.get_content()
+    summary = video_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+    doc = {
+        "video_id": video.id,
+        "title": video.title,
+        "channel": video.channel.name,
+        "content": video.get_content(),
+        "summary": summary,
+        "description": video.description,
+        "word_count": video.source.word_count,
+        "published_time": video.published_at,
+        "crawled_time": video.crawled_at,
+        "topics_inferred": [t.title for t in topics_inferred],
+        "language": video.language.name,
+        "fk_difficulty": video.source.fk_difficulty,
+    }
+    if not embedding_generation_required and current_doc is not None:
+        doc["sem_vec"] = current_doc["sem_vec"]
+    else:
+        doc["sem_vec"] = get_embedding_from_video(video)
+    return doc
+
+
 def document_from_article(article, session, current_doc=None):
-    topics, topics_inferred = find_topics(article.id, session)
+    doc = {}
+    topics, topics_inferred = find_topics_article(article.id, session)
     embedding_generation_required = current_doc is None
     # Embeddings only need to be re-computed if the document
     # doesn't exist or the text is updated.
@@ -49,11 +99,12 @@ def document_from_article(article, session, current_doc=None):
     if current_doc is not None:
         embedding_generation_required = current_doc["content"] != article.get_content()
     doc = {
+        "article_id": article.id,
         "title": article.title,
         "author": article.authors,
         "content": article.get_content(),
         "summary": article.summary,
-        "word_count": article.word_count,
+        "word_count": article.get_word_count(),
         "published_time": article.published_time,
         "topics": [t.title for t in topics],
         # We need to avoid using these as a way to classify further documents
@@ -61,10 +112,10 @@ def document_from_article(article, session, current_doc=None):
         # rather than infer on inferences.
         "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
-        "fk_difficulty": article.fk_difficulty,
+        "fk_difficulty": article.get_fk_difficulty(),
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
         "url": article.url.as_string(),
-        "video": article.video,
+        "video": int(article.video),
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = current_doc["sem_vec"]
@@ -73,19 +124,22 @@ def document_from_article(article, session, current_doc=None):
     return doc
 
 
-def create_or_update(article, session):
+def create_or_update_article(article, session):
     es = Elasticsearch(ES_CONN_STRING)
     doc = document_from_article(article, session)
+    res = es.index(index=ES_ZINDEX, body=doc)
+    return res
 
-    if es.exists(index=ES_ZINDEX, id=article.id):
-        es.delete(index=ES_ZINDEX, id=article.id)
 
-    res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
-
+def create_or_update_video(video, session):
+    es = Elasticsearch(ES_CONN_STRING)
+    doc = document_from_video(video, session)
+    res = es.index(index=ES_ZINDEX, body=doc)
     return res
 
 
 def create_or_update_doc_for_bulk(article, session):
+    # TO-DO: Update once migraton is complete with videos (needs to check what the source is)
     es = Elasticsearch(ES_CONN_STRING)
     doc_data = document_from_article(article, session)
     doc = {}

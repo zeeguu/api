@@ -17,7 +17,6 @@ class Text(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(64000))
-
     content_hash = db.Column(db.String(64))
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
@@ -184,6 +183,7 @@ class Text(db.Model):
         # i guess the clients sometimes clean up the context
         # and some other times don't.
         # we fix it here now
+
         clean_text = text.strip()
         try:
             return (
