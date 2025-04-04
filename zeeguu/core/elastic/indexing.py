@@ -4,7 +4,10 @@ from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
 from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.semantic_vector_api import get_embedding_from_article
+from zeeguu.core.semantic_vector_api import (
+    get_embedding_from_article,
+    get_embedding_from_video,
+)
 from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
 
@@ -59,110 +62,98 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
-def document_from_source(source, session, current_doc=None, is_video=False):
-    doc = {}
-    if is_video:
-        topics, topics_inferred = find_topics_video(source.id, session)
-        embedding_generation_required = True
-        video_text = source.get_content()
-        summary = video_text[:MAX_CHAR_COUNT_IN_SUMMARY]
-        doc = {
-            "title": source.title,
-            "channel": source.channel.name,
-            "content": source.get_content(),
-            "summary": summary,
-            "description": source.description,
-            "word_count": source.source.word_count,
-            "published_time": source.published_at,
-            # We need to avoid using these as a way to classify further documents
-            # (we should rely on the human labels to classify further articles)
-            # rather than infer on inferences.
-            "topics_inferred": [t.title for t in topics_inferred],
-            "language": source.language.name,
-            "fk_difficulty": source.source.fk_difficulty,
-            "video": int(is_video),
-        }
-        if not embedding_generation_required and current_doc is not None:
-            doc["sem_vec"] = current_doc["sem_vec"]
-        else:
-            doc["sem_vec"] = get_embedding_from_article(source)
+def document_from_video(video, session, current_doc=None):
+    topics, topics_inferred = find_topics_video(video.id, session)
+    embedding_generation_required = True
+    video_text = video.get_content()
+    summary = video_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+    doc = {
+        "video_id": video.id,
+        "title": video.title,
+        "channel": video.channel.name,
+        "content": video.get_content(),
+        "summary": summary,
+        "description": video.description,
+        "word_count": video.source.word_count,
+        "published_time": video.published_at,
+        "crawled_time": video.crawled_at,
+        "topics_inferred": [t.title for t in topics_inferred],
+        "language": video.language.name,
+        "fk_difficulty": video.source.fk_difficulty,
+    }
+    if not embedding_generation_required and current_doc is not None:
+        doc["sem_vec"] = current_doc["sem_vec"]
     else:
-        topics, topics_inferred = find_topics_article(source.id, session)
-        embedding_generation_required = current_doc is None
-        # Embeddings only need to be re-computed if the document
-        # doesn't exist or the text is updated.
-        # This is the most expensive operation in the indexing process, so it
-        # saves time by skipping it.
-        if current_doc is not None:
-            embedding_generation_required = (
-                current_doc["content"] != source.get_content()
-            )
-        doc = {
-            "title": source.title,
-            "author": source.authors,
-            "content": source.get_content(),
-            "summary": source.summary,
-            "word_count": source.get_word_count(),
-            "published_time": source.published_time,
-            "topics": [t.title for t in topics],
-            # We need to avoid using these as a way to classify further documents
-            # (we should rely on the human labels to classify further articles)
-            # rather than infer on inferences.
-            "topics_inferred": [t.title for t in topics_inferred],
-            "language": source.language.name,
-            "fk_difficulty": source.get_fk_difficulty(),
-            "lr_difficulty": DifficultyLingoRank.value_for_article(source),
-            "url": source.url.as_string(),
-            "video": int(is_video),
-        }
-        if not embedding_generation_required and current_doc is not None:
-            doc["sem_vec"] = current_doc["sem_vec"]
-        else:
-            doc["sem_vec"] = get_embedding_from_article(source)
+        doc["sem_vec"] = get_embedding_from_video(video)
+    return doc
+
+
+def document_from_article(article, session, current_doc=None):
+    doc = {}
+    topics, topics_inferred = find_topics_article(article.id, session)
+    embedding_generation_required = current_doc is None
+    # Embeddings only need to be re-computed if the document
+    # doesn't exist or the text is updated.
+    # This is the most expensive operation in the indexing process, so it
+    # saves time by skipping it.
+    if current_doc is not None:
+        embedding_generation_required = current_doc["content"] != article.get_content()
+    doc = {
+        "article_id": article.id,
+        "title": article.title,
+        "author": article.authors,
+        "content": article.get_content(),
+        "summary": article.summary,
+        "word_count": article.get_word_count(),
+        "published_time": article.published_time,
+        "topics": [t.title for t in topics],
+        # We need to avoid using these as a way to classify further documents
+        # (we should rely on the human labels to classify further articles)
+        # rather than infer on inferences.
+        "topics_inferred": [t.title for t in topics_inferred],
+        "language": article.language.name,
+        "fk_difficulty": article.get_fk_difficulty(),
+        "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+        "url": article.url.as_string(),
+        "video": int(article.video),
+    }
+    if not embedding_generation_required and current_doc is not None:
+        doc["sem_vec"] = current_doc["sem_vec"]
+    else:
+        doc["sem_vec"] = get_embedding_from_article(article)
     return doc
 
 
 def create_or_update_article(article, session):
     es = Elasticsearch(ES_CONN_STRING)
-    doc = document_from_source(article, session)
-
-    if es.exists(index=ES_ZINDEX, id=article.id):
-        es.delete(index=ES_ZINDEX, id=article.id)
-
-    res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
-
+    doc = document_from_article(article, session)
+    res = es.index(index=ES_ZINDEX, body=doc)
     return res
 
 
 def create_or_update_video(video, session):
-    MAX_ID_ARTICLE = 4000000
     es = Elasticsearch(ES_CONN_STRING)
-    doc = document_from_source(video, session, is_video=True)
-    print("Got doc: ", doc)
-    if es.exists(index=ES_ZINDEX, id=MAX_ID_ARTICLE + video.id):
-        es.delete(index=ES_ZINDEX, id=MAX_ID_ARTICLE + video.id)
-
-    res = es.index(index=ES_ZINDEX, id=MAX_ID_ARTICLE + video.id, body=doc)
-    print("ES RETURNED")
-    print(res)
+    doc = document_from_video(video, session)
+    res = es.index(index=ES_ZINDEX, body=doc)
     return res
 
 
 def create_or_update_doc_for_bulk(article, session):
+    # TO-DO: Update once migraton is complete with videos (needs to check what the source is)
     es = Elasticsearch(ES_CONN_STRING)
-    doc_data = document_from_source(article, session)
+    doc_data = document_from_article(article, session)
     doc = {}
     doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
     if es.exists(index=ES_ZINDEX, id=article.id):
         current_doc = es.get(index=ES_ZINDEX, id=article.id)
-        doc_data = document_from_source(
+        doc_data = document_from_article(
             article, session, current_doc=current_doc["_source"]
         )
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:
-        doc_data = document_from_source(article, session)
+        doc_data = document_from_article(article, session)
         doc["_op_type"] = "create"
         doc["_source"] = doc_data
     return doc
@@ -176,7 +167,7 @@ def index_in_elasticsearch(new_article, session):
     """
     try:
         es = Elasticsearch(ES_CONN_STRING)
-        doc = document_from_source(new_article, session)
+        doc = document_from_article(new_article, session)
         res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
 
     except Exception as e:

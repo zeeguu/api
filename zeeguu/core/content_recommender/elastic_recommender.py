@@ -25,6 +25,7 @@ from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_recommender_query,
     build_elastic_search_query,
     build_elastic_more_like_this_query,
+    build_elastic_search_query_for_videos,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -168,8 +169,42 @@ def article_recommendations_for_user(
     ] + articles_from_searches[:maximum_added_search_articles]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
-
     return sorted_articles
+
+
+def video_recommendations_for_user(
+    user,
+    count,
+    page=0,
+):
+    (
+        language,
+        upper_bounds,
+        lower_bounds,
+        topics_to_include,
+        topics_to_exclude,
+        wanted_user_searches,
+        unwanted_user_searches,
+    ) = _prepare_user_constraints(user)
+
+    es = Elasticsearch(ES_CONN_STRING)
+    video_query = build_elastic_search_query_for_videos(
+        count,
+        wanted_user_searches,
+        unwanted_user_searches,
+        language,
+        upper_bounds,
+        lower_bounds,
+        topics_to_include=topics_to_include,
+        topics_to_exclude=topics_to_exclude,
+        page=page,
+    )
+
+    video_res = es.search(index=ES_ZINDEX, body=video_query)
+    print(video_res["hits"].get("hits"))
+
+    video_list = _to_videos_from_ES_hits(video_res["hits"].get("hits"))
+    return video_list
 
 
 @time_this
@@ -298,6 +333,16 @@ def _to_articles_from_ES_hits(hits):
         articles.append(Article.find_by_id(hit.get("_id")))
 
     return articles
+
+
+def _to_videos_from_ES_hits(hits):
+    from zeeguu.core.model.video import Video
+
+    videos = []
+    for hit in hits:
+        print("###########", hit["_source"].get("video_id"))
+        videos.append(Video.find_by_id(hit["_source"].get("video_id")))
+    return videos
 
 
 def _difficuty_level_bounds(level):

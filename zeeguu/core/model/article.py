@@ -255,7 +255,7 @@ class Article(db.Model):
             language=self.language.code,
             topics=self.topics_as_string(),
             topics_list=self.topics_as_tuple(),
-            video=self.video,
+            video=False,
             metrics=dict(
                 difficulty=fk_difficulty / 100,
                 word_count=self.get_word_count(),

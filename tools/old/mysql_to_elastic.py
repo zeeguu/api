@@ -1,7 +1,7 @@
 # coding=utf-8
 import sqlalchemy as database
 from zeeguu.api.app import create_app
-from zeeguu.core.elastic.indexing import create_or_update_article, document_from_source
+from zeeguu.core.elastic.indexing import create_or_update_article, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core

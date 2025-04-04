@@ -4,6 +4,7 @@ from zeeguu.core.content_recommender import (
     article_recommendations_for_user,
     topic_filter_for_user,
     content_recommendations,
+    video_recommendations_for_user,
 )
 from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
 
@@ -38,10 +39,15 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     user = User.find_by_id(flask.g.user_id)
     try:
         articles = article_recommendations_for_user(user, count, page)
+        videos = video_recommendations_for_user(user, count, page)
 
-    except:
+    except Exception as e:
+        import traceback
+
         # we failed to get recommendations from elastic
         # return something
+        print(e)
+        print(traceback.format_exc())
         articles = (
             Article.query.filter_by(broken=0)
             .filter_by(language_id=user.learned_language_id)
@@ -50,8 +56,9 @@ def user_articles_recommended(count: int = 20, page: int = 0):
         )
 
     article_infos = [UserArticle.user_article_info(user, a) for a in articles]
-
-    return json_result(article_infos)
+    video_infos = [v.video_info() for v in videos if v]
+    combined_results = video_infos + article_infos
+    return json_result(combined_results)
 
 
 @api.route("/user_articles/saved", methods=["GET"])
