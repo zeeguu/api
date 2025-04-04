@@ -23,6 +23,7 @@ class YTChannel(db.Model):
     views = db.Column(BIGINT(unsigned=True))
     subscribers = db.Column(INTEGER(unsigned=True))
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
+    thumbnail_url = db.Column(db.String(512))
     should_crawl = db.Column(db.Integer)
     last_crawled = db.Column(db.DateTime)
 
@@ -37,6 +38,7 @@ class YTChannel(db.Model):
         views,
         subscribers,
         language,
+        thumbnail_url,
         should_crawl,
         last_crawled,
     ):
@@ -46,6 +48,7 @@ class YTChannel(db.Model):
         self.views = views
         self.subscribers = subscribers
         self.language = language
+        self.thumbnail_url = thumbnail_url
         self.should_crawl = should_crawl
         self.last_crawled = last_crawled
 
@@ -61,6 +64,7 @@ class YTChannel(db.Model):
             views=self.views,
             subscribers=self.subscribers,
             language_id=self.language.id,
+            thumbnail_url=self.thumbnail_url,
             should_crawl=self.should_crawl,
             last_crawled=self.last_crawled,
         )
@@ -89,6 +93,7 @@ class YTChannel(db.Model):
             views=channel_info["viewCount"],
             subscribers=channel_info["subscriberCount"],
             language=language,
+            thumbnail_url=channel_info["thumbnail"],
             should_crawl=None,
             last_crawled=None,
         )
@@ -104,6 +109,12 @@ class YTChannel(db.Model):
 
     @staticmethod
     def fetch_channel_info(channel_id, language):
+        def _get_thumbnail(snippet):
+            return (
+                snippet["thumbnails"].get("high", {}).get("url")
+                or snippet["thumbnails"].get("medium", {}).get("url")
+                or snippet["thumbnails"].get("default", {}).get("url", "No thumbnail available")
+            )
 
         YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language.code)
 
@@ -126,6 +137,7 @@ class YTChannel(db.Model):
             "description": snippet.get("description", ""),
             "viewCount": statistics["viewCount"],
             "subscriberCount": statistics["subscriberCount"],
+            "thumbnail": _get_thumbnail(snippet),
         }
 
         return channel_info

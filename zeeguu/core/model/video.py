@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import StringIO
 import os
 import isodate
@@ -55,6 +56,9 @@ class Video(db.Model):
 
     fk_difficulty = db.Column(db.Integer)
 
+    broken = db.Column(db.Integer)
+    crawled_at = db.Column(db.DateTime)
+
     channel = db.relationship("YTChannel", back_populates="videos")
     language = db.relationship("Language")
     captions = db.relationship("Caption", back_populates="video")
@@ -71,6 +75,8 @@ class Video(db.Model):
         duration,
         language,
         vtt,
+        broken=0,
+        crawled_at=datetime.now(),
     ):
         self.video_unique_key = video_unique_key
         self.title = title
@@ -82,6 +88,8 @@ class Video(db.Model):
         self.duration = duration
         self.language = language
         self.vtt = vtt
+        self.broken = broken
+        self.crawled_at = crawled_at
 
     def __repr__(self):
         return f"<Video {self.title} ({self.video_unique_key})>"
@@ -102,6 +110,10 @@ class Video(db.Model):
             language_id=self.language.id,
             vtt=self.vtt,
             plain_text=self.plain_text,
+            fk_difficulty=self.fk_difficulty,
+            source_id=self.source.id,
+            broken=self.broken,
+            crawled_at=self.crawled_at,
         )
 
     @classmethod
@@ -117,7 +129,7 @@ class Video(db.Model):
         video = session.query(cls).filter_by(video_unique_key=video_unique_key).first()
 
         if video:
-            print("Video already crawled returning...")
+            print(f"Video already crawled returning... (Broken: {video.broken})")
             return video
 
         try:
@@ -166,6 +178,7 @@ class Video(db.Model):
             duration=video_info["duration"],
             language=language,
             vtt=video_info["vtt"],
+            broken=video_info["broken"],
         )
         session.add(new_video)
 
@@ -251,14 +264,9 @@ class Video(db.Model):
 
         if "items" not in video_data or not video_data["items"]:
             raise ValueError(f"Video {videoId} not found, or API quota exceeded")
-
-        captions = Video.get_captions(videoId, lang)
-        if captions is None:
-            print(f"Could not fetch captions for video {videoId} in {lang}")
-            return None
-
+        
         item = video_data["items"][0]
-
+        
         video_info = {
             "videoId": videoId,
             "title": item["snippet"]["title"],
@@ -274,10 +282,20 @@ class Video(db.Model):
                     item["contentDetails"]["duration"]
                 ).total_seconds()
             ),
-            "vtt": captions["vtt"],
-            "text": captions["text"],
-            "captions": captions["captions"],
         }
+
+        captions = Video.get_captions(videoId, lang)
+        if captions is None:
+            print(f"Could not fetch captions for video {videoId} in {lang}")
+            video_info["vtt"] = ""
+            video_info["text"] = ""
+            video_info["captions"] = []
+            video_info["broken"] = 1
+        else:
+            video_info["vtt"] = captions["vtt"]
+            video_info["text"] = captions["text"]
+            video_info["captions"] = captions["captions"]
+            video_info["broken"] = 0
 
         return video_info
 
