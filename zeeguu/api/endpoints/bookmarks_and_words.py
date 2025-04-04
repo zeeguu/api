@@ -4,8 +4,7 @@ import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.bookmark_quality import top_bookmarks
-from zeeguu.core.model.text import Text
+
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
@@ -24,19 +23,6 @@ def studied_words():
     """
     user = User.find_by_id(flask.g.user_id)
     return json_result(user.user_words())
-
-
-@api.route("/top_bookmarks/<int:count>", methods=["GET"])
-@cross_domain
-@requires_session
-def top_bookmarks_route(count):
-    """
-    Returns a list of the "top" words that the user is currently studying.
-    """
-    user = User.find_by_id(flask.g.user_id)
-    bookmarks = top_bookmarks(user, count)
-    json_bookmarks = [b.as_dictionary() for b in bookmarks]
-    return json_result(json_bookmarks)
 
 
 @api.route("/learned_bookmarks/<int:count>", methods=["GET"])

@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta
 from time import sleep
 
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, desc
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, desc
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
@@ -11,7 +11,9 @@ from zeeguu.logging import log
 
 import sqlalchemy
 
-from zeeguu.core.model import Article, User, Url
+from zeeguu.core.model import User, Url
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.source import Source
 from zeeguu.core.constants import (
     JSON_TIME_FORMAT,
     EVENT_LIKE_ARTICLE,
@@ -41,20 +43,8 @@ class UserActivityData(db.Model):
     value = Column(String(255))
     extra_data = Column(String(4096))
 
-    # article_id is a FK
-    # for those user_activity_data that are not about article
-    # interactions, the FK is NULL
-    # since the older versions of the DB didn't have the
-    # article_id a NULL there might be due to the old DB...
-    # thus we add an extra column has_article_id which
-    # is set in the new version of the DB and null in the old
-    # Once the DB is fully ported, the has_article_id can be
-    # dropped and the corresponding code with it.
-
-    has_article_id = Column(Boolean)
-
-    article_id = Column(Integer, ForeignKey(Article.id))
-    article = relationship(Article)
+    source_id = Column(Integer, ForeignKey(Source.id))
+    source = relationship(Source)
 
     def __init__(
         self,
@@ -63,16 +53,14 @@ class UserActivityData(db.Model):
         event,
         value,
         extra_data,
-        has_article_id: Boolean = False,
-        article_id: int = None,
+        source_id: int = None,
     ):
         self.user = user
         self.time = time
         self.event = event
         self.value = value
         self.extra_data = extra_data
-        self.has_article_id = has_article_id
-        self.article_id = article_id
+        self.source_id = source_id
 
     def data_as_dictionary(self):
         data = dict(
@@ -82,8 +70,8 @@ class UserActivityData(db.Model):
             value=self.value,
             extra_data=self.extra_data,
         )
-        if self.article_id:
-            data["article_id"] = self.article_id
+        if self.source_id:
+            data["source_id"] = self.source_id
         return data
 
     def is_like(self):
@@ -133,9 +121,7 @@ class UserActivityData(db.Model):
         return filtered_results
 
     @classmethod
-    def find_or_create(
-        cls, session, user, time, event, value, extra_data, has_article_id, article_id
-    ):
+    def find_or_create(cls, session, user, time, event, value, extra_data, source_id):
         try:
             log("found existing event; returning it instead of creating a new one")
             return (
@@ -155,9 +141,7 @@ class UserActivityData(db.Model):
             )
         except sqlalchemy.orm.exc.NoResultFound:
             try:
-                new = cls(
-                    user, time, event, value, extra_data, has_article_id, article_id
-                )
+                new = cls(user, time, event, value, extra_data, source_id)
                 session.add(new)
                 session.commit()
                 return new
@@ -181,12 +165,12 @@ class UserActivityData(db.Model):
     def find(
         cls,
         user: User = None,
-        article: Article = None,
+        source: Source = None,
         extra_filter: str = None,
         extra_value: str = None,  # TODO: to delete this, i don't think it's ever used.
         event_filter: str = None,
         only_latest=False,
-        article_id: int = None,
+        source_id: int = None,
     ):
         """
 
@@ -196,14 +180,14 @@ class UserActivityData(db.Model):
         """
         query = cls.query
 
-        if article is not None:
-            query = query.filter(cls.article == article)
+        if source is not None:
+            query = query.filter(cls.source == source)
         if event_filter is not None:
             query = query.filter(cls.event == event_filter)
         if user is not None:
             query = query.filter(cls.user == user)
-        if article_id is not None:
-            query = query.filter(cls.article_id == article_id)
+        if source_id is not None:
+            query = query.filter(cls.source_id == source_id)
         query = query.order_by("time")
 
         try:
@@ -298,7 +282,8 @@ class UserActivityData(db.Model):
         cls, article_id, user_id, number_of_activity_rows=2, threshold_for_read=0.9
     ):
         reading_activity = (
-            cls.query.filter(cls.article_id == article_id)
+            cls.query.join(Article, cls.source_id == Article.source_id)
+            .filter(Article.id == article_id)
             .filter(cls.user_id == user_id)
             .filter(cls.event == "SCROLL")
             .filter(cls.extra_data != "")
@@ -352,7 +337,9 @@ class UserActivityData(db.Model):
             return max_percentage_read
 
     @classmethod
-    def get_scroll_events_for_user_in_date_range(cls, user, days_range=7, limit=1):
+    def get_articles_with_reading_percentages_for_user_in_date_range(
+        cls, user, days_range=7, limit=1
+    ):
         """
         Returns a list of parsed scroll user events containing the last point which was "read"
 
@@ -362,7 +349,8 @@ class UserActivityData(db.Model):
         current_date = (datetime.now() + timedelta(1)).date()
         past_date = (datetime.now() - timedelta(days_range)).date()
         query = (
-            cls.query.filter(cls.user_id == user.id)
+            cls.query.join(Article, cls.source_id == Article.source_id)
+            .filter(cls.user_id == user.id)
             .filter(cls.event == EVENT_USER_SCROLL)
             .filter(cls.time.between(str(past_date), str(current_date)))
             .order_by(cls.id.desc())
@@ -375,14 +363,14 @@ class UserActivityData(db.Model):
             parsed_data = json.loads(e.extra_data)
             viewportSettings = e.value
             if (
-                e.article_id is None
-                or e.article_id in seen_articles
+                e.source_id is None
+                or e.source_id in seen_articles
                 or len(parsed_data) == 0
                 or viewportSettings == ""
             ):
                 continue
-            article_data = Article.find_by_id(e.article_id)
-            seen_articles.add(e.article_id)
+            article_data = Article.find_by_source_id(e.source_id)
+            seen_articles.add(e.source_id)
             if article_data.language_id != user.learned_language_id:
                 # Article doesn't match learned language
                 continue
@@ -391,7 +379,7 @@ class UserActivityData(db.Model):
             # seconds_ago = date_ago.seconds
             last_percentage = find_last_reading_percentage(parsed_data)
             list_of_sessions.append(
-                (e.article_id, e.time, json.loads(viewportSettings), last_percentage)
+                (article_data.id, e.time, json.loads(viewportSettings), last_percentage)
             )
             if len(list_of_sessions) >= limit:
                 break
@@ -407,19 +395,24 @@ class UserActivityData(db.Model):
         event = data.get("event", "")
         value = data.get("value", "")
         extra_data = data.get("extra_data", "")
+        source_id = data.get("source_id", "")
 
         article_id = None
-        has_article_id = False
         if data.get("article_id", None):
             article_id = int(data["article_id"])
-            has_article_id = True
+
+        if article_id and source_id == "":
+            source_id = Article.find_by_id(article_id).source_id
+
+        if source_id == "":
+            source_id = None
 
         log(
-            f"{event} value[:42]: {value[:42]} extra_data[:42]: {extra_data[:42]} art_id: {article_id}"
+            f"{event} value[:42]: {value[:42]} extra_data[:42]: {extra_data[:42]} source_id: {source_id}"
         )
 
         new_entry = UserActivityData.find_or_create(
-            session, user, time, event, value, extra_data, has_article_id, article_id
+            session, user, time, event, value, extra_data, source_id
         )
 
         session.add(new_entry)

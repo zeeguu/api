@@ -1,3 +1,4 @@
+from pprint import pprint
 from string import punctuation
 from urllib.parse import unquote_plus
 import os
@@ -33,34 +34,27 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 @requires_session
 def get_one_translation(from_lang_code, to_lang_code):
     """
-
-    To think about:
-    - it would also make sense to separate translation from
-    "logging"; or at least, allow for situations where a translation
-    is not associated with an url... or?
-    - jul 2021 - Bjorn would like to have the possibility of getting
-    a translation without an article; can be done; allow for the
-    articleID to be empty; what would be the downside of that?
-    - hmm. maybe he can simply work with get_multiple_translations
-
     :return: json array with translations
     """
 
-    word_str = request.form["word"].strip(punctuation_extended)
-    w_sent_i = request.form.get("w_sent_i", None)
-    w_token_i = request.form.get("w_token_i", None)
-    w_total_tokens = request.form.get("w_total_tokens", None)
-    context = request.form.get("context", "").strip()
-    c_paragraph_i = request.form.get("c_paragraph_i", None)
-    c_sent_i = request.form.get("c_sent_i", None)
-    c_token_i = request.form.get("c_token_i", None)
-    article_id = request.form.get("articleID", None)
-    in_content = parse_json_boolean(request.form.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_identifier = request.form.get("context_identifier", None)
-    if context_identifier is not None:
-        context_identifier = ContextIdentifier.from_json_string(context_identifier)
+    word_str = request.json["word"].strip(punctuation_extended)
+    w_sent_i = request.json.get("w_sent_i", None)
+    w_token_i = request.json.get("w_token_i", None)
+    w_total_tokens = request.json.get("w_total_tokens", None)
+    context = request.json.get("context", "").strip()
+    c_paragraph_i = request.json.get("c_paragraph_i", None)
+    c_sent_i = request.json.get("c_sent_i", None)
+    c_token_i = request.json.get("c_token_i", None)
+    article_id = request.json.get("articleID", None)
+    source_id = request.json.get("source_id", None)
+    in_content = parse_json_boolean(request.json.get("in_content", None))
+    left_ellipsis = parse_json_boolean(request.json.get("left_ellipsis", None))
+    right_ellipsis = parse_json_boolean(request.json.get("right_ellipsis", None))
+    context_identifier = ContextIdentifier.from_dictionary(
+        request.json.get("context_identifier", None)
+    )
+    # The front end send the data in the following format:
+    # ('context_identifier[context_type]', 'ArticleFragment')
 
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
@@ -70,7 +64,11 @@ def get_one_translation(from_lang_code, to_lang_code):
     # even if not exactly this context
     # - a teacher's translation or a senior user's should still
     # be considered here
+
     print("getting own past translation....")
+    # This has become less relevant since Tiago implemented the highlighting of the past translations
+    # In the exercises however, if one translates a word, this can still be useful ... unless we create the
+    # same history highlighting in the exercises
     user = User.find_by_id(flask.g.user_id)
     bookmark = get_own_past_translation(
         user, word_str, from_lang_code, to_lang_code, context
@@ -111,6 +109,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             to_lang_code,
             context,
             article_id,
+            source_id,
             c_paragraph_i=c_paragraph_i,
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
@@ -207,9 +206,11 @@ def update_translation(bookmark_id):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.form["word"]).strip(punctuation_extended)
-    translation_str = request.form["translation"]
-    context_str = request.form.get("context", "").strip()
+    word_str = unquote_plus(request.json["word"]).strip(punctuation_extended)
+    translation_str = request.json["translation"]
+    context_str = request.json.get("context", "").strip()
+    context_identifier = request.json.get("context_identifier", None)
+    context_type = context_identifier["context_type"]
     bookmark = Bookmark.find(bookmark_id)
 
     origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
@@ -241,7 +242,7 @@ def update_translation(bookmark_id):
     context = BookmarkContext.find_or_create(
         db_session,
         context_str,
-        None,
+        context_type,
         bookmark.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
@@ -286,9 +287,6 @@ def update_translation(bookmark_id):
     bookmark.origin = origin
     db_session.add(bookmark)
 
-    if len(prev_text.all_bookmarks_for_text()) == 0:
-        # The text doesn't have any bookmarks
-        db_session.delete(prev_text)
     updated_bookmark = bookmark.as_dictionary(
         with_exercise_info=True, with_context_tokenized=True, with_context=True
     )
@@ -305,6 +303,8 @@ def update_translation(bookmark_id):
 def contribute_translation(from_lang_code, to_lang_code):
     """
 
+    NOTE: This is only used by the tests
+
         User contributes a translation they think is appropriate for
          a given :param word in :param from_lang_code in a given :param context
 
@@ -319,28 +319,28 @@ def contribute_translation(from_lang_code, to_lang_code):
     """
 
     # All these POST params are mandatory
-    word_str = unquote_plus(request.form["word"])
-    translation_str = request.form["translation"]
-    url = request.form.get("url", "")
-    context_str = request.form.get("context", "")
-    title_str = request.form.get("title", "")
-    w_sent_i = request.form.get("w_sent_i", None)
-    w_token_i = request.form.get("w_token_i", None)
-    w_total_tokens = request.form.get("w_total_tokens", None)
-    context = request.form.get("context", "").strip()
-    c_paragraph_i = request.form.get("c_paragraph_i", None)
-    c_sent_i = request.form.get("c_sent_i", None)
-    c_token_i = request.form.get("c_token_i", None)
-    article_id = request.form.get("articleID", None)
-    in_content = parse_json_boolean(request.form.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request.form.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request.form.get("right_ellipsis", None))
-    context_identifier = request.form.get("context_identifier", None)
-    if context_identifier is not None:
-        context_identifier = ContextIdentifier.from_json_string(context_identifier)
+    request_params = request.json
+    word_str = unquote_plus(request_params["word"])
+    translation_str = request_params["translation"]
+    url = request_params.get("url", "")
+    context_str = request_params.get("context", "")
+    w_sent_i = request_params.get("w_sent_i", None)
+    w_token_i = request_params.get("w_token_i", None)
+    w_total_tokens = request_params.get("w_total_tokens", None)
+    context = request_params.get("context", "").strip()
+    c_paragraph_i = request_params.get("c_paragraph_i", None)
+    c_sent_i = request_params.get("c_sent_i", None)
+    c_token_i = request_params.get("c_token_i", None)
+    source_id = request_params.get("source_id", None)
+    in_content = parse_json_boolean(request_params.get("in_content", None))
+    left_ellipsis = parse_json_boolean(request_params.get("left_ellipsis", None))
+    right_ellipsis = parse_json_boolean(request_params.get("right_ellipsis", None))
+    context_identifier = ContextIdentifier.from_dictionary(
+        request_params.get("context_identifier", None)
+    )
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
-    service_name = request.form.get("servicename_translation", "MANUAL")
+    service_name = request_params.get("servicename_translation", "MANUAL")
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
@@ -352,11 +352,12 @@ def contribute_translation(from_lang_code, to_lang_code):
         url = Article.query.filter_by(id=article_id).one().url.as_canonical_string()
     else:
         # the url comes from elsewhere not from the reader, so we find or create the article
-        article = Article.find_or_create(db_session, url)
-        article_id = article.id
+        if url != "":
+            article = Article.find_or_create(db_session, url)
+            article_id = article.id
 
     # Optional POST param
-    selected_from_predefined_choices = request.form.get(
+    selected_from_predefined_choices = request_params.get(
         "selected_from_predefined_choices", ""
     )
     user = User.find_by_id(flask.g.user_id)
@@ -369,6 +370,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         to_lang_code,
         context,
         article_id,
+        source_id=source_id,
         c_paragraph_i=c_paragraph_i,
         c_sentence_i=c_sent_i,
         c_token_i=c_token_i,
