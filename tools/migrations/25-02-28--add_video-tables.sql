@@ -31,6 +31,7 @@ CREATE TABLE `video` (
   `duration` int DEFAULT NULL,
   `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
+  `fk_difficulty` int DEFAULT NULL,
   `broken` int DEFAULT NULL,
   `crawled_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),

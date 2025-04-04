@@ -60,6 +60,7 @@ class Video(db.Model):
     broken = db.Column(db.Integer)
     crawled_at = db.Column(db.DateTime)
     thumbnail_url = db.relationship(Url, foreign_keys="Video.thumbnail_url_id")
+
     channel = db.relationship("YTChannel", back_populates="videos")
     topics = db.relationship("VideoTopicMap", back_populates="video")
     language = db.relationship("Language")
