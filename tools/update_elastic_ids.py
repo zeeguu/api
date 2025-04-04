@@ -9,12 +9,8 @@ from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
-from zeeguu.core.model import ArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
-from zeeguu.core.model.article_topic_map import TopicOriginType
-import numpy as np
 from tqdm import tqdm
-import time
 
 app = create_app()
 app.app_context().push()
