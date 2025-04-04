@@ -2,6 +2,10 @@ import re
 from string import punctuation
 
 
+def match_is_string(result, s):
+    return result is not None and result.group(0) == s
+
+
 class Token:
     PUNCTUATION = "»«" + punctuation + "–—“‘”“’„¿»«"
     SYMBOLS = "©€£$#&@<=>§¢¥¤®º"
@@ -14,16 +18,18 @@ class Token:
     # but not likely to be perfect in all situations.
     EMAIL_REGEX = re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{1,4}$)")
     URL_REGEX = re.compile(
-        r"(((http|https)://)?(www\.)?([a-zA-Z0-9@\-/\.]+\.[a-z]{2,4}/?([a-zA-Z0-9?=\.&#/]+)?)+)"
+        r"(((http|https)://)?(www\.)?([a-zA-Z0-9@\-/\.]+\.[a-z]{2,4}/?([a-zA-Z0-9?=&#/\.]+^\.)?)+)"
     )
 
     @classmethod
     def is_like_email(cls, text):
-        return Token.EMAIL_REGEX.match(text) is not None
+        result = Token.EMAIL_REGEX.match(text)
+        return match_is_string(result, text)
 
     @classmethod
     def is_like_url(cls, text):
-        return Token.URL_REGEX.match(text) is not None
+        result = Token.URL_REGEX.match(text)
+        return match_is_string(result, text)
 
     @classmethod
     def is_like_symbols(cls, text):

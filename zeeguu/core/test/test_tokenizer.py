@@ -365,6 +365,7 @@ class TokenizationTest(ModelTestMixIn):
                 urls_failed_tokens.append(tokens[i].text)
         # Some cases which gave issues:
         assert not self.en_tokenizer.tokenize_text("e.v.t..", False)[0].is_like_url
+        assert not self.da_tokenizer.tokenize_text("som f.eks.", False)[-1].is_like_url
 
     def test_email_detection(self):
         # Generated URLs from https://www.randomlists.com/urls?qty=50
