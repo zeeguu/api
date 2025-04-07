@@ -16,7 +16,7 @@ class Text(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(64000))
+    content = db.Column(db.Text()) # Before this was db.Column(db.String(64000), but that caused the following MySQL error: sqlalchemy.exc.OperationalError: (MySQLdb.OperationalError) (1074, "Column length too big for column 'content' (max = 21845); use BLOB or TEXT instead")
     content_hash = db.Column(db.String(64))
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
