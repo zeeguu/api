@@ -5,7 +5,6 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
-from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
@@ -134,13 +133,10 @@ class Video(db.Model):
         )
 
         if (
-            title_lang
-            and title_lang != language.code
-            and desc_lang
-            and desc_lang != language.code
+            (title_lang and title_lang != language.code) and (desc_lang and desc_lang != language.code)
         ):
             print(f"Video {video_unique_key} is not in {language.code}")
-            return None
+            video_info["broken"] = 2
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
         source = Source.find_or_create(
