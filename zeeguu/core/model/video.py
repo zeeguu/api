@@ -23,9 +23,6 @@ from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.util.fk_to_cefr import fk_to_cefr
-
-# from tools.run_knn_classification_with_text import get_topic_classification_based_on_similar_content
-
 from zeeguu.core.util.encoding import datetime_to_json
 
 API_FOR_LANGUAGE = {
@@ -98,25 +95,6 @@ class Video(db.Model):
 
     def get_content(self):
         return self.source.get_content()
-
-    def as_dictionary(self):
-        return dict(
-            id=self.id,
-            video_unique_key=self.video_unique_key,
-            title=self.title,
-            description=self.description,
-            published_at=self.published_at,
-            channel=self.channel.as_dictionary(),
-            thumbnail_url=self.thumbnail_url,
-            duration=self.duration,
-            language_id=self.language.id,
-            vtt=self.vtt,
-            plain_text=self.plain_text,
-            fk_difficulty=self.fk_difficulty,
-            source_id=self.source.id,
-            broken=self.broken,
-            crawled_at=self.crawled_at,
-        )
 
     @classmethod
     def find_by_id(cls, video_id: int):
@@ -372,7 +350,7 @@ class Video(db.Model):
             topics.append((topic.topic.title, topic.origin_type))
         return topics
 
-    def video_info(self):
+    def video_info(self, with_content=False):
         text = self.get_content()
         summary = text[:MAX_CHAR_COUNT_IN_SUMMARY]
         result_dict = dict(
@@ -399,29 +377,29 @@ class Video(db.Model):
         if self.published_at:
             result_dict["published_at"] = datetime_to_json(self.published_at)
 
-        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        if with_content:
+            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
+            result_dict["captions"] = [
+                {
+                    "time_start": caption.time_start,
+                    "time_end": caption.time_end,
+                    "text": caption.get_content(),
+                    "tokenized_text": tokenizer.tokenize_text(
+                        caption.get_content(), flatten=False
+                    ),
+                    "context_identifier": ContextIdentifier(
+                        ContextType.VIDEO_CAPTION, video_caption_id=caption.id
+                    ).as_dictionary(),
+                }
+                for caption in self.captions
+            ]
 
-        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-        result_dict["captions"] = [
-            {
-                "time_start": caption.time_start,
-                "time_end": caption.time_end,
-                "text": caption.get_content(),
-                "tokenized_text": tokenizer.tokenize_text(
-                    caption.get_content(), flatten=False
-                ),
+            result_dict["tokenized_title"] = {
+                "tokenized_title": tokenizer.tokenize_text(self.title, flatten=False),
                 "context_identifier": ContextIdentifier(
-                    ContextType.VIDEO_CAPTION, video_caption_id=caption.id
+                    ContextType.VIDEO_TITLE, video_id=self.id
                 ).as_dictionary(),
             }
-            for caption in self.captions
-        ]
-
-        result_dict["tokenized_title"] = {
-            "tokenized_title": tokenizer.tokenize_text(self.title, flatten=False),
-            "context_identifier": ContextIdentifier(
-                ContextType.VIDEO_TITLE, video_id=self.id
-            ).as_dictionary(),
-        }
 
         return result_dict

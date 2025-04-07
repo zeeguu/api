@@ -2,6 +2,8 @@ from zeeguu.core.model import BookmarkContext
 from zeeguu.core.model import db
 import sqlalchemy
 
+from zeeguu.core.model.bookmark import Bookmark
+
 
 class VideoTitleContext(db.Model):
     """
@@ -56,3 +58,15 @@ class VideoTitleContext(db.Model):
             if commit:
                 session.commit()
             return new
+
+    @classmethod
+    def get_all_user_bookmarks_for_video_title(
+        cls, user_id: int, video_id: int, as_json_serializable: bool = True
+    ):
+        result = (
+            Bookmark.query.join(VideoTitleContext)
+            .filter(VideoTitleContext.video_id == video_id)
+            .filter(Bookmark.user_id == user_id)
+        ).all()
+
+        return [each.to_json(True) if as_json_serializable else each for each in result]
