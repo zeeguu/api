@@ -48,6 +48,7 @@ class ContextIdentifier:
             "article_fragment_id": self.article_fragment_id,
             "article_id": self.article_id,
             "video_id": self.video_id,
+            "video_caption_id": self.video_caption_id,
         }
 
 

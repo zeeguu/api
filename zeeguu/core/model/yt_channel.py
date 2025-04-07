@@ -3,6 +3,7 @@ import requests
 from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.url import Url
 
 CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
 
@@ -22,13 +23,14 @@ class YTChannel(db.Model):
     description = db.Column(db.Text)
     views = db.Column(BIGINT(unsigned=True))
     subscribers = db.Column(INTEGER(unsigned=True))
-    language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
-    thumbnail_url = db.Column(db.String(512))
+    language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
+    thumbnail_url_id = db.Column(db.Integer, db.ForeignKey(Url.id))
     should_crawl = db.Column(db.Integer)
     last_crawled = db.Column(db.DateTime)
 
     videos = db.relationship("Video", back_populates="channel")
-    language = db.relationship("Language")
+    language = db.relationship(Language)
+    thumbnail_url = db.relationship(Url, foreign_keys="YTChannel.thumbnail_url_id")
 
     def __init__(
         self,
@@ -64,7 +66,7 @@ class YTChannel(db.Model):
             views=self.views,
             subscribers=self.subscribers,
             language_id=self.language.id,
-            thumbnail_url=self.thumbnail_url,
+            thumbnail_url=self.thumbnail_url.as_string(),
             should_crawl=self.should_crawl,
             last_crawled=self.last_crawled,
         )
@@ -85,6 +87,7 @@ class YTChannel(db.Model):
         #     language = session.query(Language).filter_by(code=language).first()
 
         channel_info = cls.fetch_channel_info(channel_id, language)
+        url_object = Url.find_or_create(session, channel_info["thumbnail"])
 
         new_channel = cls(
             channel_id=channel_id,
@@ -93,7 +96,7 @@ class YTChannel(db.Model):
             views=channel_info["viewCount"],
             subscribers=channel_info["subscriberCount"],
             language=language,
-            thumbnail_url=channel_info["thumbnail"],
+            thumbnail_url=url_object,
             should_crawl=None,
             last_crawled=None,
         )
@@ -113,7 +116,9 @@ class YTChannel(db.Model):
             return (
                 snippet["thumbnails"].get("high", {}).get("url")
                 or snippet["thumbnails"].get("medium", {}).get("url")
-                or snippet["thumbnails"].get("default", {}).get("url", "No thumbnail available")
+                or snippet["thumbnails"]
+                .get("default", {})
+                .get("url", "No thumbnail available")
             )
 
         YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language.code)

@@ -7,13 +7,15 @@ CREATE TABLE `yt_channel` (
   `views` bigint unsigned DEFAULT NULL,
   `subscribers` int unsigned DEFAULT NULL,
   `language_id` int DEFAULT NULL,
-  `thumbnail_url` varchar(512) DEFAULT NULL,
+  `thumbnail_url_id` int DEFAULT NULL,
   `should_crawl` int DEFAULT NULL,
   `last_crawled` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `yt_channel_unique_channel_id` (`channel_id`),
   KEY `yt_channel_language_FK` (`language_id`),
-  CONSTRAINT `yt_channel_language_FK` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`)
+  KEY `yt_channel_thumbnail_url_id` (`thumbnail_url_id`),
+  CONSTRAINT `yt_channel_language_FK` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`),
+  CONSTRAINT `yt_channel_thumbnail_url_id` FOREIGN KEY (`thumbnail_url_id`) REFERENCES `url` (`id`)
 );
 
 -- Assuming 'yt_channel' table exists
@@ -25,11 +27,10 @@ CREATE TABLE `video` (
   `description` mediumtext,
   `published_at` datetime DEFAULT NULL,
   `channel_id` int DEFAULT NULL,
-  `thumbnail_url` varchar(512) DEFAULT NULL,
+  `thumbnail_url_id` int DEFAULT NULL,
   `duration` int DEFAULT NULL,
   `language_id` int DEFAULT NULL,
   `vtt` mediumtext,
-  `fk_difficulty` int DEFAULT NULL,
   `broken` int DEFAULT NULL,
   `crawled_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -37,9 +38,11 @@ CREATE TABLE `video` (
   KEY `video_language_FK` (`language_id`),
   KEY `video_yt_channel_FK` (`channel_id`),
   KEY `source_id_FK` (`source_id`),
+  KEY `thumbnail_url_id` (`thumbnail_url_id`),
   CONSTRAINT `source_id_FK` FOREIGN KEY (`source_id`) REFERENCES `zeeguu_test`.`source` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `video_language_FK` FOREIGN KEY (`language_id`) REFERENCES `language` (`id`),
-  CONSTRAINT `video_yt_channel_FK` FOREIGN KEY (`channel_id`) REFERENCES `yt_channel` (`id`)
+  CONSTRAINT `video_yt_channel_FK` FOREIGN KEY (`channel_id`) REFERENCES `yt_channel` (`id`),
+  CONSTRAINT `video_thumbnail_url_id` FOREIGN KEY (`thumbnail_url_id`) REFERENCES `url` (`id`)
 );
 
 -- Assuming 'video' table exists
