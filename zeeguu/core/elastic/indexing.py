@@ -10,6 +10,40 @@ from zeeguu.core.semantic_vector_api import (
 )
 from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
+from elasticsearch_dsl import Search, Q
+
+
+def get_doc_in_es(es_id, get_source_dict=True, verbose=False):
+    es = Elasticsearch(ES_CONN_STRING)
+    if es.exists(index=ES_ZINDEX, id=es_id):
+        doc = es.get(index=ES_ZINDEX, id=es_id)
+        return doc["_source"] if get_source_dict else doc
+    else:
+        if verbose:
+            print(f"ES doc with id: '{es_id}' not found")
+        return None
+
+
+def get_article_in_es(article_id, verbose=False):
+    """
+    Returns the article from ElasticSearch. The DSL returns a hit object, which can
+    be coverted to a dict using the .to_dict() method. However, the hit object
+    can be used as an object with the keys as attributes, it also features "in"
+    so something like:
+     >>> "article_id" in hit
+     >   True
+    """
+    es = Elasticsearch(ES_CONN_STRING)
+    s = Search(using=es, index=ES_ZINDEX).query("match", article_id=article_id)
+    response = s.execute()
+    if len(response) > 1:
+        print(f"WARNING: More than one document found for article id: {article_id}...")
+        if verbose:
+            print(f"Returning the first match...")
+    elif len(response) == 0:
+        if verbose:
+            print(f"No document found for article id: {article_id}...")
+    return response[0] if len(response) >= 1 else None
 
 
 def find_topics_article(article_id, session):
@@ -115,7 +149,7 @@ def document_from_article(article, session, current_doc=None):
         "fk_difficulty": article.get_fk_difficulty(),
         "lr_difficulty": DifficultyLingoRank.value_for_article(article),
         "url": article.url.as_string(),
-        "video": int(article.video),
+        "video": int(article.video) if article.video else 0,
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = current_doc["sem_vec"]
@@ -139,17 +173,15 @@ def create_or_update_video(video, session):
 
 
 def create_or_update_doc_for_bulk(article, session):
-    # TO-DO: Update once migraton is complete with videos (needs to check what the source is)
-    es = Elasticsearch(ES_CONN_STRING)
-    doc_data = document_from_article(article, session)
     doc = {}
-    doc["_id"] = article.id
     doc["_index"] = ES_ZINDEX
-    if es.exists(index=ES_ZINDEX, id=article.id):
-        current_doc = es.get(index=ES_ZINDEX, id=article.id)
-        doc_data = document_from_article(
-            article, session, current_doc=current_doc["_source"]
-        )
+    hit = get_article_in_es(article.id)
+    if not hit:
+        # If we don't find by article id, try by using ES id
+        hit = get_doc_in_es(article.id, get_source_dict=False)
+    if hit:
+        doc_data = document_from_article(article, session, current_doc=hit["_source"])
+        doc["_id"] = hit.meta.id if "meta" in hit else doc["_id"]
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:

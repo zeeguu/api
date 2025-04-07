@@ -114,8 +114,13 @@ def main():
         return
     if es.indices.exists(index=ES_ZINDEX):
         es_query = {"query": {"match_all": {}}}
+        scan_results = scan(es, index=ES_ZINDEX, query=es_query)
         ids_in_es = set(
-            [int(hit["_id"]) for hit in scan(es, index=ES_ZINDEX, query=es_query)]
+            [
+                int(hit["_source"].get("article_id", hit["_id"]))
+                for hit in scan_results
+                if "article_id" in hit["_source"]
+            ]
         )
         total_articles_in_es = len(ids_in_es)
         target_ids_not_in_es = list(filter(lambda x: x not in ids_in_es, target_ids))
