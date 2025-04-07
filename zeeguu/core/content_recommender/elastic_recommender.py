@@ -201,7 +201,6 @@ def video_recommendations_for_user(
     )
 
     video_res = es.search(index=ES_ZINDEX, body=video_query)
-    print(video_res["hits"].get("hits"))
 
     video_list = _to_videos_from_ES_hits(video_res["hits"].get("hits"))
     return video_list
@@ -220,7 +219,6 @@ def article_search_for_user(
     use_readability_priority=True,
     score_threshold=0,
 ):
-    final_article_mix = []
 
     (
         language,
@@ -250,12 +248,16 @@ def article_search_for_user(
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
-    print([(hit["_source"]["title"], hit["_id"], hit["_score"]) for hit in hit_list])
+
+    results = []
 
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-    final_articles = [a for a in final_article_mix if a is not None and not a.broken]
+    articles_found = [h for h in hit_list if "article_id" in h["_source"]]
+    videos_found = [h for h in hit_list if "video_id" in h["_source"]]
+    results.extend(_to_articles_from_ES_hits(articles_found))
+    results.extend(_to_videos_from_ES_hits(videos_found))
+    final_articles = [each for each in results if each is not None and not each.broken]
 
     return final_articles
 
@@ -327,21 +329,28 @@ def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
-def _to_articles_from_ES_hits(hits):
+def _to_articles_from_ES_hits(hits, with_score=False):
     articles = []
     for hit in hits:
-        articles.append(Article.find_by_id(hit.get("_id")))
+        article = Article.find_by_id(hit["_source"].get("article_id", hit["_id"]))
+        if with_score:
+            articles.append((hit.get("_score", 0), article))
+        else:
+            articles.append(article)
 
     return articles
 
 
-def _to_videos_from_ES_hits(hits):
+def _to_videos_from_ES_hits(hits, with_score=False):
     from zeeguu.core.model.video import Video
 
     videos = []
     for hit in hits:
-        print("###########", hit["_source"].get("video_id"))
-        videos.append(Video.find_by_id(hit["_source"].get("video_id")))
+        video = Video.find_by_id(hit["_source"].get("video_id"))
+        if with_score:
+            videos.append((hit.get("_score", 0), video))
+        else:
+            videos.append(video)
     return videos
 
 

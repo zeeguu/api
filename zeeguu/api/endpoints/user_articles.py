@@ -13,6 +13,8 @@ from zeeguu.api.utils.json_result import json_result
 from sentry_sdk import capture_exception
 from . import api
 
+from random import random
+
 from flask import request
 
 MAX_ARTICLES_PER_TOPIC = 20
@@ -36,11 +38,24 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     are relevant enough. The articles are then sorted by published date.
 
     """
+
+    def mix_articles_with_videos(articles, videos):
+        final_result = []
+        last_placed_video = 0
+        for v_i, video in enumerate(videos):
+            video_pos_i = last_placed_video + v_i + int(random() * (3 * (v_i + 1)))
+            print("Placing video at: ", video_pos_i)
+            final_result += articles[last_placed_video:video_pos_i] + [video]
+            last_placed_video = video_pos_i
+        final_result += articles[last_placed_video:]
+        return final_result
+
     user = User.find_by_id(flask.g.user_id)
     try:
         articles = article_recommendations_for_user(user, count, page)
-        videos = video_recommendations_for_user(user, count, page)
-
+        videos = video_recommendations_for_user(user, 3, page)
+        print("Total Videos found: ", len(videos))
+        print("Total Articles found: ", len(articles))
     except Exception as e:
         import traceback
 
@@ -57,7 +72,7 @@ def user_articles_recommended(count: int = 20, page: int = 0):
 
     article_infos = [UserArticle.user_article_info(user, a) for a in articles]
     video_infos = [v.video_info() for v in videos if v]
-    combined_results = video_infos + article_infos
+    combined_results = mix_articles_with_videos(article_infos, video_infos)
     return json_result(combined_results)
 
 

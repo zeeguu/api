@@ -383,7 +383,9 @@ class Video(db.Model):
             description=self.description,
             summary=summary,
             channel=self.channel.as_dictionary(),
-            thumbnail_url=self.thumbnail_url.as_string(),
+            thumbnail_url=(
+                self.thumbnail_url.as_string() if self.thumbnail_url else None
+            ),
             topics_list=self.topics_as_tuple(),
             duration=self.duration,
             language_code=self.language.code,
