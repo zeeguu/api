@@ -1,6 +1,7 @@
 from datetime import datetime
 from io import StringIO
 import os
+import re
 import isodate
 import requests
 import webvtt
@@ -30,6 +31,24 @@ API_FOR_LANGUAGE = {
 }
 
 MAX_CHAR_COUNT_IN_SUMMARY = 297
+
+SOCIAL_MEDIA_WORDS = [
+    "instagram",
+    "facebook",
+    "twitter",
+    "snapchat",
+    "tiktok",
+    "pinterest",
+    "linkedin",
+    "youtube",
+    "whatsapp",
+    "reddit",
+    "tumblr",
+    "twitch",
+    "x.com",
+    "discord",
+    "threads",
+]
 
 
 class Video(db.Model):
@@ -129,7 +148,7 @@ class Video(db.Model):
 
         title_lang = detect(video_info["title"]) if video_info["title"] else None
         desc_lang = (
-            detect(video_info["description"]) if video_info["description"] else None
+            detect(clean_description(video_info["description"])) if video_info["description"] else None
         )
 
         if (
@@ -395,3 +414,19 @@ class Video(db.Model):
             }
 
         return result_dict
+
+def clean_description(description_text):
+    # remove hashtags
+    description_text = re.sub(r"#\w+", "", description_text)
+
+    # remove @mentions
+    description_text = re.sub(r"@\w+", "", description_text)
+
+    # remove social media words
+    for word in SOCIAL_MEDIA_WORDS:
+        description_text = re.sub(rf"\b{word}\b", "", description_text, flags=re.IGNORECASE)    
+
+    # collapse multiple spaces and trim
+    description_text = re.sub(r"\s+", " ", description_text).strip()
+
+    return description_text
