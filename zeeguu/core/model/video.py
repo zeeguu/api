@@ -30,7 +30,7 @@ API_FOR_LANGUAGE = {
     "es": os.getenv("YOUTUBE_API_KEY_ES"),
 }
 
-MAX_CHAR_COUNT_IN_SUMMARY = 300
+MAX_CHAR_COUNT_IN_SUMMARY = 297
 
 
 class Video(db.Model):
@@ -51,8 +51,6 @@ class Video(db.Model):
 
     source_id = db.Column(db.Integer, db.ForeignKey(Source.id), unique=True)
     source = db.relationship(Source, foreign_keys="Video.source_id")
-
-    fk_difficulty = db.Column(db.Integer)
 
     broken = db.Column(db.Integer)
     crawled_at = db.Column(db.DateTime)
@@ -352,7 +350,7 @@ class Video(db.Model):
 
     def video_info(self, with_content=False):
         text = self.get_content()
-        summary = text[:MAX_CHAR_COUNT_IN_SUMMARY]
+        summary = text[:MAX_CHAR_COUNT_IN_SUMMARY].replace("\n", " ") + "..."
         result_dict = dict(
             id=self.id,
             video_unique_key=self.video_unique_key,
@@ -365,8 +363,6 @@ class Video(db.Model):
             topics_list=self.topics_as_tuple(),
             duration=self.duration,
             language_code=self.language.code,
-            vtt=self.vtt,
-            plain_text=text,
             metrics=dict(
                 difficulty=self.source.fk_difficulty / 100,
                 cefr_level=fk_to_cefr(self.source.fk_difficulty),
