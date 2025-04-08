@@ -233,27 +233,30 @@ class Video(db.Model):
         # add topic
         print("Adding topic")
         try:
-            from zeeguu.core.model.article_topic_map import TopicOriginType
-            from zeeguu.core.semantic_search import (
-                get_topic_classification_based_on_similar_content,
-            )
-
-            topic = get_topic_classification_based_on_similar_content(
-                new_video.get_content()
-            )
-            if topic:
-                print(f"Topic inferred: {topic}")
-                video_topic_map = VideoTopicMap(
-                    video=new_video, topic=topic, origin_type=TopicOriginType.INFERRED
-                )
-                print(f"Video topic map: {video_topic_map}")
-                session.add(video_topic_map)
-                session.commit()
+            new_video.assign_inferred_topics(session)
         except Exception as e:
             session.rollback()
             raise e
         create_or_update_video(new_video, session)
         return new_video
+
+    def assign_inferred_topics(self, session, commit=True):
+        from zeeguu.core.model.article_topic_map import TopicOriginType
+        from zeeguu.core.semantic_search import (
+            get_topic_classification_based_on_similar_content,
+        )
+
+        topic = get_topic_classification_based_on_similar_content(
+            self.get_content(), verbose=True
+        )
+        if topic:
+            video_topic_map = VideoTopicMap(
+                video=self, topic=topic, origin_type=TopicOriginType.INFERRED
+            )
+            print(f"Assigned Topic: {video_topic_map}")
+            session.add(video_topic_map)
+            if commit:
+                session.commit()
 
     @staticmethod
     def fetch_video_info(video_unique_key, lang):
