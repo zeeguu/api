@@ -36,7 +36,6 @@ def get_one_translation(from_lang_code, to_lang_code):
     """
     :return: json array with translations
     """
-
     word_str = request.json["word"].strip(punctuation_extended)
     w_sent_i = request.json.get("w_sent_i", None)
     w_token_i = request.json.get("w_token_i", None)
@@ -47,9 +46,9 @@ def get_one_translation(from_lang_code, to_lang_code):
     c_token_i = request.json.get("c_token_i", None)
     article_id = request.json.get("articleID", None)
     source_id = request.json.get("source_id", None)
-    in_content = parse_json_boolean(request.json.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request.json.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request.json.get("right_ellipsis", None))
+    in_content = request.json.get("in_content", None)
+    left_ellipsis = request.json.get("left_ellipsis", None)
+    right_ellipsis = request.json.get("right_ellipsis", None)
     context_identifier = ContextIdentifier.from_dictionary(
         request.json.get("context_identifier", None)
     )
