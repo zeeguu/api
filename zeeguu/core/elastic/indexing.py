@@ -13,7 +13,13 @@ from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
 from elasticsearch_dsl import Search, Q
 
 
-def get_doc_in_es(es_id, get_source_dict=True, verbose=False):
+def get_doc_in_es(es_id: str, get_source_dict=True, verbose=False):
+    """
+    Provides a document source (or the doc object) by ES id.
+    Zeeguu used to use article_ids as a way to index articles, but we have changed to
+    allowing ES to auto assign documents. It seems the generated ids can be alphanumeric,
+    resembling hashes rather than integers.
+    """
     es = Elasticsearch(ES_CONN_STRING)
     if es.exists(index=ES_ZINDEX, id=es_id):
         doc = es.get(index=ES_ZINDEX, id=es_id)
@@ -111,6 +117,7 @@ def document_from_video(video, session, current_doc=None):
         "word_count": video.source.word_count,
         "published_time": video.published_at,
         "crawled_time": video.crawled_at,
+        "topics": [t.title for t in topics],
         "topics_inferred": [t.title for t in topics_inferred],
         "language": video.language.name,
         "fk_difficulty": video.source.fk_difficulty,
@@ -119,6 +126,7 @@ def document_from_video(video, session, current_doc=None):
         doc["sem_vec"] = current_doc["sem_vec"]
     else:
         doc["sem_vec"] = get_embedding_from_video(video)
+
     return doc
 
 

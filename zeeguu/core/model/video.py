@@ -5,7 +5,7 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
-from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
+
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
@@ -16,9 +16,7 @@ from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.semantic_search import (
-    get_topic_classification_based_on_similar_content,
-)
+
 from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
@@ -157,7 +155,9 @@ class Video(db.Model):
         desc_lang = (
             detect(video_info["description"]) if video_info["description"] else None
         )
-
+        print(
+            f"Video detect languages detected are (title: '{title_lang}', description: '{desc_lang}')."
+        )
         if (
             title_lang
             and title_lang != language.code
@@ -168,6 +168,11 @@ class Video(db.Model):
             return None
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
+
+        if video_info["text"] == "":
+            print(f"Couldn't parse any text for the video '{video_unique_key}'")
+            return None
+
         source = Source.find_or_create(
             session,
             video_info["text"],
@@ -229,6 +234,9 @@ class Video(db.Model):
         print("Adding topic")
         try:
             from zeeguu.core.model.article_topic_map import TopicOriginType
+            from zeeguu.core.semantic_search import (
+                get_topic_classification_based_on_similar_content,
+            )
 
             topic = get_topic_classification_based_on_similar_content(
                 new_video.get_content()
@@ -249,6 +257,12 @@ class Video(db.Model):
 
     @staticmethod
     def fetch_video_info(video_unique_key, lang):
+        """
+        video_unique_key is the video id, e.g. "8-GrLwHK8SQ"
+
+
+        """
+
         def _get_thumbnail(item):
             return (
                 item["snippet"]["thumbnails"].get("maxres", {}).get("url")
@@ -313,7 +327,7 @@ class Video(db.Model):
         return video_info
 
     @staticmethod
-    def get_captions(video_id, lang):
+    def get_captions(video_unique_key, lang):
         ydl_opts = {
             "quiet": True,
             "skip_download": True,
@@ -325,7 +339,8 @@ class Video(db.Model):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 info = ydl.extract_info(
-                    f"https://www.youtube.com/watch?v={video_id}", download=False
+                    f"https://www.youtube.com/watch?v={video_unique_key}",
+                    download=False,
                 )
                 subtitles = info.get("subtitles", {})
 
@@ -338,7 +353,7 @@ class Video(db.Model):
                         return Video.parse_vtt(vtt_content)
                 return None
             except Exception as e:
-                print(f"Error fetching subtitles for {video_id}: {e}")
+                print(f"Error fetching subtitles for {video_unique_key}: {e}")
                 return None
 
     @staticmethod
