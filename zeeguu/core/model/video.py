@@ -1,4 +1,5 @@
 from datetime import datetime
+import html
 from io import StringIO
 import os
 import re
@@ -347,7 +348,7 @@ class Video(db.Model):
 
                     response = requests.get(url)
                     if response.status_code == 200:
-                        vtt_content = response.text
+                        vtt_content = clean_vtt(response.text)
                         return Video.parse_vtt(vtt_content)
                 return None
             except Exception as e:
@@ -359,6 +360,7 @@ class Video(db.Model):
         def _timestamp_to_seconds(timestamp):
             h, m, s = timestamp.replace(',', '.').split(':')
             return float(h) * 3600 + float(m) * 60 + float(s)
+
         captions_list = []
         full_text = []
 
@@ -481,3 +483,8 @@ def has_dubbed_audio(video_unique_key):
     except Exception as e:
         print(f"Error checking for dubbed audio: {e}")
         raise e
+    
+def clean_vtt(vtt_content):
+    vtt_content = html.unescape(vtt_content)
+
+    return vtt_content
