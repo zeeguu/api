@@ -86,3 +86,33 @@ CREATE TABLE `video_topic_map` (
   CONSTRAINT `video_topic_map_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`),
   CONSTRAINT `video_topic_map_tag_FK` FOREIGN KEY (`topic_id`) REFERENCES `topic` (`id`)
 );
+
+CREATE TABLE `user_video` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `video_id` int NOT NULL,
+  `opened` datetime DEFAULT NULL,
+  `starred` datetime DEFAULT NULL,
+  `liked` boolean DEFAULT NULL,
+  `watch_time` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_video_user_FK` (`user_id`),
+  KEY `user_video_video_FK` (`video_id`),
+  CONSTRAINT `user_video_user_FK` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `user_video_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
+);
+
+CREATE TABLE `user_watching_session` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `video_id` int NOT NULL,
+  `start_time` datetime DEFAULT NULL,
+  `duration` int DEFAULT NULL,
+  `last_action_time` datetime DEFAULT NULL,
+  `is_active` boolean DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_watching_session_user_FK` (`user_id`),
+  KEY `user_watching_session_video_FK` (`video_id`),
+  CONSTRAINT `user_watching_session_user_FK` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `user_watching_session_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
+);
