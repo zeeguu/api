@@ -25,7 +25,7 @@ class UserVideo(db.Model):
 
     starred = db.Column(db.DateTime)
 
-    liked = db.Column(db.Bolean)
+    liked = db.Column(db.Boolean)
 
     watch_time = db.Column(db.Integer)
 
@@ -225,7 +225,7 @@ class UserVideo(db.Model):
             #         )
             
             if with_translations:
-                translations = Bookmark.find_all_all_for_user_and_video(user, video)
+                translations = Bookmark.find_all_for_user_and_source(user, video.source)
                 returned_info["translations"] = [
                     each.as_dictionary() for each in translations
                 ]
