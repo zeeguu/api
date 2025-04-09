@@ -1,4 +1,4 @@
-from zeeguu.core.model import BookmarkContext
+from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model import db
 import sqlalchemy
 
@@ -18,7 +18,7 @@ class VideoTitleContext(db.Model):
     )
     context = db.relationship(BookmarkContext)
 
-    video_id = db.Column(db.Integer, db.ForeignKey("Video.id"))
+    video_id = db.Column(db.Integer, db.ForeignKey("video.id"))
     video = db.relationship("Video")
 
     def __init__(
