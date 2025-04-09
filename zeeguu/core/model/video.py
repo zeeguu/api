@@ -333,6 +333,9 @@ class Video(db.Model):
 
     @staticmethod
     def parse_vtt(vtt_content):
+        def _timestamp_to_seconds(timestamp):
+            h, m, s = timestamp.replace(',', '.').split(':')
+            return float(h) * 3600 + float(m) * 60 + float(s)
         captions_list = []
         full_text = []
 
@@ -342,8 +345,8 @@ class Video(db.Model):
         for caption in captions:
             captions_list.append(
                 {
-                    "time_start": caption.start_in_seconds,
-                    "time_end": caption.end_in_seconds,
+                    "time_start": _timestamp_to_seconds(caption.start),
+                    "time_end": _timestamp_to_seconds(caption.end),
                     "text": caption.text,
                 }
             )
