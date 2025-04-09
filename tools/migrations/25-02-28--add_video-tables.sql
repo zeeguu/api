@@ -116,3 +116,15 @@ CREATE TABLE `user_watching_session` (
   CONSTRAINT `user_watching_session_user_FK` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`),
   CONSTRAINT `user_watching_session_video_FK` FOREIGN KEY (`video_id`) REFERENCES `video` (`id`)
 );
+
+############# This should maybe be in a file where the other contexts are created idk ###############
+ CREATE TABLE `video_caption_context` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bookmark_id` int NULL,
+  `caption_id` int NULL,
+  PRIMARY KEY (`id`),
+  KEY `video_caption_context_ibfk_1_idx` (`bookmark_id` ASC),
+  KEY `video_caption_context_ibfk_2_idx` (`caption_id` ASC),
+  CONSTRAINT `video_caption_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `bookmark` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `video_caption_context_ibfk_2` FOREIGN KEY (`caption_id`) REFERENCES `caption` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+ );

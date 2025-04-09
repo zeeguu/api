@@ -5,6 +5,8 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
+from zeeguu.core.model.caption import Caption
+from zeeguu.core.model.video import Video
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 
@@ -245,6 +247,7 @@ class Bookmark(db.Model):
     def get_source_title(self):
         from zeeguu.core.model.context_type import ContextType
         from zeeguu.core.model.article import Article
+        from zeeguu.core.model.video import Video
 
         if self.context.context_type.type == ContextType.ARTICLE_TITLE:
             from zeeguu.core.model.article_title_context import ArticleTitleContext
@@ -262,6 +265,24 @@ class Bookmark(db.Model):
                     self
                 ).article_fragment.article_id
             ).title
+        if self.context.context_type.type == ContextType.VIDEO_TITLE:
+            from zeeguu.core.model.video_title_context import VideoTitleContext
+
+            return Video.find_by_id(
+                VideoTitleContext.find_by_bookmark(
+                    self
+                ).video_id
+            ).title
+        
+        if self.context.context_type.type == ContextType.VIDEO_CAPTION:
+            from zeeguu.core.model.video_caption_context import VideoCaptionContext
+
+            return Video.find_by_id(
+                VideoCaptionContext.find_by_bookmark(
+                    self
+                ).caption.video_id
+            ).title
+        
         return None
 
     def as_dictionary(
@@ -416,6 +437,14 @@ class Bookmark(db.Model):
                     context_identifier.article_id = (
                         result.article_id if result else None
                     )
+                case ContextType.VIDEO_TITLE:
+                    context_identifier.video_id = (
+                        result.video_id if result else None
+                    )
+                case ContextType.VIDEO_CAPTION:
+                    context_identifier.video_caption_id = (
+                        result.video_caption_id if result else None
+                    )
                 case _:
                     print("### Got a type without a mapped table!")
         return context_identifier.as_dictionary()
@@ -465,6 +494,22 @@ class Bookmark(db.Model):
                 article = Article.find_by_id(context_identifier.article_id)
                 mapped_context = context_specific_table.find_or_create(
                     session, self, article, commit=commit
+                )
+                session.add(mapped_context)
+            case ContextType.VIDEO_TITLE:
+                if context_identifier.video_id is None:
+                    return None
+                video = Video.find_by_id(context_identifier.video_id)
+                mapped_context = context_specific_table.find_or_create(
+                    session, self, video, commit=commit
+                )
+                session.add(mapped_context)
+            case ContextType.VIDEO_CAPTION:
+                if context_identifier.video_caption_id is None:
+                    return None
+                video_caption = Caption.find_by_id(context_identifier.video_caption_id)
+                mapped_context = context_specific_table.find_or_create(
+                    session, self, video_caption, commit=commit 
                 )
                 session.add(mapped_context)
             case _:

@@ -70,3 +70,10 @@ class VideoTitleContext(db.Model):
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]
+    
+    @classmethod
+    def find_by_bookmark(cls, bookmark):
+        try:
+            return cls.query.filter(cls.bookmark == bookmark).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
