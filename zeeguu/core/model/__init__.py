@@ -95,3 +95,5 @@ from .video import Video
 from .caption import Caption
 from .video_tag import VideoTag
 from .video_tag_map import VideoTagMap
+from .video_caption_context import VideoCaptionContext
+from .video_title_context import VideoTitleContext
