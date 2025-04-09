@@ -14,9 +14,9 @@ languages = {
 
 YT_TOPIC_IDS = {
     # Sports topics
-    # "Sports": "/m/06ntj",
+    "Sports": "/m/06ntj",
     # Entertainment topics
-    #   "Entertainment": "/m/02jjt",
+    # "Entertainment": "/m/02jjt",
     #   "Humor": "/m/09kqc",
     #   "Movies": "/m/02vxn",
     #   "Performing arts": "/m/05qjc",
