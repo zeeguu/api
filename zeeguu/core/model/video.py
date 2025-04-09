@@ -159,6 +159,9 @@ class Video(db.Model):
             print(f"Video {video_unique_key} is not in {language.code}")
             video_info["broken"] = 2
 
+        if has_dubbed_audio(video_unique_key):
+            video_info["broken"] = 3
+
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
 
         if video_info["text"] == "":
@@ -455,3 +458,26 @@ def clean_description(description_text):
     description_text = re.sub(r"\s+", " ", description_text).strip()
 
     return description_text
+
+def has_dubbed_audio(video_unique_key):
+    try:
+        ydl_opts = {
+            "quiet": True,
+            "extract_flat": True,
+            "force_generic_extractor": True,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                f"https://www.youtube.com/watch?v={video_unique_key}",
+                download=False,
+            )
+
+            for format in info.get("formats", []):
+                if "dubbed-auto" in format.get("format_note", "").lower():
+                    return True
+            return False
+        
+    except Exception as e:
+        print(f"Error checking for dubbed audio: {e}")
+        raise e
