@@ -6,6 +6,7 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
+
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
@@ -16,9 +17,7 @@ from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.semantic_search import (
-    get_topic_classification_based_on_similar_content,
-)
+
 from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
@@ -73,6 +72,7 @@ class Video(db.Model):
     broken = db.Column(db.Integer)
     crawled_at = db.Column(db.DateTime)
     thumbnail_url = db.relationship(Url, foreign_keys="Video.thumbnail_url_id")
+
     channel = db.relationship("YTChannel", back_populates="videos")
     topics = db.relationship("VideoTopicMap", back_populates="video")
     language = db.relationship("Language")
@@ -150,7 +150,9 @@ class Video(db.Model):
         desc_lang = (
             detect(clean_description(video_info["description"])) if video_info["description"] else None
         )
-
+        print(
+            f"Video detect languages detected are (title: '{title_lang}', description: '{desc_lang}')."
+        )
         if (
             (title_lang and title_lang != language.code) and (desc_lang and desc_lang != language.code)
         ):
@@ -158,6 +160,11 @@ class Video(db.Model):
             video_info["broken"] = 2
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
+
+        if video_info["text"] == "":
+            print(f"Couldn't parse any text for the video '{video_unique_key}'")
+            return None
+
         source = Source.find_or_create(
             session,
             video_info["text"],
@@ -218,27 +225,39 @@ class Video(db.Model):
         # add topic
         print("Adding topic")
         try:
-            from zeeguu.core.model.article_topic_map import TopicOriginType
-
-            topic = get_topic_classification_based_on_similar_content(
-                new_video.get_content()
-            )
-            if topic:
-                print(f"Topic inferred: {topic}")
-                video_topic_map = VideoTopicMap(
-                    video=new_video, topic=topic, origin_type=TopicOriginType.INFERRED
-                )
-                print(f"Video topic map: {video_topic_map}")
-                session.add(video_topic_map)
-                session.commit()
+            new_video.assign_inferred_topics(session)
         except Exception as e:
             session.rollback()
             raise e
         create_or_update_video(new_video, session)
         return new_video
 
+    def assign_inferred_topics(self, session, commit=True):
+        from zeeguu.core.model.article_topic_map import TopicOriginType
+        from zeeguu.core.semantic_search import (
+            get_topic_classification_based_on_similar_content,
+        )
+
+        topic = get_topic_classification_based_on_similar_content(
+            self.get_content(), verbose=True
+        )
+        if topic:
+            video_topic_map = VideoTopicMap(
+                video=self, topic=topic, origin_type=TopicOriginType.INFERRED
+            )
+            print(f"Assigned Topic: {video_topic_map}")
+            session.add(video_topic_map)
+            if commit:
+                session.commit()
+
     @staticmethod
     def fetch_video_info(video_unique_key, lang):
+        """
+        video_unique_key is the video id, e.g. "8-GrLwHK8SQ"
+
+
+        """
+
         def _get_thumbnail(item):
             return (
                 item["snippet"]["thumbnails"].get("maxres", {}).get("url")
@@ -303,7 +322,7 @@ class Video(db.Model):
         return video_info
 
     @staticmethod
-    def get_captions(video_id, lang):
+    def get_captions(video_unique_key, lang):
         ydl_opts = {
             "quiet": True,
             "skip_download": True,
@@ -315,7 +334,8 @@ class Video(db.Model):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 info = ydl.extract_info(
-                    f"https://www.youtube.com/watch?v={video_id}", download=False
+                    f"https://www.youtube.com/watch?v={video_unique_key}",
+                    download=False,
                 )
                 subtitles = info.get("subtitles", {})
 
@@ -328,7 +348,7 @@ class Video(db.Model):
                         return Video.parse_vtt(vtt_content)
                 return None
             except Exception as e:
-                print(f"Error fetching subtitles for {video_id}: {e}")
+                print(f"Error fetching subtitles for {video_unique_key}: {e}")
                 return None
 
     @staticmethod
@@ -377,7 +397,9 @@ class Video(db.Model):
             description=self.description,
             summary=summary,
             channel=self.channel.as_dictionary(),
-            thumbnail_url=self.thumbnail_url.as_string(),
+            thumbnail_url=(
+                self.thumbnail_url.as_string() if self.thumbnail_url else None
+            ),
             topics_list=self.topics_as_tuple(),
             duration=self.duration,
             language_code=self.language.code,

@@ -66,7 +66,9 @@ class YTChannel(db.Model):
             views=self.views,
             subscribers=self.subscribers,
             language_id=self.language.id,
-            thumbnail_url=self.thumbnail_url.as_string(),
+            thumbnail_url=(
+                self.thumbnail_url.as_string() if self.thumbnail_url else None
+            ),
             should_crawl=self.should_crawl,
             last_crawled=self.last_crawled,
         )

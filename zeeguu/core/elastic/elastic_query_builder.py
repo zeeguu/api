@@ -182,6 +182,12 @@ def build_elastic_search_query_for_videos(
     topics_to_exclude,
     page,
 ):
+    """
+    At the moment this query is very similar to the articles query 'build_elastic_recommender_query'
+    The difference here is that we don't enforce the recency as much as in the articles.
+
+    We expect videos to come at a much lower pace when compared to the articles.
+    """
 
     must = []
     must_not = []
@@ -437,7 +443,8 @@ def build_elastic_semantic_sim_query_for_topic_cls(
         num_candidates=n_candidates,
         query_vector=sem_vec,
         filter=(
-            ~Q("ids", values=filter_ids)
+            Q("exists", field="article_id")
+            & ~Q("terms", **{"article_id": filter_ids})
             # & ~Q("match", **{"url_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
             & Q(
@@ -448,6 +455,7 @@ def build_elastic_semantic_sim_query_for_topic_cls(
     )
 
     query = s.to_dict()
+
     # print(query)
     return query
 
