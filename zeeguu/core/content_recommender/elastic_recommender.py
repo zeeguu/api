@@ -153,7 +153,7 @@ def article_recommendations_for_user(
     # Get articles based on Search preferences
     articles_from_searches = []
     for search in wanted_user_searches.split():
-        articles_from_searches += article_search_for_user(
+        articles_from_searches += article_and_video_search_for_user(
             user,
             1,
             search,
@@ -207,7 +207,7 @@ def video_recommendations_for_user(
 
 
 @time_this
-def article_search_for_user(
+def article_and_video_search_for_user(
     user,
     count,
     search_terms,
@@ -253,13 +253,16 @@ def article_search_for_user(
 
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
+
     articles_found = [h for h in hit_list if "article_id" in h["_source"]]
     videos_found = [h for h in hit_list if "video_id" in h["_source"]]
+
     results.extend(_to_articles_from_ES_hits(articles_found))
     results.extend(_to_videos_from_ES_hits(videos_found))
-    final_articles = [each for each in results if each is not None and not each.broken]
 
-    return final_articles
+    final_mix = [each for each in results if each is not None and not each.broken]
+
+    return final_mix
 
 
 def topic_filter_for_user(
