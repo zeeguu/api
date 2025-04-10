@@ -22,6 +22,9 @@ class NewText(db.Model):
         self.content = content
         self.content_hash = long_hash(content)
 
+    def get_content(self):
+        return self.content
+
     def __repr__(self):
         return f"<NewText {self.content[:50]}>"
 

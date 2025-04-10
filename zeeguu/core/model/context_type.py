@@ -14,7 +14,7 @@ class ContextType(db.Model):
     ARTICLE_TITLE = "ArticleTitle"
     ARTICLE_SUMMARY = "ArticleSummary"
     VIDEO_TITLE = "VideoTitle"
-    VIDEO_SUBTITLE = "VideoSubtitle"
+    VIDEO_CAPTION = "VideoCaption"
     WEB_FRAGMENT = "WebFragment"
     USER_EDITED_TEXT = "UserEditedText"
     ORPHAN_CONTEXT = "OrphanContext"
@@ -24,7 +24,7 @@ class ContextType(db.Model):
         ARTICLE_TITLE,
         ARTICLE_SUMMARY,
         VIDEO_TITLE,
-        VIDEO_SUBTITLE,
+        VIDEO_CAPTION,
         WEB_FRAGMENT,
         USER_EDITED_TEXT,
         ORPHAN_CONTEXT,
@@ -67,11 +67,17 @@ class ContextType(db.Model):
     def get_table_corresponding_to_type(cls, type: str):
         from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
+        from zeeguu.core.model.video_title_context import VideoTitleContext
+        from zeeguu.core.model.video_caption_context import VideoCaptionContext
 
         match type:
             case cls.ARTICLE_FRAGMENT:
                 return ArticleFragmentContext
             case cls.ARTICLE_TITLE:
                 return ArticleTitleContext
+            case cls.VIDEO_TITLE:
+                return VideoTitleContext
+            case cls.VIDEO_CAPTION:
+                return VideoCaptionContext
             case _:
                 return None

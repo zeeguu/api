@@ -89,3 +89,14 @@ from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 from .personal_copy import PersonalCopy
 
 from .difficulty_lingo_rank import DifficultyLingoRank
+
+from .yt_channel import YTChannel
+from .video import Video
+from .caption import Caption
+from .video_tag import VideoTag
+from .video_tag_map import VideoTagMap
+from .video_caption_context import VideoCaptionContext
+from .video_title_context import VideoTitleContext
+from .video_topic_map import VideoTopicMap
+from .user_video import UserVideo
+from .user_watching_session import UserWatchingSession

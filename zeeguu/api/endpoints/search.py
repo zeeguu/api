@@ -8,7 +8,7 @@ from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model import User
 
-from zeeguu.core.content_recommender import article_search_for_user
+from zeeguu.core.content_recommender import article_and_video_search_for_user
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -227,6 +227,8 @@ def search_for_search_terms(search_terms, page: int = 0):
     :return: json article list for the search term
 
     """
+    from zeeguu.core.model.article import Article
+    from zeeguu.core.model.video import Video
 
     # Default params
     use_published_priority = False
@@ -241,7 +243,7 @@ def search_for_search_terms(search_terms, page: int = 0):
         )
 
     user = User.find_by_id(flask.g.user_id)
-    articles = article_search_for_user(
+    results = article_and_video_search_for_user(
         user,
         20,
         search_terms,
@@ -249,8 +251,14 @@ def search_for_search_terms(search_terms, page: int = 0):
         use_published_priority=use_published_priority,
         use_readability_priority=use_readability_priority,
     )
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
-    return json_result(article_infos)
+
+    article_infos = [
+        UserArticle.user_article_info(user, a) for a in results if type(a) is Article
+    ]
+    video_info = [v.video_info() for v in results if type(v) is Video]
+
+    # TODO @Tiago: interleave based on score
+    return json_result(article_infos + video_info)
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +280,7 @@ def search_for_latest_search_terms(search_terms):
     """
 
     user = User.find_by_id(flask.g.user_id)
-    articles = article_search_for_user(
+    articles = article_and_video_search_for_user(
         user,
         3,
         search_terms,

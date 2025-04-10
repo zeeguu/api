@@ -16,7 +16,7 @@ from python_translators.translation_query import TranslationQuery
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, Article, Text, User
+from zeeguu.core.model import Bookmark, User
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from . import api, db_session
@@ -24,6 +24,8 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.text import Text
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -112,7 +114,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             c_paragraph_i=c_paragraph_i,
             c_sentence_i=c_sent_i,
             c_token_i=c_token_i,
-            in_content=in_content,
             left_ellipsis=left_ellipsis,
             right_ellipsis=right_ellipsis,
             sentence_i=w_sent_i,
