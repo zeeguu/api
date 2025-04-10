@@ -32,7 +32,7 @@ app.app_context().push()
 # or equal to the number of articles in the DB
 #   ITERATION_STEP - number of articles to index before reporting. Default: 1000
 DELETE_INDEX = False
-INDEX_WITH_TOPIC_ONLY = True
+INDEX_WITH_TOPIC = True
 TOTAL_ITEMS = 1000
 ITERATION_STEP = 100
 
@@ -40,6 +40,31 @@ print(ES_CONN_STRING)
 es = Elasticsearch(ES_CONN_STRING)
 db_session = zeeguu.core.model.db.session
 print(es.info())
+
+
+def fetch_articles_by_id(id_list):
+    for i in id_list:
+        try:
+            if es.exists(index=ES_ZINDEX, id=i):
+                print(f"Skipped for: '{i}', article already in ES.")
+                continue
+            article = Article.find_by_id(i)
+            if not article:
+                print(f"Skipped for: '{i}', article not in DB.")
+                continue
+            yield article
+        except NoResultFound:
+            print(f"fail for: '{i}'")
+        except Exception as e:
+            print(f"fail for: '{i}', {e}")
+
+
+def gen_docs(articles_w_topics):
+    for article in articles_w_topics:
+        try:
+            yield create_or_update_doc_for_bulk(article, db_session)
+        except Exception as e:
+            print(f"fail for: '{article.id}', {e}")
 
 
 def main():
@@ -52,31 +77,8 @@ def main():
         except Exception as e:
             print(f"Failed to delete: {e}")
 
-    def fetch_articles_by_id(id_list):
-        for i in id_list:
-            try:
-                if es.exists(index=ES_ZINDEX, id=i):
-                    print(f"Skipped for: '{i}', article already in ES.")
-                    continue
-                article = Article.find_by_id(i)
-                if not article:
-                    print(f"Skipped for: '{i}', article not in DB.")
-                    continue
-                yield article
-            except NoResultFound:
-                print(f"fail for: '{i}'")
-            except Exception as e:
-                print(f"fail for: '{i}', {e}")
-
-    def gen_docs(articles_w_topics):
-        for article in articles_w_topics:
-            try:
-                yield create_or_update_doc_for_bulk(article, db_session)
-            except Exception as e:
-                print(f"fail for: '{article.id}', {e}")
-
     # Sample Articles that have topics assigned and are not inferred
-    if INDEX_WITH_TOPIC_ONLY:
+    if INDEX_WITH_TOPIC:
         target_ids = np.array(
             [
                 a_id[0]
@@ -92,6 +94,9 @@ def main():
         )
         print("Got articles with topics, total: ", len(target_ids))
     else:
+        # index w/o topic
+        # Note: these two are exclusive;
+        # If you ever want to reindex everything, you'll have to modify this
         articles_with_topic = set(
             [
                 art_id_w_topic[0]
@@ -117,7 +122,7 @@ def main():
         scan_results = scan(es, index=ES_ZINDEX, query=es_query)
         ids_in_es = set(
             [
-                int(hit["_source"].get("article_id", hit["_id"]))
+                int(hit["_source"]["article_id"])
                 for hit in scan_results
                 if "article_id" in hit["_source"]
             ]
