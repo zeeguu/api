@@ -119,16 +119,12 @@ def create_or_update(article, session):
 
 def create_or_update_doc_for_bulk(article, session):
 
-    doc_data = document_from_article(article, session)
-    doc = {}
-    doc["_index"] = ES_ZINDEX
-    doc["_id"] = article.id
+    doc = {"_index": ES_ZINDEX, "_id": article.id}
     # Comment after making the migration to docs having article_id as part of doc.
     # hit = get_article_in_es(article.id)
     hit = get_doc_in_es(article.id, get_source_dict=False)
     if hit:
         doc_data = document_from_article(article, session, current_doc=hit["_source"])
-        doc["_id"] = hit["_id"]  # hit.meta.id
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:

@@ -14,22 +14,7 @@ from tqdm import tqdm
 
 app = create_app()
 app.app_context().push()
-# First we should only index with topics so we can do
-# inference based on the articles that have topics.
 
-# These parameters can be changed based on need.
-#   DELETE_INDEX - used to re-index from scratch. Default: False
-#   INDEX_WITH_TOPIC_ONLY - determines which articles are indexed. If set to True,
-# only the articles which have a topic assigned to them are index. If false, then
-# only the articles without the topic will be added. Default: True
-#   TOTAL_ITEMS - total items to be indexed, the IDs are sampled and this is used to
-# have a variety of different articles in ES. Default: 5000
-# NOTE: If you want to index all the articles, you shoud pass a number that's higher
-# or equal to the number of articles in the DB
-#   ITERATION_STEP - number of articles to index before reporting. Default: 1000
-DELETE_INDEX = False
-INDEX_WITH_TOPIC_ONLY = True
-TOTAL_ITEMS = 1000
 ITERATION_STEP = 100
 
 print(ES_CONN_STRING)
