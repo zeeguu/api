@@ -37,7 +37,6 @@ bookmark_exercise_mapping = Table(
     Column("exercise_id", Integer, ForeignKey("exercise.id")),
 )
 
-WordAlias = db.aliased(UserWord, name="translated_word")
 
 
 class Bookmark(db.Model):
