@@ -212,7 +212,7 @@ class Video(db.Model):
             session.rollback()
             raise e
 
-        # Skip captions and topic if video is broken
+        # Skip captions and topic if video is broken (this also means that the video is not indexed)
         if video_info["broken"] != 0:
             return new_video
 
@@ -253,8 +253,11 @@ class Video(db.Model):
             )
             print("Video will be saved without a topic for now.")
             session.rollback()
-        if video.broken == 0:
+        
+        # Index video if it is not broken
+        if new_video.broken == 0:
             index_video(new_video, session)
+        
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):
