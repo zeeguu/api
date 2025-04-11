@@ -269,20 +269,16 @@ class Bookmark(db.Model):
             from zeeguu.core.model.video_title_context import VideoTitleContext
 
             return Video.find_by_id(
-                VideoTitleContext.find_by_bookmark(
-                    self
-                ).video_id
+                VideoTitleContext.find_by_bookmark(self).video_id
             ).title
-        
+
         if self.context.context_type.type == ContextType.VIDEO_CAPTION:
             from zeeguu.core.model.video_caption_context import VideoCaptionContext
 
             return Video.find_by_id(
-                VideoCaptionContext.find_by_bookmark(
-                    self
-                ).caption.video_id
+                VideoCaptionContext.find_by_bookmark(self).caption.video_id
             ).title
-        
+
         return None
 
     def as_dictionary(
@@ -438,9 +434,7 @@ class Bookmark(db.Model):
                         result.article_id if result else None
                     )
                 case ContextType.VIDEO_TITLE:
-                    context_identifier.video_id = (
-                        result.video_id if result else None
-                    )
+                    context_identifier.video_id = result.video_id if result else None
                 case ContextType.VIDEO_CAPTION:
                     context_identifier.video_caption_id = (
                         result.caption_id if result else None
@@ -509,7 +503,7 @@ class Bookmark(db.Model):
                     return None
                 video_caption = Caption.find_by_id(context_identifier.video_caption_id)
                 mapped_context = context_specific_table.find_or_create(
-                    session, self, video_caption, commit=commit 
+                    session, self, video_caption, commit=commit
                 )
                 session.add(mapped_context)
             case _:
@@ -517,7 +511,6 @@ class Bookmark(db.Model):
                     f"## Something went wrong, the context {self.context.context_type.type} did not match any case."
                 )
 
-        print(f"## Mapped context: {mapped_context}") # TODO: The values are often printed as None even though they get saved correctly in the database.
         return mapped_context
 
     @classmethod

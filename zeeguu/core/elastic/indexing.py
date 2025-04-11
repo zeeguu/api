@@ -178,7 +178,7 @@ def create_or_update_article(article, session):
     return res
 
 
-def create_video(video, session):
+def index_video(video, session):
 
     doc = document_from_video(video, session)
     res = es_index(body=doc)

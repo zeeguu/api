@@ -118,7 +118,7 @@ def build_elastic_recommender_query(
         must_not.append(match("title", unwanted_user_topics))
 
     must.append(exists("published_time"))
-    # must_not.append(exists("video_id"))
+    must.append(exists("article_id"))
 
     topics_to_find = array_of_topics(topics_to_include)
     if len(topics_to_find) > 0:
