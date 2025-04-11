@@ -7,6 +7,7 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
+import emoji
 
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
@@ -173,15 +174,21 @@ class Video(db.Model):
         #     print(f"Couldn't parse any text for the video '{video_unique_key}'")
         #     return None
 
-        source = Source.find_or_create(
-            session,
-            video_info["text"],
-            SourceType.find_by_type(SourceType.VIDEO),
-            language,
-            False,
-            False,
-        )
         url_object = Url.find_or_create(session, video_info["thumbnail"])
+
+        # TODO: Remove this temporary workaround (this is because source_id is unique in video table)
+        if video_info["broken"] != 0:
+            source = None
+        else:
+            source = Source.find_or_create(
+                session,
+                video_info["text"],
+                SourceType.find_by_type(SourceType.VIDEO),
+                language,
+                False,
+                False,
+            )
+
 
         new_video = cls(
             video_unique_key=video_unique_key,
@@ -306,8 +313,8 @@ class Video(db.Model):
 
         video_info = {
             "videoId": video_unique_key,
-            "title": item["snippet"]["title"],
-            "description": item["snippet"].get("description", ""),
+            "title": remove_emojis(item["snippet"]["title"]),
+            "description": remove_emojis(item["snippet"].get("description", "")),
             "publishedAt": isodate.parse_datetime(
                 item["snippet"]["publishedAt"]
             ).replace(tzinfo=None),
@@ -503,5 +510,10 @@ def has_dubbed_audio(video_unique_key):
 
 def clean_vtt(vtt_content):
     vtt_content = html.unescape(vtt_content)
-
+    vtt_content = remove_emojis(vtt_content)
     return vtt_content
+
+def remove_emojis(text):
+    # Use the emoji library to remove emojis
+    # This is for the purpose of being able to translate the text (e.g. emojis are not translatable)
+    return emoji.replace_emoji(text, replace='')
