@@ -4,6 +4,9 @@ from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
+from dotenv import load_dotenv
+
+load_dotenv()
 
 CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
 

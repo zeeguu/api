@@ -1,8 +1,12 @@
 import requests
 import os
+from dotenv import load_dotenv
 
 import zeeguu.core
 from zeeguu.core import model
+
+# Load environment variables from .env file
+load_dotenv()
 
 db_session = zeeguu.core.model.db.session
 
