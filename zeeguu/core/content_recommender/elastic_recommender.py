@@ -8,16 +8,18 @@ Still uses MySQL to find relations between the user and things such as:
 """
 
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Q, SF
-from pprint import pprint
+from elasticsearch_dsl import Search, Q
+
 
 from zeeguu.core.model import (
     Article,
+    Video,
     TopicFilter,
     TopicSubscription,
     SearchFilter,
     SearchSubscription,
     UserArticle,
+    UserVideo,
     Language,
 )
 
@@ -249,18 +251,21 @@ def article_and_video_search_for_user(
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
 
-    results = []
-
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
 
-    articles_found = [h for h in hit_list if "article_id" in h["_source"]]
-    videos_found = [h for h in hit_list if "video_id" in h["_source"]]
+    content_objects = [
+        (
+            _get_article_from_ES_hit(h)
+            if "article_id" in h["_source"]
+            else _get_video_from_ES_hit(h)
+        )
+        for h in hit_list
+    ]
 
-    results.extend(_to_articles_from_ES_hits(articles_found))
-    results.extend(_to_videos_from_ES_hits(videos_found))
-
-    final_mix = [each for each in results if each is not None and not each.broken]
+    final_mix = [
+        each for each in content_objects if each is not None and not each.broken
+    ]
 
     return final_mix
 
@@ -332,10 +337,19 @@ def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
+def _get_video_from_ES_hit(hit):
+    return Video.find_by_id(hit["_source"]["video_id"])
+
+
+def _get_article_from_ES_hit(hit):
+    print(hit)
+    return Article.find_by_id(hit["_source"]["article_id"])
+
+
 def _to_articles_from_ES_hits(hits, with_score=False):
     articles = []
     for hit in hits:
-        article = Article.find_by_id(hit["_source"].get("article_id", hit["_id"]))
+        article = _get_article_from_ES_hit(hit)
         if with_score:
             articles.append((hit.get("_score", 0), article))
         else:
@@ -345,11 +359,9 @@ def _to_articles_from_ES_hits(hits, with_score=False):
 
 
 def _to_videos_from_ES_hits(hits, with_score=False):
-    from zeeguu.core.model.video import Video
-
     videos = []
     for hit in hits:
-        video = Video.find_by_id(hit["_source"].get("video_id"))
+        video = _get_video_from_ES_hit(hit)
         if with_score:
             videos.append((hit.get("_score", 0), video))
         else:
@@ -407,3 +419,14 @@ def content_recommendations(user_id: int, language_id: int):
 
     articles_to_recommend = __find_articles_like(user_likes, 20, 50, language_id)
     return articles_to_recommend
+
+
+def get_user_info_from_content_recommendations(user, content_list):
+    return [
+        (
+            UserArticle.user_article_info(user, each)
+            if type(each) is Article
+            else UserVideo.user_video_info(user, each)
+        )
+        for each in content_list
+    ]
