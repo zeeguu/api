@@ -47,5 +47,5 @@ class Caption(db.Model):
         return caption
     
     @classmethod
-    def find_by_id(cls, session, caption_id):
-        cls.query.filter_by(id=caption_id).first()
+    def find_by_id(cls, caption_id: int):
+        return cls.query.filter_by(id=caption_id).first()
