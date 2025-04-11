@@ -24,6 +24,9 @@ from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.util.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_FOR_LANGUAGE = {
     "da": os.getenv("YOUTUBE_API_KEY_DA"),
@@ -108,7 +111,7 @@ class Video(db.Model):
         self.crawled_at = crawled_at
 
     def __repr__(self):
-        return f"<Video {self.title} ({self.video_unique_key})>"
+        return f"<Video title: {self.title} unique_key: {self.video_unique_key}>"
 
     def get_content(self):
         return self.source.get_content()
@@ -132,16 +135,13 @@ class Video(db.Model):
         )
 
         if video:
-            print(f"Video already crawled returning... (Broken: {video.broken})")
+            print(f"Video already crawled. Returning... (Broken: {video.broken})")
             return video
 
         try:
             video_info = cls.fetch_video_info(video_unique_key, language)
         except ValueError as e:
             print(f"Error fetching video info for {video_unique_key}: {e}")
-            return None
-
-        if video_info is None:
             return None
 
         if isinstance(language, str):
@@ -159,17 +159,19 @@ class Video(db.Model):
         if (title_lang and title_lang != language.code) and (
             desc_lang and desc_lang != language.code
         ):
-            print(f"Video {video_unique_key} is not in {language.code}")
+            print(f"Video title and description ({video_unique_key}) is not in language: {language.code}")
             video_info["broken"] = 2
 
         if has_dubbed_audio(video_unique_key):
+            print(f"Video ({video_unique_key}) has dubbed audio")
             video_info["broken"] = 3
-
+        
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
 
-        if video_info["text"] == "":
-            print(f"Couldn't parse any text for the video '{video_unique_key}'")
-            return None
+        # TODO: Remove this right? This prevents us from saving videos with no text (e.g. )
+        # if video_info["text"] == "":
+        #     print(f"Couldn't parse any text for the video '{video_unique_key}'")
+        #     return None
 
         source = Source.find_or_create(
             session,
@@ -202,6 +204,11 @@ class Video(db.Model):
             session.rollback()
             raise e
 
+        # Skip captions and topic if video is broken
+        if video_info["broken"] != 0:
+            return new_video
+
+        # Add captions
         try:
             for caption in video_info["captions"]:
                 new_caption = Caption.create(
@@ -233,8 +240,10 @@ class Video(db.Model):
         try:
             new_video.assign_inferred_topics(session)
         except Exception as e:
+            print(f"Error adding topic to video ({video_unique_key}) with elastic search: {e}")
+            print("Video will be saved without a topic for now.")
             session.rollback()
-            raise e
+            
         create_video(new_video, session)
         return new_video
 
@@ -278,7 +287,7 @@ class Video(db.Model):
         YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(lang)
 
         if not YOUTUBE_API_KEY:
-            raise ValueError("Missing YOUTUBE_API_KEY environment variable")
+            raise ValueError("Missing YOUTUBE_API_KEY environment variable. ")
         params = {
             "part": "snippet,contentDetails",
             "id": video_unique_key,
@@ -318,7 +327,7 @@ class Video(db.Model):
             video_info["vtt"] = ""
             video_info["text"] = ""
             video_info["captions"] = []
-            video_info["broken"] = 1
+            video_info["broken"] = 1 # If captions don't exist in target language
         else:
             video_info["vtt"] = captions["vtt"]
             video_info["text"] = captions["text"]
