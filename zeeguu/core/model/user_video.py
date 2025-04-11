@@ -27,15 +27,15 @@ class UserVideo(db.Model):
 
     liked = db.Column(db.Boolean)
 
-    watch_time = db.Column(db.Integer)
+    playback_position = db.Column(db.Integer)
 
-    def __init__(self, user, video, opened=None, starred=None, liked=None, watch_time=None):
+    def __init__(self, user, video, opened=None, starred=None, liked=None, playback_position=None):
         self.user = user
         self.video = video
         self.opened = opened
         self.starred = starred
         self.liked = liked
-        self.watch_time = watch_time
+        self.playback_position = playback_position
 
     def __repr__(self):
         return f"{self.user} and {self.video}: Opened: {self.opened}, Starred: {self.starred}, Liked: {self.liked}"
@@ -87,13 +87,13 @@ class UserVideo(db.Model):
         opened=None,
         starred=None,
         liked=None,
-        watch_time=None,
+        playback_position=None,
     ):
         try:
             return cls.query.filter_by(user=user, video=video).one()
         except NoResultFound:
             try:
-                new = cls(user, video, opened=opened, starred=starred, liked=liked, watch_time=watch_time)
+                new = cls(user, video, opened=opened, starred=starred, liked=liked, playback_position=playback_position)
                 session.add(new)
                 session.commit()
                 return new
@@ -147,7 +147,7 @@ class UserVideo(db.Model):
             "starred_date": datetime_to_json(each.starred),
             "starred": (each.starred is not None),
             "liked": each.liked,
-            "watch_time": each.watch_time,
+            "playback_position": each.playback_position,
         }
             for each in user_videos
         ]
@@ -206,11 +206,11 @@ class UserVideo(db.Model):
             returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
-            returned_info["watch_time"] = None
+            returned_info["playback_position"] = None
             returned_info["translations"] = []
 
         else:
-            returned_info["watch_time"] = user_video_info.watch_time
+            returned_info["playback_position"] = user_video_info.playback_position
             returned_info["starred"] = user_video_info.starred is not None
             returned_info["opened"] = user_video_info.opened is not None
             returned_info["liked"] = user_video_info.liked
