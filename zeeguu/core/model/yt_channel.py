@@ -5,6 +5,7 @@ from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 from dotenv import load_dotenv
+from zeeguu.core.util.text import remove_emojis
 
 load_dotenv()
 
@@ -143,8 +144,8 @@ class YTChannel(db.Model):
 
         channel_info = {
             "channelId": channel_id,
-            "channelName": snippet["title"],
-            "description": snippet.get("description", ""),
+            "channelName": remove_emojis(snippet["title"]),
+            "description": remove_emojis(snippet.get("description", "")),
             "viewCount": statistics["viewCount"],
             "subscriberCount": statistics["subscriberCount"],
             "thumbnail": _get_thumbnail(snippet),

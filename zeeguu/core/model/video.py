@@ -26,6 +26,7 @@ from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.util.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
 from dotenv import load_dotenv
+from zeeguu.core.util.text import remove_emojis
 
 load_dotenv()
 
@@ -271,6 +272,8 @@ class Video(db.Model):
             session.add(video_topic_map)
             if commit:
                 session.commit()
+        else:
+            print(f"No topic generated for video ({self.video_unique_key}) using elastic search.")
 
     @staticmethod
     def fetch_video_info(video_unique_key, lang):
@@ -512,8 +515,3 @@ def clean_vtt(vtt_content):
     vtt_content = html.unescape(vtt_content)
     vtt_content = remove_emojis(vtt_content)
     return vtt_content
-
-def remove_emojis(text):
-    # Use the emoji library to remove emojis
-    # This is for the purpose of being able to translate the text (e.g. emojis are not translatable)
-    return emoji.replace_emoji(text, replace='')
