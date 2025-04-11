@@ -378,9 +378,9 @@ class Video(db.Model):
 
     @staticmethod
     def parse_vtt(vtt_content):
-        def _timestamp_to_seconds(timestamp):
+        def _timestamp_to_milliseconds(timestamp):
             h, m, s = timestamp.replace(",", ".").split(":")
-            return float(h) * 3600 + float(m) * 60 + float(s)
+            return (float(h) * 3600 + float(m) * 60 + float(s)) * 1000
 
         captions_list = []
         full_text = []
@@ -391,8 +391,8 @@ class Video(db.Model):
         for caption in captions:
             captions_list.append(
                 {
-                    "time_start": _timestamp_to_seconds(caption.start),
-                    "time_end": _timestamp_to_seconds(caption.end),
+                    "time_start": _timestamp_to_milliseconds(caption.start),
+                    "time_end": _timestamp_to_milliseconds(caption.end),
                     "text": caption.text,
                 }
             )
@@ -445,8 +445,8 @@ class Video(db.Model):
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             result_dict["captions"] = [
                 {
-                    "time_start": caption.time_start,
-                    "time_end": caption.time_end,
+                    "time_start": caption.time_start / 1000, # convert to seconds
+                    "time_end": caption.time_end / 1000,
                     "text": caption.get_content(),
                     "tokenized_text": tokenizer.tokenize_text(
                         caption.get_content(), flatten=False

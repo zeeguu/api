@@ -11,8 +11,9 @@ class Caption(db.Model):
     video = db.relationship("Video", back_populates="captions")
     video_id = db.Column(db.Integer, db.ForeignKey("video.id"))
 
-    time_start = db.Column(db.Float)
-    time_end = db.Column(db.Float)
+    # The start and end time of the caption in milliseconds
+    time_start = db.Column(db.Integer)
+    time_end = db.Column(db.Integer)
 
     text_id = db.Column(db.Integer, db.ForeignKey(NewText.id))
     text = db.relationship(NewText, foreign_keys="Caption.text_id")
