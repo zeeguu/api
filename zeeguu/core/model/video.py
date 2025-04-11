@@ -7,7 +7,6 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
-import emoji
 
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
@@ -23,7 +22,7 @@ from zeeguu.core.model.source_type import SourceType
 from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
-from zeeguu.core.util.fk_to_cefr import fk_to_cefr
+from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
 from dotenv import load_dotenv
 from zeeguu.core.util.text import remove_emojis
@@ -217,7 +216,7 @@ class Video(db.Model):
             session.rollback()
             raise e
 
-        # Skip captions and topic if video is broken
+        # Skip captions and topic if video is broken (this also means that the video is not indexed)
         if video_info["broken"] != 0:
             return new_video
 
@@ -258,8 +257,11 @@ class Video(db.Model):
             )
             print("Video will be saved without a topic for now.")
             session.rollback()
-        if video.broken == 0:
+        
+        # Index video if it is not broken
+        if new_video.broken == 0:
             index_video(new_video, session)
+        
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):
@@ -454,7 +456,7 @@ class Video(db.Model):
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             result_dict["captions"] = [
                 {
-                    "time_start": caption.time_start / 1000, # convert to seconds
+                    "time_start": caption.time_start / 1000,  # convert to seconds
                     "time_end": caption.time_end / 1000,
                     "text": caption.get_content(),
                     "tokenized_text": tokenizer.tokenize_text(

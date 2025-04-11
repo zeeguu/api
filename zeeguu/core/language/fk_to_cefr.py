@@ -11,3 +11,10 @@ def fk_to_cefr(fk_difficulty):
         return "C1"
     else:
         return "C2"
+
+
+# notes for the future
+# - consider using some of the LLMs
+#   - fine-tuning
+# - even ask the LLM about grammar?
+# - Tiago: try Gemma
