@@ -27,12 +27,9 @@ class UserWatchingSession(db.Model):
     duration = db.Column(db.Integer)  # Duration time in milliseconds
     last_action_time = db.Column(db.DateTime)
 
-    is_active = db.Column(db.Boolean)
-
     def __init__(self, user_id, video_id, current_time=None):
         self.user_id = user_id
         self.video_id = video_id
-        self.is_active = True
 
         if current_time is None:
             current_time = datetime.now()
@@ -78,14 +75,11 @@ class UserWatchingSession(db.Model):
         user_id,
         from_date: str = VERY_FAR_IN_THE_PAST,
         to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
     ):
         query = cls.query()
         query = query.filter(cls.user_id == user_id)
         query = query.filter(cls.start_time >= from_date)
         query = query.filter(cls.start_time <= to_date)
-        if is_active is not None:
-            query = query.filter(cls.is_active == is_active)
         query = query.order_by("start_time")
 
         sessions = query.all()
@@ -112,7 +106,6 @@ class UserWatchingSession(db.Model):
         video,
         from_date: str = VERY_FAR_IN_THE_PAST,
         to_date: str = VERY_FAR_IN_THE_FUTURE,
-        is_active: bool = None,
         cohort: bool = None,
     ):
         from .user_cohort_map import UserCohortMap
@@ -127,9 +120,6 @@ class UserWatchingSession(db.Model):
         query = query.filter(cls.video_id == video)
         query = query.filter(cls.start_time >= from_date)
         query = query.filter(cls.start_time <= to_date)
-        if is_active is not None:
-            query = query.filter(cls.is_active == is_active)
-
         query = query.order_by("start_time")
         sessions = query.all()
         return sessions
@@ -157,6 +147,5 @@ class UserWatchingSession(db.Model):
             "start_time": datetime_to_json(self.start_time),
             "duration": self.duration,
             "last_action_time": datetime_to_json(self.last_action_time),
-            "is_active": self.is_active,
             "video_title": self.video.title,
         }

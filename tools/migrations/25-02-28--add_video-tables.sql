@@ -109,7 +109,6 @@ CREATE TABLE `user_watching_session` (
   `start_time` datetime DEFAULT NULL,
   `duration` int DEFAULT NULL,
   `last_action_time` datetime DEFAULT NULL,
-  `is_active` boolean DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_watching_session_user_FK` (`user_id`),
   KEY `user_watching_session_video_FK` (`video_id`),
