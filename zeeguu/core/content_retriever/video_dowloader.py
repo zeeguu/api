@@ -98,6 +98,24 @@ def video_query(lang, api_key, category_id=None, topic_id=None, max_results=50):
     return video_ids
 
 
+def get_videos_for_language(api_key, lang, max_results):
+    print("Getting videos for: " + lang)
+    for topic_name, topicId in YT_TOPIC_IDS.items():
+        print("Crawling topic: " + topic_name)
+        video_ids = video_query(
+            lang, api_key, topic_id=topicId, max_results=max_results
+        )
+        for video_id in video_ids:
+            print(model.Video.find_or_create(db_session, video_id, lang))
+    for category_name, category_id in YT_CATEGORY_IDS.items():
+        print("Crawling category: " + category_name)
+        video_ids = video_query(
+            lang, api_key, category_id=category_id, max_results=max_results
+        )
+        for video_id in video_ids:
+            print(model.Video.find_or_create(db_session, video_id, lang))
+
+
 def crawl(max_results=50):
     for lang, api_key in languages.items():
         if not api_key:
@@ -105,19 +123,4 @@ def crawl(max_results=50):
                 f"API key is None, make sure to add it to environment variables... Value was: {api_key}"
             )
             continue
-        print("Crawling language: " + lang)
-        for topic_name, topicId in YT_TOPIC_IDS.items():
-            print("Crawling topic: " + topic_name)
-            video_ids = video_query(
-                lang, api_key, topic_id=topicId, max_results=max_results
-            )
-            for video_id in video_ids:
-                print(model.Video.find_or_create(db_session, video_id, lang))
-
-        for category_name, category_id in YT_CATEGORY_IDS.items():
-            print("Crawling category: " + category_name)
-            video_ids = video_query(
-                lang, api_key, category_id=category_id, max_results=max_results
-            )
-            for video_id in video_ids:
-                print(model.Video.find_or_create(db_session, video_id, lang))
+        get_videos_for_language(api_key, lang, max_results)
