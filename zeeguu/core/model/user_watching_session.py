@@ -53,7 +53,7 @@ class UserWatchingSession(db.Model):
         )
     
     @staticmethod
-    def get_wathching_session_timeout():
+    def get_watching_session_timeout():
         return WATCHING_SESSION_TIMEOUT
     
     @classmethod
