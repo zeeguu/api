@@ -8,13 +8,14 @@ from zeeguu.core.semantic_vector_api import get_embedding_from_article
 from elasticsearch_dsl import Search, Q
 
 
-def get_doc_in_es(es_id, get_source_dict=True):
+def get_doc_in_es(es_id, get_source_dict=True, verbose=False):
     es = Elasticsearch(ES_CONN_STRING)
     if es.exists(index=ES_ZINDEX, id=es_id):
         doc = es.get(index=ES_ZINDEX, id=es_id)
         return doc["_source"] if get_source_dict else doc
     else:
-        print(f"ES doc with id: '{es_id}' not found")
+        if verbose:
+            print(f"ES doc with id: '{es_id}' not found")
         return None
 
 
@@ -115,6 +116,13 @@ def create_or_update(article, session):
     res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
 
     return res
+
+
+def update_article_ids_in_es_for_bulk(article):
+    doc = {"_index": ES_ZINDEX, "_id": article.id}
+    doc["_op_type"] = "update"
+    doc["_source"] = {"doc": {"article_id": article.id}}
+    return doc
 
 
 def create_or_update_doc_for_bulk(article, session):
