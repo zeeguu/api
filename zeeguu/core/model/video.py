@@ -55,6 +55,10 @@ SOCIAL_MEDIA_WORDS = [
     "threads",
 ]
 
+NO_CAPTIONS_AVAILABLE = 1
+NOT_IN_EXPECTED_LANGUAGE = 2
+DUBBED_AUDIO = 3
+
 
 class Video(db.Model):
     __tablename__ = "video"
@@ -164,11 +168,11 @@ class Video(db.Model):
             print(
                 f"Video title and description ({video_unique_key}) is not in language: {language.code}"
             )
-            video_info["broken"] = 2
+            video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
 
         if has_dubbed_audio(video_unique_key):
             print(f"Video ({video_unique_key}) has dubbed audio")
-            video_info["broken"] = 3
+            video_info["broken"] = DUBBED_AUDIO
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
 
@@ -342,7 +346,7 @@ class Video(db.Model):
             video_info["vtt"] = ""
             video_info["text"] = ""
             video_info["captions"] = []
-            video_info["broken"] = 1  # If captions don't exist in target language
+            video_info["broken"] = NO_CAPTIONS_AVAILABLE
         else:
             video_info["vtt"] = captions["vtt"]
             video_info["text"] = captions["text"]
