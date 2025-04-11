@@ -443,7 +443,7 @@ class Bookmark(db.Model):
                     )
                 case ContextType.VIDEO_CAPTION:
                     context_identifier.video_caption_id = (
-                        result.video_caption_id if result else None
+                        result.caption_id if result else None
                     )
                 case _:
                     print("### Got a type without a mapped table!")
