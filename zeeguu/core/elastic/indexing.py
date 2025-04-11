@@ -1,9 +1,10 @@
 from zeeguu.core.model import UrlKeyword, Topic
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
-from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
+
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
+from zeeguu.core.elastic.basic_ops import es_update, es_index, es_exists, es_delete
 from zeeguu.core.semantic_vector_api import (
     get_embedding_from_article,
     get_embedding_from_video,
@@ -30,7 +31,7 @@ def get_doc_in_es(es_id: str, get_source_dict=True, verbose=False):
         return None
 
 
-def get_article_in_es(article_id, verbose=False):
+def get_article_hit_in_es(article_id, verbose=False):
     """
     Returns the article from ElasticSearch. The DSL returns a hit object, which can
     be coverted to a dict using the .to_dict() method. However, the hit object
@@ -111,7 +112,7 @@ def document_from_video(video, session, current_doc=None):
         "video_id": video.id,
         "title": video.title,
         "channel": video.channel.name,
-        "content": video.get_content(),
+        "content": video_text,
         "summary": summary,
         "description": video.description,
         "word_count": video.source.word_count,
@@ -131,7 +132,6 @@ def document_from_video(video, session, current_doc=None):
 
 
 def document_from_article(article, session, current_doc=None):
-    doc = {}
     topics, topics_inferred = find_topics_article(article.id, session)
     embedding_generation_required = current_doc is None
     # Embeddings only need to be re-computed if the document
@@ -155,9 +155,7 @@ def document_from_article(article, session, current_doc=None):
         "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
         "fk_difficulty": article.get_fk_difficulty(),
-        "lr_difficulty": DifficultyLingoRank.value_for_article(article),
         "url": article.url.as_string(),
-        "video": int(article.video) if article.video else 0,
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = current_doc["sem_vec"]
@@ -167,23 +165,30 @@ def document_from_article(article, session, current_doc=None):
 
 
 def create_or_update_article(article, session):
-    es = Elasticsearch(ES_CONN_STRING)
-    doc = document_from_article(article, session)
-    res = es.index(index=ES_ZINDEX, body=doc)
+
+    pre_existing_hit = get_article_hit_in_es(article)
+
+    if pre_existing_hit:
+        doc = document_from_article(article, session, pre_existing_hit["_source"])
+        res = es_update(id=pre_existing_hit["_id"], body=doc)
+    else:
+        doc = document_from_article(article, session)
+        res = es_index(body=doc)
+
     return res
 
 
-def create_or_update_video(video, session):
-    es = Elasticsearch(ES_CONN_STRING)
+def create_video(video, session):
+
     doc = document_from_video(video, session)
-    res = es.index(index=ES_ZINDEX, body=doc)
+    res = es_index(body=doc)
     return res
 
 
 def create_or_update_doc_for_bulk(article, session):
     doc = {}
     doc["_index"] = ES_ZINDEX
-    hit = get_article_in_es(article.id)
+    hit = get_article_hit_in_es(article.id)
     if not hit:
         # If we don't find by article id, try by using ES id
         hit = get_doc_in_es(article.id, get_source_dict=False)
@@ -206,9 +211,8 @@ def index_in_elasticsearch(new_article, session):
     # as ElasticSearch isn't persistent data
     """
     try:
-        es = Elasticsearch(ES_CONN_STRING)
         doc = document_from_article(new_article, session)
-        res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
+        es_index(id=new_article.id, document=doc)
 
     except Exception as e:
         import traceback
@@ -217,8 +221,10 @@ def index_in_elasticsearch(new_article, session):
 
 
 def remove_from_index(article):
-    es = Elasticsearch(ES_CONN_STRING)
-    if es.exists(index=ES_ZINDEX, id=article.id):
+
+    hit = get_article_hit_in_es(article.id)
+    es_id = hit["_id"]
+    if es_exists(id=es_id):
         print("Found in ES Index")
-        es.delete(index=ES_ZINDEX, id=article.id)
+        es_delete(id=es_id)
         print("After deletion from the index.")

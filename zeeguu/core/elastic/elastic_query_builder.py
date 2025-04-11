@@ -235,7 +235,6 @@ def build_elastic_search_query_for_videos(
     }
 
     recency_preference = {
-        # original parameters by Simon & Marcus
         "exp": {
             "published_time": {
                 "scale": "30d",

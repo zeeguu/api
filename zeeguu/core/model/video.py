@@ -125,7 +125,7 @@ class Video(db.Model):
         language,
         upload_index=True,
     ):
-        from zeeguu.core.elastic.indexing import create_or_update_video
+        from zeeguu.core.elastic.indexing import create_video
 
         video = (
             session.query(cls).filter(cls.video_unique_key == video_unique_key).first()
@@ -149,13 +149,15 @@ class Video(db.Model):
 
         title_lang = detect(video_info["title"]) if video_info["title"] else None
         desc_lang = (
-            detect(clean_description(video_info["description"])) if video_info["description"] else None
+            detect(clean_description(video_info["description"]))
+            if video_info["description"]
+            else None
         )
         print(
             f"Video detect languages detected are (title: '{title_lang}', description: '{desc_lang}')."
         )
-        if (
-            (title_lang and title_lang != language.code) and (desc_lang and desc_lang != language.code)
+        if (title_lang and title_lang != language.code) and (
+            desc_lang and desc_lang != language.code
         ):
             print(f"Video {video_unique_key} is not in {language.code}")
             video_info["broken"] = 2
@@ -233,7 +235,7 @@ class Video(db.Model):
         except Exception as e:
             session.rollback()
             raise e
-        create_or_update_video(new_video, session)
+        create_video(new_video, session)
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):
@@ -358,7 +360,7 @@ class Video(db.Model):
     @staticmethod
     def parse_vtt(vtt_content):
         def _timestamp_to_seconds(timestamp):
-            h, m, s = timestamp.replace(',', '.').split(':')
+            h, m, s = timestamp.replace(",", ".").split(":")
             return float(h) * 3600 + float(m) * 60 + float(s)
 
         captions_list = []
@@ -420,6 +422,7 @@ class Video(db.Model):
 
         if with_content:
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             result_dict["captions"] = [
                 {
@@ -445,6 +448,7 @@ class Video(db.Model):
 
         return result_dict
 
+
 def clean_description(description_text):
     # remove hashtags
     description_text = re.sub(r"#\w+", "", description_text)
@@ -454,12 +458,15 @@ def clean_description(description_text):
 
     # remove social media words
     for word in SOCIAL_MEDIA_WORDS:
-        description_text = re.sub(rf"\b{word}\b", "", description_text, flags=re.IGNORECASE)    
+        description_text = re.sub(
+            rf"\b{word}\b", "", description_text, flags=re.IGNORECASE
+        )
 
     # collapse multiple spaces and trim
     description_text = re.sub(r"\s+", " ", description_text).strip()
 
     return description_text
+
 
 def has_dubbed_audio(video_unique_key):
     try:
@@ -479,11 +486,12 @@ def has_dubbed_audio(video_unique_key):
                 if "dubbed-auto" in format.get("format_note", "").lower():
                     return True
             return False
-        
+
     except Exception as e:
         print(f"Error checking for dubbed audio: {e}")
         raise e
-    
+
+
 def clean_vtt(vtt_content):
     vtt_content = html.unescape(vtt_content)
 

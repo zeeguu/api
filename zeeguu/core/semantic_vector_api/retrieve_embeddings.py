@@ -10,6 +10,7 @@ EMB_API_CONN_STRING = os.environ.get(
 
 def get_embedding_from_video(v):
 
+    # TODO: At some point update the Embedding API to not talk only about articles
     r = requests.post(
         url=f"{EMB_API_CONN_STRING}/get_article_embedding",
         json={
