@@ -22,7 +22,7 @@ from zeeguu.core.model.source_type import SourceType
 from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
-from zeeguu.core.util.fk_to_cefr import fk_to_cefr
+from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
 from dotenv import load_dotenv
 from zeeguu.core.util.text import remove_emojis
@@ -452,7 +452,7 @@ class Video(db.Model):
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             result_dict["captions"] = [
                 {
-                    "time_start": caption.time_start / 1000, # convert to seconds
+                    "time_start": caption.time_start / 1000,  # convert to seconds
                     "time_end": caption.time_end / 1000,
                     "text": caption.get_content(),
                     "tokenized_text": tokenizer.tokenize_text(
