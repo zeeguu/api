@@ -1,4 +1,4 @@
-from zeeguu.core.model.bookmark_context import BookmarkContext
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model import db
 import sqlalchemy
 
@@ -13,29 +13,27 @@ class VideoTitleContext(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    context_id = db.Column(
-        db.Integer, db.ForeignKey(BookmarkContext.id), nullable=False
-    )
-    context = db.relationship(BookmarkContext)
+    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    bookmark = db.relationship(Bookmark)
 
     video_id = db.Column(db.Integer, db.ForeignKey("video.id"))
     video = db.relationship("Video")
 
     def __init__(
         self,
-        context,
+        bookmark,
         video,
     ):
-        self.context = context
+        self.context = bookmark
         self.video = video
 
     def __repr__(self):
         return f"<VideoTitleContext v:{self.video_id}, c:{self.context_id}>"
 
     @classmethod
-    def find_by_context_id(cls, context_id: int):
+    def find_by_bookmark(cls, bookmark):
         try:
-            return cls.query.filter(cls.context_id == context_id).one()
+            return cls.query.filter(cls.bookmark == bookmark).one()
         except sqlalchemy.orm.exc.NoResultFound:
             return None
 
@@ -43,17 +41,17 @@ class VideoTitleContext(db.Model):
     def find_or_create(
         cls,
         session,
-        context,
+        bookmark,
         video,
         commit=True,
     ):
         try:
             return cls.query.filter(
-                cls.context == context,
+                cls.bookmark == bookmark,
                 cls.video == video,
             ).one()
         except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
-            new = cls(context, video)
+            new = cls(bookmark, video)
             session.add(new)
             if commit:
                 session.commit()

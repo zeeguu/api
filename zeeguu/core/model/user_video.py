@@ -230,16 +230,24 @@ class UserVideo(db.Model):
                     each.as_dictionary() for each in translations
                 ]
 
-            if "tokenized_captions" in returned_info:
-                for i, caption in enumerate(returned_info["tokenized_captions"]):
-                    returned_info["tokenized_captions"][i]["past_bookmarks"] = (
+            # if "tokenized_captions" in returned_info:
+            #     for i, caption in enumerate(returned_info["tokenized_captions"]):
+            #         returned_info["tokenized_captions"][i]["past_bookmarks"] = (
+            #             VideoCaptionContext.get_all_user_bookmarks_for_caption(
+            #                 user.id, caption["context_identifier"]["caption_id"]
+            #             )   
+            #         )
+
+            if "captions" in returned_info:
+                for caption in returned_info["captions"]:
+                    caption["past_bookmarks"] = (
                         VideoCaptionContext.get_all_user_bookmarks_for_caption(
-                            user.id, caption["context_identifier"]["caption_id"]
-                        )   
+                            user.id, caption["context_identifier"]["video_caption_id"]
+                        )
                     )
 
-            if "tokenized_title_new" in returned_info:
-                returned_info["tokenized_title_new"]["past_bookmarks"] = (
+            if "tokenized_title" in returned_info:
+                returned_info["tokenized_title"]["past_bookmarks"] = (
                     VideoTitleContext.get_all_user_bookmarks_for_video_title(
                         user.id, video.id
                     )
