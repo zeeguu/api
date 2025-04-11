@@ -24,11 +24,11 @@ class VideoTitleContext(db.Model):
         bookmark,
         video,
     ):
-        self.context = bookmark
+        self.bookmark = bookmark
         self.video = video
 
     def __repr__(self):
-        return f"<VideoTitleContext v:{self.video_id}, c:{self.context_id}>"
+        return f"<VideoTitleContext v:{self.video_id}, b:{self.bookmark_id}>"
 
     @classmethod
     def find_by_bookmark(cls, bookmark):
@@ -68,10 +68,3 @@ class VideoTitleContext(db.Model):
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]
-    
-    @classmethod
-    def find_by_bookmark(cls, bookmark):
-        try:
-            return cls.query.filter(cls.bookmark == bookmark).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
