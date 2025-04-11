@@ -508,7 +508,7 @@ def has_dubbed_audio(video_unique_key):
 
     except Exception as e:
         print(f"Error checking for dubbed audio: {e}")
-        raise e
+        return False
 
 
 def clean_vtt(vtt_content):
