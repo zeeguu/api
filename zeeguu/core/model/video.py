@@ -7,7 +7,6 @@ import isodate
 import requests
 import webvtt
 import yt_dlp
-import emoji
 
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
