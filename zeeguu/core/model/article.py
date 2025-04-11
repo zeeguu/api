@@ -10,7 +10,7 @@ from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.core.util.fk_to_cefr import fk_to_cefr
+from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
 from zeeguu.core.model import db
 
@@ -61,8 +61,6 @@ class Article(db.Model):
     from zeeguu.core.model.feed import Feed
 
     from zeeguu.core.model.language import Language
-
-    from zeeguu.core.model.url_keyword import UrlKeyword
 
     from zeeguu.core.model.source import Source
 
