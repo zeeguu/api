@@ -517,7 +517,7 @@ class Bookmark(db.Model):
                     f"## Something went wrong, the context {self.context.context_type.type} did not match any case."
                 )
 
-        print(f"## Mapped context: {mapped_context}")
+        print(f"## Mapped context: {mapped_context}") # TODO: The values are often printed as None even though they get saved correctly in the database.
         return mapped_context
 
     @classmethod
