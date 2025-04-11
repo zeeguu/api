@@ -130,7 +130,7 @@ class Video(db.Model):
         language,
         upload_index=True,
     ):
-        from zeeguu.core.elastic.indexing import create_video
+        from zeeguu.core.elastic.indexing import index_video
 
         video = (
             session.query(cls).filter(cls.video_unique_key == video_unique_key).first()
@@ -161,13 +161,15 @@ class Video(db.Model):
         if (title_lang and title_lang != language.code) and (
             desc_lang and desc_lang != language.code
         ):
-            print(f"Video title and description ({video_unique_key}) is not in language: {language.code}")
+            print(
+                f"Video title and description ({video_unique_key}) is not in language: {language.code}"
+            )
             video_info["broken"] = 2
 
         if has_dubbed_audio(video_unique_key):
             print(f"Video ({video_unique_key}) has dubbed audio")
             video_info["broken"] = 3
-        
+
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
 
         # TODO: Remove this right? This prevents us from saving videos with no text (e.g. )
@@ -189,7 +191,6 @@ class Video(db.Model):
                 False,
                 False,
             )
-
 
         new_video = cls(
             video_unique_key=video_unique_key,
@@ -248,11 +249,13 @@ class Video(db.Model):
         try:
             new_video.assign_inferred_topics(session)
         except Exception as e:
-            print(f"Error adding topic to video ({video_unique_key}) with elastic search: {e}")
+            print(
+                f"Error adding topic to video ({video_unique_key}) with elastic search: {e}"
+            )
             print("Video will be saved without a topic for now.")
             session.rollback()
-            
-        create_video(new_video, session)
+        if video.broken == 0:
+            index_video(new_video, session)
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):
@@ -273,7 +276,9 @@ class Video(db.Model):
             if commit:
                 session.commit()
         else:
-            print(f"No topic generated for video ({self.video_unique_key}) using elastic search.")
+            print(
+                f"No topic generated for video ({self.video_unique_key}) using elastic search."
+            )
 
     @staticmethod
     def fetch_video_info(video_unique_key, lang):
@@ -337,7 +342,7 @@ class Video(db.Model):
             video_info["vtt"] = ""
             video_info["text"] = ""
             video_info["captions"] = []
-            video_info["broken"] = 1 # If captions don't exist in target language
+            video_info["broken"] = 1  # If captions don't exist in target language
         else:
             video_info["vtt"] = captions["vtt"]
             video_info["text"] = captions["text"]
