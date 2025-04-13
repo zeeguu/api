@@ -24,14 +24,11 @@ from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
-from dotenv import load_dotenv
 from zeeguu.core.util.text import remove_emojis
 
-load_dotenv()
-
 API_FOR_LANGUAGE = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+    "da": os.getenv("YOUTUBE_API_KEY"),
+    "es": os.getenv("YOUTUBE_API_KEY"),
 }
 
 MAX_CHAR_COUNT_IN_SUMMARY = 297
@@ -257,11 +254,11 @@ class Video(db.Model):
             )
             print("Video will be saved without a topic for now.")
             session.rollback()
-        
+
         # Index video if it is not broken
         if new_video.broken == 0:
             index_video(new_video, session)
-        
+
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):

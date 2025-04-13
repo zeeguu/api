@@ -4,16 +4,14 @@ from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
-from dotenv import load_dotenv
 from zeeguu.core.util.text import remove_emojis
 
-load_dotenv()
 
 CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
 
 API_FOR_LANGUAGE = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+    "da": os.getenv("YOUTUBE_API_KEY"),
+    "es": os.getenv("YOUTUBE_API_KEY"),
 }
 
 

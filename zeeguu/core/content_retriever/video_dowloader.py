@@ -1,19 +1,15 @@
 import requests
 import os
-from dotenv import load_dotenv
 
 import zeeguu.core
 from zeeguu.core import model
-
-# Load environment variables from .env file
-load_dotenv()
 
 db_session = zeeguu.core.model.db.session
 
 # TR: Will we use a single API key or multiple ones?
 languages = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
+    "da": os.getenv("YOUTUBE_API_KEY"),
+    "es": os.getenv("YOUTUBE_API_KEY"),
 }
 
 YT_TOPIC_IDS = {
