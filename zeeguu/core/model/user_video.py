@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.video_caption_context import VideoCaptionContext
 from zeeguu.core.util.encoding import datetime_to_json
 
+
 class UserVideo(db.Model):
     __tablename__ = "user_video"
     table_args = {"mysql_collate": "utf8_bin"}
@@ -23,31 +24,24 @@ class UserVideo(db.Model):
 
     opened = db.Column(db.DateTime)
 
-    starred = db.Column(db.DateTime)
-
     liked = db.Column(db.Boolean)
 
     playback_position = db.Column(db.Integer)
 
-    def __init__(self, user, video, opened=None, starred=None, liked=None, playback_position=None):
+    def __init__(self, user, video, opened=None, liked=None, playback_position=None):
         self.user = user
         self.video = video
         self.opened = opened
-        self.starred = starred
         self.liked = liked
         self.playback_position = playback_position
 
     def __repr__(self):
-        return f"{self.user} and {self.video}: Opened: {self.opened}, Starred: {self.starred}, Liked: {self.liked}"
-    
+        return (
+            f"{self.user} and {self.video}: Opened: {self.opened}, Liked: {self.liked}"
+        )
+
     def user_info_as_string(self):
-        return f"{self.user} Opened: {self.opened}, Starred: {self.starred}, Liked: {self.liked}"
-    
-    def set_starred(self, state=True):
-        if state:
-            self.starred = datetime.now()
-        else:
-            self.starred = None
+        return f"{self.user} Opened: {self.opened}, Liked: {self.liked}"
 
     def set_opened(self, state=True):
         if state:
@@ -61,23 +55,21 @@ class UserVideo(db.Model):
     def last_intercation(self):
         if self.opened:
             return self.opened
-        if self.starred:
-            return self.starred
-        
+
     @classmethod
     def find_by_video(cls, video: Video):
         try:
             return cls.query.filter_by(video=video).all()
         except NoResultFound:
             return None
-        
+
     @classmethod
     def find(cls, user: User, video: Video):
         try:
             return cls.query.filter_by(user=user, video=video).one()
         except NoResultFound:
             return None
-        
+
     @classmethod
     def find_or_create(
         cls,
@@ -85,7 +77,6 @@ class UserVideo(db.Model):
         user: User,
         video: Video,
         opened=None,
-        starred=None,
         liked=None,
         playback_position=None,
     ):
@@ -93,29 +84,28 @@ class UserVideo(db.Model):
             return cls.query.filter_by(user=user, video=video).one()
         except NoResultFound:
             try:
-                new = cls(user, video, opened=opened, starred=starred, liked=liked, playback_position=playback_position)
+                new = cls(
+                    user,
+                    video,
+                    opened=opened,
+                    liked=liked,
+                    playback_position=playback_position,
+                )
                 session.add(new)
                 session.commit()
                 return new
             except Exception as e:
                 from sentry_sdk import capture_exception
+
                 capture_exception(e)
                 print("Seems we avoided a race condition")
                 session.rollback()
                 return cls.query.filter_by(user=user, video=video).one()
-    
-    @classmethod
-    def all_starred_videos_of_user(cls, user):
-        return (
-            cls.query.filter_by(user=user).filter(UserVideo.starred.isnot(None).all())
-        )
 
     @classmethod
     def all_liked_videos_of_user(cls, user):
-        return (
-            cls.query.filter_by(user=user).filter(UserVideo.liked.isnot(False).all())
-        )
-    
+        return cls.query.filter_by(user=user).filter(UserVideo.liked.isnot(False).all())
+
     @classmethod
     def all_liked_videos_of_user_by_id(cls, user_id):
         return (
@@ -123,47 +113,7 @@ class UserVideo(db.Model):
             .filter(UserVideo.liked == True)
             .all()
         )
-    
-    @classmethod
-    def all_starred_or_liked_videos_of_user(cls, user, limit=30):
-        return (
-            cls.query.filter_by(user=user)
-            .filter(
-                or_(UserVideo.starred.isnot(None), UserVideo.liked.isnot(False))
-            )
-            .order_by(UserVideo.video_id.desc())
-            .limit(limit)
-            .all()
-        )
-    
-    @classmethod
-    def all_starred_videos_of_user_info(cls, user):
-        user_videos = cls.all_starred_videos_of_user(user)
 
-        dicts = [{
-            "user_id": each.user.id,
-            "title": each.video.title,
-            "language": each.video.language.code,
-            "starred_date": datetime_to_json(each.starred),
-            "starred": (each.starred is not None),
-            "liked": each.liked,
-            "playback_position": each.playback_position,
-        }
-            for each in user_videos
-        ]
-
-        return dicts
-    
-    @classmethod
-    def all_starred_an_liked_videos_of_user_info(cls, user):
-        user_videos = cls.all_starred_or_liked_videos_of_user(user)
-
-        return [
-            cls.user_video_info(user, each.video, with_translations=False)
-            for each in user_videos
-            if each.lasted_interaction() is not None
-        ]
-    
     @classmethod
     def exists(cls, obj):
         try:
@@ -171,7 +121,7 @@ class UserVideo(db.Model):
             return True
         except NoResultFound:
             return False
-        
+
     @classmethod
     def user_video_info(
         cls, user: User, video: Video, with_content=False, with_translations=True
@@ -203,7 +153,6 @@ class UserVideo(db.Model):
         #     returned_info["topics"] = ",".join([t for t,_ in topic_list])
 
         if not user_video_info:
-            returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
             returned_info["playback_position"] = None
@@ -211,25 +160,19 @@ class UserVideo(db.Model):
 
         else:
             returned_info["playback_position"] = user_video_info.playback_position
-            returned_info["starred"] = user_video_info.starred is not None
             returned_info["opened"] = user_video_info.opened is not None
             returned_info["liked"] = user_video_info.liked
-            if user_video_info.starred:
-                returned_info["starred_date"] = datetime_to_json(
-                    user_video_info.starred
-                    )
 
             # if user_diff_feedback is not None:
             #     returned_info["relative_difficulty"] = (
             #         user_diff_feedback.difficulty_feedback
             #         )
-            
+
             if with_translations:
                 translations = Bookmark.find_all_for_user_and_source(user, video.source)
                 returned_info["translations"] = [
                     each.as_dictionary() for each in translations
                 ]
-
 
             if "captions" in returned_info:
                 for caption in returned_info["captions"]:

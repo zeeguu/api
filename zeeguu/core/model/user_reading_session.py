@@ -4,6 +4,7 @@ from zeeguu.core.model import User, Article
 
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.util.time import human_readable_duration, human_readable_date
 from sqlalchemy.sql.functions import sum
 from zeeguu.core.model import db
 
@@ -49,10 +50,10 @@ class UserReadingSession(db.Model):
         self.duration = 0
 
     def human_readable_duration(self):
-        return str(round(self.duration / 1000 / 60, 1)) + "min"
+        return human_readable_duration(self.duration)
 
     def human_readable_date(self):
-        return str(datetime.date(self.start_time))
+        return human_readable_date(self.start_time)
 
     def events_in_this_session(self):
         from zeeguu.core.model import UserActivityData
