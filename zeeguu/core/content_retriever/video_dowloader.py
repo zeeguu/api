@@ -1,20 +1,10 @@
-import requests
-import os
-from dotenv import load_dotenv
-
 import zeeguu.core
 from zeeguu.core import model
-
-# Load environment variables from .env file
-load_dotenv()
+from zeeguu.core.youtube_api.youtube_api import get_video_unique_keys
 
 db_session = zeeguu.core.model.db.session
 
-# TR: Will we use a single API key or multiple ones?
-languages = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
-}
+languages = ["da", "es"]
 
 YT_TOPIC_IDS = {
     # Sports topics
@@ -63,64 +53,24 @@ YT_CATEGORY_IDS = {
 }
 
 
-def video_query(lang, api_key, category_id=None, topic_id=None, max_results=50):
-    """
-    This provides a list of video ids (no video information is provided).
-
-    The actual data extraction is done at fetch_video_info
-    """
-    if max_results > 50:
-        print(
-            f"max_results was higher than 50 ({max_results}), Youtube only allows a max of 50..."
-        )
-    SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
-
-    search_params = {
-        "part": "id",
-        "videoCategoryId": category_id,
-        "topicId": topic_id,
-        "type": "video",
-        "videoCaption": "closedCaption",
-        "videoEmbeddable": "true",
-        "relevanceLanguage": lang,
-        "videoDuration": "medium",
-        "maxResults": max_results,  # Max results is 50 (can be lower)
-        "key": api_key,
-    }
-
-    response = requests.get(SEARCH_URL, params=search_params)
-    search_data = response.json()
-
-    video_ids = [item["id"]["videoId"] for item in search_data.get("items", [])]
-    if not video_ids:
-        return []
-
-    return video_ids
-
-
-def get_videos_for_language(api_key, lang, max_results):
+def get_videos_for_language(lang, max_results):
     print("Getting videos for: " + lang)
     for topic_name, topicId in YT_TOPIC_IDS.items():
         print("Crawling topic: " + topic_name)
-        video_ids = video_query(
-            lang, api_key, topic_id=topicId, max_results=max_results
+        video_ids = get_video_unique_keys(
+            lang, topic_id=topicId, max_results=max_results
         )
         for video_id in video_ids:
             print(model.Video.find_or_create(db_session, video_id, lang))
     for category_name, category_id in YT_CATEGORY_IDS.items():
         print("Crawling category: " + category_name)
-        video_ids = video_query(
-            lang, api_key, category_id=category_id, max_results=max_results
+        video_ids = get_video_unique_keys(
+            lang, category_id=category_id, max_results=max_results
         )
         for video_id in video_ids:
             print(model.Video.find_or_create(db_session, video_id, lang))
 
 
 def crawl(max_results=50):
-    for lang, api_key in languages.items():
-        if not api_key:
-            print(
-                f"API key is None, make sure to add it to environment variables... Value was: {api_key}"
-            )
-            continue
-        get_videos_for_language(api_key, lang, max_results)
+    for lang in languages:
+        get_videos_for_language(lang, max_results)

@@ -1,20 +1,8 @@
-import os
-import requests
 from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
-from dotenv import load_dotenv
-from zeeguu.core.util.text import remove_emojis
-
-load_dotenv()
-
-CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels"
-
-API_FOR_LANGUAGE = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
-}
+from zeeguu.core.youtube_api.youtube_api import fetch_channel_info
 
 
 class YTChannel(db.Model):
@@ -89,10 +77,7 @@ class YTChannel(db.Model):
         if channel:
             return channel
 
-        # if isinstance(language, str):
-        #     language = session.query(Language).filter_by(code=language).first()
-
-        channel_info = cls.fetch_channel_info(channel_id, language)
+        channel_info = fetch_channel_info(channel_id)
         url_object = Url.find_or_create(session, channel_info["thumbnail"])
 
         new_channel = cls(
@@ -115,40 +100,3 @@ class YTChannel(db.Model):
             raise e
 
         return new_channel
-
-    @staticmethod
-    def fetch_channel_info(channel_id, language):
-        def _get_thumbnail(snippet):
-            return (
-                snippet["thumbnails"].get("high", {}).get("url")
-                or snippet["thumbnails"].get("medium", {}).get("url")
-                or snippet["thumbnails"]
-                .get("default", {})
-                .get("url", "No thumbnail available")
-            )
-
-        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(language.code)
-
-        channel_params = {
-            "part": "snippet,statistics",
-            "id": channel_id,
-            "key": YOUTUBE_API_KEY,
-        }
-
-        response = requests.get(CHANNEL_URL, params=channel_params)
-        channel_data = response.json()
-
-        channel = channel_data.get("items", [])[0]
-        snippet = channel["snippet"]
-        statistics = channel["statistics"]
-
-        channel_info = {
-            "channelId": channel_id,
-            "channelName": remove_emojis(snippet["title"]),
-            "description": remove_emojis(snippet.get("description", "")),
-            "viewCount": statistics["viewCount"],
-            "subscriberCount": statistics["subscriberCount"],
-            "thumbnail": _get_thumbnail(snippet),
-        }
-
-        return channel_info

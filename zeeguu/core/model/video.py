@@ -1,12 +1,4 @@
 from datetime import datetime
-import html
-from io import StringIO
-import os
-import re
-import isodate
-import requests
-import webvtt
-import yt_dlp
 
 from zeeguu.core.model import db
 from zeeguu.core.model.caption import Caption
@@ -18,41 +10,13 @@ from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-
-from langdetect import detect
 from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
-from dotenv import load_dotenv
-from zeeguu.core.util.text import remove_emojis
-
-load_dotenv()
-
-API_FOR_LANGUAGE = {
-    "da": os.getenv("YOUTUBE_API_KEY_DA"),
-    "es": os.getenv("YOUTUBE_API_KEY_ES"),
-}
+from zeeguu.core.youtube_api.youtube_api import fetch_video_info
 
 MAX_CHAR_COUNT_IN_SUMMARY = 297
-
-SOCIAL_MEDIA_WORDS = [
-    "instagram",
-    "facebook",
-    "twitter",
-    "snapchat",
-    "tiktok",
-    "pinterest",
-    "linkedin",
-    "youtube",
-    "whatsapp",
-    "reddit",
-    "tumblr",
-    "twitch",
-    "x.com",
-    "discord",
-    "threads",
-]
 
 NO_CAPTIONS_AVAILABLE = 1
 NOT_IN_EXPECTED_LANGUAGE = 2
@@ -144,34 +108,13 @@ class Video(db.Model):
             return video
 
         try:
-            video_info = cls.fetch_video_info(video_unique_key, language)
+            video_info = fetch_video_info(video_unique_key, language)
         except ValueError as e:
             print(f"Error fetching video info for {video_unique_key}: {e}")
             return None
 
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
-
-        title_lang = detect(video_info["title"]) if video_info["title"] else None
-        desc_lang = (
-            detect(clean_description(video_info["description"]))
-            if video_info["description"]
-            else None
-        )
-        print(
-            f"Video detect languages detected are (title: '{title_lang}', description: '{desc_lang}')."
-        )
-        if (title_lang and title_lang != language.code) and (
-            desc_lang and desc_lang != language.code
-        ):
-            print(
-                f"Video title and description ({video_unique_key}) is not in language: {language.code}"
-            )
-            video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
-
-        if has_dubbed_audio(video_unique_key):
-            print(f"Video ({video_unique_key}) has dubbed audio")
-            video_info["broken"] = DUBBED_AUDIO
 
         channel = YTChannel.find_or_create(session, video_info["channelId"], language)
 
@@ -250,18 +193,19 @@ class Video(db.Model):
         # add topic
         print("Adding topic")
         try:
-            new_video.assign_inferred_topics(session)
+            # new_video.assign_inferred_topics(session)
+            print("Pretend topic")
         except Exception as e:
             print(
                 f"Error adding topic to video ({video_unique_key}) with elastic search: {e}"
             )
             print("Video will be saved without a topic for now.")
             session.rollback()
-        
+
         # Index video if it is not broken
         if new_video.broken == 0:
             index_video(new_video, session)
-        
+
         return new_video
 
     def assign_inferred_topics(self, session, commit=True):
@@ -285,135 +229,6 @@ class Video(db.Model):
             print(
                 f"No topic generated for video ({self.video_unique_key}) using elastic search."
             )
-
-    @staticmethod
-    def fetch_video_info(video_unique_key, lang):
-        """
-        video_unique_key is the video id, e.g. "8-GrLwHK8SQ"
-
-
-        """
-
-        def _get_thumbnail(item):
-            return (
-                item["snippet"]["thumbnails"].get("maxres", {}).get("url")
-                or item["snippet"]["thumbnails"].get("high", {}).get("url")
-                or item["snippet"]["thumbnails"].get("medium", {}).get("url")
-                or item["snippet"]["thumbnails"]
-                .get("default", {})
-                .get("url", "No thumbnail available")
-            )
-
-        VIDEO_URL = "https://www.googleapis.com/youtube/v3/videos"
-        YOUTUBE_API_KEY = API_FOR_LANGUAGE.get(lang)
-
-        if not YOUTUBE_API_KEY:
-            raise ValueError("Missing YOUTUBE_API_KEY environment variable. ")
-        params = {
-            "part": "snippet,contentDetails",
-            "id": video_unique_key,
-            "key": YOUTUBE_API_KEY,
-        }
-
-        response = requests.get(VIDEO_URL, params=params)
-        video_data = response.json()
-
-        if "items" not in video_data or not video_data["items"]:
-            raise ValueError(
-                f"Video {video_unique_key} not found, or API quota exceeded"
-            )
-
-        item = video_data["items"][0]
-
-        video_info = {
-            "videoId": video_unique_key,
-            "title": remove_emojis(item["snippet"]["title"]),
-            "description": remove_emojis(item["snippet"].get("description", "")),
-            "publishedAt": isodate.parse_datetime(
-                item["snippet"]["publishedAt"]
-            ).replace(tzinfo=None),
-            "channelId": item["snippet"]["channelId"],
-            "thumbnail": _get_thumbnail(item),
-            "tags": item["snippet"].get("tags", []),
-            "duration": int(
-                isodate.parse_duration(
-                    item["contentDetails"]["duration"]
-                ).total_seconds()
-            ),
-        }
-
-        captions = Video.get_captions(video_unique_key, lang)
-        if captions is None:
-            print(f"Could not fetch captions for video {video_unique_key} in {lang}")
-            video_info["vtt"] = ""
-            video_info["text"] = ""
-            video_info["captions"] = []
-            video_info["broken"] = NO_CAPTIONS_AVAILABLE
-        else:
-            video_info["vtt"] = captions["vtt"]
-            video_info["text"] = captions["text"]
-            video_info["captions"] = captions["captions"]
-            video_info["broken"] = 0
-
-        return video_info
-
-    @staticmethod
-    def get_captions(video_unique_key, lang):
-        ydl_opts = {
-            "quiet": True,
-            "skip_download": True,
-            "writesubtitles": True,
-            "subtitleslangs": [lang],
-            "subtitlesformat": "vtt",
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                info = ydl.extract_info(
-                    f"https://www.youtube.com/watch?v={video_unique_key}",
-                    download=False,
-                )
-                subtitles = info.get("subtitles", {})
-
-                if lang in subtitles:
-                    url = subtitles[lang][-1]["url"]
-
-                    response = requests.get(url)
-                    if response.status_code == 200:
-                        vtt_content = clean_vtt(response.text)
-                        return Video.parse_vtt(vtt_content)
-                return None
-            except Exception as e:
-                print(f"Error fetching subtitles for {video_unique_key}: {e}")
-                return None
-
-    @staticmethod
-    def parse_vtt(vtt_content):
-        def _timestamp_to_milliseconds(timestamp):
-            h, m, s = timestamp.replace(",", ".").split(":")
-            return (float(h) * 3600 + float(m) * 60 + float(s)) * 1000
-
-        captions_list = []
-        full_text = []
-
-        vtt_file = StringIO(vtt_content)
-        captions = webvtt.read_buffer(vtt_file)
-
-        for caption in captions:
-            captions_list.append(
-                {
-                    "time_start": _timestamp_to_milliseconds(caption.start),
-                    "time_end": _timestamp_to_milliseconds(caption.end),
-                    "text": caption.text,
-                }
-            )
-            full_text.append(caption.text)
-
-        return {
-            "vtt": vtt_content,
-            "text": "\n".join(full_text),
-            "captions": captions_list,
-        }
 
     def topics_as_tuple(self):
         topics = []
@@ -477,52 +292,3 @@ class Video(db.Model):
             }
 
         return result_dict
-
-
-def clean_description(description_text):
-    # remove hashtags
-    description_text = re.sub(r"#\w+", "", description_text)
-
-    # remove @mentions
-    description_text = re.sub(r"@\w+", "", description_text)
-
-    # remove social media words
-    for word in SOCIAL_MEDIA_WORDS:
-        description_text = re.sub(
-            rf"\b{word}\b", "", description_text, flags=re.IGNORECASE
-        )
-
-    # collapse multiple spaces and trim
-    description_text = re.sub(r"\s+", " ", description_text).strip()
-
-    return description_text
-
-
-def has_dubbed_audio(video_unique_key):
-    try:
-        ydl_opts = {
-            "quiet": True,
-            "extract_flat": True,
-            "force_generic_extractor": True,
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_unique_key}",
-                download=False,
-            )
-
-            for format in info.get("formats", []):
-                if "dubbed-auto" in format.get("format_note", "").lower():
-                    return True
-            return False
-
-    except Exception as e:
-        print(f"Error checking for dubbed audio: {e}")
-        return False
-
-
-def clean_vtt(vtt_content):
-    vtt_content = html.unescape(vtt_content)
-    vtt_content = remove_emojis(vtt_content)
-    return vtt_content
