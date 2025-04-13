@@ -92,7 +92,6 @@ CREATE TABLE `user_video` (
   `user_id` int NOT NULL,
   `video_id` int NOT NULL,
   `opened` datetime DEFAULT NULL,
-  `starred` datetime DEFAULT NULL,
   `liked` boolean DEFAULT NULL,
   `playback_position` int DEFAULT NULL,
   PRIMARY KEY (`id`),
