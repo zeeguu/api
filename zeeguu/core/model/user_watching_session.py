@@ -2,9 +2,12 @@ from datetime import datetime
 from zeeguu.core.model import db, User, Video
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.util.time import human_readable_duration, human_readable_date
+from sqlalchemy.sql.functions import sum
 
 VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
 VERY_FAR_IN_THE_FUTURE = "9999-12-31T23:59:59"
+
 
 class UserWatchingSession(db.Model):
     """
@@ -38,37 +41,35 @@ class UserWatchingSession(db.Model):
         self.duration = 0
 
     def human_readable_duration(self):
-        return str(round(self.duration / 1000 / 60, 1)) + "min"
-    
+        return human_readable_duration(self.duration)
+
     def human_readable_date(self):
-        return str(datetime.date(self.start_time))
-    
+        return human_readable_date(self.start_time)
+
     def events_in_this_session(self):
         from zeeguu.core.model import UserActivityData
 
         return (
-            UserActivityData.query,filter(UserActivityData.time > self.start_time)
+            UserActivityData.query.filter(UserActivityData.time > self.start_time)
             .filter(UserActivityData.time < self.last_action_time)
             .all()
         )
-    
+
     @staticmethod
     def get_watching_session_timeout():
         return WATCHING_SESSION_TIMEOUT
-    
+
     @classmethod
     def find_by_id(cls, session_id):
         return cls.query.filter(cls.id == session_id).one()
-    
+
     @classmethod
-    def _create_new_session(
-        db_session, user_id, video_id, current_time=datetime.now()
-    ):
+    def _create_new_session(db_session, user_id, video_id, current_time=datetime.now()):
         watching_session = UserWatchingSession(user_id, video_id, current_time)
         db_session.add(watching_session)
         db_session.commit()
         return watching_session
-    
+
     @classmethod
     def find_by_user(
         cls,
@@ -96,10 +97,11 @@ class UserWatchingSession(db.Model):
             )[0]
         except Exception as e:
             from sentry_sdk import capture_exception
+
             capture_exception(e)
             print(e)
             return 0
-        
+
     @classmethod
     def find_by_video(
         cls,
@@ -109,6 +111,7 @@ class UserWatchingSession(db.Model):
         cohort: bool = None,
     ):
         from .user_cohort_map import UserCohortMap
+
         if cohort is not None:
             query = (
                 cls.query.join(User)
@@ -123,7 +126,7 @@ class UserWatchingSession(db.Model):
         query = query.order_by("start_time")
         sessions = query.all()
         return sessions
-    
+
     @classmethod
     def find_by_user_and_video(
         cls,
@@ -137,7 +140,7 @@ class UserWatchingSession(db.Model):
         query = query.order_by("start_time")
         sessions = query.all()
         return sessions
-    
+
     @classmethod
     def to_json(self):
         return {
