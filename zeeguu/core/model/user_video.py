@@ -56,6 +56,9 @@ class UserVideo(db.Model):
         if self.opened:
             return self.opened
 
+    def set_playback_position(self, playback_position):
+        self.playback_position = playback_position
+
     @classmethod
     def find_by_video(cls, video: Video):
         try:
