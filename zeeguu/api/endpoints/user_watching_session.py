@@ -10,7 +10,7 @@ from . import api, db_session
 
 
 # ---------------------------------------------------------------------------
-@api.route("/watching_session_start", methods=("POST"))
+@api.route("/watching_session_start", methods=["POST"])
 # ---------------------------------------------------------------------------
 @requires_session
 def watching_session_start():
@@ -22,7 +22,7 @@ def watching_session_start():
 
 
 # ---------------------------------------------------------------------------
-@api.route("/watching_session_update", methods=("POST"))
+@api.route("/watching_session_update", methods=["POST"])
 # ---------------------------------------------------------------------------
 @requires_session
 def watching_session_update():
