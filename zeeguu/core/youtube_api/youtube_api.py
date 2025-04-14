@@ -2,14 +2,12 @@ import html
 from io import StringIO
 import os
 import re
-
 import isodate
 import requests
 import webvtt
 import yt_dlp
-from langdetect import detect
-
 from zeeguu.core.util.text import remove_emojis
+from langdetect import detect, LangDetectException
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 if not YOUTUBE_API_KEY:
@@ -33,7 +31,13 @@ SOCIAL_MEDIA_WORDS = [
     "x.com",
     "discord",
     "threads",
+    "subscribe",
+    "follow",
+    "like",
+    "share",
+    "comment",
 ]
+
 
 NO_CAPTIONS_AVAILABLE = 1
 NOT_IN_EXPECTED_LANGUAGE = 2
@@ -215,12 +219,6 @@ def clean_vtt(vtt_content):
     vtt_content = html.unescape(vtt_content)
     vtt_content = remove_emojis(vtt_content)
     return vtt_content
-
-
-import re
-from langdetect import detect, LangDetectException
-
-SOCIAL_MEDIA_WORDS = ["subscribe", "follow", "like", "share", "comment"]
 
 
 def is_video_language_correct(title, description, language):
