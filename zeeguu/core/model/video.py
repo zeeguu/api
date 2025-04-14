@@ -14,7 +14,7 @@ from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.core.youtube_api.youtube_api import fetch_video_info
+from zeeguu.core.youtube_api.youtube_api import fetch_video_info, fetch_channel_info
 
 MAX_CHAR_COUNT_IN_SUMMARY = 297
 
@@ -116,7 +116,12 @@ class Video(db.Model):
         if isinstance(language, str):
             language = session.query(Language).filter_by(code=language).first()
 
-        channel = YTChannel.find_or_create(session, video_info["channelId"], language)
+        channel_info = fetch_channel_info(video_info["channelId"])
+
+        thumbnail_url = channel_info["thumbnail"]
+        channel = YTChannel.find_or_create(
+            session, video_info["channelId"], channel_info, thumbnail_url, language
+        )
 
         # TODO: Remove this right? This prevents us from saving videos with no text (e.g. )
         # if video_info["text"] == "":

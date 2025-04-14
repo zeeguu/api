@@ -2,7 +2,6 @@ from sqlalchemy.dialects.mysql import INTEGER, BIGINT
 from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
-from zeeguu.core.youtube_api.youtube_api import fetch_channel_info
 
 
 class YTChannel(db.Model):
@@ -70,6 +69,8 @@ class YTChannel(db.Model):
         cls,
         session,
         channel_id,
+        channel_info,
+        thumbnail_url,
         language,
     ):
         channel = session.query(cls).filter_by(channel_id=channel_id).first()
@@ -77,8 +78,7 @@ class YTChannel(db.Model):
         if channel:
             return channel
 
-        channel_info = fetch_channel_info(channel_id)
-        url_object = Url.find_or_create(session, channel_info["thumbnail"])
+        thumbnail_url = Url.find_or_create(session, thumbnail_url)
 
         new_channel = cls(
             channel_id=channel_id,
@@ -87,7 +87,7 @@ class YTChannel(db.Model):
             views=channel_info["viewCount"],
             subscribers=channel_info["subscriberCount"],
             language=language,
-            thumbnail_url=url_object,
+            thumbnail_url=thumbnail_url,
             should_crawl=None,
             last_crawled=None,
         )
