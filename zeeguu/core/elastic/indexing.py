@@ -156,9 +156,10 @@ def document_from_article(article, session, current_doc=None):
         "language": article.language.name,
         "fk_difficulty": article.get_fk_difficulty(),
         "url": article.url.as_string(),
+        "video": article.video,
     }
     if not embedding_generation_required and current_doc is not None:
-        doc["sem_vec"] = current_doc["sem_vec"]
+        doc["sem_vec"] = list(current_doc["sem_vec"])
     else:
         doc["sem_vec"] = get_embedding_from_article(article)
     return doc
