@@ -12,7 +12,7 @@ from . import api, db_session
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def user_video():
+def get_user_video():
     video_id = request.args.get("video_id", "")
     if not video_id:
         flask.abort(400)
@@ -20,11 +20,11 @@ def user_video():
     video_id = int(video_id)
 
     print("Video ID: ", video_id)
-    video = Video.query.filter_by(id=video_id).one()
+    video = Video.find_by_id(video_id)
     user = User.find_by_id(flask.g.user_id)
-    user_video = UserVideo.find_or_create(db_session, user, video)
+    new_user_video = UserVideo.find_or_create(db_session, user, video)
 
-    return json_result(user_video.user_video_info(user, video, with_content=True))
+    return json_result(new_user_video.user_video_info(user, video, with_content=True))
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +34,8 @@ def user_video():
 @requires_session
 def video_opened():
     video_id = int(request.form.get("video_id"))
-    video = Video.query.filter_by(id=video_id).one()
+
+    video = Video.find_by_id(video_id)
     user = User.find_by_id(flask.g.user_id)
     user_video = UserVideo.find_or_create(db_session, user, video)
     user_video.set_opened()
@@ -53,7 +54,8 @@ def video_opened():
 def video_set_playback():
     video_id = int(request.form.get("video_id"))
     playback_position = int(request.form.get("playback_position"))
-    video = Video.query.filter_by(id=video_id).one()
+
+    video = Video.find_by_id(video_id)
     user = User.find_by_id(flask.g.user_id)
     user_video = UserVideo.find_or_create(db_session, user, video)
 

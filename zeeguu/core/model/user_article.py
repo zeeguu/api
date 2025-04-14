@@ -118,14 +118,11 @@ class UserArticle(db.Model):
     def find(cls, user: User, article: Article):
         """
 
-        create a new object and add it to the db if it's not already there
-        otherwise retrieve the existing object and update
+        Retrieve existing object or None
 
         """
-        try:
-            return cls.query.filter_by(user=user, article=article).one()
-        except NoResultFound:
-            return None
+
+        return cls.query.filter_by(user=user, article=article).first()
 
     @classmethod
     def find_or_create(
