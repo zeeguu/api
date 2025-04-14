@@ -126,3 +126,15 @@ CREATE TABLE `user_watching_session` (
   CONSTRAINT `video_caption_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `bookmark` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `video_caption_context_ibfk_2` FOREIGN KEY (`caption_id`) REFERENCES `caption` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
  );
+
+ CREATE TABLE `zeeguu_test`.`video_title_context`
+ (
+     `id`          INT NOT NULL AUTO_INCREMENT,
+     `bookmark_id` INT NULL,
+     `video_id`    INT NULL,
+     PRIMARY KEY (`id`),
+     INDEX `video_title_context_ibfk_1_idx` (`bookmark_id` ASC),
+     INDEX `video_title_context_ibfk_2_idx` (`video_id` ASC),
+     CONSTRAINT `video_title_context_ibfk_1` FOREIGN KEY (`bookmark_id`) REFERENCES `zeeguu_test`.`bookmark` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+     CONSTRAINT `video_title_context_ibfk_2` FOREIGN KEY (`video_id`) REFERENCES `zeeguu_test`.`video` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+ );
