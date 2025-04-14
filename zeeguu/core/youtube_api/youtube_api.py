@@ -43,6 +43,8 @@ NO_CAPTIONS_AVAILABLE = 1
 NOT_IN_EXPECTED_LANGUAGE = 2
 DUBBED_AUDIO = 3
 
+SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
+
 
 def get_video_unique_keys(lang, category_id=None, topic_id=None, max_results=50):
     """
@@ -54,7 +56,7 @@ def get_video_unique_keys(lang, category_id=None, topic_id=None, max_results=50)
         print(
             f"max_results was higher than 50 ({max_results}), Youtube only allows a max of 50..."
         )
-    SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
+
     # see https://developers.google.com/youtube/v3/docs/search/list
     # Quota: 100 units per 50 results
 
