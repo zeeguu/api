@@ -252,7 +252,6 @@ def search_for_search_terms(search_terms, page: int = 0):
         use_readability_priority=use_readability_priority,
     )
 
-    # TODO @Tiago: interleave based on score
     return json_result(get_user_info_from_content_recommendations(user, results))
 
 

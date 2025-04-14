@@ -26,6 +26,7 @@ class UserVideo(db.Model):
 
     liked = db.Column(db.Boolean)
 
+    # Playback position is the position in the video where the user stopped watching. Stored as milliseconds.
     playback_position = db.Column(db.Integer)
 
     def __init__(self, user, video, opened=None, liked=None, playback_position=None):
