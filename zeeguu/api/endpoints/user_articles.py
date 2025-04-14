@@ -6,7 +6,7 @@ from zeeguu.core.content_recommender import (
     content_recommendations,
     video_recommendations_for_user,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
+from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, Video
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -68,6 +68,13 @@ def user_articles_recommended(count: int = 20, page: int = 0):
             .filter_by(language_id=user.learned_language_id)
             .order_by(Article.published_time.desc())
             .limit(20)
+        )
+
+        videos = (
+            Video.query.filter_by(broken=0)
+            .filter_by(language_id=user.learned_language_id)
+            .order_by(Video.published_time.desc())
+            .limit(3)
         )
 
     article_infos = [UserArticle.user_article_info(user, a) for a in articles]

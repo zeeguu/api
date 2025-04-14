@@ -116,7 +116,7 @@ def document_from_video(video, session, current_doc=None):
         "summary": summary,
         "description": video.description,
         "word_count": video.source.word_count,
-        "published_time": video.published_at,
+        "published_time": video.published_time,
         "crawled_time": video.crawled_at,
         "topics": [t.title for t in topics],
         "topics_inferred": [t.title for t in topics_inferred],

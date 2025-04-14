@@ -31,7 +31,7 @@ class Video(db.Model):
     video_unique_key = db.Column(db.String(512), unique=True, nullable=False)
     title = db.Column(db.String(512))
     description = db.Column(db.Text)
-    published_at = db.Column(db.DateTime)
+    published_time = db.Column(db.DateTime)
     channel_id = db.Column(db.Integer, db.ForeignKey("yt_channel.id"))
     thumbnail_url_id = db.Column(db.Integer, db.ForeignKey(Url.id))
 
@@ -57,7 +57,7 @@ class Video(db.Model):
         title,
         source,
         description,
-        published_at,
+        published_time,
         channel,
         thumbnail_url,
         duration,
@@ -70,7 +70,7 @@ class Video(db.Model):
         self.title = title
         self.source = source
         self.description = description
-        self.published_at = published_at
+        self.published_time = published_time
         self.channel = channel
         self.thumbnail_url = thumbnail_url
         self.duration = duration
@@ -143,7 +143,7 @@ class Video(db.Model):
             title=video_info["title"],
             source=source,
             description=video_info["description"],
-            published_at=video_info["publishedAt"],
+            published_time=video_info["publishedAt"],
             channel=channel,
             thumbnail_url=url_object,
             duration=video_info["duration"],
@@ -262,8 +262,8 @@ class Video(db.Model):
             video=True,
         )
 
-        if self.published_at:
-            result_dict["published_at"] = datetime_to_json(self.published_at)
+        if self.published_time:
+            result_dict["published_time"] = datetime_to_json(self.published_time)
 
         if with_content:
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
