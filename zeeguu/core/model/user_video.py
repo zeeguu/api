@@ -162,7 +162,9 @@ class UserVideo(db.Model):
             returned_info["translations"] = []
 
         else:
-            returned_info["playback_position"] = user_video_info.playback_position
+            returned_info["playback_position"] = (
+                user_video_info.playback_position / 1000
+            )  # This is used by the Youtube Iframe Player that uses seconds
             returned_info["opened"] = user_video_info.opened is not None
             returned_info["liked"] = user_video_info.liked
 

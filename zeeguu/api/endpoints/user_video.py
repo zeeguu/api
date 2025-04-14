@@ -52,7 +52,7 @@ def video_opened():
 @requires_session
 def video_set_playback():
     video_id = int(request.form.get("video_id"))
-    playback_position = int(request.form.get("playback_position"))
+    playback_position = int(request.form.get("playback_position"))  # in milliseconds
     video = Video.query.filter_by(id=video_id).one()
     user = User.find_by_id(flask.g.user_id)
     user_video = UserVideo.find_or_create(db_session, user, video)
