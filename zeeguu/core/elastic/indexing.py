@@ -1,14 +1,26 @@
 from zeeguu.core.model import UrlKeyword, Topic
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
-from zeeguu.core.model.difficulty_lingo_rank import DifficultyLingoRank
+
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
-from zeeguu.core.semantic_vector_api import get_embedding_from_article
+from zeeguu.core.elastic.basic_ops import es_update, es_index, es_exists, es_delete
+from zeeguu.core.semantic_vector_api import (
+    get_embedding_from_article,
+    get_embedding_from_video,
+)
+from zeeguu.core.model.video_topic_map import VideoTopicMap
+from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
 from elasticsearch_dsl import Search, Q
 
 
-def get_doc_in_es(es_id, get_source_dict=True, verbose=False):
+def get_doc_in_es(es_id: str, get_source_dict=True, verbose=False):
+    """
+    Provides a document source (or the doc object) by ES id.
+    Zeeguu used to use article_ids as a way to index articles, but we have changed to
+    allowing ES to auto assign documents. It seems the generated ids can be alphanumeric,
+    resembling hashes rather than integers.
+    """
     es = Elasticsearch(ES_CONN_STRING)
     if es.exists(index=ES_ZINDEX, id=es_id):
         doc = es.get(index=ES_ZINDEX, id=es_id)
@@ -19,7 +31,7 @@ def get_doc_in_es(es_id, get_source_dict=True, verbose=False):
         return None
 
 
-def get_article_in_es(article_id):
+def get_article_hit_in_es(article_id, verbose=False):
     """
     Returns the article from ElasticSearch. The DSL returns a hit object, which can
     be coverted to a dict using the .to_dict() method. However, the hit object
@@ -33,13 +45,15 @@ def get_article_in_es(article_id):
     response = s.execute()
     if len(response) > 1:
         print(f"WARNING: More than one document found for article id: {article_id}...")
-        print(f"Returning the first match...")
+        if verbose:
+            print(f"Returning the first match...")
     elif len(response) == 0:
-        print(f"No document found for article id: {article_id}...")
+        if verbose:
+            print(f"No document found for article id: {article_id}...")
     return response[0] if len(response) >= 1 else None
 
 
-def find_topics(article_id, session):
+def find_topics_article(article_id, session):
     article_topics = (
         session.query(Topic)
         .join(ArticleTopicMap)
@@ -57,6 +71,24 @@ def find_topics(article_id, session):
     return article_topics, inferred_article_topics
 
 
+def find_topics_video(video_id, session):
+    video_topics = (
+        session.query(Topic)
+        .join(VideoTopicMap)
+        .filter(VideoTopicMap.video_id == video_id)
+        .filter(VideoTopicMap.origin_type != TopicOriginType.INFERRED.value)
+        .all()
+    )
+    inferred_video_topics = (
+        session.query(Topic)
+        .join(VideoTopicMap)
+        .filter(VideoTopicMap.video_id == video_id)
+        .filter(VideoTopicMap.origin_type == TopicOriginType.INFERRED.value)
+        .all()
+    )
+    return video_topics, inferred_video_topics
+
+
 def find_filter_url_keywords(article_id, session):
     article_url_keywords = (
         session.query(UrlKeyword)
@@ -71,8 +103,36 @@ def find_filter_url_keywords(article_id, session):
     return topic_kewyords
 
 
+def document_from_video(video, session, current_doc=None):
+    topics, topics_inferred = find_topics_video(video.id, session)
+    embedding_generation_required = True
+    video_text = video.get_content()
+    summary = video_text[:MAX_CHAR_COUNT_IN_SUMMARY]
+    doc = {
+        "video_id": video.id,
+        "title": video.title,
+        "channel": video.channel.name,
+        "content": video_text,
+        "summary": summary,
+        "description": video.description,
+        "word_count": video.source.word_count,
+        "published_time": video.published_time,
+        "crawled_time": video.crawled_at,
+        "topics": [t.title for t in topics],
+        "topics_inferred": [t.title for t in topics_inferred],
+        "language": video.language.name,
+        "fk_difficulty": video.source.fk_difficulty,
+    }
+    if not embedding_generation_required and current_doc is not None:
+        doc["sem_vec"] = current_doc["sem_vec"]
+    else:
+        doc["sem_vec"] = get_embedding_from_video(video)
+
+    return doc
+
+
 def document_from_article(article, session, current_doc=None):
-    topics, topics_inferred = find_topics(article.id, session)
+    topics, topics_inferred = find_topics_article(article.id, session)
     embedding_generation_required = current_doc is None
     # Embeddings only need to be re-computed if the document
     # doesn't exist or the text is updated.
@@ -86,7 +146,7 @@ def document_from_article(article, session, current_doc=None):
         "author": article.authors,
         "content": article.get_content(),
         "summary": article.summary,
-        "word_count": article.word_count,
+        "word_count": article.get_word_count(),
         "published_time": article.published_time,
         "topics": [t.title for t in topics],
         # We need to avoid using these as a way to classify further documents
@@ -94,8 +154,7 @@ def document_from_article(article, session, current_doc=None):
         # rather than infer on inferences.
         "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
-        "fk_difficulty": article.fk_difficulty,
-        "lr_difficulty": DifficultyLingoRank.value_for_article(article),
+        "fk_difficulty": article.get_fk_difficulty(),
         "url": article.url.as_string(),
         "video": article.video,
     }
@@ -106,33 +165,37 @@ def document_from_article(article, session, current_doc=None):
     return doc
 
 
-def create_or_update(article, session):
-    es = Elasticsearch(ES_CONN_STRING)
-    doc = document_from_article(article, session)
+def create_or_update_article(article, session):
 
-    if es.exists(index=ES_ZINDEX, id=article.id):
-        es.delete(index=ES_ZINDEX, id=article.id)
+    pre_existing_hit = get_article_hit_in_es(article)
 
-    res = es.index(index=ES_ZINDEX, id=article.id, body=doc)
+    if pre_existing_hit:
+        doc = document_from_article(article, session, pre_existing_hit["_source"])
+        res = es_update(id=pre_existing_hit["_id"], body=doc)
+    else:
+        doc = document_from_article(article, session)
+        res = es_index(body=doc)
 
     return res
 
 
-def update_article_ids_in_es_for_bulk(article):
-    doc = {"_index": ES_ZINDEX, "_id": article.id}
-    doc["_op_type"] = "update"
-    doc["_source"] = {"doc": {"article_id": article.id}}
-    return doc
+def index_video(video, session):
+
+    doc = document_from_video(video, session)
+    res = es_index(body=doc)
+    return res
 
 
 def create_or_update_doc_for_bulk(article, session):
-
-    doc = {"_index": ES_ZINDEX, "_id": article.id}
-    # Comment after making the migration to docs having article_id as part of doc.
-    # hit = get_article_in_es(article.id)
-    hit = get_doc_in_es(article.id, get_source_dict=False)
+    doc = {}
+    doc["_index"] = ES_ZINDEX
+    hit = get_article_hit_in_es(article.id)
+    if not hit:
+        # If we don't find by article id, try by using ES id
+        hit = get_doc_in_es(article.id, get_source_dict=False)
     if hit:
         doc_data = document_from_article(article, session, current_doc=hit["_source"])
+        doc["_id"] = hit.meta.id if "meta" in hit else doc["_id"]
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:
@@ -149,9 +212,8 @@ def index_in_elasticsearch(new_article, session):
     # as ElasticSearch isn't persistent data
     """
     try:
-        es = Elasticsearch(ES_CONN_STRING)
         doc = document_from_article(new_article, session)
-        res = es.index(index=ES_ZINDEX, id=new_article.id, document=doc)
+        es_index(id=new_article.id, document=doc)
 
     except Exception as e:
         import traceback
@@ -160,8 +222,10 @@ def index_in_elasticsearch(new_article, session):
 
 
 def remove_from_index(article):
-    es = Elasticsearch(ES_CONN_STRING)
-    if es.exists(index=ES_ZINDEX, id=article.id):
+
+    hit = get_article_hit_in_es(article.id)
+    es_id = hit["_id"]
+    if es_exists(id=es_id):
         print("Found in ES Index")
-        es.delete(index=ES_ZINDEX, id=article.id)
+        es_delete(id=es_id)
         print("After deletion from the index.")

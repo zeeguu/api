@@ -1,23 +1,25 @@
 """
 
- Recommender that uses ElasticSearch instead of mysql for searching.
- Based on mixed recommender.
- Still uses MySQL to find relations between the user and things such as:
-   - topics, language and user subscriptions.
+Recommender that uses ElasticSearch instead of mysql for searching.
+Based on mixed recommender.
+Still uses MySQL to find relations between the user and things such as:
+  - topics, language and user subscriptions.
 
 """
 
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search, Q, SF
-from pprint import pprint
+from elasticsearch_dsl import Search, Q
+
 
 from zeeguu.core.model import (
     Article,
+    Video,
     TopicFilter,
     TopicSubscription,
     SearchFilter,
     SearchSubscription,
     UserArticle,
+    UserVideo,
     Language,
 )
 
@@ -25,6 +27,7 @@ from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_recommender_query,
     build_elastic_search_query,
     build_elastic_more_like_this_query,
+    build_elastic_search_query_for_videos,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -152,7 +155,7 @@ def article_recommendations_for_user(
     # Get articles based on Search preferences
     articles_from_searches = []
     for search in wanted_user_searches.split():
-        articles_from_searches += article_search_for_user(
+        articles_from_searches += article_and_video_search_for_user(
             user,
             1,
             search,
@@ -168,12 +171,45 @@ def article_recommendations_for_user(
     ] + articles_from_searches[:maximum_added_search_articles]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
-
     return sorted_articles
 
 
+def video_recommendations_for_user(
+    user,
+    count,
+    page=0,
+):
+    (
+        language,
+        upper_bounds,
+        lower_bounds,
+        topics_to_include,
+        topics_to_exclude,
+        wanted_user_searches,
+        unwanted_user_searches,
+    ) = _prepare_user_constraints(user)
+
+    es = Elasticsearch(ES_CONN_STRING)
+    video_query = build_elastic_search_query_for_videos(
+        count,
+        wanted_user_searches,
+        unwanted_user_searches,
+        language,
+        upper_bounds,
+        lower_bounds,
+        topics_to_include=topics_to_include,
+        topics_to_exclude=topics_to_exclude,
+        page=page,
+    )
+
+    video_res = es.search(index=ES_ZINDEX, body=video_query)
+
+    video_list = _to_videos_from_ES_hits(video_res["hits"].get("hits"))
+    return video_list
+
+
 @time_this
-def article_search_for_user(
+def article_and_video_search_for_user(
     user,
     count,
     search_terms,
@@ -185,7 +221,6 @@ def article_search_for_user(
     use_readability_priority=True,
     score_threshold=0,
 ):
-    final_article_mix = []
 
     (
         language,
@@ -215,12 +250,24 @@ def article_search_for_user(
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
+
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
-    final_articles = [a for a in final_article_mix if a is not None and not a.broken]
 
-    return final_articles
+    content_objects = [
+        (
+            _get_article_from_ES_hit(h)
+            if "article_id" in h["_source"]
+            else _get_video_from_ES_hit(h)
+        )
+        for h in hit_list
+    ]
+
+    final_mix = [
+        each for each in content_objects if each is not None and not each.broken
+    ]
+
+    return final_mix
 
 
 def topic_filter_for_user(
@@ -290,11 +337,36 @@ def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
-def _to_articles_from_ES_hits(hits):
+def _get_video_from_ES_hit(hit):
+    return Video.find_by_id(hit["_source"]["video_id"])
+
+
+def _get_article_from_ES_hit(hit):
+    print(hit)
+    return Article.find_by_id(hit["_source"]["article_id"])
+
+
+def _to_articles_from_ES_hits(hits, with_score=False):
     articles = []
     for hit in hits:
-        articles.append(Article.find_by_id(hit.get("_id")))
+        article = _get_article_from_ES_hit(hit)
+        if with_score:
+            articles.append((hit.get("_score", 0), article))
+        else:
+            articles.append(article)
+
     return articles
+
+
+def _to_videos_from_ES_hits(hits, with_score=False):
+    videos = []
+    for hit in hits:
+        video = _get_video_from_ES_hit(hit)
+        if with_score:
+            videos.append((hit.get("_score", 0), video))
+        else:
+            videos.append(video)
+    return videos
 
 
 def _difficuty_level_bounds(level):
@@ -347,3 +419,14 @@ def content_recommendations(user_id: int, language_id: int):
 
     articles_to_recommend = __find_articles_like(user_likes, 20, 50, language_id)
     return articles_to_recommend
+
+
+def get_user_info_from_content_recommendations(user, content_list):
+    return [
+        (
+            UserArticle.user_article_info(user, each)
+            if type(each) is Article
+            else UserVideo.user_video_info(user, each)
+        )
+        for each in content_list
+    ]

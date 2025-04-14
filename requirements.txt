@@ -66,3 +66,9 @@ pydantic>=1.10.8
 
 # nlp pipeline
 stanza==1.10.1
+
+# For videos
+webvtt-py
+yt-dlp
+ffmpeg
+emoji
