@@ -290,7 +290,7 @@ class Video(db.Model):
             ]
 
             result_dict["tokenized_title"] = {
-                "tokenized_title": tokenizer.tokenize_text(self.title, flatten=False),
+                "tokens": tokenizer.tokenize_text(self.title, flatten=False),
                 "context_identifier": ContextIdentifier(
                     ContextType.VIDEO_TITLE, video_id=self.id
                 ).as_dictionary(),
