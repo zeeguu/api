@@ -166,6 +166,7 @@ def get_captions(video_unique_key, lang):
         "writesubtitles": True,
         "subtitleslangs": [lang],
         "subtitlesformat": "vtt",
+        "cookies": os.getenv("YOUTUBE_COOKIES_FILE_PATH"),
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -264,6 +265,7 @@ def has_dubbed_audio(video_unique_key):
             "quiet": True,
             "extract_flat": True,
             "force_generic_extractor": True,
+            "cookies": os.getenv("YOUTUBE_COOKIES_FILE_PATH"),
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
