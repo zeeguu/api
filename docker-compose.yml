@@ -100,6 +100,7 @@ services:
     #      - ./api.cfg:/Zeeguu-API/api.cfg
     #      - ./fmd.cfg:/Zeeguu-API/fmd.cfg
     #      - ./lu-mir-zeeguu-credentials.json:/Zeeguu-API/lu-mir-zeeguu-credentials.json
+    #      - ./yt_cookies.txt:/Zeeguu-API/yt_cookies.txt
     environment: &zapi_env
       ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
