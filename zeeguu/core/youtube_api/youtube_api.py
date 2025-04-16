@@ -207,9 +207,7 @@ def get_captions(video_unique_key, lang):
     #     return None
 
     try:
-        with open(
-            "/Users/silashoeyer/Desktop/caption_table.json", "r", encoding="utf-8"
-        ) as f:
+        with open("caption_table.json", "r", encoding="utf-8") as f:
             caption_data = json.load(f)
 
         caption_list = []
