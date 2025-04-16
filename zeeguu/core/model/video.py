@@ -37,7 +37,6 @@ class Video(db.Model):
 
     duration = db.Column(db.Integer)
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
-    vtt = db.Column(db.Text)
 
     source_id = db.Column(db.Integer, db.ForeignKey(Source.id), unique=True)
     source = db.relationship(Source, foreign_keys="Video.source_id")
@@ -62,7 +61,6 @@ class Video(db.Model):
         thumbnail_url,
         duration,
         language,
-        vtt,
         broken=0,
         crawled_at=datetime.now(),
     ):
@@ -75,7 +73,6 @@ class Video(db.Model):
         self.thumbnail_url = thumbnail_url
         self.duration = duration
         self.language = language
-        self.vtt = vtt
         self.broken = broken
         self.crawled_at = crawled_at
 
@@ -123,11 +120,6 @@ class Video(db.Model):
             session, video_info["channelId"], channel_info, thumbnail_url, language
         )
 
-        # TODO: Remove this right? This prevents us from saving videos with no text (e.g. )
-        # if video_info["text"] == "":
-        #     print(f"Couldn't parse any text for the video '{video_unique_key}'")
-        #     return None
-
         url_object = Url.find_or_create(session, video_info["thumbnail"])
 
         # TODO: Remove this temporary workaround (this is because source_id is unique in video table)
@@ -153,7 +145,6 @@ class Video(db.Model):
             thumbnail_url=url_object,
             duration=video_info["duration"],
             language=language,
-            vtt=video_info["vtt"],
             broken=video_info["broken"],
         )
         session.add(new_video)
@@ -198,8 +189,7 @@ class Video(db.Model):
         # add topic
         print("Adding topic")
         try:
-            # new_video.assign_inferred_topics(session)
-            print("Pretend topic")
+            new_video.assign_inferred_topics(session)
         except Exception as e:
             print(
                 f"Error adding topic to video ({video_unique_key}) with elastic search: {e}"
