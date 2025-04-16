@@ -68,7 +68,5 @@ pydantic>=1.10.8
 stanza==1.10.1
 
 # For videos
-webvtt-py
-yt-dlp
-ffmpeg
 emoji
+youtube_transcript_api

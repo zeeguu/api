@@ -1,13 +1,17 @@
 import html
-from io import StringIO
 import os
 import re
 import isodate
 import requests
-import webvtt
-import yt_dlp
 from zeeguu.core.util.text import remove_emojis
 from langdetect import detect, LangDetectException
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import (
+    TranscriptsDisabled,
+    NoTranscriptFound,
+    VideoUnavailable,
+    CouldNotRetrieveTranscript,
+)
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 if not YOUTUBE_API_KEY:
@@ -58,7 +62,7 @@ def get_video_unique_keys(lang, category_id=None, topic_id=None, max_results=50)
         )
 
     # see https://developers.google.com/youtube/v3/docs/search/list
-    # Quota: 100 units per 50 results
+    # Quota: 100 units per call. Up to 50 videos per call
 
     search_params = {
         "part": "id",
@@ -139,19 +143,17 @@ def fetch_video_info(video_unique_key, lang):
         print(f"Video {video_unique_key} is not in the expected language {lang}.")
         video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
 
-    if has_dubbed_audio(video_unique_key):
-        print(f"Video {video_unique_key} has dubbed audio.")
-        video_info["broken"] = DUBBED_AUDIO
+    # if has_dubbed_audio(video_unique_key):
+    #     print(f"Video {video_unique_key} has dubbed audio.")
+    #     video_info["broken"] = DUBBED_AUDIO
 
     captions = get_captions(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
-        video_info["vtt"] = ""
         video_info["text"] = ""
         video_info["captions"] = []
         video_info["broken"] = NO_CAPTIONS_AVAILABLE
     else:
-        video_info["vtt"] = captions["vtt"]
         video_info["text"] = captions["text"]
         video_info["captions"] = captions["captions"]
         video_info["broken"] = 0
@@ -160,67 +162,54 @@ def fetch_video_info(video_unique_key, lang):
 
 
 def get_captions(video_unique_key, lang):
-    ydl_opts = {
-        "quiet": True,
-        "skip_download": True,
-        "writesubtitles": True,
-        "subtitleslangs": [lang],
-        "subtitlesformat": "vtt",
-    }
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_unique_key)
+        transcript = transcript_list.find_manually_created_transcript([lang])
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_unique_key}",
-                download=False,
+        transcript_data = transcript.fetch()
+
+        caption_list = []
+        full_text = []
+
+        for caption in transcript_data:
+            clean_text = text_cleaner(caption.text)
+            caption_list.append(
+                {
+                    "time_start": caption.start * 1000,
+                    "time_end": (caption.start + caption.duration) * 1000,
+                    "text": clean_text,
+                }
             )
-            subtitles = info.get("subtitles", {})
+            full_text.append(clean_text)
 
-            if lang in subtitles:
-                url = subtitles[lang][-1]["url"]
+        return {
+            "text": "\n".join(full_text),
+            "captions": caption_list,
+        }
 
-                response = requests.get(url)
-                if response.status_code == 200:
-                    vtt_content = clean_vtt(response.text)
-                    return parse_vtt(vtt_content)
-            return None
-        except Exception as e:
-            print(f"Error fetching subtitles for {video_unique_key}: {e}")
-            return None
-
-
-def parse_vtt(vtt_content):
-    def _timestamp_to_milliseconds(timestamp):
-        h, m, s = timestamp.replace(",", ".").split(":")
-        return (float(h) * 3600 + float(m) * 60 + float(s)) * 1000
-
-    captions_list = []
-    full_text = []
-
-    vtt_file = StringIO(vtt_content)
-    captions = webvtt.read_buffer(vtt_file)
-
-    for caption in captions:
-        captions_list.append(
-            {
-                "time_start": _timestamp_to_milliseconds(caption.start),
-                "time_end": _timestamp_to_milliseconds(caption.end),
-                "text": caption.text,
-            }
+    except TranscriptsDisabled:
+        print("Transcript is disabled for this video.")
+        return None
+    except NoTranscriptFound:
+        print(
+            "No manually added transcript was found for this video in the specified language."
         )
-        full_text.append(caption.text)
+        return None
+    except VideoUnavailable:
+        print("Video is unavailable.")
+        return None
+    except CouldNotRetrieveTranscript:
+        print("Could not retrieve transcript.")
+        return None
+    except Exception as e:
+        print(f"Error fetching captions for {video_unique_key}: {e}")
+        return None
 
-    return {
-        "vtt": vtt_content,
-        "text": "\n".join(full_text),
-        "captions": captions_list,
-    }
 
-
-def clean_vtt(vtt_content):
-    vtt_content = html.unescape(vtt_content)
-    vtt_content = remove_emojis(vtt_content)
-    return vtt_content
+def text_cleaner(text):
+    text = html.unescape(text)
+    text = remove_emojis(text)
+    return text
 
 
 def is_video_language_correct(title, description, language):
@@ -256,30 +245,6 @@ def is_video_language_correct(title, description, language):
     if (title_lang and title_lang == language) or (desc_lang and desc_lang == language):
         return True
     return False
-
-
-def has_dubbed_audio(video_unique_key):
-    try:
-        ydl_opts = {
-            "quiet": True,
-            "extract_flat": True,
-            "force_generic_extractor": True,
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_unique_key}",
-                download=False,
-            )
-
-            for format in info.get("formats", []):
-                if "dubbed-auto" in format.get("format_note", "").lower():
-                    return True
-            return False
-
-    except Exception as e:
-        print(f"Error checking for dubbed audio: {e}")
-        return False
 
 
 def fetch_channel_info(channel_id):
