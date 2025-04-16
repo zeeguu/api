@@ -247,31 +247,6 @@ def is_video_language_correct(title, description, language):
     return False
 
 
-# TODO: figure out a way to check if the video has dubbed audio without using yt-dlp
-# def has_dubbed_audio(video_unique_key):
-#     try:
-#         ydl_opts = {
-#             "quiet": True,
-#             "extract_flat": True,
-#             "force_generic_extractor": True,
-#         }
-
-#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#             info = ydl.extract_info(
-#                 f"https://www.youtube.com/watch?v={video_unique_key}",
-#                 download=False,
-#             )
-
-#             for format in info.get("formats", []):
-#                 if "dubbed-auto" in format.get("format_note", "").lower():
-#                     return True
-#             return False
-
-#     except Exception as e:
-#         print(f"Error checking for dubbed audio: {e}")
-#         return False
-
-
 def fetch_channel_info(channel_id):
     def _get_thumbnail(snippet):
         return (
