@@ -7,7 +7,7 @@ from zeeguu.api.app import create_app
 app = create_app()
 app.app_context().push()
 
-with open("caption_table.json", "r") as f:
+with open("../caption_table.json", "r") as f:
     caption_data = json.load(f)
 
 
