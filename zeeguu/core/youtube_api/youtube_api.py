@@ -182,6 +182,8 @@ def get_captions(video_unique_key, lang):
             )
             full_text.append(clean_text)
 
+        print("SUCCESS with getting the captions for video! ")
+
         return {
             "text": "\n".join(full_text),
             "captions": caption_list,
