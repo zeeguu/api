@@ -1,4 +1,5 @@
 import html
+import json
 import os
 import re
 import isodate
@@ -162,47 +163,74 @@ def fetch_video_info(video_unique_key, lang):
 
 
 def get_captions(video_unique_key, lang):
-    try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_unique_key)
-        transcript = transcript_list.find_manually_created_transcript([lang])
+    # try:
+    #     transcript_list = YouTubeTranscriptApi.list_transcripts(video_unique_key)
+    #     transcript = transcript_list.find_manually_created_transcript([lang])
 
-        transcript_data = transcript.fetch()
+    #     transcript_data = transcript.fetch()
+
+    #     caption_list = []
+    #     full_text = []
+
+    #     for caption in transcript_data:
+    #         clean_text = text_cleaner(caption.text)
+    #         caption_list.append(
+    #             {
+    #                 "time_start": caption.start * 1000,
+    #                 "time_end": (caption.start + caption.duration) * 1000,
+    #                 "text": clean_text,
+    #             }
+    #         )
+    #         full_text.append(clean_text)
+
+    #     return {
+    #         "text": "\n".join(full_text),
+    #         "captions": caption_list,
+    #     }
+
+    # except TranscriptsDisabled:
+    #     print("Transcript is disabled for this video.")
+    #     return None
+    # except NoTranscriptFound:
+    #     print(
+    #         "No manually added transcript was found for this video in the specified language."
+    #     )
+    #     return None
+    # except VideoUnavailable:
+    #     print("Video is unavailable.")
+    #     return None
+    # except CouldNotRetrieveTranscript as e:
+    #     print(f"Could not retrieve transcript: {e}")
+    #     return None
+    # except Exception as e:
+    #     print(f"Error fetching captions for {video_unique_key}: {e}")
+    #     return None
+
+    try:
+        with open(
+            "/Users/silashoeyer/Desktop/caption_table.json", "r", encoding="utf-8"
+        ) as f:
+            caption_data = json.load(f)
 
         caption_list = []
         full_text = []
 
-        for caption in transcript_data:
-            clean_text = text_cleaner(caption.text)
-            caption_list.append(
-                {
-                    "time_start": caption.start * 1000,
-                    "time_end": (caption.start + caption.duration) * 1000,
-                    "text": clean_text,
-                }
-            )
-            full_text.append(clean_text)
-
+        for caption in caption_data:
+            if caption["video_unique_key"] == video_unique_key:
+                caption_list.append(
+                    {
+                        "time_start": caption["time_start"],
+                        "time_end": caption["time_end"],
+                        "text": caption["text"],
+                    }
+                )
+                full_text.append(caption["text"])
         return {
             "text": "\n".join(full_text),
             "captions": caption_list,
         }
-
-    except TranscriptsDisabled:
-        print("Transcript is disabled for this video.")
-        return None
-    except NoTranscriptFound:
-        print(
-            "No manually added transcript was found for this video in the specified language."
-        )
-        return None
-    except VideoUnavailable:
-        print("Video is unavailable.")
-        return None
-    except CouldNotRetrieveTranscript:
-        print("Could not retrieve transcript.")
-        return None
-    except Exception as e:
-        print(f"Error fetching captions for {video_unique_key}: {e}")
+    except FileNotFoundError:
+        print("Caption file not found.")
         return None
 
 
