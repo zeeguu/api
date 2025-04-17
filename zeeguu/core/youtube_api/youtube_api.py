@@ -164,6 +164,7 @@ def fetch_video_info(video_unique_key, lang):
 
 def get_captions(video_unique_key, lang):
     # try:
+    #     print(f"Fetching captions via Python Package: youtube_transcript_api...")
     #     transcript_list = YouTubeTranscriptApi.list_transcripts(video_unique_key)
     #     transcript = transcript_list.find_manually_created_transcript([lang])
 
@@ -207,14 +208,23 @@ def get_captions(video_unique_key, lang):
     #     return None
 
     try:
-        with open("caption_table.json", "r", encoding="utf-8") as f:
+        print("Fetching captions from captions.json...")
+        # Construct path relative to this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        captions_path = os.path.join(script_dir, "captions.json")
+        print(f"Looking for captions file at: {captions_path}")
+
+        with open(captions_path, "r", encoding="utf-8") as f:
             caption_data = json.load(f)
+        print(f"Found {len(caption_data)} captions in captions.json")
 
         caption_list = []
         full_text = []
 
+        print(f"Searching for video {video_unique_key} in captions.json...")
         for caption in caption_data:
             if caption["video_unique_key"] == video_unique_key:
+
                 caption_list.append(
                     {
                         "time_start": caption["time_start"],
@@ -223,12 +233,20 @@ def get_captions(video_unique_key, lang):
                     }
                 )
                 full_text.append(caption["text"])
-        return {
-            "text": "\n".join(full_text),
-            "captions": caption_list,
-        }
+
+        print(
+            f"Found {len(caption_list)} captions for video {video_unique_key} in captions.json"
+        )
+
+        if len(caption_list) == 0:
+            return None
+        else:
+            return {
+                "text": "\n".join(full_text),
+                "captions": caption_list,
+            }
     except FileNotFoundError:
-        print("Caption file not found.")
+        print(f"Caption file not found at {captions_path}.")
         return None
 
 
