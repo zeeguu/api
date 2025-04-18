@@ -148,8 +148,7 @@ def fetch_video_info(video_unique_key, lang):
     #     print(f"Video {video_unique_key} has dubbed audio.")
     #     video_info["broken"] = DUBBED_AUDIO
 
-    # Temporary solution to fetch captions from uploaded file with captions (captions.json)
-    captions = get_captions_from_file(video_unique_key)
+    captions = get_captions_from_json(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
         video_info["text"] = ""
@@ -170,7 +169,10 @@ def get_captions_with_yttapi(video_unique_key, lang):
         transcript = transcript_list.find_manually_created_transcript([lang])
 
         transcript_data = transcript.fetch()
+        transcript_data = transcript.fetch()
 
+        caption_list = []
+        full_text = []
         caption_list = []
         full_text = []
 
@@ -184,7 +186,21 @@ def get_captions_with_yttapi(video_unique_key, lang):
                 }
             )
             full_text.append(clean_text)
+        for caption in transcript_data:
+            clean_text = text_cleaner(caption.text)
+            caption_list.append(
+                {
+                    "time_start": caption.start * 1000,
+                    "time_end": (caption.start + caption.duration) * 1000,
+                    "text": clean_text,
+                }
+            )
+            full_text.append(clean_text)
 
+        return {
+            "text": "\n".join(full_text),
+            "captions": caption_list,
+        }
         return {
             "text": "\n".join(full_text),
             "captions": caption_list,
@@ -207,9 +223,29 @@ def get_captions_with_yttapi(video_unique_key, lang):
     except Exception as e:
         print(f"Error fetching captions for {video_unique_key}: {e}")
         return None
+    except TranscriptsDisabled:
+        print("Transcript is disabled for this video.")
+        return None
+    except NoTranscriptFound:
+        print(
+            "No manually added transcript was found for this video in the specified language."
+        )
+        return None
+    except VideoUnavailable:
+        print("Video is unavailable.")
+        return None
+    except CouldNotRetrieveTranscript as e:
+        print(f"Could not retrieve transcript: {e}")
+        return None
+    except Exception as e:
+        print(f"Error fetching captions for {video_unique_key}: {e}")
+        return None
 
 
-def get_captions_from_file(video_unique_key):
+def get_captions_from_json(video_unique_key, lang):
+    """
+    Temporary solution to fetch captions from uploaded file with captions (captions.json)
+    """
     try:
         print("Fetching captions from captions.json...")
         # Construct path relative to this script
