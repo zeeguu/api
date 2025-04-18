@@ -207,6 +207,9 @@ def get_captions(video_unique_key, lang):
     #     print(f"Error fetching captions for {video_unique_key}: {e}")
     #     return None
 
+    """
+    Temporary solution to fetch captions from uploaded file with captions (captions.json)
+    """
     try:
         print("Fetching captions from captions.json...")
         # Construct path relative to this script
@@ -235,7 +238,7 @@ def get_captions(video_unique_key, lang):
                 full_text.append(caption["text"])
 
         print(
-            f"Found {len(caption_list)} captions for video {video_unique_key} in captions.json"
+            f"FOUND {len(caption_list)} CAPTIONS FOR VIDEO {video_unique_key} IN captions.json"
         )
 
         if len(caption_list) == 0:

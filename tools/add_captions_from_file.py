@@ -1,12 +1,7 @@
 """
-This script adds captions to the database from a captions.json file
-for videos that have broken status 1.
+This script adds captions to videos that have broken status 1, if they exist in captions.json.
 
-The necessity for this workaround arises because the APIs used during development
-to fetch YouTube video captions are blocked on the production server due to being flagged as
-a bot by YouTube.
-
-Use this script for repairing video entries when automatic caption fetching fails.
+Use this script for videos that have already been crawled.
 
 """
 
@@ -53,7 +48,9 @@ for video in videos_with_broken_status_1:
             )
             video.broken = 0  # SQLAlchemy detects this change on the managed object
             db_session.commit()
-            print(f"Successfully added captions for video {video.video_unique_key}.")
+            print(
+                f"SUCCESSFULLY ADDED CAPTIONS FOR VIDEO {video.video_unique_key} FROM captions.json."
+            )
         except Exception as e:
             print(f"Error adding captions for video {video.video_unique_key}: {e}")
             db_session.rollback()
