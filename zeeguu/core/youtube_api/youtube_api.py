@@ -1,8 +1,11 @@
 import html
+import json
 import os
 import re
 import isodate
 import requests
+
+from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.util.text import remove_emojis
 from langdetect import detect, LangDetectException
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -147,7 +150,7 @@ def fetch_video_info(video_unique_key, lang):
     #     print(f"Video {video_unique_key} has dubbed audio.")
     #     video_info["broken"] = DUBBED_AUDIO
 
-    captions = get_captions(video_unique_key, lang)
+    captions = get_captions_from_json(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
         video_info["text"] = ""
@@ -161,13 +164,17 @@ def fetch_video_info(video_unique_key, lang):
     return video_info
 
 
-def get_captions(video_unique_key, lang):
+def get_captions_with_yttapi(video_unique_key, lang):
     try:
+        print(f"Fetching captions via Python Package: youtube_transcript_api...")
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_unique_key)
         transcript = transcript_list.find_manually_created_transcript([lang])
 
         transcript_data = transcript.fetch()
+        transcript_data = transcript.fetch()
 
+        caption_list = []
+        full_text = []
         caption_list = []
         full_text = []
 
@@ -181,9 +188,21 @@ def get_captions(video_unique_key, lang):
                 }
             )
             full_text.append(clean_text)
+        for caption in transcript_data:
+            clean_text = text_cleaner(caption.text)
+            caption_list.append(
+                {
+                    "time_start": caption.start * 1000,
+                    "time_end": (caption.start + caption.duration) * 1000,
+                    "text": clean_text,
+                }
+            )
+            full_text.append(clean_text)
 
-        print("SUCCESS with getting the captions for video! ")
-
+        return {
+            "text": "\n".join(full_text),
+            "captions": caption_list,
+        }
         return {
             "text": "\n".join(full_text),
             "captions": caption_list,
@@ -200,11 +219,73 @@ def get_captions(video_unique_key, lang):
     except VideoUnavailable:
         print("Video is unavailable.")
         return None
-    except CouldNotRetrieveTranscript:
-        print("Could not retrieve transcript.")
+    except CouldNotRetrieveTranscript as e:
+        print(f"Could not retrieve transcript: {e}")
         return None
     except Exception as e:
         print(f"Error fetching captions for {video_unique_key}: {e}")
+        return None
+    except TranscriptsDisabled:
+        print("Transcript is disabled for this video.")
+        return None
+    except NoTranscriptFound:
+        print(
+            "No manually added transcript was found for this video in the specified language."
+        )
+        return None
+    except VideoUnavailable:
+        print("Video is unavailable.")
+        return None
+    except CouldNotRetrieveTranscript as e:
+        print(f"Could not retrieve transcript: {e}")
+        return None
+    except Exception as e:
+        print(f"Error fetching captions for {video_unique_key}: {e}")
+        return None
+
+
+def get_captions_from_json(video_unique_key, lang):
+    """
+    Temporary solution to fetch captions from uploaded file with captions (captions.json)
+    """
+    try:
+        print("Fetching captions from captions.json...")
+        captions_path = os.path.join(ZEEGUU_DATA_FOLDER, "video", "captions.json")
+        print(f"Looking for captions file at: {captions_path}")
+
+        with open(captions_path, "r", encoding="utf-8") as f:
+            caption_data = json.load(f)
+        print(f"Found {len(caption_data)} captions in captions.json")
+
+        caption_list = []
+        full_text = []
+
+        print(f"Searching for video {video_unique_key} in captions.json...")
+        for caption in caption_data:
+            if caption["video_unique_key"] == video_unique_key:
+
+                caption_list.append(
+                    {
+                        "time_start": caption["time_start"],
+                        "time_end": caption["time_end"],
+                        "text": caption["text"],
+                    }
+                )
+                full_text.append(caption["text"])
+
+        print(
+            f"FOUND {len(caption_list)} CAPTIONS FOR VIDEO {video_unique_key} IN captions.json"
+        )
+
+        if len(caption_list) == 0:
+            return None
+        else:
+            return {
+                "text": "\n".join(full_text),
+                "captions": caption_list,
+            }
+    except FileNotFoundError:
+        print(f"Caption file not found at {captions_path}.")
         return None
 
 

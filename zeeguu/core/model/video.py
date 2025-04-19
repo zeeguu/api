@@ -14,7 +14,6 @@ from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.core.youtube_api.youtube_api import fetch_video_info, fetch_channel_info
 
 MAX_CHAR_COUNT_IN_SUMMARY = 297
 
@@ -95,6 +94,13 @@ class Video(db.Model):
         upload_index=True,
     ):
         from zeeguu.core.elastic.indexing import index_video
+
+        # Import here to avoid circular dependency:
+        # video -> youtube_api -> util -> compute_fk -> model -> video
+        from zeeguu.core.youtube_api.youtube_api import (
+            fetch_video_info,
+            fetch_channel_info,
+        )
 
         video = (
             session.query(cls).filter(cls.video_unique_key == video_unique_key).first()
