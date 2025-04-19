@@ -9,7 +9,7 @@ from zeeguu.core.model import db
 from zeeguu.core.model.video import Video
 from zeeguu.core.model.caption import Caption
 from zeeguu.api.app import create_app
-from zeeguu.core.youtube_api.youtube_api import get_captions_from_file
+from zeeguu.core.youtube_api.youtube_api import get_captions_from_json
 
 
 app = create_app()
@@ -22,7 +22,7 @@ print(f"Found {len(videos_with_broken_status_1)} videos with broken status 1")
 
 # For each video with broken status 1, check if it has captions in captions.json
 for video in videos_with_broken_status_1:
-    captions = get_captions_from_file(video.video_unique_key)
+    captions = get_captions_from_json(video.video_unique_key)
     if captions:
         # Add captions from captions.json
         try:
