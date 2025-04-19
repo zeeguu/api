@@ -250,8 +250,6 @@ def get_captions_from_json(video_unique_key, lang):
     """
     try:
         print("Fetching captions from captions.json...")
-        # Construct path relative to this script
-
         captions_path = os.path.join(ZEEGUU_DATA_FOLDER, "video", "captions.json")
         print(f"Looking for captions file at: {captions_path}")
 
