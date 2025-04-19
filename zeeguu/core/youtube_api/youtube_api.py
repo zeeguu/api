@@ -4,6 +4,8 @@ import os
 import re
 import isodate
 import requests
+
+from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.util.text import remove_emojis
 from langdetect import detect, LangDetectException
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -249,8 +251,8 @@ def get_captions_from_json(video_unique_key, lang):
     try:
         print("Fetching captions from captions.json...")
         # Construct path relative to this script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        captions_path = os.path.join(script_dir, "captions.json")
+
+        captions_path = os.path.join(ZEEGUU_DATA_FOLDER, "video", "captions.json")
         print(f"Looking for captions file at: {captions_path}")
 
         with open(captions_path, "r", encoding="utf-8") as f:
