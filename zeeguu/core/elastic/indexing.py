@@ -206,16 +206,15 @@ def create_or_update_doc_for_bulk(article, session):
 
 
 def index_in_elasticsearch(new_article, session):
-    """
-    # Saves the news article at ElasticSearch.
-    # We recommend that everything is stored both in SQL and Elasticsearch
-    # as ElasticSearch isn't persistent data
-    """
+
     try:
         doc = document_from_article(new_article, session)
-        es_index(id=new_article.id, document=doc)
+        es_index(doc)
 
     except Exception as e:
+        from sentry_sdk import capture_exception
+
+        capture_exception(e)
         import traceback
 
         traceback.print_exc()
