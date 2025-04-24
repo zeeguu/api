@@ -339,11 +339,14 @@ class UserActivityData(db.Model):
 
     @classmethod
     def get_sources_ignored_by_user(
-        cls, user, days_range=30, max_sources_to_filter=100
+        cls, user, days_range=30, max_sources_to_filter=100, skips_required=2
     ):
         """
         Returns a list of source_ids that have been scrolled past until the user clicked on a source
         bellow the listed sources. We search within a maximum of 30 days and filter at most 100.
+
+        skips_require define the number of times the user has scrolled past the source
+        and clicked on an article or video below. The default is 2.
         """
         current_date = (datetime.now() + timedelta(1)).date()
         past_date = (datetime.now() - timedelta(days_range)).date()
@@ -368,9 +371,9 @@ class UserActivityData(db.Model):
                 for s_id in parsed_source_list
             ]
         count_times_skipped = Counter(sources_skipped)
-        sources_skipped_twice = [k for k, c in count_times_skipped.items() if c > 1]
-        print(f"Sources skipped for user {user.id}: {sources_skipped_twice}")
-        print(count_times_skipped)
+        sources_skipped_twice = [
+            k for k, c in count_times_skipped.items() if c >= skips_required
+        ]
         return sources_skipped_twice[:max_sources_to_filter]
 
     @classmethod
