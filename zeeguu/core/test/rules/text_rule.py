@@ -25,7 +25,7 @@ class TextRule(BaseRule):
         random_article = ArticleRule().article
         random_url = random_article.url
 
-        text = Text(random_content, random_language, random_url, random_article )
+        text = Text(random_content, random_language, random_url, random_article)
 
         if self._exists_in_db(text):
             return self._create_model_object(length)

@@ -136,6 +136,7 @@ def build_elastic_recommender_query(
         )
 
     must.append(exists("published_time"))
+    must.append(exists("article_id"))
 
     topics_to_find = array_of_topics(topics_to_include)
     if len(topics_to_find) > 0:
@@ -185,6 +186,102 @@ def build_elastic_recommender_query(
     )
     full_query["query"]["function_score"].update(bool_query_body)
 
+    pprint(full_query)
+    return full_query
+
+
+def build_elastic_search_query_for_videos(
+    count,
+    user_topics,
+    unwanted_user_topics,
+    language,
+    upper_bounds,
+    lower_bounds,
+    topics_to_include,
+    topics_to_exclude,
+    page,
+):
+    """
+    At the moment this query is very similar to the articles query 'build_elastic_recommender_query'
+    The difference here is that we don't enforce the recency as much as in the articles.
+
+    We expect videos to come at a much lower pace when compared to the articles.
+    """
+
+    must = []
+    must_not = []
+    should = []
+
+    bool_query_body = {"query": {"bool": {}}}  # initial empty bool query
+
+    if language:
+        must.append(match("language", language.name))
+
+    if not user_topics:
+        user_topics = ""
+
+    topics_to_filter_out = array_of_topics(topics_to_exclude)
+    if len(topics_to_exclude) > 0:
+        should_remove_topics = []
+        for t in topics_to_filter_out:
+            should_remove_topics.append({"match": {"topics": t}})
+            should_remove_topics.append({"match": {"topics_inferred": t}})
+        must_not.append({"bool": {"should": should_remove_topics}})
+
+    if unwanted_user_topics:
+        must_not.append(match("content", unwanted_user_topics))
+        must_not.append(match("title", unwanted_user_topics))
+
+    must.append(exists("published_time"))
+    must.append(exists("video_id"))
+
+    topics_to_find = array_of_topics(topics_to_include)
+    if len(topics_to_find) > 0:
+        should_topics = []
+        for t in topics_to_find:
+            should_topics.append({"match": {"topics": t}})
+            should_topics.append({"match": {"topics_inferred": t}})
+        must.append({"bool": {"should": should_topics}})
+
+    bool_query_body["query"]["bool"].update({"must": must})
+    bool_query_body["query"]["bool"].update({"must_not": must_not})
+    # bool_query_body["query"]["bool"].update({"should": should})
+
+    full_query = {
+        "from": page * count,
+        "size": count,
+        "query": {"function_score": {}},
+    }
+
+    recency_preference = {
+        "exp": {
+            "published_time": {
+                "scale": "30d",
+                "offset": "30d",
+                "decay": 0.95,
+            }
+        },
+        # I am unsure if we should keep he weight for this one.
+        # Right now, I guess it means we weigh both the difficulty
+        # and recency equaly which I think it's the behaviour we would ike.
+        # "weight": es_weight,
+        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
+    }
+
+    difficulty_prefference = {
+        "exp": {
+            "fk_difficulty": {
+                "origin": ((upper_bounds + lower_bounds) / 2),
+                "scale": 21,
+            }
+        },
+    }
+
+    full_query["query"]["function_score"].update(
+        {"functions": [recency_preference, difficulty_prefference]}
+    )
+    full_query["query"]["function_score"].update(bool_query_body)
+    print("Video query...")
     pprint(full_query)
     return full_query
 
@@ -364,7 +461,8 @@ def build_elastic_semantic_sim_query_for_topic_cls(
         num_candidates=n_candidates,
         query_vector=sem_vec,
         filter=(
-            ~Q("ids", values=filter_ids)
+            Q("exists", field="article_id")
+            & ~Q("terms", **{"article_id": filter_ids})
             # & ~Q("match", **{"url_keywords.keyword": ""})
             # & ~Q("match", **{"topics.keyword": ""})
             & Q(
@@ -375,6 +473,7 @@ def build_elastic_semantic_sim_query_for_topic_cls(
     )
 
     query = s.to_dict()
+
     # print(query)
     return query
 

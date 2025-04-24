@@ -6,6 +6,7 @@ import regex
 from collections import Counter
 from nltk import SnowballStemmer
 from zeeguu.core.model.language import Language
+import emoji
 
 """
     Collection of simple text processing functions
@@ -74,3 +75,9 @@ def median_word_length(text, language: Language):
         number_of_syllables(w, language) for w in split_words_from_text(text)
     ]
     return word_lengths[int(len(word_lengths) / 2)]
+
+
+def remove_emojis(text):
+    # Use the emoji library to remove emojis
+    # This is for the purpose of being able to translate the text
+    return emoji.replace_emoji(text, replace='')

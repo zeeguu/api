@@ -10,6 +10,7 @@ from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
 from zeeguu.core.model import db
 
@@ -60,8 +61,6 @@ class Article(db.Model):
     from zeeguu.core.model.feed import Feed
 
     from zeeguu.core.model.language import Language
-
-    from zeeguu.core.model.url_keyword import UrlKeyword
 
     from zeeguu.core.model.source import Source
 
@@ -244,23 +243,6 @@ class Article(db.Model):
         :return:
         """
 
-        # We don't need to store this in the DB.
-        # I was trying to use the self.compute_fk_and_wordcount()
-        # but this wasn't working to set the field?
-        def fk_to_cefr(fk_difficulty):
-            if fk_difficulty < 17:
-                return "A1"
-            elif fk_difficulty < 34:
-                return "A2"
-            elif fk_difficulty < 51:
-                return "B1"
-            elif fk_difficulty < 68:
-                return "B2"
-            elif fk_difficulty < 85:
-                return "C1"
-            else:
-                return "C2"
-
         summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
         fk_difficulty = self.get_fk_difficulty()
         result_dict = dict(
@@ -271,7 +253,7 @@ class Article(db.Model):
             language=self.language.code,
             topics=self.topics_as_string(),
             topics_list=self.topics_as_tuple(),
-            video=self.video,
+            video=False,
             metrics=dict(
                 difficulty=fk_difficulty / 100,
                 word_count=self.get_word_count(),

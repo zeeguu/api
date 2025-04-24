@@ -2,6 +2,7 @@ services:
   # main db
   mysql:
     image: mysql:5.7
+    platform: linux/amd64
     volumes:
       - ${ZEEGUU_DATA_FOLDER}/mysql:/var/lib/mysql
     environment:
@@ -11,11 +12,14 @@ services:
       MYSQL_PASSWORD: ${ZEEGUU_MYSQL_USER_PASSWORD}
     networks:
       - zeeguu_backend
+    ports:
+      - "3306:3306"
     restart: unless-stopped
 
   # main db
   fmd_mysql:
     image: mysql:5.7
+    platform: linux/amd64
     volumes:
       - ${ZEEGUU_DATA_FOLDER}/fmd_mysql:/var/lib/mysql
     environment:
@@ -100,6 +104,7 @@ services:
       ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       SENTRY_DSN: ${SENTRY_DSN}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg
       MICROSOFT_TRANSLATE_API_KEY: ${MICROSOFT_TRANSLATE_API_KEY}
       GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY}

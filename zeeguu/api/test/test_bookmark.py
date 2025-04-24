@@ -101,7 +101,7 @@ def test_context_parameter_functions_in_bookmarks_by_day(client):
     assert day1_bookmarks["date"]
 
     some_bookmark = day1_bookmarks["bookmarks"][0]
-    for key in ["from", "to", "id", "context", "title", "url"]:
+    for key in ["from", "to", "id", "context", "title"]:
         assert key in some_bookmark
 
     # if we don't pass the context argument, we don't get the context

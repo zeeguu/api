@@ -70,6 +70,7 @@ ALL_ARTICLE_INTERACTION_ACTIONS = (
 
 # Parameter that controls after how much time (in minutes) the session is expired
 READING_SESSION_TIMEOUT = 2
+WATCHING_SESSION_TIMEOUT = 2
 
 
 # Event types for word_knowledge/WordInteractionHistory

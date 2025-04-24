@@ -11,6 +11,9 @@ from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_semantic_sim_query_for_text,
     more_like_this_query,
 )
+from zeeguu.core.content_recommender.elastic_recommender import (
+    _to_articles_from_ES_hits,
+)
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.semantic_vector_api import (
@@ -148,10 +151,3 @@ def find_articles_based_on_text(text, k: int = 9):  # hood = (slang) neighborhoo
     except Exception as e:
         print(f"Error encountered: {e}")
     return [], []
-
-
-def _to_articles_from_ES_hits(hits):
-    articles = []
-    for hit in hits:
-        articles.append(Article.find_by_id(hit["_source"]["article_id"]))
-    return articles

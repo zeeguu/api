@@ -4,13 +4,16 @@ from zeeguu.core.content_recommender import (
     article_recommendations_for_user,
     topic_filter_for_user,
     content_recommendations,
+    video_recommendations_for_user,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
+from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, Video
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from sentry_sdk import capture_exception
 from . import api
+
+from random import random
 
 from flask import request
 
@@ -35,16 +38,31 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     are relevant enough. The articles are then sorted by published date.
 
     """
+
+    def mix_articles_with_videos(articles, videos):
+        final_result = []
+        last_placed_video = 0
+        for v_i, video in enumerate(videos):
+            video_pos_i = last_placed_video + v_i + int(random() * (3 * (v_i + 1)))
+            print("Placing video at: ", video_pos_i)
+            final_result += articles[last_placed_video:video_pos_i] + [video]
+            last_placed_video = video_pos_i
+        final_result += articles[last_placed_video:]
+        return final_result
+
     user = User.find_by_id(flask.g.user_id)
     try:
         articles = article_recommendations_for_user(user, count, page)
+        videos = video_recommendations_for_user(user, 3, page)
+        print("Total Videos found: ", len(videos))
+        print("Total Articles found: ", len(articles))
     except Exception as e:
         import traceback
 
-        print(traceback.format_exc())
-        print("### ES Query failed with: ", e)
         # we failed to get recommendations from elastic
         # return something
+        print(e)
+        print(traceback.format_exc())
         articles = (
             Article.query.filter_by(broken=0)
             .filter_by(language_id=user.learned_language_id)
@@ -52,9 +70,17 @@ def user_articles_recommended(count: int = 20, page: int = 0):
             .limit(20)
         )
 
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+        videos = (
+            Video.query.filter_by(broken=0)
+            .filter_by(language_id=user.learned_language_id)
+            .order_by(Video.published_time.desc())
+            .limit(3)
+        )
 
-    return json_result(article_infos)
+    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    video_infos = [v.video_info() for v in videos if v]
+    combined_results = mix_articles_with_videos(article_infos, video_infos)
+    return json_result(combined_results)
 
 
 @api.route("/user_articles/saved", methods=["GET"])

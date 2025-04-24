@@ -437,6 +437,9 @@ class UserActivityData(db.Model):
         if data.get("article_id", None):
             article_id = int(data["article_id"])
 
+        # This is for compatibility with some old API calls from the Web which used to pass only the articleID
+        # Even more: in some of the pages we actually only have the articleId so it's easier to look it up here
+        # rather than modify all the frontent
         if article_id and source_id == "":
             source_id = Article.find_by_id(article_id).source_id
 
