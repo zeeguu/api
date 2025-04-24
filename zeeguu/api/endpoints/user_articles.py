@@ -27,7 +27,7 @@ MAX_ARTICLES_PER_TOPIC = 20
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def user_articles_recommended(count: int = 20, page: int = 0):
+def user_articles_recommended(count: int = 15, page: int = 0):
     """
     Home Page recomendation for the users.
 
@@ -40,11 +40,18 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     """
 
     def mix_articles_with_videos(articles, videos):
+        """
+        Mixes articles with the videos by placing them in random positions
+        +-2 the positon of the lat placed video + the index of the video.
+
+        This naturally increases the distance between the videos.
+        Some examples of video positions:
+            - [0, 1, 4, 8, 12], [0, 2, 4, 9, 15], [1, 3, 5, 8, 13], [2, 4, 7, 12, 17]
+        """
         final_result = []
         last_placed_video = 0
         for v_i, video in enumerate(videos):
-            video_pos_i = last_placed_video + v_i + int(random() * (3 * (v_i + 1)))
-            print("Placing video at: ", video_pos_i)
+            video_pos_i = last_placed_video + int(round(random() * 2) + (v_i))
             final_result += articles[last_placed_video:video_pos_i] + [video]
             last_placed_video = video_pos_i
         final_result += articles[last_placed_video:]
@@ -53,7 +60,7 @@ def user_articles_recommended(count: int = 20, page: int = 0):
     user = User.find_by_id(flask.g.user_id)
     try:
         articles = article_recommendations_for_user(user, count, page)
-        videos = video_recommendations_for_user(user, 3, page)
+        videos = video_recommendations_for_user(user, 5, page)
         print("Total Videos found: ", len(videos))
         print("Total Articles found: ", len(articles))
     except Exception as e:
