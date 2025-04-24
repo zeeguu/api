@@ -124,14 +124,10 @@ def build_elastic_recommender_query(
         must_not.append(match("title", unwanted_user_topics))
 
     if user_ignored_sources:
-        print("Excluding articles...")
-        articles_to_exclude = [
-            Article.find_by_source_id(s_id) for s_id in user_ignored_sources
-        ]
         must_not.append(
             terms(
-                "article_id",
-                [a.id for a in articles_to_exclude if a],
+                "source_id",
+                user_ignored_sources,
             )
         )
 
@@ -199,6 +195,7 @@ def build_elastic_search_query_for_videos(
     lower_bounds,
     topics_to_include,
     topics_to_exclude,
+    user_ignored_sources,
     page,
 ):
     """
@@ -231,6 +228,14 @@ def build_elastic_search_query_for_videos(
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
+
+    if user_ignored_sources:
+        must_not.append(
+            terms(
+                "source_id",
+                user_ignored_sources,
+            )
+        )
 
     must.append(exists("published_time"))
     must.append(exists("video_id"))

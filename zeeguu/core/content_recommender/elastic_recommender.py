@@ -83,6 +83,7 @@ def _prepare_user_constraints(user):
     # 7. User ignored sources
     # =========================================
     user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
+    print("User ignored_sources: ", user_ignored_sources)
 
     return (
         language,
@@ -136,7 +137,7 @@ def article_recommendations_for_user(
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
-    print("User ignored_sources: ", user_ignored_sources)
+
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -194,6 +195,7 @@ def video_recommendations_for_user(
         topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
+        user_ignored_sources,
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -206,6 +208,7 @@ def video_recommendations_for_user(
         lower_bounds,
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
+        user_ignored_sources=user_ignored_sources,
         page=page,
     )
 
@@ -350,7 +353,6 @@ def _get_video_from_ES_hit(hit):
 
 
 def _get_article_from_ES_hit(hit):
-    print(hit)
     return Article.find_by_id(hit["_source"]["article_id"])
 
 

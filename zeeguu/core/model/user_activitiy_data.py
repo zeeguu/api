@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, desc
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
+from collections import Counter
 
 from zeeguu.logging import log
 
@@ -357,20 +357,21 @@ class UserActivityData(db.Model):
         sources_skipped = []
         for e in events:
             parsed_source_list = json.loads(e.extra_data)
-            # Before we parse the source list, we need to check if it's an articleID
-            # instead.
-            article_id_threshold = 2500000
             sources_skipped += [
                 (
                     s_id
-                    if s_id < article_id_threshold
+                    if Source.find_by_id(s_id) is not None
+                    # This line can be removed once we do not capture old data with the
+                    # query. (Article IDs rather than source ids)
                     else Article.find_by_id(s_id).source_id
                 )
                 for s_id in parsed_source_list
             ]
-            if len(sources_skipped) >= max_sources_to_filter:
-                break
-        return sources_skipped[:max_sources_to_filter]
+        count_times_skipped = Counter(sources_skipped)
+        sources_skipped_twice = [k for k, c in count_times_skipped.items() if c > 1]
+        print(f"Sources skipped for user {user.id}: {sources_skipped_twice}")
+        print(count_times_skipped)
+        return sources_skipped_twice[:max_sources_to_filter]
 
     @classmethod
     def get_articles_with_reading_percentages_for_user_in_date_range(
