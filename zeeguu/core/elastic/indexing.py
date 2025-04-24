@@ -110,6 +110,7 @@ def document_from_video(video, session, current_doc=None):
     summary = video_text[:MAX_CHAR_COUNT_IN_SUMMARY]
     doc = {
         "video_id": video.id,
+        "source_id": video.source_id,
         "title": video.title,
         "channel": video.channel.name,
         "content": video_text,
@@ -142,6 +143,7 @@ def document_from_article(article, session, current_doc=None):
         embedding_generation_required = current_doc["content"] != article.get_content()
     doc = {
         "article_id": article.id,
+        "source_id": article.source_id,
         "title": article.title,
         "author": article.authors,
         "content": article.get_content(),
@@ -183,6 +185,11 @@ def index_video(video, session):
 
     doc = document_from_video(video, session)
     res = es_index(body=doc)
+    return res
+
+
+def update_doc_with_source_id(hit, source_id):
+    res = es_update(id=hit["_id"], body={"doc": {"source_id": source_id}})
     return res
 
 
