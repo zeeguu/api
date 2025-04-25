@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, desc
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_reading_session import ALL_ARTICLE_INTERACTION_ACTIONS
+from collections import Counter
 
 from zeeguu.logging import log
 
@@ -19,6 +19,7 @@ from zeeguu.core.constants import (
     EVENT_LIKE_ARTICLE,
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
+    EVENT_USER_CLICKED_ARTICLE,
 )
 from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
@@ -335,6 +336,38 @@ class UserActivityData(db.Model):
             return 1
         else:
             return max_percentage_read
+
+    @classmethod
+    def get_sources_ignored_by_user(
+        cls, user, days_range=14, max_sources_to_filter=100, skips_required=2
+    ):
+        """
+        Returns a list of source_ids that have been scrolled past until the user clicked on a source
+        bellow the listed sources. We search within a maximum of 30 days and filter at most 100.
+
+        skips_require define the number of times the user has scrolled past the source
+        and clicked on an article or video below. The default is 2.
+        """
+        current_date = (datetime.now() + timedelta(1)).date()
+        past_date = (datetime.now() - timedelta(days_range)).date()
+        query = (
+            cls.query.filter(cls.user_id == user.id)
+            .filter(cls.event == EVENT_USER_CLICKED_ARTICLE)
+            .filter(cls.time.between(str(past_date), str(current_date)))
+            .order_by(cls.id.desc())
+        )
+        events = query.all()
+        sources_skipped = []
+        for e in events:
+            parsed_source_list = json.loads(e.extra_data)
+            sources_skipped += [
+                s_id for s_id in parsed_source_list if Source.find_by_id(s_id)
+            ]
+        count_times_skipped = Counter(sources_skipped)
+        sources_skipped_twice = [
+            k for k, c in count_times_skipped.items() if c >= skips_required
+        ]
+        return sources_skipped_twice[:max_sources_to_filter]
 
     @classmethod
     def get_articles_with_reading_percentages_for_user_in_date_range(

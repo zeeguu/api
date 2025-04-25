@@ -3,6 +3,7 @@ from elasticsearch_dsl.query import MoreLikeThis
 from datetime import timedelta, datetime
 from zeeguu.core.model import Language
 from pprint import pprint
+from zeeguu.core.model.article import Article
 
 
 def match(key, value):
@@ -11,6 +12,10 @@ def match(key, value):
 
 def exists(field):
     return {"exists": {"field": field}}
+
+
+def terms(key, values):
+    return {"terms": {key: values}}
 
 
 def add_to_dict(dict, key, value):
@@ -53,6 +58,7 @@ def build_elastic_recommender_query(
     es_decay,
     topics_to_include,
     topics_to_exclude,
+    user_ignored_sources,
     page,
 ):
     """
@@ -117,6 +123,14 @@ def build_elastic_recommender_query(
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
 
+    if user_ignored_sources:
+        must_not.append(
+            terms(
+                "source_id",
+                user_ignored_sources,
+            )
+        )
+
     must.append(exists("published_time"))
     must.append(exists("article_id"))
 
@@ -167,6 +181,7 @@ def build_elastic_recommender_query(
         {"functions": [recency_preference, difficulty_prefference]}
     )
     full_query["query"]["function_score"].update(bool_query_body)
+
     pprint(full_query)
     return full_query
 
@@ -180,6 +195,7 @@ def build_elastic_search_query_for_videos(
     lower_bounds,
     topics_to_include,
     topics_to_exclude,
+    user_ignored_sources,
     page,
 ):
     """
@@ -212,6 +228,14 @@ def build_elastic_search_query_for_videos(
     if unwanted_user_topics:
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
+
+    if user_ignored_sources:
+        must_not.append(
+            terms(
+                "source_id",
+                user_ignored_sources,
+            )
+        )
 
     must.append(exists("published_time"))
     must.append(exists("video_id"))
