@@ -342,7 +342,6 @@ def _get_video_from_ES_hit(hit):
 
 
 def _get_article_from_ES_hit(hit):
-    print(hit)
     return Article.find_by_id(hit["_source"]["article_id"])
 
 
