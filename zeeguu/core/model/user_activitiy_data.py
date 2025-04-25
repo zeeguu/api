@@ -339,7 +339,7 @@ class UserActivityData(db.Model):
 
     @classmethod
     def get_sources_ignored_by_user(
-        cls, user, days_range=30, max_sources_to_filter=100, skips_required=2
+        cls, user, days_range=14, max_sources_to_filter=100, skips_required=2
     ):
         """
         Returns a list of source_ids that have been scrolled past until the user clicked on a source
@@ -361,14 +361,7 @@ class UserActivityData(db.Model):
         for e in events:
             parsed_source_list = json.loads(e.extra_data)
             sources_skipped += [
-                (
-                    s_id
-                    if Source.find_by_id(s_id) is not None
-                    # This line can be removed once we do not capture old data with the
-                    # query. (Article IDs rather than source ids)
-                    else Article.find_by_id(s_id).source_id
-                )
-                for s_id in parsed_source_list
+                s_id for s_id in parsed_source_list if Source.find_by_id(s_id)
             ]
         count_times_skipped = Counter(sources_skipped)
         sources_skipped_twice = [
