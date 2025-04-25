@@ -173,7 +173,8 @@ def create_or_update_article(article, session):
 
     if pre_existing_hit:
         doc = document_from_article(article, session, pre_existing_hit["_source"])
-        res = es_update(id=pre_existing_hit["_id"], body=doc)
+        # Note, this might be replaced with delete + index given that update is for specific fields
+        res = es_update(id=pre_existing_hit["_id"], body={"doc": doc})
     else:
         doc = document_from_article(article, session)
         res = es_index(body=doc)
