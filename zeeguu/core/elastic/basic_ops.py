@@ -32,7 +32,7 @@ def es_delete(id):
     return es.delete(index=ES_ZINDEX, id=id)
 
 
-def es_get_id_from_article_id(article_id):
+def es_get_es_id_from_article_id(article_id):
 
     es = Elasticsearch(ES_CONN_STRING)
 

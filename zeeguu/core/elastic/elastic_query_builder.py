@@ -349,7 +349,7 @@ def build_elastic_search_query(
     return query
 
 
-def build_elastic_semantic_sim_query(
+def build_elastic_semantic_sim_query_for_article(
     count,
     language,
     article_sem_vec,

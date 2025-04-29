@@ -6,7 +6,7 @@ from zeeguu.core.model import (
 )
 
 from zeeguu.core.elastic.elastic_query_builder import (
-    build_elastic_semantic_sim_query,
+    build_elastic_semantic_sim_query_for_article,
     build_elastic_semantic_sim_query_for_topic_cls,
     build_elastic_semantic_sim_query_for_text,
     more_like_this_query,
@@ -45,7 +45,7 @@ def articles_like_this_tfidf(article: Article):
 
 @time_this
 def articles_like_this_semantic(article: Article):
-    query_body = build_elastic_semantic_sim_query(
+    query_body = build_elastic_semantic_sim_query_for_article(
         10, article.language, get_embedding_from_article(article), article
     )
     final_article_mix = []
