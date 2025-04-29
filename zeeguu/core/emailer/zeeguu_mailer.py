@@ -44,19 +44,19 @@ class ZeeguuMailer(object):
         return message.as_string()
 
     @classmethod
-    def send_feedback(cls, subject, context, message, user):
+    def send_feedback(cls, subject, context, message, user, url=None):
 
         print("sending feedback...")
         mailer = ZeeguuMailer(
             subject,
             f"Dear Zeeguu Team,\n\nWrt. **{context}** I'd like to report that: \n\n"
             + message
+            + f"\n@url ({url})"
             + "\n\n"
             + "Cheers,\n"
             + f"{user.name} ({user.id}, {user.email})",
             zeeguu.core.app.config.get("SMTP_EMAIL"),
         )
-
         mailer.send()
 
     @classmethod
