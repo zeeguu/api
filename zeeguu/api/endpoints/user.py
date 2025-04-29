@@ -204,7 +204,11 @@ def send_feedback():
     user_feedback = UserFeedback.create(session, user, feedback_component, message, url)
     session.commit()
     ZeeguuMailer.send_feedback(
-        "Feedback", feedback_component.component_type, message, user
+        "Feedback",
+        feedback_component.component_type,
+        message,
+        user,
+        str(url) if url else None,
     )
     return "OK"
 
