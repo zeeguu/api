@@ -185,7 +185,10 @@ def user_articles_foryou():
         articles = content_recommendations(user.id, user.learned_language_id)
         print("Sending CB recommendations")
     except Exception as e:
-        print(e)
+        import traceback
+
+        traceback.print_exc()
+        print("Failed with: ", e)
         capture_exception(e)
         # Usually no recommendations when the user has not liked any articles
         articles = []

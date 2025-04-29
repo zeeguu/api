@@ -10,6 +10,7 @@ Still uses MySQL to find relations between the user and things such as:
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q
 
+from zeeguu.core.elastic.basic_ops import es_get_id_from_article_id
 from zeeguu.core.model import (
     Article,
     Video,
@@ -358,6 +359,7 @@ def _get_article_from_ES_hit(hit):
 
 def _to_articles_from_ES_hits(hits, with_score=False):
     articles = []
+    print(hits)
     for hit in hits:
         article = _get_article_from_ES_hit(hit)
         if with_score:
@@ -403,9 +405,11 @@ def __find_articles_like(
     fields = ["content", "title"]
     language = Language.find_by_id(language_id)
     like_documents = [
-        {"_index": ES_ZINDEX, "article_id": str(doc_id)}
-        for doc_id in recommended_articles_ids
+        {"_index": ES_ZINDEX, "_id": es_get_id_from_article_id(article_id)}
+        for article_id in recommended_articles_ids
     ]
+    #
+    like_documents = [d for d in like_documents if d["_id"] is not None]
 
     mlt_query = build_elastic_more_like_this_query(
         language=language,

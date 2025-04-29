@@ -406,9 +406,10 @@ def build_elastic_semantic_sim_query(
         num_candidates=n_candidates,
         query_vector=article_sem_vec,
         filter=(
-            ~Q("ids", values=[article.id])
+            ~Q("terms", **{"article_id": [article.id]})
             & (
                 Q("match", language__keyword=language.name)
+                & Q("exists", field="article_id")
                 & ~Q("match", **{"topics.keyword": ""})
             )
         ),
@@ -500,7 +501,10 @@ def build_elastic_more_like_this_query(
             "function_score": {
                 "query": {
                     "bool": {
-                        "must": [{"match": {"language": language.name}}],
+                        "must": [
+                            {"match": {"language": language.name}},
+                            {"exists": {"field": "article_id"}},
+                        ],
                         "should": {
                             "more_like_this": {
                                 "fields": similar_to,
