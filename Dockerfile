@@ -109,10 +109,6 @@ ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 RUN mkdir -p $ZEEGUU_RESOURCES_FOLDER
 
 
-RUN python setup.py develop #Installs the nltk resources in the /zeeguu_resources/nltk_data
-
-# For nltk to know where to look we need to set an envvar inside of the image
-ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
 
 # Copy the rest of the files
@@ -120,6 +116,10 @@ ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 # if only the code is being changed...
 COPY . /Zeeguu-API
 
+RUN python setup.py develop #Installs the nltk resources in the /zeeguu_resources/nltk_data
+
+# For nltk to know where to look we need to set an envvar inside of the image
+ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
 
 # We can only run this here, after we copied the files,
