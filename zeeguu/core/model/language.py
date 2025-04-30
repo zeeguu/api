@@ -44,7 +44,7 @@ class Language(db.Model):
         "bn": "Bengali",
     }
 
-    CODES_OF_LANGUAGES_BEING_CRAWLED = ["da", "nl", "fr", "it", "sv", "ro", "es"]
+    CODES_OF_LANGUAGES_BEING_CRAWLED = ["da", "nl", "fr", "it", "sv", "ro", "es", "pt"]
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
         "de",
