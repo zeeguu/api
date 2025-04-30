@@ -8,6 +8,8 @@ from zeeguu.api.utils import cross_domain, requires_session
 from zeeguu.core.model import Article
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
+IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
+
 # See: https://cloud.google.com/text-to-speech/docs/voices
 PREFERRED_VOICES = {
     "da": "da-DK-Wavenet-D",
@@ -50,11 +52,13 @@ def tts():
     user_word = UserWord.find_or_create(
         db_session, text_to_pronounce, Language.find_or_create(language_id)
     )
-
-    audio_file_path = _file_name_for_user_word(user_word, language_id)
-
-    if not os.path.isfile(ZEEGUU_DATA_FOLDER + audio_file_path):
-        _save_speech_to_file(user_word.word, language_id, audio_file_path)
+    audio_file_path = ""
+    if IS_DEV_SKIP_TRANSLATION:
+        audio_file_path = "/static/test.mp3"
+    else:
+        audio_file_path = _file_name_for_user_word(user_word, language_id)
+        if not os.path.isfile(ZEEGUU_DATA_FOLDER + audio_file_path):
+            _save_speech_to_file(user_word.word, language_id, audio_file_path)
 
     print(audio_file_path)
     return audio_file_path
