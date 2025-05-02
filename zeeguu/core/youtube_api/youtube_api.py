@@ -135,13 +135,18 @@ def fetch_video_info(video_unique_key, lang):
         "channelId": item["snippet"]["channelId"],
         "thumbnail": _get_thumbnail(item),
         "tags": item["snippet"].get("tags", []),
-        "duration": int(
-            isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()
-        ),
         "text": "",
         "captions": [],
         "broken": 0,
     }
+
+    try:
+        video_info["duration"] = int(
+            isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()
+        )
+    except KeyError:
+        print(f"Duration not found for video {video_unique_key}. Setting to 0.")
+        video_info["duration"] = 0
 
     if not is_video_language_correct(
         video_info["title"], video_info["description"], lang
