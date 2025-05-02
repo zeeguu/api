@@ -138,6 +138,9 @@ def fetch_video_info(video_unique_key, lang):
         "duration": int(
             isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()
         ),
+        "text": "",
+        "captions": [],
+        "broken": 0,
     }
 
     if not is_video_language_correct(
@@ -145,6 +148,7 @@ def fetch_video_info(video_unique_key, lang):
     ):
         print(f"Video {video_unique_key} is not in the expected language {lang}.")
         video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
+        return video_info
 
     # if has_dubbed_audio(video_unique_key):
     #     print(f"Video {video_unique_key} has dubbed audio.")
@@ -153,13 +157,10 @@ def fetch_video_info(video_unique_key, lang):
     captions = get_captions_from_json(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
-        video_info["text"] = ""
-        video_info["captions"] = []
         video_info["broken"] = NO_CAPTIONS_AVAILABLE
     else:
         video_info["text"] = captions["text"]
         video_info["captions"] = captions["captions"]
-        video_info["broken"] = 0
 
     return video_info
 
