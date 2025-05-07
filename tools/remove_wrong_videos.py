@@ -15,7 +15,7 @@ videos = Video.query.all()
 
 print("removing videos with wrong language")
 for video in videos:
-    if video.broken == 0:
+    if not video.broken:
         video_language = video.language.code
 
         if not is_video_language_correct(
