@@ -49,6 +49,8 @@ SOCIAL_MEDIA_WORDS = [
 NO_CAPTIONS_AVAILABLE = 1
 NOT_IN_EXPECTED_LANGUAGE = 2
 DUBBED_AUDIO = 3
+CAPTIONS_TOO_SHORT = 4
+VIDEO_IS_MISSING_DURATION = 5
 
 SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
@@ -140,13 +142,18 @@ def fetch_video_info(video_unique_key, lang):
         "broken": 0,
     }
 
+    # Check video duration: some videos don't have a duration because they are not released yet or are special videos like shorts.
     try:
         video_info["duration"] = int(
             isodate.parse_duration(item["contentDetails"]["duration"]).total_seconds()
         )
     except KeyError:
-        print(f"Duration not found for video {video_unique_key}. Setting to 0.")
+        print(
+            f"Duration not found for video {video_unique_key}. Setting video to broken and its duration to 0."
+        )
         video_info["duration"] = 0
+        video_info["broken"] = VIDEO_IS_MISSING_DURATION
+        return video_info
 
     if not is_video_language_correct(
         video_info["title"], video_info["description"], lang
@@ -155,10 +162,13 @@ def fetch_video_info(video_unique_key, lang):
         video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
         return video_info
 
+    # Fetch captions
     captions = get_captions_from_json(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
         video_info["broken"] = NO_CAPTIONS_AVAILABLE
+    elif is_captions_too_short(captions["text"], video_info["duration"]):
+        video_info["broken"] = CAPTIONS_TOO_SHORT
     else:
         video_info["text"] = captions["text"]
         video_info["captions"] = captions["captions"]
@@ -348,3 +358,11 @@ def fetch_channel_info(channel_id):
     }
 
     return channel_info
+
+
+def is_captions_too_short(captions: str, video_duration_in_seconds: int) -> bool:
+    # After consolidating different videos and captions, we have found that 1 word per second is a good threshold
+    if len(captions) < video_duration_in_seconds:
+        return True
+    else:
+        return False
