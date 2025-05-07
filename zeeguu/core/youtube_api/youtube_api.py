@@ -162,7 +162,6 @@ def fetch_video_info(video_unique_key, lang):
         video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
         return video_info
 
-    # Fetch captions
     captions = get_captions_from_json(video_unique_key, lang)
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
@@ -360,9 +359,9 @@ def fetch_channel_info(channel_id):
     return channel_info
 
 
-def is_captions_too_short(captions: str, video_duration_in_seconds: int) -> bool:
+def is_captions_too_short(caption_text: str, video_duration_in_seconds: int) -> bool:
     # After consolidating different videos and captions, we have found that 1 word per second is a good threshold
-    if len(captions) < video_duration_in_seconds:
+    if len(caption_text.split()) < video_duration_in_seconds:
         return True
     else:
         return False
