@@ -6,6 +6,7 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.youtube_api.youtube_api import (
     is_video_language_correct,
     is_captions_too_short,
+    NOT_IN_EXPECTED_LANGUAGE
 )
 
 app = create_app()
@@ -24,7 +25,7 @@ for video in videos:
             print(
                 f"Video {video} has wrong language: {video_language}, setting to broken"
             )
-            video.broken = 2
+            video.broken = NOT_IN_EXPECTED_LANGUAGE
 
 print("removing videos with too short captions")
 for video in videos:
