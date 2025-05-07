@@ -30,9 +30,7 @@ print("removing videos with too short captions")
 for video in videos:
     if video.broken == 0:
         if is_captions_too_short(video.get_content(), video.duration):
-            print(
-                f"Video {video} has too short captions: {video_language}, setting to broken"
-            )
+            print(f"Video {video} has too short captions setting to broken")
             video.broken = 4
 
 print("done")
