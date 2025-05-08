@@ -6,7 +6,8 @@ from zeeguu.core.model.language import Language
 from zeeguu.core.youtube_api.youtube_api import (
     is_video_language_correct,
     is_captions_too_short,
-    NOT_IN_EXPECTED_LANGUAGE
+    NOT_IN_EXPECTED_LANGUAGE,
+    CAPTIONS_TOO_SHORT,
 )
 
 app = create_app()
@@ -29,10 +30,10 @@ for video in videos:
 
 print("removing videos with too short captions")
 for video in videos:
-    if video.broken == 0:
+    if not video.broken:
         if is_captions_too_short(video.get_content(), video.duration):
             print(f"Video {video} has too short captions setting to broken")
-            video.broken = 4
+            video.broken = CAPTIONS_TOO_SHORT
 
 print("done")
 db.session.commit()
