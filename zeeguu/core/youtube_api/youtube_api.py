@@ -361,7 +361,4 @@ def fetch_channel_info(channel_id):
 
 def is_captions_too_short(caption_text: str, video_duration_in_seconds: int) -> bool:
     # After consolidating different videos and captions, we have found that 1 word per second is a good threshold
-    if len(caption_text.split()) < video_duration_in_seconds:
-        return True
-    else:
-        return False
+    return len(caption_text.split()) < video_duration_in_seconds
