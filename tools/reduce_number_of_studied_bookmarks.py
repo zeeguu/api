@@ -35,7 +35,10 @@ for bookmark in to_remove:
     print(f"{bookmark.origin.word} {bookmark.origin.rank} {bookmark.level}")
     schedule = BasicSRSchedule.find_by_bookmark(bookmark)
     db_session.delete(schedule)
+    bookmark.level = 0
+    db_session.add(bookmark)
     db_session.commit()
+
 
 print(">>>>> Keeping: ")
 for bookmark in to_keep:
