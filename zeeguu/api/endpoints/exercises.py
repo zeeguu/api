@@ -129,10 +129,10 @@ def new_bookmarks_to_study(bookmark_count):
     return json_result(json_bookmarks)
 
 
-@api.route("/get_total_bookmarks_in_pipeline", methods=["GET"])
+@api.route("/scheduled_bookmarks_count", methods=["GET"])
 @cross_domain
 @requires_session
-def get_total_bookmarks_in_pipeline():
+def scheduled_bookmarks_count():
     """
     Returns a number of bookmarks that are in active learning.
     (Means the user has done at least on exercise in the past)
