@@ -77,52 +77,30 @@ def bookmarks_scheduled_for_today(bookmark_count):
 # ====================================
 # Available bookmarks
 # ====================================
-@api.route("/all_bookmarks_available_for_study_count", methods=["GET"])
+@api.route("/bookmarks_to_study_count", methods=["GET"])
 @cross_domain
 @requires_session
-def bookmarks_available_for_study_count():
-    """
-    Return the number of bookmarks the user has available to study (both in pipeline and
-    not started yet). Can be used to determine how many bookmarks we should pull for
-    the exercises.
-    """
+def get_bookmarks_to_study_count():
     user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.all_bookmarks_available_prioritized(user)
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
     return json_result(len(to_study))
 
 
-@api.route("/all_bookmarks_available_for_study/<bookmark_count>", methods=["GET"])
+@api.route("/bookmarks_to_study", methods=["GET"])
 @cross_domain
 @requires_session
-def bookmarks_available_for_study(bookmark_count):
+def get_bookmarks_to_study():
     """
     Return all the possible bookmarks a user has to study ordered by
     how common it is in the language and how close they are to being learned.
     """
-    int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
-
-    to_study = BasicSRSchedule.all_bookmarks_available_prioritized(user, int_count)
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
 
     json_bookmarks = [
         bookmark.as_dictionary(with_exercise_info=True, with_context_tokenized=True)
         for bookmark in to_study
     ]
-    return json_result(json_bookmarks)
-
-
-@api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
-@cross_domain
-@requires_session
-def new_bookmarks_to_study(bookmark_count):
-    """
-    Finds <bookmark_count> bookmarks that
-    are recommended for this user to study and are not in the pipeline
-    """
-    int_count = int(bookmark_count)
-    user = User.find_by_id(flask.g.user_id)
-    new_to_study = user.get_new_bookmarks_to_study(int_count)
-    json_bookmarks = [bookmark.as_dictionary() for bookmark in new_to_study]
     return json_result(json_bookmarks)
 
 

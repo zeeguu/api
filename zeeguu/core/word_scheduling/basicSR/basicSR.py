@@ -134,7 +134,7 @@ class BasicSRSchedule(db.Model):
             return unscheduled_bookmarks.limit(limit).all()
 
     @classmethod
-    def all_bookmarks_available_prioritized(cls, user, limit=100):
+    def bookmarks_to_study(cls, user, limit=100):
         # limit=100 is a large number... quite arbitray
         # TODO: Mircea - this returns scheduled today + unscheduled ... It's very unclear why this is a thing. Check!
         """
@@ -164,11 +164,17 @@ class BasicSRSchedule(db.Model):
 
         scheduled_candidates = cls.scheduled_bookmarks_due_today(user, limit)
         print(scheduled_candidates)
+        print(f"Total scheduled for this user: {cls.scheduled_bookmarks_count(user)}")
 
-        if len(scheduled_candidates) < limit:
-            print("not enough scheduled candidates... adding more ")
-            count_needed = limit - len(scheduled_candidates)
+        scheduled_for_this_user = cls.scheduled_bookmarks_count(user)
+        if scheduled_for_this_user < MAX_WORDS_IN_PIPELINE:
+            print(
+                f"not enough scheduled candidates... adding the following till we get to {MAX_WORDS_IN_PIPELINE}:"
+            )
+            count_needed = MAX_WORDS_IN_PIPELINE - scheduled_for_this_user
             unscheduled_bookmarks = cls.bookmarks_not_scheduled(user, count_needed)
+            for b in unscheduled_bookmarks:
+                print(b)
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
             scheduled_candidates = _remove_duplicated_bookmarks(scheduled_candidates)
