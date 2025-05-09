@@ -13,6 +13,44 @@ from flask import request
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 
+# ====================================
+#  Scheduled Bookmarks
+# ====================================
+
+
+@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
+@cross_domain
+@requires_session
+def all_scheduled_bookmarks():
+    """
+    Returns all the words in the pipeline to be learned by a user.
+    Is used to render the Words tab in Zeeguu
+    """
+    user = User.find_by_id(flask.g.user_id)
+    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
+
+    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+    bookmarks = BasicSRSchedule.scheduled_bookmarks(user)
+    bookmark_dicts = [
+        b.as_dictionary(with_exercise_info=True, with_context_tokenized=with_tokens)
+        for b in bookmarks
+    ]
+    return json_result(bookmark_dicts)
+
+
+@api.route("/all_scheduled_bookmarks_count", methods=["GET"])
+@cross_domain
+@requires_session
+def all_scheduled_bookmarks_count():
+    user = User.find_by_id(flask.g.user_id)
+    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
+    return json_result(bookmark_count)
+
+
+# ====================================
+# Bookmarks due TODAY
+# ====================================
 @api.route(
     "/bookmarks_scheduled_for_today/<bookmark_count>",
     methods=["GET", "POST"],
@@ -21,9 +59,7 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 @requires_session
 def bookmarks_scheduled_for_today(bookmark_count):
     """
-    Returns a number of <bookmark_count> bookmarks that
-    are in the pipeline and are due today
-
+    Returns a number of bookmarks that are scheduled and are due today
     """
     int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
@@ -38,6 +74,9 @@ def bookmarks_scheduled_for_today(bookmark_count):
     return json_result(json_bookmarks)
 
 
+# ====================================
+# Available bookmarks
+# ====================================
 @api.route("/all_bookmarks_available_for_study_count", methods=["GET"])
 @cross_domain
 @requires_session
@@ -72,41 +111,6 @@ def bookmarks_available_for_study(bookmark_count):
     return json_result(json_bookmarks)
 
 
-@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
-@cross_domain
-@requires_session
-def all_scheduled_bookmarks(with_tokens=None):
-    """
-    Returns all the words in the pipeline to be learned by a user.
-    Is used to render the Words tab in Zeeguu
-    """
-    user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
-
-    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-
-    bookmarks = BasicSRSchedule.scheduled_bookmarks(user)
-    bookmark_dicts = [
-        b.as_dictionary(with_exercise_info=True, with_context_tokenized=with_tokens)
-        for b in bookmarks
-    ]
-    return json_result(bookmark_dicts)
-
-
-@api.route("/all_scheduled_bookmarks_count", methods=["GET"])
-@cross_domain
-@requires_session
-def all_scheduled_bookmarks_count():
-    """
-    Returns a number of bookmarks that are in active learning.
-    (Means the user has done at least on exercise in the past)
-    """
-    user = User.find_by_id(flask.g.user_id)
-    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
-
-    return json_result(bookmark_count)
-
-
 @api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
 @requires_session
@@ -120,6 +124,11 @@ def new_bookmarks_to_study(bookmark_count):
     new_to_study = user.get_new_bookmarks_to_study(int_count)
     json_bookmarks = [bookmark.as_dictionary() for bookmark in new_to_study]
     return json_result(json_bookmarks)
+
+
+# ====================================
+# Bookmark history
+# ====================================
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
@@ -142,6 +151,11 @@ def get_exercise_log_for_bookmark(bookmark_id):
         )
 
     return json_result(exercise_log_dict)
+
+
+# ====================================
+# Uploading exercise info
+# ====================================
 
 
 @api.route(
