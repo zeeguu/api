@@ -93,10 +93,10 @@ def bookmarks_to_learn_not_scheduled():
     return json_result(json_bookmarks)
 
 
-@api.route("/bookmarks_in_pipeline", methods=["GET", "POST"])
+@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
 @cross_domain
 @requires_session
-def bookmarks_in_pipeline(with_tokens=None):
+def all_scheduled_bookmarks(with_tokens=None):
     """
     Returns all the words in the pipeline to be learned by a user.
     Is used to render the Words tab in Zeeguu
@@ -114,6 +114,20 @@ def bookmarks_in_pipeline(with_tokens=None):
     return json_result(bookmark_dicts)
 
 
+@api.route("/all_scheduled_bookmarks_count", methods=["GET"])
+@cross_domain
+@requires_session
+def all_scheduled_bookmarks_count():
+    """
+    Returns a number of bookmarks that are in active learning.
+    (Means the user has done at least on exercise in the past)
+    """
+    user = User.find_by_id(flask.g.user_id)
+    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
+
+    return json_result(bookmark_count)
+
+
 @api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
 @cross_domain
 @requires_session
@@ -127,20 +141,6 @@ def new_bookmarks_to_study(bookmark_count):
     new_to_study = user.get_new_bookmarks_to_study(int_count)
     json_bookmarks = [bookmark.as_dictionary() for bookmark in new_to_study]
     return json_result(json_bookmarks)
-
-
-@api.route("/scheduled_bookmarks_count", methods=["GET"])
-@cross_domain
-@requires_session
-def scheduled_bookmarks_count():
-    """
-    Returns a number of bookmarks that are in active learning.
-    (Means the user has done at least on exercise in the past)
-    """
-    user = User.find_by_id(flask.g.user_id)
-    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
-
-    return json_result(bookmark_count)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
