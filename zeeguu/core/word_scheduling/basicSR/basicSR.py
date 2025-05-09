@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 
 ONE_DAY = 60 * 24
 
+MAX_WORDS_IN_PIPELINE = 15
+
 
 class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -45,7 +47,7 @@ class BasicSRSchedule(db.Model):
         # in general, as long as they didn't wait for the
         # cooldown period, they might have arrived to do
         # the exercise again; but it should not count
-        return self.get_end_of_date(date) < self.next_practice_time
+        return _get_end_of_date(date) < self.next_practice_time
 
     def update_schedule(self, db_session, correctness):
         raise NotImplementedError
@@ -62,23 +64,6 @@ class BasicSRSchedule(db.Model):
         if schedule is not None:
             db_session.delete(schedule)
             db_session.commit()
-
-    @classmethod
-    def get_end_of_date(cls, date):
-        """
-        Retrieves midnight date of the following date,
-        essentially ensures we get all the bookmarks
-        scheduled for the date day. < (date+1)
-        """
-
-        # Get tomorrow date
-        tomorrows_date = (date + timedelta(days=1)).date()
-        # Create an object that matches midnight of next day
-        return datetime.combine(tomorrows_date, datetime.min.time())
-
-    @classmethod
-    def get_end_of_today(cls):
-        return cls.get_end_of_date(datetime.now())
 
     @classmethod
     def find_by_bookmark(cls, bookmark):
@@ -133,35 +118,8 @@ class BasicSRSchedule(db.Model):
         db_session.commit()
 
     @classmethod
-    def get_scheduled_bookmarks_for_user(cls, user, limit):
-        end_of_day = cls.get_end_of_today()
-        # Get the candidates, words that are to practice
-        scheduled_candidates_query = (
-            Bookmark.query.join(cls)
-            .filter(Bookmark.user_id == user.id)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < end_of_day)
-        )
-
-        # If productive exercises are disabled, exclude bookmarks with learning_cycle of 2
-        if not UserPreference.is_productive_exercises_preference_enabled(user):
-            scheduled_candidates_query = scheduled_candidates_query.filter(
-                Bookmark.learning_cycle == LearningCycle.RECEPTIVE
-            )
-        # The scheduled bookmarks are sorted by the most common in the language and
-        # then by cooling interval, meaning the words that are closest to being learned
-        # come before the ones that are just learned.
-        scheduled_candidates_query.order_by(
-            -UserWord.rank.desc(), cls.cooling_interval.desc()
-        )  # By using the negative for rank, we ensure NULL is last.
-        if limit is None:
-            return scheduled_candidates_query.all()
-        else:
-            return scheduled_candidates_query.limit(limit).all()
-
     @classmethod
-    def get_unscheduled_bookmarks_for_user(cls, user, limit):
+    def bookmarks_not_scheduled(cls, user, limit):
         unscheduled_bookmarks = (
             Bookmark.query.filter(Bookmark.user_id == user.id)
             .outerjoin(BasicSRSchedule)
@@ -180,25 +138,7 @@ class BasicSRSchedule(db.Model):
             return unscheduled_bookmarks.limit(limit).all()
 
     @classmethod
-    def remove_duplicated_bookmarks(cls, bookmark_list):
-        bookmark_set = set()
-        # Remove possible duplicated words from the list
-        # - The user might have multiple translations of the same word in different
-        # contexts that are saved as different bookmarks
-        # - In a session, a word should only show up once.
-        # TR: With the Topics a util function will be introduced that does this.
-        # We also need to ensure that we use the lower. Otherwise they might be duplicated
-        # due to different casing.
-        candidates_no_duplicates = []
-        for bookmark in bookmark_list:
-            b_word = bookmark.origin.word.lower()
-            if not (b_word in bookmark_set):
-                candidates_no_duplicates.append(bookmark)
-                bookmark_set.add(b_word)
-        return candidates_no_duplicates
-
-    @classmethod
-    def all_bookmarks_priority_to_study(cls, user, limit):
+    def bookmarks_to_study_prioritized(cls, user, limit):
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.
@@ -224,71 +164,63 @@ class BasicSRSchedule(db.Model):
                 word_rank = UserWord.IMPOSSIBLE_RANK
             return word_rank, -cooling_interval
 
-        scheduled_candidates = cls.get_scheduled_bookmarks_for_user(user, limit)
-        unscheduled_bookmarks = cls.get_unscheduled_bookmarks_for_user(user, limit)
+        scheduled_candidates = cls.scheduled_bookmarks_due_today(user, limit)
+        print(scheduled_candidates)
 
-        all_possible_bookmarks = scheduled_candidates + unscheduled_bookmarks
-        no_duplicate_bookmarks = cls.remove_duplicated_bookmarks(all_possible_bookmarks)
+        if len(scheduled_candidates) < limit:
+            print("not enough scheduled candidates... adding more ")
+            count_needed = limit - len(scheduled_candidates)
+            unscheduled_bookmarks = cls.bookmarks_not_scheduled(user, count_needed)
+
+            scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
+            scheduled_candidates = _remove_duplicated_bookmarks(scheduled_candidates)
+
         sorted_candidates = sorted(
-            no_duplicate_bookmarks, key=lambda x: priority_by_rank(x)
+            scheduled_candidates, key=lambda x: priority_by_rank(x)
         )
         return sorted_candidates
 
     @classmethod
-    def priority_scheduled_bookmarks_to_study(cls, user, limit):
-        """
-        Prioritizes the bookmarks to study. To randomize the
-        exercise order utilize the Frontend assignBookmarksToExercises.js
-
-        The original logic is kept in bookmarks_to_study as it is called to
-        get similar_words to function as distractors in the exercises.
-
-        To update the order of bookmarks look at the order_by in
-        get_scheduled_bookmarks_for_user
-        """
-
-        scheduled_candidates = cls.get_scheduled_bookmarks_for_user(user, limit)
-        no_duplicate_bookmarks = cls.remove_duplicated_bookmarks(scheduled_candidates)
-
-        return no_duplicate_bookmarks
-
-    @classmethod
-    def bookmarks_to_study(cls, user, required_count):
-        end_of_day = cls.get_end_of_today()
-        # Get the candidates, words that are to practice
-        scheduled = (
+    def _scheduled_bookmarks_query(cls, user):
+        query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
             .filter(UserWord.language_id == user.learned_language_id)
-            .filter(cls.next_practice_time < end_of_day)
-            .limit(required_count)
-            .all()
         )
-        return scheduled
+        return query
 
     @classmethod
-    def bookmarks_in_pipeline(cls, user):
-        # Get the candidates, words that are to practice
-        scheduled = (
-            Bookmark.query.join(cls)
-            .filter(Bookmark.user_id == user.id)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == user.learned_language_id)
-            .all()
-        )
-        return scheduled
+    def scheduled_bookmarks_due_today(cls, user, limit=None):
+
+        query = cls._scheduled_bookmarks_query(user)
+        query = query.filter(cls.next_practice_time < _get_end_of_today())
+
+        # The scheduled bookmarks are sorted by the most common in the language and
+        # then by cooling interval, meaning the words that are closest to being learned
+        # come before the ones that are just learned.
+        query.order_by(
+            -UserWord.rank.desc(), cls.cooling_interval.desc()
+        )  # By using the negative for rank, we ensure NULL is last.
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        bookmarks = query.all()
+
+        return _remove_duplicated_bookmarks(bookmarks)
 
     @classmethod
-    def total_bookmarks_in_pipeline(cls, user) -> int:
-        total_pipeline_bookmarks = (
-            Bookmark.query.join(cls)
-            .filter(Bookmark.user_id == user.id)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == user.learned_language_id)
-            .count()
-        )
-        return total_pipeline_bookmarks
+    def scheduled_bookmarks(cls, user, required_count=None):
+        query = cls._scheduled_bookmarks_query(user)
+        if required_count is not None:
+            query = query.limit(required_count)
+        return query.all()
+
+    @classmethod
+    def scheduled_bookmarks_count(cls, user) -> int:
+        query = cls._scheduled_bookmarks_query(user)
+        return query.count()
 
     @classmethod
     def schedule_for_user(cls, user_id):
@@ -308,3 +240,38 @@ class BasicSRSchedule(db.Model):
             res += (
                 each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
             )
+
+
+def _remove_duplicated_bookmarks(bookmark_list):
+    bookmark_set = set()
+    # Remove possible duplicated words from the list
+    # - The user might have multiple translations of the same word in different
+    # contexts that are saved as different bookmarks
+    # - In a session, a word should only show up once.
+    # TR: With the Topics a util function will be introduced that does this.
+    # We also need to ensure that we use the lower. Otherwise they might be duplicated
+    # due to different casing.
+    candidates_no_duplicates = []
+    for bookmark in bookmark_list:
+        b_word = bookmark.origin.word.lower()
+        if not (b_word in bookmark_set):
+            candidates_no_duplicates.append(bookmark)
+            bookmark_set.add(b_word)
+    return candidates_no_duplicates
+
+
+def _get_end_of_date(date):
+    """
+    Retrieves midnight date of the following date,
+    essentially ensures we get all the bookmarks
+    scheduled for the date day. < (date+1)
+    """
+
+    # Get tomorrow date
+    tomorrows_date = (date + timedelta(days=1)).date()
+    # Create an object that matches midnight of next day
+    return datetime.combine(tomorrows_date, datetime.min.time())
+
+
+def _get_end_of_today():
+    return _get_end_of_date(datetime.now())

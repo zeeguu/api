@@ -52,7 +52,9 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         self._helper_create_exercise(random_bookmark)
 
-        assert self.user.bookmarks_to_study(scheduled_only=True) is not None
+        bookmarks = self.user.bookmarks_to_study(scheduled_only=True)
+
+        assert bookmarks is not None
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark

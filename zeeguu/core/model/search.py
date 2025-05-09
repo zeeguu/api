@@ -1,6 +1,4 @@
 import sqlalchemy
-from zeeguu.api.utils.abort_handling import make_error
-import zeeguu.core
 from sqlalchemy import Column, Integer, String
 
 from zeeguu.core.model import db

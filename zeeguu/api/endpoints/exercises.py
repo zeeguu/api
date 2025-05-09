@@ -10,6 +10,8 @@ from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from . import api, db_session
 from flask import request
 
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
 
 @api.route(
     "/scheduled_bookmarks_to_study/<bookmark_count>",
@@ -99,14 +101,15 @@ def bookmarks_in_pipeline(with_tokens=None):
     """
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
-    bookmarks_in_pipeline = user.bookmarks_in_pipeline()
-    json_bookmarks = [
-        bookmark.as_dictionary(
-            with_exercise_info=True, with_context_tokenized=with_tokens
-        )
-        for bookmark in bookmarks_in_pipeline
+
+    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+    bookmarks = BasicSRSchedule.scheduled_bookmarks(user)
+    bookmark_dicts = [
+        b.as_dictionary(with_exercise_info=True, with_context_tokenized=with_tokens)
+        for b in bookmarks
     ]
-    return json_result(json_bookmarks)
+    return json_result(bookmark_dicts)
 
 
 @api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
@@ -159,8 +162,9 @@ def get_total_bookmarks_in_pipeline():
     (Means the user has done at least on exercise in the past)
     """
     user = User.find_by_id(flask.g.user_id)
-    total_bookmark_count = user.total_bookmarks_in_pipeline()
-    return json_result(total_bookmark_count)
+    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
+
+    return json_result(bookmark_count)
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
