@@ -72,27 +72,6 @@ def bookmarks_available_for_study(bookmark_count):
     return json_result(json_bookmarks)
 
 
-@api.route("/bookmarks_to_learn_not_scheduled", methods=["GET", "POST"])
-@cross_domain
-@requires_session
-def bookmarks_to_learn_not_scheduled():
-    """
-    Return all the bookmarks that aren't learned and haven't been
-    scheduled to the user.
-    """
-    user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
-    to_study = user.bookmarks_to_learn_not_in_pipeline()
-    json_bookmarks = [
-        bookmark.as_dictionary(
-            with_exercise_info=True, with_context_tokenized=with_tokens
-        )
-        for bookmark in to_study
-    ]
-
-    return json_result(json_bookmarks)
-
-
 @api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
 @cross_domain
 @requires_session
