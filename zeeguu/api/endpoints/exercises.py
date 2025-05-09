@@ -14,17 +14,15 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 
 # ====================================
-#  Scheduled Bookmarks
+#  All Scheduled Bookmarks
 # ====================================
-
-
 @api.route("/scheduled_bookmarks", methods=["GET", "POST"])
 @cross_domain
 @requires_session
 def get_scheduled_bookmarks():
     """
-    Returns all the words in the pipeline to be learned by a user.
-    Is used to render the Words tab in Zeeguu
+    Returns all the words scheduled for learning
+    Is used to render the Words>Learning page
     """
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
@@ -47,19 +45,19 @@ def get_scheduled_bookmarks_count():
 # Bookmarks due TODAY
 # ====================================
 @api.route(
-    "/bookmarks_scheduled_for_today/<bookmark_count>",
-    methods=["GET", "POST"],
+    "/bookmarks_scheduled_for_today",
+    methods=["GET"],
 )
 @cross_domain
 @requires_session
-def bookmarks_scheduled_for_today(bookmark_count):
+def bookmarks_scheduled_for_today():
     """
     Returns a number of bookmarks that are scheduled and are due today
     """
-    int_count = int(bookmark_count)
+
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
-    to_study = BasicSRSchedule.scheduled_bookmarks_due_today(user, int_count)
+    to_study = BasicSRSchedule.scheduled_bookmarks_due_today(user)
 
     return _bookmarks_as_json_result(to_study, True, with_tokens)
 
