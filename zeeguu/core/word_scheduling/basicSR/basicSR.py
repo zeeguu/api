@@ -1,9 +1,5 @@
 from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
 
-from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.learning_cycle import LearningCycle
-from zeeguu.core.model import UserPreference
-
 from zeeguu.core.model import db
 
 from datetime import datetime, timedelta
@@ -138,7 +134,9 @@ class BasicSRSchedule(db.Model):
             return unscheduled_bookmarks.limit(limit).all()
 
     @classmethod
-    def bookmarks_to_study_prioritized(cls, user, limit):
+    def all_bookmarks_available_prioritized(cls, user, limit=100):
+        # limit=100 is a large number... quite arbitray
+        # TODO: Mircea - this returns scheduled today + unscheduled ... It's very unclear why this is a thing. Check!
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.

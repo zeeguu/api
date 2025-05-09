@@ -228,27 +228,6 @@ class User(db.Model):
     def has_bookmarks(self):
         return self.bookmark_count() > 0
 
-    def bookmarks_to_study(self, bookmark_count=100, scheduled_only=False):
-        """
-        We now use a logic to sort the words, if we call this everytime
-        we want similar words it might bottleneck the application.
-
-        :param bookmark_count: If None all bookmarks are returned
-        :param scheduled_only: Only use bookmarks that are scheduled
-        :return:
-        """
-        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-
-        if scheduled_only:
-            to_study = BasicSRSchedule.scheduled_bookmarks_due_today(
-                self, bookmark_count
-            )
-        else:
-            to_study = BasicSRSchedule.bookmarks_to_study_prioritized(
-                self, bookmark_count
-            )
-        return to_study if bookmark_count is None else to_study[:bookmark_count]
-
     def bookmarks_to_learn_not_in_pipeline(self):
         """
         :return gets all bookmarks that are going to be shown in exercises

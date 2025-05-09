@@ -71,19 +71,6 @@ def past_exercises_for(user_id):
             + f"{bookmark.origin.word} / {bookmark.translation.word}"
         )
 
-    print("")
-    print("Bookmarks to Study")
-    for bookmark in user.bookmarks_to_study():
-        btime = datetime.datetime.strftime(bookmark.time, "%Y-%m-%d")
-        print(
-            f"{btime} "
-            + ("[Quality] " if bookmark.quality_bookmark() else "")
-            + ("[fit_for_study] " if bookmark.fit_for_study else "")
-            + ("[Learned] " if bookmark.is_learned() else "")
-            + f"{bookmark.id} "
-            + f"{bookmark.origin.word} / {bookmark.translation.word}"
-        )
-
 
 if __name__ == "__main__":
     past_exercises_for(USER_ID)

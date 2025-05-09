@@ -14,7 +14,11 @@ from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model import db
-from zeeguu.core.word_scheduling import TwoLearningCyclesPerWord, FourLevelsPerWord
+from zeeguu.core.word_scheduling import (
+    TwoLearningCyclesPerWord,
+    FourLevelsPerWord,
+    BasicSRSchedule,
+)
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -52,7 +56,7 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         self._helper_create_exercise(random_bookmark)
 
-        bookmarks = self.user.bookmarks_to_study(scheduled_only=True)
+        bookmarks = BasicSRSchedule.scheduled_bookmarks_due_today(self.user)
 
         assert bookmarks is not None
 

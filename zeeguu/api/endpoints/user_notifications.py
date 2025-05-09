@@ -4,7 +4,7 @@ import flask
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
-from .exercises import scheduled_bookmarks_to_study
+from .exercises import bookmarks_scheduled_for_today
 from zeeguu.core.model.user_notification import UserNotification
 from zeeguu.core.model.notification import Notification
 from zeeguu.core.model.user import User
@@ -42,7 +42,7 @@ def get_notification_for_user():
     user = User.find_by_id(flask.g.user_id)
 
     # Is there at least one exercise for the user?
-    if scheduled_bookmarks_to_study(1):
+    if bookmarks_scheduled_for_today(1):
         user_notification = UserNotification.create_user_notification(
             user.id, Notification.EXERCISE_AVAILABLE, db_session
         )
