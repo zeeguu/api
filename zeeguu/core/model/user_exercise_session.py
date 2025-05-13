@@ -53,7 +53,7 @@ class UserExerciseSession(db.Model):
 
         res = ""
         for each in exercise_details_list:
-            res += f"{each['time']} {int(each['solving_speed'] / 1000):>6} {each['outcome']:>6} {each['word']:<15} {each['source']}   \n"
+            res += f"{each['time']} {int(each['solving_speed']):>6} {each['outcome']:>6} {each['word']:<15} {each['source']}   \n"
 
         return res
 
