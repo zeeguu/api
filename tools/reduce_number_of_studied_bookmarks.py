@@ -7,7 +7,7 @@ from zeeguu.core.model import User, Language
 import zeeguu
 from zeeguu.core.word_scheduling.basicSR.basicSR import (
     BasicSRSchedule,
-    MAX_WORDS_IN_PIPELINE,
+    DEFAULT_MAX_WORDS_TO_SCHEDULE,
 )
 
 app = create_app()
@@ -24,8 +24,8 @@ db_session.commit()
 
 in_pipeline = BasicSRSchedule.scheduled_bookmarks(u)
 in_pipeline.sort(key=lambda x: x.level, reverse=True)
-to_keep = in_pipeline[1:MAX_WORDS_IN_PIPELINE]
-to_remove = in_pipeline[MAX_WORDS_IN_PIPELINE:]
+to_keep = in_pipeline[1:DEFAULT_MAX_WORDS_TO_SCHEDULE]
+to_remove = in_pipeline[DEFAULT_MAX_WORDS_TO_SCHEDULE:]
 
 
 print("In Pipeline: " + str(len(in_pipeline)))

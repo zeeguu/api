@@ -1,7 +1,6 @@
 import flask
 
 import zeeguu.core
-
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
@@ -14,12 +13,8 @@ db_session = zeeguu.core.model.db.session
 @cross_domain
 @requires_session
 def user_preferences():
-    preferences = {}
     user = User.find_by_id(flask.g.user_id)
-    for each in UserPreference.all_for_user(user):
-        preferences[each.key] = each.value
-
-    return json_result(preferences)
+    return json_result(UserPreference.all_for_user(user))
 
 
 @api.route("/save_user_preferences", methods=["POST"])
@@ -28,6 +23,15 @@ def user_preferences():
 def save_user_preferences():
     data = flask.request.form
     user = User.find_by_id(flask.g.user_id)
+
+    max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
+    if max_words_to_schedule_value:
+        pref = UserPreference.find_or_create(
+            db_session, user, UserPreference.MAX_WORDS_TO_SCHEDULE
+        )
+        pref.value = max_words_to_schedule_value
+        db_session.add(pref)
+
     audio_exercises_value = data.get(UserPreference.AUDIO_EXERCISES, None)
     if audio_exercises_value:
         pref = UserPreference.find_or_create(

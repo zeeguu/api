@@ -1,4 +1,4 @@
-from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome
+from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome, UserPreference
 
 from zeeguu.core.model import db
 
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 ONE_DAY = 60 * 24
 
-MAX_WORDS_IN_PIPELINE = 15
+DEFAULT_MAX_WORDS_TO_SCHEDULE = 20
 
 
 class BasicSRSchedule(db.Model):
@@ -163,18 +163,13 @@ class BasicSRSchedule(db.Model):
             return word_rank, -cooling_interval
 
         scheduled_candidates = cls.scheduled_bookmarks_due_today(user, limit)
-        print(scheduled_candidates)
-        print(f"Total scheduled for this user: {cls.scheduled_bookmarks_count(user)}")
+
+        max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
         scheduled_for_this_user = cls.scheduled_bookmarks_count(user)
-        if scheduled_for_this_user < MAX_WORDS_IN_PIPELINE:
-            print(
-                f"not enough scheduled candidates... adding the following till we get to {MAX_WORDS_IN_PIPELINE}:"
-            )
-            count_needed = MAX_WORDS_IN_PIPELINE - scheduled_for_this_user
+        if scheduled_for_this_user < max_words_to_schedule:
+            count_needed = max_words_to_schedule - scheduled_for_this_user
             unscheduled_bookmarks = cls.bookmarks_not_scheduled(user, count_needed)
-            for b in unscheduled_bookmarks:
-                print(b)
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
             scheduled_candidates = _remove_duplicated_bookmarks(scheduled_candidates)
