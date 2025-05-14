@@ -106,6 +106,13 @@ class BasicSRSchedule(db.Model):
             return
 
         correctness = ExerciseOutcome.is_correct(outcome)
+
+        # Not scheduling more than the learner has declared in their preferences
+        if cls.scheduled_bookmarks_count(
+            bookmark.user
+        ) >= UserPreference.get_max_words_to_schedule(bookmark.user):
+            return
+
         schedule = cls.find_or_create(db_session, bookmark)
         if schedule.there_was_no_need_for_practice_on_date(time):
             return
@@ -162,9 +169,11 @@ class BasicSRSchedule(db.Model):
                 word_rank = UserWord.IMPOSSIBLE_RANK
             return word_rank, -cooling_interval
 
-        scheduled_candidates = cls.scheduled_bookmarks_due_today(user, limit)
-
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
+
+        scheduled_candidates = cls.scheduled_bookmarks_due_today(
+            user, max_words_to_schedule
+        )
 
         scheduled_for_this_user = cls.scheduled_bookmarks_count(user)
         if scheduled_for_this_user < max_words_to_schedule:
@@ -172,7 +181,6 @@ class BasicSRSchedule(db.Model):
             unscheduled_bookmarks = cls.bookmarks_not_scheduled(user, count_needed)
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
-            scheduled_candidates = _remove_duplicated_bookmarks(scheduled_candidates)
 
         sorted_candidates = sorted(
             scheduled_candidates, key=lambda x: priority_by_rank(x)
