@@ -95,32 +95,43 @@ class BasicSRSchedule(db.Model):
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
             from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
-            schedule = cls.find_or_create(db_session, bookmark)
+            schedule = cls.find(bookmark)
+            if schedule:
+                db_session.delete(schedule)
+
             bookmark.fit_for_study = 0
             ## Since the user has explicitly given feedback, this should
             # be recorded as a user preference.
             bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
             db_session.add(bookmark)
-            db_session.delete(schedule)
+
             db_session.commit()
             return
 
         correctness = ExerciseOutcome.is_correct(outcome)
 
-        # Not scheduling more than the learner has declared in their preferences
-        if cls.scheduled_bookmarks_count(
+        # Do we have more words scheduled than the user prefers?
+        more_scheduled_words_than_user_prefers = cls.scheduled_bookmarks_count(
             bookmark.user
-        ) >= UserPreference.get_max_words_to_schedule(bookmark.user):
+        ) >= UserPreference.get_max_words_to_schedule(bookmark.user)
+
+        schedule = cls.find(bookmark)
+
+        if schedule and schedule.there_was_no_need_for_practice_on_date(time):
+            # nothing to update in this case
             return
 
-        schedule = cls.find_or_create(db_session, bookmark)
-        if schedule.there_was_no_need_for_practice_on_date(time):
+        if not schedule and more_scheduled_words_than_user_prefers:
+            # we are not adding this word to scheduled words
             return
+
+        # pipeline is not full, and the word was not scheduled before
+        if not schedule and not more_scheduled_words_than_user_prefers:
+            schedule = cls.find_or_create(db_session, bookmark)
 
         schedule.update_schedule(db_session, correctness, time)
         db_session.commit()
 
-    @classmethod
     @classmethod
     def bookmarks_not_scheduled(cls, user, limit):
         unscheduled_bookmarks = (
@@ -141,9 +152,7 @@ class BasicSRSchedule(db.Model):
             return unscheduled_bookmarks.limit(limit).all()
 
     @classmethod
-    def bookmarks_to_study(cls, user, limit=100):
-        # limit=100 is a large number... quite arbitray
-        # TODO: Mircea - this returns scheduled today + unscheduled ... It's very unclear why this is a thing. Check!
+    def bookmarks_to_study(cls, user):
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.
