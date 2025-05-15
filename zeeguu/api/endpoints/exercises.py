@@ -53,16 +53,15 @@ def get_count_of_all_scheduled_bookmarks():
 def get_bookmarks_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = BasicSRSchedule.bookmarks_to_study(user)
-
-    return _bookmarks_as_json_result(to_study, True, with_tokens)
+    return _bookmarks_as_json_result(to_study, True, True)
 
 
 @api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
 @cross_domain
 @requires_session
 def get_count_of_bookmarks_recommended_for_practice():
+
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.bookmarks_to_study(user)
     return json_result(len(to_study))
