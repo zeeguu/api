@@ -16,10 +16,10 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 # ====================================
 #  All Scheduled Bookmarks
 # ====================================
-@api.route("/scheduled_bookmarks", methods=["GET", "POST"])
+@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
 @cross_domain
 @requires_session
-def get_scheduled_bookmarks():
+def get_all_scheduled_bookmarks():
     """
     Returns all the words scheduled for learning
     Is used to render the Words>Learning page
@@ -32,59 +32,55 @@ def get_scheduled_bookmarks():
     return _bookmarks_as_json_result(bookmarks, True, with_tokens)
 
 
-@api.route("/scheduled_bookmarks_count", methods=["GET"])
+@api.route("/count_of_all_scheduled_bookmarks", methods=["GET"])
 @cross_domain
 @requires_session
-def get_scheduled_bookmarks_count():
+def get_count_of_all_scheduled_bookmarks():
     user = User.find_by_id(flask.g.user_id)
     bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
     return json_result(bookmark_count)
 
 
 # ====================================
-# Bookmarks due TODAY
+# Bookmarks recommended for practice
 # ====================================
 @api.route(
-    "/bookmarks_scheduled_for_today",
+    "/bookmarks_recommended_for_practice",
     methods=["GET"],
 )
 @cross_domain
 @requires_session
-def bookmarks_scheduled_for_today():
-    """
-    Returns a number of bookmarks that are scheduled and are due today
-    """
+def get_bookmarks_recommended_for_practice():
+
+    user = User.find_by_id(flask.g.user_id)
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
+
+    return _bookmarks_as_json_result(to_study, True, with_tokens)
+
+
+@api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
+@cross_domain
+@requires_session
+def get_count_of_bookmarks_recommended_for_practice():
+    user = User.find_by_id(flask.g.user_id)
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
+    return json_result(len(to_study))
+
+
+@api.route(
+    "/bookmarks_due_today",
+    methods=["GET"],
+)
+@cross_domain
+@requires_session
+def get_bookmarks_due_today():
 
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
     to_study = BasicSRSchedule.scheduled_bookmarks_due_today(user)
 
     return _bookmarks_as_json_result(to_study, True, with_tokens)
-
-
-# ====================================
-# Available bookmarks
-# ====================================
-@api.route("/bookmarks_to_study_count", methods=["GET"])
-@cross_domain
-@requires_session
-def get_bookmarks_to_study_count():
-    user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.bookmarks_to_study(user)
-    return json_result(len(to_study))
-
-
-@api.route("/bookmarks_to_study", methods=["GET"])
-@cross_domain
-@requires_session
-def get_bookmarks_to_study():
-    """
-    Return the bookmarks a user has to study
-    """
-    user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.bookmarks_to_study(user)
-
-    return _bookmarks_as_json_result(to_study, True, True)
 
 
 # ====================================
