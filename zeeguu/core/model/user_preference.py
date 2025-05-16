@@ -1,15 +1,12 @@
+from datetime import time
+
 import sqlalchemy
 from sqlalchemy import Column, String
 from sqlalchemy.orm.exc import NoResultFound
-from datetime import time
-
-from zeeguu.core.model.user import User
-
-from zeeguu.logging import log, logp
-
-import zeeguu
 
 from zeeguu.core.model import db
+from zeeguu.core.model.user import User
+from zeeguu.logging import log
 
 
 class UserPreference(db.Model):
@@ -42,6 +39,7 @@ class UserPreference(db.Model):
     PRODUCTIVE_EXERCISES = "productive_exercises"
     TRANSLATE_IN_READER = "translate_reader"
     PRONOUNCE_IN_READER = "pronounce_reader"
+    MAX_WORDS_TO_SCHEDULE = "max_words_to_schedule"
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user
@@ -71,6 +69,21 @@ class UserPreference(db.Model):
         return cls.set(session, user, cls.DIFFICULTY_ESTIMATOR, key)
 
     @classmethod
+    def get_max_words_to_schedule(cls, user):
+        from zeeguu.core.word_scheduling.basicSR.basicSR import (
+            DEFAULT_MAX_WORDS_TO_SCHEDULE,
+        )
+
+        max_words_to_schedule = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.MAX_WORDS_TO_SCHEDULE
+        ).all()
+
+        if len(max_words_to_schedule) == 0:
+            return DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+        return int(max_words_to_schedule[0].value)
+
+    @classmethod
     def get_productive_exercises_setting(cls, user: User):
         produtive_setting = UserPreference.query.filter_by(
             user_id=user.id, key=cls.PRODUCTIVE_EXERCISES
@@ -90,8 +103,22 @@ class UserPreference(db.Model):
 
     @classmethod
     def all_for_user(cls, user: User):
-        all_preferences = cls.query.filter_by(user=user).all()
-        return all_preferences
+        preferences_dict = {}
+        all_preference_objects = cls.query.filter_by(user=user).all()
+
+        for each in all_preference_objects:
+            preferences_dict[each.key] = each.value
+
+        # This suboptimal - it would be faster to create a migration script and make sure that all
+        # users have this preference set; also, it should be initialized with the default value
+        if cls.MAX_WORDS_TO_SCHEDULE not in preferences_dict.keys():
+            from zeeguu.core.word_scheduling.basicSR.basicSR import (
+                DEFAULT_MAX_WORDS_TO_SCHEDULE,
+            )
+
+            preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+        return preferences_dict
 
     @classmethod
     def find(cls, user: User, key: str):

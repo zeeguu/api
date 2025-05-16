@@ -38,7 +38,6 @@ bookmark_exercise_mapping = Table(
 )
 
 
-
 class Bookmark(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -355,6 +354,7 @@ class Bookmark(db.Model):
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.word_scheduling import ONE_DAY
+        from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
 
         try:
             scheduler = self.get_scheduler()
@@ -363,9 +363,7 @@ class Bookmark(db.Model):
             ).one()
             cooling_interval_in_days = bookmark_scheduler.cooling_interval // ONE_DAY
             next_practice_time = bookmark_scheduler.next_practice_time
-            can_update_schedule = (
-                next_practice_time <= bookmark_scheduler.get_end_of_today()
-            )
+            can_update_schedule = next_practice_time <= _get_end_of_today()
             consecutive_correct_answers = bookmark_scheduler.consecutive_correct_answers
             is_last_in_cycle = (
                 bookmark_scheduler.get_max_interval()

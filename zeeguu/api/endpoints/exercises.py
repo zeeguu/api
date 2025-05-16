@@ -10,157 +10,81 @@ from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from . import api, db_session
 from flask import request
 
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
+
+# ====================================
+#  All Scheduled Bookmarks
+# ====================================
+@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
+@cross_domain
+@requires_session
+def get_all_scheduled_bookmarks():
+    """
+    Returns all the words scheduled for learning
+    Is used to render the Words>Learning page
+    """
+    user = User.find_by_id(flask.g.user_id)
+    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
+
+    bookmarks = BasicSRSchedule.scheduled_bookmarks(user)
+
+    return _bookmarks_as_json_result(bookmarks, True, with_tokens)
+
+
+@api.route("/count_of_all_scheduled_bookmarks", methods=["GET"])
+@cross_domain
+@requires_session
+def get_count_of_all_scheduled_bookmarks():
+    user = User.find_by_id(flask.g.user_id)
+    bookmark_count = BasicSRSchedule.scheduled_bookmarks_count(user)
+    return json_result(bookmark_count)
+
+
+# ====================================
+# Bookmarks recommended for practice
+# ====================================
 @api.route(
-    "/scheduled_bookmarks_to_study/<bookmark_count>",
-    methods=["GET", "POST"],
+    "/bookmarks_recommended_for_practice",
+    methods=["GET"],
 )
 @cross_domain
 @requires_session
-def scheduled_bookmarks_to_study(bookmark_count):
-    """
-    Returns a number of <bookmark_count> bookmarks that
-    are in the pipeline and are due today
+def get_bookmarks_recommended_for_practice():
 
-    """
-    int_count = int(bookmark_count)
     user = User.find_by_id(flask.g.user_id)
-    with_token = parse_json_boolean(request.form.get("with_context", "false"))
-    to_study = user.bookmarks_to_study(bookmark_count=int_count, scheduled_only=True)
-    json_bookmarks = [
-        bookmark.as_dictionary(
-            with_exercise_info=True, with_context_tokenized=with_token
-        )
-        for bookmark in to_study
-    ]
-    return json_result(json_bookmarks)
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
+    return _bookmarks_as_json_result(to_study, True, True)
 
 
-@api.route("/top_bookmarks_to_study_count", methods=["GET"])
+@api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
 @cross_domain
 @requires_session
-def top_bookmarks_to_study_count():
-    """
-    Return the number of bookmarks the user has available to study (both in pipeline and
-    not started yet). Can be used to determine how many bookmarks we should pull for
-    the exercises.
-    """
+def get_count_of_bookmarks_recommended_for_practice():
+
     user = User.find_by_id(flask.g.user_id)
-    to_study = user.bookmarks_to_study(scheduled_only=False)
+    to_study = BasicSRSchedule.bookmarks_to_study(user)
     return json_result(len(to_study))
 
 
-@api.route("/top_bookmarks_to_study/<bookmark_count>", methods=["GET"])
+@api.route(
+    "/bookmarks_due_today",
+    methods=["GET"],
+)
 @cross_domain
 @requires_session
-def top_bookmarks_to_study(bookmark_count):
-    """
-    Return all the possible bookmarks a user has to study ordered by
-    how common it is in the language and how close they are to being learned.
-    """
-    int_count = int(bookmark_count)
+def get_bookmarks_due_today():
+
     user = User.find_by_id(flask.g.user_id)
-    to_study = user.bookmarks_to_study(int_count, scheduled_only=False)
-    json_bookmarks = [
-        bookmark.as_dictionary(with_exercise_info=True, with_context_tokenized=True)
-        for bookmark in to_study
-    ]
-    return json_result(json_bookmarks)
+    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    to_study = BasicSRSchedule.scheduled_bookmarks_due_today(user)
+
+    return _bookmarks_as_json_result(to_study, True, with_tokens)
 
 
-@api.route("/bookmarks_to_learn_not_scheduled", methods=["GET", "POST"])
-@cross_domain
-@requires_session
-def bookmarks_to_learn_not_scheduled():
-    """
-    Return all the bookmarks that aren't learned and haven't been
-    scheduled to the user.
-    """
-    user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
-    to_study = user.bookmarks_to_learn_not_in_pipeline()
-    json_bookmarks = [
-        bookmark.as_dictionary(
-            with_exercise_info=True, with_context_tokenized=with_tokens
-        )
-        for bookmark in to_study
-    ]
-
-    return json_result(json_bookmarks)
-
-
-@api.route("/bookmarks_in_pipeline", methods=["GET", "POST"])
-@cross_domain
-@requires_session
-def bookmarks_in_pipeline(with_tokens=None):
-    """
-    Returns all the words in the pipeline to be learned by a user.
-    Is used to render the Words tab in Zeeguu
-    """
-    user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
-    bookmarks_in_pipeline = user.bookmarks_in_pipeline()
-    json_bookmarks = [
-        bookmark.as_dictionary(
-            with_exercise_info=True, with_context_tokenized=with_tokens
-        )
-        for bookmark in bookmarks_in_pipeline
-    ]
-    return json_result(json_bookmarks)
-
-
-@api.route("/has_bookmarks_in_pipeline_to_review", methods=["GET"])
-@cross_domain
-@requires_session
-def has_bookmarks_in_pipeline_to_review():
-    """
-    Checks if there is at least one bookmark in the pipeline
-    to review today.
-    """
-    user = User.find_by_id(flask.g.user_id)
-    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1, scheduled_only=True)
-    return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
-
-
-@api.route("/has_bookmarks_to_review", methods=["GET"])
-@cross_domain
-@requires_session
-def has_bookmarks_to_review():
-    """
-    Checks if there is at least one bookmark that can be exercised
-    today.
-    """
-    user = User.find_by_id(flask.g.user_id)
-    at_least_one_bookmark_in_pipeline = user.bookmarks_to_study(1, scheduled_only=False)
-    return json_result(len(at_least_one_bookmark_in_pipeline) > 0)
-
-
-@api.route("/new_bookmarks_to_study/<bookmark_count>", methods=["GET"])
-@cross_domain
-@requires_session
-def new_bookmarks_to_study(bookmark_count):
-    """
-    Finds <bookmark_count> bookmarks that
-    are recommended for this user to study and are not in the pipeline
-    """
-    int_count = int(bookmark_count)
-    user = User.find_by_id(flask.g.user_id)
-    new_to_study = user.get_new_bookmarks_to_study(int_count)
-    json_bookmarks = [bookmark.as_dictionary() for bookmark in new_to_study]
-    return json_result(json_bookmarks)
-
-
-@api.route("/get_total_bookmarks_in_pipeline", methods=["GET"])
-@cross_domain
-@requires_session
-def get_total_bookmarks_in_pipeline():
-    """
-    Returns a number of bookmarks that are in active learning.
-    (Means the user has done at least on exercise in the past)
-    """
-    user = User.find_by_id(flask.g.user_id)
-    total_bookmark_count = user.total_bookmarks_in_pipeline()
-    return json_result(total_bookmark_count)
+# ====================================
+# Bookmark history
+# ====================================
 
 
 @api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
@@ -183,6 +107,11 @@ def get_exercise_log_for_bookmark(bookmark_id):
         )
 
     return json_result(exercise_log_dict)
+
+
+# ====================================
+# Uploading exercise info
+# ====================================
 
 
 @api.route(
@@ -234,3 +163,13 @@ def similar_words_api(bookmark_id):
     return json_result(
         similar_words(bookmark.origin.word, bookmark.origin.language, user)
     )
+
+
+def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
+    bookmark_dicts = [
+        b.as_dictionary(
+            with_exercise_info=with_exercise_info, with_context_tokenized=with_tokens
+        )
+        for b in bookmarks
+    ]
+    return json_result(bookmark_dicts)
