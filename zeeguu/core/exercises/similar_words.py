@@ -12,7 +12,7 @@ def similar_words(word, language, user, number_of_words_to_return=2):
 
     from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-    words_the_user_must_study = BasicSRSchedule.scheduled_bookmarks(user, 10)
+    words_the_user_must_study = BasicSRSchedule.scheduled_bookmarks(user, None, 10)
 
     if len(words_the_user_must_study) == 10:
         candidates = [each.origin.word for each in words_the_user_must_study]

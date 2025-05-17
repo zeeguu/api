@@ -82,6 +82,25 @@ def get_bookmarks_due_today():
     return _bookmarks_as_json_result(to_study, True, with_tokens)
 
 
+# =====================================
+# Bookmarks next to be studied
+# =====================================
+
+
+@api.route(
+    "/bookmarks_next_in_learning",
+    methods=["GET"],
+)
+@cross_domain
+@requires_session
+def get_bookmarks_next_in_learning():
+
+    user = User.find_by_id(flask.g.user_id)
+    next_in_learning = BasicSRSchedule.bookmarks_not_scheduled(user, 6)
+
+    return _bookmarks_as_json_result(next_in_learning, True, True)
+
+
 # ====================================
 # Bookmark history
 # ====================================

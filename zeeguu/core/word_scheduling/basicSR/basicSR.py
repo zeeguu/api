@@ -167,17 +167,6 @@ class BasicSRSchedule(db.Model):
         the highest the closest it is)
         """
 
-        def priority_by_rank(bookmark):
-            # If this is updated remember to update the order_by in
-            # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
-            bookmark_info = bookmark.as_dictionary(with_exercise_info=True)
-            cooling_interval = bookmark_info["cooling_interval"]
-            cooling_interval = cooling_interval if cooling_interval is not None else -1
-            word_rank = bookmark_info["origin_rank"]
-            if word_rank == "":
-                word_rank = UserWord.IMPOSSIBLE_RANK
-            return word_rank, -cooling_interval
-
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
         scheduled_candidates = cls.scheduled_bookmarks_due_today(
@@ -197,12 +186,13 @@ class BasicSRSchedule(db.Model):
         return sorted_candidates
 
     @classmethod
-    def _scheduled_bookmarks_query(cls, user):
+    def _scheduled_bookmarks_query(cls, user, language=None):
+        _lang_to_look_at = language.id if language else user.learned_language_id
         query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
             .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == user.learned_language_id)
+            .filter(UserWord.language_id == _lang_to_look_at)
         )
         return query
 
@@ -227,8 +217,8 @@ class BasicSRSchedule(db.Model):
         return _remove_duplicated_bookmarks(bookmarks)
 
     @classmethod
-    def scheduled_bookmarks(cls, user, required_count=None):
-        query = cls._scheduled_bookmarks_query(user)
+    def scheduled_bookmarks(cls, user, language=None, required_count=None):
+        query = cls._scheduled_bookmarks_query(user, language)
         if required_count is not None:
             query = query.limit(required_count)
         return query.all()
@@ -274,6 +264,18 @@ def _remove_duplicated_bookmarks(bookmark_list):
             candidates_no_duplicates.append(bookmark)
             bookmark_set.add(b_word)
     return candidates_no_duplicates
+
+
+def priority_by_rank(bookmark):
+    # If this is updated remember to update the order_by in
+    # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
+    bookmark_info = bookmark.as_dictionary(with_exercise_info=True)
+    cooling_interval = bookmark_info["cooling_interval"]
+    cooling_interval = cooling_interval if cooling_interval is not None else -1
+    word_rank = bookmark_info["origin_rank"]
+    if word_rank == "":
+        word_rank = UserWord.IMPOSSIBLE_RANK
+    return word_rank, -cooling_interval
 
 
 def _get_end_of_date(date):

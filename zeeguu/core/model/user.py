@@ -242,7 +242,10 @@ class User(db.Model):
         """
         Note: assumes that there are bookmarks!
         """
-        return self.bookmarks_chronologically()[0].time
+        if self.bookmarks_chronologically():
+            return self.bookmarks_chronologically()[0].time
+
+        return None
 
     def get_new_bookmarks_to_study(self, bookmarks_count):
         from zeeguu.core.sql.queries.query_loader import load_query
