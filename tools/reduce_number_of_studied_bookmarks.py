@@ -33,6 +33,12 @@ def reduce_for_user(u):
         number_of_level_2_words = len([x for x in in_pipeline if x.level >= 2])
         words_to_keep = max(DEFAULT_MAX_WORDS_TO_SCHEDULE, number_of_level_2_words)
 
+        # there are eight learners that have more than 40 advanced to level 2
+        # we can not scare the hell out of them with 136, 60, 55, 45 words to learn
+        # they'll see them later - their progress will not be lost... but for now,
+        # we cap it to 30
+        words_to_keep = min(words_to_keep, 30)
+
         to_keep = in_pipeline[1:words_to_keep]
         to_remove = in_pipeline[words_to_keep:]
 
