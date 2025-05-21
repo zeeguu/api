@@ -68,7 +68,7 @@ def past_exercises_for(user_id):
             + ("[fit_for_study] " if bookmark.fit_for_study else "")
             + ("[Learned] " if bookmark.is_learned() else "")
             + f"{bookmark.id} "
-            + f"{bookmark.meaning.origin.phcontentrase} / {bookmark.meaning.translation.phrase}"
+            + f"{bookmark.meaning.origin.content} / {bookmark.meaning.translation.phrase}"
         )
 
 
