@@ -27,11 +27,10 @@ def test_last_bookmark_added_is_first_in_bookmarks_by_day(client):
 
 
 def test_contribute_own_translation(client):
-    import json
 
     add_context_types()
     add_source_types()
-    bookmark_id = add_one_bookmark(client)
+    bid = add_one_bookmark(client)
     all_bookmarks = _get_bookmarks_by_day(client)
     bookmark1 = _first_bookmark_on_day1(all_bookmarks)
 
@@ -44,7 +43,7 @@ def test_contribute_own_translation(client):
         "context_identifier": bookmark1["context_identifier"],
     }
 
-    client.post("contribute_translation/de/en", json=data)
+    client.post(f"update_bookmark/{bid}", json=data)
 
     # THEN
 
