@@ -3,6 +3,7 @@ import re
 from datetime import timedelta
 
 from zeeguu.core.bookmark_quality import quality_bookmark, bad_quality_bookmark
+from zeeguu.core.model import Meaning
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_word_rule import UserWordRule
@@ -43,7 +44,6 @@ class BookmarkRule(BaseRule):
         bookmark = None
 
         while not bookmark:
-            from zeeguu.core.test.rules.source_rule import SourceRule
             from zeeguu.core.test.rules.bookmark_context_rule import BookmarkContextRule
             from zeeguu.core.test.rules.text_rule import TextRule
 
@@ -72,9 +72,10 @@ class BookmarkRule(BaseRule):
 
             fake_bookmark_c = BookmarkContextRule(source_article.get_content()).context
 
+            random_meaning = Meaning(random_origin, random_translation)
+
             bookmark = Bookmark(
-                random_origin,
-                random_translation,
+                random_meaning,
                 user,
                 source_article,
                 random_text,

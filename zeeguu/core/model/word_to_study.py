@@ -25,7 +25,7 @@ class WordToStudy(db.Model):
     def __init__(self, user, bookmark):
         self.user = user
         self.bookmark = bookmark
-        self.language_id = bookmark.origin.language.id
+        self.language_id = bookmark.meaning.origin.language.id
         self.nextDueDate = None
         self.coolingInterval = None
         self.consecutiveCorrects = 0

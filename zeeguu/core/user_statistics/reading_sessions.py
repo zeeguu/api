@@ -122,11 +122,14 @@ def translations_in_interval(start_time, end_time, user_id):
         
         from bookmark as b	
         
+        join meaning as m 
+            on b.meaning_id = m.id
+            
         join user_word as uw
-           on b.origin_id = uw.id
+           on m.origin_id = uw.id
            
         join user_word as uwt
-           on b.translation_id = uwt.id
+           on m.translation_id = uwt.id
            
         join text as t
         	on b.text_id = t.id

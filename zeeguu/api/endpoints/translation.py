@@ -1,31 +1,27 @@
-from pprint import pprint
+import os
 from string import punctuation
 from urllib.parse import unquote_plus
-import os
 
 import flask
 from flask import request
+from python_translators.translation_query import TranslationQuery
 
+from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.translator import (
     get_next_results,
     contribute_trans,
 )
-
-from python_translators.translation_query import TranslationQuery
-
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User
-from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.bookmark_context import BookmarkContext
-from . import api, db_session
-from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
-from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model import Bookmark, User, Meaning
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.bookmark_context import BookmarkContext
+from zeeguu.core.model.bookmark_context import ContextIdentifier
 from zeeguu.core.model.text import Text
+from . import api, db_session
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -75,7 +71,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
-        best_guess = bookmark.translation.word
+        best_guess = bookmark.meaning.translation.word
         likelihood = 1
         source = "Own past translation"
         print(f"about to return {bookmark}")
@@ -211,12 +207,17 @@ def update_translation(bookmark_id):
     context_str = request.json.get("context", "").strip()
     context_identifier = request.json.get("context_identifier", None)
     context_type = context_identifier["context_type"]
+
     bookmark = Bookmark.find(bookmark_id)
 
-    origin = UserWord.find_or_create(db_session, word_str, bookmark.origin.language)
-    translation = UserWord.find_or_create(
-        db_session, translation_str, bookmark.translation.language
+    meaning = Meaning.find_or_create(
+        db_session,
+        word_str,
+        bookmark.meaning.origin.language.code,
+        translation_str,
+        bookmark.meaning.translation.language.code,
     )
+
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
     prev_text = Text.find_by_id(bookmark.text_id)
 
@@ -226,7 +227,7 @@ def update_translation(bookmark_id):
     text = Text.find_or_create(
         db_session,
         context_str,
-        bookmark.origin.language,
+        bookmark.meaning.origin.language,
         bookmark.text.url,
         bookmark.text.article if is_same_text else None,
         prev_text.paragraph_i if is_same_text else None,
@@ -236,30 +237,33 @@ def update_translation(bookmark_id):
         prev_text.left_ellipsis if is_same_text else None,
         prev_text.right_ellipsis if is_same_text else None,
     )
-    from zeeguu.core.model.context_type import ContextType
 
     ## TO-DO: Update context type once web sends that information.
     context = BookmarkContext.find_or_create(
         db_session,
         context_str,
         context_type,
-        bookmark.origin.language,
+        bookmark.meaning.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
         prev_context.left_ellipsis if is_same_context else None,
         prev_context.right_ellipsis if is_same_context else None,
     )
 
-    bookmark.translation = translation
+    bookmark.meaning = meaning
     bookmark.text = text
     bookmark.context = context
 
-    if not is_same_text or not is_same_context or bookmark.origin.word != word_str:
+    if (
+        not is_same_text
+        or not is_same_context
+        or bookmark.meaning.origin.word != word_str
+    ):
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
-        tokenizer = get_tokenizer(bookmark.origin.language, TOKENIZER_MODEL)
+        tokenizer = get_tokenizer(bookmark.meaning.origin.language, TOKENIZER_MODEL)
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
         tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
@@ -284,7 +288,7 @@ def update_translation(bookmark_id):
                 ContextType.USER_EDITED_TEXT
             )
 
-    bookmark.origin = origin
+    bookmark.meaning = meaning
     db_session.add(bookmark)
 
     updated_bookmark = bookmark.as_dictionary(
@@ -295,8 +299,10 @@ def update_translation(bookmark_id):
     return json_result(updated_bookmark)
 
 
-# Only used from the tests at the moment. The front-end user contributing their own translation
-# is done via /update_bookmark
+# ================================================
+# NOTE: Only used from the tests at the moment.
+# ================================================
+# The front-end user contributing their own translation is done via /update_bookmark
 @api.route("/contribute_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session

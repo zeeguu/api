@@ -50,14 +50,14 @@ def reduce_for_user(u):
             for bookmark in to_keep:
                 print(
                     f"  "
-                    f"{bookmark.origin.word} {Word.stats(bookmark.origin.word, bookmark.origin.language.code).rank} {bookmark.level}"
+                    f"{bookmark.meaning.origin.word} {Word.stats(bookmark.meaning.origin.word, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
 
             print(f">>>>> To Remove (first 10...): " + str(len(to_remove)))
 
             for bookmark in to_remove:
                 print(
-                    f"  {bookmark.origin.word} {Word.stats(bookmark.origin.word, bookmark.origin.language.code).rank} {bookmark.level}"
+                    f"  {bookmark.meaning.origin.word} {Word.stats(bookmark.meaning.origin.word, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
                 schedule = BasicSRSchedule.find_by_bookmark(bookmark)
                 db_session.delete(schedule)

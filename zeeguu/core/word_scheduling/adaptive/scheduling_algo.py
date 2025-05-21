@@ -3,7 +3,7 @@
 - nextDueDate = when the user should practice this again
 - coolingInterval = how much will they have to wait till they see this word again
 """
-
+from zeeguu.core.model.meaning import Meaning
 
 """ **** nextDueDate *** """
 
@@ -121,7 +121,10 @@ def getWordsToStudy(user, numberOfWords):
             .filter_by(starred=True)
         )
         new_words = new_words.filter(Bookmark.fit_for_study == True)
-        new_words = new_words.join(UserWord, Bookmark.origin_id == UserWord.id)
+        new_words = new_words.join(Meaning, Bookmark.meaning_id == Meaning.id).join(
+            UserWord, Meaning.origin_id == UserWord.id
+        )
+
         new_words = new_words.filter(
             ~exists().where(WordToStudy.bookmark_id == Bookmark.id)
         )

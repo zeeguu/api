@@ -13,11 +13,14 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
             
         from bookmark as b
         
+        join meaning as m
+            on b.meaning_id = m.id
+        
         join user_word as uw
-            on b.origin_id = uw.id
+            on m.origin_id = uw.id
             
         join user_word as uw_t
-            on b.translation_id = uw_t.id
+            on m.translation_id = uw_t.id
             
         left join bookmark_exercise_mapping as bem
             on b.id = bem.bookmark_id

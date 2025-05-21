@@ -2,9 +2,9 @@
 
 """
 
-   Script that lists recent users
+Script that lists recent users
 
-   To be called from a cron job.
+To be called from a cron job.
 
 """
 from sortedcontainers import SortedList
@@ -13,19 +13,19 @@ from zeeguu.core.model import User, Bookmark
 from wordstats import Word
 
 user = User.find_by_id(1890)
-language = 'nl'
+language = "nl"
 
 months_dict = dict()
 
 for bookmark in Bookmark.query.filter_by(user=user):
 
-    if not bookmark.origin.language.code == language:
+    if not bookmark.meaning.origin.language.code == language:
         continue
 
     # if not bookmark.quality_bookmark():
     #     continue
 
-    if len(bookmark.origin.word) < 4:
+    if len(bookmark.meaning.origin.word) < 4:
         continue
 
     date_key = bookmark.time.strftime("%y-%m")
@@ -33,10 +33,10 @@ for bookmark in Bookmark.query.filter_by(user=user):
     if date_key not in months_dict:
         months_dict[date_key] = SortedList(key=lambda x: x.rank)
 
-    word_stats = Word.stats(bookmark.origin.word, language)
+    word_stats = Word.stats(bookmark.meaning.origin.word, language)
 
     if word_stats.rank == 100000:
-        print("ignoring: " + bookmark.origin.word)
+        print("ignoring: " + bookmark.meaning.origin.word)
         print(word_stats.rank)
         continue
 

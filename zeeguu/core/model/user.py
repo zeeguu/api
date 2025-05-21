@@ -398,7 +398,7 @@ class User(db.Model):
         before_date=None,
         language_id=None,
     ):
-        from zeeguu.core.model import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord, Meaning
 
         if after_date is None:
             after_date = datetime.datetime(1970, 1, 1)
@@ -406,7 +406,9 @@ class User(db.Model):
             before_date = datetime.date.today() + datetime.timedelta(days=1)
         query = zeeguu.core.model.db.session.query(Bookmark)
 
-        query = query.join(UserWord, Bookmark.origin_id == UserWord.id)
+        query = query.join(Meaning, Bookmark.meaning_id == Meaning.id).join(
+            UserWord, Meaning.origin_id == UserWord.id
+        )
 
         if language_id == None:
             query = query.filter(UserWord.language_id == self.learned_language_id)
@@ -436,11 +438,12 @@ class User(db.Model):
         return (query.filter_by(user_id=self.id).order_by(Bookmark.time.desc())).all()
 
     def starred_bookmarks(self, count):
-        from zeeguu.core.model import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord, Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         return (
-            query.join(UserWord, Bookmark.origin_id == UserWord.id)
+            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(UserWord, Meaning.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
             .filter(Bookmark.user_id == self.id)
             .filter(Bookmark.starred == True)
@@ -449,11 +452,12 @@ class User(db.Model):
         )
 
     def learned_bookmarks(self, count=50):
-        from zeeguu.core.model import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord, Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
-            query.join(UserWord, Bookmark.origin_id == UserWord.id)
+            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(UserWord, Meaning.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
             .filter(Bookmark.user_id == self.id)
             .filter(Bookmark.learned_time != None)
@@ -464,11 +468,12 @@ class User(db.Model):
         return learned
 
     def total_learned_bookmarks(self):
-        from zeeguu.core.model import Bookmark, UserWord
+        from zeeguu.core.model import Bookmark, UserWord, Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
-            query.join(UserWord, Bookmark.origin_id == UserWord.id)
+            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(UserWord, Meaning.origin_id == UserWord.id)
             .filter(UserWord.language_id == self.learned_language_id)
             .filter(Bookmark.user_id == self.id)
             .filter(Bookmark.learned_time != None)
@@ -712,7 +717,7 @@ class User(db.Model):
             Exercise.query.join(bookmark_exercise_mapping)
             .join(Bookmark)
             .join(User)
-            .join(UserWord, UserWord.id == Bookmark.origin_id)
+            .join(UserWord, UserWord.id == Bookmark.meaning.origin_id)
             .filter(User.id == self.id)
             .filter(Exercise.time >= current_date)
             .filter(Bookmark.user_id == self.id)

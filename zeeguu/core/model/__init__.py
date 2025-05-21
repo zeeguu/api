@@ -32,18 +32,21 @@ from .user_cohort_map import UserCohortMap
 from .language import Language
 from .url import Url
 from .domain_name import DomainName
+
 from .article import Article
-from .bookmark import Bookmark
 from .text import Text
 from .user_word import UserWord
+from .bookmark import Bookmark
 from .user_preference import UserPreference
 from .session import Session
 from .unique_code import UniqueCode
+from .user import User
+
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
 from .article_fragment_context import ArticleFragmentContext
 from .article_title_context import ArticleTitleContext
+from .meaning import Meaning
 
-from .user import User
 from .cohort import Cohort
 
 from .user_language import UserLanguage

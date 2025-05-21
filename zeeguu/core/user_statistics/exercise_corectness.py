@@ -23,7 +23,7 @@ def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, en
 
 
 def number_of_words_translated_but_not_studied(
-        user_id, cohort_id, start_date, end_date
+    user_id, cohort_id, start_date, end_date
 ):
     query = """
 
@@ -33,8 +33,11 @@ def number_of_words_translated_but_not_studied(
         -- practiced_words.word 
         
         from bookmark as b
+        join meaning as m 
+            on b.meaning_id = m.id
+            
         join user_word as uw
-        on b.origin_id = uw.id
+        on m.origin_id = uw.id
         
         -- left join practiced words on practiced_words.id = NULL will give
         -- us only those bookmarks that are not practiced
@@ -52,7 +55,7 @@ def number_of_words_translated_but_not_studied(
             join exercise_outcome as o
                 on e.outcome_id = o.id
             join user_word as uw
-                on b.origin_id = uw.id
+                on m.origin_id = uw.id
                 
             where b.user_id=:userid 
                 and	e.time > :startDate
@@ -94,10 +97,13 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
             on bem.`exercise_id`=e.id
         join bookmark as b
             on bem.bookmark_id=b.id
+        join meaning as m
+            on b.meaning_id = m.id
+            
         join exercise_outcome as o
             on e.outcome_id = o.id
         join user_word as uw
-            on b.origin_id = uw.id
+            on m.origin_id = uw.id
                 
         where b.user_id=:userid 
             and e.time > '2021-05-24' -- before this date data is saved in a different format...
@@ -125,8 +131,12 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
         select 	count(b.id)
         
         from bookmark as b
+        
+        join meaning as m 
+            on b.meaning_id = m.id
+            
         join user_word as uw
-            on b.origin_id = uw.id
+            on m.origin_id = uw.id
         
         where b.user_id=:userid 
             and	b.learned_time > :startDate
@@ -156,10 +166,13 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
             on bem.`exercise_id`=e.id
         join bookmark as b
             on bem.bookmark_id=b.id
+        join meaning as m
+            on b.meaning_id = m.id
+            
         join exercise_outcome as o
             on e.outcome_id = o.id
         join user_word as uw
-            on b.origin_id = uw.id
+            on m.origin_id = uw.id
                     
         where b.user_id=:userid 
             and e.time > '2021-05-24' -- before this date data is saved in a different format...

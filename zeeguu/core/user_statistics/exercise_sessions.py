@@ -22,7 +22,8 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
         WHERE ues.id in (SELECT e.session_id from exercise e
                         INNER JOIN bookmark_exercise_mapping bem on e.id = bem.exercise_id
                         INNER JOIN bookmark b ON bem.bookmark_id = b.id
-                        INNER JOIN user_word uw ON b.origin_id = uw.id
+                        join meaning m on b.meaning_id = m.id
+                        INNER JOIN user_word uw ON m.origin_id = uw.id
                         {same_language_as_cohort_condition})
         and ues.start_time > :start_time
         and ues.last_action_time < :end_time
