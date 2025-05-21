@@ -32,7 +32,7 @@ def print_event(each):
     converted_time = datetime_from_utc_to_local(each.time)
     tago = timeago.format(converted_time, now)
     print(
-        f"{tago:>16} {str(converted_time):>28} {each.user.name:>20}  {each.event:<30} {each.get_article_id()} {each.value:<30} {each.extra_data}"
+        f"{tago:>16} {str(converted_time):>28} {each.user.name:>20}  {each.event:<30} {each.get_article_id(db_session)} {each.value:<30} {each.extra_data}"
     )
 
 
@@ -41,7 +41,6 @@ while True:
 
     db_session.commit()
     os.system("cls" if os.name == "nt" else "clear")
-    # print(chr(27) + "[2J")
 
     print(f"Most recent {EVENTS_COUNT} user activity events")
     print(f"Refreshed every {SECONDS_BETWEEN_REFRESH} seconds")
