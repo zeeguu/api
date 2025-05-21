@@ -125,10 +125,10 @@ def translations_in_interval(start_time, end_time, user_id):
         join meaning as m 
             on b.meaning_id = m.id
             
-        join user_word as uw
+        join phrase as uw
            on m.origin_id = uw.id
            
-        join user_word as uwt
+        join phrase as uwt
            on m.translation_id = uwt.id
            
         join text as t

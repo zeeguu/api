@@ -32,7 +32,7 @@ correct_from_first_to_last = 0
 
 def print_bookmark_history(_bookmark):
 
-    print(f">> {_bookmark.meaning.origin.word} -- {_bookmark.user.name}")
+    print(f">> {_bookmark.meaning.origin.content} -- {_bookmark.user.name}")
     _sorted_exercise_log = sorted(_bookmark.exercise_log, key=lambda x: x.time)
 
     _previous_time = None
@@ -70,7 +70,7 @@ for user in all_users:
     exercises_per_user = 0
     for bookmark in user.all_bookmarks():
         if interactive:
-            print(f"\n>> {bookmark.meaning.origin.word}")
+            print(f"\n>> {bookmark.meaning.origin.phrase}")
 
         sorted_exercise_log = sorted(bookmark.exercise_log, key=lambda x: x.time)
         # sorted_exercise_log = sorted([x for x in bookmark.exercise_log if not x.source.source == 'L2W_to_L1W_with_L2T_Example'], key=lambda x: x.time)

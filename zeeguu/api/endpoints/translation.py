@@ -71,7 +71,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
-        best_guess = bookmark.meaning.translation.word
+        best_guess = bookmark.meaning.translation.content
         likelihood = 1
         source = "Own past translation"
         print(f"about to return {bookmark}")
@@ -257,7 +257,7 @@ def update_translation(bookmark_id):
     if (
         not is_same_text
         or not is_same_context
-        or bookmark.meaning.origin.word != word_str
+        or bookmark.meaning.origin.content != word_str
     ):
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.

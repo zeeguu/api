@@ -39,7 +39,7 @@ def voice_for_language(language_id):
 @requires_session
 def tts():
     import zeeguu.core
-    from zeeguu.core.model import UserWord, Language
+    from zeeguu.core.model import Phrase, Language
 
     db_session = zeeguu.core.model.db.session
 
@@ -49,16 +49,16 @@ def tts():
     if not text_to_pronounce:
         return ""
 
-    user_word = UserWord.find_or_create(
+    phrase = Phrase.find_or_create(
         db_session, text_to_pronounce, Language.find_or_create(language_id)
     )
     audio_file_path = ""
     if IS_DEV_SKIP_TRANSLATION:
         audio_file_path = "/static/test.mp3"
     else:
-        audio_file_path = _file_name_for_user_word(user_word, language_id)
+        audio_file_path = _file_name_for_phrase(phrase, language_id)
         if not os.path.isfile(ZEEGUU_DATA_FOLDER + audio_file_path):
-            _save_speech_to_file(user_word.word, language_id, audio_file_path)
+            _save_speech_to_file(phrase.content, language_id, audio_file_path)
 
     print(audio_file_path)
     return audio_file_path
@@ -132,13 +132,13 @@ def _save_speech_to_file(text_to_speak, language_id, audio_file_path):
         out.write(response.audio_content)
 
 
-def _file_name_for_user_word(user_word, language_id):
-    word_without_special_chars = re.sub("[^A-Za-z0-9]+", "_", user_word.word)
-    return f"/speech/{language_id}_{user_word.id}_{word_without_special_chars}.mp3"
+def _file_name_for_phrase(phrase, language_id):
+    word_without_special_chars = re.sub("[^A-Za-z0-9]+", "_", phrase.content)
+    return f"/speech/{language_id}_{phrase.id}_{word_without_special_chars}.mp3"
 
 
 def _file_name_for_full_article(full_article_text, language_id, article_id):
-    # create md5 hash of the user_word and return it
+    # create md5 hash of the phrase and return it
     import hashlib
 
     m = hashlib.md5()

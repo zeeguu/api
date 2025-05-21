@@ -18,8 +18,8 @@ def exercises_in_session(session_id: int):
             join bookmark_exercise_mapping as bem on e.`id`=bem.exercise_id
             join bookmark as b on b.id = bem.bookmark_id
             join meaning wm on wm.id = b.meaning_id
-            join user_word as o_uw on o_uw.id = wm.origin_id
-            join user_word as t_uw on t_uw.id = wm.translation_id
+            join phrase as o_uw on o_uw.id = wm.origin_id
+            join phrase as t_uw on t_uw.id = wm.translation_id
             join user_exercise_session ues on ues.id = e.session_id
         where 
             ues.id = :session_id
@@ -49,8 +49,8 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
             join bookmark_exercise_mapping as bem on e.`id`=bem.exercise_id
             join bookmark as b on b.id = bem.bookmark_id
             join meaning wm on wm.id = b.meaning_id
-            join user_word as o_uw on o_uw.id = wm.origin_id
-            join user_word as t_uw on t_uw.id = wm.translation_id
+            join phrase as o_uw on o_uw.id = wm.origin_id
+            join phrase as t_uw on t_uw.id = wm.translation_id
         where 
             e.time > '2021-05-24' -- before this date data is saved in a different format... 
             and e.time > :from_date -- '2021-04-13'

@@ -16,10 +16,10 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
         join meaning as m
             on b.meaning_id = m.id
         
-        join user_word as uw
+        join phrase as uw
             on m.origin_id = uw.id
             
-        join user_word as uw_t
+        join phrase as uw_t
             on m.translation_id = uw_t.id
             
         left join bookmark_exercise_mapping as bem
@@ -59,10 +59,10 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
         
         from bookmark as b
 
-        join user_word as o_uw
+        join phrase as o_uw
             on o_uw.id = b.origin_id
 
-        join user_word as t_uw
+        join phrase as t_uw
             on t_uw.id = b.translation_id
             
         where 

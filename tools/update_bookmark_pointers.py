@@ -118,10 +118,10 @@ def update_bookmark_pointer(bookmark):
 
     # We anchor the bookmark in the context, if we find it.
     first_token_i = -1
-    is_bookmark_substring_of_context = bookmark.meaning.origin.word in text.content
+    is_bookmark_substring_of_context = bookmark.meaning.origin.content in text.content
     if is_bookmark_substring_of_context:
         tokenized_bookmark = tokenizer.tokenize_text(
-            bookmark.meaning.origin.word, False
+            bookmark.meaning.origin.content, False
         )
         text_bookmark = get_text_list(tokenized_bookmark)
         first_tokenization = text_bookmark
@@ -150,7 +150,7 @@ def update_bookmark_pointer(bookmark):
                     # 3. (This code) ['cessez-le-feu', 'sera']
                     # ['Guerre', 'en', 'Ukraine', ':', 'Macron', 'assure', 'qu’un', 'cessez-le-feu', 'sera', 'demandé', 'à', 'la', 'Russie', 'durant', 'les', 'JO', 'de', 'Paris']
                     text_bookmark = strip_trailing_punctuation(
-                        bookmark.meaning.origin.word
+                        bookmark.meaning.origin.content
                     ).split()
                     first_token_i = find_sublist_in_list(text_context, text_bookmark)
 
@@ -174,7 +174,7 @@ def update_bookmark_pointer(bookmark):
             print(text_context)
         print(f"Couldn't find bookmark {bookmark.id} in text {text.id}.")
         print(
-            f"Bookmark '{bookmark.meaning.origin.word}' is substring of context: {is_bookmark_substring_of_context}"
+            f"Bookmark '{bookmark.meaning.origin.content}' is substring of context: {is_bookmark_substring_of_context}"
         )
         if not is_bookmark_substring_of_context:
             print("Context: ")

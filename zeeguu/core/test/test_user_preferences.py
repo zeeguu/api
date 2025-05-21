@@ -1,7 +1,7 @@
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.test.rules.user_word_rule import UserWordRule
+from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.model import db
 
@@ -17,7 +17,7 @@ class UserPreferenceTest(ModelTestMixIn):
 
         self.random_origin_word = self.faker.word()
         self.random_origin_language = LanguageRule().random
-        self.user_word_rule = UserWordRule(
+        self.phrase_rule = PhraseRule(
             self.random_origin_word, self.random_origin_language
         )
 

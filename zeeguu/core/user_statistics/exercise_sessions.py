@@ -13,7 +13,7 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
     same_language_as_cohort_condition = ""
     if cohort.language_id:
         same_language_as_cohort_condition = (
-            f" WHERE uw.language_id = {cohort.language_id} "
+            f" WHERE p.language_id = {cohort.language_id} "
         )
 
     query = f"""
@@ -23,7 +23,7 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
                         INNER JOIN bookmark_exercise_mapping bem on e.id = bem.exercise_id
                         INNER JOIN bookmark b ON bem.bookmark_id = b.id
                         join meaning m on b.meaning_id = m.id
-                        INNER JOIN user_word uw ON m.origin_id = uw.id
+                        INNER JOIN phrase p ON m.origin_id = p.id
                         {same_language_as_cohort_condition})
         and ues.start_time > :start_time
         and ues.last_action_time < :end_time

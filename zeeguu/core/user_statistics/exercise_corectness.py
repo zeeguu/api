@@ -36,7 +36,7 @@ def number_of_words_translated_but_not_studied(
         join meaning as m 
             on b.meaning_id = m.id
             
-        join user_word as uw
+        join phrase as uw
         on m.origin_id = uw.id
         
         -- left join practiced words on practiced_words.id = NULL will give
@@ -54,7 +54,7 @@ def number_of_words_translated_but_not_studied(
                 on bem.bookmark_id=b.id
             join exercise_outcome as o
                 on e.outcome_id = o.id
-            join user_word as uw
+            join phrase as uw
                 on m.origin_id = uw.id
                 
             where b.user_id=:userid 
@@ -102,7 +102,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
             
         join exercise_outcome as o
             on e.outcome_id = o.id
-        join user_word as uw
+        join phrase as uw
             on m.origin_id = uw.id
                 
         where b.user_id=:userid 
@@ -135,7 +135,7 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
         join meaning as m 
             on b.meaning_id = m.id
             
-        join user_word as uw
+        join phrase as uw
             on m.origin_id = uw.id
         
         where b.user_id=:userid 
@@ -171,7 +171,7 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
             
         join exercise_outcome as o
             on e.outcome_id = o.id
-        join user_word as uw
+        join phrase as uw
             on m.origin_id = uw.id
                     
         where b.user_id=:userid 

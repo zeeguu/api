@@ -120,8 +120,8 @@ class Bookmark(db.Model):
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
-            self.meaning.origin.word,
-            self.meaning.translation.word,
+            self.meaning.origin.content,
+            self.meaning.translation.content,
             self.context.get_content()[0:10],
             self.id,
             self.user_id,
@@ -145,7 +145,7 @@ class Bookmark(db.Model):
         self.exercise_log.append(exercise)
 
     def translations_rendered_as_text(self):
-        return self.meaning.translation.word
+        return self.meaning.translation.content
 
     def should_be_studied(self):
         return (self.starred or self.fit_for_study) and not self.is_learned()
@@ -282,8 +282,8 @@ class Bookmark(db.Model):
     ):
         result = dict(
             id=self.id,
-            origin=self.meaning.origin.word,
-            translation=self.meaning.translation.word,
+            origin=self.meaning.origin.content,
+            translation=self.meaning.translation.content,
             source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
@@ -328,7 +328,7 @@ class Bookmark(db.Model):
             return result
 
         try:
-            translation_word = self.meaning.translation.word
+            translation_word = self.meaning.translation.content
             translation_language = self.meaning.translation.language.code
         except AttributeError as e:
             translation_word = ""
@@ -339,7 +339,7 @@ class Bookmark(db.Model):
             print(str(e))
 
         word_info = Word.stats(
-            self.meaning.origin.word, self.meaning.origin.language.code
+            self.meaning.origin.content, self.meaning.origin.language.code
         )
 
         learned_datetime = (
@@ -402,7 +402,7 @@ class Bookmark(db.Model):
             right_ellipsis=self.context.right_ellipsis,
         )
 
-        exercise_info_dict["from"] = self.meaning.origin.word
+        exercise_info_dict["from"] = self.meaning.origin.content
         result = {**result, **exercise_info_dict}
         return result
 

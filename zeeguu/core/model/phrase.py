@@ -6,42 +6,41 @@ from zeeguu.core.model import db
 from zeeguu.core.model.language import Language
 
 
-class UserWord(db.Model):
-    __tablename__ = "user_word"
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+class Phrase(db.Model):
+    __tablename__ = "phrase"
 
     id = db.Column(db.Integer, primary_key=True)
 
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id))
     language = db.relationship(Language)
 
-    word = db.Column(db.String(255), nullable=False)
+    content = db.Column(db.String(255), nullable=False)
 
     rank = db.Column(db.Integer)
 
-    db.UniqueConstraint(word, language_id)
+    db.UniqueConstraint(content, language_id)
 
     IMPORTANCE_LEVEL_STEP = 1000
     IMPOSSIBLE_RANK = 1000000
     IMPOSSIBLE_IMPORTANCE_LEVEL = IMPOSSIBLE_RANK / IMPORTANCE_LEVEL_STEP
 
     def __init__(self, word, language):
-        self.word = word
+        self.content = word
         self.language = language
 
         # TODO: Performance
         try:
-            self.rank = Word.stats(self.word, self.language.code).rank
+            self.rank = Word.stats(self.content, self.language.code).rank
         except FileNotFoundError:
             self.rank = None
         except Exception:
             self.rank = None
 
     def __repr__(self):
-        return f"<@UserWord {self.word} {self.language_id} {self.rank}>"
+        return f"<@UserWord {self.content} {self.language_id} {self.rank}>"
 
     def __eq__(self, other):
-        return self.word == other.word and self.language == other.language
+        return self.content == other.content and self.language == other.language
 
     def importance_level(self):
         """
@@ -53,7 +52,7 @@ class UserWord(db.Model):
 
         :return: number between 0 and 10 as returned by the wordstats module
         """
-        stats = Word.stats(self.word, self.language.code)
+        stats = Word.stats(self.content, self.language.code)
         return int(stats.importance)
 
     # we use this in the bookmarks.html to show the importance of a word
@@ -62,10 +61,25 @@ class UserWord(db.Model):
         return b * self.importance_level()
 
     @classmethod
-    def find(cls, _word: str, language: Language):
-        return (
-            cls.query.filter(cls.word == _word).filter(cls.language == language).one()
+    def find(cls, _content: str, language: Language):
+        # The DB does a case insensitive search so it will return both Pee and pee
+        # Here we get all the results from the DB, and we do the equality test here in python
+        # This has the downside that it will represent the same word twice :( Piss and piss.
+        # Equally, if case insensitive would find it, now we ensure that
+        ci_matches = (
+            cls.query.filter(cls.content == _content)
+            .filter(cls.language == language)
+            .all()
         )
+
+        if len(ci_matches) == 0:
+            raise NoResultFound()
+
+        if len(ci_matches) == 1:
+            return ci_matches[0]
+
+        # if we have more than one we return the one that matches the case
+        return [each for each in ci_matches if each.content == _content][0]
 
     @classmethod
     def find_or_create(cls, session, _word: str, language: Language):
@@ -96,9 +110,9 @@ class UserWord(db.Model):
         return cls.query.all()
 
     @classmethod
-    def exists(cls, word, language):
+    def exists(cls, content, language):
         try:
-            cls.query.filter_by(language=language, word=word).one()
+            cls.query.filter_by(language=language, content=content).one()
             return True
         except NoResultFound:
             return False

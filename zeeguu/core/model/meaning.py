@@ -39,19 +39,19 @@ from zeeguu.core.model import db
 
 
 class Meaning(db.Model):
-    from zeeguu.core.model import db, UserWord
+    from zeeguu.core.model import db, Phrase
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
 
-    origin_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
-    origin = db.relationship(UserWord, primaryjoin=origin_id == UserWord.id)
+    origin_id = db.Column(db.Integer, db.ForeignKey(Phrase.id), nullable=False)
+    origin = db.relationship(Phrase, primaryjoin=origin_id == Phrase.id)
 
-    translation_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
-    translation = db.relationship(UserWord, primaryjoin=translation_id == UserWord.id)
+    translation_id = db.Column(db.Integer, db.ForeignKey(Phrase.id), nullable=False)
+    translation = db.relationship(Phrase, primaryjoin=translation_id == Phrase.id)
 
-    def __init__(self, origin: UserWord, translation: UserWord):
+    def __init__(self, origin: Phrase, translation: Phrase):
         self.origin = origin
         self.translation = translation
 
@@ -64,15 +64,15 @@ class Meaning(db.Model):
         _translation: str,
         _translation_lang: str,
     ):
-        from zeeguu.core.model import UserWord, Language
+        from zeeguu.core.model import Phrase, Language
 
         origin_lang = Language.find_or_create(_origin_lang)
         translation_lang = Language.find_or_create(_translation_lang)
 
-        origin = UserWord.find_or_create(session, _origin, origin_lang)
+        origin = Phrase.find_or_create(session, _origin, origin_lang)
         session.add(origin)
 
-        translation = UserWord.find_or_create(session, _translation, translation_lang)
+        translation = Phrase.find_or_create(session, _translation, translation_lang)
         session.add(translation)
 
         try:

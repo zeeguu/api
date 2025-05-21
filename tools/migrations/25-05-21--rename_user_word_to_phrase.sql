@@ -1,0 +1,1 @@
+alter table user_word RENAME TO phrase;

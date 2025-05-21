@@ -33,7 +33,7 @@ class DomainTest(ModelTestMixIn, TestCase):
         domain_to_check = Url(url_random, self.faker.word()).domain_name()
 
         assert domain_to_check == domain_should_be, (
-                domain_should_be + " should be " + domain_to_check
+            domain_should_be + " should be " + domain_to_check
         )
 
     def test_one_domain_multiple_urls(self):

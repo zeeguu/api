@@ -179,9 +179,9 @@ class DataExtractor:
                 INNER JOIN bookmark_exercise_mapping bem ON e.id = bem.exercise_id
                 INNER JOIN bookmark b ON b.id = bem.bookmark_id AND b.user_id = u.id
                 inner join meaning m on b.meaning_id = m.id
-                INNER JOIN user_word uw ON m.origin_id = uw.id
+                INNER JOIN phrase p ON m.origin_id = p.id
                 INNER JOIN exercise_source es on es.id = e.source_id
-                INNER JOIN language l on uw.language_id = l.id and uw.language_id = u.learned_language_id
+                INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
                 WHERE DATEDIFF(CURDATE(), ues.last_action_time) <= {self.DAYS_FOR_REPORT}
                 GROUP BY u.learned_language_id, es.source"""
         total_exercise_activity = pd.read_sql(query, con=self.db_connection)
@@ -199,9 +199,9 @@ class DataExtractor:
                     INNER JOIN bookmark_exercise_mapping bem ON e.id = bem.exercise_id
                     INNER JOIN bookmark b ON b.id = bem.bookmark_id AND b.user_id = u.id
                     inner join meaning m on b.meaning_id = m.id
-                    INNER JOIN user_word uw ON m.origin_id = uw.id
+                    INNER JOIN phrase p ON m.origin_id = p.id
                     INNER JOIN exercise_source es on es.id = e.source_id
-                    INNER JOIN language l on uw.language_id = l.id and uw.language_id = u.learned_language_id
+                    INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
                     WHERE DATEDIFF(CURDATE(), ues.last_action_time) <= {self.DAYS_FOR_REPORT}
                     GROUP BY u.id;"""
         total_user_exercise_activity = pd.read_sql(query, con=self.db_connection)
@@ -217,8 +217,8 @@ class DataExtractor:
                     LEFT JOIN 
                         bookmark_exercise_mapping bem on b.id = bem.bookmark_id
                     INNER JOIN meaning m on b.meaning_id = m.id
-                    INNER JOIN user_word uw ON m.origin_id = uw.id
-                    INNER JOIN language l ON uw.language_id = l.id
+                    INNER JOIN phrase p ON m.origin_id = p.id
+                    INNER JOIN language l ON p.language_id = l.id
                     WHERE DATEDIFF(CURDATE(), b.time) <= {self.DAYS_FOR_REPORT}
                     GROUP by b.id;
                 """

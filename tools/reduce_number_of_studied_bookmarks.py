@@ -25,7 +25,7 @@ def reduce_for_user(u):
         in_pipeline.sort(
             key=lambda x: (
                 x.level,
-                -Word.stats(x.origin.word, x.origin.language.code).rank,
+                -Word.stats(x.origin.content, x.origin.language.code).rank,
             ),
             reverse=True,
         )
@@ -50,14 +50,14 @@ def reduce_for_user(u):
             for bookmark in to_keep:
                 print(
                     f"  "
-                    f"{bookmark.meaning.origin.word} {Word.stats(bookmark.meaning.origin.word, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
+                    f"{bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
 
             print(f">>>>> To Remove (first 10...): " + str(len(to_remove)))
 
             for bookmark in to_remove:
                 print(
-                    f"  {bookmark.meaning.origin.word} {Word.stats(bookmark.meaning.origin.word, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
+                    f"  {bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
                 schedule = BasicSRSchedule.find_by_bookmark(bookmark)
                 db_session.delete(schedule)

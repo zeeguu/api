@@ -181,7 +181,7 @@ def similar_words_api(bookmark_id):
     user = User.find_by_id(flask.g.user_id)
     return json_result(
         similar_words(
-            bookmark.meaning.origin.word,
+            bookmark.meaning.origin.content,
             bookmark.meaning.origin.language,
             user,
         )

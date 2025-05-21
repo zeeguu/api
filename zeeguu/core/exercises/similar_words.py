@@ -15,7 +15,7 @@ def similar_words(word, language, user, number_of_words_to_return=2):
     words_the_user_must_study = BasicSRSchedule.scheduled_bookmarks(user, None, 10)
 
     if len(words_the_user_must_study) == 10:
-        candidates = [each.meaning.origin.word for each in words_the_user_must_study]
+        candidates = [each.meaning.origin.content for each in words_the_user_must_study]
     else:
         candidates = lang_info(language.code).all_words()
         candidates_filtered = remove_words_based_on_list(candidates, BAD_WORD_LIST)
