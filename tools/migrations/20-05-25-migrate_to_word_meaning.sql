@@ -4,8 +4,8 @@ create table `meaning`
     origin_id      int not null,
     translation_id int not null,
     primary key (`id`),
-    constraint `meaning_ibfk_1` foreign key (`origin_id`) references `user_word` (`id`) on delete no action on update no action,
-    constraint `meaning_ibfk_2` foreign key (`translation_id`) references `user_word` (`id`) on delete no action on update no action
+    constraint `origin_id_ibfk` foreign key (`origin_id`) references `user_word` (`id`) on delete no action on update no action,
+    constraint `translation_id_ibfk` foreign key (`translation_id`) references `user_word` (`id`) on delete no action on update no action
 
 );
 
