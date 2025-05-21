@@ -79,6 +79,12 @@ def bookmarks_by_day():
     user = User.find_by_id(flask.g.user_id)
     return json_result(user.bookmarks_by_day(with_context=with_context))
 
+@api.route("/total_bookmarks_with_level", methods=["GET"])
+@cross_domain
+@requires_session
+def total_bookmarks_with_level():
+    user = user.find_by_id(flask.g.user_id)
+    return json_result(user.total_bookmarks_with_at_least_level_one())
 
 @api.route("/bookmarks_for_article/<int:article_id>/<int:user_id>", methods=["POST"])
 @cross_domain

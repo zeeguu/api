@@ -604,6 +604,21 @@ class User(db.Model):
         )
         return result
 
+    def total_bookmarks_with_at_least_level_one(
+        self,
+        after_date=None,
+        language_id=None,
+    ):
+        if after_date is None:
+                after_date = datetime.datetime(2010, 1, 1)
+
+        bookmarks = self.all_bookmarks(after_date=after_date, language_id=language_id)
+
+        filtered_bookmarks = [b for b in bookmarks if b.level is not None and b.level >= 1]
+
+        return len(filtered_bookmarks)
+
+
     def bookmarks_for_article(
         self,
         article_id,
