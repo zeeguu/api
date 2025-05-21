@@ -13,7 +13,6 @@ ALTER TABLE bookmark
     ADD COLUMN `meaning_id`
         int null after `translation_id`;
 
-
 ALTER TABLE bookmark
     ADD constraint `meaning_id_ibfk`
         foreign key (`meaning_id`)
@@ -42,20 +41,14 @@ ALTER TABLE bookmark
 alter table bookmark
     drop index `bookmark_OriginID`;
 
-
 ALTER TABLE bookmark
     DROP COLUMN origin_id;
 
-
 ALTER TABLE bookmark
     DROP FOREIGN KEY `bookmark_ibfk_5`;
-
 
 alter table bookmark
     drop index `translation_id`;
 
 ALTER TABLE bookmark
     DROP COLUMN translation_id;
-
-
-
