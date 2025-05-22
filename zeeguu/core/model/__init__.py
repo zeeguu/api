@@ -83,7 +83,6 @@ from .user_exercise_session import UserExerciseSession
 
 
 # bookmark scheduling
-from .word_to_study import WordToStudy
 from ..word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 from .personal_copy import PersonalCopy

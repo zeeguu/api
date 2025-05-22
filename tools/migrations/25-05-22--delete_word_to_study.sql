@@ -1,0 +1,1 @@
+drop table word_to_study;

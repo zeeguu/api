@@ -79,6 +79,7 @@ class Bookmark(db.Model):
         Exercise, secondary="bookmark_exercise_mapping", order_by="Exercise.id"
     )
 
+    # not used at the moment
     starred = db.Column(db.Boolean, default=False)
 
     fit_for_study = db.Column(db.Boolean)
@@ -90,8 +91,6 @@ class Bookmark(db.Model):
     level = db.Column(db.Integer)
 
     user_preference = db.Column(db.Integer)
-
-    bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
 
     def __init__(
         self,
