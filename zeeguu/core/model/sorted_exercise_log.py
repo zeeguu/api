@@ -5,9 +5,6 @@ class SortedExerciseLog(object):
             bookmark.exercise_log, key=lambda x: x.time, reverse=True
         )
         self.bookmark = bookmark
-        self.learning_cycle_length = (
-            bookmark.get_scheduler().get_learning_cycle_length()
-        )
 
     # string rep for logging
     def summary(self):
@@ -28,7 +25,8 @@ class SortedExerciseLog(object):
         distinct_days = self.most_recent_correct_dates()
 
         result = []
-        for day in list(distinct_days)[: self.learning_cycle_length]:
+        # hardcoded 10 here... for lack of a better idea; used to be learning _cycle_length
+        for day in list(distinct_days)[:10]:
             result.append(day.strftime("%b.%d "))
         return " ".join(result)
 
@@ -69,34 +67,3 @@ class SortedExerciseLog(object):
         for exercise in self.most_recent_corrects():
             distinct_days.add(exercise.time.date())
         return distinct_days
-
-    def exercise_streaks_of_given_length(self) -> dict:
-        # returns the number of "exercise streaks" of a given length
-        # a streak is finished either at
-        #   1. end of sequence of corrects
-        #   2. when it arrives at the length of the learning cycle length
-
-        def save_new_streak(streaks_of_length, current_streak_length):
-            streaks_of_length[current_streak_length] = (
-                streaks_of_length.get(current_streak_length, 0) + 1
-            )
-
-        streaks_of_given_length = {}
-
-        current_streak_length = 0
-        for exercise in self.exercises:
-            is_correct = exercise.is_correct()
-            if is_correct:
-                current_streak_length += 1
-            if not is_correct or current_streak_length == self.learning_cycle_length:
-                # To move to a next cycle you need a streak of 4 exercises.
-                # If the exercise is not correct or is at the end of the cycle
-                # We store that information
-                save_new_streak(streaks_of_given_length, current_streak_length)
-                current_streak_length = 0
-
-        save_new_streak(streaks_of_given_length, current_streak_length)
-
-        # If we want the resulting dictionary sorted by keys.
-        # return dict(sorted(streaks_of_given_length.items()))
-        return streaks_of_given_length

@@ -19,7 +19,6 @@ from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 
@@ -86,8 +85,6 @@ class Bookmark(db.Model):
 
     learned_time = db.Column(db.DateTime)
 
-    learning_cycle = db.Column(db.Integer)
-
     level = db.Column(db.Integer)
 
     user_preference = db.Column(db.Integer)
@@ -98,9 +95,8 @@ class Bookmark(db.Model):
         translation: UserWord,
         user: "User",
         source: Source,
-        text: str,
+        text,
         time: datetime,
-        learning_cycle: int = LearningCycle.NOT_SET,
         sentence_i: int = None,
         token_i: int = None,
         total_tokens: int = None,
@@ -114,7 +110,6 @@ class Bookmark(db.Model):
         self.time = time
         self.text = text
         self.starred = False
-        self.learning_cycle = learning_cycle
         self.user_preference = UserWordExPreference.NO_PREFERENCE
         self.sentence_i = sentence_i
         self.token_i = token_i
@@ -394,7 +389,6 @@ class Bookmark(db.Model):
             fit_for_study=self.fit_for_study == 1,
             level=self.level,
             cooling_interval=cooling_interval_in_days,
-            learning_cycle=self.learning_cycle,
             is_last_in_cycle=is_last_in_cycle,
             is_about_to_be_learned=is_about_to_be_learned,
             can_update_schedule=can_update_schedule,
@@ -521,7 +515,6 @@ class Bookmark(db.Model):
         _context: str,
         article_id: int,
         source_id: int,
-        learning_cycle: int = LearningCycle.NOT_SET,
         sentence_i: int = None,
         token_i: int = None,
         total_tokens: int = None,
@@ -595,7 +588,6 @@ class Bookmark(db.Model):
                 source,
                 text,
                 now,
-                learning_cycle=learning_cycle,
                 sentence_i=sentence_i,
                 token_i=token_i,
                 total_tokens=total_tokens,
@@ -667,37 +659,3 @@ class Bookmark(db.Model):
             return True
         except NoResultFound:
             return False
-
-    def is_learned_based_on_exercise_outcomes(self):
-        from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-        from zeeguu.core.definition_of_learned import (
-            is_learned_based_on_exercise_outcomes,
-        )
-
-        exercise_log = SortedExerciseLog(self)
-        return is_learned_based_on_exercise_outcomes(
-            exercise_log, self.learning_cycle == LearningCycle.PRODUCTIVE
-        )
-
-    def update_learned_status(self, session):
-        from zeeguu.core.definition_of_learned import (
-            is_learned_based_on_exercise_outcomes,
-        )
-        from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
-
-        """
-            To call when something happened to the bookmark,
-             that requires it's "learned" status to be updated.
-        :param session:
-        :return:
-        """
-        exercise_log = SortedExerciseLog(self)
-        is_learned = is_learned_based_on_exercise_outcomes(
-            exercise_log, self.learning_cycle == LearningCycle.PRODUCTIVE
-        )
-        if is_learned:
-            log(f"Log: {exercise_log.summary()}: bookmark {self.id} learned!")
-            self.learned_time = exercise_log.last_exercise_time()
-            session.add(self)
-        else:
-            log(f"Log: {exercise_log.summary()}: bookmark {self.id} not learned yet.")
