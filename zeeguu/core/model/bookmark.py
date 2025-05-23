@@ -87,8 +87,6 @@ class Bookmark(db.Model):
 
     user_preference = db.Column(db.Integer)
 
-    bookmark = db.relationship("WordToStudy", backref="bookmark", passive_deletes=True)
-
     def __init__(
         self,
         meaning: "Meaning",
