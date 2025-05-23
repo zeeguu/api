@@ -192,4 +192,4 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
 
         # Empty exercise_log should lead to a False return
-        assert not random_bookmarks.learned
+        assert not random_bookmarks[0].learned_time
