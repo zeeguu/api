@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.video import Video
+from zeeguu.core.model.meaning import Meaning
 from zeeguu.logging import log
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 
@@ -14,11 +15,9 @@ from zeeguu.core.model.article import Article
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
-from zeeguu.core.model.language import Language
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user import User
-from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.learning_cycle import LearningCycle
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
@@ -43,11 +42,8 @@ class Bookmark(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    origin_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
-    origin = db.relationship(UserWord, primaryjoin=origin_id == UserWord.id)
-
-    translation_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
-    translation = db.relationship(UserWord, primaryjoin=translation_id == UserWord.id)
+    meaning_id = db.Column(db.Integer, db.ForeignKey(Meaning.id), nullable=False)
+    meaning = db.relationship(Meaning, backref="bookmarks")
 
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = db.relationship(User)
@@ -95,8 +91,7 @@ class Bookmark(db.Model):
 
     def __init__(
         self,
-        origin: UserWord,
-        translation: UserWord,
+        meaning: "Meaning",
         user: "User",
         source: Source,
         text: str,
@@ -108,8 +103,7 @@ class Bookmark(db.Model):
         context: BookmarkContext = None,
         level: int = 0,
     ):
-        self.origin = origin
-        self.translation = translation
+        self.meaning = meaning
         self.user = user
         self.source = source
         self.time = time
@@ -126,8 +120,8 @@ class Bookmark(db.Model):
 
     def __repr__(self):
         return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
-            self.origin.word,
-            self.translation.word,
+            self.meaning.origin.content,
+            self.meaning.translation.content,
             self.context.get_content()[0:10],
             self.id,
             self.user_id,
@@ -151,7 +145,7 @@ class Bookmark(db.Model):
         self.exercise_log.append(exercise)
 
     def translations_rendered_as_text(self):
-        return self.translation.word
+        return self.meaning.translation.content
 
     def should_be_studied(self):
         return (self.starred or self.fit_for_study) and not self.is_learned()
@@ -288,8 +282,8 @@ class Bookmark(db.Model):
     ):
         result = dict(
             id=self.id,
-            origin=self.origin.word,
-            translation=self.translation.word,
+            origin=self.meaning.origin.content,
+            translation=self.meaning.translation.content,
             source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
@@ -322,7 +316,7 @@ class Bookmark(db.Model):
         if with_context_tokenized:
             from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
 
-            tokenizer = get_tokenizer(self.origin.language, TOKENIZER_MODEL)
+            tokenizer = get_tokenizer(self.meaning.origin.language, TOKENIZER_MODEL)
             result["context_tokenized"] = tokenizer.tokenize_text(
                 self.context.get_content(),
                 flatten=False,
@@ -334,8 +328,8 @@ class Bookmark(db.Model):
             return result
 
         try:
-            translation_word = self.translation.word
-            translation_language = self.translation.language.code
+            translation_word = self.meaning.translation.content
+            translation_language = self.meaning.translation.language.code
         except AttributeError as e:
             translation_word = ""
             translation_language = ""
@@ -344,7 +338,9 @@ class Bookmark(db.Model):
             )
             print(str(e))
 
-        word_info = Word.stats(self.origin.word, self.origin.language.code)
+        word_info = Word.stats(
+            self.meaning.origin.content, self.meaning.origin.language.code
+        )
 
         learned_datetime = (
             str(self.learned_time.date()) if self.learned_time is not None else ""
@@ -381,7 +377,7 @@ class Bookmark(db.Model):
 
         exercise_info_dict = dict(
             to=translation_word,
-            from_lang=self.origin.language.code,
+            from_lang=self.meaning.origin.language.code,
             to_lang=translation_language,
             url=self.text.url(),
             origin_importance=word_info.importance,
@@ -406,7 +402,7 @@ class Bookmark(db.Model):
             right_ellipsis=self.context.right_ellipsis,
         )
 
-        exercise_info_dict["from"] = self.origin.word
+        exercise_info_dict["from"] = self.meaning.origin.content
         result = {**result, **exercise_info_dict}
         return result
 
@@ -539,10 +535,11 @@ class Bookmark(db.Model):
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
         """
-        origin_lang = Language.find_or_create(_origin_lang)
-        translation_lang = Language.find_or_create(_translation_lang)
 
-        origin = UserWord.find_or_create(session, _origin, origin_lang)
+        meaning = Meaning.find_or_create(
+            session, _origin, _origin_lang, _translation, _translation_lang
+        )
+
         source = Source.find_by_id(source_id)
         print("Source retrieved: ", source)
         # TODO: This will be temporary.
@@ -556,7 +553,7 @@ class Bookmark(db.Model):
             session,
             _context,
             context_identifier.context_type if context_identifier else None,
-            origin_lang,
+            meaning.origin.language,
             c_sentence_i,
             c_token_i,
             left_ellipsis,
@@ -566,7 +563,7 @@ class Bookmark(db.Model):
         text = Text.find_or_create(
             session,
             _context,
-            origin_lang,
+            meaning.origin.language,
             None,
             article,
             c_paragraph_i,
@@ -577,21 +574,15 @@ class Bookmark(db.Model):
             right_ellipsis,
         )
 
-        translation = UserWord.find_or_create(session, _translation, translation_lang)
-
         now = datetime.now()
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_user_word_and_context(user, origin, context)
-
-            # update the translation
-            bookmark.translation = translation
+            bookmark = Bookmark.find_by_meaning_and_context(user, meaning, context)
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                origin,
-                translation,
+                meaning,
                 user,
                 source,
                 text,
@@ -654,17 +645,13 @@ class Bookmark(db.Model):
         return cls.query.filter_by(id=b_id).one()
 
     @classmethod
-    def find_all_by_user_and_word(cls, user, word):
-        return cls.query.filter_by(user=user, origin=word).all()
-
-    @classmethod
-    def find_by_user_word_and_context(cls, user, word, context):
-        return cls.query.filter_by(user=user, origin=word, context=context).one()
+    def find_by_meaning_and_context(cls, user, meaning, context):
+        return cls.query.filter_by(user=user, meaning=meaning, context=context).one()
 
     @classmethod
     def exists(cls, bookmark):
         try:
-            cls.query.filter_by(origin_id=bookmark.origin.id, id=bookmark.id).one()
+            cls.query.filter_by(meaning_id=bookmark.meaning.id, id=bookmark.id).one()
             return True
         except NoResultFound:
             return False

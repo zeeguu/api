@@ -25,13 +25,18 @@ def reduce_for_user(u):
         in_pipeline.sort(
             key=lambda x: (
                 x.level,
-                -Word.stats(x.origin.word, x.origin.language.code).rank,
+                -Word.stats(x.origin.content, x.origin.language.code).rank,
             ),
             reverse=True,
         )
 
         number_of_level_2_words = len([x for x in in_pipeline if x.level >= 2])
         words_to_keep = max(DEFAULT_MAX_WORDS_TO_SCHEDULE, number_of_level_2_words)
+        # there are eight learners that have more than 40 advanced to level 2
+        # we can not scare the hell out of them with 136, 60, 55, 45 words to learn
+        # they'll see them later - their progress will not be lost... but for now,
+        # we cap it to 30
+        words_to_keep = min(words_to_keep, 30)
 
         # there are eight learners that have more than 40 advanced to level 2
         # we can not scare the hell out of them with 136, 60, 55, 45 words to learn
@@ -51,14 +56,14 @@ def reduce_for_user(u):
             for bookmark in to_keep:
                 print(
                     f"  "
-                    f"{bookmark.origin.word} {Word.stats(bookmark.origin.word, bookmark.origin.language.code).rank} {bookmark.level}"
+                    f"{bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
 
             print(f">>>>> To Remove (first 10...): " + str(len(to_remove)))
 
             for bookmark in to_remove:
                 print(
-                    f"  {bookmark.origin.word} {Word.stats(bookmark.origin.word, bookmark.origin.language.code).rank} {bookmark.level}"
+                    f"  {bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
                 )
                 schedule = BasicSRSchedule.find_by_bookmark(bookmark)
                 db_session.delete(schedule)

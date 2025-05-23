@@ -7,7 +7,7 @@ from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
 class CohortRule(BaseRule):
     """
-        A cohort has a teacher and a bunch of students
+    A cohort has a teacher and a bunch of students
     """
 
     def __init__(self):
@@ -34,7 +34,7 @@ class CohortRule(BaseRule):
         inv_code = self.faker.word()
         max_students = 10
         language = LanguageRule().random
-        cohort = Cohort(inv_code,name, language, max_students)
+        cohort = Cohort(inv_code, name, language, max_students)
 
         return cohort
 

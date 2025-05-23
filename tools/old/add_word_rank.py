@@ -1,36 +1,35 @@
 from datetime import datetime
 import zeeguu.core.model
-from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.model.phrase import Phrase
 from wordstats import Word
 
 import zeeguu
 
 db_session = zeeguu.core.model.db.session
 
-words = UserWord.query.all()
+phrases = Phrase.query.all()
 
 print("starting...")
 print(datetime.now())
 i = 0
 unsupported_languages = set()
-for word in words:
+for phrase in phrases:
 
     try:
 
-        if word.rank:
+        if phrase.rank:
             continue
 
-        rank = Word.stats(word.word, word.language.code).rank
+        rank = Word.stats(phrase.content, phrase.language.code).rank
         if rank == 100000:
             continue
 
-        # print(f"{word.id} {word.word} -> {rank}")
-        word.rank = rank
-        db_session.add(word)
+        phrase.rank = rank
+        db_session.add(phrase)
         i += 1
 
         if i % 1000 == 0:
-            print(f"current userword id: {word.id}")
+            print(f"current userword id: {phrase.id}")
             print(datetime.now())
             print("comitting... 1k")
             db_session.commit()

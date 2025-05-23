@@ -1,8 +1,10 @@
-from zeeguu.core.model import Bookmark, UserWord, ExerciseOutcome, UserPreference
+from zeeguu.core.model import Bookmark, Phrase, ExerciseOutcome, UserPreference
 
 from zeeguu.core.model import db
 
 from datetime import datetime, timedelta
+
+from zeeguu.core.model.meaning import Meaning
 
 ONE_DAY = 60 * 24
 
@@ -139,11 +141,12 @@ class BasicSRSchedule(db.Model):
             .outerjoin(BasicSRSchedule)
             .filter(Bookmark.learned_time == None)
             .filter(Bookmark.fit_for_study == 1)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == user.learned_language_id)
+            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == user.learned_language_id)
             .filter(BasicSRSchedule.cooling_interval == None)
             .order_by(
-                -UserWord.rank.desc()
+                -Phrase.rank.desc()
             )  # By using the negative for rank, we ensure NULL is last.
         )
         if limit is None:
@@ -191,8 +194,9 @@ class BasicSRSchedule(db.Model):
         query = (
             Bookmark.query.join(cls)
             .filter(Bookmark.user_id == user.id)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
-            .filter(UserWord.language_id == _lang_to_look_at)
+            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == _lang_to_look_at)
         )
         return query
 
@@ -206,7 +210,7 @@ class BasicSRSchedule(db.Model):
         # then by cooling interval, meaning the words that are closest to being learned
         # come before the ones that are just learned.
         query.order_by(
-            -UserWord.rank.desc(), cls.cooling_interval.desc()
+            -Phrase.rank.desc(), cls.cooling_interval.desc()
         )  # By using the negative for rank, we ensure NULL is last.
 
         if limit is not None:
@@ -233,7 +237,8 @@ class BasicSRSchedule(db.Model):
         schedule = (
             BasicSRSchedule.query.join(Bookmark)
             .filter(Bookmark.user_id == user_id)
-            .join(UserWord, Bookmark.origin_id == UserWord.id)
+            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
             .all()
         )
         return schedule
@@ -244,7 +249,10 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                each.bookmark.origin.word + " " + str(each.next_practice_time) + " \n"
+                each.bookmark.meaning.origin.content
+                + " "
+                + str(each.next_practice_time)
+                + " \n"
             )
 
 
@@ -259,7 +267,7 @@ def _remove_duplicated_bookmarks(bookmark_list):
     # due to different casing.
     candidates_no_duplicates = []
     for bookmark in bookmark_list:
-        b_word = bookmark.origin.word.lower()
+        b_word = bookmark.meaning.origin.content.lower()
         if not (b_word in bookmark_set):
             candidates_no_duplicates.append(bookmark)
             bookmark_set.add(b_word)
@@ -274,7 +282,7 @@ def priority_by_rank(bookmark):
     cooling_interval = cooling_interval if cooling_interval is not None else -1
     word_rank = bookmark_info["origin_rank"]
     if word_rank == "":
-        word_rank = UserWord.IMPOSSIBLE_RANK
+        word_rank = Phrase.IMPOSSIBLE_RANK
     return word_rank, -cooling_interval
 
 

@@ -3,11 +3,12 @@ import re
 from datetime import timedelta
 
 from zeeguu.core.bookmark_quality import quality_bookmark, bad_quality_bookmark
+from zeeguu.core.model import Meaning
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
-from zeeguu.core.test.rules.user_word_rule import UserWordRule
+from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.model.phrase import Phrase
 
 
 class BookmarkRule(BaseRule):
@@ -43,7 +44,6 @@ class BookmarkRule(BaseRule):
         bookmark = None
 
         while not bookmark:
-            from zeeguu.core.test.rules.source_rule import SourceRule
             from zeeguu.core.test.rules.bookmark_context_rule import BookmarkContextRule
             from zeeguu.core.test.rules.text_rule import TextRule
 
@@ -55,26 +55,27 @@ class BookmarkRule(BaseRule):
             random_translation_word = self.faker.word() + str(random.random())
             random_translation_language = LanguageRule().random
 
-            if UserWord.exists(
+            if Phrase.exists(
                 random_origin_word, random_origin_language
-            ) or UserWord.exists(random_translation_word, random_translation_language):
+            ) or Phrase.exists(random_translation_word, random_translation_language):
                 return self._create_model_object(user)
 
-            random_origin = UserWordRule(
+            random_origin = PhraseRule(
                 random_origin_word, random_origin_language
-            ).user_word
-            random_translation = UserWordRule(
+            ).phrase
+            random_translation = PhraseRule(
                 random_translation_word, random_translation_language
-            ).user_word
+            ).phrase
             random_date = self.faker.date_time_this_month()
 
             source_article = random_text.article.source
 
             fake_bookmark_c = BookmarkContextRule(source_article.get_content()).context
 
+            random_meaning = Meaning(random_origin, random_translation)
+
             bookmark = Bookmark(
-                random_origin,
-                random_translation,
+                random_meaning,
                 user,
                 source_article,
                 random_text,

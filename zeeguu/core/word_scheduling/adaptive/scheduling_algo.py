@@ -3,7 +3,7 @@
 - nextDueDate = when the user should practice this again
 - coolingInterval = how much will they have to wait till they see this word again
 """
-
+from zeeguu.core.model.meaning import Meaning
 
 """ **** nextDueDate *** """
 
@@ -59,9 +59,8 @@
 
 from datetime import datetime, timedelta
 
-from numpy import number
 from zeeguu.core.model.word_to_study import WordToStudy
-from zeeguu.core.model import Bookmark, UserWord
+from zeeguu.core.model import Bookmark, Phrase
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import func
@@ -121,12 +120,15 @@ def getWordsToStudy(user, numberOfWords):
             .filter_by(starred=True)
         )
         new_words = new_words.filter(Bookmark.fit_for_study == True)
-        new_words = new_words.join(UserWord, Bookmark.origin_id == UserWord.id)
+        new_words = new_words.join(Meaning, Bookmark.meaning_id == Meaning.id).join(
+            Phrase, Meaning.origin_id == Phrase.id
+        )
+
         new_words = new_words.filter(
             ~exists().where(WordToStudy.bookmark_id == Bookmark.id)
         )
-        new_words = new_words.filter(UserWord.language_id == user.learned_language_id)
-        new_words = new_words.order_by(Bookmark.starred, func.length(UserWord.word))
+        new_words = new_words.filter(Phrase.language_id == user.learned_language_id)
+        new_words = new_words.order_by(Bookmark.starred, func.length(Phrase.content))
 
         new_words = (
             new_words.filter_by(language_id=user.learned_language_id)

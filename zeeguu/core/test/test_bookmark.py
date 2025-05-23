@@ -62,7 +62,7 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        assert random_bookmark.translation is not None
+        assert random_bookmark.meaning.translation is not None
 
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -103,9 +103,9 @@ class BookmarkTest(ModelTestMixIn):
     def test_bad_quality_bookmark(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 3)]
 
-        random_bookmarks[0].origin = random_bookmarks[0].translation
-        random_bookmarks[1].origin.word = self.faker.sentence(nb_words=10)
-        random_bookmarks[2].origin.word = self.faker.word()[:2]
+        random_bookmarks[0].meaning.origin = random_bookmarks[0].meaning.translation
+        random_bookmarks[1].meaning.origin.content = self.faker.sentence(nb_words=10)
+        random_bookmarks[2].meaning.origin.content = self.faker.word()[:2]
 
         for b in random_bookmarks:
             assert bad_quality_bookmark(b)
@@ -169,18 +169,10 @@ class BookmarkTest(ModelTestMixIn):
 
         assert bookmark_to_check == bookmark_should_be
 
-    def test_find_all_by_user_and_word(self):
+    def test_find_by_meaning_and_context(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_all_by_user_and_word(
-            self.user, bookmark_should_be.origin
-        )
-
-        assert bookmark_should_be in bookmark_to_check
-
-    def test_find_by_user_word_and_context(self):
-        bookmark_should_be = self.user.all_bookmarks()[0]
-        bookmark_to_check = Bookmark.find_by_user_word_and_context(
-            self.user, bookmark_should_be.origin, bookmark_should_be.context
+        bookmark_to_check = Bookmark.find_by_meaning_and_context(
+            self.user, bookmark_should_be.meaning, bookmark_should_be.context
         )
 
         assert bookmark_to_check == bookmark_should_be
