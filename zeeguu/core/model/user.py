@@ -12,7 +12,6 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.language import Language
-from zeeguu.core.model.learning_cycle import LearningCycle
 
 from zeeguu.logging import log
 from zeeguu.core.util import password_hash
@@ -267,12 +266,7 @@ class User(db.Model):
 
             id = b["bookmark_id"]
             b = Bookmark.find(id)
-            # Set the learning cycle to one (from 0)
-            # This is so that when they are shown in the front-end
-            # they are assumed to be set to the receptive learning cycle
-            # and associated with the receptive cycle. These are not saved
-            # to the DB unless an exercise is completed.
-            b.learning_cycle = 1
+
             b_word = b.meaning.origin.content.lower()
             # Avoid the same bookmark
             if not (b_word in seen_bookmarks):
@@ -634,12 +628,6 @@ class User(db.Model):
 
         if good_for_study:
             bookmarks = [each for each in bookmarks if each.should_be_studied()]
-
-        # TODO: Think about doing this by default in the frontend; if there's no
-        # learning cycle, we assume it's RECEPTIVE. Otherwise we have to do this
-        # in muliple places
-        for each in bookmarks:
-            each.learning_cycle = LearningCycle.RECEPTIVE
 
         if not json:
             return bookmarks

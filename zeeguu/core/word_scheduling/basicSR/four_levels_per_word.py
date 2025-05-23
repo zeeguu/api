@@ -4,15 +4,6 @@ from datetime import datetime, timedelta
 MAX_LEVEL = 4
 
 
-# We are mapping cooling intervals to levels for users that migrate to LevelsSR, so their progress won't get lost.
-COOLING_INTERVAL_TO_LEVEL_MAPPING = {
-    0: 1,
-    ONE_DAY: 1,
-    2 * ONE_DAY: 1,
-    4 * ONE_DAY: 2,
-    8 * ONE_DAY: 2,
-}
-
 # Levels can be 1,2,3,4
 # When an old bookmark is migrated to the Levels scheduler the level is set to 0
 # When a new bookmark is created and the user has the LevelsSR it's level is automatically set to 1
@@ -51,30 +42,6 @@ class FourLevelsPerWord(BasicSRSchedule):
             exercise_time = datetime.now()
 
         level_before_this_exercises = self.bookmark.level
-
-        # ================================================================================================
-        # handle bookmark that was migrated from the learning cycle scheduler
-        # level can only be 0 if we did never encounter this bookmark in the context of levels SR
-        # ================================================================================================
-        if level_before_this_exercises == 0:
-            newly_mapped_level = COOLING_INTERVAL_TO_LEVEL_MAPPING.get(
-                self.cooling_interval, 1
-            )
-            # if the user was in learning_cycle 2 we offset the levels with 2
-            if self.bookmark.learning_cycle == 2:
-                newly_mapped_level += 2
-            self.bookmark.level = newly_mapped_level
-
-            # cooling interval is always reset
-            self.bookmark.cooling_interval = 0
-
-            # extra bonus for receptive and cooling cycle 8
-            if self.bookmark.learning_cycle == 1:
-                if self.bookmark.cooling_interval == ONE_DAY * 8:
-                    self.bookmark.level += 1
-
-            db_session.add(self.bookmark)
-            # end of bookmark migration
 
         if correctness:
             # Update level for bookmark or mark as learned
@@ -123,10 +90,6 @@ class FourLevelsPerWord(BasicSRSchedule):
     @classmethod
     def get_cooling_interval_dictionary(cls):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
-
-    @classmethod
-    def get_learning_cycle_length(cls):
-        return len(cls.NEXT_COOLING_INTERVAL_ON_SUCCESS)
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):
