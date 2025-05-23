@@ -45,7 +45,7 @@ def number_of_words_translated_but_not_studied(
         -- consider using EXISTS instead: https://stackoverflow.com/a/36694478/1200070
         left join         
         -- >> practiced_words 
-            (select distinct(b.id), uw.word
+            (select distinct(b.id), uw.content
             
             from exercise as e
             join bookmark_exercise_mapping as bem
@@ -90,7 +90,7 @@ def number_of_words_translated_but_not_studied(
 
 def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_date):
     query = """
-        select count(distinct(uw.word)) as number_of_practiced_words
+        select count(distinct(uw.content)) as number_of_practiced_words
         
         from exercise as e
         join bookmark_exercise_mapping as bem

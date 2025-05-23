@@ -115,7 +115,7 @@ def translations_in_interval(start_time, end_time, user_id):
     query = """
         select 
             b.id, 
-            uw.word, 
+            uw.content, 
             uwt.word as translation,
             t.content as context,
             IF(bem.bookmark_id IS NULL, FALSE, TRUE) as practiced

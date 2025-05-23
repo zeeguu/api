@@ -9,8 +9,8 @@ def exercises_in_session(session_id: int):
                 eo.outcome, 
                 e.time,
                 e.solving_speed,
-                o_uw.word,
-                t_uw.word as translation,
+                o_uw.content,
+                t_uw.content as translation,
                 b.id as bookmark_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
@@ -40,8 +40,8 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
                 eo.outcome, 
                 e.time,
                 e.solving_speed,
-                o_uw.word,
-                t_uw.word as translation,
+                o_uw.content,
+                t_uw.content as translation,
                 b.id as bookmark_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id

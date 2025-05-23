@@ -6,8 +6,8 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
 
     query = """
         select  b.id as bookmark_id, 
-                uw.word,
-                uw_t.word as translation,
+                uw.content,
+                uw_t.content as translation,
                 b.time as bookmark_creation_time, 
                 b.fit_for_study
             
@@ -53,8 +53,8 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
     query = """
         select 
         b.id as bookmark_id,
-        o_uw.word,
-        t_uw.word as translation,
+        o_uw.content,
+        t_uw.content as translation,
         b.learned_time
         
         from bookmark as b
