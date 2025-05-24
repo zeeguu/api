@@ -297,7 +297,7 @@ class SchedulerTest(ModelTestMixIn):
     def _new_schedule_after_exercise(self, bookmark, outcome, date: datetime = None):
         exercise_session = ExerciseSessionRule(self.four_levels_user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
-        bookmark.report_exercise_outcome(
+        bookmark.user_meaning.report_exercise_outcome(
             exercise.source.source,
             exercise.outcome.outcome,
             exercise.solving_speed,

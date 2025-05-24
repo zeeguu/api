@@ -3,30 +3,16 @@ from datetime import datetime
 import sqlalchemy
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm.exc import NoResultFound
-
-from zeeguu.core.model.caption import Caption
-from zeeguu.core.model.video import Video
-from zeeguu.core.model.meaning import Meaning
-from zeeguu.logging import log
-from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
-
-from zeeguu.core.model.article import Article
-from zeeguu.core.model.exercise import Exercise
-from zeeguu.core.model.exercise_outcome import ExerciseOutcome
-from zeeguu.core.model.exercise_source import ExerciseSource
-from zeeguu.core.model.source import Source
-from zeeguu.core.model.text import Text
-from zeeguu.core.model.user import User
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 
 from zeeguu.core.model import db
-
-from zeeguu.core.util.encoding import datetime_to_json
-
-from wordstats import Word
-
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
+from zeeguu.core.model.caption import Caption
+from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.text import Text
+from zeeguu.core.model.user_meaning import UserMeaning
+from zeeguu.core.model.video import Video
 
 bookmark_exercise_mapping = Table(
     "bookmark_exercise_mapping",
@@ -40,12 +26,6 @@ class Bookmark(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-
-    meaning_id = db.Column(db.Integer, db.ForeignKey(Meaning.id), nullable=False)
-    meaning = db.relationship(Meaning, backref="bookmarks")
-
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id))
-    user = db.relationship(User)
 
     source_id = db.Column(db.Integer, db.ForeignKey(Source.id))
     source = db.relationship(Source)
@@ -70,24 +50,16 @@ class Bookmark(db.Model):
 
     time = db.Column(db.DateTime)
 
-    exercise_log = relationship(
-        Exercise, secondary="bookmark_exercise_mapping", order_by="Exercise.id"
-    )
-
     starred = db.Column(db.Boolean, default=False)
 
-    fit_for_study = db.Column(db.Boolean)
-
-    learned_time = db.Column(db.DateTime)
-
-    level = db.Column(db.Integer)
-
-    user_preference = db.Column(db.Integer)
+    user_meaning_id = db.Column(
+        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+    )
+    user_meaning = db.relationship(UserMeaning, backref="bookmarks")
 
     def __init__(
         self,
-        meaning: "Meaning",
-        user: "User",
+        user_meaning: "UserMeaning",
         source: Source,
         text: str,
         time: datetime,
@@ -95,126 +67,24 @@ class Bookmark(db.Model):
         token_i: int = None,
         total_tokens: int = None,
         context: BookmarkContext = None,
-        level: int = 0,
     ):
-        self.meaning = meaning
-        self.user = user
+        self.user_meaning = user_meaning
         self.source = source
-        self.time = time
         self.text = text
-        self.starred = False
-
-        self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.time = time
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
         self.context = context
-        self.level = level
-        self.fit_for_study = fit_for_study(self)
 
     def __repr__(self):
-        return "Bookmark[{3} of {4}: {0}->{1} in '{2}...']\n".format(
-            self.meaning.origin.content,
-            self.meaning.translation.content,
-            self.context.get_content()[0:10],
-            self.id,
-            self.user_id,
-        )
-
-    def is_learned(self):
-        return self.learned_time is not None
+        return f"Bookmark ({self.id}): {self.user_meaning.meaning} {self.context.get_content()[0:10]}"
 
     def get_context(self):
         if self.context:
             return self.context.get_content()
         else:
             return self.text.content
-
-    def get_scheduler(self):
-        from zeeguu.core.word_scheduling import get_scheduler
-
-        return get_scheduler(self.user)
-
-    def add_new_exercise(self, exercise):
-        self.exercise_log.append(exercise)
-
-    def translations_rendered_as_text(self):
-        return self.meaning.translation.content
-
-    def should_be_studied(self):
-        return (self.starred or self.fit_for_study) and not self.is_learned()
-
-    def content_is_not_too_long(self):
-        return len(self.get_context()) < 60
-
-    def update_fit_for_study(self, session=None):
-        """
-            Called when something happened to the bookmark,
-             that requires it's "fit for study" status to be
-              updated. Including:
-              - starred / unstarred
-              - exercise finished for the given bookmark
-              - ...
-
-        :param session:
-        :return:
-        """
-        self.fit_for_study = fit_for_study(self)
-        if session:
-            session.add(self)
-
-    def add_new_exercise_result(
-        self,
-        exercise_source: ExerciseSource,
-        exercise_outcome: ExerciseOutcome,
-        exercise_solving_speed,
-        session_id: int,
-        other_feedback="",
-        time: datetime = None,
-    ):
-        if not time:
-            time = datetime.now()
-        exercise = Exercise(
-            exercise_outcome,
-            exercise_source,
-            exercise_solving_speed,
-            time,
-            session_id,
-            other_feedback,
-        )
-
-        self.add_new_exercise(exercise)
-        db.session.add(exercise)
-
-        return exercise
-
-    def report_exercise_outcome(
-        self,
-        exercise_source: str,
-        exercise_outcome: str,
-        solving_speed,
-        session_id,
-        other_feedback,
-        db_session,
-        time: datetime = None,
-    ):
-        source = ExerciseSource.find_or_create(db_session, exercise_source)
-        outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
-
-        exercise = self.add_new_exercise_result(
-            source, outcome, solving_speed, session_id, other_feedback, time=time
-        )
-        db_session.add(exercise)
-
-        scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome, time)
-
-        db_session.commit()
-
-        # This needs to be re-thought, currently the updates are done in
-        # the BasicSRSchedule.update call.
-        # self.update_fit_for_study(db_session)
-        # self.update_learned_status(db_session)
 
     def to_json(
         self,
@@ -276,13 +146,17 @@ class Bookmark(db.Model):
     ):
         result = dict(
             id=self.id,
-            origin=self.meaning.origin.content,
-            translation=self.meaning.translation.content,
+            origin=self.user_meaning.meaning.origin.content,
+            translation=self.user_meaning.meaning.translation.content,
             source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
         )
+
+        result["from"] = self.user_meaning.meaning.origin.content
+        result["to"] = self.user_meaning.meaning.translation.content
+        result["fit_for_study"] = self.user_meaning.fit_for_study
 
         if with_context:
             context_info_dict = dict(
@@ -310,7 +184,9 @@ class Bookmark(db.Model):
         if with_context_tokenized:
             from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
 
-            tokenizer = get_tokenizer(self.meaning.origin.language, TOKENIZER_MODEL)
+            tokenizer = get_tokenizer(
+                self.user_meaning.meaning.origin.language, TOKENIZER_MODEL
+            )
             result["context_tokenized"] = tokenizer.tokenize_text(
                 self.context.get_content(),
                 flatten=False,
@@ -318,85 +194,6 @@ class Bookmark(db.Model):
                 start_sentence_i=self.context.sentence_i,
             )
 
-        if not with_exercise_info:
-            return result
-
-        try:
-            translation_word = self.meaning.translation.content
-            translation_language = self.meaning.translation.language.code
-        except AttributeError as e:
-            translation_word = ""
-            translation_language = ""
-            log(
-                f"Exception caught: for some reason there was no translation for {self.id}"
-            )
-            print(str(e))
-
-        word_info = Word.stats(
-            self.meaning.origin.content, self.meaning.origin.language.code
-        )
-
-        learned_datetime = (
-            str(self.learned_time.date()) if self.learned_time is not None else ""
-        )
-
-        created_day = "today" if self.time.date() == datetime.now().date() else ""
-
-        # Fetch the BasicSRSchedule instance associated with the current bookmark
-        from zeeguu.core.word_scheduling import ONE_DAY
-        from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
-
-        try:
-            scheduler = self.get_scheduler()
-            bookmark_scheduler = scheduler.query.filter(
-                scheduler.bookmark_id == self.id
-            ).one()
-            cooling_interval_in_days = bookmark_scheduler.cooling_interval // ONE_DAY
-            next_practice_time = bookmark_scheduler.next_practice_time
-            can_update_schedule = next_practice_time <= _get_end_of_today()
-            consecutive_correct_answers = bookmark_scheduler.consecutive_correct_answers
-            is_last_in_cycle = (
-                bookmark_scheduler.get_max_interval()
-                == bookmark_scheduler.cooling_interval
-            )
-
-            is_about_to_be_learned = bookmark_scheduler.is_about_to_be_learned()
-
-        except sqlalchemy.exc.NoResultFound:
-            cooling_interval_in_days = None
-            can_update_schedule = None
-            consecutive_correct_answers = None
-            is_last_in_cycle = None
-            is_about_to_be_learned = None
-
-        exercise_info_dict = dict(
-            to=translation_word,
-            from_lang=self.meaning.origin.language.code,
-            to_lang=translation_language,
-            url=self.text.url(),
-            origin_importance=word_info.importance,
-            learned_datetime=learned_datetime,
-            origin_rank=word_info.rank if word_info.rank != 100000 else "",
-            starred=self.starred if self.starred is not None else False,
-            article_id=self.text.article_id if self.text.article_id else "",
-            source_id=self.source_id,
-            created_day=created_day,  # human readable stuff...
-            time=datetime_to_json(self.time),
-            fit_for_study=self.fit_for_study == 1,
-            level=self.level,
-            cooling_interval=cooling_interval_in_days,
-            is_last_in_cycle=is_last_in_cycle,
-            is_about_to_be_learned=is_about_to_be_learned,
-            can_update_schedule=can_update_schedule,
-            user_preference=self.user_preference,
-            consecutive_correct_answers=consecutive_correct_answers,
-            context_in_content=self.text.in_content,
-            left_ellipsis=self.context.left_ellipsis,
-            right_ellipsis=self.context.right_ellipsis,
-        )
-
-        exercise_info_dict["from"] = self.meaning.origin.content
-        result = {**result, **exercise_info_dict}
         return result
 
     def get_context_identifier(self):
@@ -532,8 +329,10 @@ class Bookmark(db.Model):
             session, _origin, _origin_lang, _translation, _translation_lang
         )
 
+        user_meaning = UserMeaning.find_or_create(session, user, meaning)
+
         source = Source.find_by_id(source_id)
-        print("Source retrieved: ", source)
+
         # TODO: This will be temporary.
         article = None
         if source_id and not article_id:
@@ -574,8 +373,7 @@ class Bookmark(db.Model):
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                meaning,
-                user,
+                user_meaning,
                 source,
                 text,
                 now,
@@ -583,7 +381,6 @@ class Bookmark(db.Model):
                 token_i=token_i,
                 total_tokens=total_tokens,
                 context=context,
-                level=level,
             )
         except Exception as e:
             raise e
@@ -609,7 +406,12 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_all_for_context_and_user(cls, context, user):
-        return Bookmark.query.filter_by(context=context, user=user).all()
+        return (
+            Bookmark.query.join(UserMeaning)
+            .filter(UserMeaning.user_id == user.id)
+            .filter(Bookmark.context_id == context.id)
+            .all()
+        )
 
     @classmethod
     def find_all_for_user_and_article(cls, user, article):
@@ -638,11 +440,3 @@ class Bookmark(db.Model):
     @classmethod
     def find_by_meaning_and_context(cls, user, meaning, context):
         return cls.query.filter_by(user=user, meaning=meaning, context=context).one()
-
-    @classmethod
-    def exists(cls, bookmark):
-        try:
-            cls.query.filter_by(meaning_id=bookmark.meaning.id, id=bookmark.id).one()
-            return True
-        except NoResultFound:
-            return False

@@ -101,46 +101,28 @@ def reading_sessions(user_id, cohort_id, from_date: str, to_date: str):
     return result
 
 
-"""
-    Example where clause: 
-
-        b.time > '2021-04-17 15:20:09'
-        and b.time < '2021-04-17 15:22:43'
-        and b.user_id = 534
-    
-"""
-
-
 def translations_in_interval(start_time, end_time, user_id):
     query = """
         select 
-            b.id, 
-            uw.content, 
-            uwt.word as translation,
+            um.id,     
+            origin_phrase.content as word,  
+            translation_phrase.content as translation,
             t.content as context,
-            IF(bem.bookmark_id IS NULL, FALSE, TRUE) as practiced
-        
-        from bookmark as b	
-        
-        join meaning as m 
-            on b.meaning_id = m.id
+            IF(e.user_meaning_id IS NULL, FALSE, TRUE) as practiced
             
-        join phrase as uw
-           on m.origin_id = uw.id
-           
-        join phrase as uwt
-           on m.translation_id = uwt.id
-           
-        join text as t
-        	on b.text_id = t.id
+        from bookmark as b	
+            
+            join user_meaning um on um.id = b.user_meaning_id
+            join meaning as m on um.meaning_id = m.id
+            join phrase as origin_phrase on m.origin_id = origin_phrase.id
+            join phrase as translation_phrase on m.translation_id = translation_phrase.id
+            join text as t on b.text_id = t.id
+            left join exercise e on um.id = e.user_meaning_id
         
-        left join bookmark_exercise_mapping as bem
-           on bem.bookmark_id = b.id
-
         where 
             b.time > :start_time
             and b.time <= :end_time
-            and b.user_id = :user_id
+            and um.user_id = :user_id
     """
 
     rows = db.session.execute(

@@ -1,7 +1,6 @@
 import random
 
-
-from zeeguu.core.bookmark_quality import bad_quality_bookmark
+from zeeguu.core.bookmark_quality import bad_quality_meaning
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -10,7 +9,6 @@ from zeeguu.core.test.rules.exercise_rule import ExerciseRule
 from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
-from zeeguu.core.test.rules.text_rule import TextRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.word_scheduling import (
     BasicSRSchedule,
@@ -47,13 +45,13 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         self._helper_create_exercise(random_bookmark)
 
-        bookmarks = BasicSRSchedule.scheduled_bookmarks_due_today(self.user)
+        bookmarks = BasicSRSchedule.scheduled_meanings_due_today(self.user)
 
         assert bookmarks is not None
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        assert random_bookmark.meaning.translation is not None
+        assert random_bookmark.user_meaning.meaning.translation is not None
 
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -61,13 +59,6 @@ class BookmarkTest(ModelTestMixIn):
         # each bookmark belongs to a random text / article so the
         # combo of user/article will always result in one bookmark
         assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
-
-    def test_text_is_not_too_long(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        random_text_short = TextRule(length=10).text
-        random_bookmark.text = random_text_short
-
-        assert random_bookmark.content_is_not_too_long()
 
     def test_add_exercise_outcome(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -99,7 +90,7 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmarks[2].meaning.origin.content = self.faker.word()[:2]
 
         for b in random_bookmarks:
-            assert bad_quality_bookmark(b)
+            assert bad_quality_meaning(b)
 
     def test_fit_for_study(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 2)]
@@ -167,11 +158,6 @@ class BookmarkTest(ModelTestMixIn):
         )
 
         assert bookmark_to_check == bookmark_should_be
-
-    def test_exists(self):
-        random_bookmark = self.user.all_bookmarks()[0]
-
-        assert Bookmark.exists(random_bookmark)
 
     def test_latest_exercise_outcome(self):
         random_bookmark = self.user.all_bookmarks()[0]

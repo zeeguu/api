@@ -30,7 +30,7 @@ class FourLevelsPerWord(BasicSRSchedule):
         super(FourLevelsPerWord, self).__init__(bookmark, bookmark_id)
 
     def is_about_to_be_learned(self):
-        level_before_this_exercises = self.bookmark.level
+        level_before_this_exercises = self.user_meaning.level
         return (
             self.cooling_interval == self.MAX_INTERVAL
             and level_before_this_exercises == MAX_LEVEL
@@ -41,21 +41,21 @@ class FourLevelsPerWord(BasicSRSchedule):
         if not exercise_time:
             exercise_time = datetime.now()
 
-        level_before_this_exercises = self.bookmark.level
+        level_before_this_exercises = self.user_meaning.level
 
         if correctness:
             # Update level for bookmark or mark as learned
             self.consecutive_correct_answers += 1
             if self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
-                    self.bookmark.level = level_before_this_exercises + 1
-                    db_session.add(self.bookmark)
+                    self.user_meaning.level = level_before_this_exercises + 1
+                    db_session.add(self.user_meaning)
 
                     # new exercise type can be done in the same day, thus cooling interval is 0
                     new_cooling_interval = 0
 
                 else:
-                    self.set_bookmark_as_learned(db_session)
+                    self.set_meaning_as_learned(db_session)
                     # we simply return because the self object will have been deleted inside of the above call
                     return
             else:

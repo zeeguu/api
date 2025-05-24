@@ -5,6 +5,7 @@ from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
 from zeeguu.core.model import db
+from zeeguu.core.model.user_meaning import UserMeaning
 
 
 class Exercise(db.Model):
@@ -26,6 +27,14 @@ class Exercise(db.Model):
         db.Integer, db.ForeignKey(UserExerciseSession.id), nullable=True
     )
     session = db.relationship(UserExerciseSession)
+
+    user_meaning_id = db.Column(
+        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+    )
+    user_meaning = db.relationship(
+        UserMeaning,
+        backref=db.backref("exercise_log", order_by="Exercise.id"),
+    )
 
     def __init__(self, outcome, source, solving_speed, time, session_id, feedback=""):
         self.outcome = outcome

@@ -1,10 +1,11 @@
-from zeeguu.core.model import Bookmark, Phrase, ExerciseOutcome, UserPreference
-
-from zeeguu.core.model import db
-
 from datetime import datetime, timedelta
 
+from wordstats import Word
+
+from zeeguu.core.model import Phrase, ExerciseOutcome, UserPreference
+from zeeguu.core.model import db
 from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.user_meaning import UserMeaning
 
 ONE_DAY = 60 * 24
 
@@ -17,25 +18,27 @@ class BasicSRSchedule(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    bookmark = db.relationship(Bookmark)
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    user_meaning = db.relationship(UserMeaning, backref="basic_sr_schedule")
+    user_meaning_id = db.Column(
+        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+    )
 
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
 
-    def __init__(self, bookmark=None, bookmark_id=None):
-        if bookmark_id:
-            self.bookmark_id = bookmark_id
+    def __init__(self, user_meaning=None, user_meaning_id=None):
+        if user_meaning_id:
+            self.user_meaning_id = user_meaning_id
         else:
-            self.bookmark = bookmark
+            self.user_meaning = user_meaning
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
 
-    def set_bookmark_as_learned(self, db_session):
-        self.bookmark.learned_time = datetime.now()
-        db_session.add(self.bookmark)
+    def set_meaning_as_learned(self, db_session):
+        self.user_meaning.learned_time = datetime.now()
+        db_session.add(self.user_meaning)
         db_session.delete(self)
         db_session.commit()
 
@@ -57,55 +60,57 @@ class BasicSRSchedule(db.Model):
         raise NotImplementedError
 
     @classmethod
-    def clear_bookmark_schedule(cls, db_session, bookmark):
-        schedule = cls.find_by_bookmark(bookmark)
+    def clear_meaning_schedule(cls, db_session, user_meaning):
+        schedule = cls.find_by_user_meaning(user_meaning)
         if schedule is not None:
             db_session.delete(schedule)
             db_session.commit()
-
-    @classmethod
-    def find_by_bookmark(cls, bookmark):
-        try:
-            result = cls.query.filter(cls.bookmark_id == bookmark.id).one()
-            return result
-        except Exception as e:
-            return None
 
     @classmethod
     def find_or_create(cls, db_session, bookmark):
         raise NotImplementedError
 
     @classmethod
-    def find(cls, bookmark):
+    def find_by_user_meaning(cls, user_meaning):
+        try:
+            result = cls.query.filter(cls.user_meaning_id == user_meaning.id).one()
+            return result
+        except Exception as e:
+            return None
 
-        results = cls.query.filter_by(bookmark=bookmark).all()
+    # TODO: There's no reason for this duplicating the behavior above.
+    @classmethod
+    def find(cls, user_meaning):
+
+        results = cls.query.filter_by(user_meaning=user_meaning).all()
 
         if len(results) == 1:
             return results[0]
 
         if len(results) > 1:
             raise Exception(
-                f"More than one Bookmark schedule entry found for {bookmark.id}"
+                f"More than one Bookmark schedule entry found for {user_meaning.id}"
             )
         return None
 
     @classmethod
-    def update(cls, db_session, bookmark, outcome, time: datetime = None):
+    def update(cls, db_session, user_meaning, outcome, time: datetime = None):
         if not time:
             time = datetime.now()
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
             from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
-            schedule = cls.find(bookmark)
+            schedule = cls.find(user_meaning)
             if schedule:
                 db_session.delete(schedule)
 
-            bookmark.fit_for_study = 0
-            ## Since the user has explicitly given feedback, this should
+            user_meaning.fit_for_study = 0
+
+            # Since the user has explicitly given feedback, this should
             # be recorded as a user preference.
-            bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-            db_session.add(bookmark)
+            user_meaning.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+            db_session.add(user_meaning)
 
             db_session.commit()
             return
@@ -113,11 +118,11 @@ class BasicSRSchedule(db.Model):
         correctness = ExerciseOutcome.is_correct(outcome)
 
         # Do we have more words scheduled than the user prefers?
-        more_scheduled_words_than_user_prefers = cls.scheduled_bookmarks_count(
-            bookmark.user
-        ) >= UserPreference.get_max_words_to_schedule(bookmark.user)
+        more_scheduled_words_than_user_prefers = cls.scheduled_meanings_count(
+            user_meaning.user
+        ) >= UserPreference.get_max_words_to_schedule(user_meaning.user)
 
-        schedule = cls.find(bookmark)
+        schedule = cls.find(user_meaning)
 
         if schedule and schedule.there_was_no_need_for_practice_on_date(time):
             # nothing to update in this case
@@ -129,19 +134,19 @@ class BasicSRSchedule(db.Model):
 
         # pipeline is not full, and the word was not scheduled before
         if not schedule and not more_scheduled_words_than_user_prefers:
-            schedule = cls.find_or_create(db_session, bookmark)
+            schedule = cls.find_or_create(db_session, user_meaning)
 
         schedule.update_schedule(db_session, correctness, time)
         db_session.commit()
 
     @classmethod
-    def bookmarks_not_scheduled(cls, user, limit):
-        unscheduled_bookmarks = (
-            Bookmark.query.filter(Bookmark.user_id == user.id)
+    def user_meanings_not_scheduled(cls, user, limit):
+        unscheduled_meanings = (
+            UserMeaning.query.filter(UserMeaning.user_id == user.id)
             .outerjoin(BasicSRSchedule)
-            .filter(Bookmark.learned_time == None)
-            .filter(Bookmark.fit_for_study == 1)
-            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .filter(UserMeaning.learned_time == None)
+            .filter(UserMeaning.fit_for_study == 1)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == user.learned_language_id)
             .filter(BasicSRSchedule.cooling_interval == None)
@@ -150,12 +155,12 @@ class BasicSRSchedule(db.Model):
             )  # By using the negative for rank, we ensure NULL is last.
         )
         if limit is None:
-            return unscheduled_bookmarks.all()
+            return unscheduled_meanings.all()
         else:
-            return unscheduled_bookmarks.limit(limit).all()
+            return unscheduled_meanings.limit(limit).all()
 
     @classmethod
-    def bookmarks_to_study(cls, user):
+    def user_meanings_to_study(cls, user):
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.
@@ -172,14 +177,14 @@ class BasicSRSchedule(db.Model):
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
-        scheduled_candidates = cls.scheduled_bookmarks_due_today(
+        scheduled_candidates = cls.scheduled_meanings_due_today(
             user, max_words_to_schedule
         )
 
-        scheduled_for_this_user = cls.scheduled_bookmarks_count(user)
+        scheduled_for_this_user = cls.scheduled_meanings_count(user)
         if scheduled_for_this_user < max_words_to_schedule:
             count_needed = max_words_to_schedule - scheduled_for_this_user
-            unscheduled_bookmarks = cls.bookmarks_not_scheduled(user, count_needed)
+            unscheduled_bookmarks = cls.user_meanings_not_scheduled(user, count_needed)
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
 
@@ -189,21 +194,21 @@ class BasicSRSchedule(db.Model):
         return sorted_candidates
 
     @classmethod
-    def _scheduled_bookmarks_query(cls, user, language=None):
+    def _scheduled_meanings_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
         query = (
-            Bookmark.query.join(cls)
-            .filter(Bookmark.user_id == user.id)
-            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            UserMeaning.query.join(cls)
+            .filter(UserMeaning.user_id == user.id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == _lang_to_look_at)
         )
         return query
 
     @classmethod
-    def scheduled_bookmarks_due_today(cls, user, limit=None):
+    def scheduled_meanings_due_today(cls, user, limit=None):
 
-        query = cls._scheduled_bookmarks_query(user)
+        query = cls._scheduled_meanings_query(user)
         query = query.filter(cls.next_practice_time < _get_end_of_today())
 
         # The scheduled bookmarks are sorted by the most common in the language and
@@ -216,28 +221,26 @@ class BasicSRSchedule(db.Model):
         if limit is not None:
             query = query.limit(limit)
 
-        bookmarks = query.all()
-
-        return _remove_duplicated_bookmarks(bookmarks)
+        return query.all()
 
     @classmethod
-    def scheduled_bookmarks(cls, user, language=None, required_count=None):
-        query = cls._scheduled_bookmarks_query(user, language)
+    def scheduled_meanings(cls, user, language=None, required_count=None):
+        query = cls._scheduled_meanings_query(user, language)
         if required_count is not None:
             query = query.limit(required_count)
         return query.all()
 
     @classmethod
-    def scheduled_bookmarks_count(cls, user) -> int:
-        query = cls._scheduled_bookmarks_query(user)
+    def scheduled_meanings_count(cls, user) -> int:
+        query = cls._scheduled_meanings_query(user)
         return query.count()
 
     @classmethod
     def schedule_for_user(cls, user_id):
         schedule = (
-            BasicSRSchedule.query.join(Bookmark)
-            .filter(Bookmark.user_id == user_id)
-            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            BasicSRSchedule.query.join(UserMeaning)
+            .filter(UserMeaning.user_id == user_id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .all()
         )
@@ -249,40 +252,28 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                each.bookmark.meaning.origin.content
+                each.user_meaning.meaning.origin.content
                 + " "
                 + str(each.next_practice_time)
                 + " \n"
             )
 
 
-def _remove_duplicated_bookmarks(bookmark_list):
-    bookmark_set = set()
-    # Remove possible duplicated words from the list
-    # - The user might have multiple translations of the same word in different
-    # contexts that are saved as different bookmarks
-    # - In a session, a word should only show up once.
-    # TR: With the Topics a util function will be introduced that does this.
-    # We also need to ensure that we use the lower. Otherwise they might be duplicated
-    # due to different casing.
-    candidates_no_duplicates = []
-    for bookmark in bookmark_list:
-        b_word = bookmark.meaning.origin.content.lower()
-        if not (b_word in bookmark_set):
-            candidates_no_duplicates.append(bookmark)
-            bookmark_set.add(b_word)
-    return candidates_no_duplicates
-
-
-def priority_by_rank(bookmark):
+def priority_by_rank(user_meaning):
     # If this is updated remember to update the order_by in
     # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
-    bookmark_info = bookmark.as_dictionary(with_exercise_info=True)
-    cooling_interval = bookmark_info["cooling_interval"]
-    cooling_interval = cooling_interval if cooling_interval is not None else -1
-    word_rank = bookmark_info["origin_rank"]
-    if word_rank == "":
-        word_rank = Phrase.IMPOSSIBLE_RANK
+
+    word_info = Word.stats(
+        user_meaning.meaning.origin.content,
+        user_meaning.meaning.origin.language.code,
+    )
+
+    cooling_interval = (
+        user_meaning.basic_sr_schedule[0].cooling_interval
+        if user_meaning.basic_sr_schedule[0].cooling_interval is not None
+        else -1
+    )
+    word_rank = word_info.rank if word_info.rank else Phrase.IMPOSSIBLE_RANK
     return word_rank, -cooling_interval
 
 

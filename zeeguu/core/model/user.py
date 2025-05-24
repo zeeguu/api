@@ -5,18 +5,16 @@ import random
 import re
 
 import sqlalchemy.orm
-import zeeguu.core
-from sqlalchemy import Column, ForeignKey, Integer, Boolean, func
+from sqlalchemy import Column, Boolean, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
+import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from zeeguu.core.model.language import Language
-
-from zeeguu.logging import log
-from zeeguu.core.util import password_hash
-
 from zeeguu.core.model import db
+from zeeguu.core.model.language import Language
+from zeeguu.core.util import password_hash
+from zeeguu.logging import log
 from zeeguu.logging import warning
 
 # This mapping reflects splitting
@@ -234,7 +232,9 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        words_not_started_learning = BasicSRSchedule.bookmarks_not_scheduled(self, None)
+        words_not_started_learning = BasicSRSchedule.user_meanings_not_scheduled(
+            self, None
+        )
         return words_not_started_learning
 
     def date_of_last_bookmark(self):
@@ -392,7 +392,7 @@ class User(db.Model):
         before_date=None,
         language_id=None,
     ):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
 
         if after_date is None:
             after_date = datetime.datetime(1970, 1, 1)
@@ -400,8 +400,10 @@ class User(db.Model):
             before_date = datetime.date.today() + datetime.timedelta(days=1)
         query = zeeguu.core.model.db.session.query(Bookmark)
 
-        query = query.join(Meaning, Bookmark.meaning_id == Meaning.id).join(
-            Phrase, Meaning.origin_id == Phrase.id
+        query = (
+            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
         )
 
         if language_id == None:
@@ -409,7 +411,7 @@ class User(db.Model):
         else:
             query = query.filter(Phrase.language_id == language_id)
 
-        query = query.filter(Bookmark.user_id == self.id)
+        query = query.filter(UserMeaning.user_id == self.id)
         query = query.filter(Bookmark.time >= after_date)
         query = query.filter(Bookmark.time <= before_date)
         # Tempory, at some point all bookmarks should keep source
@@ -705,7 +707,7 @@ class User(db.Model):
             Exercise.query.join(bookmark_exercise_mapping)
             .join(Bookmark)
             .join(User)
-            .join(Phrase, Phrase.id == Bookmark.meaning.origin_id)
+            .join(Phrase, Phrase.id == bookmark.user_meaning.meaning.origin_id)
             .filter(User.id == self.id)
             .filter(Exercise.time >= current_date)
             .filter(Bookmark.user_id == self.id)

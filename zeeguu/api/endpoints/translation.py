@@ -71,7 +71,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
-        best_guess = bookmark.meaning.translation.content
+        best_guess = bookmark.user_meaning.meaning.translation.content
         likelihood = 1
         source = "Own past translation"
         print(f"about to return {bookmark}")
@@ -213,9 +213,9 @@ def update_translation(bookmark_id):
     meaning = Meaning.find_or_create(
         db_session,
         word_str,
-        bookmark.meaning.origin.language.code,
+        bookmark.user_meaning.meaning.origin.language.code,
         translation_str,
-        bookmark.meaning.translation.language.code,
+        bookmark.user_meaning.meaning.translation.language.code,
     )
 
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
@@ -227,7 +227,7 @@ def update_translation(bookmark_id):
     text = Text.find_or_create(
         db_session,
         context_str,
-        bookmark.meaning.origin.language,
+        bookmark.user_meaning.meaning.origin.language,
         bookmark.text.url,
         bookmark.text.article if is_same_text else None,
         prev_text.paragraph_i if is_same_text else None,
@@ -243,7 +243,7 @@ def update_translation(bookmark_id):
         db_session,
         context_str,
         context_type,
-        bookmark.meaning.origin.language,
+        bookmark.user_meaning.meaning.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
         prev_context.left_ellipsis if is_same_context else None,
@@ -257,13 +257,15 @@ def update_translation(bookmark_id):
     if (
         not is_same_text
         or not is_same_context
-        or bookmark.meaning.origin.content != word_str
+        or bookmark.user_meaning.meaning.origin.content != word_str
     ):
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
-        tokenizer = get_tokenizer(bookmark.meaning.origin.language, TOKENIZER_MODEL)
+        tokenizer = get_tokenizer(
+            bookmark.user_meaning.meaning.origin.language, TOKENIZER_MODEL
+        )
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
         tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
