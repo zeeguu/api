@@ -2,13 +2,13 @@ from datetime import datetime
 
 import sqlalchemy
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import relationship
 from wordstats import Word
 
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 from zeeguu.core.bookmark_quality.negative_qualities import bad_quality_bookmark
 from zeeguu.core.model import db, User, Meaning
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.logging import log
 
 
@@ -31,10 +31,7 @@ class UserMeaning(db.Model):
 
     level = db.Column(db.Integer)
 
-    # NOTE: There's a backref exercises
-    # exercise_log = relationship(
-    #     Exercise, secondary="bookmark_exercise_mapping", order_by="Exercise.id"
-    # )
+    bookmarks = relationship("Bookmark", back_populates="user_meaning")
 
     def __init__(
         self,
@@ -183,6 +180,7 @@ class UserMeaning(db.Model):
             exercise_solving_speed,
             time,
             session_id,
+            self,
             other_feedback,
         )
 
@@ -234,3 +232,11 @@ class UserMeaning(db.Model):
             session.commit()
 
         return user_meaning
+
+    @classmethod
+    def exists(cls, user, meaning):
+        try:
+            cls.query.filter_by(user=user, meaning=meaning).one()
+            return True
+        except NoResultFound:
+            return False

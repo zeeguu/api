@@ -2,6 +2,7 @@ from datetime import datetime
 
 import sqlalchemy
 from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import db
@@ -53,9 +54,9 @@ class Bookmark(db.Model):
     starred = db.Column(db.Boolean, default=False)
 
     user_meaning_id = db.Column(
-        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+        db.Integer, db.ForeignKey("user_meaning.id"), nullable=False
     )
-    user_meaning = db.relationship(UserMeaning, backref="bookmarks")
+    user_meaning = db.relationship(UserMeaning, back_populates="bookmarks")
 
     def __init__(
         self,
@@ -157,6 +158,7 @@ class Bookmark(db.Model):
         result["from"] = self.user_meaning.meaning.origin.content
         result["to"] = self.user_meaning.meaning.translation.content
         result["fit_for_study"] = self.user_meaning.fit_for_study
+        result["url"] = self.text.url()
 
         if with_context:
             context_info_dict = dict(
@@ -195,6 +197,28 @@ class Bookmark(db.Model):
             )
 
         return result
+
+    def add_new_exercise(self, exercise):
+        # delegates to the usr_meaning for backwards compat with tests
+        self.user_meaning.add_new_exercise(exercise)
+
+    def add_new_exercise_result(
+        self,
+        exercise_source,
+        exercise_outcome,
+        exercise_solving_speed,
+        session_id: int,
+        other_feedback="",
+        time: datetime = None,
+    ):
+        self.user_meaning.add_new_exercise_result(
+            exercise_source,
+            exercise_outcome,
+            exercise_solving_speed,
+            session_id,
+            other_feedback,
+            time,
+        )
 
     def get_context_identifier(self):
         from zeeguu.core.model.bookmark_context import ContextIdentifier
@@ -369,7 +393,7 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_meaning_and_context(user, meaning, context)
+            bookmark = Bookmark.find_by_usermeaning_and_context(user_meaning, context)
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
@@ -398,7 +422,11 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_by_specific_user(cls, user):
-        return cls.query.filter_by(user=user).all()
+        return (
+            cls.query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .filter(UserMeaning.user_id == user.id)
+            .all()
+        )
 
     @classmethod
     def find_all(cls):
@@ -417,8 +445,9 @@ class Bookmark(db.Model):
     def find_all_for_user_and_article(cls, user, article):
         return (
             cls.query.join(Source)
+            .join(UserMeaning)
+            .filter(UserMeaning.user_id == user.id)
             .filter(Source.id == article.source_id)
-            .filter(Bookmark.user == user)
             .all()
         )
 
@@ -438,5 +467,15 @@ class Bookmark(db.Model):
         return cls.query.filter_by(id=b_id).one()
 
     @classmethod
-    def find_by_meaning_and_context(cls, user, meaning, context):
-        return cls.query.filter_by(user=user, meaning=meaning, context=context).one()
+    def find_by_usermeaning_and_context(cls, user_meaning, context):
+        return cls.query.filter_by(user_meaning=user_meaning, context=context).one()
+
+    @classmethod
+    def exists(cls, source, text, context, user_meaning):
+        try:
+            cls.query.filter_by(
+                source=source, text=text, context=context, user_meaning=user_meaning
+            ).one()
+            return True
+        except NoResultFound:
+            return False

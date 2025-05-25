@@ -61,10 +61,13 @@ class VideoTitleContext(db.Model):
     def get_all_user_bookmarks_for_video_title(
         cls, user_id: int, video_id: int, as_json_serializable: bool = True
     ):
+        from zeeguu.core.model import UserMeaning
+
         result = (
             Bookmark.query.join(VideoTitleContext)
+            .join(UserMeaning)
             .filter(VideoTitleContext.video_id == video_id)
-            .filter(Bookmark.user_id == user_id)
+            .filter(UserMeaning.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

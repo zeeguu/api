@@ -431,48 +431,55 @@ class User(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
 
         query = zeeguu.core.model.db.session.query(Bookmark)
-        return (query.filter_by(user_id=self.id).order_by(Bookmark.time.desc())).all()
+        from zeeguu.core.model import UserMeaning
+
+        query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+        return (
+            query.filter(UserMeaning.user_id == self.id).order_by(Bookmark.time.desc())
+        ).all()
 
     def starred_bookmarks(self, count):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         return (
             query.join(Meaning, Bookmark.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
+            .join(UserMeaning)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(Bookmark.user_id == self.id)
-            .filter(Bookmark.starred == True)
+            .filter(UserMeaning.user_id == self.id)
+            .filter(Bookmark.starred is True)
             .order_by(Bookmark.time.desc())
             .limit(count)
         )
 
     def learned_bookmarks(self, count=50):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
             query.join(Meaning, Bookmark.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(Bookmark.user_id == self.id)
-            .filter(Bookmark.learned_time != None)
-            .order_by(Bookmark.learned_time.desc())
+            .filter(UserMeaning.user_id == self.id)
+            .filter(UserMeaning.learned_time is not None)
+            .order_by(UserMeaning.learned_time.desc())
             .limit(count)
         )
 
         return learned
 
     def total_learned_bookmarks(self):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
-            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            query.join(UserMeaning, Bookmark.usr_meaning_id == UserMeaning.id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(Bookmark.user_id == self.id)
-            .filter(Bookmark.learned_time != None)
+            .filter(UserMeaning.user_id == self.id)
+            .filter(UserMeaning.learned_time is not None)
             .all()
         )
         return len(learned)
@@ -615,15 +622,16 @@ class User(db.Model):
         json=True,
     ):
 
-        from zeeguu.core.model import Bookmark, Article
+        from zeeguu.core.model import Bookmark, Article, UserMeaning
 
         json_bookmarks = []
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
             query.join(Article, Bookmark.source_id == Article.source_id)
+            .join(UserMeaning)
             .filter(Article.id == article_id)
-            .filter(Bookmark.user_id == self.id)
+            .filter(UserMeaning.user_id == self.id)
             .order_by(Bookmark.id.asc())
             .all()
         )
@@ -696,25 +704,6 @@ class User(db.Model):
 
     def bookmark_count(self):
         return len(self.all_bookmarks())
-
-    def total_exercises_completed_today(self):
-        from zeeguu.core.model import Exercise
-        from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
-        from zeeguu.core.model import Phrase
-
-        current_date = datetime.datetime.now().date()
-        total_exercises = (
-            Exercise.query.join(bookmark_exercise_mapping)
-            .join(Bookmark)
-            .join(User)
-            .join(Phrase, Phrase.id == bookmark.user_meaning.meaning.origin_id)
-            .filter(User.id == self.id)
-            .filter(Exercise.time >= current_date)
-            .filter(Bookmark.user_id == self.id)
-            .filter(Phrase.language_id == self.learned_language_id)
-            .count()
-        )
-        return total_exercises
 
     def word_count(self):
         return len(self.user_words())

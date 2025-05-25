@@ -16,9 +16,13 @@ class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "basic_sr_schedule"
 
+    __mapper_args__ = {
+        "polymorphic_identity": "basic_sr_schedule",
+    }
+
     id = db.Column(db.Integer, primary_key=True)
 
-    user_meaning = db.relationship(UserMeaning, backref="basic_sr_schedule")
+    user_meaning = db.relationship(UserMeaning)
     user_meaning_id = db.Column(
         db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
     )

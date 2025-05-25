@@ -1,4 +1,5 @@
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import db
 
@@ -55,6 +56,9 @@ class Meaning(db.Model):
         self.origin = origin
         self.translation = translation
 
+    def __repr__(self):
+        return f"Meaning(origin={self.origin}, translation={self.translation})"
+
     @classmethod
     def find_or_create(
         cls,
@@ -83,3 +87,11 @@ class Meaning(db.Model):
             session.commit()
 
         return meaning
+
+    @classmethod
+    def exists(cls, origin, translation):
+        try:
+            cls.query.filter_by(origin=origin, translation=translation).one()
+            return True
+        except NoResultFound:
+            return False

@@ -37,7 +37,10 @@ class Phrase(db.Model):
             self.rank = None
 
     def __repr__(self):
-        return f"<@UserWord {self.content} {self.language_id} {self.rank}>"
+        return f"<@Phrase {self.content} {self.language_id} {self.rank}>"
+
+    def __str__(self):
+        return f"<@Phrase {self.content} {self.language_id} {self.rank}>"
 
     def __eq__(self, other):
         return self.content == other.content and self.language == other.language

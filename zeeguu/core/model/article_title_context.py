@@ -63,10 +63,13 @@ class ArticleTitleContext(db.Model):
     def get_all_user_bookmarks_for_article_title(
         cls, user_id: int, article_id: int, as_json_serializable: bool = True
     ):
+        from zeeguu.core.model.bookmark import UserMeaning
+
         result = (
             Bookmark.query.join(ArticleTitleContext)
+            .join(UserMeaning)
             .filter(ArticleTitleContext.article_id == article_id)
-            .filter(Bookmark.user_id == user_id)
+            .filter(UserMeaning.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

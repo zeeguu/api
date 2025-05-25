@@ -16,7 +16,7 @@ from zeeguu.api.utils.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning
+from zeeguu.core.model import Bookmark, User, Meaning, UserMeaning
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.bookmark_context import ContextIdentifier
@@ -250,7 +250,10 @@ def update_translation(bookmark_id):
         prev_context.right_ellipsis if is_same_context else None,
     )
 
-    bookmark.meaning = meaning
+    user = User.find_by_id(flask.g.user_id)
+    user_meaning = UserMeaning.find_or_create(db_session, user, meaning)
+
+    bookmark.user_meaning = user_meaning
     bookmark.text = text
     bookmark.context = context
 
@@ -290,7 +293,6 @@ def update_translation(bookmark_id):
                 ContextType.USER_EDITED_TEXT
             )
 
-    bookmark.meaning = meaning
     db_session.add(bookmark)
 
     updated_bookmark = bookmark.as_dictionary(

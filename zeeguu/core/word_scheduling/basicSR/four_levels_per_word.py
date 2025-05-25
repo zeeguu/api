@@ -26,8 +26,8 @@ class FourLevelsPerWord(BasicSRSchedule):
     # If at 0, we don't decrease it further.
     DECREASE_COOLING_INTERVAL_ON_FAIL[0] = 0
 
-    def __init__(self, bookmark=None, bookmark_id=None):
-        super(FourLevelsPerWord, self).__init__(bookmark, bookmark_id)
+    def __init__(self, user_meaning=None, user_meaning_id=None):
+        super(FourLevelsPerWord, self).__init__(user_meaning, user_meaning_id)
 
     def is_about_to_be_learned(self):
         level_before_this_exercises = self.user_meaning.level
@@ -44,7 +44,7 @@ class FourLevelsPerWord(BasicSRSchedule):
         level_before_this_exercises = self.user_meaning.level
 
         if correctness:
-            # Update level for bookmark or mark as learned
+            # Update level for user_meaning or mark as learned
             self.consecutive_correct_answers += 1
             if self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
@@ -92,14 +92,14 @@ class FourLevelsPerWord(BasicSRSchedule):
         return cls.NEXT_COOLING_INTERVAL_ON_SUCCESS
 
     @classmethod
-    def find_or_create(cls, db_session, bookmark):
+    def find_or_create(cls, db_session, user_meaning):
 
-        schedule = super(FourLevelsPerWord, cls).find(bookmark)
+        schedule = super(FourLevelsPerWord, cls).find(user_meaning)
 
         if not schedule:
-            schedule = cls(bookmark)
-            bookmark.level = 1
-            db_session.add_all([schedule, bookmark])
+            schedule = cls(user_meaning)
+            user_meaning.level = 1
+            db_session.add_all([schedule, user_meaning])
             db_session.commit()
 
         return schedule

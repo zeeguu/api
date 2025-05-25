@@ -36,13 +36,23 @@ class Exercise(db.Model):
         backref=db.backref("exercise_log", order_by="Exercise.id"),
     )
 
-    def __init__(self, outcome, source, solving_speed, time, session_id, feedback=""):
+    def __init__(
+        self,
+        outcome,
+        source,
+        solving_speed,
+        time,
+        session_id,
+        user_meaning,
+        feedback="",
+    ):
         self.outcome = outcome
         self.source = source
         self.solving_speed = solving_speed
         self.time = time
         self.feedback = feedback
         self.session_id = session_id
+        self.user_meaning = user_meaning
 
     def short_string_summary(self):
         return str(self.source.id) + self.outcome.outcome[0]
@@ -63,35 +73,14 @@ class Exercise(db.Model):
 
         return: list of exercises sorted by time in ascending order
         """
-        from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
+        from zeeguu.core.model.bookmark import UserMeaning
 
         query = cls.query
         if user_id is not None:
-            query = (
-                query.join(bookmark_exercise_mapping)
-                .join(Bookmark)
-                .filter(Bookmark.user_id == user_id)
-            )
+            query = query.join(UserMeaning).filter(UserMeaning.user_id == user_id)
         query = query.order_by("time")
 
         return query.all()
-
-    def get_user_id(self):
-        """
-        Finds related user_id corresponding to the exercise
-
-        returns: user_id or None when none is found
-        """
-        from zeeguu.core.model.bookmark import Bookmark
-        import sqlalchemy
-
-        query = Bookmark.query.filter(Bookmark.exercise_log.any(id=self.id))
-
-        try:
-            corresponding_bookmark = query.one()
-            return corresponding_bookmark.user_id
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
 
     def get_bookmark(self):
         from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping

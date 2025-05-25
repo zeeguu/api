@@ -6,9 +6,11 @@ from zeeguu.core.bookmark_quality import quality_meaning, bad_quality_meaning
 from zeeguu.core.model import Meaning
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
+from zeeguu.core.test.rules.meaning_rule import MeaningRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.phrase import Phrase
+from zeeguu.core.test.rules.user_meaning_rule import UserMeaningRule
 
 
 class BookmarkRule(BaseRule):
@@ -25,7 +27,7 @@ class BookmarkRule(BaseRule):
 
         self.save(self.bookmark)
 
-    def _create_model_object(self, user, force_quality=True, **kwargs):
+    def _create_model_object(self, user, force_quality=False, **kwargs):
         """
         Creates a Bookmark object with random data.
 
@@ -72,18 +74,19 @@ class BookmarkRule(BaseRule):
 
             fake_bookmark_c = BookmarkContextRule(source_article.get_content()).context
 
-            random_meaning = Meaning(random_origin, random_translation)
+            random_meaning = MeaningRule(random_origin, random_translation).meaning
+
+            user_meaning = UserMeaningRule(user, random_meaning).user_meaning
 
             bookmark = Bookmark(
-                random_meaning,
-                user,
+                user_meaning,
                 source_article,
                 random_text,
                 random_date,
                 context=fake_bookmark_c,
             )
 
-            if force_quality and bad_quality_meaning(bookmark):
+            if force_quality and bad_quality_meaning(user_meaning):
                 print("random bookmark was of low quality. retrying...")
                 bookmark = False
 
@@ -98,7 +101,7 @@ class BookmarkRule(BaseRule):
 
     @staticmethod
     def _exists_in_db(obj):
-        return Bookmark.exists(obj)
+        return Bookmark.exists(obj.source, obj.text, obj.context, obj.user_meaning)
 
     @staticmethod
     def __get_random_word_from_sentence(sentence):

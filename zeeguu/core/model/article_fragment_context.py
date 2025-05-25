@@ -59,12 +59,13 @@ class ArticleFragmentContext(db.Model):
     def get_all_user_bookmarks_for_article_fragment(
         cls, user_id: int, article_fragment_id: int, as_json_serializable: bool = True
     ):
-        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark, UserMeaning
 
         result = (
             Bookmark.query.join(cls)
+            .join(UserMeaning)
             .filter(cls.article_fragment_id == article_fragment_id)
-            .filter(Bookmark.user_id == user_id)
+            .filter(UserMeaning.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

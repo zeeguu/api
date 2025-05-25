@@ -211,15 +211,15 @@ class DataExtractor:
 
     def get_bookmark_df(self):
         print("Getting Bookmarks...")
-        query = f"""SELECT b.*, l.name Language, MAX(bem.exercise_id) as last_exercise, COUNT(bem.exercise_id) total_exercises
-                    FROM bookmark b
-                    LEFT JOIN 
-                        bookmark_exercise_mapping bem on b.id = bem.bookmark_id
-                    INNER JOIN meaning m on b.meaning_id = m.id
-                    INNER JOIN phrase p ON m.origin_id = p.id
-                    INNER JOIN language l ON p.language_id = l.id
-                    WHERE DATEDIFF(CURDATE(), b.time) <= {self.DAYS_FOR_REPORT}
-                    GROUP by b.id;
+        query = f"""SELECT um.*, l.name Language, MAX(e.id) as last_exercise, COUNT(e.id) total_exercises
+                    FROM user_meaning um
+                        JOIN exercise e on um.id = e.user_meaning_id
+                        JOIN meaning m on um.meaning_id = m.id
+                        JOIN phrase p ON m.origin_id = p.id
+                        JOIN language l ON p.language_id = l.id
+                        JOIN bookmark b ON b.user_meaning_id = um.id
+                    GROUP by um.id
+                    HAVING DATEDIFF(CURDATE(), MIN(b.time)) <= {self.DAYS_FOR_REPORT};
                 """
         bookmarks = pd.read_sql(query, con=self.db_connection)
         bookmarks["Has Exercised"] = bookmarks.last_exercise.apply(

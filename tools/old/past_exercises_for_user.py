@@ -56,7 +56,7 @@ def past_exercises_for(user_id):
                 f"{ex.time.day}/{ex.time.month} {bookmark.user_meaning.meaning.origin.content}({bookmark.id}) {ex.outcome.outcome} < ({past})"
             )
 
-        if bookmark.is_learned() and ex.time == bookmark.learned_time:
+        if bookmark.is_learned() and ex.time == bookmark.user_meaning.learned_time:
             print("Learned!")
             print(" ")
 
