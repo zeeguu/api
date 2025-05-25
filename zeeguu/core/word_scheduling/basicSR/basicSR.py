@@ -212,7 +212,7 @@ class BasicSRSchedule(db.Model):
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .join(Bookmark, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(Phrase.language_id == _lang_to_look_at)
-            .filter(BasicSRSchedule.id is not None)
+            .filter(BasicSRSchedule.id != None)
         )
         return query
 

@@ -207,7 +207,7 @@ class UserArticle(db.Model):
                 title=each.article.title,
                 language=each.article.language.code,
                 starred_date=datetime_to_json(each.starred),
-                starred=(each.starred is not None),
+                starred=(each.starred != None),
                 liked=each.liked,
             )
             for each in user_articles

@@ -12,6 +12,12 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.logging import log
 
 
+# TODO: Think about a better name; I can't say I like "UserMeaning" so much
+# The idea is that it holds info about a Meaning-User tuple.
+# Other alternatives could be
+# MeaningInLearnig ... although we track this also after
+
+
 class UserMeaning(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 

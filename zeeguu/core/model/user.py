@@ -458,11 +458,12 @@ class User(db.Model):
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
-            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserMeaning.user_id == self.id)
-            .filter(UserMeaning.learned_time is not None)
+            .filter(UserMeaning.learned_time != None)
             .order_by(UserMeaning.learned_time.desc())
             .limit(count)
         )
@@ -472,16 +473,18 @@ class User(db.Model):
     def total_learned_bookmarks(self):
         from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
 
-        query = zeeguu.core.model.db.session.query(Bookmark)
+        query = zeeguu.core.model.db.session.query(UserMeaning)
         learned = (
-            query.join(UserMeaning, Bookmark.usr_meaning_id == UserMeaning.id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            query.join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserMeaning.user_id == self.id)
-            .filter(UserMeaning.learned_time is not None)
+            .filter(UserMeaning.learned_time != None)
             .all()
         )
+        for e in learned:
+            print(f"{e.id} {e.learned_time}")
+
         return len(learned)
 
     def _datetime_to_date(self, date_time):
