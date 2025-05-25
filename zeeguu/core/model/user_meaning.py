@@ -123,9 +123,13 @@ class UserMeaning(db.Model):
 
         # as a transition step we can simply use the most recent
         # quality bookmark when we need url e.g. or context
-        first_good_bookmark = [
-            b for b in self.bookmarks if not bad_quality_bookmark(b)
-        ][0]
+        quality_bookmarks = [b for b in self.bookmarks if not bad_quality_bookmark(b)]
+        if len(quality_bookmarks) > 0:
+            first_good_bookmark = quality_bookmarks[0]
+        else:
+            # TODO: To think about this; how can we ensure that this branch is not needed
+            first_good_bookmark = self.bookmarks[0]
+
         exercise_info_dict = dict(
             to=translation_word,
             from_lang=self.meaning.origin.language.code,

@@ -81,8 +81,13 @@ class Phrase(db.Model):
         if len(ci_matches) == 1:
             return ci_matches[0]
 
-        # if we have more than one we return the one that matches the case
-        return [each for each in ci_matches if each.content == _content][0]
+        # if we have more than one we see if any matches the case
+
+        matches = [each for each in ci_matches if each.content == _content]
+        if len(matches) == 0:
+            raise NoResultFound()
+
+        return matches[0]
 
     @classmethod
     def find_or_create(cls, session, _word: str, language: Language):

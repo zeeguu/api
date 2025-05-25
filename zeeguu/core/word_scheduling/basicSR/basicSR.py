@@ -22,7 +22,7 @@ class BasicSRSchedule(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    user_meaning = db.relationship(UserMeaning)
+    user_meaning = db.relationship(UserMeaning, backref="basic_sr_schedule")
     user_meaning_id = db.Column(
         db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
     )
@@ -145,8 +145,11 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def user_meanings_not_scheduled(cls, user, limit):
+        from zeeguu.core.model import Bookmark
+
         unscheduled_meanings = (
-            UserMeaning.query.filter(UserMeaning.user_id == user.id)
+            UserMeaning.query.join(Bookmark)
+            .filter(UserMeaning.user_id == user.id)
             .outerjoin(BasicSRSchedule)
             .filter(UserMeaning.learned_time == None)
             .filter(UserMeaning.fit_for_study == 1)
@@ -200,12 +203,16 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def _scheduled_meanings_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
+        from zeeguu.core.model import Bookmark
+
         query = (
             UserMeaning.query.join(cls)
             .filter(UserMeaning.user_id == user.id)
             .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
+            .join(Bookmark, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(Phrase.language_id == _lang_to_look_at)
+            .filter(BasicSRSchedule.id is not None)
         )
         return query
 
@@ -232,7 +239,8 @@ class BasicSRSchedule(db.Model):
         query = cls._scheduled_meanings_query(user, language)
         if required_count is not None:
             query = query.limit(required_count)
-        return query.all()
+        meanings = query.all()
+        return meanings
 
     @classmethod
     def scheduled_meanings_count(cls, user) -> int:
@@ -274,7 +282,8 @@ def priority_by_rank(user_meaning):
 
     cooling_interval = (
         user_meaning.basic_sr_schedule[0].cooling_interval
-        if user_meaning.basic_sr_schedule[0].cooling_interval is not None
+        if user_meaning.basic_sr_schedule
+        and user_meaning.basic_sr_schedule[0].cooling_interval is not None
         else -1
     )
     word_rank = word_info.rank if word_info.rank else Phrase.IMPOSSIBLE_RANK
