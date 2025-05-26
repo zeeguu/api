@@ -2,7 +2,7 @@ import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 
 

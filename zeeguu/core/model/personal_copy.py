@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 
 import zeeguu
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 TOTAL_ITEMS_PER_PAGE = 20
 

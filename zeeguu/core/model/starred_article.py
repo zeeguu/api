@@ -9,14 +9,13 @@ from sqlalchemy import (
     ForeignKey,
     String,
     DateTime,
-
 )
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
 from zeeguu.core.model import Url, User
 from zeeguu.core.model.language import Language
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class StarredArticle(db.Model):

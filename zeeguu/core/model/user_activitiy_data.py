@@ -26,7 +26,7 @@ from zeeguu.core.behavioral_modeling import (
 )
 import zeeguu
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class UserActivityData(db.Model):

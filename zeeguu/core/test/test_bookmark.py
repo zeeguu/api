@@ -1,7 +1,8 @@
 import random
 
+import zeeguu
 from zeeguu.core.bookmark_quality import bad_quality_meaning
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -13,6 +14,8 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.word_scheduling import (
     BasicSRSchedule,
 )
+
+db_session = zeeguu.core.model.db.session
 
 
 class BookmarkTest(ModelTestMixIn):
@@ -65,6 +68,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         random_exercise = ExerciseRule(exercise_session).exercise
         random_bookmark.add_new_exercise_result(
+            db_session,
             random_exercise.source,
             random_exercise.outcome,
             random_exercise.solving_speed,
@@ -115,6 +119,7 @@ class BookmarkTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
         random_bookmark.add_new_exercise_result(
+            db_session,
             ExerciseSourceRule().random,
             OutcomeRule().random,
             random.randint(100, 1000),

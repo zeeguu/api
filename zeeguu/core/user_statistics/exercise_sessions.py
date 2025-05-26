@@ -2,7 +2,7 @@ from sqlalchemy import text
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.cohort import Cohort
 
 

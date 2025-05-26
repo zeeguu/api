@@ -25,9 +25,8 @@ from zeeguu.core.model import (
     UserActivityData,
     UserReadingSession,
     CohortArticleMap,
-    
 )
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 import sys
 
@@ -64,7 +63,9 @@ def is_the_article_referenced(article, print_reference_info):
     return referenced
 
 
-def delete_articles_older_than(DAYS, print_progress_for_every_article=False, delete_from_ES=True):
+def delete_articles_older_than(
+    DAYS, print_progress_for_every_article=False, delete_from_ES=True
+):
     print(f"Finding articles older than {DAYS} days...")
     all_articles = Article.all_older_than(days=DAYS)
     print(f" ... article count: {len(all_articles)}")
@@ -129,4 +130,6 @@ if __name__ == "__main__":
         )
         exit(-1)
 
-    delete_articles_older_than(DAYS, print_progress_for_every_article=False, delete_from_ES=False)
+    delete_articles_older_than(
+        DAYS, print_progress_for_every_article=False, delete_from_ES=False
+    )

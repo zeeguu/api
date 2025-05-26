@@ -5,7 +5,7 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 from zeeguu.core.model.caption import Caption
@@ -56,7 +56,7 @@ class Bookmark(db.Model):
     user_meaning_id = db.Column(
         db.Integer, db.ForeignKey("user_meaning.id"), nullable=False
     )
-    user_meaning = db.relationship(UserMeaning, back_populates="bookmarks")
+    user_meaning = db.relationship(UserMeaning, foreign_keys=[user_meaning_id])
 
     def __init__(
         self,
@@ -438,7 +438,7 @@ class Bookmark(db.Model):
     @classmethod
     def find_all_for_context_and_user(cls, context, user):
         return (
-            Bookmark.query.join(UserMeaning)
+            Bookmark.query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(UserMeaning.user_id == user.id)
             .filter(Bookmark.context_id == context.id)
             .all()
@@ -448,7 +448,7 @@ class Bookmark(db.Model):
     def find_all_for_user_and_article(cls, user, article):
         return (
             cls.query.join(Source)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(UserMeaning.user_id == user.id)
             .filter(Source.id == article.source_id)
             .all()

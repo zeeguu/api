@@ -4,7 +4,7 @@ from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.user_meaning import UserMeaning
 
 
@@ -73,7 +73,7 @@ class Exercise(db.Model):
 
         return: list of exercises sorted by time in ascending order
         """
-        from zeeguu.core.model.bookmark import UserMeaning
+        from zeeguu.core.model.user_meaning import UserMeaning
 
         query = cls.query
         if user_id is not None:
@@ -83,7 +83,7 @@ class Exercise(db.Model):
         return query.all()
 
     def get_bookmark(self):
-        from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
+        from zeeguu.core.model import Bookmark, bookmark_exercise_mapping
 
         q = (
             Bookmark.query.join(bookmark_exercise_mapping)

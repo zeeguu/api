@@ -2,7 +2,8 @@ import traceback
 import flask
 
 from zeeguu.core.exercises.similar_words import similar_words
-from zeeguu.core.model import Bookmark, User
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -100,33 +101,6 @@ def get_bookmarks_next_in_learning():
 
 
 # ====================================
-# Bookmark history
-# ====================================
-
-
-@api.route("/get_exercise_log_for_bookmark/<bookmark_id>", methods=("GET",))
-@cross_domain
-@requires_session
-def get_exercise_log_for_bookmark(bookmark_id):
-    bookmark = Bookmark.query.filter_by(id=bookmark_id).first()
-
-    exercise_log_dict = []
-    exercise_log = bookmark.exercise_log
-    for exercise in exercise_log:
-        exercise_log_dict.append(
-            dict(
-                id=exercise.id,
-                outcome=exercise.outcome.outcome,
-                source=exercise.source.source,
-                exercise_log_solving_speed=exercise.solving_speed,
-                time=exercise.time.strftime("%m/%d/%Y"),
-            )
-        )
-
-    return json_result(exercise_log_dict)
-
-
-# ====================================
 # Uploading exercise info
 # ====================================
 
@@ -161,8 +135,14 @@ def report_exercise_outcome():
 
     try:
         bookmark = Bookmark.find(bookmark_id)
+        print(db_session)
         bookmark.user_meaning.report_exercise_outcome(
-            source, outcome, solving_speed, session_id, other_feedback, db_session
+            db_session,
+            source,
+            outcome,
+            solving_speed,
+            session_id,
+            other_feedback,
         )
 
         return "OK"

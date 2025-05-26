@@ -171,6 +171,7 @@ def delete_bookmark(bookmark_id):
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.user_meaning.report_exercise_outcome(
+        db_session,
         ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
         ExerciseOutcome.CORRECT,
         -1,

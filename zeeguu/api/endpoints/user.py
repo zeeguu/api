@@ -217,7 +217,7 @@ def send_feedback():
 @cross_domain
 @requires_session
 def leave_cohort(cohort_id):
-    from zeeguu.core.model import db
+    from zeeguu.core.model.db import db
 
     """
     set the native language of the user in session

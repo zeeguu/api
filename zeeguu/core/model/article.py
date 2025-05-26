@@ -12,7 +12,7 @@ from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100

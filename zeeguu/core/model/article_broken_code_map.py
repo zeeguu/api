@@ -4,7 +4,7 @@ from zeeguu.core.model.article import Article
 
 import sqlalchemy
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class LowQualityTypes:

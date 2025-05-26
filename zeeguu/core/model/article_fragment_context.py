@@ -1,4 +1,4 @@
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 import sqlalchemy
 
 
@@ -59,7 +59,7 @@ class ArticleFragmentContext(db.Model):
     def get_all_user_bookmarks_for_article_fragment(
         cls, user_id: int, article_fragment_id: int, as_json_serializable: bool = True
     ):
-        from zeeguu.core.model.bookmark import Bookmark, UserMeaning
+        from zeeguu.core.model import Bookmark, UserMeaning
 
         result = (
             Bookmark.query.join(cls)

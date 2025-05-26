@@ -2,14 +2,15 @@ from datetime import datetime
 
 import sqlalchemy
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import relationship
+
 from wordstats import Word
 
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
-from zeeguu.core.bookmark_quality.negative_qualities import bad_quality_bookmark
-from zeeguu.core.model import db, User, Meaning
+from zeeguu.core.model import User, Meaning
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.logging import log
+
+from zeeguu.core.model.db import db
 
 
 # TODO: Think about a better name; I can't say I like "UserMeaning" so much
@@ -37,7 +38,11 @@ class UserMeaning(db.Model):
 
     level = db.Column(db.Integer)
 
-    bookmarks = relationship("Bookmark", back_populates="user_meaning")
+    preferred_bookmark_id = db.Column(db.Integer, db.ForeignKey("bookmark.id"))
+
+    preferred_bookmark = db.relationship(
+        "Bookmark", foreign_keys=[preferred_bookmark_id]
+    )
 
     def __init__(
         self,
@@ -60,9 +65,15 @@ class UserMeaning(db.Model):
         return self.learned_time is not None
 
     def get_scheduler(self):
-        from zeeguu.core.word_scheduling import get_scheduler
+        # from zeeguu.core.word_scheduling import get_scheduler
+        #
+        # print(self.user)
+        # return get_scheduler(self.user)
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
 
-        return get_scheduler(self.user)
+        return FourLevelsPerWord
 
     def add_new_exercise(self, exercise):
         self.exercise_log.append(exercise)
@@ -127,28 +138,19 @@ class UserMeaning(db.Model):
             is_last_in_cycle = None
             is_about_to_be_learned = None
 
-        # as a transition step we can simply use the most recent
-        # quality bookmark when we need url e.g. or context
-        quality_bookmarks = [b for b in self.bookmarks if not bad_quality_bookmark(b)]
-        if len(quality_bookmarks) > 0:
-            first_good_bookmark = quality_bookmarks[0]
-        else:
-            # TODO: To think about this; how can we ensure that this branch is not needed
-            first_good_bookmark = self.bookmarks[0]
-
         exercise_info_dict = dict(
             to=translation_word,
             from_lang=self.meaning.origin.language.code,
             to_lang=translation_language,
-            url=first_good_bookmark.text.url(),
+            url=self.preferred_bookmark.text.url(),
             origin_importance=word_info.importance,
             origin_rank=word_info.rank if word_info.rank != 100000 else "",
             article_id=(
-                first_good_bookmark.text.article_id
-                if first_good_bookmark.text.article_id
+                self.preferred_bookmark.text.article_id
+                if self.preferred_bookmark.text.article_id
                 else ""
             ),
-            source_id=first_good_bookmark.source_id,
+            source_id=self.preferred_bookmark.source_id,
             fit_for_study=self.fit_for_study == 1,
             level=self.level,
             cooling_interval=cooling_interval_in_days,
@@ -157,22 +159,33 @@ class UserMeaning(db.Model):
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
-            context_in_content=first_good_bookmark.text.in_content,
-            left_ellipsis=first_good_bookmark.context.left_ellipsis,
-            right_ellipsis=first_good_bookmark.context.right_ellipsis,
+            context_in_content=self.preferred_bookmark.text.in_content,
+            left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
+            right_ellipsis=self.preferred_bookmark.context.right_ellipsis,
         )
 
         exercise_info_dict["from"] = self.meaning.origin.content
 
         result = {
-            **first_good_bookmark.as_dictionary(with_context_tokenized=True),
+            **self.preferred_bookmark.as_dictionary(with_context_tokenized=True),
             **exercise_info_dict,
         }
 
         return result
 
+    def bookmarks(self):
+        from zeeguu.core.model import Bookmark
+
+        all = (
+            Bookmark.query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .filter(UserMeaning.id == self.id)
+            .all()
+        )
+        return all
+
     def add_new_exercise_result(
         self,
+        db_session,
         exercise_source,
         exercise_outcome,
         exercise_solving_speed,
@@ -194,30 +207,38 @@ class UserMeaning(db.Model):
             other_feedback,
         )
 
-        self.add_new_exercise(exercise)
-        db.session.add(exercise)
+        if db_session:
+            db_session.add(exercise)
 
         return exercise
 
     def report_exercise_outcome(
         self,
+        db_session,
         exercise_source: str,
         exercise_outcome: str,
         solving_speed,
         session_id,
         other_feedback,
-        db_session,
         time: datetime = None,
     ):
-        from zeeguu.core.model import ExerciseSource
+        from zeeguu.core.model import ExerciseSource, ExerciseOutcome
 
         source = ExerciseSource.find_or_create(db_session, exercise_source)
-        from zeeguu.core.model import ExerciseOutcome
-
         outcome = ExerciseOutcome.find_or_create(db_session, exercise_outcome)
 
-        exercise = self.add_new_exercise_result(
-            source, outcome, solving_speed, session_id, other_feedback, time=time
+        if not time:
+            time = datetime.now()
+        from zeeguu.core.model import Exercise
+
+        exercise = Exercise(
+            outcome,
+            source,
+            solving_speed,
+            time,
+            session_id,
+            self,
+            other_feedback,
         )
         db_session.add(exercise)
 

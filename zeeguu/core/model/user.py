@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.util import password_hash
 from zeeguu.logging import log
@@ -431,7 +431,7 @@ class User(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
 
         query = zeeguu.core.model.db.session.query(Bookmark)
-        from zeeguu.core.model import UserMeaning
+        from zeeguu.core.model.user_meaning import UserMeaning
 
         query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
         return (

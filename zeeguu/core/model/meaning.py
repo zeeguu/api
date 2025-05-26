@@ -1,8 +1,9 @@
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.model import db
-
+from zeeguu.core.model.db import db
+from zeeguu.core.model.db import db
+from zeeguu.core.model.phrase import Phrase
 
 # I've thought a lot about what could be alternative names for this concept
 # 1. WordPair - but it seems too trivial to say you're learning word pairs
@@ -40,7 +41,6 @@ from zeeguu.core.model import db
 
 
 class Meaning(db.Model):
-    from zeeguu.core.model import db, Phrase
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 

@@ -2,7 +2,7 @@ import datetime
 
 from zeeguu.core.model import User, Exercise, Bookmark
 from zeeguu.core.model.bookmark import bookmark_exercise_mapping
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 # USER_ID = 2162
 # USER_ID = 2145  # Fe

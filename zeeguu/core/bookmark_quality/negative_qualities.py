@@ -12,7 +12,7 @@ def bad_quality_meaning(user_meaning):
         origin_same_as_translation(user_meaning)
         or origin_has_too_many_words(user_meaning)
         or origin_is_a_very_short_word(user_meaning)
-        or all([bad_quality_bookmark(b) for b in user_meaning.bookmarks])
+        or all([bad_quality_bookmark(b) for b in user_meaning.bookmarks()])
     )
 
 

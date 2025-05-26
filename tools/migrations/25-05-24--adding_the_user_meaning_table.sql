@@ -1,38 +1,55 @@
+-- TODO: This script does not include adding the user_meaning to the basic_sr_schedule.
+-- TODO: Could it be that it got added by SQLAlchemy? Otherwies make sure to add it here below.
+
+
 -- Step 1: Create the new UserMeaning table
 
 CREATE TABLE user_meaning
 (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    user_id         INT       NOT NULL,
-    meaning_id      INT       NOT NULL,
-    fit_for_study   BOOLEAN DEFAULT TRUE,
-    user_preference TEXT      NULL,
-    level           INT       NULL,
-    learned_time    TIMESTAMP NULL,
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    user_id               INT       NOT NULL,
+    meaning_id            INT       NOT NULL,
+    -- untested code... this preferred_bookmark_id
+    preferred_bookmark_id INT       NULL,
+    fit_for_study         BOOLEAN DEFAULT TRUE,
+    user_preference       TEXT      NULL,
+    level                 INT       NULL,
+    learned_time          TIMESTAMP NULL,
 
     -- Foreign key constraints
     FOREIGN KEY (user_id) REFERENCES User (id) ON DELETE CASCADE,
-    FOREIGN KEY (meaning_id) REFERENCES Meaning (id) ON DELETE CASCADE,
+    FOREIGN KEY (meaning_id) REFERENCES Meaning (id),
+    -- untested FK
+    FOREIGN KEY (preferred_bookmark_id) REFERENCES Bookmark (id),
 
     -- Unique constraint to prevent duplicate user-meaning pairs
     CONSTRAINT unique_user_meaning UNIQUE (user_id, meaning_id)
 );
 
+# temporary;
+
+
 -- Step 2: Migrate data from Bookmark to UserMeaning
-INSERT INTO user_meaning (user_id, meaning_id, learned_time, level, fit_for_study, user_preference)
+
+-- untested code... the part with bookmark
+INSERT INTO user_meaning (user_id, meaning_id, learned_time, level, preferred_bookmark_id, fit_for_study,
+                          user_preference)
 SELECT user_id,
        meaning_id,
        max(learned_time),
        max(level),
+       max(id), -- untested; adding the last bookmark - as good as any i guess?
        min(fit_for_study),
        min(user_preference)
 FROM Bookmark
+where fit_for_study = 1 -- untested; if the thing was not fit for study, we don't have a usermeaning i guess
 group by user_id, meaning_id;
 
 -- Step 3: Update Bookmark table to reference UserMeaning
 -- First, add the new foreign key column
 ALTER TABLE bookmark
     ADD COLUMN user_meaning_id INT NULL;
+
 
 -- Step 4: Update the bookmark records to reference the new UserMeaning records
 UPDATE Bookmark b
@@ -144,3 +161,11 @@ alter table exercise
 
 -- now we can drop the bookmark_exercise_mapping
 drop table bookmark_exercise_mapping;
+
+
+-- next, we have to drop the bookmark_id column
+alter table basic_sr_schedule
+    drop foreign key basic_sr_schedule_ibfk_1;
+
+alter table basic_sr_schedule
+    drop column bookmark_id;

@@ -6,7 +6,7 @@ from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.test.rules.scheduler_rule import SchedulerRule
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from datetime import datetime, timedelta
 
 from zeeguu.core.word_scheduling import ONE_DAY
@@ -298,12 +298,12 @@ class SchedulerTest(ModelTestMixIn):
         exercise_session = ExerciseSessionRule(self.four_levels_user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
         bookmark.user_meaning.report_exercise_outcome(
+            db_session,
             exercise.source.source,
             exercise.outcome.outcome,
             exercise.solving_speed,
             exercise_session.id,
             "",
-            db_session,
             time=date,
         )
 

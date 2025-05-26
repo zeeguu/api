@@ -2,7 +2,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class ExerciseSource(db.Model):

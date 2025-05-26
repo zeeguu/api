@@ -1,5 +1,6 @@
 from datetime import datetime
-from zeeguu.core.model import db, User, Video
+from zeeguu.core.model.db import db
+from zeeguu.core.model import User, Video
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.util.time import human_readable_duration, human_readable_date

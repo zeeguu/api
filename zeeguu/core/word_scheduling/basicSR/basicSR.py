@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from wordstats import Word
 
 from zeeguu.core.model import Phrase, ExerciseOutcome, UserPreference
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_meaning import UserMeaning
 
@@ -16,13 +16,9 @@ class BasicSRSchedule(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
     __tablename__ = "basic_sr_schedule"
 
-    __mapper_args__ = {
-        "polymorphic_identity": "basic_sr_schedule",
-    }
-
     id = db.Column(db.Integer, primary_key=True)
 
-    user_meaning = db.relationship(UserMeaning, backref="basic_sr_schedule")
+    user_meaning = db.relationship(UserMeaning)
     user_meaning_id = db.Column(
         db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
     )
@@ -71,7 +67,7 @@ class BasicSRSchedule(db.Model):
             db_session.commit()
 
     @classmethod
-    def find_or_create(cls, db_session, bookmark):
+    def find_or_create(cls, db_session, user_meaning):
         raise NotImplementedError
 
     @classmethod
@@ -116,7 +112,6 @@ class BasicSRSchedule(db.Model):
             user_meaning.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
             db_session.add(user_meaning)
 
-            db_session.commit()
             return
 
         correctness = ExerciseOutcome.is_correct(outcome)
@@ -141,14 +136,13 @@ class BasicSRSchedule(db.Model):
             schedule = cls.find_or_create(db_session, user_meaning)
 
         schedule.update_schedule(db_session, correctness, time)
-        db_session.commit()
 
     @classmethod
     def user_meanings_not_scheduled(cls, user, limit):
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         unscheduled_meanings = (
-            UserMeaning.query.join(Bookmark)
+            UserMeaning.query.join(Bookmark, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(UserMeaning.user_id == user.id)
             .outerjoin(BasicSRSchedule)
             .filter(UserMeaning.learned_time == None)
@@ -203,7 +197,7 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def _scheduled_meanings_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         query = (
             UserMeaning.query.join(cls)
@@ -280,10 +274,11 @@ def priority_by_rank(user_meaning):
         user_meaning.meaning.origin.language.code,
     )
 
+    basic_sr_schedule = BasicSRSchedule.find_by_user_meaning(user_meaning)
+
     cooling_interval = (
-        user_meaning.basic_sr_schedule[0].cooling_interval
-        if user_meaning.basic_sr_schedule
-        and user_meaning.basic_sr_schedule[0].cooling_interval is not None
+        basic_sr_schedule.cooling_interval
+        if basic_sr_schedule and basic_sr_schedule.cooling_interval is not None
         else -1
     )
     word_rank = word_info.rank if word_info.rank else Phrase.IMPOSSIBLE_RANK

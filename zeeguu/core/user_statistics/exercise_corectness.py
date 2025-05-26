@@ -2,7 +2,7 @@ from sqlalchemy import text
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, end_date):

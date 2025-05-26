@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from unittest import TestCase
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 from zeeguu.core.test.rules.feed_rule import FeedRule
