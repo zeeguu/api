@@ -5,7 +5,7 @@ from .. import api
 from zeeguu.api.utils import json_result, requires_session
 
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/student_activity_overview", methods=["POST"])

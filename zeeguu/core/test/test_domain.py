@@ -9,7 +9,7 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model.domain_name import DomainName
 from zeeguu.core.model.url import Url
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class DomainTest(ModelTestMixIn, TestCase):

@@ -20,7 +20,7 @@ from zeeguu.api.utils import json_result, requires_session
 from .. import api
 
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/basic_user_info/<id>", methods=["GET"])

@@ -10,7 +10,7 @@ import zeeguu.core
 import time
 import random
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 from zeeguu.core.model.domain_name import DomainName
 

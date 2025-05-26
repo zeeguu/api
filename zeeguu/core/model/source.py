@@ -4,7 +4,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class Source(db.Model):

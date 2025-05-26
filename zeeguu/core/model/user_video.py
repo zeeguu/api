@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import or_
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
 from zeeguu.core.model.video import Video
 from sqlalchemy.orm.exc import NoResultFound
@@ -130,7 +130,7 @@ class UserVideo(db.Model):
     def user_video_info(
         cls, user: User, video: Video, with_content=False, with_translations=True
     ):
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.user_activitiy_data import UserActivityData
 

@@ -1,7 +1,7 @@
 from zeeguu.core.model import Text, Bookmark
 from zeeguu.core.util.hash import text_hash
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 all_texts = Text.query.order_by(Text.id.desc()).all()
 

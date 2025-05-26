@@ -6,7 +6,7 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model import Phrase
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class UserWordTest(ModelTestMixIn):

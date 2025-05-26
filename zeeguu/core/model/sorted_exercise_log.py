@@ -1,10 +1,10 @@
 class SortedExerciseLog(object):
 
-    def __init__(self, bookmark):
+    def __init__(self, user_meaning):
         self.exercises = sorted(
-            bookmark.exercise_log, key=lambda x: x.time, reverse=True
+            user_meaning.exercise_log, key=lambda x: x.time, reverse=True
         )
-        self.bookmark = bookmark
+        self.user_meaning = user_meaning
 
     # string rep for logging
     def summary(self):

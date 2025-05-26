@@ -25,7 +25,7 @@ class ModelTestMixIn(TestCase):
         # sometimes the tearDown freezes on drop_all
         # and it seems that it's because there's still
         # a session open somewhere. Better call first:
-        from zeeguu.core.model import db
+        from zeeguu.core.model.db import db
 
         db.session.close()
 

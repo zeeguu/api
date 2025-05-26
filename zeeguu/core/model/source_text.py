@@ -4,7 +4,7 @@ import time
 from sqlalchemy import UnicodeText
 
 from zeeguu.core.util import text_hash
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 TWO_MB = 2 * 10**6

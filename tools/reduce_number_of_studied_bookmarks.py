@@ -21,7 +21,7 @@ db_session = zeeguu.core.model.db.session
 def reduce_for_user(u):
     # we iterate over all the languages,
     for lang in Language.all():
-        in_pipeline = BasicSRSchedule.scheduled_bookmarks(u, lang)
+        in_pipeline = BasicSRSchedule.scheduled_meanings(u, lang)
         in_pipeline.sort(
             key=lambda x: (
                 x.level,
@@ -56,16 +56,16 @@ def reduce_for_user(u):
             for bookmark in to_keep:
                 print(
                     f"  "
-                    f"{bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
+                    f"{bookmark.user_meaning.meaning.origin.content} {Word.stats(bookmark.user_meaning.meaning.origin.content, bookmark.user_meaning.meaning.origin.language.code).rank} {bookmark.level}"
                 )
 
             print(f">>>>> To Remove (first 10...): " + str(len(to_remove)))
 
             for bookmark in to_remove:
                 print(
-                    f"  {bookmark.meaning.origin.content} {Word.stats(bookmark.meaning.origin.content, bookmark.meaning.origin.language.code).rank} {bookmark.level}"
+                    f"  {bookmark.user_meaning.meaning.origin.content} {Word.stats(bookmark.user_meaning.meaning.origin.content, bookmark.user_meaning.meaning.origin.language.code).rank} {bookmark.level}"
                 )
-                schedule = BasicSRSchedule.find_by_bookmark(bookmark)
+                schedule = BasicSRSchedule.find_by_user_meaning(bookmark)
                 db_session.delete(schedule)
                 # if the bookmark was scheduled and was at a level higher than 1 then
                 # we don't reset it. Leave it there. Otherwise, we are safe to do so.

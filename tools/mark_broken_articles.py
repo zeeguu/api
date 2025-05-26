@@ -1,6 +1,6 @@
 from zeeguu.core.content_quality.quality_filter import sufficient_quality_plain_text
 from zeeguu.core.model import Article
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 from zeeguu.api.app import create_app
 

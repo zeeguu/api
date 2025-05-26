@@ -22,7 +22,7 @@ class BaseRule:
 
     faker = Faker()
 
-    from zeeguu.core.model import db
+    from zeeguu.core.model.db import db
 
     @classmethod
     def save(cls, obj):

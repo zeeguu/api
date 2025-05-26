@@ -27,7 +27,7 @@ from zeeguu.core.model import (
     UserReadingSession,
     CohortArticleMap,
 )
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 import sys
 

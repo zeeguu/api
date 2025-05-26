@@ -9,7 +9,7 @@ import sqlalchemy
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class UserFeedback(db.Model):

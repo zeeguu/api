@@ -2,7 +2,7 @@ import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
 from wordstats import Word
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 
 
@@ -37,7 +37,10 @@ class Phrase(db.Model):
             self.rank = None
 
     def __repr__(self):
-        return f"<@UserWord {self.content} {self.language_id} {self.rank}>"
+        return f"<@Phrase {self.content} {self.language_id} {self.rank}>"
+
+    def __str__(self):
+        return f"<@Phrase {self.content} {self.language_id} {self.rank}>"
 
     def __eq__(self, other):
         return self.content == other.content and self.language == other.language
@@ -78,8 +81,13 @@ class Phrase(db.Model):
         if len(ci_matches) == 1:
             return ci_matches[0]
 
-        # if we have more than one we return the one that matches the case
-        return [each for each in ci_matches if each.content == _content][0]
+        # if we have more than one we see if any matches the case
+
+        matches = [each for each in ci_matches if each.content == _content]
+        if len(matches) == 0:
+            raise NoResultFound()
+
+        return matches[0]
 
     @classmethod
     def find_or_create(cls, session, _word: str, language: Language):

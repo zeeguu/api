@@ -2,7 +2,7 @@ from zeeguu.logging import logp
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from datetime import datetime

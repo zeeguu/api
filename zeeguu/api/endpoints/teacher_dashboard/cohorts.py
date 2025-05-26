@@ -28,7 +28,7 @@ from ._permissions import (
 from .. import api
 from zeeguu.api.utils.route_wrappers import requires_session
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])

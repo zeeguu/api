@@ -3,9 +3,11 @@
 # like the two-character-å into a single-character-å
 from sys import argv
 
-from zeeguu.core.content_cleaning.unicode_normalization import flatten_composed_unicode_characters
+from zeeguu.core.content_cleaning.unicode_normalization import (
+    flatten_composed_unicode_characters,
+)
 from zeeguu.core.model import Article, Language
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 def flatten_the_unicode_characters(language):
@@ -33,7 +35,7 @@ def flatten_the_unicode_characters(language):
     print(f"Fixed a total of: {fixed} articles!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(argv) < 2:
         print("ERROR: Provide language code as argument")
         exit(-1)

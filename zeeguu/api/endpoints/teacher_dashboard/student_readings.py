@@ -4,7 +4,7 @@ from ._common_api_parameters import _get_student_cohort_and_period_from_POST_par
 from .. import api
 from zeeguu.api.utils import json_result, requires_session
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/student_reading_sessions", methods=["POST"])

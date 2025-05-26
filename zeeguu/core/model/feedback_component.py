@@ -3,7 +3,7 @@ from zeeguu.api.utils.abort_handling import make_error
 import zeeguu.core
 from sqlalchemy import Column, Integer, String
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class FeedbackComponent(db.Model):

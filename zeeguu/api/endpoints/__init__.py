@@ -2,7 +2,9 @@ import flask
 import zeeguu.core
 
 api = flask.Blueprint("endpoints", __name__)
-db_session = zeeguu.core.model.db.session
+from zeeguu.core.model.db import db
+
+db_session = db.session
 
 print("loading endpoints...")
 
