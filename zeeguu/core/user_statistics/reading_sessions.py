@@ -115,8 +115,8 @@ def translations_in_interval(start_time, end_time, user_id):
     query = """
         select 
             b.id, 
-            uw.content, 
-            uwt.word as translation,
+            origin_phrase.content, 
+            translation_phrase.content as translation,
             t.content as context,
             IF(bem.bookmark_id IS NULL, FALSE, TRUE) as practiced
         
@@ -125,11 +125,11 @@ def translations_in_interval(start_time, end_time, user_id):
         join meaning as m 
             on b.meaning_id = m.id
             
-        join phrase as uw
-           on m.origin_id = uw.id
+        join phrase as origin_phrase
+           on m.origin_id = origin_phrase.id
            
-        join phrase as uwt
-           on m.translation_id = uwt.id
+        join phrase as translation_phrase
+           on m.translation_id = translation_phrase.id
            
         join text as t
         	on b.text_id = t.id
