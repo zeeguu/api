@@ -137,9 +137,7 @@ class MicrosoftTranslateWithoutContext(BaseThirdPartyAPIService):
 api_mux_translators = APIMultiplexer(
     api_list=[
         GoogleTranslateWithContext(),
-        GoogleTranslateWithoutContext(),
         MicrosoftTranslateWithContext(),
-        MicrosoftTranslateWithoutContext(),
     ],
     config_filepath=os.environ.get("API_MUX_CONFIG__TRANSLATORS", ""),
 )
