@@ -12,6 +12,8 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.translator import (
     get_next_results,
     contribute_trans,
+    google_contextual_translate,
+    microsoft_contextual_translate,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -71,7 +73,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
-        best_guess = bookmark.meaning.translation.content
+        translation = bookmark.meaning.translation.content
         likelihood = 1
         source = "Own past translation"
         print(f"about to return {bookmark}")
@@ -79,30 +81,29 @@ def get_one_translation(from_lang_code, to_lang_code):
         # TODO: must remove theurl, and title - they are not used in the calling method.
         if IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
-            best_guess = f"T-({to_lang_code})-'{word_str}'"
+            translation = f"T-({to_lang_code})-'{word_str}'"
             likelihood = None
             source = "DEV_SKIP"
         else:
-            translations = get_next_results(
-                {
-                    "from_lang_code": from_lang_code,
-                    "to_lang_code": to_lang_code,
-                    "word": word_str,
-                    "query": query,
-                    "context": context,
-                },
-                number_of_results=3,
-            ).translations
-            best_guess = translations[0]["translation"]
-            likelihood = translations[0].pop("quality")
-            source = translations[0].pop("service_name")
+            # The API Mux is misbehaving and will only serve the non-contextual translators after a while
+            # For now hardcoding google on the first place
+
+            data = {
+                "source_language": from_lang_code,
+                "target_language": to_lang_code,
+                "word": word_str,
+                "query": query,
+                "context": context,
+            }
+            t1 = google_contextual_translate(data)
+
         user = User.find_by_id(flask.g.user_id)
         bookmark = Bookmark.find_or_create(
             db_session,
             user,
             word_str,
             from_lang_code,
-            best_guess,
+            t1["translation"],
             to_lang_code,
             context,
             article_id,
@@ -120,10 +121,10 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     return json_result(
         {
-            "translation": best_guess,
+            "translation": t1["translation"],
             "bookmark_id": bookmark.id,
-            "source": source,
-            "likelihood": likelihood,
+            "source": t1["source"],
+            "likelihood": t1["likelihood"],
         }
     )
 
@@ -161,32 +162,16 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     data = {
-        "from_lang_code": from_lang_code,
-        "to_lang_code": to_lang_code,
+        "source_language": from_lang_code,
+        "target_language": to_lang_code,
         "word": word_str,
         "query": query,
         "context": context,
     }
+    t1 = google_contextual_translate(data)
+    t2 = microsoft_contextual_translate(data)
 
-    translations = get_next_results(
-        data,
-        exclude_services=exclude_services,
-        exclude_results=exclude_results,
-        number_of_results=number_of_results,
-    ).translations
-
-    # translators talk about quality, but our users expect likelihood.
-    # rename the key in the dictionary
-    for t in translations:
-        t["likelihood"] = t.pop("quality")
-        t["source"] = t["service_name"]
-
-    # ML: Note: We used to save the first bookmark here;
-    # but that does not make sense; this is used to show all
-    # alternatives; why save the first to the DB?
-    # But leaving this note here just in case...
-
-    return json_result(dict(translations=translations))
+    return json_result(dict(translations=[t1, t2]))
 
 
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
