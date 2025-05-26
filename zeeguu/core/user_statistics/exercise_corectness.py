@@ -27,15 +27,16 @@ def number_of_words_translated_but_not_studied(
 ):
     query = """
 
-        select 	count(b.id)
-        -- uw.word, 
+       select count(b.id)
+        -- uw.word,
         -- practiced_words.id
-        -- practiced_words.word 
+        -- practiced_words.word
         
         from bookmark as b
-        join meaning as m 
-            on b.meaning_id = m.id
-            
+        
+        join meaning as m
+        on b.meaning_id = m.id
+        
         join phrase as uw
         on m.origin_id = uw.id
         
@@ -43,36 +44,39 @@ def number_of_words_translated_but_not_studied(
         -- us only those bookmarks that are not practiced
         -- based on: https://stackoverflow.com/a/4076157/1200070
         -- consider using EXISTS instead: https://stackoverflow.com/a/36694478/1200070
-        left join         
-        -- >> practiced_words 
-            (select distinct(b.id), uw.content
-            
-            from exercise as e
-            join bookmark_exercise_mapping as bem
-                on bem.`exercise_id`=e.id
-            join bookmark as b
-                on bem.bookmark_id=b.id
-            join exercise_outcome as o
-                on e.outcome_id = o.id
-            join phrase as uw
-                on m.origin_id = uw.id
-                
-            where b.user_id=:userid 
-                and	e.time > :startDate
-                and	e.time < :endDate
-                and uw.language_id = (select language_id from cohort where cohort.id=:cohortId)
-            group by b.id) 
-        -- << practiced_words               
+        left join
+        -- >> practiced_words
+        (select distinct(b_inner.id), uw_inner.content
+        
+        from exercise as e
+        join bookmark_exercise_mapping as bem
+        on bem.exercise_id = e.id
+        join bookmark as b_inner
+        on bem.bookmark_id = b_inner.id
+        join exercise_outcome as o
+        on e.outcome_id = o.id
+        join meaning as m_inner
+        on b_inner.meaning_id = m_inner.id
+        join phrase as uw_inner
+        on m_inner.origin_id = uw_inner.id
+        
+        where b_inner.user_id = :userid
+        and e.time > :startDate
+        and e.time < :endDate
+        and uw_inner.language_id = (select language_id from cohort where cohort.id=:cohortId)
+        group by b_inner.id)
+        -- << practiced_words
         as practiced_words
-            on practiced_words.id = b.id
+        on practiced_words.id = b.id
         
-        where b.user_id=:userid 
-            and	b.time > :startDate
-            and	b.time < :endDate
-            and uw.language_id = (select language_id from cohort where cohort.id=:cohortId)
+        where b.user_id = :userid
+        and b.time > :startDate
+        and b.time < :endDate
+        and uw.language_id = (select language_id from cohort where cohort.id=:cohortId)
         
-        -- left join when 
-        and practiced_words.id is NULL 
+        -- left join when
+        and practiced_words.id is NULL
+
     """
 
     rows = db.session.execute(
