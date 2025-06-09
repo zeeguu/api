@@ -282,6 +282,8 @@ class User(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.bookmark import bookmark_exercise_mapping
         from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
 
         today = datetime.date.today()
         start_of_week = today - datetime.timedelta(days=today.weekday())
@@ -290,8 +292,11 @@ class User(db.Model):
             db.session.query(Bookmark)
             .join(bookmark_exercise_mapping, Bookmark.id == bookmark_exercise_mapping.c.bookmark_id)
             .join(Exercise, Exercise.id == bookmark_exercise_mapping.c.exercise_id)
+            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Bookmark.user_id == self.id)
             .filter(Exercise.time >= start_of_week)
+            .filter(Phrase.language_id == self.learned_language_id)
             .distinct()
             .count()
         )
