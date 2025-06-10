@@ -30,6 +30,8 @@ from zeeguu.core.model import (
 from zeeguu.core.model import db
 
 import sys
+from tqdm import tqdm
+
 
 app = create_app()
 app.app_context().push()
@@ -80,7 +82,7 @@ def delete_articles_older_than(
     referenced_in_this_batch = 0
     deleted = []
     deleted_from_es = 0
-    for each in all_articles:
+    for each in tqdm(all_articles):
         i += 1
         if print_progress_for_every_article:
             print(f"#{i} -- ID: {each.id}")
