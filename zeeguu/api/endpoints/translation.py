@@ -77,6 +77,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         likelihood = 1
         source = "Own past translation"
         print(f"about to return {bookmark}")
+        t1 = {translation: translation, likelihood: likelihood, source: source}
     else:
         # TODO: must remove theurl, and title - they are not used in the calling method.
         if IS_DEV_SKIP_TRANSLATION:
@@ -84,10 +85,8 @@ def get_one_translation(from_lang_code, to_lang_code):
             translation = f"T-({to_lang_code})-'{word_str}'"
             likelihood = None
             source = "DEV_SKIP"
+            t1 = {translation: translation, likelihood: likelihood, source: source}
         else:
-            # The API Mux is misbehaving and will only serve the non-contextual translators after a while
-            # For now hardcoding google on the first place
-
             data = {
                 "source_language": from_lang_code,
                 "target_language": to_lang_code,
@@ -95,7 +94,12 @@ def get_one_translation(from_lang_code, to_lang_code):
                 "query": query,
                 "context": context,
             }
+            # The API Mux is misbehaving and will only serve the non-contextual translators after a while
+            # For now hardcoding google on the first place and msft as a backup
+
             t1 = google_contextual_translate(data)
+            if not t1:
+                t1 = microsoft_contextual_translate(data)
 
         user = User.find_by_id(flask.g.user_id)
         bookmark = Bookmark.find_or_create(
