@@ -22,7 +22,7 @@ def send_user_finished_exercise_session(exercise_session):
         datetime.timedelta(seconds=exercise_session.duration / 1000),
         minimum_unit="microseconds",
     )
-    main_body = f"User: {user.name} ({user.id}) Duration: {hr_duration} \n\n"
+    main_body = f"User: {user.name} ({user.id}, {user.invitation_code}) Duration: {hr_duration}  \n\n"
     main_body += f"<html><body><pre>{details}</pre></body></html>"
     ZeeguuMailer.send_mail(
         f"{exercise_session.user.name}: Finished Exercise Session",
