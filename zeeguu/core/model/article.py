@@ -483,7 +483,7 @@ class Article(db.Model):
             None,
             title,
             None,
-            source,  # Pass the Source object instead of raw content
+            source,
             None,
             current_time,
             None,
