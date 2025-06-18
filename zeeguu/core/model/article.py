@@ -9,6 +9,8 @@ from zeeguu.core.model.article_topic_map import TopicOriginType
 
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
@@ -169,7 +171,7 @@ class Article(db.Model):
                 print("Marking as broken. Reason: " + reason)
                 self.mark_as_low_quality_and_remove_from_index()
 
-        self.source_id = Source.find_or_create(
+        source = Source.find_or_create(
             session,
             content,
             SourceType.find_by_type(SourceType.ARTICLE),
@@ -177,6 +179,8 @@ class Article(db.Model):
             self.broken,
             commit=False,
         )
+        self.source_id = source.id
+        self.source = source
         # Remove once migration is done.
         self.content = content
 
@@ -464,11 +468,22 @@ class Article(db.Model):
         cls, session, title, content, htmlContent, uploader, language
     ):
         current_time = datetime.now()
+
+        # Create a Source object for the uploaded content
+        source_type = SourceType.find_by_type(SourceType.ARTICLE)
+        source = Source.find_or_create(
+            session,
+            content,
+            source_type,
+            language,
+            0,  # broken flag
+        )
+
         new_article = Article(
             None,
             title,
             None,
-            content,
+            source,
             None,
             current_time,
             None,
