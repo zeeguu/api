@@ -1,7 +1,8 @@
 import flask
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core.model import Teacher, User
+from zeeguu.core.model.teacher import Teacher
+from zeeguu.core.model.user import User
 
 
 def has_permission_for_cohort(cohort_id):
@@ -9,7 +10,7 @@ def has_permission_for_cohort(cohort_id):
     Checks to see if user requesting has permissions
     to view the cohort with id 'cohort_id'
     """
-    from zeeguu.core.model import TeacherCohortMap
+    from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for m in maps:

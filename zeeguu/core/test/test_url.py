@@ -3,7 +3,8 @@ from unittest import TestCase
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.url_rule import UrlRule
 import zeeguu.core.model
-from zeeguu.core.model import Url, DomainName
+from zeeguu.core.model.domain_name import DomainName
+from zeeguu.core.model.url import Url
 
 db_session = zeeguu.core.model.db.session
 

@@ -1,9 +1,10 @@
 from elasticsearch import Elasticsearch
 from elastic_transport import ConnectionError
 
-from zeeguu.core.model import (
-    Article,
-)
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.user_article import UserArticle
 
 from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_semantic_sim_query_for_article,

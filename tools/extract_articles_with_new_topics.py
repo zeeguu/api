@@ -1,4 +1,4 @@
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.api.app import create_app
 from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
 import numpy as np

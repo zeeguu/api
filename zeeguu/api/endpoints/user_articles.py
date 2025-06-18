@@ -6,7 +6,11 @@ from zeeguu.core.content_recommender import (
     content_recommendations,
     video_recommendations_for_user,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, Video
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.personal_copy import PersonalCopy
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.video import Video
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result

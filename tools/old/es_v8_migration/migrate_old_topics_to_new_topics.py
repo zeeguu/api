@@ -7,7 +7,8 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import TopicSubscription, NewTopicSubscription, NewTopic
+from zeeguu.core.model import NewTopic, NewTopicSubscription
+from zeeguu.core.model.topic_subscription import TopicSubscription
 from tqdm import tqdm
 
 app = create_app()

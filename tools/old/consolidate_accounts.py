@@ -8,14 +8,12 @@
 """
 
 import zeeguu.core
-from zeeguu.core.model import (
-    User,
-    UserActivityData,
-    Bookmark,
-    UserArticle,
-    UserReadingSession,
-    UserExerciseSession,
-)
+from zeeguu.core.model.user import User
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
+from zeeguu.core.model.session import Session
 from sys import argv
 
 if len(argv) < 3:

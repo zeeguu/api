@@ -11,7 +11,7 @@ import sqlalchemy
 import zeeguu.core
 from faker import Faker
 from zeeguu.api.app import create_app
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 app = create_app()
 app.app_context().push()

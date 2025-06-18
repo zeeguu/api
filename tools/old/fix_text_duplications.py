@@ -4,7 +4,8 @@
 from collections import defaultdict
 
 data = defaultdict(set)
-from zeeguu.core.model import Text, Bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.text import Text
 import zeeguu.core
 
 texts = zeeguu.core.model.db.session.query(Text).all()

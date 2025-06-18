@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import exists
 from zeeguu.core.model.language import Language
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Cohort(db.Model):

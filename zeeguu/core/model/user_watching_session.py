@@ -1,5 +1,7 @@
 from datetime import datetime
-from zeeguu.core.model import db, User, Video
+from .db import db
+from .user import User
+from .video import Video
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.util.time import human_readable_duration, human_readable_date
@@ -47,7 +49,7 @@ class UserWatchingSession(db.Model):
         return human_readable_date(self.start_time)
 
     def events_in_this_session(self):
-        from zeeguu.core.model import UserActivityData
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
 
         return (
             UserActivityData.query.filter(UserActivityData.time > self.start_time)

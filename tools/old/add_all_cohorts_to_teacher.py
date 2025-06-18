@@ -8,7 +8,9 @@
 
 """
 import zeeguu.core
-from zeeguu.core.model import User, Cohort, TeacherCohortMap
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
+from zeeguu.core.model.user import User
 
 db_session = zeeguu.core.model.db.session
 big_teacher = User.query.filter_by(id=534).one()

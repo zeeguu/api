@@ -7,7 +7,9 @@ from zeeguu.api.app import create_app
 from zeeguu.core.content_retriever.parse_with_readability_server import (
     download_and_parse,
 )
-from zeeguu.core.model import User, Language, UserPreference
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.word_scheduling.basicSR.basicSR import (
     BasicSRSchedule,
     DEFAULT_MAX_WORDS_TO_SCHEDULE,

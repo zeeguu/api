@@ -1,6 +1,8 @@
 import datetime
 
-from zeeguu.core.model import User, Exercise, Bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.exercise import Exercise
+from zeeguu.core.model.user import User
 from zeeguu.core.model.bookmark import bookmark_exercise_mapping
 from zeeguu.core.model import db
 

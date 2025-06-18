@@ -5,11 +5,11 @@ from zeeguu.core.elastic.indexing import (
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk, scan
 import zeeguu.core
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
-from zeeguu.core.model import ArticleTopicMap
+from zeeguu.core.model.article import ArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from zeeguu.core.model.article_topic_map import TopicOriginType
 import numpy as np

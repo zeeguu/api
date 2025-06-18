@@ -4,7 +4,8 @@ from dateutil.utils import today
 from flask import jsonify
 
 import zeeguu.core
-from zeeguu.core.model import User, Cohort
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.user import User
 from ._common_api_parameters import (
     _get_student_cohort_and_period_from_POST_params,
     _convert_number_of_days_to_date_interval,

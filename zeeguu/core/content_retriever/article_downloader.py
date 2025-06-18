@@ -6,41 +6,36 @@ about and downloads new articles saving them in the DB.
 
 """
 
-import newspaper
 from time import time
-from pymysql import DataError
 
-from zeeguu.core.content_retriever.crawler_exceptions import *
-from zeeguu.logging import log, logp
-
-from zeeguu.core import model
-
-from zeeguu.core.semantic_search import (
-    get_topic_classification_based_on_similar_content,
-)
-from zeeguu.core.content_quality.quality_filter import sufficient_quality
-from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
-from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
-from zeeguu.core.model.article_topic_map import TopicOriginType
-from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.model.source import Source
-
+import newspaper
 import requests
-
-from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
-
+from pymysql import DataError
 from sentry_sdk import capture_exception as capture_to_sentry
-from zeeguu.core.elastic.indexing import index_in_elasticsearch
 
+from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
+from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
+from zeeguu.core.content_retriever.crawler_exceptions import *
+from zeeguu.core.elastic.indexing import index_in_elasticsearch
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.article import MAX_CHAR_COUNT_IN_SUMMARY
+from zeeguu.core.model.article_topic_map import TopicOriginType
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.url import Url
+from zeeguu.core.model.url_keyword import UrlKeyword
+from zeeguu.core.semantic_search import (
+    get_topic_classification_based_on_similar_content,
+)
+from zeeguu.logging import log, logp
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
-
-
-import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
@@ -167,7 +162,7 @@ def download_from_feed(
 
         logp(feed_item["url"])
         # check if the article is already in the DB
-        art = model.Article.find(feed_item["url"])
+        art = Article.find(feed_item["url"])
         if art:
             skipped_already_in_db += 1
             logp(" - Already in DB")
@@ -177,7 +172,7 @@ def download_from_feed(
             url = _url_after_redirects(feed_item["url"])
 
             # check if the article after resolving redirects is already in the DB
-            art = model.Article.find(url)
+            art = Article.find(url)
             if art:
                 skipped_already_in_db += 1
                 logp(" - Already in DB")
@@ -289,7 +284,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     published_datetime = feed_item["published_datetime"]
 
-    art = model.Article.find(url)
+    art = Article.find(url)
 
     if art:
         raise SkippedAlreadyInDB()
@@ -328,7 +323,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         commit=False,
     )
     # Create new article and save it to DB
-    new_article = zeeguu.core.model.Article(
+    new_article = Article(
         Url.find_or_create(session, url),
         title,
         ", ".join(np_article.authors),
@@ -404,8 +399,6 @@ def add_topics(new_article, feed, url_keywords, session):
             return TopicOriginType.URL_PARSED.value, [
                 t.topic.title for t in new_article.topics
             ]
-
-    from collections import Counter
 
     # Add based on KK neighbours:
     topic_to_assign = get_topic_classification_based_on_similar_content(

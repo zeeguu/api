@@ -1,4 +1,4 @@
-from zeeguu.core.model import db
+from .db import db
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 from .cohort import Cohort

@@ -3,12 +3,14 @@ import json
 import flask
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 import zeeguu.core
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserActivityData, UserArticle, Article
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.user_feedback import UserFeedback
 from zeeguu.core.model.url import Url

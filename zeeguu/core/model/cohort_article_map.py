@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, DateTime
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.util.encoding import datetime_to_json

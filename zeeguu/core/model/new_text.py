@@ -4,7 +4,7 @@ import time
 from sqlalchemy import UnicodeText
 
 from zeeguu.core.util import long_hash
-from zeeguu.core.model import db
+from .db import db
 
 
 class NewText(db.Model):

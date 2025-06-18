@@ -1,4 +1,5 @@
-from zeeguu.core.model import Text, Bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.text import Text
 from zeeguu.core.util.hash import text_hash
 
 from zeeguu.core.model import db

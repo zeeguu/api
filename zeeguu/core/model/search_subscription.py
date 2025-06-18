@@ -5,7 +5,7 @@ from zeeguu.core.model.user import User
 import sqlalchemy
 import zeeguu.core
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.search import Search
 
 

@@ -5,30 +5,25 @@ import sqlalchemy
 from flask import request, jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
-from zeeguu.core.model import (
-    User,
-    Cohort,
-    Language,
-    TeacherCohortMap,
-    CohortArticleMap,
-    Teacher,
-)
-from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.api.utils.route_wrappers import requires_session
+from zeeguu.core.model import db
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.cohort_article_map import CohortArticleMap
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.teacher import Teacher
+from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
+from zeeguu.core.model.user import User
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
-from .helpers import (
-    all_user_info_from_cohort,
-    get_cohort_info,
-)
 from ._permissions import (
     check_permission_for_cohort,
     check_permission_for_user,
 )
+from .helpers import (
+    all_user_info_from_cohort,
+    get_cohort_info,
+)
 from .. import api
-from zeeguu.api.utils.route_wrappers import requires_session
-
-from zeeguu.core.model import db
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
@@ -39,7 +34,7 @@ def remove_cohort(cohort_id):
     Can only be called successfully if the class is empty.
 
     """
-    from zeeguu.core.model import TeacherCohortMap
+    from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
     check_permission_for_cohort(cohort_id)
 
@@ -81,7 +76,7 @@ def create_own_cohort():
         """
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
         """
-        from zeeguu.core.model import TeacherCohortMap
+        from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
         user = User.find_by_id(user_id)
         cohort = Cohort.find(cohort_id)

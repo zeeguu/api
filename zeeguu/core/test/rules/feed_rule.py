@@ -3,7 +3,9 @@ from random import randint
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.url_rule import UrlRule
-from zeeguu.core.model import Feed, Language, Url
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.url import Url
 from zeeguu.core.feed_handler import FEED_TYPE, NewspaperFeed
 from zeeguu.core.test.mocking_the_web import (
     URL_SPIEGEL_RSS,

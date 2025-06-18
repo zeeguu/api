@@ -1,6 +1,6 @@
 from sqlalchemy.exc import NoResultFound
 
-from zeeguu.core.model import db
+from .db import db
 
 
 # I've thought a lot about what could be alternative names for this concept
@@ -39,7 +39,7 @@ from zeeguu.core.model import db
 
 
 class Meaning(db.Model):
-    from zeeguu.core.model import db, Phrase
+    from .phrase import Phrase
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -64,7 +64,8 @@ class Meaning(db.Model):
         _translation: str,
         _translation_lang: str,
     ):
-        from zeeguu.core.model import Phrase, Language
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.language import Language
 
         origin_lang = Language.find_or_create(_origin_lang)
         translation_lang = Language.find_or_create(_translation_lang)

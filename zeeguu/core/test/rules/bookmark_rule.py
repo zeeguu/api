@@ -1,14 +1,13 @@
 import random
 import re
-from datetime import timedelta
 
-from zeeguu.core.bookmark_quality import quality_bookmark, bad_quality_bookmark
-from zeeguu.core.model import Meaning
+from zeeguu.core.bookmark_quality import bad_quality_bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.phrase import Phrase
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
-from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.phrase import Phrase
 
 
 class BookmarkRule(BaseRule):

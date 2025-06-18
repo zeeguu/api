@@ -5,7 +5,8 @@ from zeeguu.core.elastic.indexing import (
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 import zeeguu.core
-from zeeguu.core.model import Article, Video
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.video import Video
 from datetime import datetime
 from zeeguu.api.app import create_app
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING

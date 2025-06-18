@@ -12,13 +12,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import Article, User
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.user import User
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class UserArticle(db.Model):
@@ -246,7 +247,7 @@ class UserArticle(db.Model):
         cls, user: User, article: Article, with_content=False, with_translations=True
     ):
 
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.user_activitiy_data import UserActivityData
         from zeeguu.core.model.article_fragment_context import (

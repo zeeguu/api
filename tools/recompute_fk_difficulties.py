@@ -1,6 +1,7 @@
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, Language
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 
 VERBOSE = False

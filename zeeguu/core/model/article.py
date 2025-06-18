@@ -14,7 +14,7 @@ from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
-from zeeguu.core.model import db
+from .db import db
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
@@ -350,7 +350,7 @@ class Article(db.Model):
         return result_dict
 
     def article_info_for_teacher(self):
-        from zeeguu.core.model import CohortArticleMap
+        from zeeguu.core.model.cohort_article_map import CohortArticleMap
 
         info = self.article_info()
         info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
@@ -513,7 +513,8 @@ class Article(db.Model):
             - if htmlContent is present, create article for that
             - if not, download and create article then return
         """
-        from zeeguu.core.model import Url, Language
+        from zeeguu.core.model.url import Url
+        from zeeguu.core.model.language import Language
         from zeeguu.core.model.source import Source
         from zeeguu.core.model.source_type import SourceType
 
@@ -602,7 +603,7 @@ class Article(db.Model):
         :return: object or None if not found
         """
 
-        from zeeguu.core.model import Url
+        from zeeguu.core.model.url import Url
 
         try:
             url_object = Url.find(url)

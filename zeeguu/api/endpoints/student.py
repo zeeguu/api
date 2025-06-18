@@ -2,7 +2,8 @@ import flask
 from flask import request
 from zeeguu.api.utils import json_result
 
-from zeeguu.core.model import Cohort, User
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session

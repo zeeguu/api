@@ -1,7 +1,7 @@
 # coding=utf-8
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Text
+from zeeguu.core.model.text import Text
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.article_fragment import ArticleFragment
 from zeeguu.core.model.context_type import ContextType

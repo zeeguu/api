@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-from zeeguu.core.model import Feed, Url, Language
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.url import Url
 import zeeguu.core
 
 RESOURCES_FOLDER = "https://zeeguu.unibe.ch/api/resources/"

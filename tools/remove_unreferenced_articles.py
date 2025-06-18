@@ -20,13 +20,9 @@ import sqlalchemy
 import traceback
 
 from zeeguu.api.app import create_app
-from zeeguu.core.model import (
-    Article,
-    UserArticle,
-    UserActivityData,
-    UserReadingSession,
-    CohortArticleMap,
-)
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model import db
 
 import sys

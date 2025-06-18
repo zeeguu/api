@@ -8,7 +8,8 @@ from dateutil.utils import today
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.model import User, Session
+from zeeguu.core.model.session import Session
+from zeeguu.core.model.user import User
 from zeeguu.core.model import db
 from zeeguu.core.account_management.user_account_deletion import (
     delete_user_account_w_session,

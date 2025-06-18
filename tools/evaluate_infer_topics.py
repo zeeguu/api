@@ -2,7 +2,9 @@ from zeeguu.core.semantic_search import (
     get_article_w_topics_based_on_text_similarity,
 )
 
-from zeeguu.core.model import Article, Language, ArticleTopicMap
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_topic_map import ArticleTopicMap
+from zeeguu.core.model.language import Language
 from sklearn.metrics import classification_report
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX

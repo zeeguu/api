@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class ArticleFragment(db.Model):

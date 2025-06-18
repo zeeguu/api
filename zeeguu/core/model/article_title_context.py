@@ -1,6 +1,6 @@
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model import db
+from .db import db
 import sqlalchemy
 
 

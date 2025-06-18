@@ -1,5 +1,5 @@
-from zeeguu.core.model import Article
-from zeeguu.core.model import Feed
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.feed import Feed
 from zeeguu.core.content_cleaning.content_cleaner import cleanup_non_content_bits
 from zeeguu.core.model import db
 

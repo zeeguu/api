@@ -4,7 +4,7 @@ from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Exercise(db.Model):

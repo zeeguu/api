@@ -1,7 +1,7 @@
 import sqlalchemy
 from sqlalchemy import Column, Integer
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Notification(db.Model):

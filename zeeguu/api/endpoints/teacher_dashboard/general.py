@@ -17,7 +17,7 @@ from zeeguu.api.utils.route_wrappers import requires_session
 from .. import api
 
 import zeeguu.core
-from zeeguu.core.model import Cohort
+from zeeguu.core.model.cohort import Cohort
 
 
 from zeeguu.core.model import db
@@ -58,7 +58,7 @@ def users_by_teacher(duration):
     user info for all users in cohorts that the logged in user owns.
     """
 
-    from zeeguu.core.model import TeacherCohortMap
+    from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user_id).all()
     all_users = []

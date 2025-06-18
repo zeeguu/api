@@ -1,5 +1,5 @@
 from zeeguu.core.content_recommender import article_recommendations_for_user
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 import sys
 
 

@@ -1,16 +1,18 @@
-from datetime import datetime
-
 import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.exercise_source import ExerciseSource
+from zeeguu.core.model.user import User
 from zeeguu.core.word_scheduling import BasicSRSchedule
+from . import api, db_session
 
 
 @api.route("/user_words", methods=["GET"])
@@ -246,6 +248,7 @@ def unstar_bookmark(bookmark_id):
     bookmark.update_fit_for_study()
     db_session.commit()
     return "OK"
+
 
 @api.route("/practiced_bookmarks_count_this_week", methods=["GET"])
 @cross_domain

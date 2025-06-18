@@ -1,7 +1,8 @@
 from zeeguu.api.app import create_app
-from zeeguu.core.feed_handler import FEED_TYPE, FEED_TYPE_TO_FEED_HANDLER
+from zeeguu.core.feed_handler import FEED_TYPE
 
-from zeeguu.core.model import Language, Feed
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.language import Language
 
 app = create_app()
 app.app_context().push()

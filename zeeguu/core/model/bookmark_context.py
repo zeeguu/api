@@ -1,7 +1,7 @@
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.new_text import NewText
 
-from zeeguu.core.model import db
+from .db import db
 import sqlalchemy
 import time
 import json
@@ -107,12 +107,12 @@ class BookmarkContext(db.Model):
         return self.text.content
 
     def all_bookmarks(self, user):
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         return Bookmark.find_all_for_context_and_user(self, user)
 
     def all_bookmarks_for_context(self):
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         return Bookmark.query.join(self).filter(Bookmark.context_id == self.id).all()
 

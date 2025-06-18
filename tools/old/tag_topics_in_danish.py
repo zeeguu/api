@@ -1,5 +1,7 @@
 import zeeguu.core
-from zeeguu.core.model import Article, Language, LocalizedTopic
+from zeeguu.core.model import LocalizedTopic
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 
 db_session = zeeguu.core.model.db.session
 

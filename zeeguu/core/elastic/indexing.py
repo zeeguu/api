@@ -1,4 +1,5 @@
-from zeeguu.core.model import UrlKeyword, Topic
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
 

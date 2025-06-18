@@ -12,7 +12,7 @@ from zeeguu.core.feed_handler import FEED_TYPE_TO_FEED_HANDLER
 
 import zeeguu
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Feed(db.Model):
@@ -248,7 +248,7 @@ class Feed(db.Model):
         :return:
         """
 
-        from zeeguu.core.model import Article
+        from zeeguu.core.model.article import Article
 
         if not after_date:
             after_date = datetime(2001, 1, 1)

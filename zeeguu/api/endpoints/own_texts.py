@@ -2,7 +2,11 @@ import flask
 import sqlalchemy
 from flask import request
 
-from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle, User
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.cohort_article_map import CohortArticleMap
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.personal_copy import PersonalCopy
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session

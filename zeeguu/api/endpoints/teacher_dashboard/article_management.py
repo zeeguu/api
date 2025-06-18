@@ -7,18 +7,20 @@ import sqlalchemy
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
 from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.core.model import Cohort, Language, Article, Url, User
+from zeeguu.api.utils.route_wrappers import requires_session
+from zeeguu.core.model import db
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.url import Url
+from zeeguu.core.model.user import User
 from ._only_teachers_decorator import only_teachers
 from ._permissions import (
     check_permission_for_cohort,
 )
 from .. import api
-from zeeguu.api.utils.route_wrappers import requires_session
-
-from zeeguu.core.model import db
 
 
 @api.route("/send_article_to_colleague", methods=["POST"])

@@ -7,7 +7,8 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article, UrlKeyword
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from url_topics import get_url_keywords_from_article
 from tqdm import tqdm

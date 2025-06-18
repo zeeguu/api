@@ -1,4 +1,5 @@
-from zeeguu.core.model import Article, Language
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 from zeeguu.api.app import create_app
 import numpy as np
 

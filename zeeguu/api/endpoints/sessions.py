@@ -1,7 +1,8 @@
 import flask
 from datetime import datetime
 from flask import request, make_response
-from zeeguu.core.model import Session, User
+from zeeguu.core.model.session import Session
+from zeeguu.core.model.user import User
 from zeeguu.api.utils.abort_handling import make_error
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session

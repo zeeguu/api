@@ -1,5 +1,6 @@
 import zeeguu.core
-from zeeguu.core.model import Article, Language
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 from nltk.tokenize import sent_tokenize
 import os
 import json

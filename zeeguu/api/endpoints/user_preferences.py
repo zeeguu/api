@@ -4,7 +4,8 @@ import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, User
+from zeeguu.core.model.user_preference import UserPreference
+from zeeguu.core.model.user import User
 
 db_session = zeeguu.core.model.db.session
 

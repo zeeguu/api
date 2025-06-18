@@ -2,7 +2,11 @@ import sqlalchemy
 
 import zeeguu.core
 from zeeguu.core.emailer.user_activity import send_new_user_account_email
-from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.teacher import Teacher
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_language import UserLanguage
 
 
 def valid_invite_code(invite_code):

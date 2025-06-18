@@ -21,7 +21,7 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
 
-from zeeguu.core.model import db
+from .db import db
 
 from zeeguu.core.util.encoding import datetime_to_json
 

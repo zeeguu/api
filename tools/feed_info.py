@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from zeeguu.core.model import Feed
+from zeeguu.core.model.feed import Feed
 import zeeguu.core
 from zeeguu.api.app import create_app
 

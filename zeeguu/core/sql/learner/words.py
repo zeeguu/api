@@ -1,4 +1,4 @@
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
 

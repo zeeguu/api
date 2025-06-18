@@ -7,7 +7,7 @@ from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.topic_rule import TopicRule
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.test.mocking_the_web import (
     URL_CNN_KATHMANDU,
     URL_SPIEGEL_VENEZUELA,

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Feed, Url, Language
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.url import Url
 from zeeguu.core.feed_handler import FEED_TYPE
 import zeeguu.core
 
@@ -26,7 +28,8 @@ def main():
     feed_name = input(f"Feed name (Enter for: {feed.title}):  ") or feed.title
     print(f"= {feed_name}")
 
-    default_icon_name = f"{feed_name.lower().replace(" ", "-")}.png"
+    file_from_feed_name = feed_name.lower().replace(" ", "-")
+    default_icon_name = f"{file_from_feed_name}.png"
     icon_name = (
         input(
             f"Icon name to be found in resources folder (e.g. {default_icon_name}):  "

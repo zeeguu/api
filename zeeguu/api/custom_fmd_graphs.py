@@ -1,6 +1,6 @@
 def daily_visitors(dashboard):
     def active_users_today():
-        from zeeguu.core.model import User
+        from zeeguu.core.model.user import User
 
         return len(User.all_recent_user_ids(days=1))
 

@@ -1,4 +1,4 @@
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model.bookmark import Bookmark
 
 bookmark = Bookmark.query.filter_by(id=122228)[0]
 

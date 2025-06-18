@@ -2,8 +2,8 @@ import sqlalchemy
 import flask
 
 from flask import request
-from zeeguu.core.model import Session
-from zeeguu.core.model import User
+from zeeguu.core.model.session import Session
+from zeeguu.core.model.user import User
 from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error

@@ -4,7 +4,7 @@ from flask import request
 from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
 from .helpers.activity_sessions import update_activity_session
-from ...core.model import UserReadingSession
+from zeeguu.core.model.user_reading_session import UserReadingSession
 from datetime import datetime
 
 

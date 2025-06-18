@@ -3,7 +3,7 @@ from zeeguu.api import app
 from zeeguu.core.content_recommender.elastic_recommender import (
     article_and_video_search_for_user,
 )
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.api.app import create_app

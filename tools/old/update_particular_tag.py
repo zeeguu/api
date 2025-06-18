@@ -14,7 +14,9 @@
 import sys
 
 import zeeguu.core
-from zeeguu.core.model import Article, Language, LocalizedTopic
+from zeeguu.core.model import LocalizedTopic
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 
 
 def update_particular_tag(language, loc_topic):

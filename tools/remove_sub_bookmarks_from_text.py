@@ -1,5 +1,6 @@
 import zeeguu
-from zeeguu.core.model import Text, Bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.text import Text
 from zeeguu.api.app import create_app
 from tqdm import tqdm
 from time import time

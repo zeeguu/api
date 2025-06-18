@@ -5,7 +5,7 @@ from flask import request
 
 from zeeguu.api.endpoints import api
 from zeeguu.api.utils import cross_domain, requires_session
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -39,7 +39,8 @@ def voice_for_language(language_id):
 @requires_session
 def tts():
     import zeeguu.core
-    from zeeguu.core.model import Phrase, Language
+    from zeeguu.core.model.language import Language
+    from zeeguu.core.model.phrase import Phrase
 
     db_session = zeeguu.core.model.db.session
 

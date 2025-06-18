@@ -5,7 +5,7 @@ from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.url_rule import UrlRule
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.test.rules.source_rule import SourceRule
 from zeeguu.core.test.mocking_the_web import URL_FAZ_LEIGHTATHLETIK
 

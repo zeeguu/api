@@ -1,6 +1,10 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User, Topic, UserArticle
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy

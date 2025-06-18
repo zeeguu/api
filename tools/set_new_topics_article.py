@@ -3,7 +3,7 @@
 import zeeguu.core
 from zeeguu.api.app import create_app
 from zeeguu.core.content_retriever.article_downloader import add_topics
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from tqdm import tqdm
 
 
