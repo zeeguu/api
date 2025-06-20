@@ -27,7 +27,8 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.logging import log, logp
 
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
-from zeeguu.core.model import Feed, Language
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.language import Language
 from crawl_summary.crawl_report import CrawlReport
 
 db_session = zeeguu.core.model.db.session

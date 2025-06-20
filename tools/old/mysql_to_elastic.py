@@ -6,7 +6,7 @@ from sqlalchemy import func
 from elasticsearch import Elasticsearch
 import zeeguu.core
 from sqlalchemy.orm import sessionmaker
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 import sys
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound

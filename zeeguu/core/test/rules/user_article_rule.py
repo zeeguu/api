@@ -7,7 +7,7 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.test.rules.url_rule import UrlRule
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.user_article import UserArticle
 
 

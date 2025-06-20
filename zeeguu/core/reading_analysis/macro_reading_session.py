@@ -12,7 +12,8 @@
 # 	2020-09-10 07:35:12, 1261.0s
 # 	2020-09-10 07:56:25, 3.0s
 
-from zeeguu.core.model import UserActivityData, UserArticle
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.model.user_article import UserArticle
 
 
 class MacroSession(object):

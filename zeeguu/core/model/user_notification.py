@@ -1,6 +1,6 @@
 import sqlalchemy
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.user import User
 from zeeguu.core.model.notification import Notification
 from datetime import datetime

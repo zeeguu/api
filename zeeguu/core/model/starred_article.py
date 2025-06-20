@@ -14,9 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.constants import SIMPLE_TIME_FORMAT
-from zeeguu.core.model import Url, User
+from zeeguu.core.model.url import Url
+from zeeguu.core.model.user import User
 from zeeguu.core.model.language import Language
-from zeeguu.core.model import db
+from .db import db
 
 
 class StarredArticle(db.Model):

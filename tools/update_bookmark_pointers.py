@@ -1,5 +1,6 @@
 import zeeguu
-from zeeguu.core.model import Bookmark, Article
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.api.app import create_app
 from tqdm import tqdm
 from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL

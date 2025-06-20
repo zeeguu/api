@@ -139,9 +139,8 @@ class LoggedInTeacher(LoggedInClient):
         self._upgrade_to_teacher()
 
     def _upgrade_to_teacher(self):
-        from zeeguu.core.model import User, Teacher
-
-        from zeeguu.core.model import db
+        from zeeguu.core.model.teacher import Teacher
+        from zeeguu.core.model.user import User
 
         u = User.find(self.email)
         db_session.add(Teacher(u))

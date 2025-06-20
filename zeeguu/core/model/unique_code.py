@@ -4,7 +4,7 @@ from random import randint
 import zeeguu.core
 from sqlalchemy import func
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class UniqueCode(db.Model):

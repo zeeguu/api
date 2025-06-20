@@ -1,6 +1,6 @@
 import sys
 import zeeguu
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from random import randint
 from time import sleep

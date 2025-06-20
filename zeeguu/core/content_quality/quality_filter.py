@@ -1,6 +1,7 @@
 import newspaper
 from langdetect import detect
-from zeeguu.core.model import Article, LowQualityTypes
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 from zeeguu.core.ml_models import is_paywalled, ID_TO_LABEL_PAYWALL
 
 HTML_READ_MORE_PATTERNS = [

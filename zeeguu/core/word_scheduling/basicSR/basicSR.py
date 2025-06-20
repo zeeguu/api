@@ -1,4 +1,7 @@
-from zeeguu.core.model import Bookmark, Phrase, ExerciseOutcome, UserPreference
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.phrase import Phrase
+from zeeguu.core.model.user_preference import UserPreference
 
 from zeeguu.core.model import db
 

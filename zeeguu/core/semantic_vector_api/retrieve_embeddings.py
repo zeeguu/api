@@ -1,6 +1,6 @@
 import os
 import requests
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 
 
 EMB_API_CONN_STRING = os.environ.get(

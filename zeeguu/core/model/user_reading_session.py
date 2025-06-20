@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from zeeguu.core.model import User, Article
+from zeeguu.core.model.user import User
+from zeeguu.core.model.article import Article
 
 from zeeguu.core.constants import *
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.util.time import human_readable_duration, human_readable_date
 from sqlalchemy.sql.functions import sum
-from zeeguu.core.model import db
+from .db import db
 
 VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
 VERY_FAR_IN_THE_FUTURE = "9999-12-31T23:59:59"
@@ -56,7 +57,7 @@ class UserReadingSession(db.Model):
         return human_readable_date(self.start_time)
 
     def events_in_this_session(self):
-        from zeeguu.core.model import UserActivityData
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
 
         return (
             UserActivityData.query.filter(UserActivityData.time > self.start_time)

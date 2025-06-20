@@ -1,6 +1,5 @@
-import sqlalchemy
-from zeeguu.core.model import db
 from zeeguu.core.model.new_text import NewText
+from .db import db
 
 
 class Caption(db.Model):
@@ -46,7 +45,7 @@ class Caption(db.Model):
         session.add(caption)
         session.commit()
         return caption
-    
+
     @classmethod
     def find_by_id(cls, caption_id: int):
         return cls.query.filter_by(id=caption_id).first()

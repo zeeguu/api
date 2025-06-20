@@ -2,7 +2,8 @@ import traceback
 import flask
 
 from zeeguu.core.exercises.similar_words import similar_words
-from zeeguu.core.model import Bookmark, User
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result

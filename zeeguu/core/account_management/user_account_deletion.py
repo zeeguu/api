@@ -1,32 +1,26 @@
 import sqlalchemy
-from zeeguu.core.model import (
-    User,
-    ArticleDifficultyFeedback,
-    PersonalCopy,
-    SearchFilter,
-    UserPreference,
-    UserCohortMap,
-)
+from zeeguu.core.model.user import User
+from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
+from zeeguu.core.model.personal_copy import PersonalCopy
+from zeeguu.core.model.search_filter import SearchFilter
+from zeeguu.core.model.user_preference import UserPreference
+from zeeguu.core.model.user_cohort_map import UserCohortMap
+from zeeguu.core.model.search_subscription import SearchSubscription
+from zeeguu.core.model.teacher import Teacher
+from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
+from zeeguu.core.model.session import Session
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
 import time
 import zeeguu.core
 from zeeguu.core.model.starred_article import StarredArticle
 
 db_session = zeeguu.core.model.db.session
-
-from zeeguu.core.model import (
-    SearchSubscription,
-    Teacher,
-    TeacherCohortMap,
-    Session,
-    User,
-    UserActivityData,
-    Bookmark,
-    UserArticle,
-    UserReadingSession,
-    UserExerciseSession,
-)
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 
 tables_to_modify = [
     SearchSubscription,

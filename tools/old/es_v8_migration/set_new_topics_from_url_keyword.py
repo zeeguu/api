@@ -7,12 +7,9 @@
 
 import zeeguu.core
 from zeeguu.api.app import create_app
-from zeeguu.core.model import (
-    Article,
-    ArticleUrlKeywordMap,
-    UrlKeyword,
-    NewArticleTopicMap,
-)
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.article_topic_map import TopicOriginType
 from tqdm import tqdm
 
 app = create_app()

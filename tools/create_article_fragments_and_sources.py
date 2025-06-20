@@ -2,7 +2,7 @@
 import zeeguu.core
 from datetime import datetime
 from zeeguu.api.app import create_app
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
 from tqdm import tqdm

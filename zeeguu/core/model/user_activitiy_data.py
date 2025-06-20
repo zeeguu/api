@@ -11,7 +11,8 @@ from zeeguu.logging import log
 
 import sqlalchemy
 
-from zeeguu.core.model import User, Url
+from zeeguu.core.model.user import User
+from zeeguu.core.model.url import Url
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.source import Source
 from zeeguu.core.constants import (
@@ -26,7 +27,7 @@ from zeeguu.core.behavioral_modeling import (
 )
 import zeeguu
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class UserActivityData(db.Model):

@@ -1,5 +1,5 @@
 from time import sleep
-from zeeguu.core.model import UserActivityData
+from zeeguu.core.model.user_activitiy_data import UserActivityData
 
 import timeago
 from datetime import datetime

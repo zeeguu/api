@@ -1,6 +1,6 @@
 import flask
 
-from zeeguu.core.model import UserExerciseSession
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
 from zeeguu.api.utils.route_wrappers import requires_session
 from zeeguu.api.utils.json_result import json_result

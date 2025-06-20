@@ -2,7 +2,7 @@ import random
 
 
 from zeeguu.core.bookmark_quality import bad_quality_bookmark
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule

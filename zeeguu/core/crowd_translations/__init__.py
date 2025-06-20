@@ -1,4 +1,5 @@
-from zeeguu.core.model import Language, Bookmark
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.language import Language
 from zeeguu.core.model.bookmark_context import BookmarkContext
 
 

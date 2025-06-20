@@ -45,17 +45,14 @@ from zeeguu.core.elastic.indexing import (
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk, scan
 import zeeguu.core
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.app import create_app
 
-from zeeguu.core.model import (
-    ArticleUrlKeywordMap,
-    UrlKeyword,
-    ArticleTopicMap,
-    Topic,
-)
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
+from zeeguu.core.model.article_topic_map import TopicOriginType
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 import numpy as np

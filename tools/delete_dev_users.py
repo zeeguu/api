@@ -1,5 +1,5 @@
 import zeeguu.core
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 from zeeguu.core.account_management.user_account_deletion import delete_user_account
 from zeeguu.api.app import create_app
 

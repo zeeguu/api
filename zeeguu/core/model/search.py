@@ -1,7 +1,7 @@
 import sqlalchemy
 from sqlalchemy import Column, Integer, String
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.language import Language
 
 
@@ -40,7 +40,7 @@ class Search(db.Model):
         )
 
     def all_articles(self):
-        from zeeguu.core.model import Article
+        from zeeguu.core.model.article import Article
 
         return Article.query.filter(Article.searches.any(id=self.id)).all()
 

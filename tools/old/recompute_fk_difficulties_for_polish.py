@@ -1,6 +1,6 @@
 # e.g. doing it for polish
 import zeeguu.core
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 
 print("starting...")

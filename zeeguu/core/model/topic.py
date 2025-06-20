@@ -2,7 +2,7 @@ from zeeguu.logging import logp
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from datetime import datetime
@@ -42,7 +42,7 @@ class Topic(db.Model):
 
     def all_articles(self, limit=2000):
 
-        from zeeguu.core.model import Article
+        from zeeguu.core.model.article import Article
 
         if hasattr(Topic, "cached_articles") and (
             self.cached_articles.get(self.id, None)

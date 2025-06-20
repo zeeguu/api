@@ -19,7 +19,7 @@ from collections import defaultdict
 
 cohort_student_map = defaultdict(list)
 
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 for user_id in User.all_recent_user_ids(DAYS_SINCE_ACTIVE):
     user = User.find_by_id(user_id)

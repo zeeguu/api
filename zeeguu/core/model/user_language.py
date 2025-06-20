@@ -3,11 +3,11 @@ import sqlalchemy
 from sqlalchemy import Column, Integer, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class UserLanguage(db.Model):

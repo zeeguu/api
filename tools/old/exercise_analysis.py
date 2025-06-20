@@ -7,7 +7,9 @@ os.environ["zeeguu.core_CONFIG"] = os.path.expanduser(
     "~/.config/zeeguu/gomarus_anon_analysis.cfg"
 )
 
-from zeeguu.core.model import Exercise, User, ExerciseOutcome
+from zeeguu.core.model.exercise import Exercise
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.user import User
 import zeeguu.core
 
 

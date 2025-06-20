@@ -7,7 +7,7 @@ import sqlalchemy
 import string
 from collections import Counter
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class UrlKeyword(db.Model):

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url

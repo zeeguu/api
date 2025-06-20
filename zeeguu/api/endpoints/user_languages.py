@@ -3,7 +3,7 @@ import zeeguu.core
 from flask import request
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.user_language import UserLanguage
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session

@@ -6,7 +6,7 @@ from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
 from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.core.model.user_article import UserArticle
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 from zeeguu.core.content_recommender import (
     article_and_video_search_for_user,

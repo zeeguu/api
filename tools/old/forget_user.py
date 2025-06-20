@@ -8,7 +8,7 @@
 
 import zeeguu.core
 from faker import Faker
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 import sys
 

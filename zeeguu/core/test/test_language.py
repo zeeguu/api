@@ -36,7 +36,7 @@ class LanguageTest(ModelTestMixIn, TestCase):
             assert LanguageRule.get_or_create_language(lan)
 
     def test_user_set_language(self):
-        from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.user_language import UserLanguage
 
         language_should_be = LanguageRule().random
         language_level_should_be = 2

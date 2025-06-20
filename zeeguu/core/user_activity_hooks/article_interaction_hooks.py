@@ -2,11 +2,11 @@ from datetime import datetime
 
 from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
-    EVENT_LIKE_ARTICLE,
     EVENT_OPEN_ARTICLE,
 )
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.user_article import UserArticle
 from zeeguu.logging import log
-from zeeguu.core.model import Article, UserArticle
 
 
 def distill_article_interactions(session, user, data):

@@ -5,7 +5,7 @@ from zeeguu.logging import logp
 
 import zeeguu
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Language(db.Model):
@@ -169,7 +169,7 @@ class Language(db.Model):
     def get_articles(
         self, after_date=None, most_recent_first=False, easiest_first=False
     ):
-        from zeeguu.core.model import Article
+        from zeeguu.core.model.article import Article
 
         if hasattr(Language, "cached_articles") and (
             self.cached_articles.get(self.id, None)
@@ -206,7 +206,7 @@ class Language(db.Model):
         :return:
         """
 
-        from zeeguu.core.model import Article
+        from zeeguu.core.model.article import Article
 
         if not after_date:
             after_date = datetime(2001, 1, 1)

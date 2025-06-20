@@ -2,7 +2,9 @@ import flask
 import sqlalchemy
 
 
-from zeeguu.core.model import Cohort, User, Language
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.user import User
 from zeeguu.core.sql.teacher.teachers_for_cohort import teachers_for_cohort
 from zeeguu.core.user_statistics.exercise_corectness import (
     exercise_count_and_correctness_percentage,

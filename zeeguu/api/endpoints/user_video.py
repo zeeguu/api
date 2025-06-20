@@ -1,6 +1,8 @@
 import flask
 from flask import request
-from zeeguu.core.model import User, UserVideo, Video
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_video import UserVideo
+from zeeguu.core.model.video import Video
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result

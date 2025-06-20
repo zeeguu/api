@@ -1,4 +1,5 @@
-from zeeguu.core.model import Feed, Url
+from zeeguu.core.model.feed import Feed
+from zeeguu.core.model.url import Url
 from zeeguu.api.app import create_app
 import zeeguu
 

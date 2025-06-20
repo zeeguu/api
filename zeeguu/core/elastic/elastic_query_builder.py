@@ -1,7 +1,7 @@
 from elasticsearch_dsl import Search, Q, SF
 from elasticsearch_dsl.query import MoreLikeThis
 from datetime import timedelta, datetime
-from zeeguu.core.model import Language
+from zeeguu.core.model.language import Language
 from pprint import pprint
 from zeeguu.core.model.article import Article
 

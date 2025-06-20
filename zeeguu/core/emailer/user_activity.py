@@ -1,4 +1,4 @@
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 import human_readable

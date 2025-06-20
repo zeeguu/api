@@ -1,4 +1,4 @@
-from zeeguu.core.model import db
+from .db import db
 
 class VideoTag(db.Model):
     __tablename__ = 'video_tag'

@@ -1,6 +1,6 @@
 import re
 from nltk.stem import SnowballStemmer 
-from zeeguu.core.model import Language
+from zeeguu.core.model.language import Language
 
 def remove_non_alphanumeric(s:str):
     s = s.lower()

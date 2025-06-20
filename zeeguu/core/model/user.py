@@ -16,7 +16,7 @@ from zeeguu.core.model.language import Language
 from zeeguu.logging import log
 from zeeguu.core.util import password_hash
 
-from zeeguu.core.model import db
+from .db import db
 from zeeguu.logging import warning
 
 # This mapping reflects splitting
@@ -131,7 +131,7 @@ class User(db.Model):
         session.commit()
 
     def details_as_dictionary(self):
-        from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.user_language import UserLanguage
 
         result = dict(
             email=self.email,
@@ -184,7 +184,7 @@ class User(db.Model):
     ):
         self.learned_language = Language.find(language_code)
 
-        from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.user_language import UserLanguage
 
         # disable the exercises and reading for all the other languages
         all_other_languages = (
@@ -211,7 +211,7 @@ class User(db.Model):
         self, language_code: str, cefr_level: str, session=None
     ):
         learned_language = Language.find_or_create(language_code)
-        from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.user_language import UserLanguage
 
         language = UserLanguage.find_or_create(session, self, learned_language)
         language.cefr_level = int(cefr_level)
@@ -328,7 +328,8 @@ class User(db.Model):
         session.commit()
 
     def cohort_articles_for_user(self):
-        from zeeguu.core.model import Cohort, CohortArticleMap
+        from zeeguu.core.model.cohort import Cohort
+        from zeeguu.core.model.cohort_article_map import CohortArticleMap
 
         all_articles = []
         try:
@@ -345,7 +346,7 @@ class User(db.Model):
             return []
 
     def isTeacher(self):
-        from zeeguu.core.model import Teacher
+        from zeeguu.core.model.teacher import Teacher
 
         try:
             Teacher.query.filter_by(user_id=self.id).one()
@@ -422,7 +423,9 @@ class User(db.Model):
         before_date=None,
         language_id=None,
     ):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
 
         if after_date is None:
             after_date = datetime.datetime(1970, 1, 1)
@@ -462,7 +465,9 @@ class User(db.Model):
         return (query.filter_by(user_id=self.id).order_by(Bookmark.time.desc())).all()
 
     def starred_bookmarks(self, count):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         return (
@@ -476,7 +481,9 @@ class User(db.Model):
         )
 
     def learned_bookmarks(self, count=50):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
@@ -492,7 +499,9 @@ class User(db.Model):
         return learned
 
     def total_learned_bookmarks(self):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
@@ -643,7 +652,8 @@ class User(db.Model):
         json=True,
     ):
 
-        from zeeguu.core.model import Bookmark, Article
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.article import Article
 
         json_bookmarks = []
 
@@ -726,9 +736,9 @@ class User(db.Model):
         return len(self.all_bookmarks())
 
     def total_exercises_completed_today(self):
-        from zeeguu.core.model import Exercise
+        from zeeguu.core.model.exercise import Exercise
         from zeeguu.core.model.bookmark import Bookmark, bookmark_exercise_mapping
-        from zeeguu.core.model import Phrase
+        from zeeguu.core.model.phrase import Phrase
 
         current_date = datetime.datetime.now().date()
         total_exercises = (
@@ -759,7 +769,7 @@ class User(db.Model):
         :return: pair of level_min and level_max for this user
 
         """
-        from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.user_language import UserLanguage
 
         lang_info = UserLanguage.with_language_id(language.id, self)
 
@@ -835,7 +845,7 @@ class User(db.Model):
 
     @classmethod
     def all_recent_user_ids(cls, days=90):
-        from zeeguu.core.model import UserActivityData
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
 
         sometime_ago = datetime.datetime.now() - datetime.timedelta(days=days)
 

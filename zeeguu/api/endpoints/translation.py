@@ -18,7 +18,9 @@ from zeeguu.api.utils.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.user import User
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.bookmark_context import ContextIdentifier

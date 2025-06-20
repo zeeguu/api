@@ -6,7 +6,8 @@ from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
 
 from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model import UserActivityData, User
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_activitiy_data import UserActivityData
 
 
 @api.route("/upload_user_activity_data", methods=["POST"])

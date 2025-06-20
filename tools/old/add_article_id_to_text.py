@@ -1,4 +1,5 @@
-from zeeguu.core.model import Text, Article
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.text import Text
 
 import zeeguu.core
 

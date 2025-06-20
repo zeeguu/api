@@ -6,7 +6,7 @@
    and replaces their names and emails with random ones.
 
 """
-from zeeguu.core.model import User
+from zeeguu.core.model.user import User
 
 u = User.find_by_id(534)
 print(u.email)

@@ -11,17 +11,15 @@ from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q
 
 from zeeguu.core.elastic.basic_ops import es_get_es_id_from_article_id
-from zeeguu.core.model import (
-    Article,
-    Video,
-    TopicFilter,
-    TopicSubscription,
-    SearchFilter,
-    SearchSubscription,
-    UserArticle,
-    UserVideo,
-    Language,
-)
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.video import Video
+from zeeguu.core.model.topic_filter import TopicFilter
+from zeeguu.core.model.topic_subscription import TopicSubscription
+from zeeguu.core.model.search_filter import SearchFilter
+from zeeguu.core.model.search_subscription import SearchSubscription
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.user_video import UserVideo
+from zeeguu.core.model.language import Language
 
 from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_recommender_query,

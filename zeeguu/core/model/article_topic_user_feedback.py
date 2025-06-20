@@ -5,7 +5,7 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.article import Article
 import sqlalchemy
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class ArticleTopicUserFeedback(db.Model):

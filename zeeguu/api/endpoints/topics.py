@@ -1,13 +1,13 @@
 import flask
 from zeeguu.logging import log
 from flask import request
-from zeeguu.core.model import (
-    Topic,
-    TopicSubscription,
-    TopicFilter,
-    Language,
-    User,
-)
+from zeeguu.core.model.topic import Topic
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.user import User
+from zeeguu.core.model.topic_filter import TopicFilter
+from zeeguu.core.model.topic_subscription import TopicSubscription
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.language import Language
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result

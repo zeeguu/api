@@ -2,14 +2,14 @@ import re
 
 import sqlalchemy.orm
 import time
-from zeeguu.core.model import Article
+from zeeguu.core.model.article import Article
 
 from zeeguu.core.util import text_hash
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.phrase import Phrase
 
-from zeeguu.core.model import db
+from .db import db
 
 
 class Text(db.Model):
@@ -130,12 +130,12 @@ class Text(db.Model):
 
     def all_bookmarks(self, user):
         # TODO: Tiago, Delete after Text is deleted
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         return Bookmark.find_all_for_text_and_user(self, user)
 
     def all_bookmarks_for_text(self):
-        from zeeguu.core.model import Bookmark
+        from zeeguu.core.model.bookmark import Bookmark
 
         return Bookmark.query.join(Text).filter(Bookmark.text_id == self.id).all()
 
