@@ -1,4 +1,3 @@
-import zeeguu.core
 from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import exists
@@ -53,22 +52,26 @@ class Cohort(db.Model):
         from zeeguu.core.model.user import User
         from zeeguu.core.model.user_cohort_map import UserCohortMap
 
-        users = []
-        if self.inv_code and len(self.inv_code) > 1:
-            # adding those users that are only assigned based on
-            # invitation code; this is for bacwards compatibility reasons
-            users_in_UserCohortMap = exists().where(User.id == UserCohortMap.user_id)
-            users.extend(
-                User.query.filter_by(invitation_code=self.inv_code).filter(
-                    ~users_in_UserCohortMap
-                )
-            )
+        # Use a set to automatically handle duplicates
+        users = set()
 
-        users.extend(
+        # Get users explicitly mapped to this cohort
+        users.update(
             User.query.join(UserCohortMap).filter(UserCohortMap.cohort == self).all()
         )
 
-        return users
+        # Also include users who have this cohort's invitation code
+        # (for backwards compatibility)
+        if self.inv_code and len(self.inv_code) > 1:
+            from sqlalchemy import func
+
+            users.update(
+                User.query.filter(
+                    func.lower(User.invitation_code) == func.lower(self.inv_code)
+                ).all()
+            )
+
+        return list(users)
 
     def get_teachers(self):
         from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
@@ -88,14 +91,16 @@ class Cohort(db.Model):
 
     @classmethod
     def find_by_code(cls, invite_code):
-        return cls.query.filter_by(inv_code=invite_code).one()
+        return cls._query_find_by_code(invite_code).one()
 
     @classmethod
-    def get_id(cls, inv):
-        c = cls.query.filter_by(inv_code=inv).one()
-        return c.id
-
-    @classmethod
-    def exists_with_invite_code(cls, code: str):
-        all_matching = cls.query.filter_by(inv_code=code).all()
+    def exists_with_invite_code(cls, invite_code: str):
+        all_matching = cls._query_find_by_code(invite_code).all()
         return len(all_matching) > 0
+
+    @classmethod
+    def _query_find_by_code(cls, invite_code):
+        # Case-insensitive search for invite codes
+        from sqlalchemy import func
+
+        return cls.query.filter(func.lower(cls.inv_code) == func.lower(invite_code))

@@ -64,14 +64,20 @@ def _new_topics(user):
 
 
 def _tiago_exercises(user):
-    right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
+    # Case-insensitive invitation code comparison
+    invitation_code_lower = user.invitation_code.lower() if user.invitation_code else ""
+    right_user = invitation_code_lower == "tiago" or user.id == 534 or user.id == 4022
     right_language = user.learned_language.code in ["da"]
     return right_user and right_language
 
 
+# TODO: remove this and the next as features; the learning levels are
+# now default in the project
 def _merle_exercises(user):
     ## This is the exercises with 2 stages.
-    right_user = user.invitation_code == "learning-cycle"
+    # Case-insensitive invitation code comparison
+    invitation_code_lower = user.invitation_code.lower() if user.invitation_code else ""
+    right_user = invitation_code_lower == "learning-cycle"
 
     return right_user
 
@@ -79,7 +85,9 @@ def _merle_exercises(user):
 def _exercise_levels(user):
     "This is such a cool feature that it should be used by everybody"
     # A user can only have either _merle_exercies or _exercise_levels.
-    return True and user.invitation_code != "learning-cycle"
+    # Case-insensitive invitation code comparison
+    invitation_code_lower = user.invitation_code.lower() if user.invitation_code else ""
+    return True and invitation_code_lower != "learning-cycle"
 
 
 def _no_audio_exercises(user):

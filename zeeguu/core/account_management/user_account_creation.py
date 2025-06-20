@@ -9,16 +9,19 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.user_language import UserLanguage
 
 
-def valid_invite_code(invite_code):
+def valid_invite_code(user_provided_invite_code):
     if zeeguu.core.app.config["TESTING"]:
         return True
 
-    if zeeguu.core.app.config.get(
-        "INVITATION_CODES"
-    ) and invite_code in zeeguu.core.app.config.get("INVITATION_CODES"):
-        return True
+    invitation_codes = zeeguu.core.app.config.get("INVITATION_CODES")
+    if invitation_codes:
+        # Make invite code validation case-insensitive
+        invite_code_lower = user_provided_invite_code.lower()
+        for valid_code in invitation_codes:
+            if invite_code_lower == valid_code.lower():
+                return True
 
-    if Cohort.exists_with_invite_code(invite_code):
+    if Cohort.exists_with_invite_code(user_provided_invite_code):
         return True
 
     return False
@@ -42,7 +45,12 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter_by(inv_code=invite_code).first()
+    # Case-insensitive search for cohort
+    from sqlalchemy import func
+
+    cohort = Cohort.query.filter(
+        func.lower(Cohort.inv_code) == func.lower(invite_code)
+    ).first()
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
@@ -106,7 +114,12 @@ def create_basic_account(db_session, username, password, invite_code, email):
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter_by(inv_code=invite_code).first()
+    # Case-insensitive search for cohort
+    from sqlalchemy import func
+
+    cohort = Cohort.query.filter(
+        func.lower(Cohort.inv_code) == func.lower(invite_code)
+    ).first()
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
