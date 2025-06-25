@@ -45,7 +45,7 @@ def send_notification_article_feedback(
 
         for each in bookmarks:
             stream.append(
-                f"- {each.meaning.origin.content} => {each.meaning.translation.content}"
+                f"- {each.user_meaning.meaning.origin.content} => {each.user_meaning.meaning.translation.content}"
             )
 
         # user activity data

@@ -18,8 +18,8 @@ def is_bookmark_substring_of_any_and_same_user(
 ):
     return any(
         [
-            b.origin.content in each.origin.content
-            and b.user_meaning.user_id == each.user_id
+            b.user_meaning.meaning.origin.content in each.user_meaning.meaning.origin.content
+            and b.user_meaning.user_id == each.user_meaning.user_id
             for each in list_bookmarks
         ]
     )
@@ -45,7 +45,7 @@ for i, t in tqdm(
         continue
     text_bookmarks = sorted(
         bookmarks_for_text,
-        key=lambda b: len(b.meaning.origin.content),
+        key=lambda b: len(b.user_meaning.meaning.origin.content),
         reverse=True,
     )
     long_bookmarks_list = [text_bookmarks[0]]

@@ -267,7 +267,7 @@ class User(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
 
-            b_word = b.meaning.origin.content.lower()
+            b_word = b.user_meaning.meaning.origin.content.lower()
             # Avoid the same bookmark
             if not (b_word in seen_bookmarks):
                 added_bookmarks.append(b)
@@ -473,9 +473,9 @@ class User(db.Model):
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         return (
-            query.join(Meaning, Bookmark.meaning_id == Meaning.id)
+            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .join(UserMeaning)
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserMeaning.user_id == self.id)
             .filter(Bookmark.starred is True)
@@ -662,7 +662,7 @@ class User(db.Model):
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
             query.join(Article, Bookmark.source_id == Article.source_id)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(Article.id == article_id)
             .filter(UserMeaning.user_id == self.id)
             .order_by(Bookmark.id.asc())
@@ -733,7 +733,7 @@ class User(db.Model):
         return learner_stats_data
 
     def user_words(self):
-        return [b.meaning.origin.content for b in self.all_bookmarks()]
+        return [b.user_meaning.meaning.origin.content for b in self.all_bookmarks()]
 
     def bookmark_count(self):
         return len(self.all_bookmarks())
