@@ -1,6 +1,7 @@
 import json
 import os
 
+from zeeguu.api.utils.caching_decorator import cache_on_data_keys
 from zeeguu.logging import log
 
 from apimux.api_base import BaseThirdPartyAPIService
@@ -226,3 +227,29 @@ def contribute_trans(data):
     logger.debug(
         "Preferred service: %s" % json.dumps(data, ensure_ascii=False).encode("utf-8")
     )
+
+
+@cache_on_data_keys("source_language", "target_language", "word", "context")
+def google_contextual_translate(data):
+    gtx = GoogleTranslateWithContext()
+
+    response = gtx.get_result(data)
+    t = response.translations[0]
+
+    t["likelihood"] = t.pop("quality")
+    t["source"] = t["service_name"]
+
+    return t
+
+
+@cache_on_data_keys("source_language", "target_language", "word", "context")
+def microsoft_contextual_translate(data):
+    gtx = MicrosoftTranslateWithContext()
+
+    response = gtx.get_result(data)
+    t = response.translations[0]
+
+    t["likelihood"] = t.pop("quality")
+    t["source"] = t["service_name"]
+
+    return t

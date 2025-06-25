@@ -2,13 +2,15 @@ import re
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
 
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
+from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
@@ -83,9 +85,21 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
-    topics = relationship("ArticleTopicMap", back_populates="article")
+    topics = relationship(
+        "ArticleTopicMap",
+        back_populates="article",
+        # passive_deletes = tells SQLAlchemy to rely on the database's CASCADE behavior
+        # instead of trying to manage the deletion itself
+        passive_deletes=True,
+    )
 
-    url_keywords = relationship("ArticleUrlKeywordMap", back_populates="article")
+    url_keywords = relationship(
+        "ArticleUrlKeywordMap",
+        back_populates="article",
+        # passive_deletes = tells SQLAlchemy to rely on the database's
+        # CASCADE behavior instead of trying to manage the deletion itself
+        passive_deletes=True,
+    )
     # Few words in an article is very often not an
     # actual article but the caption for a video / comic.
     # Or maybe an article that's behind a paywall and
@@ -157,7 +171,7 @@ class Article(db.Model):
                 print("Marking as broken. Reason: " + reason)
                 self.mark_as_low_quality_and_remove_from_index()
 
-        self.source_id = Source.find_or_create(
+        source = Source.find_or_create(
             session,
             content,
             SourceType.find_by_type(SourceType.ARTICLE),
@@ -165,6 +179,8 @@ class Article(db.Model):
             self.broken,
             commit=False,
         )
+        self.source_id = source.id
+        self.source = source
         # Remove once migration is done.
         self.content = content
 
@@ -452,11 +468,22 @@ class Article(db.Model):
         cls, session, title, content, htmlContent, uploader, language
     ):
         current_time = datetime.now()
+
+        # Create a Source object for the uploaded content
+        source_type = SourceType.find_by_type(SourceType.ARTICLE)
+        source = Source.find_or_create(
+            session,
+            content,
+            source_type,
+            language,
+            0,  # broken flag
+        )
+
         new_article = Article(
             None,
             title,
             None,
-            content,
+            source,
             None,
             current_time,
             None,
@@ -584,13 +611,16 @@ class Article(db.Model):
             return None
 
     @classmethod
-    def all_older_than(cls, days):
+    def all_older_than(cls, days, limit=None):
         import datetime
 
         today = datetime.date.today()
         long_ago = today - datetime.timedelta(days)
+        query = cls.query.filter(cls.published_time < long_ago).order_by(desc(cls.id))
+        if limit:
+            query = query.limit(limit)
         try:
-            return cls.query.filter(cls.published_time < long_ago).all()
+            return query.all()
 
         except NoResultFound:
             return []

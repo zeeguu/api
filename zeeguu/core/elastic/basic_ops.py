@@ -43,3 +43,16 @@ def es_get_es_id_from_article_id(article_id):
         return res[0].meta["id"]
     else:
         return None
+
+
+def es_get_es_id_from_video_id(video_id):
+
+    es = Elasticsearch(ES_CONN_STRING)
+
+    res = Search(using=es, index=ES_ZINDEX).filter("term", video_id=video_id)
+    res = res.execute()
+
+    if len(res) > 0:
+        return res[0].meta["id"]
+    else:
+        return None

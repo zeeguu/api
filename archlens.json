@@ -15,8 +15,7 @@
           "path": "*",
           "depth": 1
         }
-      ],
-      "ignorePackages": []
+      ]
     },
     "inside-api": {
       "packages": [
@@ -30,17 +29,19 @@
         "core"
       ]
     },
-    "inside-core-model": {
+    "inside-core": {
       "packages": [
         {
-          "path": "core/model",
-          "depth": 3
+          "path": "core",
+          "depth": 1
         }
       ],
       "ignorePackages": [
         "*test*",
-        "core"
+        "core.model",
+        "core.util"
       ]
+
     },
     "content-retrieval": {
       "packages": [
@@ -53,10 +54,6 @@
         "core.nlp_pipeline",
         "core.semantic_search",
         "core.tokenization"
-      ],
-      "ignorePackages": [
-        "*test*",
-        "core"
       ]
     }
   }

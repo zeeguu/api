@@ -42,3 +42,4 @@ lu-mir-zeeguu-credentials.json
 
 venv/
 api_local.cfg
+venv311_py311/ 

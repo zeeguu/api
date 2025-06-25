@@ -247,3 +247,14 @@ def unstar_bookmark(bookmark_id):
     bookmark.update_fit_for_study()
     db_session.commit()
     return "OK"
+
+@api.route("/practiced_bookmarks_count_this_week", methods=["GET"])
+@cross_domain
+@requires_session
+def practiced_bookmarks_count_this_week():
+    """
+    Returns the number of bookmarks that the user has practiced this week.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    count = user.practiced_bookmarks_count_this_week()
+    return json_result(count)

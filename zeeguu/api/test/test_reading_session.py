@@ -5,11 +5,10 @@ def test_start_new_reading_session(client):
     new_reading_session = client.post("/reading_session_start", data=dict(article_id=1))
     assert new_reading_session
     assert new_reading_session["id"]
-    return new_reading_session["id"]
 
 
 def test_update_reading_session(client):
-    session_id = test_start_new_reading_session(client)
+    session_id = client.post("/reading_session_start", data=dict(article_id=1))["id"]
 
     client.post("/reading_session_update", data=dict(id=session_id, duration=2000))
 
@@ -18,7 +17,7 @@ def test_update_reading_session(client):
 
 
 def test_end_reading_session(client):
-    session_id = test_start_new_reading_session(client)
+    session_id = client.post("/reading_session_start", data=dict(article_id=1))["id"]
 
     result = client.post("/reading_session_end", data=dict(id=session_id))
 
