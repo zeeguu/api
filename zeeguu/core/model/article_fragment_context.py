@@ -63,7 +63,7 @@ class ArticleFragmentContext(db.Model):
 
         result = (
             Bookmark.query.join(cls)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(cls.article_fragment_id == article_fragment_id)
             .filter(UserMeaning.user_id == user_id)
         ).all()

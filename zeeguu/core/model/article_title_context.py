@@ -67,7 +67,7 @@ class ArticleTitleContext(db.Model):
 
         result = (
             Bookmark.query.join(ArticleTitleContext)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(ArticleTitleContext.article_id == article_id)
             .filter(UserMeaning.user_id == user_id)
         ).all()
