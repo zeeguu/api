@@ -12,7 +12,7 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
                 min(b.time) as mtime,
                 count(e.id) as exercise_count
 
-        from user_meaning as um
+        from user_word as um
         
         join meaning as m
             on um.meaning_id = m.id
@@ -24,10 +24,10 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
             on m.translation_id = translation_p.id
             
         join bookmark as b 
-            on b.user_meaning_id = um.id
+            on b.user_word_id = um.id
             
         left join exercise e 
-            on e.user_meaning_id = um.id
+            on e.user_word_id = um.id
                             
         where 
             b.time > :from_date -- '2021-06-03 23:44'
@@ -58,7 +58,7 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
         translation_phrase.content as translation,
         um.learned_time
         
-        from user_meaning as um
+        from user_word as um
         
         join meaning m 
             on um.meaning_id = m.id

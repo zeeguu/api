@@ -267,7 +267,7 @@ class User(db.Model):
             id = b["bookmark_id"]
             b = Bookmark.find(id)
 
-            b_word = b.user_meaning.meaning.origin.content.lower()
+            b_word = b.user_word.meaning.origin.content.lower()
             # Avoid the same bookmark
             if not (b_word in seen_bookmarks):
                 added_bookmarks.append(b)
@@ -422,7 +422,7 @@ class User(db.Model):
         before_date=None,
         language_id=None,
     ):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserWord
 
         if after_date is None:
             after_date = datetime.datetime(1970, 1, 1)
@@ -431,8 +431,8 @@ class User(db.Model):
         query = zeeguu.core.model.db.session.query(Bookmark)
 
         query = (
-            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
         )
 
@@ -441,7 +441,7 @@ class User(db.Model):
         else:
             query = query.filter(Phrase.language_id == language_id)
 
-        query = query.filter(UserMeaning.user_id == self.id)
+        query = query.filter(UserWord.user_id == self.id)
         query = query.filter(Bookmark.time >= after_date)
         query = query.filter(Bookmark.time <= before_date)
         # Tempory, at some point all bookmarks should keep source
@@ -461,55 +461,55 @@ class User(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
 
         query = zeeguu.core.model.db.session.query(Bookmark)
-        from zeeguu.core.model.user_meaning import UserMeaning
+        from zeeguu.core.model.user_word import UserWord
 
-        query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+        query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         return (
-            query.filter(UserMeaning.user_id == self.id).order_by(Bookmark.time.desc())
+            query.filter(UserWord.user_id == self.id).order_by(Bookmark.time.desc())
         ).all()
 
     def starred_bookmarks(self, count):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserWord
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         return (
-            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(UserMeaning.user_id == self.id)
+            .filter(UserWord.user_id == self.id)
             .filter(Bookmark.starred is True)
             .order_by(Bookmark.time.desc())
             .limit(count)
         )
 
     def learned_bookmarks(self, count=50):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserWord
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         learned = (
-            query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(UserMeaning.user_id == self.id)
-            .filter(UserMeaning.learned_time != None)
-            .order_by(UserMeaning.learned_time.desc())
+            .filter(UserWord.user_id == self.id)
+            .filter(UserWord.learned_time != None)
+            .order_by(UserWord.learned_time.desc())
             .limit(count)
         )
 
         return learned
 
     def total_learned_bookmarks(self):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserMeaning
+        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserWord
 
-        query = zeeguu.core.model.db.session.query(UserMeaning)
+        query = zeeguu.core.model.db.session.query(UserWord)
         learned = (
-            query.join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            query.join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
-            .filter(UserMeaning.user_id == self.id)
-            .filter(UserMeaning.learned_time != None)
+            .filter(UserWord.user_id == self.id)
+            .filter(UserWord.learned_time != None)
             .all()
         )
         for e in learned:
@@ -655,16 +655,16 @@ class User(db.Model):
         json=True,
     ):
 
-        from zeeguu.core.model import Bookmark, Article, UserMeaning
+        from zeeguu.core.model import Bookmark, Article, UserWord
 
         json_bookmarks = []
 
         query = zeeguu.core.model.db.session.query(Bookmark)
         bookmarks = (
             query.join(Article, Bookmark.source_id == Article.source_id)
-            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(Article.id == article_id)
-            .filter(UserMeaning.user_id == self.id)
+            .filter(UserWord.user_id == self.id)
             .order_by(Bookmark.id.asc())
             .all()
         )
@@ -733,7 +733,7 @@ class User(db.Model):
         return learner_stats_data
 
     def user_words(self):
-        return [b.user_meaning.meaning.origin.content for b in self.all_bookmarks()]
+        return [b.user_word.meaning.origin.content for b in self.all_bookmarks()]
 
     def bookmark_count(self):
         return len(self.all_bookmarks())

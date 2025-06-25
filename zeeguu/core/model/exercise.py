@@ -5,7 +5,7 @@ from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
 from zeeguu.core.model.db import db
-from zeeguu.core.model.user_meaning import UserMeaning
+from zeeguu.core.model.user_word import UserWord
 
 
 class Exercise(db.Model):
@@ -28,11 +28,11 @@ class Exercise(db.Model):
     )
     session = db.relationship(UserExerciseSession)
 
-    user_meaning_id = db.Column(
-        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+    user_word_id = db.Column(
+        db.Integer, db.ForeignKey(UserWord.id), nullable=False
     )
-    user_meaning = db.relationship(
-        UserMeaning,
+    user_word = db.relationship(
+        UserWord,
         backref=db.backref("exercise_log", order_by="Exercise.id"),
     )
 
@@ -43,7 +43,7 @@ class Exercise(db.Model):
         solving_speed,
         time,
         session_id,
-        user_meaning,
+        user_word,
         feedback="",
     ):
         self.outcome = outcome
@@ -52,7 +52,7 @@ class Exercise(db.Model):
         self.time = time
         self.feedback = feedback
         self.session_id = session_id
-        self.user_meaning = user_meaning
+        self.user_word = user_word
 
     def short_string_summary(self):
         return str(self.source.id) + self.outcome.outcome[0]
@@ -73,11 +73,11 @@ class Exercise(db.Model):
 
         return: list of exercises sorted by time in ascending order
         """
-        from zeeguu.core.model.user_meaning import UserMeaning
+        from zeeguu.core.model.user_word import UserWord
 
         query = cls.query
         if user_id is not None:
-            query = query.join(UserMeaning).filter(UserMeaning.user_id == user_id)
+            query = query.join(UserWord).filter(UserWord.user_id == user_id)
         query = query.order_by("time")
 
         return query.all()

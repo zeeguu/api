@@ -7,14 +7,14 @@ class SchedulerRule(BaseRule):
     Creates a User object with random data and saves it to the database.
     """
 
-    def __init__(self, scheduler_model, user_meaning, db_session):
+    def __init__(self, scheduler_model, user_word, db_session):
         super().__init__()
 
         self.schedule = self._create_model_object(
-            scheduler_model, user_meaning, db_session
+            scheduler_model, user_word, db_session
         )
         self.save(self.schedule)
 
-    def _create_model_object(self, scheduler_model, user_meaning, db_session):
-        schedule = scheduler_model.find_or_create(db_session, user_meaning)
+    def _create_model_object(self, scheduler_model, user_word, db_session):
+        schedule = scheduler_model.find_or_create(db_session, user_word)
         return schedule

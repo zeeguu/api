@@ -1,10 +1,10 @@
--- TODO: This script does not include adding the user_meaning to the basic_sr_schedule.
--- TODO: Could it be that it got added by SQLAlchemy? Otherwies make sure to add it here below.
+-- TODO: This script does not include adding the user_word to the basic_sr_schedule.
+-- TODO: Could it be that it got added by SQLAlchemy? Otherwise make sure to add it here below.
 
 
--- Step 1: Create the new UserMeaning table
+-- Step 1: Create the new UserWord table
 
-CREATE TABLE user_meaning
+CREATE TABLE user_word
 (
     id                    INT AUTO_INCREMENT PRIMARY KEY,
     user_id               INT       NOT NULL,
@@ -22,17 +22,17 @@ CREATE TABLE user_meaning
     -- untested FK
     FOREIGN KEY (preferred_bookmark_id) REFERENCES Bookmark (id),
 
-    -- Unique constraint to prevent duplicate user-meaning pairs
-    CONSTRAINT unique_user_meaning UNIQUE (user_id, meaning_id)
+    -- Unique constraint to prevent duplicate user-word pairs
+    CONSTRAINT unique_user_word UNIQUE (user_id, meaning_id)
 );
 
 # temporary;
 
 
--- Step 2: Migrate data from Bookmark to UserMeaning
+-- Step 2: Migrate data from Bookmark to UserWord
 
 -- untested code... the part with bookmark
-INSERT INTO user_meaning (user_id, meaning_id, learned_time, level, preferred_bookmark_id, fit_for_study,
+INSERT INTO user_word (user_id, meaning_id, learned_time, level, preferred_bookmark_id, fit_for_study,
                           user_preference)
 SELECT user_id,
        meaning_id,
@@ -42,19 +42,19 @@ SELECT user_id,
        min(fit_for_study),
        min(user_preference)
 FROM Bookmark
-where fit_for_study = 1 -- untested; if the thing was not fit for study, we don't have a usermeaning i guess
+where fit_for_study = 1 -- untested; if the thing was not fit for study, we don't have a userword i guess
 group by user_id, meaning_id;
 
--- Step 3: Update Bookmark table to reference UserMeaning
+-- Step 3: Update Bookmark table to reference UserWord
 -- First, add the new foreign key column
 ALTER TABLE bookmark
-    ADD COLUMN user_meaning_id INT NULL;
+    ADD COLUMN user_word_id INT NULL;
 
 
--- Step 4: Update the bookmark records to reference the new UserMeaning records
+-- Step 4: Update the bookmark records to reference the new UserWord records
 UPDATE Bookmark b
-    INNER JOIN user_meaning um ON b.user_id = um.user_id AND b.meaning_id = um.meaning_id
-SET b.user_meaning_id = um.id;
+    INNER JOIN user_word uw ON b.user_id = uw.user_id AND b.meaning_id = uw.meaning_id
+SET b.user_word_id = uw.id;
 
 
 
@@ -79,34 +79,34 @@ ALTER TABLE Bookmark
 
 -- Step 6: Add foreign key constraint for the new relationship
 ALTER TABLE Bookmark
-    ADD CONSTRAINT fk_bookmark_user_meaning
-        FOREIGN KEY (user_meaning_id) REFERENCES user_meaning (id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_bookmark_user_word
+        FOREIGN KEY (user_word_id) REFERENCES user_word (id) ON DELETE CASCADE;
 
--- Step 7: Make user_meaning_id NOT NULL (after confirming all records have been updated)
+-- Step 7: Make user_word_id NOT NULL (after confirming all records have been updated)
 ALTER TABLE Bookmark
-    MODIFY COLUMN user_meaning_id INT NOT NULL;
+    MODIFY COLUMN user_word_id INT NOT NULL;
 
 
 -- Step 8: Migrating the bookmark-exercise-mapping
 -- as far as I can tell, all we need is for every exercise to
 -- assign to it the meaning that it was about; and we can simply add one more column to the
--- exercise (user_meaning_id) - then, getting the history for a given meaning is as simple as selecting
+-- exercise (user_word_id) - then, getting the history for a given meaning is as simple as selecting
 -- in the exercise table
 
 alter table exercise
-    add column user_meaning_id int not null;
+    add column user_word_id int not null;
 
 select count(*)
 from exercise; -- 484.457
 
-select e.id, b.user_meaning_id, e.source_id, e.solving_speed
+select e.id, b.user_word_id, e.source_id, e.solving_speed
 from exercise e
          join bookmark_exercise_mapping bem on bem.exercise_id = e.id
          join Bookmark b on b.id = bem.bookmark_id
 order by id desc
 limit 10;
 
-# exercise_id user_meaning_id
+# exercise_id user_word_id
 #485149	327744	5	3000
 #485148	327581	22	1000
 #485147	328078	22	3000
@@ -121,9 +121,9 @@ limit 10;
 update exercise e
     join bookmark_exercise_mapping bem on bem.exercise_id = e.id
     join bookmark b on b.id = bem.bookmark_id
-set e.user_meaning_id = b.user_meaning_id;
+set e.user_word_id = b.user_word_id;
 
-select id, user_meaning_id
+select id, user_word_id
 from exercise
 order by id desc
 limit 11;
@@ -140,7 +140,7 @@ limit 11;
 #485140	328377
 
 # Problem, we seem to have exercise IDs that don't have a BEM
-# they will result in a 0 in the user_meaning_id
+# they will result in a 0 in the user_word_id
 # The only way I can imagine this happening is when one deletes a bookmark
 # and that triggers a delete in BEM but that does not cascade into e...
 #
@@ -148,16 +148,16 @@ limit 11;
 
 select count(*)
 from exercise
-where user_meaning_id = 0; -- 116,574
+where user_word_id = 0; -- 116,574
 
 delete
 from exercise
-where user_meaning_id = 0;
+where user_word_id = 0;
 
 
 alter table exercise
-    add constraint fk_exercise_user_meaning
-        FOREIGN KEY (user_meaning_id) REFERENCES user_meaning (id);
+    add constraint fk_exercise_user_word
+        FOREIGN KEY (user_word_id) REFERENCES user_word (id);
 
 -- now we can drop the bookmark_exercise_mapping
 drop table bookmark_exercise_mapping;

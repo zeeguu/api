@@ -26,9 +26,9 @@ def get_all_scheduled_bookmarks():
     Is used to render the Words>Learning page
     """
     user = User.find_by_id(flask.g.user_id)
-    user_meanings = BasicSRSchedule.scheduled_meanings(user)
+    user_words = BasicSRSchedule.scheduled_meanings(user)
 
-    return _user_meanings_as_json_result(user_meanings)
+    return _user_meanings_as_json_result(user_words)
 
 
 @api.route("/count_of_all_scheduled_bookmarks", methods=["GET"])
@@ -136,7 +136,7 @@ def report_exercise_outcome():
     try:
         bookmark = Bookmark.find(bookmark_id)
         print(db_session)
-        bookmark.user_meaning.report_exercise_outcome(
+        bookmark.user_word.report_exercise_outcome(
             db_session,
             source,
             outcome,
@@ -159,8 +159,8 @@ def similar_words_api(bookmark_id):
     user = User.find_by_id(flask.g.user_id)
     return json_result(
         similar_words(
-            bookmark.user_meaning.meaning.origin.content,
-            bookmark.user_meaning.meaning.origin.language,
+            bookmark.user_word.meaning.origin.content,
+            bookmark.user_word.meaning.origin.language,
             user,
         )
     )
@@ -176,6 +176,6 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
     return json_result(bookmark_dicts)
 
 
-def _user_meanings_as_json_result(user_meanings):
-    dicts = [um.as_dictionary() for um in user_meanings]
+def _user_meanings_as_json_result(user_words):
+    dicts = [um.as_dictionary() for um in user_words]
     return json_result(dicts)

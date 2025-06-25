@@ -6,7 +6,7 @@ from zeeguu.core.model import (
     SearchFilter,
     UserPreference,
     UserCohortMap,
-    UserMeaning,
+    UserWord,
 )
 
 import time
@@ -34,7 +34,7 @@ tables_to_modify = [
     Session,
     Teacher,
     TeacherCohortMap,
-    UserMeaning,
+    UserWord,
     UserActivityData,
     UserArticle,
     UserReadingSession,

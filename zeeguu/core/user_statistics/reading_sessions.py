@@ -108,16 +108,16 @@ def translations_in_interval(start_time, end_time, user_id):
             origin_phrase.content as word,  
             translation_phrase.content as translation,
             t.content as context,
-            IF(e.user_meaning_id IS NULL, FALSE, TRUE) as practiced
+            IF(e.user_word_id IS NULL, FALSE, TRUE) as practiced
             
         from bookmark as b	
             
-            join user_meaning um on um.id = b.user_meaning_id
+            join user_word um on um.id = b.user_word_id
             join meaning as m on um.meaning_id = m.id
             join phrase as origin_phrase on m.origin_id = origin_phrase.id
             join phrase as translation_phrase on m.translation_id = translation_phrase.id
             join text as t on b.text_id = t.id
-            left join exercise e on um.id = e.user_meaning_id
+            left join exercise e on um.id = e.user_word_id
         
         where 
             b.time > :start_time

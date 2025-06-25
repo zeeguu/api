@@ -1,10 +1,10 @@
 class SortedExerciseLog(object):
 
-    def __init__(self, user_meaning):
+    def __init__(self, user_word):
         self.exercises = sorted(
-            user_meaning.exercise_log, key=lambda x: x.time, reverse=True
+            user_word.exercise_log, key=lambda x: x.time, reverse=True
         )
-        self.user_meaning = user_meaning
+        self.user_word = user_word
 
     # string rep for logging
     def summary(self):

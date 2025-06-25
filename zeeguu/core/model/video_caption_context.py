@@ -66,13 +66,13 @@ class VideoCaptionContext(db.Model):
         cls, user_id: int, caption_id: int, as_json_serializable: bool = True
     ):
 
-        from zeeguu.core.model.user_meaning import UserMeaning
+        from zeeguu.core.model.user_word import UserWord
 
         result = (
             Bookmark.query.join(cls)
-            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(cls.caption_id == caption_id)
-            .filter(UserMeaning.user_id == user_id)
+            .filter(UserWord.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

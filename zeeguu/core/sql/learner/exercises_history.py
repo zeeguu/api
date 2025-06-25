@@ -11,11 +11,11 @@ def exercises_in_session(session_id: int):
                 e.solving_speed,
                 o_p.content,
                 t_p.content as translation,
-                um.id as user_meaning_id
+                um.id as user_word_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
-            join user_meaning as um on um.id = e.user_meaning_id
+            join user_word as um on um.id = e.user_word_id
             join meaning wm on wm.id = um.meaning_id
             join phrase as o_p on o_p.id = wm.origin_id
             join phrase as t_p on t_p.id = wm.translation_id
@@ -44,7 +44,7 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
-            join user_meaning as um on um.id = e.user_meaning_id
+            join user_word as um on um.id = e.user_word_id
             join meaning wm on wm.id = um.meaning_id
             join phrase as o_uw on o_uw.id = wm.origin_id
             join phrase as t_uw on t_uw.id = wm.translation_id

@@ -33,7 +33,7 @@ from zeeguu.core.model.phrase import Phrase
 # net, translate them, and then choose to work on learning that particular meaning.
 
 # what if i use: TranslationEvent ... to record the translation, Translation to save the mapping between two
-# words in different languages (I still like that to be Meaning, more and more) UserMeaning to refer to a meaning and
+# words in different languages (I still like that to be Meaning, more and more) UserWord to refer to a meaning and
 # all the info about that particular meaning being learned by a user: too easy, level, etc.
 
 # What if a Meaning would connect two Phrases instead of UserWords. Or just two Words. But that feels wrong...

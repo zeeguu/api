@@ -143,7 +143,7 @@ class SchedulerTest(ModelTestMixIn):
         )
 
         # Should be learned!
-        assert bookmark.user_meaning.learned_time is not None
+        assert bookmark.user_word.learned_time is not None
 
     def test_level_two_correct_exercises_in_a_day(self):
         """
@@ -248,7 +248,7 @@ class SchedulerTest(ModelTestMixIn):
         # ML: I've switched from assert to assertEqual because otherwise my IDE was complaining that there
         # was no reason for this to be a method, because it was not using at all the reference to 'self'
         # Alternative was to extract it as a function at the top of the file, but it felt more like a method
-        self.assertEqual(schedule.user_meaning.level, expected_level)
+        self.assertEqual(schedule.user_word.level, expected_level)
         self.assertEqual(schedule.cooling_interval, expected_cooling)
         self.assertEqual(
             schedule.consecutive_correct_answers, expected_consecutive_corrects
@@ -297,7 +297,7 @@ class SchedulerTest(ModelTestMixIn):
     def _new_schedule_after_exercise(self, bookmark, outcome, date: datetime = None):
         exercise_session = ExerciseSessionRule(self.four_levels_user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
-        bookmark.user_meaning.report_exercise_outcome(
+        bookmark.user_word.report_exercise_outcome(
             db_session,
             exercise.source.source,
             exercise.outcome.outcome,
@@ -308,6 +308,6 @@ class SchedulerTest(ModelTestMixIn):
         )
 
         schedule = SchedulerRule(
-            bookmark.user_meaning.get_scheduler(), bookmark.user_meaning, db_session
+            bookmark.user_word.get_scheduler(), bookmark.user_word, db_session
         ).schedule
         return schedule

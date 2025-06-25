@@ -10,7 +10,7 @@ from zeeguu.core.test.rules.meaning_rule import MeaningRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.phrase import Phrase
-from zeeguu.core.test.rules.user_meaning_rule import UserMeaningRule
+from zeeguu.core.test.rules.user_word_rule import UserWordRule
 
 
 class BookmarkRule(BaseRule):
@@ -76,17 +76,17 @@ class BookmarkRule(BaseRule):
 
             random_meaning = MeaningRule(random_origin, random_translation).meaning
 
-            user_meaning = UserMeaningRule(user, random_meaning).user_meaning
+            user_word = UserWordRule(user, random_meaning).user_word
 
             bookmark = Bookmark(
-                user_meaning,
+                user_word,
                 source_article,
                 random_text,
                 random_date,
                 context=fake_bookmark_c,
             )
 
-            if force_quality and bad_quality_meaning(user_meaning):
+            if force_quality and bad_quality_meaning(user_word):
                 print("random bookmark was of low quality. retrying...")
                 bookmark = False
 
@@ -101,7 +101,7 @@ class BookmarkRule(BaseRule):
 
     @staticmethod
     def _exists_in_db(obj):
-        return Bookmark.exists(obj.source, obj.text, obj.context, obj.user_meaning)
+        return Bookmark.exists(obj.source, obj.text, obj.context, obj.user_word)
 
     @staticmethod
     def __get_random_word_from_sentence(sentence):

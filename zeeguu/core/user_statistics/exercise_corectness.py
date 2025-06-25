@@ -34,13 +34,13 @@ def number_of_words_translated_but_not_studied(
                 um.id,
                 min(b.time) AS first_encounter
             FROM
-                user_meaning AS um
+                user_word AS um
             JOIN
                 meaning AS m ON um.meaning_id = m.id
             JOIN
                 phrase AS origin_phrase ON m.origin_id = origin_phrase.id
             JOIN
-                bookmark AS b ON b.user_meaning_id = um.id
+                bookmark AS b ON b.user_word_id = um.id
         
             -- left join takes all the words in um and only has non-null info for the matching rows in the query below
             LEFT JOIN (
@@ -52,13 +52,13 @@ def number_of_words_translated_but_not_studied(
                 JOIN
                     exercise_outcome AS o ON e.outcome_id = o.id
                 JOIN
-                    user_meaning um ON um.id = e.user_meaning_id
+                    user_word um ON um.id = e.user_word_id
                 JOIN
                     meaning m ON m.id = um.meaning_id
                 JOIN
                     phrase AS origin_phrase ON m.origin_id = origin_phrase.id
                 JOIN
-                    bookmark AS b ON b.user_meaning_id = um.id
+                    bookmark AS b ON b.user_word_id = um.id
                 WHERE
                     um.user_id = :userid
                     AND e.time > :startDate
@@ -99,7 +99,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
                     
                 from exercise as e
                 
-                join user_meaning um on um.id = e.user_meaning_id
+                join user_word um on um.id = e.user_word_id
                 join meaning as m on um.meaning_id = m.id
                 join phrase as origin_phrase on m.origin_id = origin_phrase.id
                         
@@ -127,7 +127,7 @@ def number_of_learned_words(user_id, cohort_id, start_date, end_date):
     query = """
         select 	count(um.id)
                 
-            from user_meaning as um
+            from user_word as um
             
             join meaning as m on um.meaning_id = m.id
                 
@@ -158,7 +158,7 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
             
         from exercise as e
         
-        join user_meaning as um on um.id = e.user_meaning_id 
+        join user_word as um on um.id = e.user_word_id 
         join meaning as m on um.meaning_id = m.id
         join exercise_outcome as o on e.outcome_id = o.id
         join phrase as origin_phrase on m.origin_id = origin_phrase.id

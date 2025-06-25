@@ -12,7 +12,7 @@ from zeeguu.core.model.caption import Caption
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
-from zeeguu.core.model.user_meaning import UserMeaning
+from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.video import Video
 
 bookmark_exercise_mapping = Table(
@@ -53,14 +53,14 @@ class Bookmark(db.Model):
 
     starred = db.Column(db.Boolean, default=False)
 
-    user_meaning_id = db.Column(
-        db.Integer, db.ForeignKey("user_meaning.id"), nullable=False
+    user_word_id = db.Column(
+        db.Integer, db.ForeignKey("user_word.id"), nullable=False
     )
-    user_meaning = db.relationship(UserMeaning, foreign_keys=[user_meaning_id])
+    user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
     def __init__(
         self,
-        user_meaning: "UserMeaning",
+        user_word: "UserWord",
         source: Source,
         text: str,
         time: datetime,
@@ -69,7 +69,7 @@ class Bookmark(db.Model):
         total_tokens: int = None,
         context: BookmarkContext = None,
     ):
-        self.user_meaning = user_meaning
+        self.user_word = user_word
         self.source = source
         self.text = text
         self.time = time
@@ -79,7 +79,7 @@ class Bookmark(db.Model):
         self.context = context
 
     def __repr__(self):
-        return f"Bookmark ({self.id}): {self.user_meaning.meaning} {self.context.get_content()[0:10]}"
+        return f"Bookmark ({self.id}): {self.user_word.meaning} {self.context.get_content()[0:10]}"
 
     def get_context(self):
         if self.context:
@@ -147,17 +147,17 @@ class Bookmark(db.Model):
     ):
         result = dict(
             id=self.id,
-            origin=self.user_meaning.meaning.origin.content,
-            translation=self.user_meaning.meaning.translation.content,
+            origin=self.user_word.meaning.origin.content,
+            translation=self.user_word.meaning.translation.content,
             source_id=self.source_id,
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
         )
 
-        result["from"] = self.user_meaning.meaning.origin.content
-        result["to"] = self.user_meaning.meaning.translation.content
-        result["fit_for_study"] = self.user_meaning.fit_for_study
+        result["from"] = self.user_word.meaning.origin.content
+        result["to"] = self.user_word.meaning.translation.content
+        result["fit_for_study"] = self.user_word.fit_for_study
         result["url"] = self.text.url()
 
         if with_context:
@@ -187,7 +187,7 @@ class Bookmark(db.Model):
             from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
 
             tokenizer = get_tokenizer(
-                self.user_meaning.meaning.origin.language, TOKENIZER_MODEL
+                self.user_word.meaning.origin.language, TOKENIZER_MODEL
             )
             result["context_tokenized"] = tokenizer.tokenize_text(
                 self.context.get_content(),
@@ -200,7 +200,7 @@ class Bookmark(db.Model):
 
     def add_new_exercise(self, exercise):
         # delegates to the usr_meaning for backwards compat with tests
-        self.user_meaning.add_new_exercise(exercise)
+        self.user_word.add_new_exercise(exercise)
 
     def add_new_exercise_result(
         self,
@@ -211,7 +211,7 @@ class Bookmark(db.Model):
         other_feedback="",
         time: datetime = None,
     ):
-        self.user_meaning.add_new_exercise_result(
+        self.user_word.add_new_exercise_result(
             exercise_source,
             exercise_outcome,
             exercise_solving_speed,
@@ -353,7 +353,7 @@ class Bookmark(db.Model):
             session, _origin, _origin_lang, _translation, _translation_lang
         )
 
-        user_meaning = UserMeaning.find_or_create(session, user, meaning)
+        user_word = UserWord.find_or_create(session, user, meaning)
 
         source = Source.find_by_id(source_id)
 
@@ -393,11 +393,11 @@ class Bookmark(db.Model):
 
         try:
             # try to find this bookmark
-            bookmark = Bookmark.find_by_usermeaning_and_context(user_meaning, context)
+            bookmark = Bookmark.find_by_usermeaning_and_context(user_word, context)
 
         except sqlalchemy.orm.exc.NoResultFound as e:
             bookmark = cls(
-                user_meaning,
+                user_word,
                 source,
                 text,
                 now,
@@ -421,13 +421,13 @@ class Bookmark(db.Model):
         return SortedExerciseLog(self)
 
     def update_fit_for_study(self):
-        self.user_meaning.update_fit_for_study()
+        self.user_word.update_fit_for_study()
 
     @classmethod
     def find_by_specific_user(cls, user):
         return (
-            cls.query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .filter(UserMeaning.user_id == user.id)
+            cls.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
             .all()
         )
 
@@ -438,8 +438,8 @@ class Bookmark(db.Model):
     @classmethod
     def find_all_for_context_and_user(cls, context, user):
         return (
-            Bookmark.query.join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .filter(UserMeaning.user_id == user.id)
+            Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
             .filter(Bookmark.context_id == context.id)
             .all()
         )
@@ -448,8 +448,8 @@ class Bookmark(db.Model):
     def find_all_for_user_and_article(cls, user, article):
         return (
             cls.query.join(Source)
-            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
-            .filter(UserMeaning.user_id == user.id)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
             .filter(Source.id == article.source_id)
             .all()
         )
@@ -470,14 +470,14 @@ class Bookmark(db.Model):
         return cls.query.filter_by(id=b_id).one()
 
     @classmethod
-    def find_by_usermeaning_and_context(cls, user_meaning, context):
-        return cls.query.filter_by(user_meaning=user_meaning, context=context).one()
+    def find_by_usermeaning_and_context(cls, user_word, context):
+        return cls.query.filter_by(user_word=user_word, context=context).one()
 
     @classmethod
-    def exists(cls, source, text, context, user_meaning):
+    def exists(cls, source, text, context, user_word):
         try:
             cls.query.filter_by(
-                source=source, text=text, context=context, user_meaning=user_meaning
+                source=source, text=text, context=context, user_word=user_word
             ).one()
             return True
         except NoResultFound:

@@ -7,7 +7,7 @@ from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.model.exercise import Exercise
 from datetime import datetime
 
-from zeeguu.core.test.rules.user_meaning_rule import UserMeaningRule
+from zeeguu.core.test.rules.user_word_rule import UserWordRule
 
 
 class ExerciseRule(BaseRule):
@@ -34,9 +34,9 @@ class ExerciseRule(BaseRule):
         random_speed = random.randint(500, 5000)
         random_time = date if date else self.faker.date_time_this_year()
         random_meaning = MeaningRule().meaning
-        user_meaning = UserMeaningRule(
+        user_word = UserWordRule(
             exercise_session.user, random_meaning
-        ).user_meaning
+        ).user_word
 
         new_exercise = Exercise(
             random_outcome,
@@ -44,7 +44,7 @@ class ExerciseRule(BaseRule):
             random_speed,
             random_time,
             exercise_session.id,
-            user_meaning,
+            user_word,
         )
 
         if self._exists_in_db(new_exercise):

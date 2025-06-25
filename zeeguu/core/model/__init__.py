@@ -11,7 +11,7 @@ from .text import Text
 from .phrase import Phrase
 from .user import User
 from .meaning import Meaning
-from .user_meaning import UserMeaning
+from .user_word import UserWord
 from .bookmark import Bookmark
 
 from .user_preference import UserPreference

@@ -33,15 +33,15 @@ class BookmarkTest(ModelTestMixIn):
 
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         random_exercise = ExerciseRule(exercise_session).exercise
-        random_bookmark.user_meaning.add_new_exercise(random_exercise)
+        random_bookmark.user_word.add_new_exercise(random_exercise)
 
     def test_add_new_exercise(self):
         random_bookmark = BookmarkRule(self.user).bookmark
 
-        length_original_exercise_log = len(random_bookmark.user_meaning.exercise_log)
+        length_original_exercise_log = len(random_bookmark.user_word.exercise_log)
         self._helper_create_exercise(random_bookmark)
 
-        length_new_exercise_log = len(random_bookmark.user_meaning.exercise_log)
+        length_new_exercise_log = len(random_bookmark.user_word.exercise_log)
         assert length_original_exercise_log < length_new_exercise_log
 
     def test_bookmarks_to_study_is_not_empty(self):
@@ -54,7 +54,7 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_translation(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        assert random_bookmark.user_meaning.meaning.translation is not None
+        assert random_bookmark.user_word.meaning.translation is not None
 
     def test_bookmarks_in_article(self):
         random_bookmark = BookmarkRule(self.user).bookmark
@@ -74,7 +74,7 @@ class BookmarkTest(ModelTestMixIn):
             random_exercise.solving_speed,
             exercise_session.id,
         )
-        latest_exercise = random_bookmark.user_meaning.exercise_log[-1]
+        latest_exercise = random_bookmark.user_word.exercise_log[-1]
 
         assert latest_exercise.source == random_exercise.source
         assert latest_exercise.outcome == random_exercise.outcome
@@ -90,16 +90,16 @@ class BookmarkTest(ModelTestMixIn):
     def test_bad_quality_bookmark(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 3)]
 
-        random_bookmarks[0].user_meaning.meaning.origin = random_bookmarks[
+        random_bookmarks[0].user_word.meaning.origin = random_bookmarks[
             0
-        ].user_meaning.meaning.translation
-        random_bookmarks[1].user_meaning.meaning.origin.content = self.faker.sentence(
+        ].user_word.meaning.translation
+        random_bookmarks[1].user_word.meaning.origin.content = self.faker.sentence(
             nb_words=10
         )
-        random_bookmarks[2].user_meaning.meaning.origin.content = self.faker.word()[:2]
+        random_bookmarks[2].user_word.meaning.origin.content = self.faker.word()[:2]
 
         for b in random_bookmarks:
-            assert bad_quality_meaning(b.user_meaning)
+            assert bad_quality_meaning(b.user_word)
 
     def test_fit_for_study(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 2)]
@@ -110,11 +110,11 @@ class BookmarkTest(ModelTestMixIn):
 
         random_bookmarks[0].starred = True
         random_bookmarks[1].starred = True
-        random_bookmarks[1].user_meaning.add_new_exercise(random_exercise)
+        random_bookmarks[1].user_word.add_new_exercise(random_exercise)
 
     def test_add_new_exercise_result(self):
         random_bookmark = BookmarkRule(self.user).bookmark
-        exercise_count_before = len(random_bookmark.user_meaning.exercise_log)
+        exercise_count_before = len(random_bookmark.user_word.exercise_log)
 
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
 
@@ -126,7 +126,7 @@ class BookmarkTest(ModelTestMixIn):
             exercise_session.id,
         )
 
-        exercise_count_after = len(random_bookmark.user_meaning.exercise_log)
+        exercise_count_after = len(random_bookmark.user_word.exercise_log)
 
         assert exercise_count_after > exercise_count_before
 
@@ -161,7 +161,7 @@ class BookmarkTest(ModelTestMixIn):
     def test_find_by_meaning_and_context(self):
         bookmark_should_be = self.user.all_bookmarks()[0]
         bookmark_to_check = Bookmark.find_by_usermeaning_and_context(
-            bookmark_should_be.user_meaning,
+            bookmark_should_be.user_word,
             bookmark_should_be.context,
         )
 
@@ -169,7 +169,7 @@ class BookmarkTest(ModelTestMixIn):
 
     def test_latest_exercise_outcome(self):
         random_bookmark = self.user.all_bookmarks()[0]
-        exercise_log = SortedExerciseLog(random_bookmark.user_meaning)
+        exercise_log = SortedExerciseLog(random_bookmark.user_word)
         assert exercise_log.latest_exercise_outcome() is None
 
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
@@ -179,11 +179,11 @@ class BookmarkTest(ModelTestMixIn):
 
         assert (
             random_exercise.outcome
-            == SortedExerciseLog(random_bookmark.user_meaning).latest_exercise_outcome()
+            == SortedExerciseLog(random_bookmark.user_word).latest_exercise_outcome()
         )
 
     def test_empty_exercises_is_not_learned(self):
         random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
 
         # Empty exercise_log should lead to a False return
-        assert not random_bookmarks[0].user_meaning.learned_time
+        assert not random_bookmarks[0].user_word.learned_time

@@ -54,7 +54,7 @@ def update_bookmark_pointer(bookmark):
         article = Article.find_by_id(text.article_id)
 
     tokenizer = get_tokenizer(
-        bookmark.user_meaning.meaning.origin.language, TOKENIZER_MODEL
+        bookmark.user_word.meaning.origin.language, TOKENIZER_MODEL
     )
 
     tokenized_context = tokenizer.tokenize_text(
@@ -121,11 +121,11 @@ def update_bookmark_pointer(bookmark):
     # We anchor the bookmark in the context, if we find it.
     first_token_i = -1
     is_bookmark_substring_of_context = (
-        bookmark.user_meaning.meaning.origin.content in text.content
+        bookmark.user_word.meaning.origin.content in text.content
     )
     if is_bookmark_substring_of_context:
         tokenized_bookmark = tokenizer.tokenize_text(
-            bookmark.user_meaning.meaning.origin.content, False
+            bookmark.user_word.meaning.origin.content, False
         )
         text_bookmark = get_text_list(tokenized_bookmark)
         first_tokenization = text_bookmark
@@ -154,7 +154,7 @@ def update_bookmark_pointer(bookmark):
                     # 3. (This code) ['cessez-le-feu', 'sera']
                     # ['Guerre', 'en', 'Ukraine', ':', 'Macron', 'assure', 'qu’un', 'cessez-le-feu', 'sera', 'demandé', 'à', 'la', 'Russie', 'durant', 'les', 'JO', 'de', 'Paris']
                     text_bookmark = strip_trailing_punctuation(
-                        bookmark.user_meaning.meaning.origin.content
+                        bookmark.user_word.meaning.origin.content
                     ).split()
                     first_token_i = find_sublist_in_list(text_context, text_bookmark)
 
@@ -178,7 +178,7 @@ def update_bookmark_pointer(bookmark):
             print(text_context)
         print(f"Couldn't find bookmark {bookmark.id} in text {text.id}.")
         print(
-            f"Bookmark '{bookmark.user_meaning.meaning.origin.content}' is substring of context: {is_bookmark_substring_of_context}"
+            f"Bookmark '{bookmark.user_word.meaning.origin.content}' is substring of context: {is_bookmark_substring_of_context}"
         )
         if not is_bookmark_substring_of_context:
             print("Context: ")

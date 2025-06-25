@@ -170,7 +170,7 @@ def delete_bookmark(bookmark_id):
 @requires_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.user_meaning.report_exercise_outcome(
+    bookmark.user_word.report_exercise_outcome(
         db_session,
         ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
         ExerciseOutcome.CORRECT,

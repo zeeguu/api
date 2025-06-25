@@ -5,7 +5,7 @@ from wordstats import Word
 from zeeguu.core.model import Phrase, ExerciseOutcome, UserPreference
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
-from zeeguu.core.model.user_meaning import UserMeaning
+from zeeguu.core.model.user_word import UserWord
 
 ONE_DAY = 60 * 24
 
@@ -18,27 +18,27 @@ class BasicSRSchedule(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    user_meaning = db.relationship(UserMeaning)
-    user_meaning_id = db.Column(
-        db.Integer, db.ForeignKey(UserMeaning.id), nullable=False
+    user_word = db.relationship(UserWord)
+    user_word_id = db.Column(
+        db.Integer, db.ForeignKey(UserWord.id), nullable=False
     )
 
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
 
-    def __init__(self, user_meaning=None, user_meaning_id=None):
-        if user_meaning_id:
-            self.user_meaning_id = user_meaning_id
+    def __init__(self, user_word=None, user_word_id=None):
+        if user_word_id:
+            self.user_word_id = user_word_id
         else:
-            self.user_meaning = user_meaning
+            self.user_word = user_word
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
 
     def set_meaning_as_learned(self, db_session):
-        self.user_meaning.learned_time = datetime.now()
-        db_session.add(self.user_meaning)
+        self.user_word.learned_time = datetime.now()
+        db_session.add(self.user_word)
         db_session.delete(self)
         db_session.commit()
 
@@ -60,57 +60,57 @@ class BasicSRSchedule(db.Model):
         raise NotImplementedError
 
     @classmethod
-    def clear_meaning_schedule(cls, db_session, user_meaning):
-        schedule = cls.find_by_user_meaning(user_meaning)
+    def clear_meaning_schedule(cls, db_session, user_word):
+        schedule = cls.find_by_user_meaning(user_word)
         if schedule is not None:
             db_session.delete(schedule)
             db_session.commit()
 
     @classmethod
-    def find_or_create(cls, db_session, user_meaning):
+    def find_or_create(cls, db_session, user_word):
         raise NotImplementedError
 
     @classmethod
-    def find_by_user_meaning(cls, user_meaning):
+    def find_by_user_meaning(cls, user_word):
         try:
-            result = cls.query.filter(cls.user_meaning_id == user_meaning.id).one()
+            result = cls.query.filter(cls.user_word_id == user_word.id).one()
             return result
         except Exception as e:
             return None
 
     # TODO: There's no reason for this duplicating the behavior above.
     @classmethod
-    def find(cls, user_meaning):
+    def find(cls, user_word):
 
-        results = cls.query.filter_by(user_meaning=user_meaning).all()
+        results = cls.query.filter_by(user_word=user_word).all()
 
         if len(results) == 1:
             return results[0]
 
         if len(results) > 1:
             raise Exception(
-                f"More than one Bookmark schedule entry found for {user_meaning.id}"
+                f"More than one Bookmark schedule entry found for {user_word.id}"
             )
         return None
 
     @classmethod
-    def update(cls, db_session, user_meaning, outcome, time: datetime = None):
+    def update(cls, db_session, user_word, outcome, time: datetime = None):
         if not time:
             time = datetime.now()
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
             from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
-            schedule = cls.find(user_meaning)
+            schedule = cls.find(user_word)
             if schedule:
                 db_session.delete(schedule)
 
-            user_meaning.fit_for_study = 0
+            user_word.fit_for_study = 0
 
             # Since the user has explicitly given feedback, this should
             # be recorded as a user preference.
-            user_meaning.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-            db_session.add(user_meaning)
+            user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+            db_session.add(user_word)
 
             return
 
@@ -118,10 +118,10 @@ class BasicSRSchedule(db.Model):
 
         # Do we have more words scheduled than the user prefers?
         more_scheduled_words_than_user_prefers = cls.scheduled_meanings_count(
-            user_meaning.user
-        ) >= UserPreference.get_max_words_to_schedule(user_meaning.user)
+            user_word.user
+        ) >= UserPreference.get_max_words_to_schedule(user_word.user)
 
-        schedule = cls.find(user_meaning)
+        schedule = cls.find(user_word)
 
         if schedule and schedule.there_was_no_need_for_practice_on_date(time):
             # nothing to update in this case
@@ -133,7 +133,7 @@ class BasicSRSchedule(db.Model):
 
         # pipeline is not full, and the word was not scheduled before
         if not schedule and not more_scheduled_words_than_user_prefers:
-            schedule = cls.find_or_create(db_session, user_meaning)
+            schedule = cls.find_or_create(db_session, user_word)
 
         schedule.update_schedule(db_session, correctness, time)
 
@@ -142,12 +142,12 @@ class BasicSRSchedule(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
 
         unscheduled_meanings = (
-            UserMeaning.query.join(Bookmark, Bookmark.user_meaning_id == UserMeaning.id)
-            .filter(UserMeaning.user_id == user.id)
+            UserWord.query.join(Bookmark, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
             .outerjoin(BasicSRSchedule)
-            .filter(UserMeaning.learned_time == None)
-            .filter(UserMeaning.fit_for_study == 1)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            .filter(UserWord.learned_time == None)
+            .filter(UserWord.fit_for_study == 1)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == user.learned_language_id)
             .filter(BasicSRSchedule.cooling_interval == None)
@@ -200,11 +200,11 @@ class BasicSRSchedule(db.Model):
         from zeeguu.core.model.bookmark import Bookmark
 
         query = (
-            UserMeaning.query.join(cls)
-            .filter(UserMeaning.user_id == user.id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            UserWord.query.join(cls)
+            .filter(UserWord.user_id == user.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .join(Bookmark, Bookmark.user_meaning_id == UserMeaning.id)
+            .join(Bookmark, Bookmark.user_word_id == UserWord.id)
             .filter(Phrase.language_id == _lang_to_look_at)
             .filter(BasicSRSchedule.id != None)
         )
@@ -244,9 +244,9 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def schedule_for_user(cls, user_id):
         schedule = (
-            BasicSRSchedule.query.join(UserMeaning)
-            .filter(UserMeaning.user_id == user_id)
-            .join(Meaning, UserMeaning.meaning_id == Meaning.id)
+            BasicSRSchedule.query.join(UserWord)
+            .filter(UserWord.user_id == user_id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .all()
         )
@@ -258,23 +258,23 @@ class BasicSRSchedule(db.Model):
         res = ""
         for each in schedule:
             res += (
-                each.user_meaning.meaning.origin.content
+                each.user_word.meaning.origin.content
                 + " "
                 + str(each.next_practice_time)
                 + " \n"
             )
 
 
-def priority_by_rank(user_meaning):
+def priority_by_rank(user_word):
     # If this is updated remember to update the order_by in
     # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
 
     word_info = Word.stats(
-        user_meaning.meaning.origin.content,
-        user_meaning.meaning.origin.language.code,
+        user_word.meaning.origin.content,
+        user_word.meaning.origin.language.code,
     )
 
-    basic_sr_schedule = BasicSRSchedule.find_by_user_meaning(user_meaning)
+    basic_sr_schedule = BasicSRSchedule.find_by_user_meaning(user_word)
 
     cooling_interval = (
         basic_sr_schedule.cooling_interval
