@@ -76,8 +76,16 @@ def get_one_translation(from_lang_code, to_lang_code):
         translation = bookmark.meaning.translation.content
         likelihood = 1
         source = "Own past translation"
-        print(f"about to return {bookmark}")
-        t1 = {translation: translation, likelihood: likelihood, source: source}
+
+        return json_result(
+            {
+                "translation": translation,
+                "bookmark_id": bookmark.id,
+                "source": source,
+                "likelihood": likelihood,
+            }
+        )
+
     else:
         # TODO: must remove theurl, and title - they are not used in the calling method.
         if IS_DEV_SKIP_TRANSLATION:
