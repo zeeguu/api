@@ -1,5 +1,6 @@
-from zeeguu.core.model.db import db
 from sqlalchemy.orm.exc import NoResultFound
+
+from zeeguu.core.model.db import db
 
 
 class ContextType(db.Model):

@@ -1,4 +1,3 @@
-import sqlalchemy
 from zeeguu.core.model.db import db
 from zeeguu.core.model.new_text import NewText
 

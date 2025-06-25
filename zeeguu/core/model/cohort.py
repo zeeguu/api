@@ -1,4 +1,3 @@
-import zeeguu.core
 from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import exists
