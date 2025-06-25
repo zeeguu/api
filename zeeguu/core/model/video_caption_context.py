@@ -70,7 +70,7 @@ class VideoCaptionContext(db.Model):
 
         result = (
             Bookmark.query.join(cls)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(cls.caption_id == caption_id)
             .filter(UserMeaning.user_id == user_id)
         ).all()

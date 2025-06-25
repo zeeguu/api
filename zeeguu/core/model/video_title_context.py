@@ -65,7 +65,7 @@ class VideoTitleContext(db.Model):
 
         result = (
             Bookmark.query.join(VideoTitleContext)
-            .join(UserMeaning)
+            .join(UserMeaning, Bookmark.user_meaning_id == UserMeaning.id)
             .filter(VideoTitleContext.video_id == video_id)
             .filter(UserMeaning.user_id == user_id)
         ).all()
