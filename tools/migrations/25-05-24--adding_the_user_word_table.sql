@@ -163,7 +163,26 @@ alter table exercise
 drop table bookmark_exercise_mapping;
 
 
--- next, we have to drop the bookmark_id column
+-- Step 9: Migrate basic_sr_schedule from bookmark_id to user_word_id
+-- Add user_word_id column to basic_sr_schedule
+alter table basic_sr_schedule
+    add column user_word_id int null after id;
+
+-- Update basic_sr_schedule to reference user_word instead of bookmark
+update basic_sr_schedule bsr
+    join bookmark b on b.id = bsr.bookmark_id
+set bsr.user_word_id = b.user_word_id;
+
+-- Add foreign key constraint for user_word_id
+alter table basic_sr_schedule
+    add constraint fk_basic_sr_schedule_user_word
+        foreign key (user_word_id) references user_word (id) on delete cascade;
+
+-- Make user_word_id NOT NULL (after confirming all records have been updated)
+alter table basic_sr_schedule
+    modify column user_word_id int not null;
+
+-- Drop the old bookmark_id column and its foreign key
 alter table basic_sr_schedule
     drop foreign key basic_sr_schedule_ibfk_1;
 
