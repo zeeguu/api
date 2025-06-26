@@ -188,3 +188,18 @@ alter table basic_sr_schedule
 
 alter table basic_sr_schedule
     drop column bookmark_id;
+
+-- Step 10: Remove duplicate basic_sr_schedule records
+-- Keep only the record for the user_word with the highest level
+-- If level is the same, keep the one with the highest id (most recent)
+DELETE bsr1 FROM basic_sr_schedule bsr1
+INNER JOIN basic_sr_schedule bsr2 
+INNER JOIN user_word uw1 ON bsr1.user_word_id = uw1.id
+INNER JOIN user_word uw2 ON bsr2.user_word_id = uw2.id
+WHERE bsr1.user_word_id = bsr2.user_word_id 
+AND (uw1.level < uw2.level 
+     OR (uw1.level = uw2.level AND bsr1.id < bsr2.id));
+
+-- Add unique constraint to prevent future duplicates
+alter table basic_sr_schedule
+    add constraint unique_user_word_schedule unique (user_word_id);
