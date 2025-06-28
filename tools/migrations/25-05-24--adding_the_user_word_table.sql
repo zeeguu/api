@@ -33,7 +33,7 @@ CREATE TABLE user_word
 
 -- untested code... the part with bookmark
 INSERT INTO user_word (user_id, meaning_id, learned_time, level, preferred_bookmark_id, fit_for_study,
-                          user_preference)
+                       user_preference)
 SELECT user_id,
        meaning_id,
        max(learned_time),
@@ -42,7 +42,6 @@ SELECT user_id,
        min(fit_for_study),
        min(user_preference)
 FROM Bookmark
-where fit_for_study = 1 -- untested; if the thing was not fit for study, we don't have a userword i guess
 group by user_id, meaning_id;
 
 -- Step 3: Update Bookmark table to reference UserWord
@@ -192,13 +191,14 @@ alter table basic_sr_schedule
 -- Step 10: Remove duplicate basic_sr_schedule records
 -- Keep only the record for the user_word with the highest level
 -- If level is the same, keep the one with the highest id (most recent)
-DELETE bsr1 FROM basic_sr_schedule bsr1
-INNER JOIN basic_sr_schedule bsr2 
-INNER JOIN user_word uw1 ON bsr1.user_word_id = uw1.id
-INNER JOIN user_word uw2 ON bsr2.user_word_id = uw2.id
-WHERE bsr1.user_word_id = bsr2.user_word_id 
-AND (uw1.level < uw2.level 
-     OR (uw1.level = uw2.level AND bsr1.id < bsr2.id));
+DELETE bsr1
+FROM basic_sr_schedule bsr1
+         INNER JOIN basic_sr_schedule bsr2
+         INNER JOIN user_word uw1 ON bsr1.user_word_id = uw1.id
+         INNER JOIN user_word uw2 ON bsr2.user_word_id = uw2.id
+WHERE bsr1.user_word_id = bsr2.user_word_id
+  AND (uw1.level < uw2.level
+    OR (uw1.level = uw2.level AND bsr1.id < bsr2.id));
 
 -- Add unique constraint to prevent future duplicates
 alter table basic_sr_schedule
