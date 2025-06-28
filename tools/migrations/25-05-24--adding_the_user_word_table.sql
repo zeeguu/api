@@ -93,7 +93,7 @@ alter table exercise
     add column user_word_id int not null;
 
 select count(*)
-from exercise; -- 484.457
+from exercise;
 
 select e.id, b.user_word_id, e.source_id, e.solving_speed
 from exercise e
@@ -144,7 +144,8 @@ limit 11;
 
 select count(*)
 from exercise
-where user_word_id = 0; -- 116,574
+where user_word_id = 0;
+-- 116,574
 
 delete
 from exercise
