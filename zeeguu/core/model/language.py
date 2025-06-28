@@ -48,12 +48,12 @@ class Language(db.Model):
         "da",
         "nl",
         "fr",
+        "de",
         "it",
         "sv",
-        "ro",
-        "es",
         "pt",
-        "de",
+        "es",
+        "ro",
     ]
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
