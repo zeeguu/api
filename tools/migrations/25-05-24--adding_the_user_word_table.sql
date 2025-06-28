@@ -16,10 +16,10 @@ CREATE TABLE user_word
     learned_time          TIMESTAMP NULL,
 
     -- Foreign key constraints
-    FOREIGN KEY (user_id) REFERENCES User (id) ON DELETE CASCADE,
-    FOREIGN KEY (meaning_id) REFERENCES Meaning (id),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (meaning_id) REFERENCES meaning (id),
     -- untested FK
-    FOREIGN KEY (preferred_bookmark_id) REFERENCES Bookmark (id),
+    FOREIGN KEY (preferred_bookmark_id) REFERENCES bookmark (id),
 
     -- Unique constraint to prevent duplicate user-word pairs
     CONSTRAINT unique_user_word UNIQUE (user_id, meaning_id)
@@ -38,7 +38,7 @@ SELECT user_id,
        max(id), -- untested; adding the last bookmark - as good as any i guess?
        min(fit_for_study),
        min(user_preference)
-FROM Bookmark
+FROM bookmark
 group by user_id, meaning_id;
 
 -- Step 3: Update Bookmark table to reference UserWord
@@ -48,24 +48,24 @@ ALTER TABLE bookmark
 
 
 -- Step 4: Update the bookmark records to reference the new UserWord records
-UPDATE Bookmark b
+UPDATE bookmark b
     INNER JOIN user_word uw ON b.user_id = uw.user_id AND b.meaning_id = uw.meaning_id
 SET b.user_word_id = uw.id;
 
 
 
-# SHOW CREATE TABLE Bookmark;
+# SHOW CREATE TABLE bookmark;
 # use this if you need to drop more foreign key constraints;
 # i might have deleted one more from the UI while running this in dev
 
-ALTER TABLE Bookmark
+ALTER TABLE bookmark
     DROP FOREIGN KEY bookmark_ibfk_3;
-ALTER TABLE Bookmark
+ALTER TABLE bookmark
     DROP FOREIGN KEY meaning_id_ibfk;
 
 -- Step 5: Drop the old columns from Bookmark (after verifying the migration worked)
 -- WARNING: Only run these after confirming the data migration is correct!
-ALTER TABLE Bookmark
+ALTER TABLE bookmark
     DROP COLUMN learned_time,
     DROP COLUMN level,
     DROP COLUMN fit_for_study,
@@ -74,12 +74,12 @@ ALTER TABLE Bookmark
     DROP COLUMN meaning_id;
 
 -- Step 6: Add foreign key constraint for the new relationship
-ALTER TABLE Bookmark
+ALTER TABLE bookmark
     ADD CONSTRAINT fk_bookmark_user_word
         FOREIGN KEY (user_word_id) REFERENCES user_word (id) ON DELETE CASCADE;
 
 -- Step 7: Make user_word_id NOT NULL (after confirming all records have been updated)
-ALTER TABLE Bookmark
+ALTER TABLE bookmark
     MODIFY COLUMN user_word_id INT NOT NULL;
 
 
@@ -98,7 +98,7 @@ from exercise; -- 484.457
 select e.id, b.user_word_id, e.source_id, e.solving_speed
 from exercise e
          join bookmark_exercise_mapping bem on bem.exercise_id = e.id
-         join Bookmark b on b.id = bem.bookmark_id
+         join bookmark b on b.id = bem.bookmark_id
 order by id desc
 limit 10;
 
