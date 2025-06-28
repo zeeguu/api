@@ -30,8 +30,6 @@ CREATE TABLE user_word
 
 
 -- Step 2: Migrate data from Bookmark to UserWord
-
--- untested code... the part with bookmark
 INSERT INTO user_word (user_id, meaning_id, learned_time, level, preferred_bookmark_id, fit_for_study,
                        user_preference)
 SELECT user_id,
@@ -143,7 +141,7 @@ limit 11;
 # The only way I can imagine this happening is when one deletes a bookmark
 # and that triggers a delete in BEM but that does not cascade into e...
 #
-# For now, we drop all the lines that have 0 in meaning_id
+# For now, we drop all the lines that have 0 in user_word_id
 
 select count(*)
 from exercise
