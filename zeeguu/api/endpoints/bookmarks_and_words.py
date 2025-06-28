@@ -197,10 +197,11 @@ def set_user_word_exercise_preference(bookmark_id):
 @requires_session
 def set_user_word_exercise_dislike(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-    bookmark.update_fit_for_study()
+    user_word = bookmark.user_word
+    user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+    user_word.update_fit_for_study()
 
-    BasicSRSchedule.clear_meaning_schedule(db_session, bookmark)
+    BasicSRSchedule.clear_meaning_schedule(db_session, user_word)
     db_session.commit()
     return "OK"
 
