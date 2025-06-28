@@ -4,7 +4,7 @@ import sqlalchemy
 from sqlalchemy import Column, String
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
 from zeeguu.logging import log
 

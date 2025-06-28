@@ -20,7 +20,7 @@ import zeeguu.core
 from zeeguu.core.model import Cohort
 
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/is_teacher", methods=["GET"])

@@ -5,7 +5,7 @@ Use this script for videos that have already been crawled.
 
 """
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.video import Video
 from zeeguu.core.model.caption import Caption
 from zeeguu.api.app import create_app

@@ -2,7 +2,7 @@ import json
 import os
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.video import Video
 from zeeguu.api.app import create_app
 

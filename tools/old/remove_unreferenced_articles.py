@@ -19,7 +19,6 @@
 import sqlalchemy
 import traceback
 
-from zeeguu.api.app import create_app
 from zeeguu.core.model import (
     Article,
     UserArticle,
@@ -30,11 +29,6 @@ from zeeguu.core.model import (
 from zeeguu.core.model.db import db
 
 import sys
-from tqdm import tqdm
-
-
-app = create_app()
-app.app_context().push()
 
 dbs = db.session
 
@@ -43,9 +37,7 @@ BATCH_COMMIT_SIZE = 5000
 
 def is_the_article_referenced(article, print_reference_info):
     info = UserArticle.find_by_article(article)
-    interaction_data = UserActivityData.query.filter_by(
-        source_id=article.source_id
-    ).all()
+    interaction_data = UserActivityData.query.filter_by(article_id=article.id).all()
     reading_session_info = UserReadingSession.query.filter_by(
         article_id=article.id
     ).all()
@@ -82,7 +74,7 @@ def delete_articles_older_than(
     referenced_in_this_batch = 0
     deleted = []
     deleted_from_es = 0
-    for each in tqdm(all_articles):
+    for each in all_articles:
         i += 1
         if print_progress_for_every_article:
             print(f"#{i} -- ID: {each.id}")
@@ -92,6 +84,13 @@ def delete_articles_older_than(
             continue
 
         try:
+            articles_cache = ArticlesCache.query.filter_by(article_id=each.id).all()
+            if articles_cache:
+                for each_cache_line in articles_cache:
+                    print(
+                        f"... ID: {each.id} deleting also cache line: {each_cache_line}"
+                    )
+                    dbs.delete(each_cache_line)
 
             deleted.append(each.id)
             dbs.delete(each)
@@ -123,17 +122,14 @@ def delete_articles_older_than(
 
 if __name__ == "__main__":
 
-    # try:
-    #     DAYS = int(sys.argv[1])
-    # except:
-    #     print(
-    #         "\nOOOPS: you must provide a number of days before which the articles to be deleted\n"
-    #     )
-    #     DAYS = int(input("How many days? "))
-    #     if not DAYS:
-    #         exit(-1)
+    try:
+        DAYS = int(sys.argv[1])
+    except:
+        print(
+            "\nOOOPS: you must provide a number of days before which the articles to be deleted\n"
+        )
+        exit(-1)
 
-    DAYS = 1
     delete_articles_older_than(
         DAYS, print_progress_for_every_article=False, delete_from_ES=False
     )

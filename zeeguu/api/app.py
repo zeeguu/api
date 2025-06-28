@@ -60,7 +60,7 @@ def create_app(testing=False):
     app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
     # inspired from: https://stackoverflow.com/a/47278172/1200070
 
-    from zeeguu.core.model import db
+    from zeeguu.core.model.db import db
 
     db.init_app(app)
 

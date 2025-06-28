@@ -1,7 +1,7 @@
 import sqlalchemy
 from sqlalchemy import Column, Integer, String
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 
 

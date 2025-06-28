@@ -1,10 +1,13 @@
 import random
 
 from zeeguu.core.test.rules.base_rule import BaseRule
+from zeeguu.core.test.rules.meaning_rule import MeaningRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.exercise_source_rule import ExerciseSourceRule
 from zeeguu.core.model.exercise import Exercise
 from datetime import datetime
+
+from zeeguu.core.test.rules.user_word_rule import UserWordRule
 
 
 class ExerciseRule(BaseRule):
@@ -13,23 +16,35 @@ class ExerciseRule(BaseRule):
     Creates a Exercise object with random data and saves it to the database.
     """
 
-    def __init__(self, session, outcome: OutcomeRule = None, date: datetime = None):
+    def __init__(
+        self, exercise_session, outcome: OutcomeRule = None, date: datetime = None
+    ):
         super().__init__()
 
-        self.exercise = self._create_model_object(session.id, outcome, date)
+        self.exercise = self._create_model_object(exercise_session, outcome, date)
 
         self.save(self.exercise)
 
     def _create_model_object(
-        self, session_id, outcome: OutcomeRule = None, date: datetime = None
+        self, exercise_session, outcome: OutcomeRule = None, date: datetime = None
     ):
 
         random_outcome = outcome if outcome else OutcomeRule().random
         random_source = ExerciseSourceRule().random
         random_speed = random.randint(500, 5000)
         random_time = date if date else self.faker.date_time_this_year()
+        random_meaning = MeaningRule().meaning
+        user_word = UserWordRule(
+            exercise_session.user, random_meaning
+        ).user_word
+
         new_exercise = Exercise(
-            random_outcome, random_source, random_speed, random_time, session_id
+            random_outcome,
+            random_source,
+            random_speed,
+            random_time,
+            exercise_session.id,
+            user_word,
         )
 
         if self._exists_in_db(new_exercise):

@@ -176,14 +176,14 @@ class DataExtractor:
                 FROM user u 
                 INNER JOIN user_exercise_session ues ON ues.user_id = u.id
                 INNER JOIN exercise e ON e.session_id = ues.id
-                INNER JOIN bookmark_exercise_mapping bem ON e.id = bem.exercise_id
-                INNER JOIN bookmark b ON b.id = bem.bookmark_id AND b.user_id = u.id
-                inner join meaning m on b.meaning_id = m.id
+                INNER JOIN user_word um on um.id = e.user_word_id
+                inner join meaning m on um.meaning_id = m.id
                 INNER JOIN phrase p ON m.origin_id = p.id
                 INNER JOIN exercise_source es on es.id = e.source_id
                 INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
                 WHERE DATEDIFF(CURDATE(), ues.last_action_time) <= {self.DAYS_FOR_REPORT}
-                GROUP BY u.learned_language_id, es.source"""
+                GROUP BY u.learned_language_id, es.source
+                """
         total_exercise_activity = pd.read_sql(query, con=self.db_connection)
         total_exercise_activity["total_exercise_time"] = total_exercise_activity[
             "total_exercise_time"
@@ -196,9 +196,8 @@ class DataExtractor:
                     FROM user u
                     INNER JOIN user_exercise_session ues ON ues.user_id = u.id
                     INNER JOIN exercise e ON e.session_id = ues.id
-                    INNER JOIN bookmark_exercise_mapping bem ON e.id = bem.exercise_id
-                    INNER JOIN bookmark b ON b.id = bem.bookmark_id AND b.user_id = u.id
-                    inner join meaning m on b.meaning_id = m.id
+                    INNER JOIN user_word um on um.id = e.user_word_id
+                    inner join meaning m on um.meaning_id = m.id
                     INNER JOIN phrase p ON m.origin_id = p.id
                     INNER JOIN exercise_source es on es.id = e.source_id
                     INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
@@ -212,15 +211,15 @@ class DataExtractor:
 
     def get_bookmark_df(self):
         print("Getting Bookmarks...")
-        query = f"""SELECT b.*, l.name Language, MAX(bem.exercise_id) as last_exercise, COUNT(bem.exercise_id) total_exercises
-                    FROM bookmark b
-                    LEFT JOIN 
-                        bookmark_exercise_mapping bem on b.id = bem.bookmark_id
-                    INNER JOIN meaning m on b.meaning_id = m.id
-                    INNER JOIN phrase p ON m.origin_id = p.id
-                    INNER JOIN language l ON p.language_id = l.id
-                    WHERE DATEDIFF(CURDATE(), b.time) <= {self.DAYS_FOR_REPORT}
-                    GROUP by b.id;
+        query = f"""SELECT um.*, l.name Language, MAX(e.id) as last_exercise, COUNT(e.id) total_exercises
+                    FROM user_word um
+                        JOIN exercise e on um.id = e.user_word_id
+                        JOIN meaning m on um.meaning_id = m.id
+                        JOIN phrase p ON m.origin_id = p.id
+                        JOIN language l ON p.language_id = l.id
+                        JOIN bookmark b ON b.user_word_id = um.id
+                    GROUP by um.id
+                    HAVING DATEDIFF(CURDATE(), MIN(b.time)) <= {self.DAYS_FOR_REPORT};
                 """
         bookmarks = pd.read_sql(query, con=self.db_connection)
         bookmarks["Has Exercised"] = bookmarks.last_exercise.apply(

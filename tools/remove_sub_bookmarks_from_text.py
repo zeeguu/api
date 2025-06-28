@@ -18,7 +18,8 @@ def is_bookmark_substring_of_any_and_same_user(
 ):
     return any(
         [
-            b.origin.content in each.origin.content and b.user_id == each.user_id
+            b.user_word.meaning.origin.content in each.user_word.meaning.origin.content
+            and b.user_word.user_id == each.user_word.user_id
             for each in list_bookmarks
         ]
     )
@@ -44,7 +45,7 @@ for i, t in tqdm(
         continue
     text_bookmarks = sorted(
         bookmarks_for_text,
-        key=lambda b: len(b.meaning.origin.content),
+        key=lambda b: len(b.user_word.meaning.origin.content),
         reverse=True,
     )
     long_bookmarks_list = [text_bookmarks[0]]
@@ -60,14 +61,24 @@ for i, t in tqdm(
                 print("Context: ")
                 print(t.content)
                 print("Bookmarks in context: ")
-                print([(b.meaning.origin.content, b.user_id) for b in text_bookmarks])
+                print(
+                    [
+                        (b.user_word.meaning.origin.content, b.user_word.user_id)
+                        for b in text_bookmarks
+                    ]
+                )
             if len(long_bookmarks_list) > last_long_bookmark_list:
                 print("Longest bookmarks in text: ")
                 print(
-                    [(b.meaning.origin.content, b.user_id) for b in long_bookmarks_list]
+                    [
+                        (b.user_word.meaning.origin.content, b.user_word.user_id)
+                        for b in long_bookmarks_list
+                    ]
                 )
                 last_long_bookmark_list = len(long_bookmarks_list)
-            print(f"Deleting: {b.meaning.origin.content} for user {b.user_id}")
+            print(
+                f"Deleting: {b.user_word.meaning.origin.content} for user {b.user_word.user_id}"
+            )
             counter_total_deleted_bookmarks += 1
             has_printed = True
             db_session.delete(b)

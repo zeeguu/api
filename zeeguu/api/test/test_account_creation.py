@@ -1,5 +1,7 @@
 from zeeguu.api.test.fixtures import client
-from zeeguu.core.model import db, UniqueCode
+from zeeguu.core.model.db import db
+
+from zeeguu.core.model import UniqueCode
 import json
 
 TEST_PASS = "test"

@@ -2,7 +2,7 @@ from sqlalchemy import text
 
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.cohort import Cohort
 
 
@@ -20,9 +20,8 @@ def total_time_in_exercise_sessions(user_id, cohort_id, start_time, end_time):
         select sum(duration)
         from user_exercise_session as ues
         WHERE ues.id in (SELECT e.session_id from exercise e
-                        INNER JOIN bookmark_exercise_mapping bem on e.id = bem.exercise_id
-                        INNER JOIN bookmark b ON bem.bookmark_id = b.id
-                        join meaning m on b.meaning_id = m.id
+                        INNER JOIN user_word um on e.user_word_id = um.id 
+                        INNER JOIN meaning m on um.meaning_id = m.id
                         INNER JOIN phrase p ON m.origin_id = p.id
                         {same_language_as_cohort_condition})
         and ues.start_time > :start_time

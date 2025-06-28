@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from zeeguu.core.model import User
 import zeeguu.core
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class Teacher(db.Model):

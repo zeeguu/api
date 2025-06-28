@@ -7,7 +7,7 @@ import zeeguu
 from zeeguu.api.app import create_app
 from zeeguu.core.test.mocking_the_web import mock_requests_get
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 db_session = db.session
 
@@ -18,13 +18,17 @@ def client():
 
     with app.test_client() as client:
         with app.app_context():
-            zeeguu.core.model.db.create_all()
+            from zeeguu.core.model.db import db
+
+            db.create_all()
 
             yield client
 
     with app.app_context():
         db_session.remove()
-        zeeguu.core.model.db.drop_all()
+        from zeeguu.core.model.db import db
+
+        db.drop_all()
 
 
 @pytest.fixture
@@ -32,13 +36,17 @@ def test_app():
     app = create_app(testing=True)
 
     with app.app_context():
-        zeeguu.core.model.db.create_all()
+        from zeeguu.core.model.db import db
+
+        db.create_all()
 
         yield app
 
     with app.app_context():
         db_session.remove()
-        zeeguu.core.model.db.drop_all()
+        from zeeguu.core.model.db import db
+
+        db.drop_all()
 
 
 @pytest.fixture
@@ -50,7 +58,9 @@ def logged_in_client():
 
         with app.test_client() as client:
             with app.app_context():
-                zeeguu.core.model.db.create_all()
+                from zeeguu.core.model.db import db
+
+                db.create_all()
 
                 logged_in_client = LoggedInClient(client)
 
@@ -58,7 +68,9 @@ def logged_in_client():
 
     with app.app_context():
         db_session.remove()
-        zeeguu.core.model.db.drop_all()
+        from zeeguu.core.model.db import db
+
+        db.drop_all()
 
 
 @pytest.fixture
@@ -70,7 +82,9 @@ def logged_in_teacher():
 
         with app.test_client() as client:
             with app.app_context():
-                zeeguu.core.model.db.create_all()
+                from zeeguu.core.model.db import db
+
+                db.create_all()
 
                 logged_in_client = LoggedInTeacher(client)
 
@@ -78,7 +92,9 @@ def logged_in_teacher():
 
     with app.app_context():
         db_session.remove()
-        zeeguu.core.model.db.drop_all()
+        from zeeguu.core.model.db import db
+
+        db.drop_all()
 
 
 class LoggedInClient:
@@ -141,7 +157,7 @@ class LoggedInTeacher(LoggedInClient):
     def _upgrade_to_teacher(self):
         from zeeguu.core.model import User, Teacher
 
-        from zeeguu.core.model import db
+        from zeeguu.core.model.db import db
 
         u = User.find(self.email)
         db_session.add(Teacher(u))

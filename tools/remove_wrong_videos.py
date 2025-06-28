@@ -1,5 +1,5 @@
 from zeeguu.api.app import create_app
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 from zeeguu.core.model.video import Video
 from zeeguu.core.model.language import Language
 

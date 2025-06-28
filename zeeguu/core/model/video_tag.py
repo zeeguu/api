@@ -1,7 +1,8 @@
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
+
 
 class VideoTag(db.Model):
-    __tablename__ = 'video_tag'
+    __tablename__ = "video_tag"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
@@ -11,25 +12,22 @@ class VideoTag(db.Model):
         self.tag = tag
 
     def __repr__(self):
-        return f'<VideoTag {self.tag}>'
+        return f"<VideoTag {self.tag}>"
 
     def as_dictionary(self):
-        return dict(
-            id=self.id,
-            tag=self.tag
-       )
+        return dict(id=self.id, tag=self.tag)
 
     @classmethod
     def find_or_create(
-        cls, 
-        session, 
+        cls,
+        session,
         tag_text,
     ):
         tag = session.query(cls).filter_by(tag=tag_text).first()
 
         if tag:
             return tag
-        
+
         new_tag = cls(tag_text)
         session.add(new_tag)
 
@@ -38,5 +36,5 @@ class VideoTag(db.Model):
         except Exception as e:
             session.rollback()
             raise e
-        
+
         return new_tag

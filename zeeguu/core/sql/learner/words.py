@@ -1,41 +1,42 @@
-from zeeguu.core.model import Bookmark
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
 
 def words_not_studied(user_id, language_id, from_date: str, to_date: str):
 
     query = """
-        select  b.id as bookmark_id, 
-                uw.content,
-                uw_t.content as translation,
-                b.time as bookmark_creation_time, 
-                b.fit_for_study
-            
-        from bookmark as b
+        select  um.id as meaning_id, 
+                origin_p.content as word,
+                translation_p.content as translation, 
+                um.fit_for_study,
+                min(b.time) as mtime,
+                count(e.id) as exercise_count
+
+        from user_word as um
         
         join meaning as m
-            on b.meaning_id = m.id
+            on um.meaning_id = m.id
         
-        join phrase as uw
-            on m.origin_id = uw.id
+        join phrase as origin_p
+            on m.origin_id = origin_p.id
             
-        join phrase as uw_t
-            on m.translation_id = uw_t.id
+        join phrase as translation_p
+            on m.translation_id = translation_p.id
             
-        left join bookmark_exercise_mapping as bem
-            on b.id = bem.bookmark_id
-                
-        
+        join bookmark as b 
+            on b.user_word_id = um.id
+            
+        left join exercise e 
+            on e.user_word_id = um.id
+                            
         where 
-        
             b.time > :from_date -- '2021-06-03 23:44'
             and b.time < :to_date -- '2021-06-04 23:44'
-            and b.user_id = :user_id -- 2953
-            and uw.language_id = :language_id -- 2
+            and um.user_id = :user_id -- 2953
+            and origin_p.language_id = :language_id -- 2
         
-        group by b.id
-        having count(bem.exercise_id) = 0
-
+        group by um.id
+        having count(e.id) = 0
         """
 
     return list_of_dicts_from_query(
@@ -52,26 +53,29 @@ def words_not_studied(user_id, language_id, from_date: str, to_date: str):
 def learned_words(user_id, language_id, from_date: str, to_date: str):
     query = """
         select 
-        b.id as bookmark_id,
-        o_uw.content,
-        t_uw.content as translation,
-        b.learned_time
+        um.id as user_word_id,
+        origin_phrase.content,
+        translation_phrase.content as translation,
+        um.learned_time
         
-        from bookmark as b
+        from user_word as um
+        
+        join meaning m 
+            on um.meaning_id = m.id
 
-        join phrase as o_uw
-            on o_uw.id = b.origin_id
+        join phrase as origin_phrase
+            on origin_phrase.id = m.origin_id
 
-        join phrase as t_uw
-            on t_uw.id = b.translation_id
+        join phrase as translation_phrase
+            on translation_phrase.id = m.translation_id
             
         where 
-            b.learned_time > :from_date -- '2021-05-24'  
-            and b.learned_time < :to_date -- '2021-06-23'
-            and o_uw.language_id = :language_id -- 2
-            and b.user_id = :user_id -- 2953
-            and b.learned_time is NOT NULL 
-        order by b.learned_time
+            um.learned_time > :from_date -- '2021-05-24'  
+            and um.learned_time < :to_date -- '2021-06-23'
+            and origin_phrase.language_id = :language_id -- 2
+            and um.user_id = :user_id -- 2953
+            and um.learned_time is NOT NULL 
+        order by um.learned_time
         """
 
     results = list_of_dicts_from_query(

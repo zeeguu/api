@@ -1,10 +1,9 @@
-import zeeguu.core
 from sqlalchemy import Column, Integer, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import exists
 from zeeguu.core.model.language import Language
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class Cohort(db.Model):

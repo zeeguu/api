@@ -4,22 +4,21 @@ from zeeguu.core.sql.query_building import list_of_dicts_from_query
 def exercises_in_session(session_id: int):
     query = """
         select e.id as exercise_id,
-                b.user_id,
+                um.user_id,
                 es.source,
                 eo.outcome, 
                 e.time,
                 e.solving_speed,
-                o_uw.content,
-                t_uw.content as translation,
-                b.id as bookmark_id
+                o_p.content,
+                t_p.content as translation,
+                um.id as user_word_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
-            join bookmark_exercise_mapping as bem on e.`id`=bem.exercise_id
-            join bookmark as b on b.id = bem.bookmark_id
-            join meaning wm on wm.id = b.meaning_id
-            join phrase as o_uw on o_uw.id = wm.origin_id
-            join phrase as t_uw on t_uw.id = wm.translation_id
+            join user_word as um on um.id = e.user_word_id
+            join meaning wm on wm.id = um.meaning_id
+            join phrase as o_p on o_p.id = wm.origin_id
+            join phrase as t_p on t_p.id = wm.translation_id
             join user_exercise_session ues on ues.id = e.session_id
         where 
             ues.id = :session_id
@@ -35,20 +34,18 @@ def exercises_in_session(session_id: int):
 def exercise_history(user_id: int, language_id: int, from_date: str, to_date: str):
     query = f"""
         select e.id as exercise_id,
-                b.user_id,
+                um.user_id,
                 es.source,
                 eo.outcome, 
                 e.time,
                 e.solving_speed,
                 o_uw.content,
-                t_uw.content as translation,
-                b.id as bookmark_id
+                t_uw.content as translation
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
-            join bookmark_exercise_mapping as bem on e.`id`=bem.exercise_id
-            join bookmark as b on b.id = bem.bookmark_id
-            join meaning wm on wm.id = b.meaning_id
+            join user_word as um on um.id = e.user_word_id
+            join meaning wm on wm.id = um.meaning_id
             join phrase as o_uw on o_uw.id = wm.origin_id
             join phrase as t_uw on t_uw.id = wm.translation_id
         where 
@@ -56,7 +53,7 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
             and e.time > :from_date -- '2021-04-13'
             and e.time <= :to_date -- '2021-05-23'
             {"and o_uw.language_id = :language_id -- 3" if language_id else ""}
-            and b.user_id = :user_id
+            and um.user_id = :user_id
         order by e.time
         """
     return list_of_dicts_from_query(

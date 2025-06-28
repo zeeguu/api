@@ -4,7 +4,7 @@ import zeeguu.core
 from datetime import datetime, timedelta
 from zeeguu.core.model.user import User
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 VERY_FAR_IN_THE_PAST = "2000-01-01T00:00:00"
 VERY_FAR_IN_THE_FUTURE = "9999-12-31T23:59:59"

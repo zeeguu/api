@@ -1,6 +1,7 @@
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 import sqlalchemy
 from zeeguu.core.model.bookmark import Bookmark
+
 
 class VideoCaptionContext(db.Model):
     """
@@ -15,6 +16,7 @@ class VideoCaptionContext(db.Model):
     bookmark = db.relationship(Bookmark)
 
     from zeeguu.core.model.caption import Caption
+
     caption_id = db.Column(db.Integer, db.ForeignKey(Caption.id))
     caption = db.relationship(Caption)
 
@@ -28,14 +30,14 @@ class VideoCaptionContext(db.Model):
 
     def __repr__(self):
         return f"<VideoCaptionContext c:{self.caption_id}, b:{self.bookmark.id}>"
-    
+
     @classmethod
     def find_by_bookmark(cls, bookmark):
         try:
             return cls.query.filter(cls.bookmark == bookmark).one()
         except sqlalchemy.orm.exc.NoResultFound:
             return None
-        
+
     @classmethod
     def find_or_create(
         cls,
@@ -58,15 +60,19 @@ class VideoCaptionContext(db.Model):
             if commit:
                 session.commit()
             return new
-        
+
     @classmethod
     def get_all_user_bookmarks_for_caption(
         cls, user_id: int, caption_id: int, as_json_serializable: bool = True
     ):
+
+        from zeeguu.core.model.user_word import UserWord
+
         result = (
             Bookmark.query.join(cls)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(cls.caption_id == caption_id)
-            .filter(Bookmark.user_id == user_id)
+            .filter(UserWord.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

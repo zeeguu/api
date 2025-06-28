@@ -170,7 +170,8 @@ def delete_bookmark(bookmark_id):
 @requires_session
 def report_learned_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.report_exercise_outcome(
+    bookmark.user_word.report_exercise_outcome(
+        db_session,
         ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
         ExerciseOutcome.CORRECT,
         -1,
@@ -196,10 +197,11 @@ def set_user_word_exercise_preference(bookmark_id):
 @requires_session
 def set_user_word_exercise_dislike(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-    bookmark.update_fit_for_study()
+    user_word = bookmark.user_word
+    user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+    user_word.update_fit_for_study()
 
-    BasicSRSchedule.clear_bookmark_schedule(db_session, bookmark)
+    BasicSRSchedule.clear_meaning_schedule(db_session, user_word)
     db_session.commit()
     return "OK"
 
@@ -221,7 +223,7 @@ def set_not_fit_for_study(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.fit_for_study = False
 
-    BasicSRSchedule.clear_bookmark_schedule(db_session, bookmark)
+    BasicSRSchedule.clear_meaning_schedule(db_session, bookmark)
     db_session.commit()
     return "OK"
 

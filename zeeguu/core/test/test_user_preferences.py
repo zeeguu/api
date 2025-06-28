@@ -3,7 +3,7 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
 from zeeguu.core.model.user_preference import UserPreference
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class UserPreferenceTest(ModelTestMixIn):

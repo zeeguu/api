@@ -7,7 +7,7 @@ from ._common_api_parameters import (
 from .. import api
 from zeeguu.api.utils import json_result, requires_session
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 @api.route("/student_exercise_correctness", methods=["POST"])

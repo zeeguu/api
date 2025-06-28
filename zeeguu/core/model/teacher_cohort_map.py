@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import User
 from zeeguu.core.model.cohort import Cohort
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class TeacherCohortMap(db.Model):

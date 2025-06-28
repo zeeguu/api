@@ -1,6 +1,6 @@
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 import sqlalchemy
 
 
@@ -63,10 +63,13 @@ class ArticleTitleContext(db.Model):
     def get_all_user_bookmarks_for_article_title(
         cls, user_id: int, article_id: int, as_json_serializable: bool = True
     ):
+        from zeeguu.core.model.user_word import UserWord
+
         result = (
             Bookmark.query.join(ArticleTitleContext)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(ArticleTitleContext.article_id == article_id)
-            .filter(Bookmark.user_id == user_id)
+            .filter(UserWord.user_id == user_id)
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]

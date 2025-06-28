@@ -17,8 +17,8 @@ def get_own_past_translation(
     for each_context in ocurrences_of_context:
         for bookmark in Bookmark.find_all_for_context_and_user(each_context, user):
             if (
-                bookmark.meaning.origin.content == word
-                and bookmark.meaning.translation.language == to_language
+                bookmark.user_word.meaning.origin.content == word
+                and bookmark.user_word.meaning.translation.language == to_language
             ):
                 return bookmark
 

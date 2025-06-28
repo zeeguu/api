@@ -1,6 +1,6 @@
 from sqlalchemy import text
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 def date_format(date_object):

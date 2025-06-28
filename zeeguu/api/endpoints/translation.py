@@ -18,7 +18,7 @@ from zeeguu.api.utils.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.bookmark_context import ContextIdentifier
@@ -73,7 +73,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         user, word_str, from_lang_code, to_lang_code, context
     )
     if bookmark:
-        translation = bookmark.meaning.translation.content
+        translation = bookmark.user_word.meaning.translation.content
         likelihood = 1
         source = "Own past translation"
 
@@ -210,9 +210,9 @@ def update_translation(bookmark_id):
     meaning = Meaning.find_or_create(
         db_session,
         word_str,
-        bookmark.meaning.origin.language.code,
+        bookmark.user_word.meaning.origin.language.code,
         translation_str,
-        bookmark.meaning.translation.language.code,
+        bookmark.user_word.meaning.translation.language.code,
     )
 
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
@@ -224,7 +224,7 @@ def update_translation(bookmark_id):
     text = Text.find_or_create(
         db_session,
         context_str,
-        bookmark.meaning.origin.language,
+        bookmark.user_word.meaning.origin.language,
         bookmark.text.url,
         bookmark.text.article if is_same_text else None,
         prev_text.paragraph_i if is_same_text else None,
@@ -240,27 +240,35 @@ def update_translation(bookmark_id):
         db_session,
         context_str,
         context_type,
-        bookmark.meaning.origin.language,
+        bookmark.user_word.meaning.origin.language,
         prev_context.sentence_i if is_same_context else None,
         prev_context.token_i if is_same_context else None,
         prev_context.left_ellipsis if is_same_context else None,
         prev_context.right_ellipsis if is_same_context else None,
     )
 
-    bookmark.meaning = meaning
+    # Create a new UserWord with the updated meaning
+    new_user_meaning = UserWord.find_or_create(
+        db_session,
+        bookmark.user_word.user,
+        meaning
+    )
+    bookmark.user_word_id = new_user_meaning.id
     bookmark.text = text
     bookmark.context = context
 
     if (
         not is_same_text
         or not is_same_context
-        or bookmark.meaning.origin.content != word_str
+        or bookmark.user_word.meaning.origin.content != word_str
     ):
         # In the frontend it's mandatory that the bookmark is in the text,
         # so we update the pointer.
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
-        tokenizer = get_tokenizer(bookmark.meaning.origin.language, TOKENIZER_MODEL)
+        tokenizer = get_tokenizer(
+            bookmark.user_word.meaning.origin.language, TOKENIZER_MODEL
+        )
         # Tokenized text returns paragraph, sents, token
         # Since we know there is not multiple paragraphs, we take the first
         tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
@@ -285,7 +293,6 @@ def update_translation(bookmark_id):
                 ContextType.USER_EDITED_TEXT
             )
 
-    bookmark.meaning = meaning
     db_session.add(bookmark)
 
     updated_bookmark = bookmark.as_dictionary(
