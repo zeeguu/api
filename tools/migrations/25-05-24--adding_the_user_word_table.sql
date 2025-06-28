@@ -9,7 +9,6 @@ CREATE TABLE user_word
     id                    INT AUTO_INCREMENT PRIMARY KEY,
     user_id               INT       NOT NULL,
     meaning_id            INT       NOT NULL,
-    -- untested code... this preferred_bookmark_id
     preferred_bookmark_id INT       NULL,
     fit_for_study         BOOLEAN DEFAULT TRUE,
     user_preference       TEXT      NULL,
