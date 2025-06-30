@@ -248,12 +248,12 @@ def update_translation(bookmark_id):
     )
 
     # Create a new UserWord with the updated meaning
-    new_user_meaning = UserWord.find_or_create(
+    new_user_word = UserWord.find_or_create(
         db_session,
         bookmark.user_word.user,
         meaning
     )
-    bookmark.user_word_id = new_user_meaning.id
+    bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
 

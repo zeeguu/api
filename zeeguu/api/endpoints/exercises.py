@@ -26,9 +26,9 @@ def get_all_scheduled_bookmarks():
     Is used to render the Words>Learning page
     """
     user = User.find_by_id(flask.g.user_id)
-    user_words = BasicSRSchedule.scheduled_meanings(user)
+    user_words = BasicSRSchedule.scheduled_user_words(user)
 
-    return _user_meanings_as_json_result(user_words)
+    return _user_words_as_json_result(user_words)
 
 
 @api.route("/count_of_all_scheduled_bookmarks", methods=["GET"])
@@ -36,7 +36,7 @@ def get_all_scheduled_bookmarks():
 @requires_session
 def get_count_of_all_scheduled_bookmarks():
     user = User.find_by_id(flask.g.user_id)
-    bookmark_count = BasicSRSchedule.scheduled_meanings_count(user)
+    bookmark_count = BasicSRSchedule.scheduled_user_words_count(user)
     return json_result(bookmark_count)
 
 
@@ -52,8 +52,8 @@ def get_count_of_all_scheduled_bookmarks():
 def get_bookmarks_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.user_meanings_to_study(user)
-    return _user_meanings_as_json_result(to_study)
+    to_study = BasicSRSchedule.user_words_to_study(user)
+    return _user_words_as_json_result(to_study)
 
 
 @api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
@@ -62,7 +62,7 @@ def get_bookmarks_recommended_for_practice():
 def get_count_of_bookmarks_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.user_meanings_to_study(user)
+    to_study = BasicSRSchedule.user_words_to_study(user)
     return json_result(len(to_study))
 
 
@@ -76,9 +76,9 @@ def get_bookmarks_due_today():
 
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
-    to_study = BasicSRSchedule.scheduled_meanings_due_today(user)
+    to_study = BasicSRSchedule.scheduled_words_due_today(user)
 
-    return _user_meanings_as_json_result(to_study, True, with_tokens)
+    return _user_words_as_json_result(to_study, True, with_tokens)
 
 
 # =====================================
@@ -95,9 +95,9 @@ def get_bookmarks_due_today():
 def get_bookmarks_next_in_learning():
 
     user = User.find_by_id(flask.g.user_id)
-    next_in_learning = BasicSRSchedule.user_meanings_not_scheduled(user, 6)
+    next_in_learning = BasicSRSchedule.user_words_not_scheduled(user, 6)
 
-    return _user_meanings_as_json_result(next_in_learning)
+    return _user_words_as_json_result(next_in_learning)
 
 
 # ====================================
@@ -176,6 +176,6 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
     return json_result(bookmark_dicts)
 
 
-def _user_meanings_as_json_result(user_words):
-    dicts = [um.as_dictionary() for um in user_words]
+def _user_words_as_json_result(user_words):
+    dicts = [user_word.as_dictionary() for user_word in user_words]
     return json_result(dicts)

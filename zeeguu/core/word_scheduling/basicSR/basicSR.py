@@ -19,9 +19,7 @@ class BasicSRSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     user_word = db.relationship(UserWord)
-    user_word_id = db.Column(
-        db.Integer, db.ForeignKey(UserWord.id), nullable=False
-    )
+    user_word_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
 
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
@@ -60,8 +58,8 @@ class BasicSRSchedule(db.Model):
         raise NotImplementedError
 
     @classmethod
-    def clear_meaning_schedule(cls, db_session, user_word):
-        schedule = cls.find_by_user_meaning(user_word)
+    def clear_user_word_schedule(cls, db_session, user_word):
+        schedule = cls.find_by_user_word(user_word)
         if schedule is not None:
             db_session.delete(schedule)
             db_session.commit()
@@ -71,7 +69,7 @@ class BasicSRSchedule(db.Model):
         raise NotImplementedError
 
     @classmethod
-    def find_by_user_meaning(cls, user_word):
+    def find_by_user_word(cls, user_word):
         try:
             result = cls.query.filter(cls.user_word_id == user_word.id).one()
             return result
@@ -117,7 +115,7 @@ class BasicSRSchedule(db.Model):
         correctness = ExerciseOutcome.is_correct(outcome)
 
         # Do we have more words scheduled than the user prefers?
-        more_scheduled_words_than_user_prefers = cls.scheduled_meanings_count(
+        more_scheduled_words_than_user_prefers = cls.scheduled_user_words_count(
             user_word.user
         ) >= UserPreference.get_max_words_to_schedule(user_word.user)
 
@@ -138,7 +136,7 @@ class BasicSRSchedule(db.Model):
         schedule.update_schedule(db_session, correctness, time)
 
     @classmethod
-    def user_meanings_not_scheduled(cls, user, limit):
+    def user_words_not_scheduled(cls, user, limit):
         from zeeguu.core.model.bookmark import Bookmark
 
         unscheduled_meanings = (
@@ -161,7 +159,7 @@ class BasicSRSchedule(db.Model):
             return unscheduled_meanings.limit(limit).all()
 
     @classmethod
-    def user_meanings_to_study(cls, user):
+    def user_words_to_study(cls, user):
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.
@@ -178,14 +176,14 @@ class BasicSRSchedule(db.Model):
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
-        scheduled_candidates = cls.scheduled_meanings_due_today(
+        scheduled_candidates = cls.scheduled_words_due_today(
             user, max_words_to_schedule
         )
 
-        scheduled_for_this_user = cls.scheduled_meanings_count(user)
+        scheduled_for_this_user = cls.scheduled_user_words_count(user)
         if scheduled_for_this_user < max_words_to_schedule:
             count_needed = max_words_to_schedule - scheduled_for_this_user
-            unscheduled_bookmarks = cls.user_meanings_not_scheduled(user, count_needed)
+            unscheduled_bookmarks = cls.user_words_not_scheduled(user, count_needed)
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
 
@@ -195,7 +193,7 @@ class BasicSRSchedule(db.Model):
         return sorted_candidates
 
     @classmethod
-    def _scheduled_meanings_query(cls, user, language=None):
+    def _scheduled_user_words_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
         from zeeguu.core.model.bookmark import Bookmark
 
@@ -211,9 +209,9 @@ class BasicSRSchedule(db.Model):
         return query
 
     @classmethod
-    def scheduled_meanings_due_today(cls, user, limit=None):
+    def scheduled_words_due_today(cls, user, limit=None):
 
-        query = cls._scheduled_meanings_query(user)
+        query = cls._scheduled_user_words_query(user)
         query = query.filter(cls.next_practice_time < _get_end_of_today())
 
         # The scheduled bookmarks are sorted by the most common in the language and
@@ -229,16 +227,16 @@ class BasicSRSchedule(db.Model):
         return query.all()
 
     @classmethod
-    def scheduled_meanings(cls, user, language=None, required_count=None):
-        query = cls._scheduled_meanings_query(user, language)
+    def scheduled_user_words(cls, user, language=None, required_count=None):
+        query = cls._scheduled_user_words_query(user, language)
         if required_count is not None:
             query = query.limit(required_count)
         meanings = query.all()
         return meanings
 
     @classmethod
-    def scheduled_meanings_count(cls, user) -> int:
-        query = cls._scheduled_meanings_query(user)
+    def scheduled_user_words_count(cls, user) -> int:
+        query = cls._scheduled_user_words_query(user)
         return query.count()
 
     @classmethod
@@ -274,7 +272,7 @@ def priority_by_rank(user_word):
         user_word.meaning.origin.language.code,
     )
 
-    basic_sr_schedule = BasicSRSchedule.find_by_user_meaning(user_word)
+    basic_sr_schedule = BasicSRSchedule.find_by_user_word(user_word)
 
     cooling_interval = (
         basic_sr_schedule.cooling_interval

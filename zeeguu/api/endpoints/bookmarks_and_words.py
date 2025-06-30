@@ -201,7 +201,7 @@ def set_user_word_exercise_dislike(bookmark_id):
     user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
     user_word.update_fit_for_study()
 
-    BasicSRSchedule.clear_meaning_schedule(db_session, user_word)
+    BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
     db_session.commit()
     return "OK"
 
@@ -223,7 +223,7 @@ def set_not_fit_for_study(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.fit_for_study = False
 
-    BasicSRSchedule.clear_meaning_schedule(db_session, bookmark)
+    BasicSRSchedule.clear_user_word_schedule(db_session, bookmark)
     db_session.commit()
     return "OK"
 
@@ -248,6 +248,7 @@ def unstar_bookmark(bookmark_id):
     bookmark.update_fit_for_study()
     db_session.commit()
     return "OK"
+
 
 @api.route("/practiced_bookmarks_count_this_week", methods=["GET"])
 @cross_domain

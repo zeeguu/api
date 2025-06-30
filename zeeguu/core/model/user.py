@@ -232,7 +232,7 @@ class User(db.Model):
         """
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-        words_not_started_learning = BasicSRSchedule.user_meanings_not_scheduled(
+        words_not_started_learning = BasicSRSchedule.user_words_not_scheduled(
             self, None
         )
         return words_not_started_learning

@@ -65,7 +65,7 @@ def reduce_for_user(u):
                 print(
                     f"  {bookmark.user_word.meaning.origin.content} {Word.stats(bookmark.user_word.meaning.origin.content, bookmark.user_word.meaning.origin.language.code).rank} {bookmark.level}"
                 )
-                schedule = BasicSRSchedule.find_by_user_meaning(bookmark)
+                schedule = BasicSRSchedule.find_by_user_word(bookmark)
                 db_session.delete(schedule)
                 # if the bookmark was scheduled and was at a level higher than 1 then
                 # we don't reset it. Leave it there. Otherwise, we are safe to do so.
