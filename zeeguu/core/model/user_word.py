@@ -130,6 +130,7 @@ class UserWord(db.Model):
             consecutive_correct_answers = None
             is_last_in_cycle = None
             is_about_to_be_learned = None
+            next_practice_time = None
 
         exercise_info_dict = dict(
             to=translation_word,
