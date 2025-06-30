@@ -5,14 +5,15 @@ from collections import Counter
 from datetime import datetime, timedelta
 
 from dateutil.utils import today
-from zeeguu.core.test.model_test_mixin import ModelTestMixIn
-from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
-from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.model import User, Session
-from zeeguu.core.model.db import db
+
 from zeeguu.core.account_management.user_account_deletion import (
     delete_user_account_w_session,
 )
+from zeeguu.core.model import User, Session
+from zeeguu.core.model.db import db
+from zeeguu.core.test.model_test_mixin import ModelTestMixIn
+from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
+from zeeguu.core.test.rules.user_rule import UserRule
 
 
 class UserTest(ModelTestMixIn):
@@ -161,3 +162,71 @@ class UserTest(ModelTestMixIn):
         db.session.commit()
         delete_user_account_w_session(db.session, new_session.uuid)
         assert not User.exists(self.user)
+
+    def test_practiced_user_words_count_this_week(self):
+        from zeeguu.core.model import Exercise, ExerciseOutcome, ExerciseSource
+        from zeeguu.core.test.rules.language_rule import LanguageRule
+
+        # Set up the user's learned language
+        self.user.learned_language = LanguageRule().en
+        db.session.add(self.user)
+        db.session.commit()
+
+        # Create some bookmarks and user words
+        bookmarks = []
+        for i in range(5):
+            bookmark = BookmarkRule(self.user).bookmark
+            bookmarks.append(bookmark)
+
+        # Get the start of the current week
+        today = datetime.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+
+        # Create exercises for some user words this week
+        exercise_source = ExerciseSource.find_or_create(db.session, "test_source")
+        exercise_outcome = ExerciseOutcome.find_or_create(db.session, "Correct")
+
+        # Add exercises for the first 3 bookmarks this week
+        for i in range(3):
+            exercise = Exercise(
+                exercise_outcome,
+                exercise_source,
+                100,  # solving speed
+                start_of_week + timedelta(days=i),  # spread across the week
+                None,  # session_id
+                bookmarks[i].user_word,
+                "test feedback",
+            )
+            db.session.add(exercise)
+
+        # Add an exercise for a bookmark from last week (shouldn't be counted)
+        old_exercise = Exercise(
+            exercise_outcome,
+            exercise_source,
+            100,
+            start_of_week - timedelta(days=3),  # last week
+            None,
+            bookmarks[3].user_word,
+            "old feedback",
+        )
+        db.session.add(old_exercise)
+
+        # Add multiple exercises for the same user word (should count as 1)
+        duplicate_exercise = Exercise(
+            exercise_outcome,
+            exercise_source,
+            100,
+            start_of_week + timedelta(days=2),
+            None,
+            bookmarks[0].user_word,  # same as first exercise
+            "duplicate feedback",
+        )
+        db.session.add(duplicate_exercise)
+
+        db.session.commit()
+
+        # Test the method
+        count = self.user.practiced_user_words_count_this_week()
+
+        # Should be 3 unique user words practiced this week
+        assert count == 3, f"Expected 3 practiced user words this week, but got {count}"

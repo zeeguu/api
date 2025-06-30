@@ -274,13 +274,12 @@ class User(db.Model):
                 seen_bookmarks.add(b_word)
 
         return added_bookmarks
-    
-    def practiced_bookmarks_count_this_week(self):
+
+    def practiced_user_words_count_this_week(self):
         """
-        Returns the number of bookmarks that were practiced this week.
+        Returns the number of user words that were practiced this week.
         """
-        from zeeguu.core.model.bookmark import Bookmark
-        from zeeguu.core.model.bookmark import bookmark_exercise_mapping
+        from zeeguu.core.model.user_word import UserWord
         from zeeguu.core.model.exercise import Exercise
         from zeeguu.core.model.phrase import Phrase
         from zeeguu.core.model.meaning import Meaning
@@ -289,12 +288,11 @@ class User(db.Model):
         start_of_week = today - datetime.timedelta(days=today.weekday())
 
         result = (
-            db.session.query(Bookmark)
-            .join(bookmark_exercise_mapping, Bookmark.id == bookmark_exercise_mapping.c.bookmark_id)
-            .join(Exercise, Exercise.id == bookmark_exercise_mapping.c.exercise_id)
-            .join(Meaning, Bookmark.meaning_id == Meaning.id)
+            db.session.query(UserWord)
+            .join(Exercise, Exercise.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .filter(Bookmark.user_id == self.id)
+            .filter(UserWord.user_id == self.id)
             .filter(Exercise.time >= start_of_week)
             .filter(Phrase.language_id == self.learned_language_id)
             .distinct()
@@ -302,8 +300,6 @@ class User(db.Model):
         )
 
         return result
-
-
 
     def liked_articles(self):
         from zeeguu.core.model.user_article import UserArticle
