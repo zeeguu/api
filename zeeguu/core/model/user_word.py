@@ -115,9 +115,7 @@ class UserWord(db.Model):
 
         try:
             scheduler = self.get_scheduler()
-            schedule = scheduler.query.filter(
-                scheduler.user_word_id == self.id
-            ).one()
+            schedule = scheduler.query.filter(scheduler.user_word_id == self.id).one()
             cooling_interval_in_days = schedule.cooling_interval // ONE_DAY
             next_practice_time = schedule.next_practice_time
             can_update_schedule = next_practice_time <= _get_end_of_today()
@@ -157,6 +155,7 @@ class UserWord(db.Model):
             context_in_content=self.preferred_bookmark.text.in_content,
             left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
             right_ellipsis=self.preferred_bookmark.context.right_ellipsis,
+            next_practice_time=next_practice_time,
         )
 
         exercise_info_dict["from"] = self.meaning.origin.content
