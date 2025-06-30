@@ -7,12 +7,13 @@ def bad_quality_bookmark(bookmark):
 
 
 def bad_quality_meaning(user_word):
-
+    bookmarks = user_word.bookmarks()
+    
     return (
         origin_same_as_translation(user_word)
         or origin_has_too_many_words(user_word)
         or origin_is_a_very_short_word(user_word)
-        or all([bad_quality_bookmark(b) for b in user_word.bookmarks()])
+        or (bookmarks and all([bad_quality_bookmark(b) for b in bookmarks]))
     )
 
 

@@ -413,6 +413,11 @@ class Bookmark(db.Model):
         bookmark.create_context_mapping(session, context_identifier, commit=False)
         session.add(bookmark)
         session.commit()
+        
+        # Update fit_for_study after bookmark is created
+        user_word.update_fit_for_study(session)
+        session.commit()
+        
         return bookmark
 
     def sorted_exercise_log(self):
