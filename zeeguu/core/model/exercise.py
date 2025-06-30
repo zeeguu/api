@@ -28,9 +28,7 @@ class Exercise(db.Model):
     )
     session = db.relationship(UserExerciseSession)
 
-    user_word_id = db.Column(
-        db.Integer, db.ForeignKey(UserWord.id), nullable=False
-    )
+    user_word_id = db.Column(db.Integer, db.ForeignKey(UserWord.id), nullable=False)
     user_word = db.relationship(
         UserWord,
         backref=db.backref("exercise_log", order_by="Exercise.id"),
@@ -81,16 +79,6 @@ class Exercise(db.Model):
         query = query.order_by("time")
 
         return query.all()
-
-    def get_bookmark(self):
-        from zeeguu.core.model import Bookmark, bookmark_exercise_mapping
-
-        q = (
-            Bookmark.query.join(bookmark_exercise_mapping)
-            .join(Exercise)
-            .filter(Exercise.id == self.id)
-        )
-        return q.one()
 
     def is_too_easy(self):
         return self.outcome.outcome in ExerciseOutcome.too_easy_outcomes

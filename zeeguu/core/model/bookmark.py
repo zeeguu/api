@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
@@ -14,13 +13,6 @@ from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.video import Video
-
-bookmark_exercise_mapping = Table(
-    "bookmark_exercise_mapping",
-    db.Model.metadata,
-    Column("bookmark_id", Integer, ForeignKey("bookmark.id")),
-    Column("exercise_id", Integer, ForeignKey("exercise.id")),
-)
 
 
 class Bookmark(db.Model):
