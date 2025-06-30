@@ -48,7 +48,7 @@ class BookmarkTest(ModelTestMixIn):
         random_bookmark = BookmarkRule(self.user).bookmark
         self._helper_create_exercise(random_bookmark)
 
-        bookmarks = BasicSRSchedule.scheduled_meanings_due_today(self.user)
+        bookmarks = BasicSRSchedule.scheduled_words_due_today(self.user)
 
         assert bookmarks is not None
 
