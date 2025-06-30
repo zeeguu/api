@@ -406,6 +406,11 @@ class Bookmark(db.Model):
         session.add(bookmark)
         session.commit()
         
+        # Set this bookmark as the preferred bookmark if none is set
+        if user_word.preferred_bookmark is None:
+            user_word.preferred_bookmark = bookmark
+            session.add(user_word)
+        
         # Update fit_for_study after bookmark is created
         user_word.update_fit_for_study(session)
         session.commit()
