@@ -21,7 +21,7 @@ db_session = zeeguu.core.model.db.session
 def reduce_for_user(u):
     # we iterate over all the languages,
     for lang in Language.all():
-        in_pipeline = BasicSRSchedule.scheduled_meanings(u, lang)
+        in_pipeline = BasicSRSchedule.scheduled_user_words(u, lang)
         in_pipeline.sort(
             key=lambda x: (
                 x.level,
