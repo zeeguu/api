@@ -42,4 +42,8 @@ lu-mir-zeeguu-credentials.json
 
 venv/
 api_local.cfg
-venv311_py311/ 
+venv311_py311/
+
+# Ignore PNG files in diagrams folder
+diagrams/*.png
+diagrams/*.json
