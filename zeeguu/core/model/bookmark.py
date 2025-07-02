@@ -45,9 +45,7 @@ class Bookmark(db.Model):
 
     starred = db.Column(db.Boolean, default=False)
 
-    user_word_id = db.Column(
-        db.Integer, db.ForeignKey("user_word.id"), nullable=False
-    )
+    user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
     def __init__(
@@ -405,16 +403,16 @@ class Bookmark(db.Model):
         bookmark.create_context_mapping(session, context_identifier, commit=False)
         session.add(bookmark)
         session.commit()
-        
+
         # Set this bookmark as the preferred bookmark if none is set
         if user_word.preferred_bookmark is None:
             user_word.preferred_bookmark = bookmark
             session.add(user_word)
-        
+
         # Update fit_for_study after bookmark is created
         user_word.update_fit_for_study(session)
         session.commit()
-        
+
         return bookmark
 
     def sorted_exercise_log(self):

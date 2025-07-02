@@ -79,3 +79,9 @@ from .video_title_context import VideoTitleContext
 from .video_topic_map import VideoTopicMap
 from .user_video import UserVideo
 from .user_watching_session import UserWatchingSession
+
+# audio lessons
+from .audio_lesson_meaning import AudioLessonMeaning
+from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
+from .daily_audio_lesson import DailyAudioLesson
+from .daily_audio_lesson_segment import DailyAudioLessonSegment

@@ -92,7 +92,22 @@ class UserWord(db.Model):
         if session:
             session.add(self)
 
+    def validate_data_integrity(self):
+        """
+        Validates that this UserWord is in a consistent state.
+        Raises ValueError if there are integrity issues.
+        """
+        if self.preferred_bookmark is None:
+            raise ValueError(f"UserWord {self.id} has no preferred_bookmark - this indicates a data integrity issue")
+        
+        bookmarks = self.bookmarks()
+        if len(bookmarks) == 0:
+            raise ValueError(f"UserWord {self.id} has no bookmarks but should have at least the preferred_bookmark")
+
     def as_dictionary(self):
+        # Ensure data integrity
+        self.validate_data_integrity()
+        
         try:
             translation_word = self.meaning.translation.content
             translation_language = self.meaning.translation.language.code
