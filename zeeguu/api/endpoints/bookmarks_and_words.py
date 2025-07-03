@@ -179,12 +179,20 @@ def delete_bookmark(bookmark_id):
                     user_word.preferred_bookmark = new_preferred
                     db_session.add(user_word)
                 else:
-                    # No quality bookmarks left, delete all remaining bookmarks and the user_word
+                    # No quality bookmarks left, clear the preferred bookmark first
+                    user_word.preferred_bookmark = None
+                    db_session.add(user_word)
+                    db_session.flush()  # Ensure the foreign key is cleared
+                    
+                    # Now delete all remaining bookmarks and the user_word
                     for b in other_bookmarks:
                         db_session.delete(b)
                     db_session.delete(user_word)
             else:
-                # No other bookmarks exist, delete the user_word
+                # No other bookmarks exist, clear preferred bookmark first
+                user_word.preferred_bookmark = None
+                db_session.add(user_word)
+                db_session.flush()  # Ensure the foreign key is cleared
                 db_session.delete(user_word)
         
         db_session.delete(bookmark)
