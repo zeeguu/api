@@ -462,7 +462,11 @@ class Bookmark(db.Model):
     @classmethod
     def find_all_for_user_and_source(cls, user, source):
         return (
-            cls.query.filter(cls.source_id == source.id).filter(cls.user == user).all()
+            cls.query.join(Source)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
+            .filter(Source.id == source.id)
+            .all()
         )
 
     @classmethod
