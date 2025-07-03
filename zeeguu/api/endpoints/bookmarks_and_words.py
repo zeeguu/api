@@ -156,7 +156,37 @@ def bookmarks_for_article_2(article_id):
 def delete_bookmark(bookmark_id):
     try:
         bookmark = Bookmark.find(bookmark_id)
-
+        user_word = bookmark.user_word
+        
+        # Find all other bookmarks for this user_word
+        other_bookmarks = (
+            Bookmark.query
+            .filter(Bookmark.user_word_id == user_word.id)
+            .filter(Bookmark.id != bookmark.id)
+            .all()
+        )
+        
+        # If this bookmark is the preferred one, we need to handle it
+        if user_word.preferred_bookmark_id == bookmark.id:
+            if other_bookmarks:
+                # Filter for quality bookmarks (fit_for_study)
+                from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
+                quality_bookmarks = [b for b in other_bookmarks if fit_for_study(b)]
+                
+                if quality_bookmarks:
+                    # Set the most recent quality bookmark as preferred
+                    new_preferred = max(quality_bookmarks, key=lambda b: b.time)
+                    user_word.preferred_bookmark = new_preferred
+                    db_session.add(user_word)
+                else:
+                    # No quality bookmarks left, delete all remaining bookmarks and the user_word
+                    for b in other_bookmarks:
+                        db_session.delete(b)
+                    db_session.delete(user_word)
+            else:
+                # No other bookmarks exist, delete the user_word
+                db_session.delete(user_word)
+        
         db_session.delete(bookmark)
         db_session.commit()
     except NoResultFound:
