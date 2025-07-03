@@ -457,15 +457,19 @@ class Bookmark(db.Model):
     @classmethod
     def find_all_for_text_and_user(cls, text, user):
         # TODO: Tiago remember to also delete the only places that calls this
-        return Bookmark.query.filter_by(text=text, user=user).all()
+        return (
+            cls.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
+            .filter(Bookmark.text == text)
+            .all()
+        )
 
     @classmethod
     def find_all_for_user_and_source(cls, user, source):
         return (
-            cls.query.join(Source)
+            cls.query.filter(cls.source_id == source.id)
             .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(UserWord.user_id == user.id)
-            .filter(Source.id == source.id)
             .all()
         )
 
