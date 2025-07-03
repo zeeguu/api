@@ -76,6 +76,7 @@ class DailyAudioLesson(db.Model):
     def add_meaning_segment(self, audio_lesson_meaning, sequence_order):
         """Add a meaning lesson segment to this daily lesson"""
         from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+        from zeeguu.core.model import db
 
         segment = DailyAudioLessonSegment(
             daily_lesson=self,
@@ -83,6 +84,7 @@ class DailyAudioLesson(db.Model):
             audio_lesson_meaning=audio_lesson_meaning,
             sequence_order=sequence_order,
         )
+        db.session.add(segment)
         self.segments.append(segment)
         return segment
 
