@@ -302,6 +302,10 @@ class DailyLessonGenerator:
             "duration_seconds": lesson.duration_seconds,
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
             "words": words,
+            "pause_position_seconds": lesson.pause_position_seconds,
+            "is_paused": lesson.is_paused,
+            "is_completed": lesson.is_completed,
+            "listened_count": lesson.listened_count,
         }
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
@@ -433,4 +437,172 @@ class DailyLessonGenerator:
             return {
                 "error": f"Failed to delete today's lesson: {str(e)}",
                 "status_code": 500,
+            }
+
+    def get_past_daily_lessons_for_user(self, user, limit=20, offset=0):
+        """
+        Get past daily audio lessons for a user with pagination.
+        
+        Args:
+            user: The User object
+            limit: Maximum number of lessons to return (default 20)
+            offset: Number of lessons to skip (default 0)
+            
+        Returns:
+            Dictionary with lessons list and pagination info or error information
+        """
+        # Check user access
+        access_error = self._check_user_access(user)
+        if access_error:
+            return access_error
+
+        try:
+            # Get today's date range to exclude today's lessons
+            today = date.today()
+            start_of_today = datetime.combine(today, datetime.min.time())
+            
+            # Get total count of past lessons (excluding today) for pagination
+            total_count = (
+                DailyAudioLesson.query.filter_by(user_id=user.id)
+                .filter(DailyAudioLesson.created_at < start_of_today)
+                .count()
+            )
+            
+            # Get past lessons with pagination (excluding today)
+            lessons = (
+                DailyAudioLesson.query.filter_by(user_id=user.id)
+                .filter(DailyAudioLesson.created_at < start_of_today)
+                .order_by(DailyAudioLesson.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+                .all()
+            )
+
+            # Format each lesson
+            lessons_data = []
+            for lesson in lessons:
+                # Check if audio file exists
+                audio_path = os.path.join(
+                    ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
+                )
+                audio_exists = os.path.exists(audio_path)
+
+                # Get lesson words
+                words = []
+                for segment in lesson.segments:
+                    if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                        meaning = segment.audio_lesson_meaning.meaning
+                        words.append(
+                            {
+                                "origin": meaning.origin.content,
+                                "translation": meaning.translation.content,
+                            }
+                        )
+
+                lessons_data.append({
+                    "lesson_id": lesson.id,
+                    "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3" if audio_exists else None,
+                    "audio_exists": audio_exists,
+                    "duration_seconds": lesson.duration_seconds,
+                    "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
+                    "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
+                    "is_completed": lesson.is_completed,
+                    "words": words,
+                    "word_count": len(words),
+                    "pause_position_seconds": lesson.pause_position_seconds,
+                    "is_paused": lesson.is_paused,
+                    "listened_count": lesson.listened_count,
+                })
+
+            return {
+                "lessons": lessons_data,
+                "pagination": {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total_count
+                }
+            }
+
+        except Exception as e:
+            log(f"Error fetching past lessons for user {user.id}: {str(e)}")
+            return {
+                "error": f"Failed to fetch past lessons: {str(e)}",
+                "status_code": 500
+            }
+
+    def update_lesson_state_for_user(self, user, lesson_id, state_data):
+        """
+        Update the state of a daily audio lesson for a user.
+        
+        Args:
+            user: The User object
+            lesson_id: ID of the lesson to update
+            state_data: Dictionary containing state updates
+                - action: 'play', 'pause', 'complete', 'resume'
+                - position_seconds: Current playback position (for pause)
+                
+        Returns:
+            Dictionary with success message or error information
+        """
+        # Check user access
+        access_error = self._check_user_access(user)
+        if access_error:
+            return access_error
+
+        try:
+            # Find the lesson
+            lesson = DailyAudioLesson.query.filter_by(
+                id=lesson_id, user_id=user.id
+            ).first()
+            
+            if not lesson:
+                return {
+                    "error": "Lesson not found",
+                    "status_code": 404
+                }
+
+            action = state_data.get("action")
+            position_seconds = state_data.get("position_seconds", 0)
+
+            if action == "play":
+                # Increment listen count when starting to play
+                lesson.listened_count += 1
+                
+            elif action == "pause":
+                # Record pause position and time
+                lesson.pause_at(position_seconds)
+                
+            elif action == "resume":
+                # Increment listen count when resuming
+                lesson.resume()
+                
+            elif action == "complete":
+                # Mark lesson as completed
+                lesson.mark_completed()
+                
+            else:
+                return {
+                    "error": f"Invalid action: {action}. Must be 'play', 'pause', 'resume', or 'complete'",
+                    "status_code": 400
+                }
+
+            db.session.commit()
+            
+            return {
+                "message": f"Lesson state updated successfully",
+                "lesson_id": lesson.id,
+                "action": action,
+                "is_completed": lesson.is_completed,
+                "is_paused": lesson.is_paused,
+                "listened_count": lesson.listened_count,
+                "pause_position_seconds": lesson.pause_position_seconds
+            }
+
+        except Exception as e:
+            db.session.rollback()
+            log(f"Error updating lesson state for user {user.id}, lesson {lesson_id}: {str(e)}")
+            return {
+                "error": f"Failed to update lesson state: {str(e)}",
+                "status_code": 500
             }

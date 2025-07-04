@@ -86,3 +86,64 @@ def delete_todays_lesson():
     status_code = result.pop("status_code", 200)
     
     return json_result(result), status_code
+
+
+@api.route("/past_daily_lessons", methods=["GET"])
+@cross_domain
+@requires_session
+def get_past_daily_lessons():
+    """
+    Get past daily audio lessons for the current user with pagination.
+    
+    Query parameters:
+    - limit (optional): Maximum number of lessons to return (default 20, max 100)
+    - offset (optional): Number of lessons to skip for pagination (default 0)
+    """
+    user = User.find_by_id(flask.g.user_id)
+    generator = DailyLessonGenerator()
+    
+    # Get pagination parameters
+    try:
+        limit = min(int(flask.request.args.get("limit", 20)), 100)  # Max 100
+        offset = int(flask.request.args.get("offset", 0))
+    except ValueError:
+        return json_result({"error": "Invalid pagination parameters"}), 400
+    
+    result = generator.get_past_daily_lessons_for_user(user, limit, offset)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200)
+    
+    return json_result(result), status_code
+
+
+@api.route("/update_lesson_state/<int:lesson_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def update_lesson_state(lesson_id):
+    """
+    Update the state of a daily audio lesson.
+    
+    JSON payload:
+    {
+        "action": "play|pause|resume|complete",
+        "position_seconds": 123  // required for pause action
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    generator = DailyLessonGenerator()
+    
+    # Get JSON data from request
+    try:
+        state_data = flask.request.get_json()
+        if not state_data or "action" not in state_data:
+            return json_result({"error": "Missing required 'action' field in JSON payload"}), 400
+    except Exception:
+        return json_result({"error": "Invalid JSON payload"}), 400
+    
+    result = generator.update_lesson_state_for_user(user, lesson_id, state_data)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200)
+    
+    return json_result(result), status_code
