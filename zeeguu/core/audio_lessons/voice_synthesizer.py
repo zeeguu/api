@@ -102,7 +102,8 @@ class VoiceSynthesizer:
         )
 
         audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.MP3, speaking_rate=speaking_rate
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=speaking_rate,
         )
 
         response = self.client.synthesize_speech(
@@ -184,8 +185,10 @@ class VoiceSynthesizer:
                 audio_segments.append(silence)
             else:
                 # Generate speech
+                # Apply speaking rate slowdown only to man and woman voices, not teacher
+                rate = speaking_rate if voice_type in ["man", "woman"] else 1.0
                 audio_path = self.synthesize_segment(
-                    text, voice_type, language_code, speaking_rate
+                    text, voice_type, language_code, rate
                 )
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
