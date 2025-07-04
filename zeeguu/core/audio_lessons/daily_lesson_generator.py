@@ -33,10 +33,10 @@ class DailyLessonGenerator:
         """
         Generate a daily audio lesson for a user with automatic word selection.
         This is the main entry point for generating lessons from the API.
-        
+
         Args:
             user: The User object to generate a lesson for
-            
+
         Returns:
             Dictionary with lesson details or error information
         """
@@ -44,7 +44,7 @@ class DailyLessonGenerator:
         if not user.has_feature("daily_audio"):
             return {
                 "error": "Daily audio lessons are not available for your account",
-                "status_code": 403
+                "status_code": 403,
             }
 
         # Select words for the lesson
@@ -53,7 +53,7 @@ class DailyLessonGenerator:
             return {
                 "error": f"Not enough new words to generate a lesson. Need at least 3 words.",
                 "available_words": len(selected_words),
-                "status_code": 400
+                "status_code": 400,
             }
 
         # Get user's languages and CEFR level
@@ -95,8 +95,7 @@ class DailyLessonGenerator:
             )
             .join(
                 DailyAudioLesson,
-                DailyAudioLesson.id
-                == DailyAudioLessonSegment.daily_audio_lesson_id,
+                DailyAudioLesson.id == DailyAudioLessonSegment.daily_audio_lesson_id,
             )
             .filter(DailyAudioLesson.user_id == user.id)
             .distinct()
@@ -129,8 +128,14 @@ class DailyLessonGenerator:
 
         return selected_words
 
-    def generate_daily_lesson(self, user: User, selected_words: list, origin_language: str, 
-                            translation_language: str, cefr_level: str) -> dict:
+    def generate_daily_lesson(
+        self,
+        user: User,
+        selected_words: list,
+        origin_language: str,
+        translation_language: str,
+        cefr_level: str,
+    ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
 
@@ -262,7 +267,7 @@ class DailyLessonGenerator:
         if not user.has_feature("daily_audio"):
             return {
                 "error": "Daily audio lessons are not available for your account",
-                "status_code": 403
+                "status_code": 403,
             }
         return None
 
@@ -274,15 +279,15 @@ class DailyLessonGenerator:
         )
 
         if not os.path.exists(audio_path):
-            return {
-                "error": "Audio file not found for this lesson",
-                "status_code": 404
-            }
+            return {"error": "Audio file not found for this lesson", "status_code": 404}
 
         # Get lesson details including words
         words = []
         for segment in lesson.segments:
-            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+            if (
+                segment.segment_type == "meaning_lesson"
+                and segment.audio_lesson_meaning
+            ):
                 meaning = segment.audio_lesson_meaning.meaning
                 words.append(
                     {
@@ -302,11 +307,11 @@ class DailyLessonGenerator:
     def get_daily_lesson_for_user(self, user, lesson_id=None):
         """
         Get a daily audio lesson for a user.
-        
+
         Args:
             user: The User object
             lesson_id: Optional specific lesson ID to retrieve
-            
+
         Returns:
             Dictionary with lesson details or error information
         """
@@ -323,10 +328,7 @@ class DailyLessonGenerator:
                     id=lesson_id, user_id=user.id
                 ).first()
             except ValueError:
-                return {
-                    "error": "Invalid lesson_id parameter",
-                    "status_code": 400
-                }
+                return {"error": "Invalid lesson_id parameter", "status_code": 400}
         else:
             # Get most recent lesson for user
             lesson = (
@@ -336,20 +338,17 @@ class DailyLessonGenerator:
             )
 
         if not lesson:
-            return {
-                "error": "No daily lesson found",
-                "status_code": 404
-            }
+            return {"error": "No daily lesson found", "status_code": 404}
 
         return self._format_lesson_response(lesson)
 
     def get_todays_lesson_for_user(self, user):
         """
         Get today's daily audio lesson for a user.
-        
+
         Args:
             user: The User object
-            
+
         Returns:
             Dictionary with lesson details or message if no lesson today
         """
@@ -380,10 +379,10 @@ class DailyLessonGenerator:
     def delete_todays_lesson_for_user(self, user):
         """
         Delete today's daily audio lesson for a user.
-        
+
         Args:
             user: The User object
-            
+
         Returns:
             Dictionary with success message or error information
         """
@@ -422,14 +421,16 @@ class DailyLessonGenerator:
             lesson_id = lesson.id
             db.session.delete(lesson)
             db.session.commit()
-            
+
             log(f"Deleted today's lesson {lesson_id} for user {user.id}")
-            return {"message": f"Today's lesson (ID: {lesson_id}) has been deleted successfully"}
+            return {
+                "message": f"Today's lesson (ID: {lesson_id}) has been deleted successfully"
+            }
 
         except Exception as e:
             db.session.rollback()
             log(f"Error deleting today's lesson for user {user.id}: {str(e)}")
             return {
                 "error": f"Failed to delete today's lesson: {str(e)}",
-                "status_code": 500
+                "status_code": 500,
             }
