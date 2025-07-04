@@ -100,4 +100,4 @@ def _extension_experiment_1(user):
 
 
 def _daily_audio(user):
-    return user.id in [8, 4607]
+    return user.id in [8, 4607, 4022]

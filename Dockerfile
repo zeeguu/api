@@ -47,6 +47,9 @@ RUN apt-get install -y \
     apache2-dev \
     vim
 
+# needed for mp3 work with audio lessons
+RUN apt-get install -y ffmpeg
+
 
 # mod_wsgi
 # --------
