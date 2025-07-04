@@ -1,5 +1,5 @@
 Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
-Note that the lesson is for somebody who is CEFT level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
 
 IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
 
