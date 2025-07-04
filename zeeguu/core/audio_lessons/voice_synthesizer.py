@@ -216,5 +216,23 @@ class VoiceSynthesizer:
 
     def get_audio_duration(self, audio_path: str) -> int:
         """Get the duration of an audio file in seconds."""
-        audio = AudioSegment.from_mp3(audio_path)
-        return int(audio.duration_seconds)
+        try:
+            audio = AudioSegment.from_mp3(audio_path)
+            return int(audio.duration_seconds)
+        except Exception as e:
+            log(f"Warning: Could not get audio duration from {audio_path}: {str(e)}")
+            log("Falling back to estimated duration based on file size")
+            
+            # Fallback: estimate duration based on file size
+            # Typical MP3 bitrate is around 128 kbps for speech
+            # File size in bytes / (bitrate in bits per second / 8) = duration in seconds
+            try:
+                file_size_bytes = os.path.getsize(audio_path)
+                # Estimate: 128 kbps = 16 KB/s, but Google TTS usually uses lower bitrates
+                # Use conservative estimate of 12 KB/s for speech
+                estimated_duration = file_size_bytes / (12 * 1024)  # 12 KB/s
+                return max(1, int(estimated_duration))  # At least 1 second
+            except Exception as fallback_error:
+                log(f"Error in fallback duration calculation: {str(fallback_error)}")
+                # Return a reasonable default for a single word lesson segment
+                return 3
