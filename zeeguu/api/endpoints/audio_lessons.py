@@ -18,10 +18,52 @@ def generate_daily_lesson():
     """
     user = User.find_by_id(flask.g.user_id)
     generator = DailyLessonGenerator()
+    
+    result = generator.generate_daily_lesson_for_user(user)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200 if "error" not in result else 400)
+    
+    return json_result(result), status_code
 
-    result = generator.generate_daily_lesson(user)
 
-    if "error" in result:
-        return json_result(result), 400
+@api.route("/get_daily_lesson", methods=["GET"])
+@cross_domain
+@requires_session
+def get_daily_lesson():
+    """
+    Get an existing daily audio lesson for the current user.
+    Returns the most recent lesson or a specific lesson by ID.
 
-    return json_result(result)
+    Query parameters:
+    - lesson_id (optional): specific lesson ID to retrieve
+    """
+    user = User.find_by_id(flask.g.user_id)
+    generator = DailyLessonGenerator()
+    lesson_id = flask.request.args.get("lesson_id")
+    
+    result = generator.get_daily_lesson_for_user(user, lesson_id)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200)
+    
+    return json_result(result), status_code
+
+
+@api.route("/get_todays_lesson", methods=["GET"])
+@cross_domain
+@requires_session
+def get_todays_lesson():
+    """
+    Get today's daily audio lesson for the current user.
+    Returns the lesson created today if it exists.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    generator = DailyLessonGenerator()
+    
+    result = generator.get_todays_lesson_for_user(user)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200)
+    
+    return json_result(result), status_code

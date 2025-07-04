@@ -1,11 +1,12 @@
 # -*- coding: utf8 -*-
 from zeeguu.config.loader import load_configuration_or_abort
 from flask_cors import CORS
-from flask import Flask
+from flask import Flask, send_from_directory
 import time
 import os
 import re
 import zeeguu
+from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 from zeeguu.logging import warning
 
@@ -73,6 +74,13 @@ def create_app(testing=False):
     from .endpoints import api
 
     app.register_blueprint(api)
+
+    # Add static file serving for audio files
+    @app.route("/audio/<path:filename>")
+    def serve_audio(filename):
+        """Serve audio files from the ZEEGUU_DATA_FOLDER/audio directory"""
+        audio_dir = os.path.join(ZEEGUU_DATA_FOLDER, "audio")
+        return send_from_directory(audio_dir, filename)
 
     # We're saving the zeeguu.core.app so we can refer to the config from deep in the code...
     zeeguu.core.app = app

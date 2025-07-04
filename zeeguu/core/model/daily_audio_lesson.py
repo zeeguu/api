@@ -84,8 +84,8 @@ class DailyAudioLesson(db.Model):
             audio_lesson_meaning=audio_lesson_meaning,
             sequence_order=sequence_order,
         )
+        # Only add to session - the relationship will be handled automatically
         db.session.add(segment)
-        self.segments.append(segment)
         return segment
 
     def add_outro_segment(self, daily_audio_lesson_wrapper, sequence_order):
