@@ -1,0 +1,38 @@
+Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+
+IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
+
+Use this exact format:
+
+Teacher: You will be practicing the word [0.5 seconds]
+Man: {origin_word} [0.5 seconds]
+Teacher: which means {translation_word}.
+Teacher: In this dialogue you will hear a man and woman discussing [brief scenario]
+
+[Create 4-6 dialogue lines between Man and Woman using the target word naturally]
+
+Teacher: Let's practice some key phrases [0.5 seconds]
+Teacher: Could you say [simple phrase with target word]? [5 seconds]
+Man: [target language phrase] [3 seconds]
+Man: [repeat same phrase] [3 seconds]
+
+Teacher: Now try to say [another simple phrase]? [5 seconds]
+Woman: [target language phrase] [3 seconds]
+Woman: [repeat same phrase] [3 seconds]
+
+RULES:
+- Use only "Teacher:", "Man:", "Woman:" labels
+- Include [X seconds] timing for pauses
+- Teacher speaks English, Man/Woman speak {target_language}
+- For situations where a {target_language} word is inserted in the teacher text,
+the dialogue should be changed to the native voice with 0.5 seconds break like below:
+
+Teacher: You will be practicing the word [0.5 seconds]
+Man: {origin_word} [0.5 seconds]
+Teacher: which means {translation_word}.
+
+- Keep vocabulary simple (A1-A2 level)
+- For student response pauses, use [5 seconds] after teacher questions
+- For repetitions, use [3 seconds] between repeats
+- No explanatory text or translations in the script

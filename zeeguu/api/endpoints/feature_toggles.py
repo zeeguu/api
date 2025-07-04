@@ -56,6 +56,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "merle_exercises": _merle_exercises,
         "exercise_levels": _exercise_levels,
+        "daily_audio": _daily_audio,
     }
 
 
@@ -96,3 +97,7 @@ def _extension_experiment_1(user):
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )
+
+
+def _daily_audio(user):
+    return user.id in [8, 4607]

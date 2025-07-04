@@ -70,3 +70,6 @@ stanza==1.10.1
 # For videos
 emoji
 youtube_transcript_api
+
+
+pydub
