@@ -91,7 +91,9 @@ class VoiceSynthesizer:
 
         return {"language_code": language, "name": voice_id}
 
-    def text_to_speech(self, text: str, voice_config: dict, speaking_rate: float = 1.0) -> bytes:
+    def text_to_speech(
+        self, text: str, voice_config: dict, speaking_rate: float = 1.0
+    ) -> bytes:
         """Convert text to speech using Google Cloud TTS."""
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
@@ -100,8 +102,7 @@ class VoiceSynthesizer:
         )
 
         audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=speaking_rate
+            audio_encoding=texttospeech.AudioEncoding.MP3, speaking_rate=speaking_rate
         )
 
         response = self.client.synthesize_speech(
@@ -110,13 +111,19 @@ class VoiceSynthesizer:
 
         return response.audio_content
 
-    def get_cached_audio_path(self, text: str, voice_id: str, speaking_rate: float = 1.0) -> str:
+    def get_cached_audio_path(
+        self, text: str, voice_id: str, speaking_rate: float = 1.0
+    ) -> str:
         """Get the cached audio file path for given text and voice."""
         # Create a hash of the text, voice, and speaking rate for filename
-        content_hash = hashlib.md5(f"{voice_id}:{text}:{speaking_rate}".encode("utf-8")).hexdigest()
+        content_hash = hashlib.md5(
+            f"{voice_id}:{text}:{speaking_rate}".encode("utf-8")
+        ).hexdigest()
         return os.path.join(self.segments_dir, f"{voice_id}_{content_hash}.mp3")
 
-    def synthesize_segment(self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0) -> str:
+    def synthesize_segment(
+        self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0
+    ) -> str:
         """
         Synthesize a single text segment and cache it.
 
@@ -133,7 +140,9 @@ class VoiceSynthesizer:
             return cached_path
 
         # Generate new audio
-        log(f"Generating TTS for ({voice_type}) at {speaking_rate}x speed: {text[:50]}...")
+        log(
+            f"Generating TTS for ({voice_type}) at {speaking_rate}x speed: {text[:50]}..."
+        )
         audio_content = self.text_to_speech(text, voice_config, speaking_rate)
 
         # Save to cache
@@ -143,7 +152,11 @@ class VoiceSynthesizer:
         return cached_path
 
     def generate_lesson_audio(
-        self, audio_lesson_meaning_id: int, script: str, language_code: str, cefr_level: str = None
+        self,
+        audio_lesson_meaning_id: int,
+        script: str,
+        language_code: str,
+        cefr_level: str = None,
     ) -> str:
         """
         Generate the complete audio lesson from script.
@@ -153,11 +166,14 @@ class VoiceSynthesizer:
         """
         segments = self.parse_script(script)
         audio_segments = []
-        
+
         # Determine speaking rate based on CEFR level
         speaking_rate = 1.0
-        if cefr_level and cefr_level in ['A1', 'A2']:
-            speaking_rate = 0.9
+        if cefr_level:
+            if cefr_level == "A2":
+                speaking_rate = 0.9
+            elif cefr_level == "A1":
+                speaking_rate = 0.8
 
         for voice_type, text, silence_duration in segments:
             if voice_type == "silence":
@@ -168,7 +184,9 @@ class VoiceSynthesizer:
                 audio_segments.append(silence)
             else:
                 # Generate speech
-                audio_path = self.synthesize_segment(text, voice_type, language_code, speaking_rate)
+                audio_path = self.synthesize_segment(
+                    text, voice_type, language_code, speaking_rate
+                )
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
 
