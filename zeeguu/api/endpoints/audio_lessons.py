@@ -67,3 +67,22 @@ def get_todays_lesson():
     status_code = result.pop("status_code", 200)
     
     return json_result(result), status_code
+
+
+@api.route("/delete_todays_lesson", methods=["DELETE"])
+@cross_domain
+@requires_session
+def delete_todays_lesson():
+    """
+    Delete today's daily audio lesson for the current user.
+    Removes both the database record and the audio file.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    generator = DailyLessonGenerator()
+    
+    result = generator.delete_todays_lesson_for_user(user)
+    
+    # Check if there's a specific status code to return
+    status_code = result.pop("status_code", 200)
+    
+    return json_result(result), status_code

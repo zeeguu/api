@@ -376,3 +376,60 @@ class DailyLessonGenerator:
             return {"lesson": None, "message": "No lesson generated yet today"}
 
         return self._format_lesson_response(lesson)
+
+    def delete_todays_lesson_for_user(self, user):
+        """
+        Delete today's daily audio lesson for a user.
+        
+        Args:
+            user: The User object
+            
+        Returns:
+            Dictionary with success message or error information
+        """
+        # Check user access
+        access_error = self._check_user_access(user)
+        if access_error:
+            return access_error
+
+        # Get today's date range (start and end of today in UTC)
+        today = date.today()
+        start_of_today = datetime.combine(today, datetime.min.time())
+        end_of_today = datetime.combine(today, datetime.max.time())
+
+        # Find lesson created today
+        lesson = (
+            DailyAudioLesson.query.filter_by(user_id=user.id)
+            .filter(DailyAudioLesson.created_at >= start_of_today)
+            .filter(DailyAudioLesson.created_at <= end_of_today)
+            .order_by(DailyAudioLesson.id.desc())
+            .first()
+        )
+
+        if not lesson:
+            return {"message": "No lesson found for today to delete"}
+
+        try:
+            # Delete audio file if it exists
+            audio_path = os.path.join(
+                ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
+            )
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+                log(f"Deleted audio file: {audio_path}")
+
+            # Delete the lesson from database (cascading deletes will handle segments)
+            lesson_id = lesson.id
+            db.session.delete(lesson)
+            db.session.commit()
+            
+            log(f"Deleted today's lesson {lesson_id} for user {user.id}")
+            return {"message": f"Today's lesson (ID: {lesson_id}) has been deleted successfully"}
+
+        except Exception as e:
+            db.session.rollback()
+            log(f"Error deleting today's lesson for user {user.id}: {str(e)}")
+            return {
+                "error": f"Failed to delete today's lesson: {str(e)}",
+                "status_code": 500
+            }
