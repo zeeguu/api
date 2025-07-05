@@ -4,7 +4,7 @@ Daily lesson generator for creating audio lessons from user words.
 
 import os
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
@@ -29,13 +29,14 @@ class DailyLessonGenerator:
         self.voice_synthesizer = VoiceSynthesizer()
         self.lesson_builder = LessonBuilder()
 
-    def generate_daily_lesson_for_user(self, user):
+    def generate_daily_lesson_for_user(self, user, timezone_offset=0):
         """
         Generate a daily audio lesson for a user with automatic word selection.
         This is the main entry point for generating lessons from the API.
 
         Args:
             user: The User object to generate a lesson for
+            timezone_offset: Client's timezone offset in minutes from UTC
 
         Returns:
             Dictionary with lesson details or error information
@@ -46,6 +47,12 @@ class DailyLessonGenerator:
                 "error": "Daily audio lessons are not available for your account",
                 "status_code": 403,
             }
+
+        # Check if a lesson already exists for today
+        existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
+        if existing_lesson.get("lesson_id"):
+            # Return existing lesson instead of generating a new one
+            return existing_lesson
 
         # Select words for the lesson
         selected_words = self.select_words_for_lesson(user, 3)
@@ -346,12 +353,13 @@ class DailyLessonGenerator:
 
         return self._format_lesson_response(lesson)
 
-    def get_todays_lesson_for_user(self, user):
+    def get_todays_lesson_for_user(self, user, timezone_offset=0):
         """
         Get today's daily audio lesson for a user.
 
         Args:
             user: The User object
+            timezone_offset: Client's timezone offset in minutes from UTC
 
         Returns:
             Dictionary with lesson details or message if no lesson today
@@ -361,16 +369,24 @@ class DailyLessonGenerator:
         if access_error:
             return access_error
 
-        # Get today's date range (start and end of today in UTC)
-        today = date.today()
-        start_of_today = datetime.combine(today, datetime.min.time())
-        end_of_today = datetime.combine(today, datetime.max.time())
+        # Get today's date range in the user's timezone
+        user_timezone = timezone(timedelta(minutes=timezone_offset))
+        now_user = datetime.now(user_timezone)
+        today_user = now_user.date()
+
+        # Convert to UTC for database query
+        start_of_today_user = datetime.combine(today_user, datetime.min.time())
+        end_of_today_user = datetime.combine(today_user, datetime.max.time())
+
+        # Apply timezone offset to get UTC times
+        start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+        end_of_today_utc = end_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
 
         # Find lesson created today
         lesson = (
             DailyAudioLesson.query.filter_by(user_id=user.id)
-            .filter(DailyAudioLesson.created_at >= start_of_today)
-            .filter(DailyAudioLesson.created_at <= end_of_today)
+            .filter(DailyAudioLesson.created_at >= start_of_today_utc)
+            .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
             .first()
         )
@@ -380,12 +396,13 @@ class DailyLessonGenerator:
 
         return self._format_lesson_response(lesson)
 
-    def delete_todays_lesson_for_user(self, user):
+    def delete_todays_lesson_for_user(self, user, timezone_offset=0):
         """
         Delete today's daily audio lesson for a user.
 
         Args:
             user: The User object
+            timezone_offset: Client's timezone offset in minutes from UTC
 
         Returns:
             Dictionary with success message or error information
@@ -395,16 +412,24 @@ class DailyLessonGenerator:
         if access_error:
             return access_error
 
-        # Get today's date range (start and end of today in UTC)
-        today = date.today()
-        start_of_today = datetime.combine(today, datetime.min.time())
-        end_of_today = datetime.combine(today, datetime.max.time())
+        # Get today's date range in the user's timezone
+        user_timezone = timezone(timedelta(minutes=timezone_offset))
+        now_user = datetime.now(user_timezone)
+        today_user = now_user.date()
+
+        # Convert to UTC for database query
+        start_of_today_user = datetime.combine(today_user, datetime.min.time())
+        end_of_today_user = datetime.combine(today_user, datetime.max.time())
+
+        # Apply timezone offset to get UTC times
+        start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+        end_of_today_utc = end_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
 
         # Find lesson created today
         lesson = (
             DailyAudioLesson.query.filter_by(user_id=user.id)
-            .filter(DailyAudioLesson.created_at >= start_of_today)
-            .filter(DailyAudioLesson.created_at <= end_of_today)
+            .filter(DailyAudioLesson.created_at >= start_of_today_utc)
+            .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
             .first()
         )
@@ -439,15 +464,16 @@ class DailyLessonGenerator:
                 "status_code": 500,
             }
 
-    def get_past_daily_lessons_for_user(self, user, limit=20, offset=0):
+    def get_past_daily_lessons_for_user(self, user, limit=20, offset=0, timezone_offset=0):
         """
         Get past daily audio lessons for a user with pagination.
-        
+
         Args:
             user: The User object
             limit: Maximum number of lessons to return (default 20)
             offset: Number of lessons to skip (default 0)
-            
+            timezone_offset: Client's timezone offset in minutes from UTC
+
         Returns:
             Dictionary with lessons list and pagination info or error information
         """
@@ -457,21 +483,26 @@ class DailyLessonGenerator:
             return access_error
 
         try:
-            # Get today's date range to exclude today's lessons
-            today = date.today()
-            start_of_today = datetime.combine(today, datetime.min.time())
-            
+            # Get today's date range in the user's timezone to exclude today's lessons
+            user_timezone = timezone(timedelta(minutes=timezone_offset))
+            now_user = datetime.now(user_timezone)
+            today_user = now_user.date()
+
+            # Convert to UTC for database query
+            start_of_today_user = datetime.combine(today_user, datetime.min.time())
+            start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+
             # Get total count of past lessons (excluding today) for pagination
             total_count = (
                 DailyAudioLesson.query.filter_by(user_id=user.id)
-                .filter(DailyAudioLesson.created_at < start_of_today)
+                .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .count()
             )
-            
+
             # Get past lessons with pagination (excluding today)
             lessons = (
                 DailyAudioLesson.query.filter_by(user_id=user.id)
-                .filter(DailyAudioLesson.created_at < start_of_today)
+                .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .order_by(DailyAudioLesson.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -534,14 +565,14 @@ class DailyLessonGenerator:
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
         """
         Update the state of a daily audio lesson for a user.
-        
+
         Args:
             user: The User object
             lesson_id: ID of the lesson to update
             state_data: Dictionary containing state updates
                 - action: 'play', 'pause', 'complete', 'resume'
                 - position_seconds: Current playback position (for pause)
-                
+
         Returns:
             Dictionary with success message or error information
         """
@@ -555,7 +586,7 @@ class DailyLessonGenerator:
             lesson = DailyAudioLesson.query.filter_by(
                 id=lesson_id, user_id=user.id
             ).first()
-            
+
             if not lesson:
                 return {
                     "error": "Lesson not found",
@@ -568,19 +599,19 @@ class DailyLessonGenerator:
             if action == "play":
                 # Increment listen count when starting to play
                 lesson.listened_count += 1
-                
+
             elif action == "pause":
                 # Record pause position and time
                 lesson.pause_at(position_seconds)
-                
+
             elif action == "resume":
                 # Increment listen count when resuming
                 lesson.resume()
-                
+
             elif action == "complete":
                 # Mark lesson as completed
                 lesson.mark_completed()
-                
+
             else:
                 return {
                     "error": f"Invalid action: {action}. Must be 'play', 'pause', 'resume', or 'complete'",
@@ -588,7 +619,7 @@ class DailyLessonGenerator:
                 }
 
             db.session.commit()
-            
+
             return {
                 "message": f"Lesson state updated successfully",
                 "lesson_id": lesson.id,
