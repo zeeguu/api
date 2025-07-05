@@ -278,6 +278,39 @@ class DailyLessonGenerator:
             }
         return None
 
+    def _get_user_day_range_utc(self, timezone_offset=0):
+        """
+        Get the start and end of today in the user's timezone, converted to UTC.
+
+        Args:
+            timezone_offset: Client's timezone offset in minutes from UTC
+
+        Returns:
+            tuple: (start_of_today_utc, end_of_today_utc)
+        """
+        # Get today's date range in the user's timezone
+        user_timezone = timezone(timedelta(minutes=timezone_offset))
+        now_user = datetime.now(user_timezone)
+        today_user = now_user.date()
+        start_of_today_user = datetime.combine(today_user, datetime.min.time())
+        end_of_today_user = datetime.combine(today_user, datetime.max.time())
+
+        # Apply timezone offset to get UTC times
+        start_of_today_utc = (
+            start_of_today_user.replace(tzinfo=user_timezone)  # e.g. Jul 5, 01:00, CET
+            .astimezone(timezone.utc)  # converts to Jul 4, 23:00, UTC
+            .replace(
+                tzinfo=None
+            )  # keeps only JUl 4, 23:00 w/o the TZ info - useful for the DB
+        )
+        end_of_today_utc = (
+            end_of_today_user.replace(tzinfo=user_timezone)
+            .astimezone(timezone.utc)
+            .replace(tzinfo=None)
+        )
+
+        return start_of_today_utc, end_of_today_utc
+
     def _format_lesson_response(self, lesson):
         """Format a lesson into the standard response format."""
         # Check if audio file exists
@@ -369,18 +402,10 @@ class DailyLessonGenerator:
         if access_error:
             return access_error
 
-        # Get today's date range in the user's timezone
-        user_timezone = timezone(timedelta(minutes=timezone_offset))
-        now_user = datetime.now(user_timezone)
-        today_user = now_user.date()
-
-        # Convert to UTC for database query
-        start_of_today_user = datetime.combine(today_user, datetime.min.time())
-        end_of_today_user = datetime.combine(today_user, datetime.max.time())
-
-        # Apply timezone offset to get UTC times
-        start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
-        end_of_today_utc = end_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+        # Get today's date range in UTC
+        start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
+            timezone_offset
+        )
 
         # Find lesson created today
         lesson = (
@@ -412,18 +437,10 @@ class DailyLessonGenerator:
         if access_error:
             return access_error
 
-        # Get today's date range in the user's timezone
-        user_timezone = timezone(timedelta(minutes=timezone_offset))
-        now_user = datetime.now(user_timezone)
-        today_user = now_user.date()
-
-        # Convert to UTC for database query
-        start_of_today_user = datetime.combine(today_user, datetime.min.time())
-        end_of_today_user = datetime.combine(today_user, datetime.max.time())
-
-        # Apply timezone offset to get UTC times
-        start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
-        end_of_today_utc = end_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+        # Get today's date range in UTC
+        start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
+            timezone_offset
+        )
 
         # Find lesson created today
         lesson = (
@@ -464,7 +481,9 @@ class DailyLessonGenerator:
                 "status_code": 500,
             }
 
-    def get_past_daily_lessons_for_user(self, user, limit=20, offset=0, timezone_offset=0):
+    def get_past_daily_lessons_for_user(
+        self, user, limit=20, offset=0, timezone_offset=0
+    ):
         """
         Get past daily audio lessons for a user with pagination.
 
@@ -483,14 +502,8 @@ class DailyLessonGenerator:
             return access_error
 
         try:
-            # Get today's date range in the user's timezone to exclude today's lessons
-            user_timezone = timezone(timedelta(minutes=timezone_offset))
-            now_user = datetime.now(user_timezone)
-            today_user = now_user.date()
-
-            # Convert to UTC for database query
-            start_of_today_user = datetime.combine(today_user, datetime.min.time())
-            start_of_today_utc = start_of_today_user.replace(tzinfo=user_timezone).astimezone(timezone.utc).replace(tzinfo=None)
+            # Get today's start time in UTC to exclude today's lessons
+            start_of_today_utc, _ = self._get_user_day_range_utc(timezone_offset)
 
             # Get total count of past lessons (excluding today) for pagination
             total_count = (
@@ -521,7 +534,10 @@ class DailyLessonGenerator:
                 # Get lesson words
                 words = []
                 for segment in lesson.segments:
-                    if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                    if (
+                        segment.segment_type == "meaning_lesson"
+                        and segment.audio_lesson_meaning
+                    ):
                         meaning = segment.audio_lesson_meaning.meaning
                         words.append(
                             {
@@ -530,20 +546,32 @@ class DailyLessonGenerator:
                             }
                         )
 
-                lessons_data.append({
-                    "lesson_id": lesson.id,
-                    "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3" if audio_exists else None,
-                    "audio_exists": audio_exists,
-                    "duration_seconds": lesson.duration_seconds,
-                    "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
-                    "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
-                    "is_completed": lesson.is_completed,
-                    "words": words,
-                    "word_count": len(words),
-                    "pause_position_seconds": lesson.pause_position_seconds,
-                    "is_paused": lesson.is_paused,
-                    "listened_count": lesson.listened_count,
-                })
+                lessons_data.append(
+                    {
+                        "lesson_id": lesson.id,
+                        "audio_url": (
+                            f"/audio/daily_lessons/{lesson.id}.mp3"
+                            if audio_exists
+                            else None
+                        ),
+                        "audio_exists": audio_exists,
+                        "duration_seconds": lesson.duration_seconds,
+                        "created_at": (
+                            lesson.created_at.isoformat() if lesson.created_at else None
+                        ),
+                        "completed_at": (
+                            lesson.completed_at.isoformat()
+                            if lesson.completed_at
+                            else None
+                        ),
+                        "is_completed": lesson.is_completed,
+                        "words": words,
+                        "word_count": len(words),
+                        "pause_position_seconds": lesson.pause_position_seconds,
+                        "is_paused": lesson.is_paused,
+                        "listened_count": lesson.listened_count,
+                    }
+                )
 
             return {
                 "lessons": lessons_data,
@@ -551,15 +579,15 @@ class DailyLessonGenerator:
                     "total": total_count,
                     "limit": limit,
                     "offset": offset,
-                    "has_more": offset + limit < total_count
-                }
+                    "has_more": offset + limit < total_count,
+                },
             }
 
         except Exception as e:
             log(f"Error fetching past lessons for user {user.id}: {str(e)}")
             return {
                 "error": f"Failed to fetch past lessons: {str(e)}",
-                "status_code": 500
+                "status_code": 500,
             }
 
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
@@ -588,10 +616,7 @@ class DailyLessonGenerator:
             ).first()
 
             if not lesson:
-                return {
-                    "error": "Lesson not found",
-                    "status_code": 404
-                }
+                return {"error": "Lesson not found", "status_code": 404}
 
             action = state_data.get("action")
             position_seconds = state_data.get("position_seconds", 0)
@@ -615,7 +640,7 @@ class DailyLessonGenerator:
             else:
                 return {
                     "error": f"Invalid action: {action}. Must be 'play', 'pause', 'resume', or 'complete'",
-                    "status_code": 400
+                    "status_code": 400,
                 }
 
             db.session.commit()
@@ -627,13 +652,15 @@ class DailyLessonGenerator:
                 "is_completed": lesson.is_completed,
                 "is_paused": lesson.is_paused,
                 "listened_count": lesson.listened_count,
-                "pause_position_seconds": lesson.pause_position_seconds
+                "pause_position_seconds": lesson.pause_position_seconds,
             }
 
         except Exception as e:
             db.session.rollback()
-            log(f"Error updating lesson state for user {user.id}, lesson {lesson_id}: {str(e)}")
+            log(
+                f"Error updating lesson state for user {user.id}, lesson {lesson_id}: {str(e)}"
+            )
             return {
                 "error": f"Failed to update lesson state: {str(e)}",
-                "status_code": 500
+                "status_code": 500,
             }
