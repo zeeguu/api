@@ -1,3 +1,6 @@
+from zeeguu.core.model.meaning import MeaningFrequency
+
+
 def bad_quality_bookmark(bookmark):
     return (
         origin_is_subsumed_in_other_bookmark(bookmark)
@@ -6,11 +9,31 @@ def bad_quality_bookmark(bookmark):
     )
 
 
+def uncommon_word_for_beginner_user(user_word):
+    from zeeguu.core.model import UserLanguage
+    from zeeguu.core.language.fk_to_cefr import fk_to_cefr
+
+    user_language = UserLanguage.query.filter_by(
+        user=user_word.user, language=user_word.user.learned_language
+    ).first()
+
+    if user_language and user_language.cefr_level:
+        cefr_string = fk_to_cefr(user_language.cefr_level)
+        if cefr_string in ["A1", "A2"]:
+            if user_word.meaning.frequency and user_word.meaning.frequency in [
+                MeaningFrequency.UNCOMMON,
+                MeaningFrequency.RARE,
+            ]:
+                return True
+    return False
+
+
 def bad_quality_meaning(user_word):
     bookmarks = user_word.bookmarks()
-    
+
     return (
-        origin_same_as_translation(user_word)
+        uncommon_word_for_beginner_user(user_word)
+        or origin_same_as_translation(user_word)
         or origin_has_too_many_words(user_word)
         or origin_is_a_very_short_word(user_word)
         or (bookmarks and all([bad_quality_bookmark(b) for b in bookmarks]))
