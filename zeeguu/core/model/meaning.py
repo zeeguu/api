@@ -100,6 +100,13 @@ class Meaning(db.Model):
         comment="Type of phrase/expression (single word, idiom, collocation, etc.)",
     )
 
+    phrase_type_manually_validated = db.Column(
+        db.Boolean,
+        nullable=True,
+        default=False,
+        comment="Whether the phrase type has been manually validated by a human",
+    )
+
     def __init__(
         self, origin: Phrase, translation: Phrase, frequency=None, phrase_type=None
     ):

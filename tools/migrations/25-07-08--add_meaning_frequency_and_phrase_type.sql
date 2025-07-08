@@ -35,6 +35,11 @@ ALTER TABLE meaning
         DEFAULT NULL 
         COMMENT 'Type of phrase/expression (single word, idiom, collocation, expression, or arbitrary multi-word selection)';
 
+ALTER TABLE meaning
+    ADD COLUMN phrase_type_manually_validated BOOLEAN
+        DEFAULT FALSE
+        COMMENT 'Whether the AI-generated phrase type has been validated by a human';
+
 -- Add foreign key constraint
 ALTER TABLE meaning
     ADD CONSTRAINT fk_meaning_frequency_model
@@ -46,7 +51,8 @@ ALTER TABLE meaning
 --   frequency = 'COMMON',
 --   frequency_model_id = 1,
 --   frequency_manually_validated = FALSE,
---   phrase_type = 'SINGLE_WORD'
+--   phrase_type = 'SINGLE_WORD',
+--   phrase_type_manually_validated = FALSE
 -- WHERE id = 123;
 
 -- Query meanings with model info:
