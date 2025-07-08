@@ -64,7 +64,7 @@ class PhraseType(Enum):
     COLLOCATION = "collocation"  # Word combinations: "strong coffee", "heavy rain"
     IDIOM = "idiom"  # Idiomatic expressions: "break the ice", "piece of cake"
     EXPRESSION = "expression"  # Common phrases: "how are you?", "thank you"
-    MULTI_WORD = "multi_word"  # Arbitrary multi-word selection: "the cat on the", "walked slowly towards"
+    ARBITRARY_MULTI_WORD = "multi_word"  # Arbitrary multi-word selection: "the cat on the", "walked slowly towards"
 
 
 class Meaning(db.Model):

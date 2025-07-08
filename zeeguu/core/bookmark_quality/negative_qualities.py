@@ -1,4 +1,4 @@
-from zeeguu.core.model.meaning import MeaningFrequency
+from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
 from zeeguu.logging import logp
 
 
@@ -37,11 +37,16 @@ def bad_quality_meaning(user_word):
 
     return (
         uncommon_word_for_beginner_user(user_word)
+        or arbitrary_multi_word_translation(user_word)
         or origin_same_as_translation(user_word)
         or origin_has_too_many_words(user_word)
         or origin_is_a_very_short_word(user_word)
         or (bookmarks and all([bad_quality_bookmark(b) for b in bookmarks]))
     )
+
+
+def arbitrary_multi_word_translation(user_word):
+    return user_word.meaning.phrase_type == PhraseType.ARBITRARY_MULTI_WORD
 
 
 def context_is_too_long(bookmark):

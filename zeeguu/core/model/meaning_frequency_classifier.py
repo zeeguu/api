@@ -72,7 +72,7 @@ class MeaningFrequencyClassifier:
                 "collocation": PhraseType.COLLOCATION,
                 "idiom": PhraseType.IDIOM,
                 "expression": PhraseType.EXPRESSION,
-                "multi_word": PhraseType.MULTI_WORD,
+                "multi_word": PhraseType.ARBITRARY_MULTI_WORD,
             }
 
             frequency = frequency_map.get(frequency_str)
