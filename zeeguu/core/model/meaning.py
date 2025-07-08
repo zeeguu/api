@@ -208,7 +208,7 @@ class Meaning(db.Model):
                             classifier = MeaningFrequencyClassifier()
                             classifier.classify_and_update_meaning(meaning, db.session)
                             logp(
-                                f">>> Successfully classified meaning {meaning_id} in background"
+                                f">>> Successfully classified meaning {meaning.origin.content} as {meaning.frequency},{meaning.phrase_type} in background"
                             )
                         except ValueError as ve:
                             logp(
