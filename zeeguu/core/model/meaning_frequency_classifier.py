@@ -92,6 +92,7 @@ class MeaningFrequencyClassifier:
     def classify_and_update_meaning(self, meaning, session):
         """
         Classify and update a meaning's frequency and phrase type in the database.
+        Also updates fit_for_study for all user words that reference this meaning.
 
         Args:
             meaning: Meaning object to classify and update
@@ -110,6 +111,9 @@ class MeaningFrequencyClassifier:
             session.add(meaning)
             session.commit()
 
+            # Update fit_for_study for all user words that reference this meaning
+            self._update_user_words_fit_for_study(meaning, session)
+
             log(
                 f"Updated meaning {meaning.id}: frequency={frequency.value}, phrase_type={phrase_type.value}"
             )
@@ -122,12 +126,35 @@ class MeaningFrequencyClassifier:
             session.add(meaning)
             session.commit()
 
+            # Update fit_for_study for all user words that reference this meaning
+            self._update_user_words_fit_for_study(meaning, session)
+
             log(
                 f"Updated meaning {meaning.id} frequency to {frequency.value} (phrase_type failed)"
             )
             return True
 
         return False
+
+    def _update_user_words_fit_for_study(self, meaning, session):
+        """
+        Update fit_for_study for all user words that reference this meaning.
+        
+        Args:
+            meaning: Meaning object that was updated
+            session: Database session
+        """
+        from zeeguu.core.model.user_word import UserWord
+        
+        # Find all user words that reference this meaning
+        user_words = session.query(UserWord).filter(UserWord.meaning_id == meaning.id).all()
+        
+        for user_word in user_words:
+            user_word.update_fit_for_study(session)
+            
+        if user_words:
+            session.commit()
+            log(f"Updated fit_for_study for {len(user_words)} user words referencing meaning {meaning.id}")
 
     def mark_as_validated(self, meaning, session):
         """
