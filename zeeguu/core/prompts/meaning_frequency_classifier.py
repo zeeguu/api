@@ -21,7 +21,7 @@ Phrase type categories:
 - collocation: natural word combination
 - idiom: idiomatic expression
 - expression: common phrase/greeting
-- multi_word: arbitrary multi-word selection (not a collocation, idiom, or expression)
+- arbitrary_multi_word: arbitrary multi-word selection (not a collocation, idiom, or expression)
 
 Reply with ONLY: frequency,phrase_type (e.g., "common,single_word")"""
 
