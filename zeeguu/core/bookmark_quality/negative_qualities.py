@@ -26,7 +26,7 @@ def uncommon_word_for_beginner_user(user_word):
                 MeaningFrequency.RARE,
             ]:
                 logp(
-                    ">>>> Found an uncommon word for beginner user {user_word.meaning.origin.content}. Marking it as not fit for study"
+                    f">>>> Found an uncommon word for beginner user {user_word.meaning.origin.content}. Marking it as not fit for study"
                 )
                 return True
     return False
