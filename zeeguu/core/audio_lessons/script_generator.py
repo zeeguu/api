@@ -3,9 +3,7 @@ Script generator for audio lessons using Claude API.
 """
 
 import os
-import json
-import requests
-from typing import Optional
+from anthropic import Anthropic
 from zeeguu.logging import log
 
 
@@ -67,51 +65,26 @@ def generate_lesson_script(
         cefr_level=cefr_level,
     )
 
-    # Prepare the API request
+    # Initialize Anthropic client
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise Exception("ANTHROPIC_API_KEY environment variable not set")
 
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-    }
-
-    data = {
-        "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 1500,
-        "messages": [{"role": "user", "content": prompt}],
-    }
+    client = Anthropic(api_key=api_key)
 
     try:
         log(f"Generating script for {origin_word} -> {translation_word}")
 
-        response = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers=headers,
-            json=data,
-            timeout=30,
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        if response.status_code != 200:
-            raise Exception(
-                f"Claude API error: {response.status_code} - {response.text}"
-            )
-
-        result = response.json()
-
-        if "content" not in result or not result["content"]:
-            raise Exception("No content in Claude API response")
-
-        script = result["content"][0]["text"].strip()
+        script = response.content[0].text.strip()
 
         log(f"Successfully generated script for {origin_word}")
         return script
 
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to call Claude API: {str(e)}")
-    except json.JSONDecodeError as e:
-        raise Exception(f"Failed to parse Claude API response: {str(e)}")
     except Exception as e:
-        raise Exception(f"Unexpected error generating script: {str(e)}")
+        raise Exception(f"Failed to generate script: {str(e)}")
