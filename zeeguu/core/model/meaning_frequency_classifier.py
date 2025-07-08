@@ -9,7 +9,7 @@ from zeeguu.core.prompts.meaning_frequency_classifier import (
     create_meaning_frequency_and_type_prompt,
 )
 from zeeguu.core.model.meaning import PhraseType
-from zeeguu.logging import log
+from zeeguu.logging import log, logp
 
 
 class MeaningFrequencyClassifier:
@@ -139,22 +139,26 @@ class MeaningFrequencyClassifier:
     def _update_user_words_fit_for_study(self, meaning, session):
         """
         Update fit_for_study for all user words that reference this meaning.
-        
+
         Args:
             meaning: Meaning object that was updated
             session: Database session
         """
         from zeeguu.core.model.user_word import UserWord
-        
+
         # Find all user words that reference this meaning
-        user_words = session.query(UserWord).filter(UserWord.meaning_id == meaning.id).all()
-        
+        user_words = (
+            session.query(UserWord).filter(UserWord.meaning_id == meaning.id).all()
+        )
+
         for user_word in user_words:
             user_word.update_fit_for_study(session)
-            
+
         if user_words:
             session.commit()
-            log(f"Updated fit_for_study for {len(user_words)} user words referencing meaning {meaning.id}")
+            logp(
+                f"Updated fit_for_study for {len(user_words)} user words referencing meaning {meaning.id}"
+            )
 
     def mark_as_validated(self, meaning, session):
         """
