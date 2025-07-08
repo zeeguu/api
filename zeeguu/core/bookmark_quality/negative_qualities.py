@@ -1,4 +1,5 @@
 from zeeguu.core.model.meaning import MeaningFrequency
+from zeeguu.logging import logp
 
 
 def bad_quality_bookmark(bookmark):
@@ -24,6 +25,9 @@ def uncommon_word_for_beginner_user(user_word):
                 MeaningFrequency.UNCOMMON,
                 MeaningFrequency.RARE,
             ]:
+                logp(
+                    ">>>> Found an uncommon word for beginner user {user_word.meaning.origin.content}. Marking it as not fit for study"
+                )
                 return True
     return False
 
