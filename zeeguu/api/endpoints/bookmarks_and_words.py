@@ -157,44 +157,46 @@ def delete_bookmark(bookmark_id):
     try:
         bookmark = Bookmark.find(bookmark_id)
         user_word = bookmark.user_word
-        
+
         # Find all other bookmarks for this user_word
-        other_bookmarks = (
-            Bookmark.query
-            .filter(Bookmark.user_word_id == user_word.id)
+        other_bookmarks_for_same_user_word = (
+            Bookmark.query.filter(Bookmark.user_word_id == user_word.id)
             .filter(Bookmark.id != bookmark.id)
             .all()
         )
-        
-        # If this bookmark is the preferred one, we need to handle it
+
+        # Clear the preferred bookmark reference if it's pointing to the bookmark we're deleting
         if user_word.preferred_bookmark_id == bookmark.id:
-            if other_bookmarks:
+            user_word.preferred_bookmark = None
+            db_session.add(user_word)
+            db_session.flush()  # Ensure the foreign key is cleared before deletion
+
+            # If there are other bookmarks, try to find a new preferred one
+            if other_bookmarks_for_same_user_word:
                 # Filter for quality bookmarks (fit_for_study)
                 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
-                quality_bookmarks = [b for b in other_bookmarks if fit_for_study(b)]
-                
+
+                quality_bookmarks = [
+                    b
+                    for b in other_bookmarks_for_same_user_word
+                    if fit_for_study(b.user_word)
+                ]
+
                 if quality_bookmarks:
                     # Set the most recent quality bookmark as preferred
                     new_preferred = max(quality_bookmarks, key=lambda b: b.time)
                     user_word.preferred_bookmark = new_preferred
                     db_session.add(user_word)
                 else:
-                    # No quality bookmarks left, clear the preferred bookmark first
-                    user_word.preferred_bookmark = None
+                    # preserve UserWord but mark it as not fit for study
+                    # in the future we can generate an example for this user word with the help of the robots!
+                    user_word.fit_for_study = False
                     db_session.add(user_word)
-                    db_session.flush()  # Ensure the foreign key is cleared
-                    
-                    # Now delete all remaining bookmarks and the user_word
-                    for b in other_bookmarks:
-                        db_session.delete(b)
-                    db_session.delete(user_word)
             else:
-                # No other bookmarks exist, clear preferred bookmark first
-                user_word.preferred_bookmark = None
+                # No other bookmarks exist - ALWAYS keep the user_word for historical data
+                user_word.fit_for_study = False
                 db_session.add(user_word)
-                db_session.flush()  # Ensure the foreign key is cleared
-                db_session.delete(user_word)
-        
+
         db_session.delete(bookmark)
         db_session.commit()
     except NoResultFound:
