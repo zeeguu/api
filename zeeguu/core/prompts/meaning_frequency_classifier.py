@@ -12,8 +12,8 @@ Target language: {translation_language}
 
 Frequency categories:
 - unique: only meaning
-- common: frequently used meaning (primary or very widespread usage)
-- uncommon: infrequently used meaning (learners might encounter it occasionally, but it's not essential for basic communication)
+- common: the word has multiple meanings, and this is one of frequently used ones (primary meaning)
+- uncommon: the word has multiple meanings, and this particular one is infrequently used
 - rare: rarely used meaning (specialized, archaic, or very context-specific)
 
 Phrase type categories:
@@ -29,10 +29,10 @@ Reply with ONLY: frequency,phrase_type (e.g., "common,single_word")"""
 def create_meaning_frequency_and_type_prompt(meaning):
     """
     Create a prompt to classify meaning frequency and phrase type.
-    
+
     Args:
         meaning: Meaning object with origin and translation
-        
+
     Returns:
         str: Formatted prompt ready for API call
     """
@@ -40,8 +40,9 @@ def create_meaning_frequency_and_type_prompt(meaning):
         origin_word=meaning.origin.content,
         origin_language=meaning.origin.language.name,
         translation_word=meaning.translation.content,
-        translation_language=meaning.translation.language.name
+        translation_language=meaning.translation.language.name,
     )
+
 
 # Backward compatibility
 def create_meaning_frequency_prompt(meaning):
