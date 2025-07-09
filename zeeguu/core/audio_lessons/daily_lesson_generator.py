@@ -162,7 +162,7 @@ class DailyLessonGenerator:
 
             # Create daily lesson
             daily_lesson = DailyAudioLesson(
-                user=user, created_by="generate_daily_lesson_v1"
+                user=user, created_by="generate_daily_lesson_v1", language=user.learned_language
             )
             db.session.add(daily_lesson)
 
@@ -374,9 +374,9 @@ class DailyLessonGenerator:
             except ValueError:
                 return {"error": "Invalid lesson_id parameter", "status_code": 400}
         else:
-            # Get most recent lesson for user
+            # Get most recent lesson for user's current learned language
             lesson = (
-                DailyAudioLesson.query.filter_by(user_id=user.id)
+                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
                 .order_by(DailyAudioLesson.id.desc())
                 .first()
             )
@@ -407,9 +407,9 @@ class DailyLessonGenerator:
             timezone_offset
         )
 
-        # Find lesson created today
+        # Find lesson created today for the user's current learned language
         lesson = (
-            DailyAudioLesson.query.filter_by(user_id=user.id)
+            DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
             .filter(DailyAudioLesson.created_at >= start_of_today_utc)
             .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
@@ -442,9 +442,9 @@ class DailyLessonGenerator:
             timezone_offset
         )
 
-        # Find lesson created today
+        # Find lesson created today for the user's current learned language
         lesson = (
-            DailyAudioLesson.query.filter_by(user_id=user.id)
+            DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
             .filter(DailyAudioLesson.created_at >= start_of_today_utc)
             .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
@@ -507,14 +507,14 @@ class DailyLessonGenerator:
 
             # Get total count of past lessons (excluding today) for pagination
             total_count = (
-                DailyAudioLesson.query.filter_by(user_id=user.id)
+                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
                 .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .count()
             )
 
             # Get past lessons with pagination (excluding today)
             lessons = (
-                DailyAudioLesson.query.filter_by(user_id=user.id)
+                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
                 .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .order_by(DailyAudioLesson.created_at.desc())
                 .limit(limit)

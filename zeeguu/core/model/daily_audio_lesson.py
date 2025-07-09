@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
+from zeeguu.core.model.language import Language
 
 
 class DailyAudioLesson(db.Model):
@@ -20,6 +21,9 @@ class DailyAudioLesson(db.Model):
 
     user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
     user = relationship(User, backref="daily_audio_lessons")
+
+    language_id = Column(Integer, ForeignKey(Language.id), nullable=True)
+    language = relationship(Language)
 
     voice_config = Column(JSON)
     duration_seconds = Column(Integer)
@@ -44,11 +48,12 @@ class DailyAudioLesson(db.Model):
         cascade="all, delete-orphan",
     )
 
-    def __init__(self, user, created_by, voice_config=None, duration_seconds=None):
+    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None):
         self.user = user
         self.created_by = created_by
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
+        self.language = language or user.learned_language
         self.listened_count = 0
         self.pause_position_seconds = 0
 
