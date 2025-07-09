@@ -8,9 +8,10 @@ Use this exact format:
 Teacher: You will be practicing the word [0.5 seconds]
 Man: {origin_word} [0.5 seconds]
 Teacher: which means {translation_word}.
-Teacher: In this dialogue you will hear a man and woman discussing [brief scenario, also describe the relation between the man and woman]]
+Teacher: In this dialogue you will hear a man and woman discussing <brief scenario, also describe the relation between the man and woman>
 
-Create a dialogue of at least 8 lines between Man and Woman using the target word naturally
+Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+In between lines add one second break annotations with: [1 seconds]
 
 Next, add the teacher's voice that says something similar to:
 "Let's now engage you and test your ability to converse in Spanish."
@@ -21,8 +22,8 @@ the following example (diversify the way the teacher formulates the challenge):
 
 Teacher: Let's practice some key phrases [0.5 seconds]
 Teacher: Could you say [simple phrase with target word]? [5 seconds]
-Man: [target language phrase] [3 seconds]
-Man: [repeat same phrase] [3 seconds]
+Man: <target language phrase> [3 seconds]
+Man: <repeat same phrase> [3 seconds]
 
 Use as many challenges as possible from the dialogue.
 

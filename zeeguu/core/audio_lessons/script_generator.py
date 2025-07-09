@@ -8,10 +8,10 @@ from zeeguu.logging import log
 
 
 # Load the prompt template
-def get_prompt_template() -> str:
+def get_prompt_template(file_name) -> str:
     """Load the prompt template from file."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    prompt_file = os.path.join(current_dir, "prompts", "lesson_generation_prompt.txt")
+    prompt_file = os.path.join(current_dir, "prompts", file_name)
 
     with open(prompt_file, "r", encoding="utf-8") as f:
         return f.read()
@@ -23,6 +23,7 @@ def generate_lesson_script(
     origin_language: str,
     translation_language: str,
     cefr_level: str = "A1",
+    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond.txt",
 ) -> str:
     """
     Generate a lesson script using Claude API.
@@ -33,6 +34,7 @@ def generate_lesson_script(
         origin_language: Language code of the word being learned (e.g., 'da')
         translation_language: Language code of the translation (e.g., 'en')
         cefr_level: Cefr level of the word being learned
+        generator_prompt_file: full filename
 
     Returns:
         Generated script text
@@ -56,7 +58,7 @@ def generate_lesson_script(
     )
 
     # Load and format the prompt
-    prompt_template = get_prompt_template()
+    prompt_template = get_prompt_template(generator_prompt_file)
     prompt = prompt_template.format(
         origin_word=origin_word,
         translation_word=translation_word,
