@@ -174,7 +174,7 @@ class VoiceSynthesizer:
             if cefr_level == "A2":
                 speaking_rate = 0.9
             elif cefr_level == "A1":
-                speaking_rate = 0.8
+                speaking_rate = 0.9  # 0.8 was painfully slow for Portuguese; this might end up being language specific? or maybe a setting for the frontend
 
         for voice_type, text, silence_duration in segments:
             if voice_type == "silence":
@@ -222,7 +222,7 @@ class VoiceSynthesizer:
         except Exception as e:
             log(f"Warning: Could not get audio duration from {audio_path}: {str(e)}")
             log("Falling back to estimated duration based on file size")
-            
+
             # Fallback: estimate duration based on file size
             # Typical MP3 bitrate is around 128 kbps for speech
             # File size in bytes / (bitrate in bits per second / 8) = duration in seconds
