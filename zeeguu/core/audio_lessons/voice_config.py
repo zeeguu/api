@@ -17,6 +17,10 @@ VOICE_CONFIG = {
         "woman": "it-IT-Wavenet-A",
         "man": "it-IT-Wavenet-D"
     },
+    "pt-BR": {  # Portuguese (Brazilian)
+        "woman": "pt-BR-Wavenet-A",
+        "man": "pt-BR-Wavenet-B"
+    },
     "en-US": {  # English (for teacher)
         "teacher": "en-US-Wavenet-J"
     }
@@ -30,6 +34,7 @@ LANGUAGE_MAPPINGS = {
     "da": "da-DK",
     "es": "es-ES", 
     "it": "it-IT",
+    "pt": "pt-BR",
     "en": "en-US"
 }
 
