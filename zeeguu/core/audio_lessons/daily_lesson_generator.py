@@ -76,7 +76,7 @@ class DailyLessonGenerator:
                 f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 3"
             )
             return {
-                "error": f"Not enough new words to generate a lesson. Need at least 3 words.",
+                "error": f"Not enough words in learning to generate a lesson. Need at least 3 words that were not in audio lessons before.",
                 "available_words": len(selected_words),
                 "status_code": 400,
             }
