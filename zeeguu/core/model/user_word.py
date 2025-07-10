@@ -76,6 +76,14 @@ class UserWord(db.Model):
     def should_be_studied(self):
         return (self.starred or self.fit_for_study) and not self.is_learned()
 
+    def set_unfit_for_study(self, session=None):
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        self.fit_for_study = False
+        BasicSRSchedule.clear_user_word_schedule(session, self)
+        if session:
+            session.add(self)
+
     def update_fit_for_study(self, session=None):
         """
             Called when something happened to the bookmark,
@@ -88,7 +96,15 @@ class UserWord(db.Model):
         :param session:
         :return:
         """
+        old_fit_for_study = self.fit_for_study
         self.fit_for_study = fit_for_study(self)
+
+        # If the word became unfit for study, clear its schedule
+        if old_fit_for_study and not self.fit_for_study:
+            from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+            BasicSRSchedule.clear_user_word_schedule(session, self)
+
         if session:
             session.add(self)
 
@@ -98,16 +114,20 @@ class UserWord(db.Model):
         Raises ValueError if there are integrity issues.
         """
         if self.preferred_bookmark is None:
-            raise ValueError(f"UserWord {self.id} has no preferred_bookmark - this indicates a data integrity issue")
-        
+            raise ValueError(
+                f"UserWord {self.id} has no preferred_bookmark - this indicates a data integrity issue"
+            )
+
         bookmarks = self.bookmarks()
         if len(bookmarks) == 0:
-            raise ValueError(f"UserWord {self.id} has no bookmarks but should have at least the preferred_bookmark")
+            raise ValueError(
+                f"UserWord {self.id} has no bookmarks but should have at least the preferred_bookmark"
+            )
 
     def as_dictionary(self):
         # Ensure data integrity
         self.validate_data_integrity()
-        
+
         try:
             translation_word = self.meaning.translation.content
             translation_language = self.meaning.translation.language.code
