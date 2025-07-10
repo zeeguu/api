@@ -21,6 +21,24 @@ VOICE_CONFIG = {
         "woman": "pt-BR-Wavenet-A",
         "man": "pt-BR-Wavenet-B"
     },
+    "fr-FR": {  # French (France)
+        "woman": "fr-FR-Chirp3-HD-Sulafat",
+        "man": "fr-FR-Chirp3-HD-Algenib"
+    },
+    "de-DE": {  # German (Germany)
+        "woman": "de-DE-Chirp3-HD-Aoede", 
+        "man": "de-DE-Chirp3-HD-Enceladus" 
+        # others good women: de-DE-Chirp3-HD-Gacrux, de-DE-Chirp3-HD-Sulafat
+        # others good men: de-DE-Chirp3-HD-Algenib, de-DE-Chirp3-HD-Sadachbia 
+    },
+    "nl-NL": {  # Dutch (Netherlands)
+        "woman": "nl-NL-Chirp3-HD-Aoede",
+        "man": "nl-NL-Chirp3-HD-Enceladus" # nl-NL-Chirp3-HD-Algieba  
+    },
+    "sv-SE": {  # Swedish
+        "woman": "sv-SE-Standard-F",
+        "man": "sv-SE-Standard-G" 
+    },
     "en-US": {  # English (for teacher)
         "teacher": "en-US-Wavenet-J"
     }
@@ -35,6 +53,10 @@ LANGUAGE_MAPPINGS = {
     "es": "es-ES", 
     "it": "it-IT",
     "pt": "pt-BR",
+    "fr": "fr-FR",
+    "de": "de-DE",
+    "nl": "nl-NL",
+    "sv": "sv-SE",
     "en": "en-US"
 }
 
