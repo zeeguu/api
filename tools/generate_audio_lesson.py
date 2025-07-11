@@ -5,7 +5,6 @@ from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 # app = create_app()
 # app.app_context().push()
 
-
 cefr_level_A1 = "A1"
 cefr_level_B1 = "B1"
 target_language = "es"
