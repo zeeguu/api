@@ -1,0 +1,54 @@
+Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+
+IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
+
+Use this exact format:
+
+
+    Teacher: In the following conversation you will hear a man and woman discussing 
+    <brief scenario, also describe the relation between the man and woman>.
+    Throughout the dialogue, you will hear the word [0.2 seconds]
+    Man: {origin_word} [0.5 seconds]
+    Teacher: with the meaning [0.2 seconds] 
+    Teacher: {translation_word}.
+
+    Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+    In between lines add one second break annotations with: [1 seconds]
+
+
+
+    Next, add the teacher's voice that says something similar to (but diversify):
+    "Let's now engage you and test your ability to converse in Spanish" or "Let's practice some key phrases"
+
+    Take each line of the dialogue again and after each line of dialogue make the teacher add
+    a challenge for the listener. In this challenge, the teacher will say something similar to 
+    the following example (diversify the way the teacher formulates the challenge):
+
+    Teacher: Could you say [simple phrase with target word]? [5 seconds]
+    Man: <target language phrase> [3 seconds]
+    Man: <repeat same phrase> [3 seconds]
+
+    Use as many challenges as possible from the dialogue.
+
+
+
+    Use a short introduction to this part that has a similar form with:
+
+    Teacher: "Let's us practise some more situations where the word is used". 
+
+    Do not use the origin word within this introduction. 
+
+    Add 4 more similar challenges from the teacher, but this time with examples that do not relate to the dialogue,
+    with commonly used contexts for the word.
+
+
+RULES:
+- Use only "Teacher:", "Man:", "Woman:" labels
+- Include [X seconds] timing for pauses
+- Teacher always and only speaks English, Man/Woman speak {target_language}
+- For student response pauses, use [5 seconds] after teacher questions
+- For repetitions, use [3 seconds] between repeats
+- No explanatory text or translations in the script
+
+

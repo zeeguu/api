@@ -23,7 +23,7 @@ def generate_lesson_script(
     origin_language: str,
     translation_language: str,
     cefr_level: str = "A1",
-    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond.txt",
+    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
 ) -> str:
     """
     Generate a lesson script using Claude API.
