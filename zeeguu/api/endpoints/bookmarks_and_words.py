@@ -190,12 +190,10 @@ def delete_bookmark(bookmark_id):
                 else:
                     # preserve UserWord but mark it as not fit for study
                     # in the future we can generate an example for this user word with the help of the robots!
-                    user_word.fit_for_study = False
-                    db_session.add(user_word)
+                    user_word.set_unfit_for_study(db_session)
             else:
                 # No other bookmarks exist - ALWAYS keep the user_word for historical data
-                user_word.fit_for_study = False
-                db_session.add(user_word)
+                user_word.set_unfit_for_study(db_session)
 
         db_session.delete(bookmark)
         db_session.commit()

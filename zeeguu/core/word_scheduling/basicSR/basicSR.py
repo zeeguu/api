@@ -200,6 +200,7 @@ class BasicSRSchedule(db.Model):
         query = (
             UserWord.query.join(cls)
             .filter(UserWord.user_id == user.id)
+            .filter(UserWord.fit_for_study == 1)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .join(Bookmark, Bookmark.user_word_id == UserWord.id)

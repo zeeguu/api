@@ -19,7 +19,7 @@ from zeeguu.core.model import (
 )
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.config import ZEEGUU_DATA_FOLDER
-from zeeguu.logging import log
+from zeeguu.logging import log, logp
 
 
 class DailyLessonGenerator:
@@ -41,24 +41,42 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with lesson details or error information
         """
+        logp(
+            f"[generate_daily_lesson_for_user] Starting for user {user.id} ({user.name}), timezone_offset={timezone_offset}"
+        )
+
         # Check if user has access to daily audio lessons
         if not user.has_feature("daily_audio"):
+            logp(
+                f"[generate_daily_lesson_for_user] User {user.id} does not have daily_audio feature"
+            )
             return {
                 "error": "Daily audio lessons are not available for your account",
                 "status_code": 403,
             }
 
         # Check if a lesson already exists for today
+        logp(f"[generate_daily_lesson_for_user] Checking for existing lesson today")
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
             # Return existing lesson instead of generating a new one
+            logp(
+                f"[generate_daily_lesson_for_user] Found existing lesson {existing_lesson.get('lesson_id')} for today"
+            )
             return existing_lesson
 
         # Select words for the lesson
+        logp(f"[generate_daily_lesson_for_user] Selecting words for lesson")
         selected_words = self.select_words_for_lesson(user, 3)
+        logp(
+            f"[generate_daily_lesson_for_user] Selected {len(selected_words)} words for lesson"
+        )
         if len(selected_words) < 3:
+            logp(
+                f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 3"
+            )
             return {
-                "error": f"Not enough new words to generate a lesson. Need at least 3 words.",
+                "error": f"Not enough words in learning to generate a lesson. Need at least 3 words that were not in audio lessons before.",
                 "available_words": len(selected_words),
                 "status_code": 400,
             }
@@ -67,6 +85,9 @@ class DailyLessonGenerator:
         origin_language = user.learned_language.code
         translation_language = user.native_language.code
         cefr_level = user.cefr_level_for_learned_language()
+        logp(
+            f"[generate_daily_lesson_for_user] User languages: {origin_language}->{translation_language}, CEFR: {cefr_level}"
+        )
 
         # Generate the lesson
         return self.generate_daily_lesson(
@@ -88,8 +109,16 @@ class DailyLessonGenerator:
         Returns:
             List of UserWord objects, or empty list if not enough words available
         """
+        logp(f"[select_words_for_lesson] Getting learning words for user {user.id}")
         # Get user's words that are currently being learned
         learning_words = BasicSRSchedule.user_words_to_study(user)
+        if len(learning_words) < num_words:
+            # append necessary words from user_words = BasicSRSchedule.scheduled_user_words(user)
+            learning_words.extend(BasicSRSchedule.scheduled_user_words(user))
+
+        logp(
+            f"[select_words_for_lesson] Found {len(learning_words)} words in user's learning queue"
+        )
 
         # Filter out words that have already been in audio lessons for this user
         meanings_already_in_lessons = (
@@ -110,6 +139,9 @@ class DailyLessonGenerator:
         )
 
         existing_meaning_ids = {m[0] for m in meanings_already_in_lessons}
+        logp(
+            f"[select_words_for_lesson] Found {len(existing_meaning_ids)} meanings already used in lessons"
+        )
 
         # Filter and rank words by importance
         available_words = []
@@ -132,6 +164,13 @@ class DailyLessonGenerator:
         # Sort by rank (lower is more important) and take top N
         available_words.sort(key=lambda x: x[1])
         selected_words = [w[0] for w in available_words[:num_words]]
+
+        logp(
+            f"[select_words_for_lesson] Available words after filtering: {len(available_words)}"
+        )
+        logp(
+            f"[select_words_for_lesson] Selected {len(selected_words)} words: {[w.meaning.origin.content for w in selected_words]}"
+        )
 
         return selected_words
 
@@ -159,16 +198,25 @@ class DailyLessonGenerator:
         start_time = time.time()
 
         try:
+            logp(
+                f"[generate_daily_lesson] Starting lesson generation for user {user.id} with {len(selected_words)} words"
+            )
 
             # Create daily lesson
             daily_lesson = DailyAudioLesson(
-                user=user, created_by="generate_daily_lesson_v1", language=user.learned_language
+                user=user,
+                created_by="generate_daily_lesson_v1",
+                language=user.learned_language,
             )
             db.session.add(daily_lesson)
+            logp(f"[generate_daily_lesson] Created daily lesson object")
 
             # Generate audio lesson for each selected word
             for idx, user_word in enumerate(selected_words):
                 meaning = user_word.meaning
+                logp(
+                    f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
+                )
 
                 # Generate script using Claude
                 try:
@@ -180,8 +228,8 @@ class DailyLessonGenerator:
                         cefr_level=cefr_level,
                     )
                 except Exception as e:
-                    log(
-                        f"Failed to generate script for {meaning.origin.content}: {str(e)}"
+                    logp(
+                        f"[generate_daily_lesson] Failed to generate script for {meaning.origin.content}: {str(e)}"
                     )
                     db.session.rollback()
                     return {
@@ -215,8 +263,8 @@ class DailyLessonGenerator:
                     audio_lesson_meaning.duration_seconds = duration_seconds
 
                 except Exception as e:
-                    log(
-                        f"Failed to generate audio for {meaning.origin.content}: {str(e)}"
+                    logp(
+                        f"[generate_daily_lesson] Failed to generate audio for {meaning.origin.content}: {str(e)}"
                     )
                     db.session.rollback()
                     return {
@@ -240,7 +288,7 @@ class DailyLessonGenerator:
                 daily_lesson.duration_seconds = total_duration
 
             except Exception as e:
-                log(f"Failed to build daily lesson: {str(e)}")
+                logp(f"[generate_daily_lesson] Failed to build daily lesson: {str(e)}")
                 db.session.rollback()
                 return {"error": f"Failed to build daily lesson: {str(e)}"}
 
@@ -266,12 +314,18 @@ class DailyLessonGenerator:
 
         except Exception as e:
             db.session.rollback()
-            log(f"Unexpected error in daily lesson generation: {str(e)}")
+            logp(
+                f"[generate_daily_lesson] Unexpected error in daily lesson generation: {str(e)}"
+            )
+            import traceback
+
+            logp(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}
 
     def _check_user_access(self, user):
         """Check if user has access to daily audio lessons."""
         if not user.has_feature("daily_audio"):
+
             return {
                 "error": "Daily audio lessons are not available for your account",
                 "status_code": 403,
@@ -376,7 +430,9 @@ class DailyLessonGenerator:
         else:
             # Get most recent lesson for user's current learned language
             lesson = (
-                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
+                DailyAudioLesson.query.filter_by(
+                    user_id=user.id, language_id=user.learned_language.id
+                )
                 .order_by(DailyAudioLesson.id.desc())
                 .first()
             )
@@ -409,7 +465,9 @@ class DailyLessonGenerator:
 
         # Find lesson created today for the user's current learned language
         lesson = (
-            DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
+            DailyAudioLesson.query.filter_by(
+                user_id=user.id, language_id=user.learned_language.id
+            )
             .filter(DailyAudioLesson.created_at >= start_of_today_utc)
             .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
@@ -444,7 +502,9 @@ class DailyLessonGenerator:
 
         # Find lesson created today for the user's current learned language
         lesson = (
-            DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
+            DailyAudioLesson.query.filter_by(
+                user_id=user.id, language_id=user.learned_language.id
+            )
             .filter(DailyAudioLesson.created_at >= start_of_today_utc)
             .filter(DailyAudioLesson.created_at <= end_of_today_utc)
             .order_by(DailyAudioLesson.id.desc())
@@ -507,14 +567,18 @@ class DailyLessonGenerator:
 
             # Get total count of past lessons (excluding today) for pagination
             total_count = (
-                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
+                DailyAudioLesson.query.filter_by(
+                    user_id=user.id, language_id=user.learned_language.id
+                )
                 .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .count()
             )
 
             # Get past lessons with pagination (excluding today)
             lessons = (
-                DailyAudioLesson.query.filter_by(user_id=user.id, language_id=user.learned_language.id)
+                DailyAudioLesson.query.filter_by(
+                    user_id=user.id, language_id=user.learned_language.id
+                )
                 .filter(DailyAudioLesson.created_at < start_of_today_utc)
                 .order_by(DailyAudioLesson.created_at.desc())
                 .limit(limit)
