@@ -30,10 +30,19 @@ Use as many challenges as possible from the dialogue.
 Add 4 more similar challenges from the teacher, but this time with examples out of the dialogue,
 with commonly used contexts for the word.
 
+In these challenges or any instruction from the teacher, make sure if the target word aka {origin_word} in the
+target language aka {target_language} is used, then you will use the format where the Man's voice 
+jumps in and reads the target word, not the teacher. Example:
+
+Teacher: [whatever instruction from the teacher, similar to this, eg:] "Another context where the" [0.5 seconds]
+Man: {origin_word} [0.5 seconds]
+Teacher: "is used is ..."
+
+
 RULES:
 - Use only "Teacher:", "Man:", "Woman:" labels
 - Include [X seconds] timing for pauses
-- Teacher speaks English, Man/Woman speak {target_language}
+- Teacher always and only speaks English, Man/Woman speak {target_language}
 - For situations where a {target_language} word is inserted in the teacher text,
 the dialogue should be changed to the native voice with 0.5 seconds break like below:
 
@@ -45,3 +54,5 @@ Teacher: which means {translation_word}.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script
+
+
