@@ -30,8 +30,8 @@ Use as many challenges as possible from the dialogue.
 Add 4 more similar challenges from the teacher, but this time with examples out of the dialogue,
 with commonly used contexts for the word.
 
-In these challenges or any instruction from the teacher, make sure if the target word aka {origin_word} in the
-target language aka {target_language} is used, then you will use the format where the Man's voice 
+In these challenges or any instruction from the teacher, make sure if the target word i.e. {origin_word} in the
+target language i.e. {target_language} is used, then you will use the format where the Man's voice 
 jumps in and reads the target word, not the teacher. Example:
 
 Teacher: [whatever instruction from the teacher, similar to this, eg:] "Another context where the" [0.5 seconds]
