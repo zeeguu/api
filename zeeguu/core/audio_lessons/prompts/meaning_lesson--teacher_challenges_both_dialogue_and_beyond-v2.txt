@@ -8,9 +8,10 @@ Use this exact format:
 
     Teacher: In the following conversation you will hear a man and woman discussing 
     <brief scenario, also describe the relation between the man and woman>.
-    Throughout the dialogue, you will hear the word [0.5 seconds]
+    Throughout the dialogue, you will hear the word [0.2 seconds]
     Man: {origin_word} [0.5 seconds]
-    Teacher: with the meaning {translation_word}.
+    Teacher: with the meaning [0.2 seconds] 
+    Teacher: {translation_word}.
 
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
     In between lines add one second break annotations with: [1 seconds]
@@ -34,9 +35,9 @@ Use this exact format:
 
     Use a short introduction to this part that has a similar form with:
 
-    Teacher: "Let's us practise some more situations where the word" [0.5 seconds]
-    Man: {origin_word} [0.5 seconds]
-    Teacher: "is used ..."
+    Teacher: "Let's us practise some more situations where the word is used". 
+
+    Do not use the origin word within this introduction. 
 
     Add 4 more similar challenges from the teacher, but this time with examples that do not relate to the dialogue,
     with commonly used contexts for the word.
