@@ -6,22 +6,27 @@ app = create_app()
 app.app_context().push()
 
 
+cefr_level = "A1"
+target_language = "es"
+
 script = generate_lesson_script(
-    origin_word="overhovedet",
-    translation_word="before",
-    origin_language="da",
+    origin_word="hasta",
+    translation_word="until",
+    origin_language=target_language,
     translation_language="en",
-    cefr_level="A1",
-    generator_prompt_file="prompt_teacher_challenge_extra_outside_lesson.txt",
+    cefr_level=cefr_level,
+    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
 )
+
+print(script)
 
 voice_synthesizer = VoiceSynthesizer()
 
 mp3_path = voice_synthesizer.generate_lesson_audio(
     audio_lesson_meaning_id=44,
     script=script,
-    language_code="da",
-    cefr_level="A1",
+    language_code=target_language,
+    cefr_level=cefr_level,
 )
 
 print(mp3_path)
