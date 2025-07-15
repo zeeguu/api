@@ -41,7 +41,10 @@ def find_or_create_article():
     try:
         article = Article.find_or_create(db_session, url)
         print("-- article found or created: " + str(article.id))
-        uai = UserArticle.user_article_info(user, article, with_content=True)
+
+        uai = UserArticle.user_article_info(
+            user, article, with_content=True, auto_select_version=False
+        )
         print("-- returning user article info: ", json.dumps(uai)[:50])
         return json_result(uai)
     except NoResultFound as e:

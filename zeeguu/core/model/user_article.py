@@ -243,8 +243,22 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True
+        cls, user: User, article: Article, with_content=False, with_translations=True, auto_select_version=True
     ):
+        """
+        Returns user-specific article information.
+        
+        Args:
+            user: The user requesting the article info
+            article: The article to get info for
+            with_content: Whether to include full content/tokenization
+            with_translations: Whether to include translation data
+            auto_select_version: If True, automatically selects the appropriate 
+                               article version based on user's CEFR level 
+                               (for recommendations/search). If False, returns 
+                               info for the exact article requested 
+                               (for direct article access).
+        """
 
         from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.article_title_context import ArticleTitleContext
@@ -253,17 +267,21 @@ class UserArticle(db.Model):
             ArticleFragmentContext,
         )
 
-        # Get user's CEFR level and find appropriate article version
-        try:
-            user_cefr_level = user.cefr_level_for_learned_language()
-        except (AttributeError, IndexError, TypeError):
-            # Fallback if user doesn't have a CEFR level set
-            user_cefr_level = None
-
-        # Get the appropriate article version for user's level
-        appropriate_article = article.get_appropriate_version_for_user_level(
-            user_cefr_level
-        )
+        # Get the appropriate article version based on context
+        if auto_select_version:
+            # For recommendations/search: select version appropriate for user's level
+            try:
+                user_cefr_level = user.cefr_level_for_learned_language()
+            except (AttributeError, IndexError, TypeError):
+                # Fallback if user doesn't have a CEFR level set
+                user_cefr_level = None
+            
+            appropriate_article = article.get_appropriate_version_for_user_level(
+                user_cefr_level
+            )
+        else:
+            # For direct article access: use the exact article requested
+            appropriate_article = article
 
         # Initialize returned info with the article info
         returned_info = appropriate_article.article_info(with_content=with_content)
