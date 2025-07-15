@@ -46,7 +46,7 @@ def user_article():
     print(article_id)
     article = Article.query.filter_by(id=article_id).one()
     user = User.find_by_id(flask.g.user_id)
-    return json_result(UserArticle.user_article_info(user, article, with_content=True, auto_select_version=False))
+    return json_result(UserArticle.user_article_info(user, article, with_content=True))
 
 
 # ---------------------------------------------------------------------------

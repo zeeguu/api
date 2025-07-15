@@ -43,7 +43,7 @@ def find_or_create_article():
         print("-- article found or created: " + str(article.id))
 
         uai = UserArticle.user_article_info(
-            user, article, with_content=True, auto_select_version=False
+            user, article, with_content=True
         )
         print("-- returning user article info: ", json.dumps(uai)[:50])
         return json_result(uai)

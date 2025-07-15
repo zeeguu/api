@@ -228,7 +228,7 @@ class UserArticle(db.Model):
         user_articles = cls.all_starred_or_liked_articles_of_user(user)
 
         return [
-            cls.user_article_info(user, each.article, with_translations=False)
+            cls.user_article_info(user, cls.select_appropriate_article_for_user(user, each.article), with_translations=False)
             for each in user_articles
             if each.last_interaction() is not None
         ]
@@ -242,22 +242,31 @@ class UserArticle(db.Model):
             return False
 
     @classmethod
+    def select_appropriate_article_for_user(cls, user: User, article: Article) -> Article:
+        """
+        Selects the appropriate article version for a user based on their CEFR level.
+        Used for recommendations, search results, and listings.
+        """
+        try:
+            user_cefr_level = user.cefr_level_for_learned_language()
+        except (AttributeError, IndexError, TypeError):
+            user_cefr_level = None
+        
+        return article.get_appropriate_version_for_user_level(user_cefr_level)
+
+    @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, auto_select_version=True
+        cls, user: User, article: Article, with_content=False, with_translations=True
     ):
         """
-        Returns user-specific article information.
+        Returns user-specific article information for the given article.
+        No longer handles article selection - that should be done by the caller.
         
         Args:
             user: The user requesting the article info
             article: The article to get info for
             with_content: Whether to include full content/tokenization
             with_translations: Whether to include translation data
-            auto_select_version: If True, automatically selects the appropriate 
-                               article version based on user's CEFR level 
-                               (for recommendations/search). If False, returns 
-                               info for the exact article requested 
-                               (for direct article access).
         """
 
         from zeeguu.core.model.bookmark import Bookmark
@@ -267,24 +276,8 @@ class UserArticle(db.Model):
             ArticleFragmentContext,
         )
 
-        # Get the appropriate article version based on context
-        if auto_select_version:
-            # For recommendations/search: select version appropriate for user's level
-            try:
-                user_cefr_level = user.cefr_level_for_learned_language()
-            except (AttributeError, IndexError, TypeError):
-                # Fallback if user doesn't have a CEFR level set
-                user_cefr_level = None
-            
-            appropriate_article = article.get_appropriate_version_for_user_level(
-                user_cefr_level
-            )
-        else:
-            # For direct article access: use the exact article requested
-            appropriate_article = article
-
         # Initialize returned info with the article info
-        returned_info = appropriate_article.article_info(with_content=with_content)
+        returned_info = article.article_info(with_content=with_content)
         user_article_info = UserArticle.find(user, article)
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
         user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(

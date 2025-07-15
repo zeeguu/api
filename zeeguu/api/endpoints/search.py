@@ -283,7 +283,7 @@ def search_for_latest_search_terms(search_terms):
         use_readability_priority=True,
         score_threshold=2,
     )
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
 
     return json_result(article_infos)
 

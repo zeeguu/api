@@ -446,7 +446,7 @@ def content_recommendations(user_id: int, language_id: int):
 def get_user_info_from_content_recommendations(user, content_list):
     return [
         (
-            UserArticle.user_article_info(user, each)
+            UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, each))
             if type(each) is Article
             else UserVideo.user_video_info(user, each)
         )
