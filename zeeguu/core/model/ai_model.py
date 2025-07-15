@@ -19,7 +19,6 @@ class AIModel(db.Model):
     id = Column(Integer, primary_key=True)
     model_name = Column(String(100), nullable=False, unique=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
     def __init__(self, model_name, description=None):
         self.model_name = model_name
@@ -32,12 +31,12 @@ class AIModel(db.Model):
     def find_or_create(cls, session, model_name, description=None):
         """
         Find existing model or create new one.
-        
+
         Args:
             session: Database session
             model_name: Name of the AI model
             description: Optional description
-            
+
         Returns:
             AIModel instance
         """
@@ -52,7 +51,7 @@ class AIModel(db.Model):
             model = cls(model_name, description)
             session.add(model)
             session.commit()
-        
+
         return model
 
     @classmethod

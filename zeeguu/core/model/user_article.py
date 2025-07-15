@@ -253,8 +253,20 @@ class UserArticle(db.Model):
             ArticleFragmentContext,
         )
 
-        # Initialize returned info with the default article info
-        returned_info = article.article_info(with_content=with_content)
+        # Get user's CEFR level and find appropriate article version
+        try:
+            user_cefr_level = user.cefr_level_for_learned_language()
+        except (AttributeError, IndexError, TypeError):
+            # Fallback if user doesn't have a CEFR level set
+            user_cefr_level = None
+
+        # Get the appropriate article version for user's level
+        appropriate_article = article.get_appropriate_version_for_user_level(
+            user_cefr_level
+        )
+
+        # Initialize returned info with the article info
+        returned_info = appropriate_article.article_info(with_content=with_content)
         user_article_info = UserArticle.find(user, article)
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
         user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(

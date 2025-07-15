@@ -2,7 +2,16 @@ import re
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UnicodeText, desc
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    DateTime,
+    UnicodeText,
+    desc,
+    Enum,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -11,8 +20,10 @@ from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.model.ai_model import AIModel
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
+from zeeguu.logging import log
 
 from zeeguu.core.model.db import db
 
@@ -57,6 +68,22 @@ class Article(db.Model):
     broken = Column(Integer)
     deleted = Column(Integer)
     video = Column(Integer)
+
+    # Simplified article relationship fields
+    parent_article_id = Column(Integer, ForeignKey("article.id"))
+    # this is at the moment populated by an LLM
+    cefr_level = Column(Enum("A1", "A2", "B1", "B2", "C1", "C2"))
+    simplification_ai_model_id = Column(Integer, ForeignKey("ai_models.id"))
+
+    # Self-referential relationship for simplified versions
+    parent_article = relationship(
+        "Article", remote_side=[id], backref="simplified_versions"
+    )
+
+    # Relationship to AI model used for simplification
+    simplification_ai_model = relationship(
+        "AIModel", foreign_keys=[simplification_ai_model_id]
+    )
 
     from zeeguu.core.model.url import Url
 
@@ -259,8 +286,20 @@ class Article(db.Model):
         :return:
         """
 
-        summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        # Use stored summary if available, otherwise fallback to content truncation
+        if self.summary and len(self.summary.strip()) > 10:
+            summary = self.summary
+        else:
+            summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
         fk_difficulty = self.get_fk_difficulty()
+
+        # If cefr_level is set, use it. Otherwise, infer from fk
+        if self.cefr_level:
+            cefr_level = self.cefr_level
+        else:
+            # Fallback to calculating from FK difficulty
+            cefr_level = fk_to_cefr(fk_difficulty)
+
         result_dict = dict(
             id=self.id,
             source_id=self.source_id,
@@ -273,9 +312,19 @@ class Article(db.Model):
             metrics=dict(
                 difficulty=fk_difficulty / 100,
                 word_count=self.get_word_count(),
-                cefr_level=fk_to_cefr(fk_difficulty),
+                cefr_level=cefr_level,
             ),
         )
+
+        # Add simplified article metadata if this is a simplified version
+        if self.parent_article_id:
+            result_dict["parent_article_id"] = self.parent_article_id
+            # Include parent article's CEFR level
+            if self.parent_article and self.parent_article.cefr_level:
+                result_dict["parent_cefr_level"] = self.parent_article.cefr_level
+            # Include parent URL for reference
+            if self.parent_article and self.parent_article.url:
+                result_dict["parent_url"] = self.parent_article.url.as_string()
 
         if self.authors:
             result_dict["authors"] = self.authors
@@ -359,6 +408,136 @@ class Article(db.Model):
 
     def is_owned_by(self, user):
         return self.uploader_id == user.id
+
+    def get_appropriate_version_for_user_level(self, user_cefr_level):
+        """
+        Returns the appropriate article version for the user's CEFR level.
+        Falls back to original if no simplified version exists.
+        """
+        if not user_cefr_level:
+            return self
+
+        # If this is already a simplified version, check if it's the right level
+        if self.parent_article_id:
+            # Check if this simplified version matches the user's level
+            if self.cefr_level == user_cefr_level:
+                return self
+            else:
+                # If not the right level, delegate to parent article to find the right version
+                return self.parent_article.get_appropriate_version_for_user_level(
+                    user_cefr_level
+                )
+
+        # Look for simplified version matching user's level
+        for simplified in self.simplified_versions:
+            if simplified.cefr_level == user_cefr_level:
+                return simplified
+
+        # Fallback to original article
+        return self
+
+    @classmethod
+    def create_simplified_version(
+        cls,
+        session,
+        parent_article,
+        simplified_title,
+        simplified_content,
+        simplified_summary,
+        cefr_level,
+        ai_model,
+        original_cefr_level=None,
+        original_summary=None,
+        commit=True,
+    ):
+        """
+        Creates a simplified version of an article as a new entry in the article table
+        """
+        from zeeguu.core.model.source import Source
+        from zeeguu.core.model.source_type import SourceType
+
+        # Create a Source object for the simplified content
+        source_type = SourceType.find_by_type(SourceType.ARTICLE)
+        simplified_source = Source.find_or_create(
+            session,
+            simplified_content,
+            source_type,
+            parent_article.language,
+            0,  # broken flag
+            commit=False,
+        )
+
+        # Create temporary placeholder URL for simplified article
+        # We'll update this to the standard format after the article gets its ID
+        from zeeguu.core.model.url import Url
+        import uuid
+
+        placeholder_url_string = f"https://zeeguu.org/simplified/pending/{uuid.uuid4()}"
+        placeholder_url = Url.find_or_create(session, placeholder_url_string)
+
+        # Create the simplified article
+        simplified_article = cls(
+            placeholder_url,  # Temporary placeholder URL
+            simplified_title,
+            "",  # Empty authors field for simplified articles
+            simplified_source,
+            simplified_summary,  # Use AI-generated summary
+            parent_article.published_time,
+            parent_article.feed,
+            parent_article.language,
+            parent_article.htmlContent,
+            parent_article.uploader,
+        )
+
+        # Debug: Ensure summary is set correctly
+        if simplified_summary and len(simplified_summary) > 10:
+            simplified_article.summary = simplified_summary
+            log(
+                f"Set simplified summary ({len(simplified_summary)} chars): {simplified_summary[:100]}..."
+            )
+
+        # Set simplified article specific fields
+        simplified_article.parent_article_id = parent_article.id
+        simplified_article.cefr_level = cefr_level
+
+        # Find or create AI model record
+        ai_model_record = AIModel.find_or_create(session, ai_model)
+        simplified_article.simplification_ai_model_id = ai_model_record.id
+
+        # Inherit image from parent article
+        if parent_article.img_url:
+            simplified_article.img_url = parent_article.img_url
+
+        # Set the original article's CEFR level and summary if provided and not already set
+        if original_cefr_level and not parent_article.cefr_level:
+            parent_article.cefr_level = original_cefr_level
+            session.add(parent_article)
+
+        if original_summary:
+            parent_article.summary = original_summary
+            session.add(parent_article)
+
+        session.add(simplified_article)
+
+        # Create article fragments for web display
+        simplified_article.create_article_fragments(session)
+
+        if commit:
+            session.commit()
+
+            # Update URL to standard format now that we have the article ID
+            final_url_string = (
+                f"https://zeeguu.org/read/article?id={simplified_article.id}"
+            )
+            final_url = Url.find_or_create(session, final_url_string)
+            simplified_article.url = final_url
+            session.add(simplified_article)  # Ensure the updated article is tracked
+            session.commit()
+            
+            # Refresh to ensure we have the latest state
+            session.refresh(simplified_article)
+
+        return simplified_article
 
     def add_or_replace_topic(self, topic, session, origin_type: TopicOriginType):
         t = ArticleTopicMap.create_or_update(
