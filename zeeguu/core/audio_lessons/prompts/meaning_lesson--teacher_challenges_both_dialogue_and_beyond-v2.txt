@@ -43,6 +43,11 @@ Use this exact format:
     with commonly used contexts for the word.
 
 
+
+    At the end, use the teacher to voice an ending sentence for the lesson with the following script:
+    Teacher: "This is the end of today's audio lesson with Zeeguu. Hope you enjoyed learning new words with us. See you on tomorrow's new lesson!"
+
+
 RULES:
 - Use only "Teacher:", "Man:", "Woman:" labels
 - Include [X seconds] timing for pauses
