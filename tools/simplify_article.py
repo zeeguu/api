@@ -3,22 +3,24 @@
 Command-line tool for creating simplified versions of articles.
 
 Usage:
-    python -m tools.simplify_article <article_id> <cefr_level>
-    python -m tools.simplify_article <article_id> --all
+    python -m tools.simplify_article <article_id> [cefr_level]
+    python -m tools.simplify_article --today
     python -m tools.simplify_article --list <article_id>
 
 Examples:
+    python -m tools.simplify_article 123         # AI assesses level & creates all needed versions
     python -m tools.simplify_article 123 A1      # Create specific A1 version
-    python -m tools.simplify_article 123 --all   # AI assesses level & creates all needed versions
+    python -m tools.simplify_article --today     # Find today's articles and create all versions
     python -m tools.simplify_article --list 123  # List all versions
 
-Note: --all uses AI to assess the original article's CEFR level and creates
+Note: By default, AI assesses the original article's CEFR level and creates
       all simplified versions for levels simpler than the original.
       B2 article → A1, A2, B1 | C1 article → A1, A2, B1, B2 | A1 article → none
 """
 
 import sys
 import argparse
+from datetime import date
 from zeeguu.api.app import create_app
 from zeeguu.core.model import Article, db
 from zeeguu.core.content_simplifier import (
@@ -226,29 +228,86 @@ def simplify_all_levels(article_id):
         return False
 
 
+def simplify_today_articles():
+    """Find all articles from today and create simplified versions for them."""
+    from datetime import datetime, timedelta
+    
+    today = date.today()
+    print(f"🔍 Finding articles from today ({today})...")
+    
+    # Create datetime objects for start and end of today
+    start_of_today = datetime.combine(today, datetime.min.time())
+    end_of_today = start_of_today + timedelta(days=1)
+    
+    # Find articles published today
+    articles = Article.query.filter(
+        Article.published_time >= start_of_today,
+        Article.published_time < end_of_today,
+        Article.parent_article_id == None,  # Only original articles
+        Article.broken == 0  # Not broken
+    ).all()
+    
+    if not articles:
+        print(f"📭 No articles found from today ({today})")
+        return True
+    
+    print(f"📰 Found {len(articles)} articles from today")
+    
+    total_success = 0
+    total_failed = 0
+    
+    for i, article in enumerate(articles, 1):
+        print(f"\n📄 Processing article {i}/{len(articles)} (ID: {article.id})")
+        print(f"Title: {article.title}")
+        
+        # Check if it already has simplified versions
+        if article.simplified_versions:
+            print(f"⚠️  Article {article.id} already has {len(article.simplified_versions)} simplified versions")
+            continue
+        
+        try:
+            simplified_articles = auto_create_simplified_versions(db.session, article)
+            if simplified_articles:
+                print(f"✅ Created {len(simplified_articles)} simplified versions for article {article.id}")
+                total_success += 1
+            else:
+                print(f"⚠️  No simplified versions created for article {article.id}")
+        except Exception as e:
+            print(f"❌ Failed to simplify article {article.id}: {str(e)}")
+            total_failed += 1
+    
+    print(f"\n📊 Summary:")
+    print(f"  ✅ Successfully simplified: {total_success} articles")
+    print(f"  ❌ Failed to simplify: {total_failed} articles")
+    print(f"  ⚠️  Skipped (already had versions): {len(articles) - total_success - total_failed} articles")
+    
+    return total_failed == 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create simplified versions of articles",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m tools.simplify_article 123 A1     # Create specific A1 version
-  python -m tools.simplify_article 123 --all  # AI creates all needed versions
+  python -m tools.simplify_article 123       # AI creates all needed versions
+  python -m tools.simplify_article 123 A1    # Create specific A1 version
+  python -m tools.simplify_article --today   # Find today's articles and create all versions
   python -m tools.simplify_article --list 123 # List all versions
 
-Note: --all uses AI to assess the original CEFR level and creates all 
+Note: By default, AI assesses the original CEFR level and creates all 
       simplified versions for levels simpler than the original.
         """,
     )
 
-    parser.add_argument("article_id", type=int, help="ID of the article to simplify")
+    parser.add_argument("article_id", nargs="?", type=int, help="ID of the article to simplify")
     parser.add_argument(
         "cefr_level", nargs="?", help="CEFR level (A1, A2, B1, B2, C1, C2)"
     )
     parser.add_argument(
-        "--all",
+        "--today",
         action="store_true",
-        help="AI assesses level & creates all needed simplified versions",
+        help="Find articles from today and create all simplified versions",
     )
     parser.add_argument(
         "--list", action="store_true", help="List all versions of the article"
@@ -256,20 +315,31 @@ Note: --all uses AI to assess the original CEFR level and creates all
 
     args = parser.parse_args()
 
+    # Handle today command
+    if args.today:
+        success = simplify_today_articles()
+        sys.exit(0 if success else 1)
+
     # Handle list command
     if args.list:
+        if not args.article_id:
+            print("❌ Please specify an article ID with --list")
+            parser.print_help()
+            sys.exit(1)
         success = list_article_versions(args.article_id)
         sys.exit(0 if success else 1)
 
     # Handle simplification commands
-    if args.all:
-        success = simplify_all_levels(args.article_id)
-    elif args.cefr_level:
-        success = simplify_single_article(args.article_id, args.cefr_level.upper())
-    else:
-        print("❌ Please specify a CEFR level or use --all")
+    if not args.article_id:
+        print("❌ Please specify an article ID or use --today")
         parser.print_help()
         sys.exit(1)
+
+    if args.cefr_level:
+        success = simplify_single_article(args.article_id, args.cefr_level.upper())
+    else:
+        # Default behavior: create all versions (was --all)
+        success = simplify_all_levels(args.article_id)
 
     sys.exit(0 if success else 1)
 
