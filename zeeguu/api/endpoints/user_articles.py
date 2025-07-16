@@ -4,16 +4,15 @@ from zeeguu.core.content_recommender import (
     article_recommendations_for_user,
     topic_filter_for_user,
     content_recommendations,
-    video_recommendations_for_user,
+    get_user_info_from_content_recommendations,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, Video
+from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from sentry_sdk import capture_exception
 from . import api
 
-from random import random
 
 from flask import request
 
@@ -39,30 +38,10 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     """
 
-    def mix_articles_with_videos(articles, videos):
-        """
-        Mixes articles with the videos by placing them in random positions
-        +-2 the positon of the lat placed video + the index of the video.
-
-        This naturally increases the distance between the videos.
-        Some examples of video positions:
-            - [0, 1, 4, 8, 12], [0, 2, 4, 9, 15], [1, 3, 5, 8, 13], [2, 4, 7, 12, 17]
-        """
-        final_result = []
-        last_placed_video = 0
-        for v_i, video in enumerate(videos):
-            video_pos_i = last_placed_video + int(round(random() * 2) + (v_i))
-            final_result += articles[last_placed_video:video_pos_i] + [video]
-            last_placed_video = video_pos_i
-        final_result += articles[last_placed_video:]
-        return final_result
-
     user = User.find_by_id(flask.g.user_id)
     try:
-        articles = article_recommendations_for_user(user, count, page)
-        videos = video_recommendations_for_user(user, 5, page)
-        print("Total Videos found: ", len(videos))
-        print("Total Articles found: ", len(articles))
+        content = article_recommendations_for_user(user, count, page)
+        print("Total content found: ", len(content))
     except Exception as e:
         import traceback
 
@@ -70,24 +49,15 @@ def user_articles_recommended(count: int = 15, page: int = 0):
         # return something
         print(e)
         print(traceback.format_exc())
-        articles = (
+        content = (
             Article.query.filter_by(broken=0)
             .filter_by(language_id=user.learned_language_id)
             .order_by(Article.published_time.desc())
             .limit(20)
         )
 
-        videos = (
-            Video.query.filter_by(broken=0)
-            .filter_by(language_id=user.learned_language_id)
-            .order_by(Video.published_time.desc())
-            .limit(3)
-        )
-
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
-    video_infos = [v.video_info() for v in videos if v]
-    combined_results = mix_articles_with_videos(article_infos, video_infos)
-    return json_result(combined_results)
+    content_infos = get_user_info_from_content_recommendations(user, content)
+    return json_result(content_infos)
 
 
 @api.route("/user_articles/saved", methods=["GET"])

@@ -158,7 +158,16 @@ def article_recommendations_for_user(
     res = es.search(index=ES_ZINDEX, body=query_body)
 
     hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+    # Handle both articles and videos in organic recommendations
+    content_objects = [
+        (
+            _get_article_from_ES_hit(h)
+            if "article_id" in h["_source"]
+            else _get_video_from_ES_hit(h)
+        )
+        for h in hit_list
+    ]
+    final_article_mix.extend([c for c in content_objects if c is not None])
 
     # Get articles based on Search preferences
     articles_from_searches = []
@@ -173,14 +182,14 @@ def article_recommendations_for_user(
             use_readability_priority=True,
         )
 
-    # Limit the searched added articles to a maximum of 10 extra articles.
-    articles = [
-        a for a in final_article_mix if a is not None and not a.broken
+    # Limit the searched added content to a maximum of 10 extra items.
+    content = [
+        c for c in final_article_mix if c is not None and not c.broken
     ] + articles_from_searches[:maximum_added_search_articles]
 
-    sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
+    sorted_content = sorted(content, key=lambda x: x.published_time, reverse=True)
 
-    return sorted_articles
+    return sorted_content
 
 
 def video_recommendations_for_user(

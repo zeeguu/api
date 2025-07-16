@@ -132,7 +132,8 @@ def build_elastic_recommender_query(
         )
 
     must.append(exists("published_time"))
-    must.append(exists("article_id"))
+    # Allow both articles and videos in organic recommendations
+    must.append({"bool": {"should": [exists("article_id"), exists("video_id")]}})
 
     topics_to_find = array_of_topics(topics_to_include)
     if len(topics_to_find) > 0:
