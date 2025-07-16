@@ -5,12 +5,14 @@ Command-line tool for creating simplified versions of articles.
 Usage:
     python -m tools.simplify_article <article_id> [cefr_level]
     python -m tools.simplify_article --today
+    python -m tools.simplify_article --yesterday
     python -m tools.simplify_article --list <article_id>
 
 Examples:
     python -m tools.simplify_article 123         # AI assesses level & creates all needed versions
     python -m tools.simplify_article 123 A1      # Create specific A1 version
     python -m tools.simplify_article --today     # Find today's articles and create all versions
+    python -m tools.simplify_article --yesterday # Find yesterday's articles and create all versions
     python -m tools.simplify_article --list 123  # List all versions
 
 Note: By default, AI assesses the original article's CEFR level and creates
@@ -228,30 +230,29 @@ def simplify_all_levels(article_id):
         return False
 
 
-def simplify_today_articles():
-    """Find all articles from today and create simplified versions for them."""
+def simplify_articles_by_date(target_date, date_name):
+    """Find all articles from a specific date and create simplified versions for them."""
     from datetime import datetime, timedelta
     
-    today = date.today()
-    print(f"🔍 Finding articles from today ({today})...")
+    print(f"🔍 Finding articles from {date_name} ({target_date})...")
     
-    # Create datetime objects for start and end of today
-    start_of_today = datetime.combine(today, datetime.min.time())
-    end_of_today = start_of_today + timedelta(days=1)
+    # Create datetime objects for start and end of the target date
+    start_of_date = datetime.combine(target_date, datetime.min.time())
+    end_of_date = start_of_date + timedelta(days=1)
     
-    # Find articles published today
+    # Find articles published on the target date
     articles = Article.query.filter(
-        Article.published_time >= start_of_today,
-        Article.published_time < end_of_today,
+        Article.published_time >= start_of_date,
+        Article.published_time < end_of_date,
         Article.parent_article_id == None,  # Only original articles
         Article.broken == 0  # Not broken
     ).all()
     
     if not articles:
-        print(f"📭 No articles found from today ({today})")
+        print(f"📭 No articles found from {date_name} ({target_date})")
         return True
     
-    print(f"📰 Found {len(articles)} articles from today")
+    print(f"📰 Found {len(articles)} articles from {date_name}")
     
     total_success = 0
     total_failed = 0
@@ -284,16 +285,33 @@ def simplify_today_articles():
     return total_failed == 0
 
 
+def simplify_today_articles():
+    """Find all articles from today and create simplified versions for them."""
+    from datetime import timedelta
+    
+    today = date.today()
+    return simplify_articles_by_date(today, "today")
+
+
+def simplify_yesterday_articles():
+    """Find all articles from yesterday and create simplified versions for them."""
+    from datetime import timedelta
+    
+    yesterday = date.today() - timedelta(days=1)
+    return simplify_articles_by_date(yesterday, "yesterday")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create simplified versions of articles",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m tools.simplify_article 123       # AI creates all needed versions
-  python -m tools.simplify_article 123 A1    # Create specific A1 version
-  python -m tools.simplify_article --today   # Find today's articles and create all versions
-  python -m tools.simplify_article --list 123 # List all versions
+  python -m tools.simplify_article 123         # AI creates all needed versions
+  python -m tools.simplify_article 123 A1      # Create specific A1 version
+  python -m tools.simplify_article --today     # Find today's articles and create all versions
+  python -m tools.simplify_article --yesterday # Find yesterday's articles and create all versions
+  python -m tools.simplify_article --list 123  # List all versions
 
 Note: By default, AI assesses the original CEFR level and creates all 
       simplified versions for levels simpler than the original.
@@ -310,6 +328,11 @@ Note: By default, AI assesses the original CEFR level and creates all
         help="Find articles from today and create all simplified versions",
     )
     parser.add_argument(
+        "--yesterday",
+        action="store_true",
+        help="Find articles from yesterday and create all simplified versions",
+    )
+    parser.add_argument(
         "--list", action="store_true", help="List all versions of the article"
     )
 
@@ -318,6 +341,11 @@ Note: By default, AI assesses the original CEFR level and creates all
     # Handle today command
     if args.today:
         success = simplify_today_articles()
+        sys.exit(0 if success else 1)
+
+    # Handle yesterday command
+    if args.yesterday:
+        success = simplify_yesterday_articles()
         sys.exit(0 if success else 1)
 
     # Handle list command
@@ -331,7 +359,7 @@ Note: By default, AI assesses the original CEFR level and creates all
 
     # Handle simplification commands
     if not args.article_id:
-        print("❌ Please specify an article ID or use --today")
+        print("❌ Please specify an article ID or use --today/--yesterday")
         parser.print_help()
         sys.exit(1)
 
