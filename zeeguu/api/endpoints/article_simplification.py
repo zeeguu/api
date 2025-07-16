@@ -72,7 +72,7 @@ def article_simplification_levels():
     from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
     if original_article.cefr_level:
-        ce = original_article.cefr_level
+        original_cefr_level = original_article.cefr_level
     else:
         # Fallback to calculating from FK difficulty
         original_cefr_level = fk_to_cefr(original_article.get_fk_difficulty())
