@@ -12,19 +12,19 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 # See: https://cloud.google.com/text-to-speech/docs/voices
 PREFERRED_VOICES = {
-    "da": "da-DK-Wavenet-D",
-    "fr": "fr-FR-Neural2-C",
+    "da": "da-DK-Wavenet-F",
+    "fr": "fr-FR-Chirp3-HD-Erinome",
     "en": "en-US",
-    "nl": "nl-NL-Wavenet-B",
-    "de": "de-DE-Neural2-C",
+    "nl": "nl-NL-Chirp3-HD-Achernar",
+    "de": "de-DE-Chirp-HD-F",
     "it": "it-IT-Neural2-A",
-    "pt": "pt-PT-Wavenet-A",
+    "pt": "pt-PT-Wavenet-E",
     "se": "sv-SE-Wavenet-F",
-    "no": "nb-NO-Standard-A",
+    "no": "nb-NO-Wavenet-F",
     "pl": "pl-PL-Chirp3-HD-Aoede",
     "ru": "ru-RU-Standard-C",
     "es": "es-ES-Chirp-HD-F",
-    "ro": "ro-RO-Wavenet-A",
+    "ro": "ro-RO-Wavenet-B",
 }
 
 
