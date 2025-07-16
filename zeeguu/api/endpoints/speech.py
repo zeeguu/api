@@ -19,7 +19,7 @@ PREFERRED_VOICES = {
     "de": "de-DE-Neural2-C",
     "it": "it-IT-Neural2-A",
     "pt": "pt-PT-Wavenet-A",
-    "se": "sv-SE-Standard-F",
+    "se": "sv-SE-Wavenet-F",
     "no": "nb-NO-Standard-A",
     "pl": "pl-PL-Chirp3-HD-Aoede",
     "ru": "ru-RU-Standard-C",
