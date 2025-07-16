@@ -151,6 +151,7 @@ def _code_from_id(language_id):
     irregular_language_codes = {
         "da": "da-DK",
         "en": "en-US",
+        "se": "sv-SE",  # Swedish uses 'sv' not 'se' in Google TTS
     }
     if irregular_language_codes.get(language_id):
         return irregular_language_codes[language_id]
