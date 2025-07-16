@@ -25,10 +25,10 @@ class FeedTest(ModelTestMixIn, TestCase):
         # The test expects at least 1 article after quality filtering
         # Some articles may be filtered out due to quality checks (paywall patterns, etc.)
         articles = self.spiegel.get_articles()
-        
+
         # We should get at least 1 high-quality article from the feed
-        assert len(articles) >= 1
-        
+        assert len(articles) >= 2
+
         # Test that limit parameter works
         limited_articles = self.spiegel.get_articles(limit=1)
         assert len(limited_articles) == 1
@@ -48,7 +48,7 @@ class FeedTest(ModelTestMixIn, TestCase):
 
     def test_article_ordering(self):
         ordered_by_difficulty = self.spiegel.get_articles(easiest_first=True)
-        
+
         # Only test ordering if we have multiple articles
         if len(ordered_by_difficulty) >= 2:
             assert (
@@ -58,7 +58,9 @@ class FeedTest(ModelTestMixIn, TestCase):
 
         ordered_by_time = self.spiegel.get_articles(most_recent_first=True)
         if len(ordered_by_time) >= 2:
-            assert ordered_by_time[0].published_time >= ordered_by_time[1].published_time
-        
+            assert (
+                ordered_by_time[0].published_time >= ordered_by_time[1].published_time
+            )
+
         # At minimum, we should have at least 1 article
-        assert len(ordered_by_difficulty) >= 1
+        assert len(ordered_by_difficulty) == 2

@@ -521,5 +521,17 @@ def auto_create_simplified_versions(
         else:
             log(f"  REASON: Unexpected error during simplification process")
 
-        session.rollback()
+        # Only rollback for specific database-related errors that might have corrupted the session
+        # Don't rollback for API failures or missing configurations
+        if (
+            "IntegrityError" in str(type(e))
+            or "DataError" in str(type(e))
+            or "database" in error_msg.lower()
+            or "constraint" in error_msg.lower()
+        ):
+            log(f"  DATABASE ERROR: Rolling back session due to database-related error")
+            session.rollback()
+        else:
+            log(f"  NO ROLLBACK: Error is not database-related, preserving original article")
+
         return []
