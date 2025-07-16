@@ -279,12 +279,7 @@ def article_and_video_search_for_user(
         each for each in content_objects if each is not None and not each.broken
     ]
 
-    # Separate articles and videos for deduplication
-    articles = [item for item in final_mix if isinstance(item, Article)]
-    videos = [item for item in final_mix if isinstance(item, Video)]
-
-    # Combine back articles and videos
-    return articles + videos
+    return final_mix
 
 
 def topic_filter_for_user(
@@ -446,7 +441,9 @@ def content_recommendations(user_id: int, language_id: int):
 def get_user_info_from_content_recommendations(user, content_list):
     return [
         (
-            UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, each))
+            UserArticle.user_article_info(
+                user, UserArticle.select_appropriate_article_for_user(user, each)
+            )
             if type(each) is Article
             else UserVideo.user_video_info(user, each)
         )
