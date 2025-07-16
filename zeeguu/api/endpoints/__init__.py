@@ -38,3 +38,4 @@ from .reading_sessions import *
 from . import user_video
 from . import user_watching_session
 from . import audio_lessons
+from . import article_simplification

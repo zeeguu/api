@@ -84,7 +84,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
             .limit(3)
         )
 
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
     video_infos = [v.video_info() for v in videos if v]
     combined_results = mix_articles_with_videos(article_infos, video_infos)
     return json_result(combined_results)
@@ -101,7 +101,7 @@ def saved_articles(page: int = None):
     else:
         saves = PersonalCopy.all_for(user)
 
-    article_infos = [UserArticle.user_article_info(user, e) for e in saves]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, e)) for e in saves]
 
     return json_result(article_infos)
 
@@ -112,7 +112,7 @@ def saved_articles():
     user = User.find_by_id(flask.g.user_id)
     saves = PersonalCopy.all_for(user)
 
-    article_infos = [UserArticle.user_article_info(user, e) for e in saves]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, e)) for e in saves]
 
     return json_result(article_infos)
 
@@ -145,7 +145,7 @@ def user_articles_topic_filtered():
         difficulty_level,
         topic,
     )
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
 
     return json_result(article_infos)
 
@@ -192,6 +192,6 @@ def user_articles_foryou():
         capture_exception(e)
         # Usually no recommendations when the user has not liked any articles
         articles = []
-    article_infos = [UserArticle.user_article_info(user, a) for a in articles]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
 
     return json_result(article_infos)

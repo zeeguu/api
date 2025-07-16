@@ -35,6 +35,7 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
+from zeeguu.core.content_simplifier import auto_create_simplified_versions
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
@@ -361,6 +362,19 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     _, topics = add_topics(new_article, feed, url_keywords, session)
     logp(f"Topics ({topics})")
     session.add(new_article)
+    
+    # Auto-create simplified versions for the new article
+    try:
+        simplified_articles = auto_create_simplified_versions(session, new_article)
+        if simplified_articles:
+            logp(f"Auto-created {len(simplified_articles)} simplified versions for article {new_article.id}")
+        else:
+            logp(f"No simplified versions created for article {new_article.id} (see logs for reason)")
+    except Exception as e:
+        # Don't fail the entire crawl if simplification fails
+        logp(f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}")
+        capture_to_sentry(e)
+    
     return new_article
 
 

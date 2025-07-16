@@ -117,7 +117,7 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
             clientHeight = viewport_settings["clientHeight"]
             bottomRowHeight = viewport_settings["bottomRowHeight"]
             art = Article.find_by_id(art_id)
-            art_info = UserArticle.user_article_info(user, art)
+            art_info = UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, art))
             # We might use these for a more complex calculation of where to lead the user
             # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
             # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)

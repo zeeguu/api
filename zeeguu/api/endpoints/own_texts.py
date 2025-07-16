@@ -38,7 +38,7 @@ def own_texts():
     all_articles = r + r2
     all_articles.sort(key=lambda art: art.id, reverse=True)
 
-    article_infos = [UserArticle.user_article_info(user, e) for e in all_articles]
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, e)) for e in all_articles]
 
     return json_result(article_infos)
 

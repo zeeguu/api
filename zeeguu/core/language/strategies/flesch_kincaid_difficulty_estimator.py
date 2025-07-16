@@ -1,6 +1,6 @@
 import nltk
 import pyphen
-from numpy import math
+import math
 
 from zeeguu.core.language.difficulty_estimator_strategy import (
     DifficultyEstimatorStrategy,

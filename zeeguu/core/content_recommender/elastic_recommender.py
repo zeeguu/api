@@ -11,6 +11,13 @@ from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q
 
 from zeeguu.core.elastic.basic_ops import es_get_es_id_from_article_id
+from zeeguu.core.elastic.elastic_query_builder import (
+    build_elastic_recommender_query,
+    build_elastic_search_query,
+    build_elastic_more_like_this_query,
+    build_elastic_search_query_for_videos,
+)
+from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.model import (
     Article,
     Video,
@@ -22,16 +29,8 @@ from zeeguu.core.model import (
     UserVideo,
     Language,
 )
-
-from zeeguu.core.elastic.elastic_query_builder import (
-    build_elastic_recommender_query,
-    build_elastic_search_query,
-    build_elastic_more_like_this_query,
-    build_elastic_search_query_for_videos,
-)
-from zeeguu.core.util.timer_logging_decorator import time_this
-from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.util.timer_logging_decorator import time_this
 
 
 def filter_hits_on_score(hits, score_threshold):
@@ -180,6 +179,7 @@ def article_recommendations_for_user(
     ] + articles_from_searches[:maximum_added_search_articles]
 
     sorted_articles = sorted(articles, key=lambda x: x.published_time, reverse=True)
+
     return sorted_articles
 
 
@@ -338,7 +338,9 @@ def topic_filter_for_user(
 
     final_article_mix = _to_articles_from_ES_hits(hit_list)
 
-    return [a for a in final_article_mix if a is not None and not a.broken]
+    articles = [a for a in final_article_mix if a is not None and not a.broken]
+
+    return articles
 
 
 def _list_to_string(input_list):
@@ -432,13 +434,16 @@ def content_recommendations(user_id: int, language_id: int):
             user_likes.append(article.article_id)
 
     articles_to_recommend = __find_articles_like(user_likes, 20, 50, language_id)
+
     return articles_to_recommend
 
 
 def get_user_info_from_content_recommendations(user, content_list):
     return [
         (
-            UserArticle.user_article_info(user, each)
+            UserArticle.user_article_info(
+                user, UserArticle.select_appropriate_article_for_user(user, each)
+            )
             if type(each) is Article
             else UserVideo.user_video_info(user, each)
         )

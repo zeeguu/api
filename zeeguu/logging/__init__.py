@@ -22,6 +22,7 @@ def debug(msg):
 
 def log(msg):
     info(msg)
+    print(msg)
 
 
 def warning(msg):
