@@ -247,12 +247,33 @@ def update_translation(bookmark_id):
         prev_context.right_ellipsis if is_same_context else None,
     )
 
+    # Store the old UserWord's learning status before switching
+    old_user_word = bookmark.user_word
+    old_fit_for_study = old_user_word.fit_for_study
+    old_user_preference = old_user_word.user_preference
+    
     # Create a new UserWord with the updated meaning
     new_user_word = UserWord.find_or_create(
         db_session,
         bookmark.user_word.user,
         meaning
     )
+    
+    # If we're switching to a different UserWord (not just updating the same one)
+    # and the old one was fit for study, preserve that status
+    if new_user_word.id != old_user_word.id and old_fit_for_study:
+        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+        
+        # If the new UserWord is marked as unfit due to quality checks,
+        # but the user was actively studying it, override with user preference
+        if not new_user_word.fit_for_study and old_user_preference != UserWordExPreference.DONT_USE_IN_EXERCISES:
+            new_user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
+            new_user_word.update_fit_for_study(db_session)
+        
+        # Update preferred bookmark if needed
+        if not new_user_word.preferred_bookmark or new_user_word.preferred_bookmark.quality < bookmark.quality:
+            new_user_word.preferred_bookmark_id = bookmark.id
+    
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
