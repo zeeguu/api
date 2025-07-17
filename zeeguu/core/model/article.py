@@ -805,15 +805,43 @@ class Article(db.Model):
             Article object if duplicate found, None otherwise
         """
         try:
-            # Look for articles with same title, content preview, feed, and language
-            # Only check original articles (not simplified versions)
-            return cls.query.filter(
+            # First try exact title match
+            exact_match = cls.query.filter(
                 cls.title == title,
                 cls.content.like(f"{content_preview}%"),
                 cls.feed_id == feed_id,
                 cls.language_id == language_id,
                 cls.parent_article_id == None
             ).first()
+            
+            if exact_match:
+                return exact_match
+            
+            # If no exact match, try fuzzy title matching for similar titles
+            # This catches typos like "Gittes Von G" vs "Gitte Von G"
+            import difflib
+            
+            # Get all articles from same feed with similar content length
+            candidates = cls.query.filter(
+                cls.content.like(f"{content_preview}%"),
+                cls.feed_id == feed_id,
+                cls.language_id == language_id,
+                cls.parent_article_id == None
+            ).all()
+            
+            # Check for similar titles using fuzzy matching
+            for candidate in candidates:
+                if candidate.title and title:
+                    # Calculate similarity ratio (0.0 to 1.0)
+                    similarity = difflib.SequenceMatcher(None, title.lower(), candidate.title.lower()).ratio()
+                    
+                    # If titles are very similar (>90% match), consider it a duplicate
+                    if similarity > 0.9:
+                        log(f"Found similar article: '{title}' vs '{candidate.title}' (similarity: {similarity:.3f})")
+                        return candidate
+            
+            return None
+            
         except Exception as e:
             # If anything goes wrong, don't block article creation
             log(f"Error in content-based deduplication: {str(e)}")
