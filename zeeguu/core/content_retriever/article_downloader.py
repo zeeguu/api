@@ -296,6 +296,21 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         raise SkippedAlreadyInDB()
 
     np_article = readability_download_and_parse(url)
+    
+    # Enhanced deduplication: check by content if URL-based check fails
+    # This prevents duplicate articles that have no URL or different URLs but same content
+    if np_article and np_article.text:
+        # Check for duplicates based on title, content, and source
+        existing_article = model.Article.find_by_content_and_source(
+            title=title,
+            content_preview=np_article.text[:1000],  # Use first 1000 chars as fingerprint
+            feed_id=feed.id,
+            language_id=feed.language.id
+        )
+        
+        if existing_article:
+            logp(f" - Duplicate content found (ID: {existing_article.id})")
+            raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
         np_article, feed.language.code
