@@ -519,6 +519,12 @@ class Article(db.Model):
 
         session.add(simplified_article)
 
+        # Inherit topics from parent article with same origin type
+        for topic_map in parent_article.topics:
+            simplified_article.add_topic_if_doesnt_exist(
+                topic_map.topic, session, topic_map.origin_type
+            )
+
         # Create article fragments for web display
         simplified_article.create_article_fragments(session)
 
@@ -533,7 +539,7 @@ class Article(db.Model):
             simplified_article.url = final_url
             session.add(simplified_article)  # Ensure the updated article is tracked
             session.commit()
-            
+
             # Refresh to ensure we have the latest state
             session.refresh(simplified_article)
 
@@ -790,17 +796,19 @@ class Article(db.Model):
             return None
 
     @classmethod
-    def find_by_content_and_source(cls, title: str, content_preview: str, feed_id: int, language_id: int):
+    def find_by_content_and_source(
+        cls, title: str, content_preview: str, feed_id: int, language_id: int
+    ):
         """
         Find existing article by content fingerprint and source to prevent duplicates.
         This is a fallback when URL-based deduplication fails.
-        
+
         Args:
             title: Article title
             content_preview: First 1000 characters of article content
             feed_id: Feed ID
             language_id: Language ID
-            
+
         Returns:
             Article object if duplicate found, None otherwise
         """
@@ -811,37 +819,41 @@ class Article(db.Model):
                 cls.content.like(f"{content_preview}%"),
                 cls.feed_id == feed_id,
                 cls.language_id == language_id,
-                cls.parent_article_id == None
+                cls.parent_article_id == None,
             ).first()
-            
+
             if exact_match:
                 return exact_match
-            
+
             # If no exact match, try fuzzy title matching for similar titles
             # This catches typos like "Gittes Von G" vs "Gitte Von G"
             import difflib
-            
+
             # Get all articles from same feed with similar content length
             candidates = cls.query.filter(
                 cls.content.like(f"{content_preview}%"),
                 cls.feed_id == feed_id,
                 cls.language_id == language_id,
-                cls.parent_article_id == None
+                cls.parent_article_id == None,
             ).all()
-            
+
             # Check for similar titles using fuzzy matching
             for candidate in candidates:
                 if candidate.title and title:
                     # Calculate similarity ratio (0.0 to 1.0)
-                    similarity = difflib.SequenceMatcher(None, title.lower(), candidate.title.lower()).ratio()
-                    
+                    similarity = difflib.SequenceMatcher(
+                        None, title.lower(), candidate.title.lower()
+                    ).ratio()
+
                     # If titles are very similar (>90% match), consider it a duplicate
                     if similarity > 0.9:
-                        log(f"Found similar article: '{title}' vs '{candidate.title}' (similarity: {similarity:.3f})")
+                        log(
+                            f"Found similar article: '{title}' vs '{candidate.title}' (similarity: {similarity:.3f})"
+                        )
                         return candidate
-            
+
             return None
-            
+
         except Exception as e:
             # If anything goes wrong, don't block article creation
             log(f"Error in content-based deduplication: {str(e)}")
