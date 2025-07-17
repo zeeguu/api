@@ -700,6 +700,9 @@ class DailyLessonGenerator:
             elif action == "complete":
                 # Mark lesson as completed
                 lesson.mark_completed()
+                
+                # Progress words when audio lesson is completed
+                self._progress_words_from_completed_lesson(lesson, user)
 
             else:
                 return {
@@ -728,3 +731,52 @@ class DailyLessonGenerator:
                 "error": f"Failed to update lesson state: {str(e)}",
                 "status_code": 500,
             }
+
+    def _progress_words_from_completed_lesson(self, lesson, user):
+        """
+        Progress words when an audio lesson is completed
+        
+        Args:
+            lesson: The DailyAudioLesson object
+            user: The User object
+        """
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.model.exercise_source import ExerciseSource
+        from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+        
+        try:
+            # Get the audio lesson exercise source
+            audio_lesson_source = ExerciseSource.find_or_create(
+                db.session, "DAILY_AUDIO_LESSON"
+            )
+            
+            # Progress each word in the lesson
+            for segment in lesson.segments:
+                if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                    meaning = segment.audio_lesson_meaning.meaning
+                    
+                    # Find or create the user word
+                    user_word = UserWord.find_or_create(
+                        db.session, user, meaning
+                    )
+                    
+                    # Report exercise outcome for audio lesson completion
+                    # Use CORRECT outcome since the user listened through the entire lesson
+                    user_word.report_exercise_outcome(
+                        db.session,
+                        audio_lesson_source,
+                        ExerciseOutcome.CORRECT,
+                        0,  # No solving speed for audio lessons
+                        None,  # No session_id needed
+                        f"Audio lesson completion for lesson {lesson.id}"
+                    )
+                    
+                    logp(f"[audio_lesson_completion] Progressed word: {meaning.origin.content}")
+            
+            logp(f"[audio_lesson_completion] Successfully progressed words for lesson {lesson.id}")
+            
+        except Exception as e:
+            # Don't fail lesson completion if word progression fails
+            logp(f"[audio_lesson_completion] Error progressing words for lesson {lesson.id}: {str(e)}")
+            from sentry_sdk import capture_exception
+            capture_exception(e)
