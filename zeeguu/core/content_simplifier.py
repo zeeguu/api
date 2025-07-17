@@ -64,7 +64,7 @@ def get_adaptive_simplification_prompt(language: str) -> str:
 
     language_name = language_names.get(language, language)
 
-    return f"""You are an expert {language_name} language teacher. Your task is to assess an article's CEFR level and create simplified versions for ALL levels that are simpler than the original.
+    return f"""You are an expert <<LANGUAGE_NAME>> language teacher. Your task is to assess an article's CEFR level and create simplified versions for ALL levels that are simpler than the original.
 
 CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
@@ -106,21 +106,23 @@ SIMPLIFICATION RULES:
 - For B1+: Use appropriate complexity while preserving ALL original content and structure
 - IMPORTANT: If original has 5 paragraphs, simplified version should have 5 paragraphs too
 
-You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. The simplifications should all be done in {language_name}.
+You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. All simplifications should be done in <<LANGUAGE_NAME>>.
 
 ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
 
-ORIGINAL_SUMMARY: [write a 3-sentence summary of the original article in {language_name} at its original CEFR level]
+ORIGINAL_SUMMARY: [write a 3-sentence summary of the original article in <<LANGUAGE_NAME>> at its original CEFR level]
 
 SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1" - leave empty if original is A1]
 
 [For each level in SIMPLIFIED_LEVELS, include these sections:]
 
-[LEVEL]_TITLE: [write simplified title in {language_name}]
+[LEVEL]_TITLE: [write simplified title in <<LANGUAGE_NAME>>]
 
-[LEVEL]_CONTENT: [write simplified content in {language_name}]
+[LEVEL]_CONTENT: [write simplified content in <<LANGUAGE_NAME>>]
 
-[LEVEL]_SUMMARY: [write 3-sentence summary in {language_name}]
+[LEVEL]_SUMMARY: [write 3-sentence summary in <<LANGUAGE_NAME>>]
+
+<<LANGUAGE_NAME>> = {language_name}
 
 Original article to simplify:
 
@@ -485,11 +487,13 @@ def auto_create_simplified_versions(
 
         # Update URLs for all simplified articles now that they have IDs
         for simplified_article in simplified_articles:
-            final_url_string = f"https://zeeguu.org/read/article?id={simplified_article.id}"
+            final_url_string = (
+                f"https://zeeguu.org/read/article?id={simplified_article.id}"
+            )
             final_url = Url.find_or_create(session, final_url_string)
             simplified_article.url = final_url
             session.add(simplified_article)
-        
+
         # Commit URL updates
         session.commit()
 
@@ -532,6 +536,8 @@ def auto_create_simplified_versions(
             log(f"  DATABASE ERROR: Rolling back session due to database-related error")
             session.rollback()
         else:
-            log(f"  NO ROLLBACK: Error is not database-related, preserving original article")
+            log(
+                f"  NO ROLLBACK: Error is not database-related, preserving original article"
+            )
 
         return []
