@@ -81,6 +81,10 @@ IMPORTANT: If the article appears to be incomplete due to a paywall, simply resp
 - Articles with "subscribe to read more" or similar paywall messages
 - Articles that seem to cut off mid-story or mid-explanation
 - Articles that lack the depth/detail expected from the headline
+- Articles that end with incomplete sentences (like ending with "«." or mid-quote)
+- Articles that introduce a topic but don't provide substantial content about it
+- Articles that have audio elements mentioned ("Lyt til artiklen", "Læst op af") but very little text content
+- Articles that appear to be just a teaser or introduction without the main content
 
 INSTRUCTIONS:
 1. First assess the original article's CEFR level
