@@ -4,21 +4,19 @@ Daily lesson generator for creating audio lessons from user words.
 
 import os
 import time
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 
+from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
+from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.model import (
     db,
     User,
-    Meaning,
     AudioLessonMeaning,
     DailyAudioLesson,
-    DailyAudioLessonSegment,
 )
-from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.logging import log, logp
 
 
@@ -71,12 +69,12 @@ class DailyLessonGenerator:
         logp(
             f"[generate_daily_lesson_for_user] Selected {len(selected_words)} words for lesson"
         )
-        if len(selected_words) < 3:
+        if len(selected_words) < 2:
             logp(
-                f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 3"
+                f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 2"
             )
             return {
-                "error": f"Not enough words in learning to generate a lesson. Need at least 3 words that were not in audio lessons before.",
+                "error": f"Not enough words in learning to generate a lesson. Need at least 2 words that were not in audio lessons before.",
                 "available_words": len(selected_words),
                 "status_code": 400,
             }
@@ -109,70 +107,65 @@ class DailyLessonGenerator:
         Returns:
             List of UserWord objects, or empty list if not enough words available
         """
-        logp(f"[select_words_for_lesson] Getting learning words for user {user.id}")
-        # Get user's words that are currently being learned
-        learning_words = BasicSRSchedule.user_words_to_study(user)
-        if len(learning_words) < num_words:
-            # append necessary words from user_words = BasicSRSchedule.scheduled_user_words(user)
-            learning_words.extend(BasicSRSchedule.scheduled_user_words(user))
+        # Use the shared word selection logic
+        return select_words_for_audio_lesson(user, num_words)
 
-        logp(
-            f"[select_words_for_lesson] Found {len(learning_words)} words in user's learning queue"
+    def generate_audio_lesson_meaning(self, user_word, origin_language, translation_language, cefr_level, created_by="claude-v1"):
+        """
+        Generate an AudioLessonMeaning for a specific user word.
+        
+        Args:
+            user_word: UserWord object containing the meaning
+            origin_language: Language code for the origin language
+            translation_language: Language code for the translation language  
+            cefr_level: CEFR level for the lesson
+            created_by: String identifying who created this lesson
+            
+        Returns:
+            AudioLessonMeaning object
+            
+        Raises:
+            Exception if generation fails
+        """
+        meaning = user_word.meaning
+        
+        # Check if audio lesson already exists for this meaning
+        existing_lesson = AudioLessonMeaning.find_by_meaning(meaning)
+        if existing_lesson:
+            return existing_lesson
+        
+        # Generate script using Claude
+        script = generate_lesson_script(
+            origin_word=meaning.origin.content,
+            translation_word=meaning.translation.content,
+            origin_language=origin_language,
+            translation_language=translation_language,
+            cefr_level=cefr_level,
         )
 
-        # Filter out words that have already been in audio lessons for this user
-        meanings_already_in_lessons = (
-            db.session.query(Meaning.id)
-            .join(AudioLessonMeaning, AudioLessonMeaning.meaning_id == Meaning.id)
-            .join(
-                DailyAudioLessonSegment,
-                DailyAudioLessonSegment.audio_lesson_meaning_id
-                == AudioLessonMeaning.id,
-            )
-            .join(
-                DailyAudioLesson,
-                DailyAudioLesson.id == DailyAudioLessonSegment.daily_audio_lesson_id,
-            )
-            .filter(DailyAudioLesson.user_id == user.id)
-            .distinct()
-            .all()
+        # Create audio lesson meaning
+        audio_lesson_meaning = AudioLessonMeaning(
+            meaning=meaning,
+            script=script,
+            created_by=created_by,
+            difficulty_level=cefr_level,
+        )
+        db.session.add(audio_lesson_meaning)
+        db.session.flush()  # Get the ID
+
+        # Generate MP3 from script
+        mp3_path = self.voice_synthesizer.generate_lesson_audio(
+            audio_lesson_meaning_id=audio_lesson_meaning.id,
+            script=script,
+            language_code=origin_language,
+            cefr_level=cefr_level,
         )
 
-        existing_meaning_ids = {m[0] for m in meanings_already_in_lessons}
-        logp(
-            f"[select_words_for_lesson] Found {len(existing_meaning_ids)} meanings already used in lessons"
-        )
-
-        # Filter and rank words by importance
-        available_words = []
-        for user_word in learning_words:
-            if user_word.meaning_id not in existing_meaning_ids:
-                # Get word rank for importance ranking
-                origin_word = user_word.meaning.origin.content
-                try:
-                    from wordstats import Word
-
-                    word_stats = Word.stats(
-                        origin_word, user_word.meaning.origin.language.code
-                    )
-                    rank = word_stats.rank if word_stats else 999999
-                except:
-                    rank = 999999
-
-                available_words.append((user_word, rank))
-
-        # Sort by rank (lower is more important) and take top N
-        available_words.sort(key=lambda x: x[1])
-        selected_words = [w[0] for w in available_words[:num_words]]
-
-        logp(
-            f"[select_words_for_lesson] Available words after filtering: {len(available_words)}"
-        )
-        logp(
-            f"[select_words_for_lesson] Selected {len(selected_words)} words: {[w.meaning.origin.content for w in selected_words]}"
-        )
-
-        return selected_words
+        # Calculate duration
+        duration_seconds = self.voice_synthesizer.get_audio_duration(mp3_path)
+        audio_lesson_meaning.duration_seconds = duration_seconds
+        
+        return audio_lesson_meaning
 
     def generate_daily_lesson(
         self,
@@ -218,57 +211,18 @@ class DailyLessonGenerator:
                     f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
                 )
 
-                # Generate script using Claude
+                # Generate individual audio lesson meaning
                 try:
-                    script = generate_lesson_script(
-                        origin_word=meaning.origin.content,
-                        translation_word=meaning.translation.content,
-                        origin_language=origin_language,
-                        translation_language=translation_language,
-                        cefr_level=cefr_level,
+                    audio_lesson_meaning = self.generate_audio_lesson_meaning(
+                        user_word, origin_language, translation_language, cefr_level
                     )
                 except Exception as e:
                     logp(
-                        f"[generate_daily_lesson] Failed to generate script for {meaning.origin.content}: {str(e)}"
+                        f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
                     )
                     db.session.rollback()
                     return {
-                        "error": f"Failed to generate script: {str(e)}",
-                        "word": meaning.origin.content,
-                    }
-
-                # Create audio lesson meaning
-                audio_lesson_meaning = AudioLessonMeaning(
-                    meaning=meaning,
-                    script=script,
-                    created_by="claude-v1",
-                    difficulty_level=cefr_level,
-                )
-                db.session.add(audio_lesson_meaning)
-                db.session.flush()  # Get the ID
-
-                # Generate MP3 from script
-                try:
-                    mp3_path = self.voice_synthesizer.generate_lesson_audio(
-                        audio_lesson_meaning_id=audio_lesson_meaning.id,
-                        script=script,
-                        language_code=origin_language,
-                        cefr_level=cefr_level,
-                    )
-
-                    # Calculate duration
-                    duration_seconds = self.voice_synthesizer.get_audio_duration(
-                        mp3_path
-                    )
-                    audio_lesson_meaning.duration_seconds = duration_seconds
-
-                except Exception as e:
-                    logp(
-                        f"[generate_daily_lesson] Failed to generate audio for {meaning.origin.content}: {str(e)}"
-                    )
-                    db.session.rollback()
-                    return {
-                        "error": f"Failed to generate audio: {str(e)}",
+                        "error": f"Failed to generate audio lesson meaning: {str(e)}",
                         "word": meaning.origin.content,
                     }
 
@@ -700,7 +654,7 @@ class DailyLessonGenerator:
             elif action == "complete":
                 # Mark lesson as completed
                 lesson.mark_completed()
-                
+
                 # Progress words when audio lesson is completed
                 self._progress_words_from_completed_lesson(lesson, user)
 
@@ -735,7 +689,7 @@ class DailyLessonGenerator:
     def _progress_words_from_completed_lesson(self, lesson, user):
         """
         Progress words when an audio lesson is completed
-        
+
         Args:
             lesson: The DailyAudioLesson object
             user: The User object
@@ -743,23 +697,24 @@ class DailyLessonGenerator:
         from zeeguu.core.model.user_word import UserWord
         from zeeguu.core.model.exercise_source import ExerciseSource
         from zeeguu.core.model.exercise_outcome import ExerciseOutcome
-        
+
         try:
             # Get the audio lesson exercise source
             audio_lesson_source = ExerciseSource.find_or_create(
                 db.session, "DAILY_AUDIO_LESSON"
             )
-            
+
             # Progress each word in the lesson
             for segment in lesson.segments:
-                if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                if (
+                    segment.segment_type == "meaning_lesson"
+                    and segment.audio_lesson_meaning
+                ):
                     meaning = segment.audio_lesson_meaning.meaning
-                    
+
                     # Find or create the user word
-                    user_word = UserWord.find_or_create(
-                        db.session, user, meaning
-                    )
-                    
+                    user_word = UserWord.find_or_create(db.session, user, meaning)
+
                     # Report exercise outcome for audio lesson completion
                     # Use CORRECT outcome since the user listened through the entire lesson
                     user_word.report_exercise_outcome(
@@ -768,15 +723,22 @@ class DailyLessonGenerator:
                         ExerciseOutcome.CORRECT,
                         0,  # No solving speed for audio lessons
                         None,  # No session_id needed
-                        f"Audio lesson completion for lesson {lesson.id}"
+                        f"Audio lesson completion for lesson {lesson.id}",
                     )
-                    
-                    logp(f"[audio_lesson_completion] Progressed word: {meaning.origin.content}")
-            
-            logp(f"[audio_lesson_completion] Successfully progressed words for lesson {lesson.id}")
-            
+
+                    logp(
+                        f"[audio_lesson_completion] Progressed word: {meaning.origin.content}"
+                    )
+
+            logp(
+                f"[audio_lesson_completion] Successfully progressed words for lesson {lesson.id}"
+            )
+
         except Exception as e:
             # Don't fail lesson completion if word progression fails
-            logp(f"[audio_lesson_completion] Error progressing words for lesson {lesson.id}: {str(e)}")
+            logp(
+                f"[audio_lesson_completion] Error progressing words for lesson {lesson.id}: {str(e)}"
+            )
             from sentry_sdk import capture_exception
+
             capture_exception(e)

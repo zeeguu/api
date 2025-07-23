@@ -742,6 +742,22 @@ class User(db.Model):
 
         lang_info = UserLanguage.with_language_id(self.learned_language_id, self)
         return ["A1", "A2", "B1", "B2", "C1", "C2"][lang_info.cefr_level - 1]
+    
+    def get_all_languages(self):
+        """Get all languages that this user has words in."""
+        from zeeguu.core.model import Language, Phrase, Meaning, UserWord
+        
+        languages = zeeguu.core.model.db.session.query(Language).join(
+            Phrase, Phrase.language_id == Language.id
+        ).join(
+            Meaning, Meaning.origin_id == Phrase.id
+        ).join(
+            UserWord, UserWord.meaning_id == Meaning.id
+        ).filter(
+            UserWord.user_id == self.id
+        ).distinct().all()
+        
+        return languages
 
     def levels_for(self, language: Language):
         """
