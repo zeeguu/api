@@ -9,7 +9,9 @@ Uses shared logic from DailyLessonGenerator to avoid code duplication.
 
 DAYS_SINCE_ACTIVE = 30
 SHOW_DETAILS = True
-DRY_RUN = True  # Set to True to see what would be generated without actually generating
+DRY_RUN = (
+    False  # Set to True to see what would be generated without actually generating
+)
 
 from zeeguu.api.app import create_app
 
