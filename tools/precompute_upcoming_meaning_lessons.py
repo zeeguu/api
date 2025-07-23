@@ -78,6 +78,37 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
     translation_language = meaning.translation.language.code
 
     # Helper function to get display info
+    def get_word_display_info():
+        origin_word = meaning.origin.content
+        try:
+            from wordstats import Word
+            word_stats = Word.stats(origin_word, meaning.origin.language.code)
+            rank = word_stats.rank if word_stats else "N/A"
+        except:
+            rank = "N/A"
+
+        # Determine scheduling status
+        from zeeguu.core.word_scheduling.basicSR.basicSR import (
+            BasicSRSchedule,
+            _get_end_of_today,
+        )
+
+        if user_word.is_learned():
+            status = "learned"
+        else:
+            scheduled_today = BasicSRSchedule.query.filter(
+                BasicSRSchedule.user_word_id == user_word.id,
+                BasicSRSchedule.next_practice_time < _get_end_of_today(),
+            ).first()
+            if scheduled_today:
+                status = "scheduled_today"
+            else:
+                scheduled = BasicSRSchedule.query.filter(
+                    BasicSRSchedule.user_word_id == user_word.id
+                ).first()
+                status = "scheduled" if scheduled else "unscheduled"
+        return rank, status
+
     # Check if audio lesson already exists
     existing_lesson = AudioLessonMeaning.find_by_meaning(meaning)
     if existing_lesson:
@@ -300,36 +331,3 @@ for lang, count in sorted(language_breakdown.items(), key=lambda x: x[1], revers
 if DRY_RUN:
     print(f"\n[DRY RUN MODE] No audio files were actually generated.")
     print(f"Set DRY_RUN = False to generate audio lessons.")
-
-
-def get_word_display_info():
-    origin_word = meaning.origin.content
-    try:
-        from wordstats import Word
-
-        word_stats = Word.stats(origin_word, meaning.origin.language.code)
-        rank = word_stats.rank if word_stats else "N/A"
-    except:
-        rank = "N/A"
-
-        # Determine scheduling status
-        from zeeguu.core.word_scheduling.basicSR.basicSR import (
-            BasicSRSchedule,
-            _get_end_of_today,
-        )
-
-        if user_word.is_learned():
-            status = "learned"
-        else:
-            scheduled_today = BasicSRSchedule.query.filter(
-                BasicSRSchedule.user_word_id == user_word.id,
-                BasicSRSchedule.next_practice_time < _get_end_of_today(),
-            ).first()
-            if scheduled_today:
-                status = "scheduled_today"
-            else:
-                scheduled = BasicSRSchedule.query.filter(
-                    BasicSRSchedule.user_word_id == user_word.id
-                ).first()
-                status = "scheduled" if scheduled else "unscheduled"
-        return rank, status
