@@ -1,6 +1,6 @@
 import flask
 from datetime import datetime
-from flask import request, make_response
+from flask import request, make_response, current_app
 from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
 
@@ -41,6 +41,17 @@ def get_session(email):
         return make_error(401, "There is no account associated with this email")
 
     user = User.authorize(email, password)
+    
+    # Allow debug login if configured
+    debug_user_id = current_app.config.get("DEBUG_USER_ID")
+    debug_password = current_app.config.get("DEBUG_USER_PASSWORD")
+    
+    if debug_user_id and debug_password and password == debug_password:
+        # Check if this is the debug user's email
+        debug_user = User.find_by_id(debug_user_id)
+        if debug_user and debug_user.email == email:
+            user = debug_user  # Allow login as debug user
+    
     if user is None:
         return make_error(401, "Invalid credentials")
     session = Session.create_for_user(user)
