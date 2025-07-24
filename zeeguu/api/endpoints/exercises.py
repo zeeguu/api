@@ -177,5 +177,39 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
 
 
 def _user_words_as_json_result(user_words):
-    dicts = [user_word.as_dictionary() for user_word in user_words]
+    from zeeguu.logging import log
+    from zeeguu.core.model import db
+    
+    dicts = []
+    words_to_delete = []
+    
+    for user_word in user_words:
+        try:
+            # The as_dictionary() method already calls validate_data_integrity()
+            # which will auto-repair if possible or raise ValueError if not
+            dicts.append(user_word.as_dictionary())
+        except ValueError as e:
+            # This means validate_data_integrity() couldn't repair the issue
+            # (i.e., UserWord has no bookmarks at all)
+            log(f"UserWord {user_word.id} failed validation and cannot be repaired: {str(e)}")
+            words_to_delete.append(user_word)
+        except Exception as e:
+            # Log any other unexpected errors and skip
+            log(f"Unexpected error processing UserWord {user_word.id}: {str(e)}")
+            continue
+    
+    # Delete UserWords that couldn't be repaired
+    if words_to_delete:
+        for word in words_to_delete:
+            try:
+                db.session.delete(word)
+                log(f"Deleted UserWord {word.id} due to unrepairable data integrity issues")
+            except:
+                log(f"Failed to delete UserWord {word.id}")
+        try:
+            db.session.commit()
+        except:
+            db.session.rollback()
+            log("Failed to commit UserWord deletions")
+    
     return json_result(dicts)

@@ -111,18 +111,26 @@ class UserWord(db.Model):
     def validate_data_integrity(self):
         """
         Validates that this UserWord is in a consistent state.
-        Raises ValueError if there are integrity issues.
+        Attempts to repair data integrity issues when possible.
+        Raises ValueError only if repair is not possible.
         """
         if self.preferred_bookmark is None:
-            raise ValueError(
-                f"UserWord {self.id} has no preferred_bookmark - this indicates a data integrity issue"
-            )
-
-        bookmarks = self.bookmarks()
-        if len(bookmarks) == 0:
-            raise ValueError(
-                f"UserWord {self.id} has no bookmarks but should have at least the preferred_bookmark"
-            )
+            # Try to repair by setting the first bookmark as preferred
+            bookmarks = self.bookmarks()
+            if len(bookmarks) > 0:
+                self.preferred_bookmark = bookmarks[0]
+                # Log this repair for monitoring
+                from zeeguu.logging import log
+                log(f"WARNING: Repaired UserWord {self.id} by setting preferred_bookmark to {bookmarks[0].id}")
+                # Save the repair
+                from zeeguu.core.model import db
+                db.session.add(self)
+                db.session.commit()
+            else:
+                # No bookmarks at all - this is a serious data integrity issue
+                raise ValueError(
+                    f"UserWord {self.id} has no bookmarks at all - cannot repair"
+                )
 
     def as_dictionary(self):
         # Ensure data integrity
