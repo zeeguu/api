@@ -93,12 +93,21 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
         # Get the reading percentage from the scroll data
         extra_data = form_data.get("extra_data", "")
         if not extra_data:
+            from zeeguu.logging import logp
+            logp(f"[article_completion] No extra_data in scroll event for article {article_id}")
             return
 
         try:
             scroll_data = json.loads(extra_data)
+            # Debug: log the scroll data structure
+            from zeeguu.logging import logp
+            logp(f"[article_completion] Scroll data received: {scroll_data[:3] if isinstance(scroll_data, list) and len(scroll_data) > 3 else scroll_data}")
+            
             completion_percentage = find_last_reading_percentage(scroll_data)
-        except (json.JSONDecodeError, Exception):
+            logp(f"[article_completion] Calculated completion: {completion_percentage}")
+        except (json.JSONDecodeError, Exception) as e:
+            from zeeguu.logging import logp
+            logp(f"[article_completion] Error parsing scroll data: {str(e)}, extra_data: {extra_data[:100]}")
             return
 
         # Get or create UserArticle
