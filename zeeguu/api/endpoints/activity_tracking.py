@@ -43,6 +43,10 @@ def upload_user_activity_data():
 
         ZeeguuMailer.notify_audio_experiment(request.form, user)
 
+    # Update reading completion on scroll events (always run for efficiency)
+    if request.form.get("event") == "SCROLL" and request.form.get("article_id", None):
+        _check_and_notify_article_completion_on_scroll(user, request.form)
+
     return "OK"
 
 
@@ -64,3 +68,68 @@ def days_since_last_use():
         return str(time_difference.days)
 
     return ""
+
+
+def _check_and_notify_article_completion_on_scroll(user, form_data):
+    """
+    Update reading completion percentage and check for completion on every scroll event.
+    This is much more efficient as it stores the completion percentage instead of recalculating.
+
+    Args:
+        user: The User who performed the scroll activity
+        form_data: The form data from the scroll activity tracking request
+    """
+    try:
+        from zeeguu.core.model import Article, UserArticle
+        from zeeguu.core.behavioral_modeling import find_last_reading_percentage
+        import json
+
+        article_id = int(form_data.get("article_id"))
+        article = Article.find_by_id(article_id)
+
+        if not article:
+            return
+
+        # Get the reading percentage from the scroll data
+        extra_data = form_data.get("extra_data", "")
+        if not extra_data:
+            return
+
+        try:
+            scroll_data = json.loads(extra_data)
+            completion_percentage = find_last_reading_percentage(scroll_data)
+        except (json.JSONDecodeError, Exception):
+            return
+
+        # Get or create UserArticle
+        user_article = UserArticle.find_or_create(db_session, user, article)
+
+        # Always update the reading completion percentage
+        user_article.reading_completion = completion_percentage
+
+        # Check if article is completed (>90%) and not already marked
+        if completion_percentage > 0.9 and not user_article.completed_at:
+            from datetime import datetime
+
+            user_article.completed_at = datetime.now()
+
+            # Send notification if enabled
+            from flask import current_app
+
+            if current_app.config.get("SEND_ARTICLE_COMPLETION_EMAILS", False):
+                from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
+                ZeeguuMailer.notify_article_completion(
+                    user, article, completion_percentage
+                )
+
+        db_session.commit()
+
+    except Exception as e:
+        # Don't fail the activity tracking if completion check fails
+        from zeeguu.logging import logp
+
+        logp(
+            f"[article_completion] Failed to update reading completion on scroll: {str(e)}"
+        )
+        db_session.rollback()

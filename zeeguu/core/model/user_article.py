@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     Boolean,
+    Float,
     or_,
     desc,
 )
@@ -65,12 +66,22 @@ class UserArticle(db.Model):
     # this tracks the state of that button
     liked = Column(Boolean)
 
-    def __init__(self, user, article, opened=None, starred=None, liked=None):
+    # Store the current reading completion percentage (0.0 to 1.0)
+    # Updated on every scroll event to avoid expensive recalculation
+    reading_completion = Column(Float, default=0.0)
+
+    # Track when the user completed reading the article (>90% threshold)
+    # Also serves as a flag that notification was sent
+    completed_at = Column(DateTime)
+
+    def __init__(self, user, article, opened=None, starred=None, liked=None, reading_completion=0.0, completed_at=None):
         self.user = user
         self.article = article
         self.opened = opened
         self.starred = starred
         self.liked = liked
+        self.reading_completion = reading_completion
+        self.completed_at = completed_at
 
     def __repr__(self):
         return f"{self.user} and {self.article}: Opened: {self.opened}, Starred: {self.starred}, Liked: {self.liked}"
@@ -133,6 +144,8 @@ class UserArticle(db.Model):
         opened=None,
         liked=None,
         starred=None,
+        reading_completion=0.0,
+        completed_at=None,
     ):
         """
 
@@ -144,7 +157,7 @@ class UserArticle(db.Model):
             return cls.query.filter_by(user=user, article=article).one()
         except NoResultFound:
             try:
-                new = cls(user, article, opened=opened, liked=liked, starred=starred)
+                new = cls(user, article, opened=opened, liked=liked, starred=starred, reading_completion=reading_completion, completed_at=completed_at)
                 session.add(new)
                 session.commit()
                 return new
@@ -304,14 +317,12 @@ class UserArticle(db.Model):
             returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
+            returned_info["reading_completion"] = 0.0
             returned_info["translations"] = []
 
         else:
-            returned_info["reading_completion"] = (
-                UserActivityData.get_reading_completion_for_article(
-                    user_article_info.article_id, user_article_info.user_id
-                )
-            )
+            # Use stored reading completion - no more expensive calculations!
+            returned_info["reading_completion"] = user_article_info.reading_completion or 0.0
             returned_info["starred"] = user_article_info.starred is not None
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
