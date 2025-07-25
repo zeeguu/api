@@ -103,7 +103,13 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
             from zeeguu.logging import logp
             logp(f"[article_completion] Scroll data received: {scroll_data[:3] if isinstance(scroll_data, list) and len(scroll_data) > 3 else scroll_data}")
             
-            completion_percentage = find_last_reading_percentage(scroll_data)
+            # Use a more lenient approach or fallback to max percentage
+            completion_percentage = find_last_reading_percentage(scroll_data, max_jump=50, max_total_update=80)
+            
+            # Fallback: if the algorithm returns 0 but we have scroll data, use max percentage
+            if completion_percentage == 0 and scroll_data:
+                max_percentage = max([point[1] for point in scroll_data if len(point) >= 2]) / 100.0
+                completion_percentage = min(max_percentage, 1.0)  # Cap at 100%
             logp(f"[article_completion] Calculated completion: {completion_percentage}")
         except (json.JSONDecodeError, Exception) as e:
             from zeeguu.logging import logp
