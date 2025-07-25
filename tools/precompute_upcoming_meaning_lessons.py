@@ -15,10 +15,21 @@ import argparse
 from datetime import datetime
 
 # Parse command line arguments
-parser = argparse.ArgumentParser(description='Precompute audio lessons for active users')
-parser.add_argument('--send-email', action='store_true', help='Send summary email after completion')
-parser.add_argument('--dry-run', action='store_true', help='Run without actually generating audio files')
-parser.add_argument('--days', type=int, default=30, help='Number of days to consider for active users (default: 30)')
+parser = argparse.ArgumentParser(
+    description="Precompute audio lessons for active users"
+)
+parser.add_argument(
+    "--send-email", action="store_true", help="Send summary email after completion"
+)
+parser.add_argument(
+    "--dry-run", action="store_true", help="Run without actually generating audio files"
+)
+parser.add_argument(
+    "--days",
+    type=int,
+    default=30,
+    help="Number of days to consider for active users (default: 30)",
+)
 args = parser.parse_args()
 
 DAYS_SINCE_ACTIVE = args.days
@@ -44,21 +55,24 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 # Initialize daily lesson generator (contains the audio generation logic)
 lesson_generator = DailyLessonGenerator()
 
+
 # Create a custom output handler that captures all output
 class OutputCapture:
     def __init__(self):
         self.output = []
-    
+
     def write(self, text):
         # Write to stdout
-        print(text, end='')
+        print(text, end="")
         # Capture for email
         self.output.append(text)
-    
+
     def get_output(self):
-        return ''.join(self.output)
+        return "".join(self.output)
+
 
 output_capture = OutputCapture()
+
 
 # Helper function to make output easier
 def output(text=""):
@@ -115,6 +129,7 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
         origin_word = meaning.origin.content
         try:
             from wordstats import Word
+
             word_stats = Word.stats(origin_word, meaning.origin.language.code)
             rank = word_stats.rank if word_stats else "N/A"
         except:
@@ -369,13 +384,15 @@ if DRY_RUN:
 if args.send_email:
     output("\n" + "=" * 80)
     output("Sending summary email...")
-    
+
     email_content = output_capture.get_output()
-    email_subject = f"Audio Lesson Precomputation Report - {datetime.now().strftime('%Y-%m-%d')}"
-    
+    email_subject = (
+        f"Audio Lesson Precomputation Report - {datetime.now().strftime('%Y-%m-%d')}"
+    )
+
     if DRY_RUN:
         email_subject += " [DRY RUN]"
-    
+
     # Add summary at the top of email
     email_body = f"""Audio Lesson Precomputation Summary
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -392,9 +409,11 @@ Full Output:
 
 {email_content}
 """
-    
+
     try:
-        to_email = app.config.get("PRECOMPUTE_REPORT_EMAIL", app.config.get("SMTP_EMAIL"))
+        to_email = app.config.get(
+            "PRECOMPUTE_REPORT_EMAIL", app.config.get("SMTP_EMAIL")
+        )
         mailer = ZeeguuMailer(email_subject, email_body, to_email)
         mailer.send()
         output(f"Summary email sent to {to_email}")
