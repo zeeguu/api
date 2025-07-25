@@ -5,13 +5,25 @@ Script that precomputes audio lessons for recently active users.
 It generates audio lessons for their next three meanings across all languages they're learning.
 Users are prioritized by most recent activity.
 Uses shared logic from DailyLessonGenerator to avoid code duplication.
+
+Usage:
+    python precompute_upcoming_meaning_lessons.py [--send-email] [--dry-run] [--days N]
 """
 
-DAYS_SINCE_ACTIVE = 30
+import sys
+import argparse
+from datetime import datetime
+
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Precompute audio lessons for active users')
+parser.add_argument('--send-email', action='store_true', help='Send summary email after completion')
+parser.add_argument('--dry-run', action='store_true', help='Run without actually generating audio files')
+parser.add_argument('--days', type=int, default=30, help='Number of days to consider for active users (default: 30)')
+args = parser.parse_args()
+
+DAYS_SINCE_ACTIVE = args.days
 SHOW_DETAILS = True
-DRY_RUN = (
-    False  # Set to True to see what would be generated without actually generating
-)
+DRY_RUN = args.dry_run
 
 from zeeguu.api.app import create_app
 
@@ -27,9 +39,30 @@ from zeeguu.core.audio_lessons.word_selector import (
     select_words_for_audio_lesson,
 )
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 # Initialize daily lesson generator (contains the audio generation logic)
 lesson_generator = DailyLessonGenerator()
+
+# Create a custom output handler that captures all output
+class OutputCapture:
+    def __init__(self):
+        self.output = []
+    
+    def write(self, text):
+        # Write to stdout
+        print(text, end='')
+        # Capture for email
+        self.output.append(text)
+    
+    def get_output(self):
+        return ''.join(self.output)
+
+output_capture = OutputCapture()
+
+# Helper function to make output easier
+def output(text=""):
+    output_capture.write(text + "\n")
 
 
 def get_precomputed_meanings_count(user, language):
@@ -114,14 +147,14 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
     if existing_lesson:
         if SHOW_DETAILS:
             rank, status = get_word_display_info()
-            print(
+            output(
                 f"        Audio lesson already exists for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
             )
         return existing_lesson
 
     if DRY_RUN:
         rank, status = get_word_display_info()
-        print(
+        output(
             f"        [DRY RUN] Would generate audio for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
         )
         return None
@@ -140,7 +173,7 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
 
         if SHOW_DETAILS:
             rank, status = get_word_display_info()
-            print(
+            output(
                 f"        ✓ Generated audio lesson for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status}, {audio_lesson_meaning.duration_seconds}s)"
             )
 
@@ -148,15 +181,15 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
 
     except Exception as e:
         db.session.rollback()
-        print(
+        output(
             f"        ✗ Failed to generate audio for {meaning.origin.content}: {str(e)}"
         )
         return None
 
 
 # Get users with their last activity time
-print(f"Finding users active in the last {DAYS_SINCE_ACTIVE} days...")
-print("")
+output(f"Finding users active in the last {DAYS_SINCE_ACTIVE} days...")
+output()
 
 user_activity_map = []
 for user_id in User.all_recent_user_ids(DAYS_SINCE_ACTIVE):
@@ -167,9 +200,9 @@ for user_id in User.all_recent_user_ids(DAYS_SINCE_ACTIVE):
 # Sort users by most recent activity
 user_activity_map.sort(key=lambda x: x[1], reverse=True)
 
-print(f"Processing {len(user_activity_map)} users (sorted by most recent activity)...")
-print("=" * 80)
-print("")
+output(f"Processing {len(user_activity_map)} users (sorted by most recent activity)...")
+output("=" * 80)
+output()
 
 total_users = 0
 total_meanings_processed = 0
@@ -182,10 +215,10 @@ start_time = time.time()
 
 for user, last_activity in user_activity_map:
     total_users += 1
-    print(
+    output(
         f"\n{total_users}. {user.name} (last active: {last_activity.strftime('%Y-%m-%d')})"
     )
-    print(f"   Main language: {user.learned_language.name}")
+    output(f"   Main language: {user.learned_language.name}")
 
     # Get user's CEFR level
     cefr_level = user.cefr_level_for_learned_language()
@@ -202,7 +235,7 @@ for user, last_activity in user_activity_map:
             )
 
             if precomputed_count == -1:
-                print(
+                output(
                     f"   [{language.name}] Not enough words available for lessons (need at least 2, has {len(next_words)})"
                 )
                 continue
@@ -256,17 +289,17 @@ for user, last_activity in user_activity_map:
                             )
 
                     if precomputed_meanings:
-                        print(
+                        output(
                             f"   [{language.name}] Already has enough precomputed meanings for next lesson:"
                         )
                         for meaning_info in precomputed_meanings:
-                            print(f"        ✓ {meaning_info}")
+                            output(f"        ✓ {meaning_info}")
                     else:
-                        print(
+                        output(
                             f"   [{language.name}] Already has enough precomputed meanings for next lesson"
                         )
                 else:
-                    print(
+                    output(
                         f"   [{language.name}] Already has enough precomputed meanings for next lesson"
                     )
                 continue
@@ -279,7 +312,7 @@ for user, last_activity in user_activity_map:
                     words_to_process.append(user_word)
 
             if words_to_process:
-                print(
+                output(
                     f"   [{language.name}] Has {precomputed_count}/3 precomputed, processing {len(words_to_process)} more meanings:"
                 )
 
@@ -305,29 +338,65 @@ for user, last_activity in user_activity_map:
                         total_failures += 1
 
         if user_meanings_count == 0:
-            print("   No meanings to process")
+            output("   No meanings to process")
 
     except Exception as e:
-        print(f"   Error processing user: {str(e)}")
+        output(f"   Error processing user: {str(e)}")
 
 # Summary
 end_time = time.time()
 processing_time = end_time - start_time
 
-print("\n" + "=" * 80)
-print(f"\nPrecomputation Summary:")
-print(f"  Total users processed: {total_users}")
-print(f"  Total meanings processed: {total_meanings_processed}")
+output("\n" + "=" * 80)
+output(f"\nPrecomputation Summary:")
+output(f"  Total users processed: {total_users}")
+output(f"  Total meanings processed: {total_meanings_processed}")
 if not DRY_RUN:
-    print(f"  Audio lessons generated: {total_audio_generated}")
-    print(f"  Audio lessons already existing: {total_audio_existing}")
-    print(f"  Failed generations: {total_failures}")
-print(f"  Processing time: {processing_time:.1f} seconds")
+    output(f"  Audio lessons generated: {total_audio_generated}")
+    output(f"  Audio lessons already existing: {total_audio_existing}")
+    output(f"  Failed generations: {total_failures}")
+output(f"  Processing time: {processing_time:.1f} seconds")
 
-print(f"\nBreakdown by language:")
+output(f"\nBreakdown by language:")
 for lang, count in sorted(language_breakdown.items(), key=lambda x: x[1], reverse=True):
-    print(f"  {lang}: {count} meanings")
+    output(f"  {lang}: {count} meanings")
 
 if DRY_RUN:
-    print(f"\n[DRY RUN MODE] No audio files were actually generated.")
-    print(f"Set DRY_RUN = False to generate audio lessons.")
+    output(f"\n[DRY RUN MODE] No audio files were actually generated.")
+    output(f"Set DRY_RUN = False to generate audio lessons.")
+
+# Send email if requested
+if args.send_email:
+    output("\n" + "=" * 80)
+    output("Sending summary email...")
+    
+    email_content = output_capture.get_output()
+    email_subject = f"Audio Lesson Precomputation Report - {datetime.now().strftime('%Y-%m-%d')}"
+    
+    if DRY_RUN:
+        email_subject += " [DRY RUN]"
+    
+    # Add summary at the top of email
+    email_body = f"""Audio Lesson Precomputation Summary
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Quick Stats:
+- Users processed: {total_users}
+- Meanings processed: {total_meanings_processed}
+- Audio generated: {total_audio_generated if not DRY_RUN else 'N/A (dry run)'}
+- Failures: {total_failures if not DRY_RUN else 'N/A (dry run)'}
+- Processing time: {processing_time:.1f} seconds
+
+Full Output:
+{'=' * 80}
+
+{email_content}
+"""
+    
+    try:
+        to_email = app.config.get("PRECOMPUTE_REPORT_EMAIL", app.config.get("SMTP_EMAIL"))
+        mailer = ZeeguuMailer(email_subject, email_body, to_email)
+        mailer.send()
+        output(f"Summary email sent to {to_email}")
+    except Exception as e:
+        output(f"Failed to send email: {str(e)}")
