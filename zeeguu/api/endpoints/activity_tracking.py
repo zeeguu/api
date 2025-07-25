@@ -107,6 +107,13 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
         # Always update the reading completion percentage
         user_article.reading_completion = completion_percentage
 
+        # Debug logging
+        from zeeguu.logging import logp
+
+        logp(
+            f"[article_completion] Article {article_id} - completion: {completion_percentage:.2f}, completed_at: {user_article.completed_at}"
+        )
+
         # Check if article is completed (>90%) and not already marked
         if completion_percentage > 0.9 and not user_article.completed_at:
             from datetime import datetime
@@ -122,6 +129,8 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
                 ZeeguuMailer.notify_article_completion(
                     user, article, completion_percentage
                 )
+        # Add to session to ensure updates are tracked
+        db_session.add(user_article)
 
         db_session.commit()
 
