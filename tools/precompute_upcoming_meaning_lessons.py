@@ -305,7 +305,7 @@ for user, last_activity in user_activity_map:
 
                     if precomputed_meanings:
                         output(
-                            f"   [{language.name}] Already has enough precomputed meanings for next lesson:"
+                            f"   [{language.name}] Already has the following precomputed meanings for next lesson:"
                         )
                         for meaning_info in precomputed_meanings:
                             output(f"        ✓ {meaning_info}")
