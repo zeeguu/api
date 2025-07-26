@@ -54,7 +54,7 @@ def select_words_for_audio_lesson(
     log_enabled: bool = True,
     include_recently_learned: bool = True,
     return_unscheduled_info: bool = False,
-) -> list | tuple:
+):
     """
     Select words for an audio lesson. This is the centralized algorithm used by both
     the daily lesson generator and precomputation scripts.
@@ -149,9 +149,9 @@ def select_words_for_audio_lesson(
             unscheduled_query = unscheduled_query.filter(
                 ~UserWord.id.in_(existing_user_word_ids)
             )
-        # Order by most recent first (likely the words they just translated)
+        # Order by word rank (most important/common words first)
         unscheduled_query = unscheduled_query.order_by(
-            UserWord.created_on.desc()
+            -Phrase.rank.desc()  # Negative desc for ascending order (lower rank = more important)
         )
         unscheduled_words = unscheduled_query.limit(
             num_words - len(learning_words)
