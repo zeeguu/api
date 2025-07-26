@@ -39,3 +39,24 @@ COMMENT 'How frequently this particular meaning is used';
 
 ## Project Context
 This is the Zeeguu API project which requires the z_env virtual environment to run properly due to specific dependencies and configurations.
+
+## Word Scheduling System
+- **Single Table Inheritance**: `FourLevelsPerWord` inherits from `BasicSRSchedule` and uses the same database table (`basic_sr_schedule`)
+- **Use BasicSRSchedule for ALL database queries**: Since there's only one table, always use `BasicSRSchedule` for joins, filters, and query methods
+- **Use FourLevelsPerWord ONLY for creating instances**: When creating new schedule entries, use `FourLevelsPerWord.find_or_create()` not `BasicSRSchedule.find_or_create()` (which raises NotImplementedError)
+- **Examples**: 
+  ```python
+  # ✓ Correct - use BasicSRSchedule for database queries
+  .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+  .filter(BasicSRSchedule.id == None)
+  count = BasicSRSchedule.scheduled_user_words_count(user)
+  
+  # ✓ Correct - use concrete implementation for creation
+  schedule = FourLevelsPerWord.find_or_create(db.session, user_word)
+  
+  # ✗ Wrong - FourLevelsPerWord doesn't have its own table
+  .outerjoin(FourLevelsPerWord, FourLevelsPerWord.user_word_id == UserWord.id)
+  
+  # ✗ Wrong - will raise NotImplementedError
+  schedule = BasicSRSchedule.find_or_create(db.session, user_word)
+  ```

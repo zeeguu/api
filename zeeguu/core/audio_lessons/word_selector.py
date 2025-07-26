@@ -4,6 +4,7 @@ This module provides the core algorithm for selecting words for audio lessons,
 used by both the main audio lesson generator and analysis tools.
 """
 
+from zeeguu.core.model import UserWord, Phrase
 from zeeguu.core.model import (
     db,
     User,
@@ -13,9 +14,8 @@ from zeeguu.core.model import (
     DailyAudioLessonSegment,
 )
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-from zeeguu.logging import logp
-from zeeguu.core.model import UserWord, Phrase
 from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
+from zeeguu.logging import logp
 
 
 def get_meanings_already_in_audio_lessons(user: User) -> set:
@@ -103,7 +103,7 @@ def select_words_for_audio_lesson(
         -Phrase.rank.desc(), BasicSRSchedule.cooling_interval.desc()
     )
     learning_words = scheduled_query.limit(num_words).all()
-    
+
     # Track which words are unscheduled
     unscheduled_word_ids = set()
 
@@ -157,10 +157,10 @@ def select_words_for_audio_lesson(
             num_words - len(learning_words)
         ).all()
         learning_words.extend(unscheduled_words)
-        
+
         # Track these unscheduled words
         unscheduled_word_ids.update(w.id for w in unscheduled_words)
-        
+
         if log_enabled and unscheduled_words:
             logp(
                 f"[select_words_for_audio_lesson] Added {len(unscheduled_words)} unscheduled words to selection"
@@ -227,7 +227,9 @@ def select_words_for_audio_lesson(
 
     if return_unscheduled_info:
         # Return only the unscheduled words from the selected words
-        unscheduled_selected = [w for w in selected_words if w.id in unscheduled_word_ids]
+        unscheduled_selected = [
+            w for w in selected_words if w.id in unscheduled_word_ids
+        ]
         return selected_words, unscheduled_selected
     else:
         return selected_words

@@ -17,7 +17,7 @@ from zeeguu.core.model import (
     AudioLessonMeaning,
     DailyAudioLesson,
 )
-from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log, logp
 
 
@@ -225,7 +225,7 @@ class DailyLessonGenerator:
             if unscheduled_words:
                 for user_word in unscheduled_words:
                     # Create initial schedule for this word
-                    schedule = BasicSRSchedule.find_or_create(db.session, user_word)
+                    schedule = FourLevelsPerWord.find_or_create(db.session, user_word)
                     logp(
                         f"[generate_daily_lesson] Scheduled previously unscheduled word: {user_word.meaning.origin.content}"
                     )
