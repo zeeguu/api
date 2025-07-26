@@ -17,6 +17,7 @@ from zeeguu.core.model import (
     AudioLessonMeaning,
     DailyAudioLesson,
 )
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.logging import log, logp
 
 
@@ -63,9 +64,11 @@ class DailyLessonGenerator:
             )
             return existing_lesson
 
-        # Select words for the lesson
+        # Select words for the lesson and get info about unscheduled words
         logp(f"[generate_daily_lesson_for_user] Selecting words for lesson")
-        selected_words = self.select_words_for_lesson(user, 3)
+        selected_words, unscheduled_words = self.select_words_for_lesson(
+            user, 3, return_unscheduled_info=True
+        )
         logp(
             f"[generate_daily_lesson_for_user] Selected {len(selected_words)} words for lesson"
         )
@@ -74,7 +77,7 @@ class DailyLessonGenerator:
                 f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 2"
             )
             return {
-                "error": f"Not enough words in learning to generate a lesson. Need at least 2 words that were not in audio lessons before.",
+                "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
                 "available_words": len(selected_words),
                 "status_code": 400,
             }
@@ -91,12 +94,15 @@ class DailyLessonGenerator:
         return self.generate_daily_lesson(
             user=user,
             selected_words=selected_words,
+            unscheduled_words=unscheduled_words,
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
         )
 
-    def select_words_for_lesson(self, user: User, num_words: int = 3) -> list:
+    def select_words_for_lesson(
+        self, user: User, num_words: int = 3, return_unscheduled_info: bool = False
+    ):
         """
         Select words for a daily audio lesson.
 
@@ -108,7 +114,9 @@ class DailyLessonGenerator:
             List of UserWord objects, or empty list if not enough words available
         """
         # Use the shared word selection logic
-        return select_words_for_audio_lesson(user, num_words)
+        return select_words_for_audio_lesson(
+            user, num_words, return_unscheduled_info=return_unscheduled_info
+        )
 
     def generate_audio_lesson_meaning(
         self,
@@ -178,6 +186,7 @@ class DailyLessonGenerator:
         self,
         user: User,
         selected_words: list,
+        unscheduled_words: list,
         origin_language: str,
         translation_language: str,
         cefr_level: str,
@@ -188,6 +197,7 @@ class DailyLessonGenerator:
         Args:
             user: The user to generate lesson for (for lesson ownership)
             selected_words: List of UserWord objects to include in the lesson
+            unscheduled_words: List of UserWord objects that need to be scheduled
             origin_language: Language code for the words being learned (e.g. 'es', 'da')
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
@@ -210,6 +220,15 @@ class DailyLessonGenerator:
             )
             db.session.add(daily_lesson)
             logp(f"[generate_daily_lesson] Created daily lesson object")
+
+            # Schedule the unscheduled words that were added to the lesson
+            if unscheduled_words:
+                for user_word in unscheduled_words:
+                    # Create initial schedule for this word
+                    schedule = BasicSRSchedule.find_or_create(db.session, user_word)
+                    logp(
+                        f"[generate_daily_lesson] Scheduled previously unscheduled word: {user_word.meaning.origin.content}"
+                    )
 
             # Generate audio lesson for each selected word
             for idx, user_word in enumerate(selected_words):

@@ -53,7 +53,8 @@ def select_words_for_audio_lesson(
     language=None,
     log_enabled: bool = True,
     include_recently_learned: bool = True,
-) -> list:
+    return_unscheduled_info: bool = False,
+) -> list | tuple:
     """
     Select words for an audio lesson. This is the centralized algorithm used by both
     the daily lesson generator and precomputation scripts.
@@ -64,9 +65,11 @@ def select_words_for_audio_lesson(
         language: Language to filter by (optional, defaults to user's learned language)
         log_enabled: Whether to enable logging (default True)
         include_recently_learned: Include words learned in the last 30 days (default True)
+        return_unscheduled_info: If True, returns tuple (selected_words, unscheduled_words)
 
     Returns:
         List of UserWord objects, or empty list if not enough words available
+        If return_unscheduled_info=True, returns tuple (selected_words, unscheduled_words)
     """
     # Default to user's learned language if not specified
     if language is None:
@@ -100,6 +103,9 @@ def select_words_for_audio_lesson(
         -Phrase.rank.desc(), BasicSRSchedule.cooling_interval.desc()
     )
     learning_words = scheduled_query.limit(num_words).all()
+    
+    # Track which words are unscheduled
+    unscheduled_word_ids = set()
 
     # If not enough, get more scheduled words for this language
     if len(learning_words) < num_words:
@@ -119,6 +125,46 @@ def select_words_for_audio_lesson(
         more_scheduled_query = more_scheduled_query.order_by(-Phrase.rank.desc())
         more_words = more_scheduled_query.limit(num_words - len(learning_words)).all()
         learning_words.extend(more_words)
+
+    # If still not enough, get unscheduled words that could be added to learning
+    if len(learning_words) < num_words:
+        # Get user's unscheduled words for this language
+        unscheduled_query = (
+            UserWord.query.filter(UserWord.user_id == user.id)
+            .filter(UserWord.learned_time == None)  # Not learned
+            .filter(UserWord.fit_for_study == 1)  # Fit for study
+            .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+            .filter(BasicSRSchedule.id == None)  # Not scheduled
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == language.id)
+        )
+        if existing_meaning_ids:
+            unscheduled_query = unscheduled_query.filter(
+                ~UserWord.meaning_id.in_(existing_meaning_ids)
+            )
+        # Exclude words we already have
+        existing_user_word_ids = [w.id for w in learning_words]
+        if existing_user_word_ids:
+            unscheduled_query = unscheduled_query.filter(
+                ~UserWord.id.in_(existing_user_word_ids)
+            )
+        # Order by most recent first (likely the words they just translated)
+        unscheduled_query = unscheduled_query.order_by(
+            UserWord.created_on.desc()
+        )
+        unscheduled_words = unscheduled_query.limit(
+            num_words - len(learning_words)
+        ).all()
+        learning_words.extend(unscheduled_words)
+        
+        # Track these unscheduled words
+        unscheduled_word_ids.update(w.id for w in unscheduled_words)
+        
+        if log_enabled and unscheduled_words:
+            logp(
+                f"[select_words_for_audio_lesson] Added {len(unscheduled_words)} unscheduled words to selection"
+            )
 
     # If still not enough, get recently learned words for this language (if enabled)
     if len(learning_words) < num_words and include_recently_learned:
@@ -179,4 +225,9 @@ def select_words_for_audio_lesson(
             f"[select_words_for_audio_lesson] Selected {len(selected_words)} words: {[w.meaning.origin.content for w in selected_words]}"
         )
 
-    return selected_words
+    if return_unscheduled_info:
+        # Return only the unscheduled words from the selected words
+        unscheduled_selected = [w for w in selected_words if w.id in unscheduled_word_ids]
+        return selected_words, unscheduled_selected
+    else:
+        return selected_words
