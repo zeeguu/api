@@ -298,3 +298,46 @@ def practiced_user_word_count_this_week():
     user = User.find_by_id(flask.g.user_id)
     count = user.practiced_user_words_count_this_week()
     return json_result(count)
+
+
+@api.route("/bookmark_with_context/<int:bookmark_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def bookmark_with_context(bookmark_id):
+    """
+    Returns a bookmark with its full context information and tokenized context.
+    
+    This endpoint returns:
+    - id: bookmark ID
+    - from: origin word
+    - to: translation
+    - from_lang: source language
+    - context: the text context
+    - context_tokenized: tokenized version of context
+    - And other bookmark properties
+    """
+    try:
+        bookmark = Bookmark.find(bookmark_id)
+        
+        # Verify that this bookmark belongs to the current user
+        user = User.find_by_id(flask.g.user_id)
+        if bookmark.user_word.user_id != user.id:
+            return flask.jsonify({"error": "Bookmark not found or access denied"}), 404
+            
+        # Get bookmark data with context and tokenized context
+        bookmark_data = bookmark.as_dictionary(
+            with_context=True,
+            with_context_tokenized=True,
+            with_title=True
+        )
+        
+        # Add language information
+        bookmark_data["from_lang"] = bookmark.user_word.meaning.origin.language.code
+        bookmark_data["to_lang"] = bookmark.user_word.meaning.translation.language.code
+        
+        return json_result(bookmark_data)
+        
+    except NoResultFound:
+        return flask.jsonify({"error": "Bookmark not found"}), 404
+    except Exception as e:
+        return flask.jsonify({"error": "Internal server error"}), 500
