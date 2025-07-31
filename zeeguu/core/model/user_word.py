@@ -207,6 +207,8 @@ class UserWord(db.Model):
         result = {
             **self.preferred_bookmark.as_dictionary(with_context_tokenized=True),
             **exercise_info_dict,
+            "user_word_id": self.id,
+            "meaning_id": self.meaning_id,
         }
 
         return result

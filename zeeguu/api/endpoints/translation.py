@@ -251,6 +251,7 @@ def update_translation(bookmark_id):
     old_user_word = bookmark.user_word
     old_fit_for_study = old_user_word.fit_for_study
     old_user_preference = old_user_word.user_preference
+    old_level = old_user_word.level
     
     # Create a new UserWord with the updated meaning
     new_user_word = UserWord.find_or_create(
@@ -263,6 +264,11 @@ def update_translation(bookmark_id):
     # and the old one was fit for study, preserve that status
     if new_user_word.id != old_user_word.id and old_fit_for_study:
         from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
+        
+        # Transfer the level from old UserWord to new UserWord
+        new_user_word.level = old_level
         
         # If the new UserWord is marked as unfit due to quality checks,
         # but the user was actively studying it, override with user preference
@@ -271,8 +277,24 @@ def update_translation(bookmark_id):
             new_user_word.update_fit_for_study(db_session)
         
         # Update preferred bookmark if needed
-        if not new_user_word.preferred_bookmark or new_user_word.preferred_bookmark.quality < bookmark.quality:
+        if not new_user_word.preferred_bookmark:
             new_user_word.preferred_bookmark_id = bookmark.id
+        
+        # Transfer the schedule from old UserWord to new UserWord
+        old_schedule = BasicSRSchedule.find_by_user_word(old_user_word)
+        if old_schedule:
+            # Check if new UserWord already has a schedule
+            new_schedule = BasicSRSchedule.find_by_user_word(new_user_word)
+            if not new_schedule:
+                # Create a new schedule for the new UserWord with the same state
+                new_schedule = FourLevelsPerWord(user_word=new_user_word)
+                new_schedule.next_practice_time = old_schedule.next_practice_time
+                new_schedule.consecutive_correct_answers = old_schedule.consecutive_correct_answers
+                new_schedule.cooling_interval = old_schedule.cooling_interval
+                db_session.add(new_schedule)
+            
+            # Delete the old schedule
+            db_session.delete(old_schedule)
     
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
