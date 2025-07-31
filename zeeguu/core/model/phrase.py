@@ -67,34 +67,38 @@ class Phrase(db.Model):
 
     def importance_level(self):
         """
-            Note that this code will break if the wordstats throws an exception,
-            which could happen in case the language is inexistent…
-            but this should not happen.
-
-            Note that the importance level is float
-
-        :return: number between 0 and 10 as returned by the wordstats module
+        Convert rank to importance level for display purposes.
+        Lower rank = higher importance (more frequent word)
+        Returns a number between 0 and 10 for visual representation.
         """
-        try:
-            # For multi-word phrases, use the importance of the hardest (least frequent) word
-            words = self.content.split()
-            if len(words) > 1:
-                min_importance = 10  # Start with max importance
-                for single_word in words:
-                    try:
-                        stats = Word.stats(single_word, self.language.code)
-                        if stats.importance < min_importance:
-                            min_importance = stats.importance
-                    except:
-                        # If we can't get stats for a word, treat it as very rare (low importance)
-                        min_importance = 0
-                return int(min_importance)
-            else:
-                # Single word - use existing logic
-                stats = Word.stats(self.content, self.language.code)
-                return int(stats.importance)
-        except:
-            return 0  # Default to lowest importance if error
+        if self.rank is None:
+            return 0
+        
+        # Convert rank to importance level (inverse relationship)
+        # Most common words (rank 1-10) get importance 10
+        # Less common words get lower importance
+        if self.rank <= 10:
+            return 10
+        elif self.rank <= 50:
+            return 9
+        elif self.rank <= 100:
+            return 8
+        elif self.rank <= 250:
+            return 7
+        elif self.rank <= 500:
+            return 6
+        elif self.rank <= 1000:
+            return 5
+        elif self.rank <= 2500:
+            return 4
+        elif self.rank <= 5000:
+            return 3
+        elif self.rank <= 10000:
+            return 2
+        elif self.rank <= 50000:
+            return 1
+        else:
+            return 0
 
     # we use this in the bookmarks.html to show the importance of a word
     def importance_level_string(self):
@@ -106,34 +110,23 @@ class Phrase(db.Model):
         Ensures that the rank is calculated for this phrase.
         If rank is None and this is a multi-word phrase, recalculate it.
         """
-        from zeeguu.logging import log
-        
-        log(f"ensure_rank_is_calculated called for phrase '{self.content}', current rank: {self.rank}")
-        
         if self.rank is None:
             words = self.content.split()
-            log(f"Phrase '{self.content}' split into words: {words}")
-            
             if len(words) > 1:
                 try:
                     ranks = []
                     for single_word in words:
                         try:
                             rank = Word.stats(single_word, self.language.code).rank
-                            log(f"Word '{single_word}' has rank: {rank}")
                             if rank is not None:
                                 ranks.append(rank)
-                        except Exception as e:
+                        except:
                             # If we can't get rank for a word, treat it as very rare
-                            log(f"Failed to get rank for word '{single_word}': {e}")
                             ranks.append(self.IMPOSSIBLE_RANK)
-                    
-                    log(f"All ranks collected for '{self.content}': {ranks}")
                     
                     if ranks:
                         # Take the highest rank (least frequent word)
                         self.rank = max(ranks)
-                        log(f"Calculated rank for '{self.content}': {self.rank}")
                         
                         # Use a separate session to avoid deadlocks
                         from zeeguu.core.model import db
@@ -148,16 +141,10 @@ class Phrase(db.Model):
                             if phrase_to_update:
                                 phrase_to_update.rank = self.rank
                                 separate_session.commit()
-                                log(f"Successfully saved rank {self.rank} for phrase '{self.content}'")
                         finally:
                             separate_session.close()
-                except Exception as e:
-                    log(f"Error calculating rank for phrase '{self.content}': {e}")
+                except Exception:
                     pass  # Keep rank as None if we can't calculate it
-            else:
-                log(f"Phrase '{self.content}' is single word, skipping rank calculation")
-        else:
-            log(f"Phrase '{self.content}' already has rank {self.rank}, skipping calculation")
 
 
     @classmethod
