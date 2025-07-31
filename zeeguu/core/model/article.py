@@ -20,7 +20,7 @@ from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.model.ai_model import AIModel
+from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.logging import log
@@ -73,7 +73,7 @@ class Article(db.Model):
     parent_article_id = Column(Integer, ForeignKey("article.id"))
     # this is at the moment populated by an LLM
     cefr_level = Column(Enum("A1", "A2", "B1", "B2", "C1", "C2"))
-    simplification_ai_model_id = Column(Integer, ForeignKey("ai_models.id"))
+    simplification_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"))
 
     # Self-referential relationship for simplified versions
     parent_article = relationship(
@@ -81,8 +81,8 @@ class Article(db.Model):
     )
 
     # Relationship to AI model used for simplification
-    simplification_ai_model = relationship(
-        "AIModel", foreign_keys=[simplification_ai_model_id]
+    simplification_ai_generator = relationship(
+        "AIGenerator", foreign_keys=[simplification_ai_generator_id]
     )
 
     from zeeguu.core.model.url import Url
@@ -501,8 +501,8 @@ class Article(db.Model):
         simplified_article.cefr_level = cefr_level
 
         # Find or create AI model record
-        ai_model_record = AIModel.find_or_create(session, ai_model)
-        simplified_article.simplification_ai_model_id = ai_model_record.id
+        ai_generator_record = AIGenerator.find_or_create(session, ai_model)
+        simplified_article.simplification_ai_generator_id = ai_generator_record.id
 
         # Inherit image from parent article
         if parent_article.img_url:
