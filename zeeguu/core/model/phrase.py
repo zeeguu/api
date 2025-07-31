@@ -30,7 +30,27 @@ class Phrase(db.Model):
 
         # TODO: Performance
         try:
-            self.rank = Word.stats(self.content, self.language.code).rank
+            # For multi-word phrases, use the rank of the hardest (least frequent) word
+            words = self.content.split()
+            if len(words) > 1:
+                ranks = []
+                for single_word in words:
+                    try:
+                        rank = Word.stats(single_word, self.language.code).rank
+                        if rank is not None:
+                            ranks.append(rank)
+                    except:
+                        # If we can't get rank for a word, treat it as very rare
+                        ranks.append(self.IMPOSSIBLE_RANK)
+                
+                if ranks:
+                    # Take the highest rank (least frequent word)
+                    self.rank = max(ranks)
+                else:
+                    self.rank = None
+            else:
+                # Single word - use existing logic
+                self.rank = Word.stats(self.content, self.language.code).rank
         except FileNotFoundError:
             self.rank = None
         except Exception:
@@ -55,13 +75,90 @@ class Phrase(db.Model):
 
         :return: number between 0 and 10 as returned by the wordstats module
         """
-        stats = Word.stats(self.content, self.language.code)
-        return int(stats.importance)
+        try:
+            # For multi-word phrases, use the importance of the hardest (least frequent) word
+            words = self.content.split()
+            if len(words) > 1:
+                min_importance = 10  # Start with max importance
+                for single_word in words:
+                    try:
+                        stats = Word.stats(single_word, self.language.code)
+                        if stats.importance < min_importance:
+                            min_importance = stats.importance
+                    except:
+                        # If we can't get stats for a word, treat it as very rare (low importance)
+                        min_importance = 0
+                return int(min_importance)
+            else:
+                # Single word - use existing logic
+                stats = Word.stats(self.content, self.language.code)
+                return int(stats.importance)
+        except:
+            return 0  # Default to lowest importance if error
 
     # we use this in the bookmarks.html to show the importance of a word
     def importance_level_string(self):
         b = "|"
         return b * self.importance_level()
+
+    def ensure_rank_is_calculated(self):
+        """
+        Ensures that the rank is calculated for this phrase.
+        If rank is None and this is a multi-word phrase, recalculate it.
+        """
+        from zeeguu.logging import log
+        
+        log(f"ensure_rank_is_calculated called for phrase '{self.content}', current rank: {self.rank}")
+        
+        if self.rank is None:
+            words = self.content.split()
+            log(f"Phrase '{self.content}' split into words: {words}")
+            
+            if len(words) > 1:
+                try:
+                    ranks = []
+                    for single_word in words:
+                        try:
+                            rank = Word.stats(single_word, self.language.code).rank
+                            log(f"Word '{single_word}' has rank: {rank}")
+                            if rank is not None:
+                                ranks.append(rank)
+                        except Exception as e:
+                            # If we can't get rank for a word, treat it as very rare
+                            log(f"Failed to get rank for word '{single_word}': {e}")
+                            ranks.append(self.IMPOSSIBLE_RANK)
+                    
+                    log(f"All ranks collected for '{self.content}': {ranks}")
+                    
+                    if ranks:
+                        # Take the highest rank (least frequent word)
+                        self.rank = max(ranks)
+                        log(f"Calculated rank for '{self.content}': {self.rank}")
+                        
+                        # Use a separate session to avoid deadlocks
+                        from zeeguu.core.model import db
+                        from sqlalchemy.orm import sessionmaker
+                        
+                        # Create a new session for this update
+                        Session = sessionmaker(bind=db.engine)
+                        separate_session = Session()
+                        try:
+                            # Get the phrase in the separate session and update it
+                            phrase_to_update = separate_session.query(Phrase).filter(Phrase.id == self.id).first()
+                            if phrase_to_update:
+                                phrase_to_update.rank = self.rank
+                                separate_session.commit()
+                                log(f"Successfully saved rank {self.rank} for phrase '{self.content}'")
+                        finally:
+                            separate_session.close()
+                except Exception as e:
+                    log(f"Error calculating rank for phrase '{self.content}': {e}")
+                    pass  # Keep rank as None if we can't calculate it
+            else:
+                log(f"Phrase '{self.content}' is single word, skipping rank calculation")
+        else:
+            log(f"Phrase '{self.content}' already has rank {self.rank}, skipping calculation")
+
 
     @classmethod
     def find(cls, _content: str, language: Language):

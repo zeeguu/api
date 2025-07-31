@@ -147,10 +147,43 @@ class UserWord(db.Model):
             )
             print(str(e))
 
-        word_info = Word.stats(
-            self.meaning.origin.content,
-            self.meaning.origin.language.code,
-        )
+        # Ensure the phrase rank is calculated (especially for multi-word phrases)  
+        self.meaning.origin.ensure_rank_is_calculated()
+        
+        # Check if this is a multi-word phrase
+        words = self.meaning.origin.content.split()
+        if len(words) > 1:
+            # For multi-word phrases, use our calculated rank instead of Word.stats
+            phrase_rank = self.meaning.origin.rank or self.meaning.origin.IMPOSSIBLE_RANK
+            
+            # Debug logging
+            from zeeguu.logging import log
+            log(f"Multi-word phrase '{self.meaning.origin.content}' using calculated rank: {phrase_rank}")
+            
+            # Create a mock word_info object with proper attributes
+            class MockWordInfo:
+                def __init__(self, rank, importance):
+                    self.rank = rank
+                    self.importance = importance
+            
+            word_info = MockWordInfo(phrase_rank, self.meaning.origin.importance_level())
+        else:
+            # For single words, use Word.stats as usual
+            try:
+                word_info = Word.stats(
+                    self.meaning.origin.content,
+                    self.meaning.origin.language.code,
+                )
+            except:
+                # Fallback for single words if Word.stats fails
+                phrase_rank = self.meaning.origin.rank or self.meaning.origin.IMPOSSIBLE_RANK
+                
+                class MockWordInfo:
+                    def __init__(self, rank, importance):
+                        self.rank = rank
+                        self.importance = importance
+                
+                word_info = MockWordInfo(phrase_rank, self.meaning.origin.importance_level())
 
         # Fetch the BasicSRSchedule instance associated with the current bookmark
         from zeeguu.core.word_scheduling import ONE_DAY
