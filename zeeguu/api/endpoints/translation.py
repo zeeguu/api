@@ -21,7 +21,7 @@ from zeeguu.core.crowd_translations import (
 from zeeguu.core.model import Bookmark, User, Meaning, UserWord
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
-from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.text import Text
 from . import api, db_session
 

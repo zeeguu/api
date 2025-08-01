@@ -170,7 +170,7 @@ def create_and_get_article(client):
 
 
 def add_one_bookmark(logged_in_client):
-    from zeeguu.core.model.bookmark_context import ContextIdentifier
+    from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
 
     article = create_and_get_article(logged_in_client)

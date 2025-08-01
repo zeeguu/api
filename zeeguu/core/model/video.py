@@ -10,7 +10,7 @@ from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.yt_channel import YTChannel
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.model.bookmark_context import ContextIdentifier
+from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.core.util.encoding import datetime_to_json
