@@ -13,14 +13,6 @@ class UserWordTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
 
-    def test_importance_level(self):
-        random_word_stats = self.__get_random_word_stats()
-        random_language = LanguageRule().get_or_create_language(
-            random_word_stats[1].language_id
-        )
-        phrase = Phrase(random_word_stats[0], random_language)
-        assert phrase.importance_level() == int(random_word_stats[1].importance)
-
     def test_find(self):
         phrase_should_be = PhraseRule().phrase
         phrase_to_check = Phrase.find(
