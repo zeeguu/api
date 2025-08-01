@@ -236,7 +236,7 @@ def save_sentence(user_word_id):
             "bookmark_id": bookmark.id,
             "user_word_id": user_word_id,
             "message": "Generated example saved successfully",
-            "updated_bookmark": bookmark.as_dictionary(with_context=True),
+            "updated_bookmark": bookmark.as_dictionary(with_context=True, with_context_tokenized=True),
             "bookmark_context_id": bookmark.context.id,
         }
     )
