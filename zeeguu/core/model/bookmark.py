@@ -370,8 +370,8 @@ class Bookmark(db.Model):
 
         return SortedExerciseLog(self)
 
-    def update_fit_for_study(self):
-        self.user_word.update_fit_for_study()
+    def update_fit_for_study(self, session=None):
+        self.user_word.update_fit_for_study(session)
 
     @classmethod
     def find_by_specific_user(cls, user):

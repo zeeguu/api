@@ -225,7 +225,7 @@ def report_learned_bookmark(bookmark_id):
 def set_user_word_exercise_preference(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.user_preference = UserWordExPreference.USE_IN_EXERCISES
-    bookmark.update_fit_for_study()
+    bookmark.update_fit_for_study(db_session)
     db_session.commit()
     return "OK"
 
@@ -237,9 +237,7 @@ def set_user_word_exercise_dislike(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     user_word = bookmark.user_word
     user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-    user_word.update_fit_for_study()
-
-    BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
+    user_word.update_fit_for_study(db_session)
     db_session.commit()
     return "OK"
 
@@ -272,7 +270,7 @@ def set_not_fit_for_study(bookmark_id):
 def star_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = True
-    bookmark.update_fit_for_study()
+    bookmark.update_fit_for_study(db_session)
     db_session.commit()
     return "OK"
 
@@ -283,7 +281,7 @@ def star_bookmark(bookmark_id):
 def unstar_bookmark(bookmark_id):
     bookmark = Bookmark.find(bookmark_id)
     bookmark.starred = False
-    bookmark.update_fit_for_study()
+    bookmark.update_fit_for_study(db_session)
     db_session.commit()
     return "OK"
 
