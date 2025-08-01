@@ -10,7 +10,7 @@ from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 def test_create_and_delete_bookmark(client):
     add_context_types()
     add_source_types()
-    from zeeguu.core.model.bookmark_context import ContextIdentifier
+    from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
 
     article = create_and_get_article(client)
@@ -40,7 +40,7 @@ def test_create_and_delete_bookmark(client):
 def test_bookmark_with_context_endpoint(client):
     add_context_types()
     add_source_types()
-    from zeeguu.core.model.bookmark_context import ContextIdentifier
+    from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
 
     article = create_and_get_article(client)

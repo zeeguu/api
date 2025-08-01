@@ -352,7 +352,7 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.model.bookmark_context import ContextIdentifier
+            from zeeguu.core.model.context_identifier import ContextIdentifier
             from zeeguu.core.model.context_type import ContextType
 
             from zeeguu.core.model.article_fragment import ArticleFragment

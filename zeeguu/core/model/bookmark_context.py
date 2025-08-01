@@ -4,52 +4,6 @@ from zeeguu.core.model.new_text import NewText
 from zeeguu.core.model.db import db
 import sqlalchemy
 import time
-import json
-
-
-class ContextIdentifier:
-    def __init__(
-        self,
-        context_type: str,
-        article_fragment_id=None,
-        article_id=None,
-        video_id=None,
-        video_caption_id=None,
-    ):
-        self.context_type = context_type
-        self.article_fragment_id = article_fragment_id
-        self.article_id = article_id
-        self.video_id = video_id
-        self.video_caption_id = video_caption_id
-
-    def __repr__(self):
-        return f"<ContextIdentifier context_type={self.context_type}>"
-
-    @classmethod
-    def from_dictionary(cls, dictionary):
-        assert dictionary is not None
-        assert "context_type" in dictionary, f"Context type must be provided"
-
-        return ContextIdentifier(
-            dictionary.get("context_type", None),
-            dictionary.get("article_fragment_id", None),
-            dictionary.get("article_id", None),
-            video_id=dictionary.get("video_id", None),
-            video_caption_id=dictionary.get("video_caption_id", None),
-        )
-
-    @classmethod
-    def from_json_string(cls, json_string):
-        return cls.from_dictionary(json.loads(json_string))
-
-    def as_dictionary(self):
-        return {
-            "context_type": self.context_type,
-            "article_fragment_id": self.article_fragment_id,
-            "article_id": self.article_id,
-            "video_id": self.video_id,
-            "video_caption_id": self.video_caption_id,
-        }
 
 
 class BookmarkContext(db.Model):

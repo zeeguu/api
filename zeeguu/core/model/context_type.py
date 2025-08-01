@@ -19,6 +19,7 @@ class ContextType(db.Model):
     WEB_FRAGMENT = "WebFragment"
     USER_EDITED_TEXT = "UserEditedText"
     ORPHAN_CONTEXT = "OrphanContext"
+    EXAMPLE_SENTENCE = "ExampleSentence"
 
     ALL_TYPES = [
         ARTICLE_FRAGMENT,
@@ -29,6 +30,7 @@ class ContextType(db.Model):
         WEB_FRAGMENT,
         USER_EDITED_TEXT,
         ORPHAN_CONTEXT,
+        EXAMPLE_SENTENCE,
     ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -70,6 +72,7 @@ class ContextType(db.Model):
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.video_caption_context import VideoCaptionContext
+        from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 
         match type:
             case cls.ARTICLE_FRAGMENT:
@@ -80,5 +83,7 @@ class ContextType(db.Model):
                 return VideoTitleContext
             case cls.VIDEO_CAPTION:
                 return VideoCaptionContext
+            case cls.EXAMPLE_SENTENCE:
+                return ExampleSentenceContext
             case _:
                 return None

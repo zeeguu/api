@@ -4,15 +4,14 @@ import sqlalchemy
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.model.db import db
 from zeeguu.core.model.article import Article
-from zeeguu.core.model.bookmark_context import BookmarkContext, ContextIdentifier
-from zeeguu.core.model.caption import Caption
+from zeeguu.core.model.bookmark_context import BookmarkContext
+from zeeguu.core.model.context_identifier import ContextIdentifier
+from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.video import Video
 
 
 class Bookmark(db.Model):
@@ -143,6 +142,7 @@ class Bookmark(db.Model):
             t_sentence_i=self.sentence_i,
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
+            user_word_id=self.user_word_id,
         )
 
         result["from"] = self.user_word.meaning.origin.content
@@ -211,7 +211,7 @@ class Bookmark(db.Model):
         )
 
     def get_context_identifier(self):
-        from zeeguu.core.model.bookmark_context import ContextIdentifier
+        from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
 
         context_type = self.context.context_type.type
@@ -236,6 +236,10 @@ class Bookmark(db.Model):
                     context_identifier.video_caption_id = (
                         result.caption_id if result else None
                     )
+                case ContextType.EXAMPLE_SENTENCE:
+                    context_identifier.example_sentence_id = (
+                        result.example_sentence_id if result else None
+                    )
                 case _:
                     print("### Got a type without a mapped table!")
         return context_identifier.as_dictionary()
@@ -254,61 +258,7 @@ class Bookmark(db.Model):
 
         :return: The created mapping object.
         """
-        from zeeguu.core.model.context_type import ContextType
-
-        if not self.context or self.context.context_type == None:
-            return None
-        mapped_context = None
-        print("Context type is: ", self.context.context_type.type)
-        context_specific_table = ContextType.get_table_corresponding_to_type(
-            self.context.context_type.type
-        )
-        match self.context.context_type.type:
-            case ContextType.ARTICLE_FRAGMENT:
-                if context_identifier.article_fragment_id is None:
-                    return None
-                from zeeguu.core.model.article_fragment import ArticleFragment
-
-                fragment = ArticleFragment.find_by_id(
-                    context_identifier.article_fragment_id
-                )
-                mapped_context = context_specific_table.find_or_create(
-                    session,
-                    self,
-                    fragment,
-                    commit=commit,
-                )
-                session.add(mapped_context)
-            case ContextType.ARTICLE_TITLE:
-                if context_identifier.article_id is None:
-                    return None
-                article = Article.find_by_id(context_identifier.article_id)
-                mapped_context = context_specific_table.find_or_create(
-                    session, self, article, commit=commit
-                )
-                session.add(mapped_context)
-            case ContextType.VIDEO_TITLE:
-                if context_identifier.video_id is None:
-                    return None
-                video = Video.find_by_id(context_identifier.video_id)
-                mapped_context = context_specific_table.find_or_create(
-                    session, self, video, commit=commit
-                )
-                session.add(mapped_context)
-            case ContextType.VIDEO_CAPTION:
-                if context_identifier.video_caption_id is None:
-                    return None
-                video_caption = Caption.find_by_id(context_identifier.video_caption_id)
-                mapped_context = context_specific_table.find_or_create(
-                    session, self, video_caption, commit=commit
-                )
-                session.add(mapped_context)
-            case _:
-                print(
-                    f"## Something went wrong, the context {self.context.context_type.type} did not match any case."
-                )
-
-        return mapped_context
+        return context_identifier.create_context_mapping(session, self, commit=commit)
 
     @classmethod
     def find_or_create(
