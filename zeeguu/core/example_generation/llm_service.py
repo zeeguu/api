@@ -13,7 +13,7 @@ class LLMService:
     """Base class for LLM services"""
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
         """Generate example sentences. Must be implemented by subclasses."""
         raise NotImplementedError
 
@@ -36,10 +36,10 @@ class AnthropicService(LLMService):
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
         """Generate example sentences using Claude"""
         try:
-            prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version)
+            prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
             
             response = self.client.messages.create(
                 model=self.model,
@@ -99,7 +99,7 @@ class MockLLMService(LLMService):
     """Mock service for testing without API calls"""
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
         """Generate mock example sentences"""
         # Generate contextually appropriate mock examples based on the word
         examples = []
@@ -131,7 +131,10 @@ class MockLLMService(LLMService):
         # Get templates for the requested level, fallback to B1 if not found
         level_templates = templates.get(cefr_level, templates["B1"])
         
-        for template_src, template_tgt in level_templates:
+        # Repeat templates if count > available templates
+        templates_to_use = (level_templates * ((count // len(level_templates)) + 1))[:count]
+        
+        for template_src, template_tgt in templates_to_use:
             example = {
                 "sentence": template_src.format(word=word),
                 "translation": template_tgt.format(translation=translation),

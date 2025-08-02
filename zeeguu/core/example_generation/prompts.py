@@ -10,7 +10,7 @@ EXAMPLE_GENERATION_PROMPTS = {
         "system": """You are a language learning assistant that creates educational example sentences. 
 Your task is to generate clear, natural example sentences that help learners understand word usage in context.""",
         
-        "user": """Generate 3 example sentences for language learning.
+        "user": """Generate {count} example sentences for language learning.
 
 Word: {word}
 Translation: {translation} 
@@ -40,7 +40,7 @@ Format your response as JSON:
         "system": """You are a language learning assistant that creates educational example sentences. 
 Your task is to generate clear, unambiguous example sentences that work well for fill-in-the-blank exercises and help learners understand word usage in context.""",
         
-        "user": """Generate 3 example sentences for language learning exercises.
+        "user": """Generate {count} example sentences for language learning exercises.
 
 Word: {word}
 Translation: {translation} 
@@ -84,7 +84,7 @@ def get_prompt_template(version=PROMPT_VERSION_V2):
         raise ValueError(f"Unknown prompt version: {version}")
     return EXAMPLE_GENERATION_PROMPTS[version]
 
-def format_prompt(word, translation, source_lang, target_lang, cefr_level, version=PROMPT_VERSION_V2):
+def format_prompt(word, translation, source_lang, target_lang, cefr_level, version=PROMPT_VERSION_V2, count=3):
     """Format the prompt with the given parameters."""
     template = get_prompt_template(version)
     return {
@@ -94,6 +94,7 @@ def format_prompt(word, translation, source_lang, target_lang, cefr_level, versi
             translation=translation,
             source_lang=source_lang,
             target_lang=target_lang,
-            cefr_level=cefr_level
+            cefr_level=cefr_level,
+            count=count
         )
     }
