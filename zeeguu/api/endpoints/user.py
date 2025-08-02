@@ -193,11 +193,17 @@ def send_feedback():
     session = zeeguu.core.model.db.session
     message = flask.request.form.get("message", "")
     url = flask.request.form.get("currentUrl", None)
-    feedback_component_id = int(flask.request.form.get("feedbackComponentId", ""))
+    
+    # Get component name from frontend
+    component_name = flask.request.form.get("feedbackComponentName", "")
+    
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
     user = User.find_by_id(flask.g.user_id)
-    feedback_component = FeedbackComponent.find_by_id(feedback_component_id)
+    
+    # Use component name or default
+    feedback_component = FeedbackComponent.find_or_create(session, component_name or "General Feedback")
+    
     if url is not None:
         url = Url.find_or_create(session, url)
 
