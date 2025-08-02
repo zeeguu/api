@@ -89,21 +89,18 @@ def get_user_words_needing_examples(
         .order_by(Phrase.rank)
     )
 
-    # Get all user words first
-    all_user_words = query.all()
-    
-    # Apply active users filter if needed
+    # Apply active users filter if needed - much more efficient with last_seen
     if active_users_only and not user:  # Only filter by activity if processing all users
-        # Filter to only words for users who have been active recently
-        active_user_words = [
-            uw for uw in all_user_words 
-            if uw.user.active_during_recent(days_active_threshold)
-        ]
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=days_active_threshold)
         
-        log(f"Filtered from {len(all_user_words)} to {len(active_user_words)} user words for active users")
-        return active_user_words
-    
-    return all_user_words
+        # Use the user relationship instead of explicit join to avoid cartesian product
+        query = query.filter(
+            UserWord.user.has(User.last_seen > cutoff_date)
+        )
+        log(f"Filtering to users active since {cutoff_date}")
+
+    return query.all()
 
 
 def generate_examples_for_user_word(
