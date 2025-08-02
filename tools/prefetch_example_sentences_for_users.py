@@ -31,6 +31,8 @@ def get_user_words_needing_examples(
     missing_only: bool = False,
     min_examples_threshold: int = 5,
     scheduled_only: bool = True,
+    active_users_only: bool = True,
+    days_active_threshold: int = 30,
 ) -> List[UserWord]:
     """
     Get user words that need example sentences generated.
@@ -40,6 +42,8 @@ def get_user_words_needing_examples(
         missing_only: Only return user words with fewer than min_examples_threshold examples
         min_examples_threshold: Minimum number of examples each word should have
         scheduled_only: Only include words that are currently scheduled for study
+        active_users_only: Only include words for users active in the last N days
+        days_active_threshold: Number of days to consider for "active" users
 
     Returns:
         List of UserWord objects needing examples
@@ -52,6 +56,16 @@ def get_user_words_needing_examples(
 
     if user:
         query = query.filter(UserWord.user_id == user.id)
+    
+    if active_users_only and not user:  # Only filter by activity if processing all users
+        # Only include words for users who have been active recently
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=days_active_threshold)
+        
+        # Join with User table and filter by last_seen
+        query = query.join(User, UserWord.user_id == User.id).filter(
+            User.last_seen > cutoff_date
+        )
 
     if scheduled_only:
         # Only include words that have a schedule (are actively being studied)
@@ -213,6 +227,8 @@ def batch_generate_examples(
     batch_size: int = 1,
     max_words: Optional[int] = None,
     scheduled_only: bool = True,
+    active_users_only: bool = True,
+    days_active_threshold: int = 30,
 ) -> dict:
     """
     Main function to batch generate examples.
@@ -231,7 +247,7 @@ def batch_generate_examples(
     start_time = datetime.now()
 
     user_words = get_user_words_needing_examples(
-        user, missing_only, target_examples_per_word, scheduled_only
+        user, missing_only, target_examples_per_word, scheduled_only, active_users_only, days_active_threshold
     )
 
     if max_words:
@@ -374,7 +390,7 @@ def main():
 
     if args.dry_run:
         user_words = get_user_words_needing_examples(
-            user, args.missing_only, args.target_examples, scheduled_only
+            user, args.missing_only, args.target_examples, scheduled_only, True, 30
         )
         if args.max_words:
             user_words = user_words[: args.max_words]
@@ -394,6 +410,8 @@ def main():
         batch_size=args.batch_size,
         max_words=args.max_words,
         scheduled_only=scheduled_only,
+        active_users_only=True,
+        days_active_threshold=30,
     )
 
     print(f"Generation completed:")
