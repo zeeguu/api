@@ -56,16 +56,6 @@ def get_user_words_needing_examples(
 
     if user:
         query = query.filter(UserWord.user_id == user.id)
-    
-    if active_users_only and not user:  # Only filter by activity if processing all users
-        # Only include words for users who have been active recently
-        from datetime import datetime, timedelta
-        cutoff_date = datetime.now() - timedelta(days=days_active_threshold)
-        
-        # Join with User table and filter by last_seen
-        query = query.join(User, UserWord.user_id == User.id).filter(
-            User.last_seen > cutoff_date
-        )
 
     if scheduled_only:
         # Only include words that have a schedule (are actively being studied)
@@ -99,7 +89,21 @@ def get_user_words_needing_examples(
         .order_by(Phrase.rank)
     )
 
-    return query.all()
+    # Get all user words first
+    all_user_words = query.all()
+    
+    # Apply active users filter if needed
+    if active_users_only and not user:  # Only filter by activity if processing all users
+        # Filter to only words for users who have been active recently
+        active_user_words = [
+            uw for uw in all_user_words 
+            if uw.user.active_during_recent(days_active_threshold)
+        ]
+        
+        log(f"Filtered from {len(all_user_words)} to {len(active_user_words)} user words for active users")
+        return active_user_words
+    
+    return all_user_words
 
 
 def generate_examples_for_user_word(
