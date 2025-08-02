@@ -50,6 +50,7 @@ class User(db.Model):
     cohorts = relationship("UserCohortMap", back_populates="user")
 
     is_dev = Column(Boolean)
+    last_seen = db.Column(db.DateTime, nullable=True)
 
     def __init__(
         self,
@@ -315,6 +316,19 @@ class User(db.Model):
         now = datetime.datetime.now()
         a_while_ago = now - dateutil.relativedelta.relativedelta(days=days)
         return self.date_of_last_bookmark() > a_while_ago
+
+    def update_last_seen_if_needed(self, session=None):
+        """
+        Update last_seen timestamp, but only once per day to minimize database writes.
+        """
+        now = datetime.datetime.now()
+        
+        # Only update if last_seen is None or it's a different day
+        if not self.last_seen or self.last_seen.date() < now.date():
+            self.last_seen = now
+            if session:
+                session.add(self)
+                # Note: Don't commit here, let the caller decide when to commit
 
     def add_user_to_cohort(self, cohort, session):
         from zeeguu.core.model.user_cohort_map import UserCohortMap

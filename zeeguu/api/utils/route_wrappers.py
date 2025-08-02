@@ -57,6 +57,15 @@ def requires_session(view):
 
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
+            
+            # Update user's last_seen timestamp (once per day maximum)
+            from zeeguu.core.model import User
+            from zeeguu.core.model.db import db
+            user = User.find_by_id(user_id)
+            if user:
+                user.update_last_seen_if_needed(db.session)
+                # Commit immediately since this is a simple timestamp update
+                db.session.commit()
         except BadRequestKeyError as e:
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
