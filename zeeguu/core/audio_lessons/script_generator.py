@@ -50,6 +50,7 @@ def generate_lesson_script(
         "en": "English",
         "de": "German",
         "fr": "French",
+        "ro": "Romanian",
     }
 
     origin_lang_name = language_names.get(origin_language, origin_language)
