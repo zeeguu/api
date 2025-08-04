@@ -220,20 +220,24 @@ def set_preferred_example(user_word_id):
     if not user_word or user_word.user_id != user.id:
         return json_result({"error": "UserWord not found or unauthorized"}, status=404)
 
-    # Get sentence ID from request
-    sentence_id = request.json.get("sentence_id")
-    
-    if not sentence_id:
+    # Get the sentence_id from request
+    data = request.get_json()
+    if not data or "sentence_id" not in data:
         return json_result({"error": "sentence_id is required"}, status=400)
+
+    sentence_id = data["sentence_id"]
     
-    # Look up by ID
+    # Find the ExampleSentence - must belong to this user's meaning
     example_sentence_obj = ExampleSentence.query.filter(
         ExampleSentence.id == sentence_id,
         ExampleSentence.meaning_id == user_word.meaning_id
     ).first()
     
     if not example_sentence_obj:
-        return json_result({"error": f"Sentence with ID {sentence_id} not found for this word"}, status=404)
+        return json_result(
+            {"error": f"Sentence with ID {sentence_id} not found for this word"}, 
+            status=404
+        )
     
     selected_sentence = example_sentence_obj.sentence
 

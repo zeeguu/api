@@ -2,6 +2,7 @@ from datetime import datetime
 
 import flask
 from flask import request
+from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
@@ -300,14 +301,120 @@ def practiced_user_word_count_this_week():
     return json_result(count)
 
 
+@api.route("/past_contexts/<int:user_word_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_past_contexts(user_word_id):
+    """
+    Returns only past encounter contexts (articles, videos, etc.) - excludes AI-generated examples.
+    
+    Endpoint: GET /past_contexts/<user_word_id>
+    
+    Success Response (200):
+    {
+        "user_word_id": 123,
+        "preferred_bookmark_id": 456,
+        "total_past_contexts": 2,
+        "past_contexts": [
+            {
+                "bookmark_id": 456,
+                "is_preferred": true,
+                "context_type": "ARTICLE_FRAGMENT",
+                "context": "The serendipity of finding this book was remarkable.",
+                "title": "Article Title",
+                "sentence_i": 0,
+                "token_i": 1,
+                "c_sentence_i": 0,
+                "c_token_i": 1
+            },
+            {
+                "bookmark_id": 789,
+                "is_preferred": false,
+                "context_type": "VIDEO_CAPTION",
+                "context": "It was pure serendipity that we met.",
+                "title": "Video Title",
+                "sentence_i": 0,
+                "token_i": 3,
+                "c_sentence_i": 0,
+                "c_token_i": 3
+            }
+        ]
+    }
+    
+    Error Response (404):
+    {
+        "error": "UserWord not found or access denied"
+    }
+    """
+    from zeeguu.core.model import UserWord, Bookmark
+    from zeeguu.core.model.context_type import ContextType
+    
+    user = User.find_by_id(flask.g.user_id)
+    user_word = UserWord.query.get(user_word_id)
+    
+    if not user_word or user_word.user_id != user.id:
+        return flask.jsonify({"error": "UserWord not found or access denied"}), 404
+    
+    # Get only non-AI-generated bookmarks for this user_word
+    from zeeguu.core.model.bookmark_context import BookmarkContext
+    
+    bookmarks = (Bookmark.query
+                 .join(BookmarkContext, Bookmark.context_id == BookmarkContext.id)
+                 .outerjoin(ContextType, BookmarkContext.context_type_id == ContextType.id)
+                 .filter(Bookmark.user_word_id == user_word_id)
+                 .filter(or_(
+                     ContextType.id == None,  # Legacy bookmarks without context_type
+                     ContextType.type != ContextType.EXAMPLE_SENTENCE
+                 ))
+                 .order_by(Bookmark.id.asc())
+                 .all())
+    
+    past_contexts = []
+    for bookmark in bookmarks:
+        context_data = {
+            "bookmark_id": bookmark.id,
+            "is_preferred": bookmark.id == user_word.preferred_bookmark_id,
+            "context": bookmark.get_context(),
+            "context_type": bookmark.context.context_type.type if bookmark.context.context_type else "LEGACY",
+        }
+        
+        # Try to get title if available
+        try:
+            title = bookmark.get_source_title()
+            if title:
+                context_data["title"] = title
+        except:
+            pass
+        
+        # Add sentence and token positions
+        context_data["sentence_i"] = bookmark.sentence_i
+        context_data["token_i"] = bookmark.token_i
+        context_data["c_sentence_i"] = bookmark.context.sentence_i
+        context_data["c_token_i"] = bookmark.context.token_i
+        
+        past_contexts.append(context_data)
+    
+    result = {
+        "user_word_id": user_word_id,
+        "preferred_bookmark_id": user_word.preferred_bookmark_id,
+        "total_past_contexts": len(past_contexts),
+        "past_contexts": past_contexts
+    }
+    
+    return json_result(result)
+
+
 @api.route("/all_contexts/<int:user_word_id>", methods=["GET"])
 @cross_domain
 @requires_session
 def get_all_contexts(user_word_id):
     """
-    Returns all contexts where a word has been encountered by the user.
+    Returns ALL contexts where a word has been encountered (past encounters + AI examples).
     
     Endpoint: GET /all_contexts/<user_word_id>
+    
+    Note: This includes both past encounters AND AI-generated examples.
+    Use /past_contexts if you only want past encounters (articles, videos, etc.)
     
     Success Response (200):
     {
@@ -390,6 +497,92 @@ def get_all_contexts(user_word_id):
     }
     
     return json_result(result)
+
+
+@api.route("/set_preferred_bookmark/<int:user_word_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def set_preferred_bookmark(user_word_id):
+    """
+    Set any bookmark as the preferred context for a user word.
+    
+    Endpoint: POST /set_preferred_bookmark/<user_word_id>
+    
+    Request body (JSON):
+    {
+        "bookmark_id": 789  // ID of the bookmark to set as preferred
+    }
+    
+    Success Response (200):
+    {
+        "user_word_id": 123,
+        "old_preferred_bookmark_id": 456,
+        "new_preferred_bookmark_id": 789,
+        "message": "Preferred context updated successfully",
+        "updated_bookmark": { ... }  // Full bookmark data
+    }
+    
+    Error Response (400):
+    {
+        "error": "bookmark_id is required"
+    }
+    OR
+    {
+        "error": "Bookmark does not belong to this user word"
+    }
+    
+    Error Response (404):
+    {
+        "error": "UserWord not found or access denied"
+    }
+    OR
+    {
+        "error": "Bookmark not found"
+    }
+    """
+    from zeeguu.core.model import UserWord, Bookmark
+    from flask import request
+    
+    user = User.find_by_id(flask.g.user_id)
+    user_word = UserWord.query.get(user_word_id)
+    
+    if not user_word or user_word.user_id != user.id:
+        return flask.jsonify({"error": "UserWord not found or access denied"}), 404
+    
+    # Get bookmark ID from request
+    bookmark_id = request.json.get("bookmark_id")
+    
+    if not bookmark_id:
+        return flask.jsonify({"error": "bookmark_id is required"}), 400
+    
+    # Look up the bookmark
+    bookmark = Bookmark.query.get(bookmark_id)
+    
+    if not bookmark:
+        return flask.jsonify({"error": "Bookmark not found"}), 404
+    
+    # Verify this bookmark belongs to the user_word
+    if bookmark.user_word_id != user_word_id:
+        return flask.jsonify({"error": "Bookmark does not belong to this user word"}), 400
+    
+    # Store old preferred bookmark ID for response
+    old_preferred_id = user_word.preferred_bookmark_id
+    
+    # Update the preferred bookmark
+    user_word.preferred_bookmark = bookmark
+    db_session.add(user_word)
+    db_session.commit()
+    
+    # Refresh to get updated data
+    db_session.refresh(user_word)
+    
+    return json_result({
+        "user_word_id": user_word_id,
+        "old_preferred_bookmark_id": old_preferred_id,
+        "new_preferred_bookmark_id": bookmark.id,
+        "message": "Preferred context updated successfully",
+        "updated_bookmark": bookmark.as_dictionary(with_context=True, with_context_tokenized=True),
+    })
 
 
 @api.route("/bookmark_with_context/<int:bookmark_id>", methods=["GET"])
