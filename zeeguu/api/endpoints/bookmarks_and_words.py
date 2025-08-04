@@ -300,6 +300,98 @@ def practiced_user_word_count_this_week():
     return json_result(count)
 
 
+@api.route("/all_contexts/<int:user_word_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_all_contexts(user_word_id):
+    """
+    Returns all contexts where a word has been encountered by the user.
+    
+    Endpoint: GET /all_contexts/<user_word_id>
+    
+    Success Response (200):
+    {
+        "user_word_id": 123,
+        "preferred_bookmark_id": 456,
+        "total_contexts": 3,
+        "contexts": [
+            {
+                "bookmark_id": 456,
+                "is_preferred": true,
+                "context_type": "ARTICLE_FRAGMENT",
+                "context": "...",
+                "title": "Article Title",
+                "created_at": "2024-01-15T10:30:00"
+            },
+            {
+                "bookmark_id": 789,
+                "is_preferred": false,
+                "context_type": "VIDEO_CAPTION",
+                "context": "...",
+                "title": "Video Title",
+                "created_at": "2024-01-20T14:20:00"
+            },
+            {
+                "bookmark_id": 101,
+                "is_preferred": false,
+                "context_type": "EXAMPLE_SENTENCE",
+                "context": "...",
+                "created_at": "2024-02-01T09:15:00"
+            }
+        ]
+    }
+    
+    Error Response (404):
+    {
+        "error": "UserWord not found or access denied"
+    }
+    """
+    from zeeguu.core.model import UserWord, Bookmark
+    
+    user = User.find_by_id(flask.g.user_id)
+    user_word = UserWord.query.get(user_word_id)
+    
+    if not user_word or user_word.user_id != user.id:
+        return flask.jsonify({"error": "UserWord not found or access denied"}), 404
+    
+    # Get all bookmarks for this user_word
+    bookmarks = Bookmark.query.filter_by(user_word_id=user_word_id).order_by(Bookmark.id.asc()).all()
+    
+    contexts = []
+    for bookmark in bookmarks:
+        context_data = {
+            "bookmark_id": bookmark.id,
+            "is_preferred": bookmark.id == user_word.preferred_bookmark_id,
+            "context": bookmark.get_context(),
+            "context_type": bookmark.context.context_type.type if bookmark.context.context_type else "UNKNOWN",
+        }
+        
+        # Try to get title if available
+        try:
+            title = bookmark.get_source_title()
+            if title:
+                context_data["title"] = title
+        except:
+            pass
+        
+        # Add sentence and token positions
+        context_data["sentence_i"] = bookmark.sentence_i
+        context_data["token_i"] = bookmark.token_i
+        context_data["c_sentence_i"] = bookmark.context.sentence_i
+        context_data["c_token_i"] = bookmark.context.token_i
+        
+        contexts.append(context_data)
+    
+    result = {
+        "user_word_id": user_word_id,
+        "preferred_bookmark_id": user_word.preferred_bookmark_id,
+        "total_contexts": len(contexts),
+        "contexts": contexts
+    }
+    
+    return json_result(result)
+
+
 @api.route("/bookmark_with_context/<int:bookmark_id>", methods=["GET"])
 @cross_domain
 @requires_session
