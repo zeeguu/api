@@ -60,7 +60,7 @@ class VoiceSynthesizer:
                 continue
 
             # Parse voice lines like "Teacher: Some text [2 seconds]"
-            voice_match = re.match(r"^(Teacher|Man|Woman):\s*(.+)$", line)
+            voice_match = re.match(r"^(Teacher|Man|Woman|Armin|Aldo):\s*(.+)$", line, re.IGNORECASE)
             if not voice_match:
                 continue
 
@@ -78,11 +78,24 @@ class VoiceSynthesizer:
 
         return segments
 
-    def get_voice_config(self, voice_type: str, language_code: str) -> dict:
-        """Get the voice configuration for TTS."""
+    def get_voice_config(self, voice_type: str, language_code: str, teacher_language: str = None) -> dict:
+        """Get the voice configuration for TTS.
+        
+        Args:
+            voice_type: Type of voice (teacher, man, woman)
+            language_code: Language code for the target language
+            teacher_language: Optional language code for teacher voice (defaults to English)
+        """
         if voice_type == "teacher":
-            voice_id = get_teacher_voice()
-            language = "en-US"
+            # If teacher_language is specified, use that language's teacher voice
+            if teacher_language:
+                normalized_language = normalize_language_code(teacher_language)
+                voice_id = get_voice_id(teacher_language, "teacher")
+                language = normalized_language
+            else:
+                # Default to English teacher voice
+                voice_id = get_teacher_voice()
+                language = "en-US"
         else:
             # Normalize the language code and get the voice
             normalized_language = normalize_language_code(language_code)
@@ -123,7 +136,7 @@ class VoiceSynthesizer:
         return os.path.join(self.segments_dir, f"{voice_id}_{content_hash}.mp3")
 
     def synthesize_segment(
-        self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0
+        self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0, teacher_language: str = None
     ) -> str:
         """
         Synthesize a single text segment and cache it.
@@ -131,7 +144,7 @@ class VoiceSynthesizer:
         Returns:
             Path to the generated MP3 file
         """
-        voice_config = self.get_voice_config(voice_type, language_code)
+        voice_config = self.get_voice_config(voice_type, language_code, teacher_language)
         voice_id = voice_config["name"]
 
         # Check if we already have this audio cached
@@ -158,6 +171,7 @@ class VoiceSynthesizer:
         script: str,
         language_code: str,
         cefr_level: str = None,
+        teacher_language: str = None,
     ) -> str:
         """
         Generate the complete audio lesson from script.
@@ -188,7 +202,7 @@ class VoiceSynthesizer:
                 # Apply speaking rate slowdown only to man and woman voices, not teacher
                 rate = speaking_rate if voice_type in ["man", "woman"] else 1.0
                 audio_path = self.synthesize_segment(
-                    text, voice_type, language_code, rate
+                    text, voice_type, language_code, rate, teacher_language
                 )
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
