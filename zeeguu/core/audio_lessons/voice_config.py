@@ -30,7 +30,16 @@ VOICE_CONFIG = {
         "man": "nl-NL-Chirp3-HD-Enceladus",  # nl-NL-Chirp3-HD-Algieba
     },
     "sv-SE": {"woman": "sv-SE-Standard-F", "man": "sv-SE-Standard-G"},  # Swedish
-    "en-US": {"teacher": "en-US-Wavenet-J"},  # English (for teacher)
+    "en-US": {  # English
+        "teacher": "en-US-Wavenet-J",
+        "man": "en-US-Wavenet-D",
+        "woman": "en-US-Wavenet-F",
+    },
+    "ro-RO": {  # Romanian
+        "woman": "ro-RO-Wavenet-A",
+        "man": "ro-RO-Standard-A",
+        "teacher": "ro-RO-Wavenet-A",  # Teacher voice in Romanian
+    },
 }
 
 # Default silence duration between sentences (in seconds)
@@ -47,6 +56,7 @@ LANGUAGE_MAPPINGS = {
     "sv": "sv-SE",
     "en": "en-US",
     "pt": "pt-PT",
+    "ro": "ro-RO",
 }
 
 
