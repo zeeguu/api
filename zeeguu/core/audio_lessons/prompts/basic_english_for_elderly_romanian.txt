@@ -1,0 +1,86 @@
+Create a very basic English language learning audio script for an elderly Romanian speaker (78 years old) who wants to learn simple English phrases to talk to his nephew Armin and son-in-law Aldo.
+
+The lesson should teach the English phrase: "{origin_word}"
+Which means in Romanian: "{translation_word}"
+
+IMPORTANT: 
+- This lesson is for a COMPLETE BEGINNER who is 78 years old
+- Use VERY SIMPLE words and LOTS of repetition
+- Speak SLOWLY with many pauses
+- The teacher speaks Romanian, the student practices English
+- Include context about talking to Armin (nephew) or Aldo (son-in-law)
+- CRITICAL: When the teacher needs to say an English word, have the Man voice say it instead (so pronunciation is correct)
+
+Output ONLY the script lines below. Do not include any explanations or additional text.
+
+Use this exact format:
+
+    Teacher: Astăzi vom învăța o expresie foarte simplă în engleză. [2 seconds]
+    Teacher: Expresia este [2 seconds]
+    Man: {origin_word} [3 seconds]
+    Teacher: Care înseamnă {translation_word} [3 seconds]
+    
+    Teacher: Să repetăm încet. Spuneți după mine [2 seconds]
+    Man: {origin_word} [4 seconds]
+    Man: {origin_word} [4 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Foarte bine! Să exersăm fiecare cuvânt separat [3 seconds]
+    
+    [Break down each word of the English phrase]
+    For each word in the phrase:
+    Teacher: Primul cuvânt este [1 seconds]
+    Man: [first English word] [2 seconds]
+    Teacher: Care înseamnă [Romanian translation of word] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Man: [word] [3 seconds]
+    Man: [word] [3 seconds]
+    
+    Teacher: Acum să punem cuvintele împreună din nou [3 seconds]
+    Man: {origin_word} [4 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Excelent! Acum să vedem cum ați folosi această expresie [3 seconds]
+    Teacher: Imaginați-vă că vorbiți cu Armin sau Aldo [3 seconds]
+    
+    [Create a VERY simple dialogue with 4-6 lines using the phrase]
+    Teacher: Armin vă spune [2 seconds]
+    Armin: [Very simple English greeting or question] [3 seconds]
+    Teacher: Dumneavoastră răspundeți [2 seconds]
+    Man: {origin_word} [4 seconds]
+    Teacher: Foarte bine! Repetați [2 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Acum Aldo vă întreabă ceva [2 seconds]
+    Aldo: [Another simple English phrase] [3 seconds]
+    Teacher: Și dumneavoastră spuneți [2 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Să mai exersăm o dată [3 seconds]
+    Teacher: Când vedeți pe Armin sau Aldo, spuneți [2 seconds]
+    Man: {origin_word} [5 seconds]
+    Teacher: Din nou [2 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Foarte bine! Să repetăm tot ce am învățat [3 seconds]
+    Teacher: Expresia completă este [2 seconds]
+    Man: {origin_word} [4 seconds]
+    Teacher: Care înseamnă {translation_word} [3 seconds]
+    Teacher: Repetați pentru ultima dată [2 seconds]
+    Man: {origin_word} [4 seconds]
+    Man: {origin_word} [4 seconds]
+    Man: {origin_word} [4 seconds]
+    
+    Teacher: Excelent! Acum sunteți pregătit să folosiți această expresie cu Armin și Aldo! [3 seconds]
+
+RULES:
+- Use only "Teacher:", "Man:", "Woman:", "Armin:", "Aldo:" labels
+- Include [X seconds] timing for all pauses (use whole numbers only, no decimals)
+- Teacher ALWAYS speaks Romanian (never pronounces English words)
+- Man/Woman/Armin/Aldo speak English with proper pronunciation
+- When Teacher needs to reference an English word, use Man voice to say it
+- Use VERY simple vocabulary
+- Include LOTS of repetition (each phrase at least 3 times)
+- Speak SLOWLY with generous pauses (minimum 2 seconds, often 3-5 seconds)
+- Reference Armin (nephew) and Aldo (son-in-law) in examples
+- Armin and Aldo voices should also use English pronunciation
