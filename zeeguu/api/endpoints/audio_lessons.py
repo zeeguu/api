@@ -139,6 +139,65 @@ def get_past_daily_lessons():
     return json_result(result), status_code
 
 
+@api.route("/check_daily_lesson_feasibility", methods=["GET"])
+@cross_domain
+@requires_session
+def check_daily_lesson_feasibility():
+    """
+    Check if it's feasible to generate a daily audio lesson for the current user.
+    This checks prerequisites without actually generating a lesson.
+
+    Returns:
+    {
+        "feasible": true/false,
+        "available_words": 5,
+        "required_words": 2,
+        "has_feature_access": true,
+        "learned_language": "de",
+        "message": "Ready to generate lesson" | "Not enough words available" | "Feature not available"
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    
+    # Check if user has access to daily audio lessons
+    has_feature_access = user.has_feature("daily_audio")
+    if not has_feature_access:
+        return json_result({
+            "feasible": False,
+            "available_words": 0,
+            "required_words": 2,
+            "has_feature_access": False,
+            "learned_language": user.learned_language.code if user.learned_language else None,
+            "message": "Daily audio lessons feature not available for this user"
+        })
+
+    # Import the word selector to check available words
+    from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
+    
+    # Check how many words are available for lesson generation
+    selected_words, _ = select_words_for_audio_lesson(
+        user, 3, return_unscheduled_info=True
+    )
+    
+    available_words = len(selected_words)
+    required_words = 2
+    feasible = available_words >= required_words
+    
+    if feasible:
+        message = f"Ready to generate lesson with {available_words} words available"
+    else:
+        message = f"Not enough words available. Need at least {required_words} words, but only {available_words} available"
+    
+    return json_result({
+        "feasible": feasible,
+        "available_words": available_words,
+        "required_words": required_words,
+        "has_feature_access": has_feature_access,
+        "learned_language": user.learned_language.code if user.learned_language else None,
+        "message": message
+    })
+
+
 @api.route("/update_lesson_state/<int:lesson_id>", methods=["POST"])
 @cross_domain
 @requires_session
