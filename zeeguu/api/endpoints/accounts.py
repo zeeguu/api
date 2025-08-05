@@ -160,6 +160,10 @@ def send_code(email):
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
+    from zeeguu.logging import log
+    
+    log(f"PASSWORD RESET ATTEMPT: email='{email}'")
+    
     code = request.form.get("code", None)
     submitted_pass = request.form.get("password", None)
 
@@ -167,17 +171,22 @@ def reset_password(email):
     last_code = UniqueCode.last_code(email)
 
     if submitted_code_is_wrong(last_code, code):
+        log(f"PASSWORD RESET FAILED: email='{email}' - Invalid code")
         return bad_request("Invalid code")
     if password_is_too_short(submitted_pass):
+        log(f"PASSWORD RESET FAILED: email='{email}' - Password too short")
         return bad_request("Password is too short")
     if user is None:
+        log(f"PASSWORD RESET FAILED: email='{email}' - Email unknown")
         return bad_request("Email unknown")
 
+    log(f"PASSWORD RESET: email='{email}', user_id={user.id} - Updating password")
     user.update_password(submitted_pass)
     delete_all_codes_for_email(email)
 
     db_session.commit()
-
+    
+    log(f"PASSWORD RESET SUCCESS: email='{email}', user_id={user.id} - Password updated successfully")
     return "OK"
 
 

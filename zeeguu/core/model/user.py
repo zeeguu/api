@@ -393,12 +393,23 @@ class User(db.Model):
         :param password: str
         :return:
         """
+        from zeeguu.logging import log
+        
+        log(f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating new salt and password hash")
+        
         salt_bytes = "".join(chr(random.randint(0, 255)) for _ in range(32)).encode(
             "utf-8"
         )
 
+        old_password_hash = self.password
+        old_salt = self.password_salt
+        
         self.password = password_hash(password, salt_bytes)
         self.password_salt = salt_bytes.hex()
+        
+        log(f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'")
+        log(f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'")
+        log(f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated")
 
     def all_reading_sessions(
         self,
@@ -882,14 +893,33 @@ class User(db.Model):
 
     @classmethod
     def authorize(cls, email, password):
+        from zeeguu.logging import log
+        
         try:
+            log(f"AUTHORIZE: Looking up user with email '{email}'")
             user = cls.find(email)
-            if user.password == password_hash(
-                password, bytes.fromhex(user.password_salt)
-            ):
+            log(f"AUTHORIZE: Found user {user.id} for email '{email}'")
+            
+            # Hash the provided password with user's salt
+            provided_password_hash = password_hash(password, bytes.fromhex(user.password_salt))
+            stored_password_hash = user.password
+            
+            log(f"AUTHORIZE: user_id={user.id}, provided_hash_length={len(provided_password_hash)}, stored_hash_length={len(stored_password_hash)}")
+            
+            if provided_password_hash == stored_password_hash:
+                log(f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - Password hash matches")
                 return user
+            else:
+                log(f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - Password hash mismatch")
+                log(f"AUTHORIZE DEBUG: provided_hash='{provided_password_hash[:20]}...', stored_hash='{stored_password_hash[:20]}...'")
+                return None
+                
         except sqlalchemy.orm.exc.NoResultFound:
+            log(f"AUTHORIZE FAILED: No user found with email '{email}'")
             warning(f"Login attempt with wrong email: {email}")
+            return None
+        except Exception as e:
+            log(f"AUTHORIZE ERROR: Exception during authorization for email '{email}': {str(e)}")
             return None
 
     @classmethod

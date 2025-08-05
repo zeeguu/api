@@ -32,14 +32,20 @@ def get_session(email):
     along all the other requests that are annotated
     with @with_user in this file
     """
+    from zeeguu.logging import log
 
+    log(f"LOGIN ATTEMPT: email='{email}'")
+    
     password = request.form.get("password", None)
     if password == "":
+        log(f"LOGIN FAILED: email='{email}' - No password provided")
         return make_error(401, "Password not given")
 
     if not User.email_exists(email):
+        log(f"LOGIN FAILED: email='{email}' - Email does not exist in database")
         return make_error(401, "There is no account associated with this email")
 
+    log(f"LOGIN: email='{email}' - Email exists, attempting authorization")
     user = User.authorize(email, password)
     
     # Allow debug login if configured
@@ -47,13 +53,18 @@ def get_session(email):
     debug_password = current_app.config.get("DEBUG_USER_PASSWORD")
     
     if debug_user_id and debug_password and password == debug_password:
+        log(f"LOGIN: email='{email}' - Debug login attempt")
         # Check if this is the debug user's email
         debug_user = User.find_by_id(debug_user_id)
         if debug_user and debug_user.email == email:
+            log(f"LOGIN SUCCESS: email='{email}' - Debug user login successful")
             user = debug_user  # Allow login as debug user
     
     if user is None:
+        log(f"LOGIN FAILED: email='{email}' - User.authorize() returned None (invalid credentials)")
         return make_error(401, "Invalid credentials")
+    
+    log(f"LOGIN SUCCESS: email='{email}' - Creating session for user_id={user.id}")
     session = Session.create_for_user(user)
     db_session.add(session)
     db_session.commit()
