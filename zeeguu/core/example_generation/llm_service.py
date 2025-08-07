@@ -5,7 +5,7 @@ import os
 import json
 from typing import List, Dict, Optional
 
-from .prompts import format_prompt, PROMPT_VERSION_V2
+from .prompts import format_prompt, PROMPT_VERSION_V3
 from zeeguu.logging import log
 
 
@@ -13,7 +13,7 @@ class LLMService:
     """Base class for LLM services"""
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
         """Generate example sentences. Must be implemented by subclasses."""
         raise NotImplementedError
 
@@ -36,7 +36,7 @@ class AnthropicService(LLMService):
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
         """Generate example sentences using Claude"""
         try:
             prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
@@ -99,7 +99,7 @@ class MockLLMService(LLMService):
     """Mock service for testing without API calls"""
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V2, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
         """Generate mock example sentences"""
         # Generate contextually appropriate mock examples based on the word
         examples = []

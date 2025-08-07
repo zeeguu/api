@@ -4,6 +4,7 @@ Prompt templates for generating example sentences using LLMs.
 
 PROMPT_VERSION_V1 = "v1"
 PROMPT_VERSION_V2 = "v2"
+PROMPT_VERSION_V3 = "v3"
 
 EXAMPLE_GENERATION_PROMPTS = {
     "v1": {
@@ -75,16 +76,63 @@ Format your response as JSON:
     ...
   ]
 }}"""
+    },
+    "v3": {
+        "system": """You are a language learning assistant that creates educational example sentences. 
+Your task is to generate clear, unambiguous example sentences that work well for fill-in-the-blank exercises and help learners understand word usage in context.""",
+        
+        "user": """Generate {count} example sentences for language learning exercises.
+
+Word: {word}
+Translation: {translation} 
+Source language: {source_lang}
+Target language: {target_lang}
+CEFR Level: {cefr_level}
+
+CRITICAL REQUIREMENTS:
+1. MOST IMPORTANT: The word MUST be used with the EXACT meaning given in the translation "{translation}"
+2. If the word has multiple meanings, you MUST ONLY use the meaning that corresponds to "{translation}"
+3. Each sentence MUST provide enough context to make the target word the ONLY logical choice in a fill-in-the-blank exercise
+4. The surrounding words should strongly indicate that "{word}" with the meaning "{translation}" is the specific word needed
+5. DO NOT use alternative meanings of "{word}" that don't match "{translation}"
+6. Include specific details, actions, or situations that uniquely point to this word with this specific meaning
+7. Each sentence should be appropriate for {cefr_level} level learners
+8. Sentences should be practical and relatable to everyday situations
+
+EXAMPLE OF VIOLATION TO AVOID:
+If word="virker" and translation="seem", do NOT create sentences where "virker" means "work/function" like:
+- WRONG: "Min nye telefon virker ikke" (Here "virker" means "work/function", not "seem")
+- CORRECT: "Det virker som om han er træt" (Here "virker" means "seem")
+
+Examples of GOOD context (sufficient disambiguation + correct meaning):
+- "Efter tre timer var mødet endelig overstået" (time duration makes "overstået" clear)
+- "Kirsten arbejder som lærer på den lokale skole" (workplace context makes "lærer" specific)
+
+Examples of BAD context (insufficient disambiguation or wrong meaning):
+- "Mødet er _____" (could be many words: overstået, vigtig, lang, etc.)
+- "Hun er _____" (could be any profession, adjective, etc.)
+- Using a different meaning than the provided translation
+
+Format your response as JSON:
+{{
+  "examples": [
+    {{
+      "sentence": "The sentence in {source_lang}",
+      "translation": "The translation in {target_lang}"
+    }},
+    ...
+  ]
+}}"""
     }
 }
 
-def get_prompt_template(version=PROMPT_VERSION_V2):
+def get_prompt_template(version=PROMPT_VERSION_V3):
     """Get prompt template by version."""
     if version not in EXAMPLE_GENERATION_PROMPTS:
         raise ValueError(f"Unknown prompt version: {version}")
     return EXAMPLE_GENERATION_PROMPTS[version]
 
-def format_prompt(word, translation, source_lang, target_lang, cefr_level, version=PROMPT_VERSION_V2, count=3):
+def format_prompt(word, translation, source_lang, target_lang, cefr_level, version=PROMPT_VERSION_V3, count=3):
     """Format the prompt with the given parameters."""
     template = get_prompt_template(version)
     return {
