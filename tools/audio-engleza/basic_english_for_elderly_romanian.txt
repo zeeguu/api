@@ -1,0 +1,125 @@
+Create a very basic English language learning audio script for an elderly Romanian speaker (78 years old) who wants to learn simple English phrases for basic conversations.
+
+The lesson should teach the English phrase: "{origin_word}"
+Which means in Romanian: "{translation_word}"
+
+IMPORTANT: 
+- This lesson is for a COMPLETE BEGINNER who is 78 years old
+- Use VERY SIMPLE words and LOTS of repetition
+- Speak SLOWLY with many pauses
+- The teacher speaks Romanian, the student practices English
+- Include practical conversation examples
+- CRITICAL: When the teacher needs to say an English word, have the Woman voice say it instead (so pronunciation is correct)
+- CRITICAL: Romanian translations must be EXACT, word-for-word when possible (mot-à-mot)
+  Example: "Yes, I have a pen" = "Da, am un pix" NOT just "Da, am"
+  Example: "No, I don't have time" = "Nu, nu am timp" NOT just "Nu, nu am"
+- CRITICAL: For "to have", create motivating sentences that elderly people want to say:
+  Examples: "I have money" = "Am bani", "I have time" = "Am timp", "I have family" = "Am familie"
+  "I have three children" = "Am trei copii", "I have two daughters" = "Am două fete"  
+  "I have one son" = "Am un fiu", "I have one grandchild" = "Am un nepot"
+  IMPORTANT: Use "one grandchild" (singular) not "grandchildren" (plural)
+  Make them personal and meaningful - things they're proud to say!
+- CRITICAL: After teaching sentences, explain important individual words:
+  For example: "family" = "familie", "children" = "copii", "grandchild" = "nepot"
+  This helps learners understand and use these words in other contexts
+
+Output ONLY the script lines below. Do not include any explanations or additional text.
+
+Use this exact format:
+
+    Teacher: Astăzi vom învăța o expresie foarte simplă în engleză. [2 seconds]
+    Teacher: Expresia este [2 seconds]
+    Woman: {origin_word} [3 seconds]
+    Teacher: Care înseamnă {translation_word} [3 seconds]
+    
+    Teacher: Să repetăm încet. Spuneți după mine [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    Woman: {origin_word} [4 seconds]
+    Woman: {origin_word} [4 seconds]
+    
+    Teacher: Foarte bine! Acum să învățăm trei fraze simple și utile [3 seconds]
+    Teacher: Acestea sunt fraze pe care le veți folosi des [2 seconds]
+    
+    [Create 3 simple, practical sentences using the phrase - make them relatable and motivating for elderly people]
+    Teacher: Prima frază [2 seconds]
+    Woman: [simple sentence with {origin_word}] [3 seconds]
+    Teacher: Care înseamnă [Romanian translation] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Woman: [same sentence] [4 seconds]
+    
+    Teacher: A doua frază [2 seconds]  
+    Woman: [another simple sentence with {origin_word}] [3 seconds]
+    Teacher: Care înseamnă [Romanian translation] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Woman: [same sentence] [4 seconds]
+    
+    Teacher: A treia frază [2 seconds]
+    Woman: [third simple sentence with {origin_word}] [3 seconds]  
+    Teacher: Care înseamnă [Romanian translation] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Woman: [same sentence] [4 seconds]
+    
+    Teacher: Să repetăm toate trei frazele [3 seconds]
+    Woman: [first sentence] [4 seconds]
+    Woman: [second sentence] [4 seconds]
+    Woman: [third sentence] [4 seconds]
+    
+    Teacher: Acum să învățăm câteva cuvinte importante din aceste fraze [3 seconds]
+    Teacher: Primul cuvânt important este [2 seconds]
+    Woman: [key word from sentences, e.g. "family"] [3 seconds]
+    Teacher: Care înseamnă [Romanian translation] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Woman: [same key word] [4 seconds]
+    
+    Teacher: Al doilea cuvânt important este [2 seconds]
+    Woman: [another key word, e.g. "children"] [3 seconds]
+    Teacher: Care înseamnă [Romanian translation] [2 seconds]
+    Teacher: Repetați [2 seconds]
+    Woman: [same key word] [4 seconds]
+    
+    Teacher: Excelent! Acum să vedem cum ați folosi această expresie [3 seconds]
+    Teacher: Imaginați-vă o conversație simplă [3 seconds]
+    
+    [Create a VERY simple dialogue with 4-6 lines using the phrase]
+    Teacher: Cineva vă spune [2 seconds]
+    Woman: [Very simple English greeting or question] [3 seconds]
+    Teacher: Dumneavoastră răspundeți [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    Teacher: Foarte bine! Repetați [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    
+    Teacher: Acum altcineva vă întreabă ceva [2 seconds]
+    Woman: [Another simple English phrase] [3 seconds]
+    Teacher: Și dumneavoastră spuneți [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    
+    Teacher: Să mai exersăm o dată [3 seconds]
+    Teacher: Când întâlniți pe cineva, spuneți [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    Teacher: Din nou [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    
+    Teacher: Foarte bine! Să repetăm tot ce am învățat [3 seconds]
+    Teacher: Expresia completă este [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    Teacher: Care înseamnă {translation_word} [3 seconds]
+    Teacher: Repetați pentru ultima dată [2 seconds]
+    Woman: {origin_word} [4 seconds]
+    Woman: {origin_word} [4 seconds]
+    Woman: {origin_word} [4 seconds]
+    
+    Teacher: Excelent! Acum sunteți pregătit să folosiți această expresie în conversații! [3 seconds]
+
+RULES:
+- Use only "Teacher:", "Man:", "Woman:" labels
+- Include [X seconds] timing for all pauses (use whole numbers only, no decimals)
+- Teacher ALWAYS speaks Romanian (never pronounces English words)
+- Woman speaks English with proper pronunciation
+- When Teacher needs to reference an English word, use Woman voice to say it
+- Use VERY simple vocabulary
+- Include LOTS of repetition (each phrase at least 3 times)
+- Speak SLOWLY with generous pauses (minimum 2 seconds, often 3-5 seconds)
+- Create practical conversation examples
+- TRANSLATIONS MUST BE EXACT: When translating English responses to Romanian, use word-for-word translation
+  - "Yes, I have a pen" → "Da, am un pix" (NOT "Da, am")
+  - "No, I don't have" → "Nu, nu am" (complete translation)

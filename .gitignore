@@ -6,6 +6,7 @@ dev_data_folder*
 data/
 tools/report_generator/reports/
 tools/crawl_summary/crawl_data/
+tools/stiri-simple/output/
 
 *.pyc
 *.egg-info
