@@ -407,8 +407,11 @@ class User(db.Model):
         self.password = password_hash(password, salt_bytes)
         self.password_salt = salt_bytes.hex()
         
-        log(f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'")
-        log(f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'")
+        if old_salt:
+            log(f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'")
+            log(f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'")
+        else:
+            log(f"UPDATE_PASSWORD: user_id={self.id} - New salt: '{self.password_salt[:20]}...', New hash: '{self.password[:20]}...'")
         log(f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated")
 
     def all_reading_sessions(
