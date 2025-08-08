@@ -238,7 +238,7 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def scheduled_user_words_count(cls, user) -> int:
         query = cls._scheduled_user_words_query(user)
-        return query.count()
+        return query.distinct(UserWord.id).count()
 
     @classmethod
     def schedule_for_user(cls, user_id):

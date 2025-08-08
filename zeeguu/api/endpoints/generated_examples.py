@@ -158,16 +158,17 @@ def alternative_sentences(user_word_id):
     except Exception as e:
         log(f"Error generating examples for user_word {user_word_id}: {e}")
         
-        return json_result(
+        resp = json_result(
             {
                 "error": "Failed to generate examples. Please try again later.",
                 "user_word_id": user_word_id,
                 "word": origin_word,
                 "translation": translation,
                 "examples": []
-            },
-            status=500
+            }
         )
+        resp.status_code = 500
+        return resp
 
 
 @api.route("/set_preferred_example/<user_word_id>", methods=["POST"])

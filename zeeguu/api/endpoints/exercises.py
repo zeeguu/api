@@ -1,5 +1,6 @@
 import traceback
 import flask
+from sqlalchemy.exc import NoResultFound
 
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model.bookmark import Bookmark
@@ -31,13 +32,13 @@ def get_all_scheduled_bookmarks():
     return _user_words_as_json_result(user_words)
 
 
-@api.route("/count_of_all_scheduled_bookmarks", methods=["GET"])
+@api.route("/count_of_all_scheduled_words", methods=["GET"])
 @cross_domain
 @requires_session
-def get_count_of_all_scheduled_bookmarks():
+def get_count_of_all_scheduled_words():
     user = User.find_by_id(flask.g.user_id)
-    bookmark_count = BasicSRSchedule.scheduled_user_words_count(user)
-    return json_result(bookmark_count)
+    word_count = BasicSRSchedule.scheduled_user_words_count(user)
+    return json_result(word_count)
 
 
 # ====================================
@@ -146,8 +147,12 @@ def report_exercise_outcome():
         )
 
         return "OK"
-    except:
+    except NoResultFound:
+        print(f"Bookmark {bookmark_id} not found")
+        return "FAIL - Bookmark not found"
+    except Exception as e:
         traceback.print_exc()
+        print(f"Error reporting exercise outcome: {e}")
         return "FAIL"
 
 
