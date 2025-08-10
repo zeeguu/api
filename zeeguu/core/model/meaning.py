@@ -106,6 +106,7 @@ class Meaning(db.Model):
         default=False,
         comment="Whether the phrase type has been manually validated by a human",
     )
+    
 
     def __init__(
         self, origin: Phrase, translation: Phrase, frequency=None, phrase_type=None
@@ -114,6 +115,18 @@ class Meaning(db.Model):
         self.translation = translation
         self.frequency = frequency
         self.phrase_type = phrase_type
+    
+    @staticmethod
+    def _canonicalize(text: str) -> str:
+        """
+        Canonicalize text for semantic meaning comparison.
+        - Convert to lowercase for case-insensitive matching
+        - Strip whitespace 
+        - Future: Could add more normalization (punctuation, etc.)
+        """
+        if not text:
+            return ""
+        return text.lower().strip()
 
     def __repr__(self):
         freq_str = f", frequency={self.frequency.value}" if self.frequency else ""
@@ -137,42 +150,83 @@ class Meaning(db.Model):
         origin_lang = Language.find_or_create(_origin_lang)
         translation_lang = Language.find_or_create(_translation_lang)
 
+        # Create canonical forms for comparison
+        canonical_origin = cls._canonicalize(_origin)
+        canonical_translation = cls._canonicalize(_translation)
+
+        # First, try to find existing meaning by semantic equivalence
+        # Optimized: Use SQL to find potential matches more efficiently
+        try:
+            from sqlalchemy import func
+            from sqlalchemy.orm import aliased
+            OriginPhrase = aliased(Phrase)
+            TranslationPhrase = aliased(Phrase)
+            
+            # Get meanings where BOTH phrases match case-insensitively at the DB level
+            # This drastically reduces the number of records fetched from DB
+            potential_meanings = (
+                cls.query
+                .join(OriginPhrase, cls.origin_id == OriginPhrase.id)
+                .filter(OriginPhrase.language_id == origin_lang.id)
+                .filter(func.lower(OriginPhrase.content) == canonical_origin)
+                .join(TranslationPhrase, cls.translation_id == TranslationPhrase.id)  
+                .filter(TranslationPhrase.language_id == translation_lang.id)
+                .filter(func.lower(TranslationPhrase.content) == canonical_translation)
+                .all()
+            )
+            
+            # After consolidation migration, there should be exactly one
+            # Before migration or in edge cases, we might have multiple - take first
+            if potential_meanings:
+                if len(potential_meanings) > 1:
+                    # This shouldn't happen after migration, but handle it gracefully
+                    print(f"⚠️ Found {len(potential_meanings)} semantic duplicates for '{canonical_origin}' -> '{canonical_translation}'")
+                    print(f"   This indicates the consolidation migration needs to run")
+                
+                meaning = potential_meanings[0]
+                print(f"🔍 Found existing semantic meaning {meaning.id} for '{_origin}' -> '{_translation}'")
+                print(f"    Canonical: '{canonical_origin}' -> '{canonical_translation}'")
+                print(f"    Existing: '{meaning.origin.content}' -> '{meaning.translation.content}'")
+                
+                # Update metadata if provided
+                updated = False
+                if frequency and meaning.frequency != frequency:
+                    meaning.frequency = frequency
+                    updated = True
+                if phrase_type and meaning.phrase_type != phrase_type:
+                    meaning.phrase_type = phrase_type
+                    updated = True
+                if updated:
+                    session.add(meaning)
+                    session.commit()
+                
+                return meaning
+                    
+        except Exception as e:
+            # If semantic lookup fails, continue with creating new meaning
+            print(f"⚠️ Semantic lookup failed: {e}")
+
+        # No existing semantic meaning found - create new one
+        print(f"✨ Creating new semantic meaning for '{_origin}' -> '{_translation}'")
+        
+        # Create or find the exact surface form phrases (for display)
         origin = Phrase.find_or_create(session, _origin, origin_lang)
         session.add(origin)
 
         translation = Phrase.find_or_create(session, _translation, translation_lang)
         session.add(translation)
 
-        try:
-            meaning = cls.query.filter_by(origin=origin, translation=translation).one()
-            # Update frequency or phrase_type if provided and different
-            updated = False
-            if frequency and meaning.frequency != frequency:
-                meaning.frequency = frequency
-                updated = True
-            if phrase_type and meaning.phrase_type != phrase_type:
-                meaning.phrase_type = phrase_type
-                updated = True
-            if updated:
-                session.add(meaning)
-                session.commit()
+        # Create new meaning
+        meaning = cls(origin, translation, frequency, phrase_type)
+        session.add(meaning)
+        session.commit()
+        
+        print(f"    Created meaning {meaning.id} with canonical: '{canonical_origin}' -> '{canonical_translation}'")
 
-            # Also classify if existing meaning lacks classification
-            # Skip classification for phrases longer than 3 words to save API costs
-            word_count = len(meaning.origin.content.split())
-            if (not meaning.frequency or not meaning.phrase_type) and word_count <= 3:
-                cls._classify_meaning_async(meaning.id)
-        except NoResultFound:
-            meaning = cls(origin, translation, frequency, phrase_type)
-            session.add(meaning)
-            session.commit()
-
-            # Classify meaning asynchronously if not already classified
-            # Skip classification for phrases longer than 3 words to save API costs
-            word_count = len(meaning.origin.content.split())
-
-            if (not meaning.frequency or not meaning.phrase_type) and word_count <= 3:
-                cls._classify_meaning_async(meaning.id)
+        # Classify meaning asynchronously if not already classified
+        word_count = len(meaning.origin.content.split())
+        if (not meaning.frequency or not meaning.phrase_type) and word_count <= 3:
+            cls._classify_meaning_async(meaning.id)
 
         return meaning
 

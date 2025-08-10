@@ -68,7 +68,7 @@ class UserWord(db.Model):
             FourLevelsPerWord,
         )
 
-        return FourLevelsPerWord
+        return FourLevelsPerWord  # Return the class for static method calls
 
     def add_new_exercise(self, exercise):
         self.exercise_log.append(exercise)
@@ -121,9 +121,13 @@ class UserWord(db.Model):
                 self.preferred_bookmark = bookmarks[0]
                 # Log this repair for monitoring
                 from zeeguu.logging import log
-                log(f"WARNING: Repaired UserWord {self.id} by setting preferred_bookmark to {bookmarks[0].id}")
+
+                log(
+                    f"WARNING: Repaired UserWord {self.id} by setting preferred_bookmark to {bookmarks[0].id}"
+                )
                 # Save the repair
                 from zeeguu.core.model import db
+
                 db.session.add(self)
                 db.session.commit()
             else:
@@ -147,9 +151,9 @@ class UserWord(db.Model):
             )
             print(str(e))
 
-        # Ensure the phrase rank is calculated (especially for multi-word phrases)  
+        # Ensure the phrase rank is calculated (especially for multi-word phrases)
         self.meaning.origin.ensure_rank_is_calculated()
-        
+
         # Always use the database rank (unified approach for single and multi-word phrases)
         word_rank = self.meaning.origin.rank or self.meaning.origin.IMPOSSIBLE_RANK
 
@@ -294,7 +298,12 @@ class UserWord(db.Model):
 
     @classmethod
     def find_or_create(cls, session, user, meaning):
-
+        """
+        Find or create a UserWord for a user and meaning.
+        
+        Since Meaning.find_or_create() already handles semantic deduplication,
+        we can trust that each meaning is unique and canonical.
+        """
         try:
             user_word = cls.query.filter_by(user=user, meaning=meaning).one()
         except NoResultFound:
