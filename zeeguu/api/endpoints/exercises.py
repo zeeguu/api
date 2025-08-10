@@ -116,10 +116,10 @@ def report_exercise_outcome():
     In the model parlance, an exercise is an entry in a table that
     logs the performance of an exercise. Every such performance, has a source, and an outcome.
 
-    :param exercise_outcome: One of: Correct, Retry, Wrong, Typo, Too easy...
+    :param exercise_outcome: One of: C, Retry, Wrong, Typo, Too easy...
     :param exercise_source: has been assigned to your app by zeeguu
     :param exercise_solving_speed: in milliseconds
-    :param bookmark_id: the bookmark for which the data is reported
+    :param user_word_id: the user_word for which the data is reported
     :param session_id: assuming that the exercise submitter knows which session is this exercise part of
     :return:
     """
@@ -127,7 +127,7 @@ def report_exercise_outcome():
     outcome = request.form.get("outcome", "")
     source = request.form.get("source")
     solving_speed = request.form.get("solving_speed")
-    bookmark_id = request.form.get("bookmark_id")
+    user_word_id = request.form.get("user_word_id")
     other_feedback = request.form.get("other_feedback")
     session_id = int(request.form.get("session_id"))
 
@@ -135,9 +135,12 @@ def report_exercise_outcome():
         solving_speed = 0
 
     try:
-        bookmark = Bookmark.find(bookmark_id)
-        print(db_session)
-        bookmark.user_word.report_exercise_outcome(
+        from zeeguu.core.model.user_word import UserWord
+        user_word = UserWord.query.get(user_word_id)
+        if not user_word:
+            return "FAIL - UserWord not found"
+            
+        user_word.report_exercise_outcome(
             db_session,
             source,
             outcome,
@@ -147,12 +150,9 @@ def report_exercise_outcome():
         )
 
         return "OK"
-    except NoResultFound:
-        print(f"Bookmark {bookmark_id} not found")
-        return "FAIL - Bookmark not found"
     except Exception as e:
         traceback.print_exc()
-        print(f"Error reporting exercise outcome: {e}")
+        print(f"Error reporting exercise outcome for UserWord {user_word_id}: {e}")
         return "FAIL"
 
 
