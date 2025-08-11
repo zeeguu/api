@@ -16,14 +16,14 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 
 # ====================================
-#  All Scheduled Bookmarks
+#  All Scheduled User Words
 # ====================================
-@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
+@api.route("/all_scheduled_user_words", methods=["GET", "POST"])
 @cross_domain
 @requires_session
-def get_all_scheduled_bookmarks():
+def get_all_scheduled_user_words():
     """
-    Returns all the words scheduled for learning
+    Returns all the user words scheduled for learning
     Is used to render the Words>Learning page
     """
     user = User.find_by_id(flask.g.user_id)
@@ -32,35 +32,35 @@ def get_all_scheduled_bookmarks():
     return _user_words_as_json_result(user_words)
 
 
-@api.route("/count_of_all_scheduled_words", methods=["GET"])
+@api.route("/count_of_all_scheduled_user_words", methods=["GET"])
 @cross_domain
 @requires_session
-def get_count_of_all_scheduled_words():
+def get_count_of_all_scheduled_user_words():
     user = User.find_by_id(flask.g.user_id)
     word_count = BasicSRSchedule.scheduled_user_words_count(user)
     return json_result(word_count)
 
 
 # ====================================
-# Bookmarks recommended for practice
+# User words recommended for practice
 # ====================================
 @api.route(
-    "/bookmarks_recommended_for_practice",
+    "/user_words_recommended_for_practice",
     methods=["GET"],
 )
 @cross_domain
 @requires_session
-def get_bookmarks_recommended_for_practice():
+def get_user_words_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
     return _user_words_as_json_result(to_study)
 
 
-@api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
+@api.route("/count_of_user_words_recommended_for_practice", methods=["GET"])
 @cross_domain
 @requires_session
-def get_count_of_bookmarks_recommended_for_practice():
+def get_count_of_user_words_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
@@ -68,12 +68,12 @@ def get_count_of_bookmarks_recommended_for_practice():
 
 
 @api.route(
-    "/bookmarks_due_today",
+    "/user_words_due_today",
     methods=["GET"],
 )
 @cross_domain
 @requires_session
-def get_bookmarks_due_today():
+def get_user_words_due_today():
 
     user = User.find_by_id(flask.g.user_id)
     with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
@@ -83,22 +83,68 @@ def get_bookmarks_due_today():
 
 
 # =====================================
-# Bookmarks next to be studied
+# User words next to be studied
 # =====================================
 
 
 @api.route(
-    "/bookmarks_next_in_learning",
+    "/user_words_next_in_learning",
     methods=["GET"],
 )
 @cross_domain
 @requires_session
-def get_bookmarks_next_in_learning():
+def get_user_words_next_in_learning():
 
     user = User.find_by_id(flask.g.user_id)
     next_in_learning = BasicSRSchedule.user_words_not_scheduled(user, 6)
 
     return _user_words_as_json_result(next_in_learning)
+
+
+# ====================================
+# Backward compatibility (deprecated)
+# ====================================
+@api.route("/all_scheduled_bookmarks", methods=["GET", "POST"])
+@cross_domain
+@requires_session
+def get_all_scheduled_bookmarks():
+    """DEPRECATED: Use /all_scheduled_user_words instead"""
+    return get_all_scheduled_user_words()
+
+@api.route("/count_of_all_scheduled_words", methods=["GET"])
+@cross_domain
+@requires_session
+def get_count_of_all_scheduled_words():
+    """DEPRECATED: Use /count_of_all_scheduled_user_words instead"""
+    return get_count_of_all_scheduled_user_words()
+
+@api.route("/bookmarks_recommended_for_practice", methods=["GET"])
+@cross_domain
+@requires_session
+def get_bookmarks_recommended_for_practice():
+    """DEPRECATED: Use /user_words_recommended_for_practice instead"""
+    return get_user_words_recommended_for_practice()
+
+@api.route("/count_of_bookmarks_recommended_for_practice", methods=["GET"])
+@cross_domain
+@requires_session
+def get_count_of_bookmarks_recommended_for_practice():
+    """DEPRECATED: Use /count_of_user_words_recommended_for_practice instead"""
+    return get_count_of_user_words_recommended_for_practice()
+
+@api.route("/bookmarks_due_today", methods=["GET"])
+@cross_domain
+@requires_session
+def get_bookmarks_due_today():
+    """DEPRECATED: Use /user_words_due_today instead"""
+    return get_user_words_due_today()
+
+@api.route("/bookmarks_next_in_learning", methods=["GET"])
+@cross_domain
+@requires_session
+def get_bookmarks_next_in_learning():
+    """DEPRECATED: Use /user_words_next_in_learning instead"""
+    return get_user_words_next_in_learning()
 
 
 # ====================================
