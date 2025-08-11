@@ -24,11 +24,16 @@ def test_add_exercise_to_session(client):
 
     assert bookmark_id
 
+    # Get the user_word_id from the bookmark
+    from zeeguu.core.model.bookmark import Bookmark
+    bookmark = Bookmark.find(bookmark_id)
+    user_word_id = bookmark.user_word_id
+
     data = dict(
         outcome=1,
         source=1,
         solving_speed=100,
-        bookmark_id=bookmark_id,
+        user_word_id=user_word_id,
         other_feedback=1,
         session_id=session_id,
     )
