@@ -43,12 +43,8 @@ def user_articles_recommended(count: int = 15, page: int = 0):
         content = article_recommendations_for_user(user, count, page)
         print("Total content found: ", len(content))
     except Exception as e:
-        import traceback
-
-        # we failed to get recommendations from elastic
-        # return something
-        print(e)
-        print(traceback.format_exc())
+        # Elasticsearch failed, fall back to database query
+        print(f"Elasticsearch unavailable, using DB fallback: {type(e).__name__}")
         content = (
             Article.query.filter_by(broken=0)
             .filter_by(language_id=user.learned_language_id)

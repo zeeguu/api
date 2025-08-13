@@ -156,7 +156,6 @@ def article_recommendations_for_user(
     )
 
     res = es.search(index=ES_ZINDEX, body=query_body)
-
     hit_list = res["hits"].get("hits")
     # Handle both articles and videos in organic recommendations
     content_objects = [
