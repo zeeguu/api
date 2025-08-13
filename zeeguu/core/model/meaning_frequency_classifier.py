@@ -5,7 +5,7 @@ Service for classifying meaning frequencies using Anthropic API.
 import os
 from anthropic import Anthropic
 from zeeguu.core.model.meaning import MeaningFrequency
-from zeeguu.core.prompts.meaning_frequency_classifier import (
+from zeeguu.core.llm_services.prompts.meaning_frequency_classifier import (
     create_meaning_frequency_and_type_prompt,
 )
 from zeeguu.core.model.meaning import PhraseType
