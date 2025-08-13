@@ -1,4 +1,4 @@
-def find_last_reading_percentage(list, max_jump=10, max_total_update=40):
+def find_last_reading_percentage(list, max_jump=50, max_total_update=60):
     """
     Takes a list of scroll events which are composed of tuples (second, % read) and outputs
     the last point the users has "read" to. This is an estimation, as it's impossible to

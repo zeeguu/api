@@ -411,8 +411,31 @@ class UserActivityData(db.Model):
             # date_ago = (datetime.now() - e.time)
             # seconds_ago = date_ago.seconds
             last_percentage = find_last_reading_percentage(parsed_data)
+            
+            # Handle both old and new data formats for viewport settings
+            try:
+                # Parse viewport settings from e.value
+                parsed_viewport = json.loads(viewportSettings)
+                if isinstance(parsed_viewport, dict):
+                    # Check if it's the new optimized format with viewportRatio
+                    if 'viewportRatio' in parsed_viewport:
+                        # New optimized format - already has what we need
+                        viewport_dict = parsed_viewport
+                    elif 'scrollHeight' in parsed_viewport:
+                        # Old format with full viewport settings - keep as is
+                        viewport_dict = parsed_viewport
+                    else:
+                        # Unknown format, skip
+                        continue
+                else:
+                    # Not a dict, skip this session
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                # Invalid JSON or wrong type, skip this session
+                continue
+                
             list_of_sessions.append(
-                (article_data.id, e.time, json.loads(viewportSettings), last_percentage)
+                (article_data.id, e.time, viewport_dict, last_percentage)
             )
             if len(list_of_sessions) >= limit:
                 break

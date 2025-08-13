@@ -113,17 +113,41 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
     for s in last_sessions:
         art_id, date_read, viewport_settings, last_reading_point = s
         if last_reading_point < 0.9 and last_reading_point > 0:
-            scrollHeight = viewport_settings["scrollHeight"]
-            clientHeight = viewport_settings["clientHeight"]
-            bottomRowHeight = viewport_settings["bottomRowHeight"]
+            # Handle case where viewport_settings is not a dict (defensive programming)
+            if not isinstance(viewport_settings, dict):
+                continue  # Skip this session if viewport_settings is invalid
+            
+            # Check for new simplified format first (with viewportRatio)
+            if "viewportRatio" in viewport_settings:
+                # New optimized format: just use the pre-calculated viewport ratio
+                viewport_ratio = viewport_settings["viewportRatio"]
+                # Tolerance is 1/4 of the viewport ratio (keeps same UX as before)
+                tolerance = viewport_ratio / 4
+            
+            # Fall back to old format for backwards compatibility
+            elif all(key in viewport_settings for key in ["scrollHeight", "clientHeight", "bottomRowHeight"]):
+                scrollHeight = viewport_settings["scrollHeight"]
+                clientHeight = viewport_settings["clientHeight"]
+                bottomRowHeight = viewport_settings["bottomRowHeight"]
+                # Calculate tolerance the old way
+                tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
+            
+            # If we only have partial data (scrollHeight + clientHeight without bottomRowHeight)
+            elif "scrollHeight" in viewport_settings and "clientHeight" in viewport_settings:
+                scrollHeight = viewport_settings["scrollHeight"]
+                clientHeight = viewport_settings["clientHeight"]
+                # Assume bottomRowHeight is 0 if not provided (reasonable fallback)
+                tolerance = clientHeight / scrollHeight / 4
+            
+            else:
+                # Skip this session if we can't calculate tolerance
+                continue
+            
             art = Article.find_by_id(art_id)
             art_info = UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, art))
-            # We might use these for a more complex calculation of where to lead the user
-            # art_info["total_scroll_height"] = (scrollHeight - clientHeight - bottomRowHeight)
-            # art_info["pixel_to_scroll_to"] = (scrollHeight - clientHeight - bottomRowHeight) * (last_reading_point)
             art_info["time_last_read"] = date_read
-            # Give a tolerance based on the viewPort to scroll a bit before the maximum point.
-            tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
+            
+            # Apply tolerance to get adjusted reading position
             last_reading_percentage = last_reading_point - tolerance
             if last_reading_percentage <= 0:
                 continue
