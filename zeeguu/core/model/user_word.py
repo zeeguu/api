@@ -32,6 +32,8 @@ class UserWord(db.Model):
     learned_time = db.Column(db.DateTime)
 
     level = db.Column(db.Integer)
+    
+    is_user_added = db.Column(db.Boolean, default=False)
 
     preferred_bookmark_id = db.Column(db.Integer, db.ForeignKey("bookmark.id"))
 
@@ -44,6 +46,7 @@ class UserWord(db.Model):
         user,
         meaning,
         level: int = 0,
+        is_user_added: bool = False,
     ):
         self.level = level
         self.user = user
@@ -52,6 +55,7 @@ class UserWord(db.Model):
         self.user_preference = UserWordExPreference.NO_PREFERENCE
         self.learned_time = None
         self.level = level
+        self.is_user_added = is_user_added
 
     def __repr__(self):
         return f"User Word: {self.user} x {self.meaning} Level: {self.level}"
@@ -213,6 +217,7 @@ class UserWord(db.Model):
             **exercise_info_dict,
             "user_word_id": self.id,
             "meaning_id": self.meaning_id,
+            "is_user_added": self.is_user_added if self.is_user_added is not None else False,
         }
 
         return result
@@ -297,7 +302,7 @@ class UserWord(db.Model):
         # self.update_learned_status(db_session)
 
     @classmethod
-    def find_or_create(cls, session, user, meaning):
+    def find_or_create(cls, session, user, meaning, is_user_added=False):
         """
         Find or create a UserWord for a user and meaning.
         
@@ -306,8 +311,13 @@ class UserWord(db.Model):
         """
         try:
             user_word = cls.query.filter_by(user=user, meaning=meaning).one()
+            # If it exists but we're marking it as user_added, update the flag
+            if is_user_added and not user_word.is_user_added:
+                user_word.is_user_added = True
+                session.add(user_word)
+                session.commit()
         except NoResultFound:
-            user_word = cls(user, meaning)
+            user_word = cls(user, meaning, is_user_added=is_user_added)
             session.add(user_word)
             session.commit()
 

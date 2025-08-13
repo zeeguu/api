@@ -9,6 +9,7 @@ from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseO
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.logging import log
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
@@ -626,3 +627,149 @@ def bookmark_with_context(bookmark_id):
         return flask.jsonify({"error": "Bookmark not found"}), 404
     except Exception as e:
         return flask.jsonify({"error": "Internal server error"}), 500
+
+
+@api.route("/add_custom_word", methods=["POST"])
+@cross_domain
+@requires_session
+def add_custom_word():
+    """
+    Allows users to manually add a word/expression to their learning list.
+    
+    The word is immediately scheduled for exercises using the spaced repetition algorithm.
+    
+    Request body (JSON):
+    {
+        "word": "jo tidligere, jo bedre",  // The word/expression to learn
+        "translation": "the sooner, the better",  // Translation
+        "from_lang": "da",  // Source language code
+        "to_lang": "en",  // Target language code
+        "context": "Jo tidligere du starter, jo bedre blir resultatet"  // Optional context
+    }
+    
+    Success Response (200):
+    {
+        "bookmark_id": 123,
+        "user_word_id": 456,
+        "scheduled": true,
+        "level": 1
+    }
+    """
+    from zeeguu.core.model import Language, Meaning, Bookmark
+    from zeeguu.core.model.bookmark_context import BookmarkContext
+    from zeeguu.core.model.context_type import ContextType
+    from zeeguu.core.model.user_word import UserWord
+    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
+    
+    try:
+        data = request.get_json()
+        
+        # Extract required fields
+        word = data.get("word", "").strip()
+        translation = data.get("translation", "").strip()
+        from_lang_code = data.get("from_lang", "").strip()
+        to_lang_code = data.get("to_lang", "").strip()
+        context = data.get("context", "").strip()
+        
+        # Validate required fields
+        if not word or not translation or not from_lang_code or not to_lang_code:
+            return flask.jsonify({
+                "error": "Missing required fields: word, translation, from_lang, to_lang"
+            }), 400
+        
+        # Get user and languages
+        user = User.find_by_id(flask.g.user_id)
+        from_lang = Language.find(from_lang_code)
+        to_lang = Language.find(to_lang_code)
+        
+        if not from_lang or not to_lang:
+            return flask.jsonify({"error": "Invalid language codes"}), 400
+        
+        # Create or find the meaning
+        meaning = Meaning.find_or_create(
+            db_session,
+            word,
+            from_lang_code,
+            translation,
+            to_lang_code
+        )
+        
+        # Create UserWord with is_user_added flag
+        user_word = UserWord.find_or_create(
+            db_session, 
+            user, 
+            meaning,
+            is_user_added=True  # Mark as user-added
+        )
+        
+        # If no context provided, use the word itself as context
+        if not context:
+            context = word
+        
+        # Get the USER_EDITED_TEXT context type
+        context_type = ContextType.find_or_create(
+            db_session,
+            ContextType.USER_EDITED_TEXT,
+            commit=False
+        )
+        
+        # Create bookmark context
+        bookmark_context = BookmarkContext.find_or_create(
+            db_session,
+            context,
+            context_type.type,
+            from_lang,
+            None,  # c_sentence_i
+            None,  # c_token_i
+            False,  # left_ellipsis
+            False  # right_ellipsis
+        )
+        
+        # Create bookmark
+        from zeeguu.core.model.text import Text
+        from zeeguu.core.model.source import Source
+        
+        # Create a simple text object for the user-added word
+        text = Text(context, from_lang, None, None)  # url=None, article=None for user-added words
+        db_session.add(text)
+        
+        # Create bookmark with no source (user-added)
+        from datetime import datetime
+        bookmark = Bookmark(
+            user_word,
+            None,  # No source since it's user-added
+            text,  # text object
+            datetime.now(),
+            context=bookmark_context
+        )
+        db_session.add(bookmark)
+        
+        # Commit the bookmark first to avoid circular dependency
+        db_session.commit()
+        
+        # Now set this bookmark as preferred for the user word
+        user_word.preferred_bookmark = bookmark
+        
+        # Immediately schedule the word for learning
+        schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
+        
+        # Ensure the word is fit for study
+        user_word.fit_for_study = True
+        user_word.level = 1  # Start at level 1
+        
+        # Commit the user_word changes
+        db_session.add(user_word)
+        db_session.commit()
+        
+        return json_result({
+            "bookmark_id": bookmark.id,
+            "user_word_id": user_word.id,
+            "scheduled": True,
+            "level": user_word.level,
+            "message": "Word added successfully and scheduled for practice"
+        })
+        
+    except Exception as e:
+        db_session.rollback()
+        log(f"Error in add_custom_word: {str(e)}")
+        return flask.jsonify({"error": "Failed to add word"}), 500

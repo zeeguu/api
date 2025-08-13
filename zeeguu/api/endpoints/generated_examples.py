@@ -4,7 +4,7 @@ from flask import request
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.example_generation.llm_service import get_llm_service
-from zeeguu.core.model import UserWord, User, Bookmark
+from zeeguu.core.model import UserWord, User, Bookmark, Language
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
@@ -334,3 +334,51 @@ def set_preferred_example(user_word_id):
             "bookmark_context_id": bookmark.context.id,
         }
     )
+
+
+@api.route("/generate_examples/<word>/<from_lang>/<to_lang>", methods=["GET"])
+@cross_domain
+@requires_session
+def generate_examples_for_word(word, from_lang, to_lang):
+    """
+    Generate example sentences for any word without requiring it to be saved first.
+    Useful for the "Add Custom Word" modal to show examples before adding the word.
+    
+    :param word: The word to generate examples for
+    :param from_lang: Source language code (e.g., 'da')
+    :param to_lang: Target language code (e.g., 'en')
+    :return: JSON array with example sentences
+    """
+    user = User.find_by_id(flask.g.user_id)
+    
+    # Get language objects
+    origin_lang = Language.find(from_lang)
+    translation_lang = Language.find(to_lang)
+    
+    if not origin_lang or not translation_lang:
+        return json_result({"error": "Invalid language codes"}, status=400)
+    
+    try:
+        # Get LLM service and generate examples directly
+        llm_service = get_llm_service()
+        cefr_level = request.args.get("cefr_level", "B1")
+        
+        # Generate examples using the LLM service
+        examples = llm_service.generate_examples(
+            word=word,
+            translation="",  # We don't have a translation for the word yet
+            source_lang=origin_lang,
+            target_lang=translation_lang,
+            cefr_level=cefr_level,
+            count=5
+        )
+        
+        return json_result({"examples": examples, "word": word})
+        
+    except Exception as e:
+        log(f"Error generating examples for word '{word}': {e}")
+        # json_result doesn't accept status parameter, use flask.Response for error responses
+        from flask import Response
+        import json
+        error_response = json.dumps({"error": "Failed to generate examples", "examples": []})
+        return Response(error_response, status=500, mimetype="application/json")
