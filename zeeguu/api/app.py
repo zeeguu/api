@@ -14,6 +14,10 @@ from zeeguu.logging import warning
 import logging
 from apimux.log import logger
 
+# Suppress verbose Elasticsearch connection error logs
+logging.getLogger("elastic_transport.transport").setLevel(logging.ERROR)
+logging.getLogger("elastic_transport.node_pool").setLevel(logging.ERROR)
+
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
