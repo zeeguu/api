@@ -2,7 +2,7 @@ from elasticsearch_dsl import Search, Q, SF
 from elasticsearch_dsl.query import MoreLikeThis
 from datetime import timedelta, datetime
 from zeeguu.core.model import Language
-from pprint import pprint
+# pprint import removed for cleaner output
 from zeeguu.core.model.article import Article
 
 
@@ -183,7 +183,7 @@ def build_elastic_recommender_query(
     )
     full_query["query"]["function_score"].update(bool_query_body)
 
-    pprint(full_query)
+    # Query logging removed for cleaner output
     return full_query
 
 
@@ -288,7 +288,7 @@ def build_elastic_search_query_for_videos(
     )
     full_query["query"]["function_score"].update(bool_query_body)
     print("Video query...")
-    pprint(full_query)
+    # Query logging removed for cleaner output
     return full_query
 
 
@@ -346,7 +346,7 @@ def build_elastic_search_query(
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
     print("## Search: ")
-    pprint(query)
+    # Query logging removed for cleaner output
     return query
 
 

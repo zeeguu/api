@@ -83,7 +83,7 @@ def _prepare_user_constraints(user):
     # 7. User ignored sources
     # =========================================
     user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
-    print("User ignored_sources: ", user_ignored_sources)
+    # Debug logging removed for cleaner output
 
     return (
         language,
