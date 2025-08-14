@@ -243,55 +243,34 @@ def set_preferred_example(user_word_id):
     
     selected_sentence = example_sentence_obj.sentence
 
-    # Tokenize the example sentence to properly find word position
-    from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+    # Find word position using shared utility (fuzzy matching for generated examples)
+    from zeeguu.core.tokenization.word_position_finder import find_first_occurrence
     
-    tokenizer = get_tokenizer(
-        user_word.meaning.origin.language, TOKENIZER_MODEL
-    )
+    target_word = user_word.meaning.origin.content
+    result = find_first_occurrence(target_word, selected_sentence, user_word.meaning.origin.language)
     
-    # Tokenize the selected sentence
-    tokenized_sentence = tokenizer.tokenize_text(
-        selected_sentence, as_serializable_dictionary=False
-    )
-    
-    # Find the target word position in the tokenized content
-    target_word = user_word.meaning.origin.content.lower()
-    
-    # Initialize position variables
-    sentence_i = 0
-    token_i = 0
-    c_sentence_i = 0 
-    c_token_i = 0
-    found = False
-    
-    # Search through all tokens to find the target word
-    for token in tokenized_sentence:
-        token_text = token.text.lower()
-        # Clean the token for comparison (remove punctuation)
-        clean_token = "".join(c for c in token_text if c.isalnum())
-        
-        if clean_token == target_word or target_word in clean_token or clean_token in target_word:
-            # Found the word - get its position
-            sentence_i = token.sent_i
-            token_i = token.token_i
-            c_sentence_i = token.sent_i  # Context sentence is the same as word sentence
-            c_token_i = token.token_i  # Context token is the same as word token
-            found = True
-            break
-    
-    # If not found, this is an error - the word should be in the example
-    if not found:
+    if not result['found']:
         log(f"ERROR: Could not find word '{target_word}' in example sentence '{selected_sentence}'")
+        log(f"Error: {result['error_message']}")
         return json_result(
             {
                 "error": "Unable to save this example",
                 "detail": "The selected example sentence does not contain the word you're learning. Please choose a different example or report this issue.",
-                "technical_detail": f"Word '{target_word}' not found in sentence",
+                "technical_detail": result['error_message'],
                 "user_word_id": user_word_id
             },
-            status=400  # Changed to 400 (Bad Request) as it's a data issue, not server error
+            status=400  # Bad Request as it's a data issue, not server error
         )
+    
+    # Extract position data
+    position_data = result['position_data']
+    sentence_i = position_data['sentence_i']
+    token_i = position_data['token_i']
+    c_sentence_i = position_data['c_sentence_i']
+    c_token_i = position_data['c_token_i']
+    total_tokens_found = position_data['total_tokens']
+    
+    log(f"Successfully found '{target_word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}")
 
     # Create the context identifier with the example sentence ID
     context_identifier = ContextIdentifier(
@@ -312,7 +291,7 @@ def set_preferred_example(user_word_id):
         None,  # source_id
         sentence_i=sentence_i,
         token_i=token_i,
-        total_tokens=1,  # Single word bookmark
+        total_tokens=total_tokens_found,  # Use calculated token count
         c_sentence_i=c_sentence_i,
         c_token_i=c_token_i,
         context_identifier=context_identifier,

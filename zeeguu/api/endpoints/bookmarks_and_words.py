@@ -729,25 +729,59 @@ def add_custom_word():
         from zeeguu.core.model.text import Text
         from zeeguu.core.model.source import Source
         
-        # Create a simple text object for the user-added word
-        text = Text(context, from_lang, None, None)  # url=None, article=None for user-added words
-        db_session.add(text)
+        # Validate and find position data using shared utility
+        from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
         
-        # Create bookmark with no source (user-added)
-        from datetime import datetime
-        bookmark = Bookmark(
-            user_word,
-            None,  # No source since it's user-added
-            text,  # text object
-            datetime.now(),
-            context=bookmark_context
+        validation_result = validate_single_occurrence(word, context, from_lang)
+        
+        if not validation_result['valid']:
+            log(f"ERROR: Word validation failed for '{word}' in context '{context}': {validation_result['error_type']}")
+            
+            # Return appropriate error response based on error type
+            if validation_result['error_type'] == 'multiple_occurrences':
+                return flask.jsonify({
+                    "error": "Ambiguous word placement",
+                    "detail": validation_result['error_message'],
+                    "context": context
+                }), 400
+            else:
+                return flask.jsonify({
+                    "error": "Word not found in context" if validation_result['error_type'] == 'not_found' else "Processing failed",
+                    "detail": validation_result['error_message'],
+                    "word": word,
+                    "context": context
+                }), 400
+        
+        # Extract position data from validation result
+        position_data = validation_result['position_data']
+        sentence_i = position_data['sentence_i']
+        token_i = position_data['token_i']
+        c_sentence_i = position_data['c_sentence_i']
+        c_token_i = position_data['c_token_i']
+        total_tokens_found = position_data['total_tokens']
+        
+        log(f"Successfully found user word '{word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}")
+        
+        # Create bookmark using find_or_create with proper position data
+        bookmark = Bookmark.find_or_create(
+            db_session,
+            user,
+            word,
+            from_lang_code,
+            translation,
+            to_lang_code,
+            context,
+            None,  # article_id - None for user-added words
+            None,  # source_id - None for user-added words
+            sentence_i=sentence_i,
+            token_i=token_i,
+            total_tokens=total_tokens_found,
+            c_sentence_i=c_sentence_i,
+            c_token_i=c_token_i,
+            context_identifier=None,  # No context identifier for user-added words
         )
-        db_session.add(bookmark)
         
-        # Commit the bookmark first to avoid circular dependency
-        db_session.commit()
-        
-        # Now set this bookmark as preferred for the user word
+        # Set this bookmark as preferred for the user word
         user_word.preferred_bookmark = bookmark
         
         # Immediately schedule the word for learning
