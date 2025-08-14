@@ -51,6 +51,33 @@ def total_learned_bookmarks():
     return json_result(total_bookmarks_learned)
 
 
+@api.route("/learned_user_words/<int:count>", methods=["GET"])
+@cross_domain
+@requires_session
+def learned_user_words(count):
+    """
+    Returns a list of the user words that the user has learned (deduplicated).
+    Unlike learned_bookmarks which can have duplicates for the same word from different contexts,
+    this endpoint returns unique learned user words.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    learned_words = user.learned_user_words(count)
+    json_words = [word.as_dictionary() for word in learned_words]
+    return json_result(json_words)
+
+
+@api.route("/total_learned_user_words", methods=["GET"])
+@cross_domain
+@requires_session
+def total_learned_user_words():
+    """
+    Returns the count of unique user words that the user has learned.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    total_words_learned = user.total_learned_user_words()
+    return json_result(total_words_learned)
+
+
 @api.route("/starred_bookmarks/<int:count>", methods=["GET"])
 @cross_domain
 @requires_session

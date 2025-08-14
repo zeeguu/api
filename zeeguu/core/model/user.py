@@ -541,6 +541,43 @@ class User(db.Model):
 
         return len(learned)
 
+    def learned_user_words(self, count=50):
+        """
+        Returns unique learned user words (deduplicated).
+        Unlike learned_bookmarks which can have duplicates for the same word from different contexts,
+        this returns unique user words that have been learned.
+        """
+        from zeeguu.core.model import Phrase, Meaning, UserWord
+        
+        query = zeeguu.core.model.db.session.query(UserWord)
+        learned = (
+            query.join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == self.learned_language_id)
+            .filter(UserWord.user_id == self.id)
+            .filter(UserWord.learned_time != None)
+            .order_by(UserWord.learned_time.desc())
+            .limit(count)
+        )
+        return learned
+
+    def total_learned_user_words(self):
+        """
+        Returns the count of unique user words that have been learned.
+        """
+        from zeeguu.core.model import Phrase, Meaning, UserWord
+        
+        query = zeeguu.core.model.db.session.query(UserWord)
+        learned = (
+            query.join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == self.learned_language_id)
+            .filter(UserWord.user_id == self.id)
+            .filter(UserWord.learned_time != None)
+            .all()
+        )
+        return len(learned)
+
     def _datetime_to_date(self, date_time):
         """
         we define datetime as being any datetime object,

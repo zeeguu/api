@@ -305,30 +305,40 @@ def update_translation(bookmark_id):
         or not is_same_context
         or bookmark.user_word.meaning.origin.content != word_str
     ):
-        # In the frontend it's mandatory that the bookmark is in the text,
-        # so we update the pointer.
-        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-
-        tokenizer = get_tokenizer(
-            bookmark.user_word.meaning.origin.language, TOKENIZER_MODEL
+        # Context has changed - validate and update position anchoring
+        from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
+        
+        # Validate that the word appears exactly once in the new context
+        validation_result = validate_single_occurrence(
+            word_str, 
+            context_str, 
+            bookmark.user_word.meaning.origin.language
         )
-        # Tokenized text returns paragraph, sents, token
-        # Since we know there is not multiple paragraphs, we take the first
-        tokenized_text = tokenizer.tokenize_text(context.get_content(), False)
-        tokenized_bookmark = tokenizer.tokenize_text(word_str, False)
-        try:
-            first_token_ocurrence = next(
-                filter(lambda t: t.text == tokenized_bookmark[0].text, tokenized_text)
-            )
-        except StopIteration as e:
-            from zeeguu.logging import print_and_log_to_sentry
-
-            print_and_log_to_sentry(e)
-            return "ERROR"
-
-        bookmark.sentence_i = first_token_ocurrence.sent_i
-        bookmark.token_i = first_token_ocurrence.token_i
-        bookmark.total_tokens = len(tokenized_bookmark)
+        
+        if not validation_result['valid']:
+            log(f"ERROR: Word validation failed for bookmark update '{word_str}' in context '{context_str}': {validation_result['error_type']}")
+            
+            # Return appropriate error response based on error type
+            if validation_result['error_type'] == 'multiple_occurrences':
+                return json_result({
+                    "error": "Ambiguous word placement",
+                    "detail": validation_result['error_message'],
+                    "word": word_str,
+                    "context": context_str
+                }, status=400)
+            else:
+                return json_result({
+                    "error": "Word not found in context" if validation_result['error_type'] == 'not_found' else "Processing failed",
+                    "detail": validation_result['error_message'],
+                    "word": word_str,
+                    "context": context_str
+                }, status=400)
+        
+        # Extract position data from validation result
+        position_data = validation_result['position_data']
+        bookmark.sentence_i = position_data['sentence_i']
+        bookmark.token_i = position_data['token_i']
+        bookmark.total_tokens = position_data['total_tokens']
         if not is_same_context:
             from zeeguu.core.model.context_type import ContextType
 

@@ -218,6 +218,7 @@ class UserWord(db.Model):
             "user_word_id": self.id,
             "meaning_id": self.meaning_id,
             "is_user_added": self.is_user_added if self.is_user_added is not None else False,
+            "learned_datetime": self.learned_time.isoformat() if self.learned_time else None,
         }
 
         return result
