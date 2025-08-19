@@ -123,6 +123,43 @@ def is_article_language_supported():
         return "NO"
 
 
+# ---------------------------------------------------------------------------
+@api.route("/simplify_article/<article_id>", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def simplify_article(article_id):
+    """
+    User-triggered article simplification.
+    Creates simplified versions at appropriate CEFR levels.
+    
+    Returns:
+        JSON with status and available levels
+    """
+    
+    article = Article.find_by_id(article_id)
+    if not article:
+        flask.abort(404, "Article not found")
+    
+    # Check if already simplified
+    if article.simplified_versions:
+        levels = [{"id": v.id, "level": v.cefr_level} for v in article.simplified_versions]
+        return json_result({"status": "already_done", "levels": levels})
+    
+    # Simplify now (user is waiting)
+    try:
+        from zeeguu.core.content_simplifier import auto_create_simplified_versions
+        simplified = auto_create_simplified_versions(db_session, article)
+        
+        levels = [{"id": v.id, "level": v.cefr_level} for v in simplified]
+        return json_result({"status": "success", "levels": levels})
+        
+    except Exception as e:
+        from zeeguu.logging import log
+        log(f"Simplification failed for article {article_id}: {str(e)}")
+        return json_result({"status": "failed", "error": str(e)[:200]})
+
+
 @api.route("/remove_ml_suggestion", methods=["POST"])
 @cross_domain
 @requires_session
