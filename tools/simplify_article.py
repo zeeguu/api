@@ -25,7 +25,7 @@ import argparse
 from datetime import date
 from zeeguu.api.app import create_app
 from zeeguu.core.model import Article, db
-from zeeguu.core.content_simplifier import (
+from zeeguu.core.llm_services.article_simplification import (
     create_simplified_article_adaptive,
     auto_create_simplified_versions,
 )

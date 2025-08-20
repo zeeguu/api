@@ -35,7 +35,7 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
-from zeeguu.core.content_simplifier import auto_create_simplified_versions
+from zeeguu.core.llm_services.article_simplification import auto_create_simplified_versions
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000

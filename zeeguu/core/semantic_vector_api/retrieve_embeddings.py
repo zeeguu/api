@@ -38,5 +38,9 @@ def get_embedding_from_text(text: str, language: str = None):
     }
     if language:
         data["article_language"] = language
-    r = requests.post(url=f"{EMB_API_CONN_STRING}/get_article_embedding", json=data)
-    return r.json()
+    try:
+        r = requests.post(url=f"{EMB_API_CONN_STRING}/get_article_embedding", json=data, timeout=5)
+        return r.json()
+    except Exception as e:
+        print(f"Warning: Embedding service unavailable: {e}")
+        return None

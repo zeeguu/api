@@ -689,6 +689,7 @@ class Article(db.Model):
         html_content=None,
         title=None,
         authors: str = "",
+        do_llm_assessment: bool = False,
     ):
         """
 
@@ -756,11 +757,23 @@ class Article(db.Model):
         new_article.create_article_fragments(session)
 
         main_img_url = extract_article_image(np_article)
-        if main_img_url != "":
+        if main_img_url and main_img_url != "":
             new_article.img_url = Url.find_or_create(session, main_img_url)
 
         url_keywords = add_url_keywords(new_article, session)
         add_topics(new_article, None, url_keywords, session)
+
+        # Add LLM-based CEFR level assessment for accurate difficulty (only when requested)
+        if do_llm_assessment:
+            try:
+                from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level
+                assessed_level = assess_article_cefr_level(new_article.title, new_article.get_content(), language.code)
+                if assessed_level:
+                    new_article.cefr_level = assessed_level
+                    log(f"LLM assessed article {new_article.id} as {assessed_level} level")
+            except Exception as e:
+                log(f"Failed to assess CEFR level for article {new_article.id}: {str(e)}")
+                # Continue without LLM assessment - will fall back to FK calculation
 
         session.add(new_article)
         session.commit()

@@ -72,8 +72,13 @@ def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=N
     if filter_ids is None:
         filter_ids = []
 
+    embedding = get_embedding_from_text(text)
+    if embedding is None:
+        # Embedding service unavailable, return empty results
+        return [], []
+        
     query_body = build_elastic_semantic_sim_query_for_topic_cls(
-        k, get_embedding_from_text(text), filter_ids=filter_ids
+        k, embedding, filter_ids=filter_ids
     )
     final_article_mix = []
 

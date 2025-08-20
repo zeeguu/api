@@ -35,6 +35,16 @@ def download_and_parse(url, request_timeout=TIMEOUT_SECONDS):
     result_dict = json.loads(result.text)
     np_article.text = result_dict["text"]
     np_article.htmlContent = result_dict["html"]
+    
+    # Use title from readability server if available and better than newspaper's
+    if "title" in result_dict and result_dict["title"]:
+        if not np_article.title or len(result_dict["title"]) > len(np_article.title):
+            np_article.title = result_dict["title"]
+    
+    # Update other metadata if available
+    if "byline" in result_dict and result_dict["byline"]:
+        if not np_article.authors:
+            np_article.authors = [result_dict["byline"]]
 
     if np_article.meta_lang == "":
         np_article.meta_lang = detect(np_article.text)

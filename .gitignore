@@ -48,3 +48,5 @@ venv311_py311/
 # Ignore PNG files in diagrams folder
 diagrams/*.png
 diagrams/*.json
+
+*.md
