@@ -510,7 +510,7 @@ def create_user_specific_simplified_version(session, article, target_level):
             log(f"Failed to generate simplified content for {target_level}")
             return None
 
-        # Create the new simplified article using the proper method with minimal AI model info
+        # Create the new simplified article using the proper method with correct AI model info
         new_article = Article.create_simplified_version(
             session=session,
             parent_article=article,
@@ -518,7 +518,7 @@ def create_user_specific_simplified_version(session, article, target_level):
             simplified_content=simplified_content['content'],
             simplified_summary=simplified_content.get('summary', ''),
             cefr_level=target_level,
-            ai_model="deepseek-chat",  # Pass model name string directly
+            ai_model="claude-3-5-sonnet",  # Match what SimplificationService actually uses
             commit=True
         )
 
