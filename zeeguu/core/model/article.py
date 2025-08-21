@@ -270,8 +270,30 @@ class Article(db.Model):
         
         # Extract text content from HTML elements and create fragments
         order = 0
-        for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-            text_content = element.get_text().strip()
+        # Include block-level HTML elements: headings, paragraphs, list items, blockquotes
+        # Note: We skip ul/ol containers to avoid duplication, only process individual li items
+        # Note: We skip inline elements like strong, em here as they should be preserved within their parent blocks
+        block_elements = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote']
+        
+        for element in soup.find_all(block_elements):
+            # For list items, get direct text content (not nested lists)
+            if element.name == 'li':
+                # Get only direct text content, excluding nested ul/ol
+                text_parts = []
+                for content in element.contents:
+                    if hasattr(content, 'get_text'):
+                        # Skip nested lists
+                        if content.name not in ['ul', 'ol']:
+                            text_parts.append(content.get_text().strip())
+                    else:
+                        # Direct text node
+                        text_parts.append(str(content).strip())
+                text_content = ' '.join(text_parts).strip()
+            else:
+                # For other elements, preserve some inline formatting by getting inner HTML
+                # and then extracting text, but keep track of formatting
+                text_content = element.get_text().strip()
+                
             if text_content:  # Only create fragments for non-empty content
                 tag_name = element.name
                 ArticleFragment.find_or_create(
