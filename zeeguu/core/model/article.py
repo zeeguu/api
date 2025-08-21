@@ -253,16 +253,40 @@ class Article(db.Model):
 
     def create_article_fragments(self, session):
         """
-        Dummy implmentation which just creates paragraphs tags.
-        The idea is that we parse the readability parse, and create the
-        different tags as needed.
+        Parse HTML content and create article fragments for each HTML element.
+        This preserves the structure and formatting from the original article.
         """
         from zeeguu.core.model.article_fragment import ArticleFragment
-
-        for i, paragraph in enumerate(self.source.get_content().split("\n\n")):
-            ArticleFragment.find_or_create(
-                session, self, paragraph.strip(), i, "p", commit=False
-            )
+        from bs4 import BeautifulSoup
+        
+        # Get HTML content - use htmlContent if available, otherwise fall back to plain text
+        html_content = getattr(self, 'htmlContent', None) or self.source.get_content()
+        
+        if not html_content:
+            return
+            
+        # Parse HTML content
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Extract text content from HTML elements and create fragments
+        order = 0
+        for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            text_content = element.get_text().strip()
+            if text_content:  # Only create fragments for non-empty content
+                tag_name = element.name
+                ArticleFragment.find_or_create(
+                    session, self, text_content, order, tag_name, commit=False
+                )
+                order += 1
+        
+        # If no HTML elements found, fall back to splitting plain text
+        if order == 0:
+            for i, paragraph in enumerate(self.source.get_content().split("\n\n")):
+                paragraph_text = paragraph.strip()
+                if paragraph_text:
+                    ArticleFragment.find_or_create(
+                        session, self, paragraph_text, i, "p", commit=False
+                    )
 
     def get_fk_difficulty(self):
         if self.fk_difficulty:

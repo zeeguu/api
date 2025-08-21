@@ -90,6 +90,147 @@ class SimplificationService:
 
         log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
         return None
+    
+    def translate_and_adapt(
+        self,
+        title: str,
+        content: str,
+        source_language: str,
+        target_language: str,
+        target_level: str = "B1",
+    ) -> Optional[Dict]:
+        """
+        Translate and adapt text to target language and reading level.
+        
+        Returns: Dict with 'title', 'content', 'summary' keys or None if failed
+        """
+        # Map language codes to names
+        language_names = {
+            "ro": "Romanian",
+            "en": "English",
+            "de": "German",
+            "es": "Spanish",
+            "fr": "French",
+            "nl": "Dutch",
+            "it": "Italian",
+            "da": "Danish",
+            "pl": "Polish",
+            "sv": "Swedish",
+            "ru": "Russian",
+            "no": "Norwegian",
+            "hu": "Hungarian",
+            "pt": "Portuguese",
+        }
+        
+        source_lang_name = language_names.get(source_language, source_language)
+        target_lang_name = language_names.get(target_language, target_language)
+        
+        # Try Anthropic first (faster for real-time use)
+        if self.anthropic_api_key:
+            log(f"Using Anthropic for translation from {source_language} to {target_language} at {target_level}")
+            try:
+                result = self._translate_and_adapt_anthropic(
+                    title, content, source_lang_name, target_lang_name, target_level
+                )
+                if result:
+                    return result
+            except Exception as e:
+                log(f"Anthropic translation failed, falling back to DeepSeek: {e}")
+        
+        # Fallback to DeepSeek
+        if self.deepseek_api_key:
+            log(f"Using DeepSeek for translation from {source_language} to {target_language} at {target_level}")
+            try:
+                return self._translate_and_adapt_deepseek(
+                    title, content, source_lang_name, target_lang_name, target_level
+                )
+            except Exception as e:
+                log(f"DeepSeek translation failed: {e}")
+        
+        log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
+        return None
+
+    def _get_level_specific_prompt(self, target_level: str, source_language: str, target_language: str) -> str:
+        """Get CEFR level-specific prompt for translation and adaptation"""
+        
+        log(f"_get_level_specific_prompt called with: target_level={target_level}, source_language={source_language}, target_language={target_language}")
+        
+        if target_level == "A1":
+            return f"""Then, dramatically simplify the translation to A1 CEFR level using these EXTREME A1 CONSTRAINTS:
+
+🚨🚨🚨 CRITICAL: YOU MUST WRITE IN {target_language.upper()} ONLY! NOT ENGLISH! 🚨🚨🚨
+🚨 IF YOU USE COMPLEX WORDS YOU HAVE COMPLETELY FAILED! 🚨
+🚨 IF YOU WRITE IN ENGLISH INSTEAD OF {target_language.upper()}, YOU HAVE FAILED! 🚨
+🚨 DO NOT SHORTEN THE ARTICLE - KEEP ALL CONTENT! 🚨
+
+ULTRA-STRICT A1 RULES:
+• WORD LIMIT: Maximum 5 words per sentence. COUNT EACH WORD!
+• VOCABULARY: ONLY words a 5-year-old child knows. NO EXCEPTIONS!
+• WORD LENGTH: If a word has more than 6 letters, DON'T USE IT
+• NO abstract concepts → use concrete simple words
+• NO technical terms → explain with basic words  
+• NO complex verbs → use: is, go, see, say, have, want, like
+• NO compound words → break into simple parts
+• Write like a children's picture book
+• Group 2-3 short sentences per paragraph
+• PRESERVE ALL CONTENT: Every example, every point, every section from the original must be included
+• You may need MORE sentences to express complex ideas simply - that's OK!
+
+USE ONLY THE MOST BASIC WORDS IN {target_language}:
+- Basic pronouns (I, you, he, she, it, they)
+- Simple verbs (is, go, see, say, have, want, like, eat, drink, work, play)
+- Simple nouns (man, woman, child, people, house, car, money, time, day)
+- Simple adjectives (good, bad, big, small, happy, sad, new, old)
+
+TRANSFORMATION PRINCIPLE:
+❌ WRONG: Complex sentences with advanced vocabulary
+✅ CORRECT: Very short sentences. Simple words only. Like a children's book.
+
+CRITICAL TEST: If a 5-year-old child learning {target_language} cannot understand EVERY single word, you have COMPLETELY FAILED A1!
+
+🔥 FINAL WARNING: Write ONLY in {target_language.upper()}! NO English words allowed! 🔥"""
+
+        elif target_level == "A2":
+            return f"""Then, simplify the translation to A2 CEFR level:
+
+A2 LEVEL GUIDELINES:
+• Simple vocabulary (first 2000 most common words)
+• Maximum 12 words per sentence
+• Simple tenses: present, past, future (will)
+• Basic connectors: and, but, because, when, if
+• Clear subject-verb-object structure
+• Avoid complex grammar and abstract concepts
+• Group 3-4 sentences per paragraph
+
+Write like a simple news article for language learners."""
+
+        elif target_level in ["B1", "B2"]:
+            return f"""Then, adapt the translation to {target_level} CEFR level:
+
+{target_level} LEVEL GUIDELINES:
+• Intermediate vocabulary and expressions
+• Varied sentence length (8-20 words)
+• Mix of simple and complex tenses
+• Connectors: however, although, despite, therefore
+• Some passive voice and conditionals allowed
+• Clear paragraph structure with topic sentences
+• Explain complex concepts but keep accessible
+
+Write like a mainstream news article that's clear and engaging."""
+
+        else:  # C1, C2
+            return f"""Then, adapt the translation to {target_level} CEFR level:
+
+{target_level} LEVEL GUIDELINES:
+• Advanced vocabulary and sophisticated expressions
+• Complex sentence structures and varied length
+• Full range of tenses and grammatical structures
+• Advanced connectors and discourse markers
+• Nuanced language and abstract concepts
+• Maintain original complexity and style
+• Professional/academic writing style
+
+Focus on accurate translation while maintaining natural, fluent {target_language}."""
 
     def _assess_cefr_anthropic(
         self, title: str, content: str, language_code: str
@@ -233,6 +374,225 @@ Your response should be just the level (e.g., "B2"):"""
             log(f"Error in DeepSeek CEFR assessment: {e}")
             return "B1"
 
+    def _translate_and_adapt_anthropic(
+        self, title: str, content: str, source_language: str, target_language: str, target_level: str
+    ) -> Optional[Dict]:
+        """Translate and adapt text using Anthropic"""
+        
+        import re
+        import unicodedata
+        
+        # Clean content to remove invalid control characters
+        def clean_text(text):
+            # Much more aggressive cleaning
+            # Keep only printable ASCII, basic unicode letters/numbers, and whitespace
+            import string
+            allowed_chars = string.printable + 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž'
+            cleaned = ''.join(char for char in text if char in allowed_chars or char.isalnum() or char.isspace())
+            # Replace multiple whitespace with single space
+            cleaned = re.sub(r'\s+', ' ', cleaned)
+            return cleaned.strip()
+        
+        title = clean_text(title)
+        content = clean_text(content)
+        
+        log(f"Input content length: {len(content)} chars")
+        log(f"Input title: {title}")
+        
+        # Get level-specific prompt
+        log(f"Anthropic: Calling _get_level_specific_prompt with target_level={target_level}, source_language={source_language}, target_language={target_language}")
+        level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
+        
+        prompt = f"""You must complete this task in TWO CLEAR STEPS:
+
+STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
+
+STEP 2: {level_prompt}
+
+CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
+
+⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
+
+FORMATTING REQUIREMENTS:
+- Return clean HTML content using only basic tags: <p>, <h1>, <h2>, <h3>, <strong>, <em>
+- Each paragraph should be wrapped in <p> tags
+- Preserve basic structure and formatting
+- No complex HTML, scripts, or styling
+
+Translate and adapt this article:
+
+Title: {title}
+Content: {content}
+
+Provide the response in this exact JSON format (escape quotes properly):
+{{
+  "title": "translated and adapted title",
+  "content": "<p>First paragraph here.</p><p>Second paragraph here.</p><p>Third paragraph here.</p>",
+  "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
+}}
+
+IMPORTANT: 
+- Escape any quotes in the content using \\"
+- Use proper HTML paragraph tags for content
+- Summary should be exactly 3 sentences, adapted to {target_level} level
+- Ensure valid JSON format"""
+
+        log(f"Prompt length: {len(prompt)} chars")
+
+        try:
+            import json
+            
+            # Create the payload with proper JSON encoding
+            payload = {
+                "model": "claude-3-haiku-20240307",
+                "max_tokens": 4000,
+                "temperature": 0.3,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            
+            # Manually serialize to JSON to handle encoding issues
+            json_payload = json.dumps(payload, ensure_ascii=False)
+            
+            response = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": self.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json; charset=utf-8",
+                },
+                data=json_payload.encode('utf-8'),  # Explicitly encode as UTF-8
+                timeout=60,
+            )
+
+            if response.status_code == 200:
+                result_text = response.json()["content"][0]["text"]
+                
+                # Clean up markdown code blocks if present
+                import re
+                if result_text.startswith("```"):
+                    # Remove markdown code blocks
+                    result_text = re.sub(r'^```(?:json)?\n', '', result_text)
+                    result_text = re.sub(r'\n```$', '', result_text)
+                    result_text = result_text.strip()
+                
+                # Parse JSON response
+                import json
+                try:
+                    result = json.loads(result_text)
+                    
+                    # Add fallback summary if not provided by LLM
+                    if "summary" not in result or not result["summary"]:
+                        from bs4 import BeautifulSoup
+                        clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
+                        result["summary"] = clean_content[:200] + "..."
+                    return result
+                except json.JSONDecodeError as e:
+                    log(f"Error parsing Anthropic JSON: {e}")
+                    log(f"Problematic JSON response: {result_text}")
+                    return None
+            else:
+                log(f"Anthropic API error: {response.status_code}")
+                log(f"Response text: {response.text}")
+                log(f"Content length: {len(content)} characters")
+                return None
+
+        except Exception as e:
+            log(f"Error in Anthropic translation: {e}")
+            return None
+
+    def _translate_and_adapt_deepseek(
+        self, title: str, content: str, source_language: str, target_language: str, target_level: str
+    ) -> Optional[Dict]:
+        """Translate and adapt text using DeepSeek"""
+        
+        # Get level-specific prompt
+        level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
+        
+        prompt = f"""You must complete this task in TWO CLEAR STEPS:
+
+STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
+
+STEP 2: {level_prompt}
+
+CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
+
+⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
+
+FORMATTING REQUIREMENTS:
+- Return clean HTML content using only basic tags: <p>, <h1>, <h2>, <h3>, <strong>, <em>
+- Each paragraph should be wrapped in <p> tags
+- Preserve basic structure and formatting
+- No complex HTML, scripts, or styling
+
+Article to translate:
+Title: {title}
+Content: {content}
+
+Return ONLY valid JSON in this exact format (no markdown, no code blocks):
+{{
+  "title": "translated title",
+  "content": "<p>First paragraph here.</p><p>Second paragraph here.</p><p>Third paragraph here.</p>",
+  "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
+}}
+
+IMPORTANT: Summary should be exactly 3 sentences, adapted to {target_level} level."""
+
+        try:
+            response = requests.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.deepseek_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 8000,
+                    "temperature": 0.3,
+                },
+                timeout=60,
+            )
+
+            if response.status_code == 200:
+                try:
+                    response_data = response.json()
+                    result_text = response_data["choices"][0]["message"]["content"]
+                    log(f"DeepSeek raw response: {result_text[:200]}...")
+                    
+                    # Clean up markdown code blocks if present
+                    import re
+                    if result_text.startswith("```"):
+                        # Remove markdown code blocks
+                        result_text = re.sub(r'^```(?:json)?\n', '', result_text)
+                        result_text = re.sub(r'\n```$', '', result_text)
+                        result_text = result_text.strip()
+                    
+                    # Parse JSON response
+                    import json
+                    result = json.loads(result_text)
+                    
+                    # Add fallback summary if not provided by LLM
+                    if "summary" not in result or not result["summary"]:
+                        from bs4 import BeautifulSoup
+                        clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
+                        result["summary"] = clean_content[:200] + "..."
+                    return result
+                except json.JSONDecodeError as e:
+                    log(f"Failed to parse DeepSeek JSON response: {e}")
+                    log(f"Raw response: {result_text}")
+                    return None
+                except Exception as e:
+                    log(f"Error processing DeepSeek response: {e}")
+                    return None
+            else:
+                log(f"DeepSeek API error: {response.status_code}")
+                log(f"Response text: {response.text}")
+                return None
+
+        except Exception as e:
+            log(f"Error in DeepSeek translation: {e}")
+            return None
+
     def _simplify_anthropic(
         self, title: str, content: str, target_level: str, language_code: str
     ) -> Tuple[Optional[str], Optional[str]]:
@@ -284,7 +644,7 @@ PARAGRAPH STRUCTURE RULES:
 🚨 REMEMBER: Write your response in {language_name.upper()}, not English or any other language! 🚨
 
 Original {language_name} Title: {title}
-Original {language_name} Content: {content[:3000]}...
+Original {language_name} Content: {content}
 
 Format your response EXACTLY like this (in {language_name.upper()}):
 SIMPLIFIED_TITLE: [your simplified title in {language_name}]
@@ -373,7 +733,7 @@ GUIDELINES FOR {target_level} LEVEL:
 
 ORIGINAL {language_code.upper()} ARTICLE:
 Title: {title}
-Content: {content[:3000]}...
+Content: {content}
 
 Please provide IN {language_code.upper()} LANGUAGE:
 SIMPLIFIED_TITLE: [simplified title in {language_code}]
