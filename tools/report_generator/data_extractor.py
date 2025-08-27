@@ -30,7 +30,7 @@ class DataExtractor:
         INNER JOIN article_topic_map atm on a.id = atm.article_id 
         INNER JOIN topic t ON atm.topic_id = t.id
         INNER JOIN language l ON l.id = a.language_id
-        WHERE DATEDIFF(CURDATE(), a.published_time) <= {self.DAYS_FOR_REPORT}
+        WHERE a.published_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
         AND a.broken = 0"""
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
@@ -64,7 +64,7 @@ class DataExtractor:
         query = f"""SELECT a.*, l.name Language
         FROM article a     
         INNER JOIN language l ON l.id = a.language_id
-        WHERE DATEDIFF(CURDATE(), published_time) <= {self.DAYS_FOR_REPORT}
+        WHERE published_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
         AND a.broken = 0"""
         df = pd.read_sql(query, con=self.db_connection)
         self.__add_feed_name(df, feed_df)
@@ -146,7 +146,7 @@ class DataExtractor:
         FROM article a 
         INNER JOIN user_reading_session urs ON urs.article_id = a.id 
         INNER JOIN user u ON urs.user_id = u.id
-        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
+        WHERE urs.start_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
         AND u.learned_language_id = a.language_id
         GROUP BY a.id, a.language_id, a.feed_id, urs.user_id"""
         reading_time_df = pd.read_sql(query, con=self.db_connection)
@@ -181,7 +181,7 @@ class DataExtractor:
                 INNER JOIN phrase p ON m.origin_id = p.id
                 INNER JOIN exercise_source es on es.id = e.source_id
                 INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
-                WHERE DATEDIFF(CURDATE(), ues.last_action_time) <= {self.DAYS_FOR_REPORT}
+                WHERE ues.last_action_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
                 GROUP BY u.learned_language_id, es.source
                 """
         total_exercise_activity = pd.read_sql(query, con=self.db_connection)
@@ -201,7 +201,7 @@ class DataExtractor:
                     INNER JOIN phrase p ON m.origin_id = p.id
                     INNER JOIN exercise_source es on es.id = e.source_id
                     INNER JOIN language l on p.language_id = l.id and p.language_id = u.learned_language_id
-                    WHERE DATEDIFF(CURDATE(), ues.last_action_time) <= {self.DAYS_FOR_REPORT}
+                    WHERE ues.last_action_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
                     GROUP BY u.id;"""
         total_user_exercise_activity = pd.read_sql(query, con=self.db_connection)
         total_user_exercise_activity["total_exercise_time"] = (
@@ -219,7 +219,7 @@ class DataExtractor:
                         JOIN language l ON p.language_id = l.id
                         JOIN bookmark b ON b.user_word_id = um.id
                     GROUP by um.id
-                    HAVING DATEDIFF(CURDATE(), MIN(b.time)) <= {self.DAYS_FOR_REPORT};
+                    HAVING MIN(b.time) >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY);
                 """
         bookmarks = pd.read_sql(query, con=self.db_connection)
         bookmarks["Has Exercised"] = bookmarks.last_exercise.apply(
@@ -271,7 +271,7 @@ class DataExtractor:
         INNER JOIN user_reading_session urs ON urs.article_id = a.id
         INNER JOIN language l on a.language_id = l.id
         INNER JOIN user u ON urs.user_id = u.id
-        WHERE DATEDIFF(CURDATE(), urs.start_time) <= {self.DAYS_FOR_REPORT}
+        WHERE urs.start_time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY)
         AND u.learned_language_id = a.language_id
         GROUP BY a.language_id, atm.topic_id;"""
         topic_reading_time_df = pd.read_sql(query, con=self.db_connection)
@@ -300,7 +300,7 @@ class DataExtractor:
                     FROM zeeguu_test.user_activity_data
                     WHERE event like 'SUBSCRIBE_TO_SEARCH'
                     AND value in (SELECT keywords from search)
-                    AND DATEDIFF(CURDATE(), time) <= {self.DAYS_FOR_REPORT};"""
+                    AND time >= DATE_SUB(CURDATE(), INTERVAL {self.DAYS_FOR_REPORT} DAY);"""
         newly_added_subscriptions = list(
             pd.read_sql(query, con=self.db_connection)["search"].values
         )
