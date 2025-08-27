@@ -18,33 +18,41 @@ class SimplificationService:
     def assess_cefr_level(
         self, title: str, content: str, language_code: str = "ro"
     ) -> str:
+        """Legacy method that returns only CEFR level for backward compatibility"""
+        result = self.assess_cefr_and_topic(title, content, language_code)
+        return result[0] if isinstance(result, tuple) else result
+
+    def assess_cefr_and_topic(
+        self, title: str, content: str, language_code: str = "ro"
+    ) -> tuple:
         """
-        Assess CEFR level using hybrid approach:
+        Assess CEFR level and topic using hybrid approach:
         - Anthropic for real-time calls (fast)
         - DeepSeek for batch processing (slower but reliable)
+        Returns tuple: (cefr_level, topic)
         """
         # Try Anthropic first (faster for real-time use)
         if self.anthropic_api_key:
-            log(f"Using Anthropic for real-time CEFR assessment")
+            log(f"Using Anthropic for real-time CEFR and topic assessment")
             try:
                 result = self._assess_cefr_anthropic(title, content, language_code)
                 if result:
                     return result
             except Exception as e:
-                log(f"Anthropic CEFR assessment failed, falling back to DeepSeek: {e}")
+                log(f"Anthropic CEFR and topic assessment failed, falling back to DeepSeek: {e}")
 
         # Fallback to DeepSeek
         if self.deepseek_api_key:
-            log(f"Using DeepSeek for batch CEFR assessment")
+            log(f"Using DeepSeek for batch CEFR and topic assessment")
             try:
                 return self._assess_cefr_deepseek(title, content, language_code)
             except Exception as e:
-                log(f"DeepSeek CEFR assessment failed: {e}")
+                log(f"DeepSeek CEFR and topic assessment failed: {e}")
 
         log(
             "Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_SIMPLIFICATIONS configured"
         )
-        return "B1"  # fallback
+        return ("B1", None)  # fallback
 
     def simplify_text(
         self,
@@ -253,18 +261,34 @@ Focus on accurate translation while maintaining natural, fluent {target_language
 
         language_name = language_names.get(language_code, "Romanian")
 
-        prompt = f"""Assess the CEFR level of this {language_name} article based on vocabulary complexity, sentence structure, and conceptual difficulty.
+        prompt = f"""Assess the CEFR level and identify the main topic of this {language_name} article.
 
 Title: {title}
 Content: {content[:2000]}...
 
-Consider:
+Consider for CEFR level:
 - Vocabulary level (basic vs advanced words)
 - Sentence complexity (length, subordinate clauses)
 - Abstract concepts vs concrete topics
 - Technical terminology usage
 
-Respond with ONLY the CEFR level (A1, A2, B1, B2, C1, or C2):"""
+Topics to choose from (select the most appropriate one):
+- Sports
+- Culture & Art
+- Technology & Science
+- Travel & Tourism
+- Health & Society
+- Business
+- Politics
+- Satire
+
+Respond in this exact format:
+CEFR: [level]
+TOPIC: [topic]
+
+Example response:
+CEFR: B2
+TOPIC: Business"""
 
         try:
             response = requests.post(
@@ -277,7 +301,7 @@ Respond with ONLY the CEFR level (A1, A2, B1, B2, C1, or C2):"""
                 json={
                     "model": "claude-3-haiku-20240307",
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 10,
+                    "max_tokens": 30,
                     "temperature": 0.1,
                 },
                 timeout=30,
@@ -285,12 +309,30 @@ Respond with ONLY the CEFR level (A1, A2, B1, B2, C1, or C2):"""
 
             if response.status_code == 200:
                 result = response.json()["content"][0]["text"].strip()
-                # Extract just the CEFR level
+                # Parse the response to extract CEFR and topic
+                lines = result.split('\n')
+                cefr_level = None
+                topic = None
+                
+                for line in lines:
+                    if line.startswith("CEFR:"):
+                        cefr_level = line.replace("CEFR:", "").strip()
+                    elif line.startswith("TOPIC:"):
+                        topic = line.replace("TOPIC:", "").strip()
+                
+                # Validate CEFR level
                 cefr_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-                for level in cefr_levels:
-                    if level in result.upper():
-                        return level
-                return "B1"  # fallback
+                if cefr_level not in cefr_levels:
+                    # Fallback: try to extract from anywhere in the response
+                    for level in cefr_levels:
+                        if level in result.upper():
+                            cefr_level = level
+                            break
+                    if not cefr_level:
+                        cefr_level = "B1"  # ultimate fallback
+                
+                # For now, return a tuple with both values
+                return (cefr_level, topic)
             else:
                 log(f"Anthropic API error: {response.status_code}")
                 return None
@@ -317,7 +359,7 @@ Respond with ONLY the CEFR level (A1, A2, B1, B2, C1, or C2):"""
 
         language_name = language_names.get(language_code, language_code)
 
-        prompt = f"""You are a language learning expert. Assess the CEFR difficulty level of this {language_name} article.
+        prompt = f"""You are a language learning expert. Assess the CEFR difficulty level and identify the main topic of this {language_name} article.
 
 CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
@@ -327,14 +369,26 @@ CEFR Level Guidelines:
 - C1: Sophisticated vocabulary, complex grammar, idiomatic expressions
 - C2: Near-native level, literary devices, specialized terminology
 
+Topics to choose from (select the most appropriate one):
+- Sports
+- Culture & Art
+- Technology & Science
+- Travel & Tourism
+- Health & Society
+- Business
+- Politics
+- Satire
+
 IMPORTANT: If the article appears to be incomplete due to a paywall, respond with: "INCOMPLETE"
 
-Analyze this {language_name} article and respond with ONLY the CEFR level (A1, A2, B1, B2, C1, or C2):
+Analyze this {language_name} article:
 
 Title: {title}
 Content: {content[:2000]}...
 
-Your response should be just the level (e.g., "B2"):"""
+Respond in this exact format:
+CEFR: [level]
+TOPIC: [topic]"""
 
         try:
             response = requests.post(
@@ -346,7 +400,7 @@ Your response should be just the level (e.g., "B2"):"""
                 json={
                     "model": "deepseek-chat",
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 10,
+                    "max_tokens": 30,
                     "temperature": 0.1,
                 },
                 timeout=30,
@@ -354,25 +408,42 @@ Your response should be just the level (e.g., "B2"):"""
 
             if response.status_code != 200:
                 log(f"DeepSeek API error for CEFR assessment: {response.status_code}")
-                return "B1"
+                return ("B1", None)
 
             result = response.json()["choices"][0]["message"]["content"].strip()
-
-            # Validate the response
-            valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-            if result in valid_levels:
-                log(f"Successfully assessed CEFR level: {result}")
-                return result
-            elif result == "INCOMPLETE":
+            
+            if result == "INCOMPLETE":
                 log("Article appears to be incomplete due to paywall")
-                return "B1"
-            else:
-                log(f"Invalid CEFR level response: '{result}', falling back to B1")
-                return "B1"
+                return ("B1", None)
+
+            # Parse the response to extract CEFR and topic
+            lines = result.split('\n')
+            cefr_level = None
+            topic = None
+            
+            for line in lines:
+                if line.startswith("CEFR:"):
+                    cefr_level = line.replace("CEFR:", "").strip()
+                elif line.startswith("TOPIC:"):
+                    topic = line.replace("TOPIC:", "").strip()
+            
+            # Validate CEFR level
+            valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
+            if cefr_level not in valid_levels:
+                # Fallback: try to extract from anywhere in the response
+                for level in valid_levels:
+                    if level in result.upper():
+                        cefr_level = level
+                        break
+                if not cefr_level:
+                    cefr_level = "B1"  # ultimate fallback
+            
+            log(f"Successfully assessed CEFR level: {cefr_level}, Topic: {topic}")
+            return (cefr_level, topic)
 
         except Exception as e:
             log(f"Error in DeepSeek CEFR assessment: {e}")
-            return "B1"
+            return ("B1", None)
 
     def _translate_and_adapt_anthropic(
         self, title: str, content: str, source_language: str, target_language: str, target_level: str
