@@ -26,7 +26,7 @@ def main():
     feed_name = input(f"Feed name (Enter for: {feed.title}):  ") or feed.title
     print(f"= {feed_name}")
 
-    default_icon_name = f"{feed_name.lower().replace(" ", "-")}.png"
+    default_icon_name = f"{feed_name.lower().replace(' ', '-')}.png"
     icon_name = (
         input(
             f"Icon name to be found in resources folder (e.g. {default_icon_name}):  "
