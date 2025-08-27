@@ -75,6 +75,7 @@ def main():
     fixed_count = 0
     error_count = 0
     skipped_count = 0
+    skipped_bookmarks_count = 0
 
     for article in simplified_articles:
         try:
@@ -91,10 +92,15 @@ def main():
             simplified_content = article.get_content()
             parent_content = parent.get_content()
             content_is_different = simplified_content != parent_content
+            
+            # Check if article has any bookmarks - if so, skip to avoid breaking them
+            from zeeguu.core.model.bookmark import Bookmark
+            bookmark_count = Bookmark.query.filter_by(text_id=article.source.id).count()
+            has_bookmarks = bookmark_count > 0
 
-            if html_matches and content_is_different:
+            if html_matches and content_is_different and not has_bookmarks:
                 # HTML is wrong (copied from parent) but content is different (properly simplified)
-                # This article definitely needs fixing
+                # AND no bookmarks exist - safe to fix
                 log(f"\nFound article that needs fixing:")
                 log(f"  Article ID: {article.id}")
                 log(f"  Parent ID: {article.parent_article_id}")
@@ -102,6 +108,7 @@ def main():
                 log(f"  CEFR Level: {article.cefr_level}")
                 log(f"  HTML content matches parent: {html_matches}")
                 log(f"  Plain text content is different: {content_is_different}")
+                log(f"  Has bookmarks: {has_bookmarks}")
 
                 log(f"Fixing article {article.id}...")
                 if fix_simplified_article_html(article):
@@ -111,6 +118,12 @@ def main():
                 else:
                     error_count += 1
                     log(f"Failed to fix article {article.id}")
+            elif html_matches and content_is_different and has_bookmarks:
+                # Article needs fixing but has bookmarks - too risky
+                log(f"\nSKIPPED: Article {article.id} needs fixing but has {bookmark_count} bookmarks - too risky")
+                log(f"  Title: {article.title}")
+                log(f"  CEFR Level: {article.cefr_level}")
+                skipped_bookmarks_count += 1
 
             elif html_matches and not content_is_different:
                 # Both HTML and content match parent - this is completely broken
@@ -141,7 +154,8 @@ def main():
     log(f"\n=== SUMMARY ===")
     log(f"Total simplified articles: {len(simplified_articles)}")
     log(f"Fixed: {fixed_count}")
-    log(f"Skipped: {skipped_count}")
+    log(f"Skipped (different HTML): {skipped_count}")
+    log(f"Skipped (has bookmarks): {skipped_bookmarks_count}")
     log(f"Errors: {error_count}")
     log(f"===============\n")
 
