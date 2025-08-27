@@ -4,6 +4,8 @@ Content simplifier for creating CEFR-level appropriate versions of articles usin
 
 import os
 import requests
+import time
+from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
@@ -91,6 +93,8 @@ def simplify_article_adaptive_levels(
 
     try:
         log(f"Adaptively simplifying article '{title[:50]}...' in {target_language}")
+        log(f"  Article length: {len(content)} characters")
+        log(f"  Prompt length: {len(prompt)} characters")
 
         # Make DeepSeek API call
         headers = {
@@ -105,22 +109,32 @@ def simplify_article_adaptive_levels(
             "temperature": 0.1,
         }
 
+        log(f"  Sending request to DeepSeek API...")
+        api_start_time = time.time()
         response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions", headers=headers, json=data
+            "https://api.deepseek.com/v1/chat/completions", 
+            headers=headers, 
+            json=data,
+            timeout=180  # 3 minute timeout
         )
+        api_duration = time.time() - api_start_time
+        log(f"  DeepSeek API responded with status: {response.status_code} (took {api_duration:.2f} seconds)")
 
         if response.status_code != 200:
             raise Exception(
                 f"DeepSeek API error: {response.status_code} - {response.text}"
             )
 
+        log(f"  Parsing DeepSeek API response...")
         response_json = response.json()
         result = response_json["choices"][0]["message"]["content"].strip()
+        log(f"  Response length: {len(result)} characters")
 
         # Check if article is unfinished due to paywall
         if result.lower().strip() == "unfinished":
             raise Exception("Article appears to be incomplete due to paywall")
 
+        log(f"  Parsing response sections...")
         # Parse the response
         sections = {}
         lines = result.split("\n")
@@ -159,6 +173,9 @@ def simplify_article_adaptive_levels(
         if current_section:
             sections[current_section] = "\n".join(current_content).strip()
 
+        log(f"  Found {len(sections)} sections in response")
+        log(f"  Section keys: {list(sections.keys())}")
+
         # Extract basic info
         def clean_text(text):
             return text.strip("[](){}\"'")
@@ -183,9 +200,13 @@ def simplify_article_adaptive_levels(
             )
             original_level = "B2"
 
+        log(f"  Extracted: original_level={original_level}, simplified_levels={simplified_levels}")
+
         # Extract simplified versions
+        log(f"  Extracting simplified versions for levels: {simplified_levels}")
         versions = {}
         for level in simplified_levels:
+            log(f"    Processing level {level}...")
             title_key = f"{level}_TITLE"
             content_key = f"{level}_CONTENT"
             summary_key = f"{level}_SUMMARY"
@@ -196,6 +217,10 @@ def simplify_article_adaptive_levels(
                     "content": clean_text(sections[content_key]),
                     "summary": clean_text(sections[summary_key]),
                 }
+                log(f"    Successfully extracted {level} version")
+            else:
+                missing_keys = [key for key in [title_key, content_key, summary_key] if key not in sections]
+                log(f"    Missing keys for {level}: {missing_keys}")
 
         # Validate we got the expected content
         if not original_summary:
@@ -216,7 +241,14 @@ def simplify_article_adaptive_levels(
             "versions": versions,
         }
 
+    except Timeout as e:
+        log(f"  ERROR: DeepSeek API call timed out after 3 minutes")
+        raise Exception(f"Failed to adaptively simplify article: API timeout after 180 seconds")
+    except RequestException as e:
+        log(f"  ERROR: Network error during API call: {str(e)}")
+        raise Exception(f"Failed to adaptively simplify article: Network error - {str(e)}")
     except Exception as e:
+        log(f"  ERROR: Unexpected error: {str(e)}")
         raise Exception(f"Failed to adaptively simplify article: {str(e)}")
 
 
@@ -356,7 +388,9 @@ def auto_create_simplified_versions(
         language_code = original_article.language.code
 
         log(f"  Calling LLM for assessment and simplification...")
+        log(f"  Request details: title_len={len(title)}, content_len={len(content)}, language={language_code}")
         result = simplify_article_adaptive_levels(title, content, language_code)
+        log(f"  LLM call completed successfully")
 
         # Extract the results
         original_level = result["original_cefr_level"]
@@ -376,15 +410,18 @@ def auto_create_simplified_versions(
             return []
 
         # Update the original article with assessed metadata
+        log(f"  Updating original article metadata...")
         original_article.cefr_level = original_level
         if not original_article.summary:
             original_article.summary = original_summary
 
         # Create all simplified articles
+        log(f"  Creating {len(simplified_levels)} simplified articles in database...")
         simplified_articles = []
         model_name = "deepseek-chat"
 
         for level in simplified_levels:
+            log(f"    Creating {level} version...")
             if level in versions:
                 version_data = versions[level]
                 simplified_article = Article.create_simplified_version(
@@ -400,12 +437,19 @@ def auto_create_simplified_versions(
                     commit=False,
                 )
                 simplified_articles.append(simplified_article)
+                log(f"    Created {level} version (temp ID, will commit later)")
+            else:
+                log(f"    Skipping {level} - not in versions data")
 
         # Commit all changes
+        log(f"  Committing {len(simplified_articles)} simplified articles to database...")
         session.commit()
+        log(f"  Database commit completed")
 
         # Update URLs for all simplified articles now that they have IDs
+        log(f"  Updating URLs for simplified articles...")
         for simplified_article in simplified_articles:
+            log(f"    Updating URL for article {simplified_article.id} ({simplified_article.cefr_level})")
             final_url_string = (
                 f"https://zeeguu.org/read/article?id={simplified_article.id}"
             )
@@ -414,7 +458,9 @@ def auto_create_simplified_versions(
             session.add(simplified_article)
 
         # Commit URL updates
+        log(f"  Committing URL updates...")
         session.commit()
+        log(f"  URL updates committed")
 
         log(
             f"SUCCESS: Created {len(simplified_articles)} simplified versions for article {original_article.id}"

@@ -42,6 +42,7 @@ class Language(db.Model):
         "ur": "Urdu",
         "ta": "Tamil",
         "bn": "Bengali",
+        "el": "Greek",
     }
 
     CODES_OF_LANGUAGES_BEING_CRAWLED = [
@@ -54,6 +55,8 @@ class Language(db.Model):
         "pt",
         "es",
         "ro",
+        "en",
+        "el",
     ]
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
@@ -71,6 +74,7 @@ class Language(db.Model):
         "hu",
         "pt",
         "ro",
+        "el",
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
@@ -101,6 +105,7 @@ class Language(db.Model):
         "ur",
         "ta",
         "bn",
+        "el",  # greek
     ]
 
     id = db.Column(db.Integer, primary_key=True)

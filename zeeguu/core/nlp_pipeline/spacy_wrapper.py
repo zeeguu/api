@@ -10,6 +10,7 @@ SPACY_LANGUAGE_DICTIONARY = {
     "english": "en_core_web_sm",
     "danish": "da_core_news_sm",
     "german": "de_core_news_sm",
+    "greek": "el_core_news_sm",
 }
 
 # Default, Small Version of Word Vectors
@@ -20,6 +21,7 @@ SPACY_LANGUAGE_DICTIONARY_WV = {
     "english": "en_core_web_md",
     "danish": "da_core_news_md",
     "german": "de_core_news_md",
+    "greek": "el_core_news_md",
 }
 
 # Large Version of Word Vectors
@@ -29,6 +31,7 @@ SPACY_LANGUAGE_DICTIONARY_WV_L = {
     "english": "en_core_web_lg",
     "danish": "da_core_news_lg",
     "german": "de_core_news_lg",
+    "greek": "el_core_news_lg",
 }
 
 # Transformer models
@@ -37,6 +40,7 @@ SPACY_LANGUAGE_DICTIONARY_TRANSF = {
     "english": "en_core_web_trf",
     "danish": "da_core_news_trf",
     "german": "de_dep_news_trf",
+    "greek": "el_core_news_trf",
 }
 
 

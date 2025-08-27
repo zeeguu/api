@@ -40,6 +40,11 @@ VOICE_CONFIG = {
         "man": "ro-RO-Standard-A",
         "teacher": "ro-RO-Wavenet-A",  # Teacher voice in Romanian
     },
+    "el-GR": {  # Greek
+        "woman": "el-GR-Wavenet-A",
+        "man": "el-GR-Standard-A",
+        "teacher": "el-GR-Wavenet-A",  # Teacher voice in Greek
+    },
 }
 
 # Default silence duration between sentences (in seconds)
@@ -57,6 +62,7 @@ LANGUAGE_MAPPINGS = {
     "en": "en-US",
     "pt": "pt-PT",
     "ro": "ro-RO",
+    "el": "el-GR",
 }
 
 
