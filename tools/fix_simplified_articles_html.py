@@ -101,28 +101,38 @@ def main():
             if html_matches and content_is_different and not has_bookmarks:
                 # HTML is wrong (copied from parent) but content is different (properly simplified)
                 # AND no bookmarks exist - safe to fix
-                log(f"\nFound article that needs fixing:")
-                log(f"  Article ID: {article.id}")
-                log(f"  Parent ID: {article.parent_article_id}")
-                log(f"  Title: {article.title}")
-                log(f"  CEFR Level: {article.cefr_level}")
-                log(f"  HTML content matches parent: {html_matches}")
-                log(f"  Plain text content is different: {content_is_different}")
-                log(f"  Has bookmarks: {has_bookmarks}")
+                
+                # Calculate days ago
+                from datetime import datetime, timezone
+                days_ago = "unknown"
+                if article.published_time:
+                    now = datetime.now(timezone.utc)
+                    pub_time = article.published_time
+                    if pub_time.tzinfo is None:
+                        pub_time = pub_time.replace(tzinfo=timezone.utc)
+                    days_ago = (now - pub_time).days
+                
+                log(f"Article {article.id}, Parent {article.parent_article_id}, {days_ago} days ago")
 
-                log(f"Fixing article {article.id}...")
                 if fix_simplified_article_html(article):
                     fixed_count += 1
                     db.session.add(article)
-                    log(f"Successfully fixed article {article.id}")
                 else:
                     error_count += 1
-                    log(f"Failed to fix article {article.id}")
             elif html_matches and content_is_different and has_bookmarks:
                 # Article needs fixing but has bookmarks - too risky
-                log(f"\nSKIPPED: Article {article.id} needs fixing but has {bookmark_count} bookmarks - too risky")
-                log(f"  Title: {article.title}")
-                log(f"  CEFR Level: {article.cefr_level}")
+                
+                # Calculate days ago
+                from datetime import datetime, timezone
+                days_ago = "unknown"
+                if article.published_time:
+                    now = datetime.now(timezone.utc)
+                    pub_time = article.published_time
+                    if pub_time.tzinfo is None:
+                        pub_time = pub_time.replace(tzinfo=timezone.utc)
+                    days_ago = (now - pub_time).days
+                
+                log(f"SKIPPED (bookmarks): Article {article.id}, Parent {article.parent_article_id}, {days_ago} days ago")
                 skipped_bookmarks_count += 1
 
             elif html_matches and not content_is_different:
