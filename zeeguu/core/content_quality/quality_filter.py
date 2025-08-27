@@ -56,6 +56,13 @@ def sufficient_quality_plain_text(text, lang_code=None):
             f"Too Short ({word_count} words) {text}",
             LowQualityTypes.TOO_SHORT,
         )
+    
+    if word_count > Article.MAXIMUM_WORD_COUNT:
+        return (
+            False,
+            f"Too Long ({word_count} words) - likely extraction error or excessive content",
+            LowQualityTypes.TOO_LONG,
+        )
 
     for each in PLAIN_TEXT_PAYWALL_PATTERNS:
         if text.find(each) >= 0:

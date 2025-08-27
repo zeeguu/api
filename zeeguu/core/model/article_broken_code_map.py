@@ -9,6 +9,7 @@ from zeeguu.core.model.db import db
 
 class LowQualityTypes:
     TOO_SHORT = "TOO_SHORT"
+    TOO_LONG = "TOO_LONG"
     HTML_PATTERN = "HTML_PATTERN"
     TEXT_PAYWALL_PATTERN = "PAYWALL_PATTERN"
     INCOMPLETE_PATTERN = "INCOMPLETE_PATTERN"

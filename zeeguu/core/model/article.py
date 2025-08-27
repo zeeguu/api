@@ -132,6 +132,10 @@ class Article(db.Model):
     # Or maybe an article that's behind a paywall and
     # has only the first paragraph available
     MINIMUM_WORD_COUNT = 90
+    
+    # Articles that are too long might be extraction errors
+    # or could cost too much in API calls for processing
+    MAXIMUM_WORD_COUNT = 10000
 
     def __init__(
         self,
