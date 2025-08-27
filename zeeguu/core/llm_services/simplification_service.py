@@ -414,10 +414,12 @@ CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, example
 ⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
 
 FORMATTING REQUIREMENTS:
-- Return clean HTML content using only basic tags: <p>, <h1>, <h2>, <h3>, <strong>, <em>
-- Each paragraph should be wrapped in <p> tags
-- Preserve basic structure and formatting
-- No complex HTML, scripts, or styling
+- Return content in clean Markdown format
+- Use proper Markdown syntax: ## for headings, **bold**, *italics*, > for quotes
+- Separate paragraphs with double newlines
+- Use - or * for bullet points, 1. 2. 3. for numbered lists
+- Preserve structure and formatting from the original
+- No HTML tags - use Markdown only
 
 Translate and adapt this article:
 
@@ -427,7 +429,7 @@ Content: {content}
 Provide the response in this exact JSON format (escape quotes properly):
 {{
   "title": "translated and adapted title",
-  "content": "<p>First paragraph here.</p><p>Second paragraph here.</p><p>Third paragraph here.</p>",
+  "content": "## Main Topic\n\nFirst paragraph with **important term** highlighted.\n\nSecond paragraph with *emphasis* and more details.\n\n- Bullet point one\n- Bullet point two\n\nThird paragraph with conclusion.",
   "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
 }}
 
@@ -477,8 +479,16 @@ IMPORTANT:
                 
                 # Parse JSON response
                 import json
+                import markdown2
                 try:
                     result = json.loads(result_text)
+                    
+                    # Convert markdown content to HTML
+                    if "content" in result and result["content"]:
+                        result["content"] = markdown2.markdown(
+                            result["content"],
+                            extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                        )
                     
                     # Add fallback summary if not provided by LLM
                     if "summary" not in result or not result["summary"]:
@@ -519,10 +529,12 @@ CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, example
 ⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
 
 FORMATTING REQUIREMENTS:
-- Return clean HTML content using only basic tags: <p>, <h1>, <h2>, <h3>, <strong>, <em>
-- Each paragraph should be wrapped in <p> tags
-- Preserve basic structure and formatting
-- No complex HTML, scripts, or styling
+- Return content in clean Markdown format
+- Use proper Markdown syntax: ## for headings, **bold**, *italics*, > for quotes
+- Separate paragraphs with double newlines
+- Use - or * for bullet points, 1. 2. 3. for numbered lists
+- Preserve structure and formatting from the original
+- No HTML tags - use Markdown only
 
 Article to translate:
 Title: {title}
@@ -531,7 +543,7 @@ Content: {content}
 Return ONLY valid JSON in this exact format (no markdown, no code blocks):
 {{
   "title": "translated title",
-  "content": "<p>First paragraph here.</p><p>Second paragraph here.</p><p>Third paragraph here.</p>",
+  "content": "## Main Topic\n\nFirst paragraph with **important term** highlighted.\n\nSecond paragraph with *emphasis* and more details.\n\n- Bullet point one\n- Bullet point two\n\nThird paragraph with conclusion.",
   "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
 }}
 
@@ -569,7 +581,15 @@ IMPORTANT: Summary should be exactly 3 sentences, adapted to {target_level} leve
                     
                     # Parse JSON response
                     import json
+                    import markdown2
                     result = json.loads(result_text)
+                    
+                    # Convert markdown content to HTML
+                    if "content" in result and result["content"]:
+                        result["content"] = markdown2.markdown(
+                            result["content"],
+                            extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                        )
                     
                     # Add fallback summary if not provided by LLM
                     if "summary" not in result or not result["summary"]:
@@ -648,7 +668,7 @@ Original {language_name} Content: {content}
 
 Format your response EXACTLY like this (in {language_name.upper()}):
 SIMPLIFIED_TITLE: [your simplified title in {language_name}]
-SIMPLIFIED_CONTENT: [your simplified content in {language_name} - preserve paragraph breaks with empty lines]"""
+SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown formatting - preserve paragraph breaks with double newlines, use **bold**, *italics*, ## for headings, - for lists]"""
 
         try:
             response = requests.post(
@@ -701,7 +721,13 @@ SIMPLIFIED_CONTENT: [your simplified content in {language_name} - preserve parag
                 simplified_text = re.sub(r"\n{3,}", "\n\n", simplified_text)
 
                 if simplified_title and simplified_text:
-                    return simplified_title, simplified_text
+                    # Convert markdown to HTML
+                    import markdown2
+                    simplified_html = markdown2.markdown(
+                        simplified_text,
+                        extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                    )
+                    return simplified_title, simplified_html
                 else:
                     log("Failed to parse Anthropic response")
                     return None, None
@@ -735,9 +761,9 @@ ORIGINAL {language_code.upper()} ARTICLE:
 Title: {title}
 Content: {content}
 
-Please provide IN {language_code.upper()} LANGUAGE:
+Please provide IN {language_code.upper()} LANGUAGE using Markdown formatting:
 SIMPLIFIED_TITLE: [simplified title in {language_code}]
-SIMPLIFIED_CONTENT: [simplified article content in {language_code}]
+SIMPLIFIED_CONTENT: [simplified article content in {language_code} with Markdown formatting - use ## for headings, **bold**, *italics*, > for quotes, - for lists]
 SIMPLIFIED_SUMMARY: [2-3 sentence summary in {language_code}]
 
 Remember: Keep the same factual information but make it appropriate for {target_level} learners of {language_code}. DO NOT TRANSLATE THE CONTENT."""
@@ -803,9 +829,16 @@ Remember: Keep the same factual information but make it appropriate for {target_
                 log("No simplified content generated by DeepSeek")
                 return None
 
+            # Convert markdown content to HTML
+            import markdown2
+            simplified_html = markdown2.markdown(
+                simplified_content,
+                extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+            )
+            
             return {
                 "title": simplified_title,
-                "content": simplified_content,
+                "content": simplified_html,
                 "summary": simplified_summary,
             }
 

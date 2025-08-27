@@ -66,6 +66,17 @@ SIMPLIFICATION RULES:
 - For B1+: Use appropriate complexity while preserving ALL original content and structure
 - IMPORTANT: If original has 5 paragraphs, simplified version should have 5 paragraphs too
 
+MARKDOWN FORMATTING RULES:
+- Use proper Markdown syntax for all content
+- Separate paragraphs with double newlines
+- Use **bold** for emphasis and important terms
+- Use *italics* for foreign words, titles, or subtle emphasis  
+- Use ## for section headings (if present in original)
+- Use - or * for bullet points when listing items
+- Use 1. 2. 3. for numbered lists
+- Use > for quotations or cited speech
+- Preserve structural elements from the original (lists, quotes, headings)
+
 You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. All simplifications should be done in <<LANGUAGE_NAME>>.
 
 ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
@@ -78,7 +89,7 @@ SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1"
 
 [LEVEL]_TITLE: [write simplified title in <<LANGUAGE_NAME>>]
 
-[LEVEL]_CONTENT: [write simplified content in <<LANGUAGE_NAME>>]
+[LEVEL]_CONTENT: [write simplified content in <<LANGUAGE_NAME>> using Markdown formatting]
 
 [LEVEL]_SUMMARY: [write 3-sentence summary in <<LANGUAGE_NAME>>]
 

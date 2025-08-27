@@ -522,6 +522,20 @@ class Article(db.Model):
         placeholder_url = Url.find_or_create(session, placeholder_url_string)
 
         # Create the simplified article
+        # Check if content is already HTML (from SimplificationService) or needs conversion
+        simplified_html = ""
+        if simplified_content:
+            # If content starts with HTML tags, it's already been converted
+            if simplified_content.strip().startswith('<'):
+                simplified_html = simplified_content
+            else:
+                # Convert markdown/plain text to HTML
+                import markdown2
+                simplified_html = markdown2.markdown(
+                    simplified_content, 
+                    extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                )
+        
         simplified_article = cls(
             placeholder_url,  # Temporary placeholder URL
             simplified_title,
@@ -531,7 +545,7 @@ class Article(db.Model):
             parent_article.published_time,
             parent_article.feed,
             parent_article.language,
-            parent_article.htmlContent,
+            simplified_html,  # Use generated HTML from simplified content
             parent_article.uploader,
         )
 

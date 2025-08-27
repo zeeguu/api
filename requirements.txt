@@ -1,5 +1,6 @@
 beautifulsoup4
 markupsafe # added this because of this stupid breaking change with minor version bump: https://github.com/pallets/markupsafe/issues/284
+markdown2
 blinker
 deprecated
 elastic-transport==8.12.0
