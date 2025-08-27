@@ -97,7 +97,7 @@ VOLUME /Zeeguu-API
 # However, we're not copying the whole folder, such that in case we make a change in the folder
 # (e.g. to this build file) the whole cache is not invalidated and the build process does
 # not have to start from scratch
-RUN mkdir /Zeeguu-API
+RUN mkdir -p /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
