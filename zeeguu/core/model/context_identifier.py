@@ -84,6 +84,16 @@ class ContextIdentifier:
                 )
                 session.add(mapped_context)
                 
+            case ContextType.ARTICLE_SUMMARY:
+                if self.article_id is None:
+                    return None
+                from zeeguu.core.model.article import Article
+                article = Article.find_by_id(self.article_id)
+                mapped_context = context_specific_table.find_or_create(
+                    session, bookmark, article, commit=commit
+                )
+                session.add(mapped_context)
+                
             case ContextType.VIDEO_TITLE:
                 if self.video_id is None:
                     return None

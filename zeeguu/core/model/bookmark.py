@@ -111,6 +111,14 @@ class Bookmark(db.Model):
                     self
                 ).article_fragment.article_id
             ).title
+        if self.context.context_type.type == ContextType.ARTICLE_SUMMARY:
+            from zeeguu.core.model.article_summary_context import (
+                ArticleSummaryContext,
+            )
+
+            return Article.find_by_id(
+                ArticleSummaryContext.find_by_bookmark(self).article_id
+            ).title
         if self.context.context_type.type == ContextType.VIDEO_TITLE:
             from zeeguu.core.model.video_title_context import VideoTitleContext
 
@@ -227,6 +235,10 @@ class Bookmark(db.Model):
                         result.article_fragment_id if result else None
                     )
                 case ContextType.ARTICLE_TITLE:
+                    context_identifier.article_id = (
+                        result.article_id if result else None
+                    )
+                case ContextType.ARTICLE_SUMMARY:
                     context_identifier.article_id = (
                         result.article_id if result else None
                     )

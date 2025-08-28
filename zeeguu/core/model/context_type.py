@@ -70,6 +70,7 @@ class ContextType(db.Model):
     def get_table_corresponding_to_type(cls, type: str):
         from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
+        from zeeguu.core.model.article_summary_context import ArticleSummaryContext
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.video_caption_context import VideoCaptionContext
         from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
@@ -79,6 +80,8 @@ class ContextType(db.Model):
                 return ArticleFragmentContext
             case cls.ARTICLE_TITLE:
                 return ArticleTitleContext
+            case cls.ARTICLE_SUMMARY:
+                return ArticleSummaryContext
             case cls.VIDEO_TITLE:
                 return VideoTitleContext
             case cls.VIDEO_CAPTION:
