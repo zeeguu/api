@@ -1,22 +1,19 @@
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.db import db
 import sqlalchemy
 
 
 class ArticleSummaryContext(db.Model):
     """
-    A context that links a bookmark to an article summary.
-    This allows users to translate words/phrases from article summaries.
+    A context that is found in a summary of an Article.
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    from zeeguu.core.model.bookmark import Bookmark
-
     bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
     bookmark = db.relationship(Bookmark)
-
-    from zeeguu.core.model.article import Article
 
     article_id = db.Column(db.Integer, db.ForeignKey(Article.id))
     article = db.relationship(Article)
@@ -30,7 +27,7 @@ class ArticleSummaryContext(db.Model):
         self.article = article
 
     def __repr__(self):
-        return f"<ArticleSummaryContext article:{self.article_id}, b:{self.bookmark.id}>"
+        return f"<ArticleSummaryContext b:{self.bookmark_id}, a:{self.article_id}>"
 
     @classmethod
     def find_by_bookmark(cls, bookmark):
@@ -40,7 +37,13 @@ class ArticleSummaryContext(db.Model):
             return None
 
     @classmethod
-    def find_or_create(cls, session, bookmark, article, commit=True):
+    def find_or_create(
+        cls,
+        session,
+        bookmark,
+        article,
+        commit=True,
+    ):
         try:
             return cls.query.filter(
                 cls.bookmark == bookmark,
@@ -60,12 +63,12 @@ class ArticleSummaryContext(db.Model):
     def get_all_user_bookmarks_for_article_summary(
         cls, user_id: int, article_id: int, as_json_serializable: bool = True
     ):
-        from zeeguu.core.model import Bookmark, UserWord
+        from zeeguu.core.model.user_word import UserWord
 
         result = (
-            Bookmark.query.join(cls)
+            Bookmark.query.join(ArticleSummaryContext)
             .join(UserWord, Bookmark.user_word_id == UserWord.id)
-            .filter(cls.article_id == article_id)
+            .filter(ArticleSummaryContext.article_id == article_id)
             .filter(UserWord.user_id == user_id)
         ).all()
 

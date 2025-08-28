@@ -50,6 +50,31 @@ def user_article():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/user_article_summary", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def user_article_summary():
+    """
+    Returns tokenized summary (and optionally title) for an article with user bookmarks.
+    Much lighter than user_article as it doesn't tokenize the full content.
+    
+    :param article_id: article identifier
+    :return: json with tokenized summary/title and user bookmarks
+    """
+    
+    article_id = request.args.get("article_id", "")
+    if not article_id:
+        flask.abort(400)
+    
+    article_id = int(article_id)
+    article = Article.query.filter_by(id=article_id).one()
+    user = User.find_by_id(flask.g.user_id)
+    
+    return json_result(UserArticle.user_article_summary_info(user, article))
+
+
+# ---------------------------------------------------------------------------
 @api.route("/article_difficulty_feedback", methods=("POST",))
 # ---------------------------------------------------------------------------
 @cross_domain

@@ -362,3 +362,59 @@ class UserArticle(db.Model):
             returned_info["has_personal_copy"] = False
 
         return returned_info
+
+    @classmethod
+    def user_article_summary_info(cls, user: User, article: Article):
+        """
+        Returns tokenized summary and title for an article with user bookmarks.
+        This is a lightweight version of user_article_info that only processes
+        the summary and title, not the full article content.
+        
+        Args:
+            user: The user requesting the article summary
+            article: The article to get summary info for
+        """
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+        from zeeguu.core.model.article_title_context import ArticleTitleContext
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        
+        tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+        
+        result = {
+            "id": article.id,
+            "language": article.language.code,
+        }
+        
+        # Tokenize summary if available
+        if article.summary:
+            summary_context_id = ContextIdentifier(
+                ContextType.ARTICLE_SUMMARY,
+                article_id=article.id
+            )
+            
+            result["tokenized_summary"] = {
+                "tokens": tokenizer.tokenize_text(article.summary, flatten=False),
+                "context_identifier": summary_context_id.as_dictionary(),
+                "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
+                    user.id, article.id
+                )
+            }
+        
+        # Tokenize title
+        title_context_id = ContextIdentifier(
+            ContextType.ARTICLE_TITLE,
+            article_id=article.id
+        )
+        
+        result["tokenized_title"] = {
+            "tokens": tokenizer.tokenize_text(article.title, flatten=False),
+            "context_identifier": title_context_id.as_dictionary(),
+            "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                user.id, article.id
+            )
+        }
+        
+        return result
