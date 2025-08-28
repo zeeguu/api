@@ -110,6 +110,10 @@ def get_one_translation(from_lang_code, to_lang_code):
                 t1 = microsoft_contextual_translate(data)
 
         user = User.find_by_id(flask.g.user_id)
+        
+        # Get translation source from frontend, default to 'reading'
+        translation_source = request.json.get("translation_source", "reading")
+        
         bookmark = Bookmark.find_or_create(
             db_session,
             user,
@@ -129,6 +133,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             token_i=w_token_i,
             total_tokens=w_total_tokens,
             context_identifier=context_identifier,
+            translation_source=translation_source,
         )
 
     return json_result(

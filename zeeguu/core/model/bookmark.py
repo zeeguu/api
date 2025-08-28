@@ -43,6 +43,9 @@ class Bookmark(db.Model):
     time = db.Column(db.DateTime)
 
     starred = db.Column(db.Boolean, default=False)
+    
+    # Track where this translation/bookmark was created
+    translation_source = db.Column(db.Enum('reading', 'exercise', 'article_preview'), default='reading')
 
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
@@ -57,11 +60,13 @@ class Bookmark(db.Model):
         token_i: int = None,
         total_tokens: int = None,
         context: BookmarkContext = None,
+        translation_source: str = 'reading',
     ):
         self.user_word = user_word
         self.source = source
         self.text = text
         self.time = time
+        self.translation_source = translation_source
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
@@ -151,6 +156,7 @@ class Bookmark(db.Model):
             t_token_i=self.token_i,
             t_total_token=self.total_tokens,
             user_word_id=self.user_word_id,
+            translation_source=self.translation_source,
         )
 
         result["from"] = self.user_word.meaning.origin.content
@@ -295,6 +301,7 @@ class Bookmark(db.Model):
         right_ellipsis: bool = None,
         context_identifier: ContextIdentifier = None,
         level: int = 0,
+        translation_source: str = 'reading',
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -357,6 +364,7 @@ class Bookmark(db.Model):
                 token_i=token_i,
                 total_tokens=total_tokens,
                 context=context,
+                translation_source=translation_source,
             )
         except Exception as e:
             raise e
