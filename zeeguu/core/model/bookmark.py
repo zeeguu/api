@@ -103,27 +103,36 @@ class Bookmark(db.Model):
         if self.context.context_type.type == ContextType.ARTICLE_TITLE:
             from zeeguu.core.model.article_title_context import ArticleTitleContext
 
-            return Article.find_by_id(
-                ArticleTitleContext.find_by_bookmark(self).article_id
-            ).title
+            title_context = ArticleTitleContext.find_by_bookmark(self)
+            if title_context:
+                return Article.find_by_id(title_context.article_id).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
         if self.context.context_type.type == ContextType.ARTICLE_FRAGMENT:
             from zeeguu.core.model.article_fragment_context import (
                 ArticleFragmentContext,
             )
 
-            return Article.find_by_id(
-                ArticleFragmentContext.find_by_bookmark(
-                    self
-                ).article_fragment.article_id
-            ).title
+            fragment_context = ArticleFragmentContext.find_by_bookmark(self)
+            if fragment_context and fragment_context.article_fragment:
+                return Article.find_by_id(
+                    fragment_context.article_fragment.article_id
+                ).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
         if self.context.context_type.type == ContextType.ARTICLE_SUMMARY:
             from zeeguu.core.model.article_summary_context import (
                 ArticleSummaryContext,
             )
 
-            return Article.find_by_id(
-                ArticleSummaryContext.find_by_bookmark(self).article_id
-            ).title
+            summary_context = ArticleSummaryContext.find_by_bookmark(self)
+            if summary_context:
+                return Article.find_by_id(summary_context.article_id).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
         if self.context.context_type.type == ContextType.VIDEO_TITLE:
             from zeeguu.core.model.video_title_context import VideoTitleContext
 
