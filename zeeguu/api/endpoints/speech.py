@@ -25,6 +25,7 @@ PREFERRED_VOICES = {
     "ru": "ru-RU-Standard-C",
     "es": "es-ES-Chirp-HD-F",
     "ro": "ro-RO-Wavenet-B",
+    "el": "el-GR-Wavenet-B",
 }
 
 
