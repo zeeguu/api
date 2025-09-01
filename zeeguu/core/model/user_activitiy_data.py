@@ -124,15 +124,17 @@ class UserActivityData(db.Model):
     @classmethod
     def find_or_create(cls, session, user, time, event, value, extra_data, source_id):
         try:
-            log("found existing event; returning it instead of creating a new one")
-            return (
+            existing = (
                 cls.query.filter_by(user=user)
                 .filter_by(time=time)
                 .filter_by(event=event)
                 .filter_by(value=value)
                 .one()
             )
+            log("found existing event; returning it instead of creating a new one")
+            return existing
         except sqlalchemy.orm.exc.MultipleResultsFound:
+            log("found multiple existing events; returning first one")
             return (
                 cls.query.filter_by(user=user)
                 .filter_by(time=time)
@@ -145,28 +147,32 @@ class UserActivityData(db.Model):
                 new = cls(user, time, event, value, extra_data, source_id)
                 session.add(new)
                 session.commit()
+                log(f"created new event: {event}")
                 return new
-            except sqlalchemy.exc.IntegrityError:
+            except sqlalchemy.exc.IntegrityError as e:
+                log(f"IntegrityError when creating event: {e}")
                 session.rollback()
-                for _ in range(10):
+                # Try to find the existing entry that caused the IntegrityError
+                for attempt in range(10):
                     try:
                         ev = (
                             cls.query.filter_by(user=user)
                             .filter_by(time=time)
                             .filter_by(event=event)
                             .filter_by(value=value)
-                            .first()  # Use first() instead of one() to handle multiple results
+                            .first()
                         )
                         if ev:
-                            print("successfully avoided race condition. nice! ")
+                            log(f"successfully found existing event on attempt {attempt + 1}")
                             return ev
+                        else:
+                            log(f"attempt {attempt + 1}: no matching event found")
                     except Exception as e:
-                        print(f"Error in retry loop: {e}")
+                        log(f"Error in retry loop attempt {attempt + 1}: {e}")
                     sleep(0.3)
                 
                 # If we still can't find it after 10 retries, there's a serious issue
-                # Log it and return None (which will be handled by the caller)
-                print(f"ERROR: Could not find or create UserActivityData after 10 retries for user={user.id}, event={event}")
+                log(f"ERROR: Could not find or create UserActivityData after 10 retries for user={user.id}, event={event}, value={value[:50]}")
                 return None
 
     @classmethod
