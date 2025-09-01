@@ -172,6 +172,10 @@ class Bookmark(db.Model):
         result["to"] = self.user_word.meaning.translation.content
         result["fit_for_study"] = self.user_word.fit_for_study
         result["url"] = self.text.url()
+        
+        # Add word rank if available
+        word_rank = self.user_word.meaning.origin.rank
+        result["origin_rank"] = word_rank if word_rank != 100000 else ""
 
         if with_context:
             context_info_dict = dict(

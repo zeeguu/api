@@ -468,14 +468,12 @@ class User(db.Model):
         query = query.filter(UserWord.user_id == self.id)
         query = query.filter(Bookmark.time >= after_date)
         query = query.filter(Bookmark.time <= before_date)
-        # Include bookmarks that have a source_id OR are from article_preview
+        # Include bookmarks that have a source_id OR are from article_preview OR are from exercises
         query = query.filter(
             (Bookmark.source_id != None) | 
-            (Bookmark.translation_source == 'article_preview')
+            (Bookmark.translation_source == 'article_preview') |
+            (Bookmark.translation_source == 'exercise')
         )
-        
-        # Exclude exercise bookmarks but keep reading and article_preview
-        query = query.filter(Bookmark.translation_source != 'exercise')
         query = query.order_by(Bookmark.time)
 
         return query.all()
