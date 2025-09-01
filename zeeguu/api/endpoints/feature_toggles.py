@@ -105,5 +105,5 @@ def _daily_audio(user):
         or user.is_member_of_cohort(532)  # daily-audio
         or user.is_member_of_cohort(529)  # pg25
         or user.is_member_of_cohort(530)  # ada's cohort with invite code: summer25
-        or user.invitation_code == "zeeguu-preview"
+        or user.invitation_code in ["zeeguu-preview", "ec25"]
     )
