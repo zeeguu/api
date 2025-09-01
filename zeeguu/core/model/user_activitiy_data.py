@@ -147,20 +147,27 @@ class UserActivityData(db.Model):
                 session.commit()
                 return new
             except sqlalchemy.exc.IntegrityError:
+                session.rollback()
                 for _ in range(10):
                     try:
-                        session.rollback()
                         ev = (
                             cls.query.filter_by(user=user)
                             .filter_by(time=time)
                             .filter_by(event=event)
-                            .one()
+                            .filter_by(value=value)
+                            .first()  # Use first() instead of one() to handle multiple results
                         )
-                        print("successfully avoided race condition. nice! ")
-                        return ev
-                    except sqlalchemy.orm.exc.NoResultFound:
-                        sleep(0.3)
-                        continue
+                        if ev:
+                            print("successfully avoided race condition. nice! ")
+                            return ev
+                    except Exception as e:
+                        print(f"Error in retry loop: {e}")
+                    sleep(0.3)
+                
+                # If we still can't find it after 10 retries, there's a serious issue
+                # Log it and return None (which will be handled by the caller)
+                print(f"ERROR: Could not find or create UserActivityData after 10 retries for user={user.id}, event={event}")
+                return None
 
     @classmethod
     def find(
@@ -474,8 +481,11 @@ class UserActivityData(db.Model):
             session, user, time, event, value, extra_data, source_id
         )
 
-        session.add(new_entry)
-        session.commit()
+        if new_entry:
+            session.add(new_entry)
+            session.commit()
+        else:
+            log(f"Warning: Failed to create UserActivityData entry for event: {event}")
 
     @classmethod
     def get_last_activity_timestamp(cls, user_id):
