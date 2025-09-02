@@ -665,16 +665,22 @@ class DailyLessonGenerator:
             action = state_data.get("action")
             position_seconds = state_data.get("position_seconds", 0)
 
-            if action == "play":
-                # Increment listen count when starting to play
-                lesson.listened_count += 1
-
-            elif action == "pause":
+            if action == "pause":
                 # Record pause position and time
                 lesson.pause_at(position_seconds)
 
             elif action == "resume":
-                # Increment listen count when resuming
+                # Resume from pause or start new play
+
+                # Check if this is a replay from the beginning
+                # If already listened and starting from beginning, it's a new listen
+                if lesson.pause_position_seconds < 1:
+                    # Starting a new play from beginning - increment counter
+                    lesson.listened_count += 1
+                    # Clear completion status if it was completed
+                    if lesson.is_completed:
+                        lesson.completed_at = None
+
                 lesson.resume()
 
             elif action == "complete":
@@ -682,7 +688,8 @@ class DailyLessonGenerator:
                 lesson.mark_completed()
 
                 # Progress words when audio lesson is completed
-                self._progress_words_from_completed_lesson(lesson, user)
+                if lesson.listened_count == 1:
+                    self._progress_words_from_completed_lesson(lesson, user)
 
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
@@ -814,7 +821,7 @@ Words in Lesson:
 
 Lesson Stats:
 - Times listened: {lesson.listened_count}
-- Was paused: {'Yes' if lesson.is_paused else 'No'}
+- Was paused: {'Yes' if lesson.last_paused_at else 'No'}
 
 View lesson: https://www.zeeguu.org/audio_lessons/{lesson.id}
 

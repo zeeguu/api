@@ -114,7 +114,9 @@ class DailyAudioLesson(db.Model):
     def mark_completed(self):
         """Mark this lesson as completed"""
         self.completed_at = datetime.utcnow()
-        self.listened_count += 1
+        # Only count as a listen if it hasn't been counted yet
+        if self.listened_count == 0:
+            self.listened_count = 1
         self.pause_position_seconds = 0
 
     def pause_at(self, position_seconds):
@@ -123,8 +125,10 @@ class DailyAudioLesson(db.Model):
         self.pause_position_seconds = position_seconds
 
     def resume(self):
-        """Increment listen count when resuming"""
-        self.listened_count += 1
+        """Clear pause state when resuming (don't increment listen count)"""
+        # Only clear the pause state, don't increment listened_count
+        # The listen count should only increment on initial play, not on resume
+        pass
 
     @property
     def is_completed(self):
