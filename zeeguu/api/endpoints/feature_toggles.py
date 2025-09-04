@@ -100,11 +100,12 @@ def _extension_experiment_1(user):
 
 
 def _daily_audio(user):
-    return (
-        user.id in [8, 4607, 4022]
-        or user.id > 5228
-        or user.is_member_of_cohort(532)  # daily-audio
-        or user.is_member_of_cohort(529)  # pg25
-        or user.is_member_of_cohort(530)  # ada's cohort with invite code: summer25
-        or user.invitation_code in ["zeeguu-preview", "ec25"]
-    )
+    return True
+    # return (
+    #     user.id in [8, 4607, 4022]
+    #     or user.id > 5228
+    #     or user.is_member_of_cohort(532)  # daily-audio
+    #     or user.is_member_of_cohort(529)  # pg25
+    #     or user.is_member_of_cohort(530)  # ada's cohort with invite code: summer25
+    #     or user.invitation_code in ["zeeguu-preview", "ec25"]
+    # )
