@@ -245,7 +245,7 @@ def remove_user_from_cohort(user_id, cohort_id):
     try:
         check_permission_for_user(user_id, cohort_id)
         u = User.find_by_id(user_id)
-        u.remove_from_cohort(cohort_id)
+        u.remove_from_cohort(cohort_id, db.session)
         db.session.add(u)
         db.session.commit()
         return "OK"
