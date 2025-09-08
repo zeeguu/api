@@ -52,7 +52,10 @@ def user_articles_recommended(count: int = 15, page: int = 0):
             .limit(20)
         )
 
-    content_infos = get_user_info_from_content_recommendations(user, content)
+    # Filter out hidden articles (including their simplified versions)
+    filtered_content = UserArticle.filter_hidden_content(user, content)
+
+    content_infos = get_user_info_from_content_recommendations(user, filtered_content)
     return json_result(content_infos)
 
 
@@ -67,7 +70,12 @@ def saved_articles(page: int = None):
     else:
         saves = PersonalCopy.all_for(user)
 
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, e)) for e in saves]
+    article_infos = [
+        UserArticle.user_article_info(
+            user, UserArticle.select_appropriate_article_for_user(user, e)
+        )
+        for e in saves
+    ]
 
     return json_result(article_infos)
 
@@ -78,7 +86,12 @@ def saved_articles():
     user = User.find_by_id(flask.g.user_id)
     saves = PersonalCopy.all_for(user)
 
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, e)) for e in saves]
+    article_infos = [
+        UserArticle.user_article_info(
+            user, UserArticle.select_appropriate_article_for_user(user, e)
+        )
+        for e in saves
+    ]
 
     return json_result(article_infos)
 
@@ -111,7 +124,16 @@ def user_articles_topic_filtered():
         difficulty_level,
         topic,
     )
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
+
+    # Filter out hidden articles
+    filtered_articles = UserArticle.filter_hidden_articles(user, articles)
+
+    article_infos = [
+        UserArticle.user_article_info(
+            user, UserArticle.select_appropriate_article_for_user(user, a)
+        )
+        for a in filtered_articles
+    ]
 
     return json_result(article_infos)
 
@@ -158,6 +180,15 @@ def user_articles_foryou():
         capture_exception(e)
         # Usually no recommendations when the user has not liked any articles
         articles = []
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
+
+    # Filter out hidden articles
+    filtered_articles = UserArticle.filter_hidden_articles(user, articles)
+
+    article_infos = [
+        UserArticle.user_article_info(
+            user, UserArticle.select_appropriate_article_for_user(user, a)
+        )
+        for a in filtered_articles
+    ]
 
     return json_result(article_infos)

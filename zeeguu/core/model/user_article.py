@@ -74,7 +74,11 @@ class UserArticle(db.Model):
     # Also serves as a flag that notification was sent
     completed_at = Column(DateTime)
 
-    def __init__(self, user, article, opened=None, starred=None, liked=None, reading_completion=0.0, completed_at=None):
+    # Hide article from user's feed
+    # When set, article won't appear in recommendations
+    hidden = Column(DateTime)
+
+    def __init__(self, user, article, opened=None, starred=None, liked=None, reading_completion=0.0, completed_at=None, hidden=None):
         self.user = user
         self.article = article
         self.opened = opened
@@ -82,6 +86,7 @@ class UserArticle(db.Model):
         self.liked = liked
         self.reading_completion = reading_completion
         self.completed_at = completed_at
+        self.hidden = hidden
 
     def __repr__(self):
         return f"{self.user} and {self.article}: Opened: {self.opened}, Starred: {self.starred}, Liked: {self.liked}"
@@ -103,6 +108,12 @@ class UserArticle(db.Model):
 
     def set_liked(self, new_state=True):
         self.liked = new_state
+
+    def set_hidden(self, state=True):
+        if state:
+            self.hidden = datetime.now()
+        else:
+            self.hidden = None
 
     def last_interaction(self):
         """
@@ -146,6 +157,7 @@ class UserArticle(db.Model):
         starred=None,
         reading_completion=0.0,
         completed_at=None,
+        hidden=None,
     ):
         """
 
@@ -157,7 +169,7 @@ class UserArticle(db.Model):
             return cls.query.filter_by(user=user, article=article).one()
         except NoResultFound:
             try:
-                new = cls(user, article, opened=opened, liked=liked, starred=starred, reading_completion=reading_completion, completed_at=completed_at)
+                new = cls(user, article, opened=opened, liked=liked, starred=starred, reading_completion=reading_completion, completed_at=completed_at, hidden=hidden)
                 session.add(new)
                 session.commit()
                 return new
@@ -172,7 +184,10 @@ class UserArticle(db.Model):
     @classmethod
     def all_starred_articles_of_user(cls, user):
         return (
-            cls.query.filter_by(user=user).filter(UserArticle.starred.isnot(None)).all()
+            cls.query.filter_by(user=user)
+            .filter(UserArticle.starred.isnot(None))
+            .filter(UserArticle.hidden.is_(None))  # Exclude hidden articles
+            .all()
         )
 
     @classmethod
@@ -196,6 +211,7 @@ class UserArticle(db.Model):
             .filter(
                 or_(UserArticle.starred.isnot(None), UserArticle.liked.isnot(False))
             )
+            .filter(UserArticle.hidden.is_(None))  # Exclude hidden articles
             .order_by(UserArticle.article_id.desc())
             .limit(limit)
             .all()
@@ -253,6 +269,72 @@ class UserArticle(db.Model):
             return True
         except NoResultFound:
             return False
+
+    @classmethod
+    def filter_hidden_articles(cls, user, articles):
+        """
+        Filter out articles that are hidden by the user.
+        Handles both regular articles and simplified articles with hidden parents.
+        
+        Args:
+            user: The user object
+            articles: List of Article objects to filter
+            
+        Returns:
+            List of Article objects with hidden articles removed
+        """
+        filtered = []
+        for article in articles:
+            # Check if this article is hidden
+            user_article = cls.find(user, article)
+            if user_article and user_article.hidden:
+                continue
+                
+            # If this is a simplified article, check if parent is hidden
+            if article.parent_article_id:
+                parent_user_article = cls.find(user, article.parent_article)
+                if parent_user_article and parent_user_article.hidden:
+                    continue
+            
+            filtered.append(article)
+        
+        return filtered
+
+    @classmethod
+    def filter_hidden_content(cls, user, content_list):
+        """
+        Filter out hidden articles from mixed content (articles and videos).
+        Videos and other non-Article content types are preserved.
+        
+        Args:
+            user: The user object
+            content_list: List of content items (Articles, Videos, etc.)
+            
+        Returns:
+            List of content items with hidden articles removed
+        """
+        from zeeguu.core.model import Article
+        
+        filtered = []
+        for item in content_list:
+            # Only filter Article objects, preserve other types
+            if isinstance(item, Article):
+                user_article = cls.find(user, item)
+                if user_article and user_article.hidden:
+                    continue
+                    
+                # If this is a simplified article, check if parent is hidden
+                if item.parent_article_id:
+                    parent_user_article = cls.find(user, item.parent_article)
+                    if parent_user_article and parent_user_article.hidden:
+                        continue
+                
+                filtered.append(item)
+            else:
+                # Keep videos and other content types
+                filtered.append(item)
+        
+        return filtered
 
     @classmethod
     def select_appropriate_article_for_user(cls, user: User, article: Article) -> Article:
@@ -317,6 +399,7 @@ class UserArticle(db.Model):
             returned_info["starred"] = False
             returned_info["opened"] = False
             returned_info["liked"] = None
+            returned_info["hidden"] = False
             returned_info["reading_completion"] = 0.0
             returned_info["translations"] = []
 
@@ -326,6 +409,7 @@ class UserArticle(db.Model):
             returned_info["starred"] = user_article_info.starred is not None
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
+            returned_info["hidden"] = user_article_info.hidden is not None
             if user_article_info.starred:
                 returned_info["starred_time"] = datetime_to_json(
                     user_article_info.starred

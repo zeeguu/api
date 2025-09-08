@@ -251,8 +251,12 @@ def search_for_search_terms(search_terms, page: int = 0):
         use_published_priority=use_published_priority,
         use_readability_priority=use_readability_priority,
     )
+    
+    # Filter out hidden articles
+    from zeeguu.core.model import UserArticle
+    filtered_results = UserArticle.filter_hidden_content(user, results)
 
-    return json_result(get_user_info_from_content_recommendations(user, results))
+    return json_result(get_user_info_from_content_recommendations(user, filtered_results))
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +287,11 @@ def search_for_latest_search_terms(search_terms):
         use_readability_priority=True,
         score_threshold=2,
     )
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in articles]
+    
+    # Filter out hidden articles  
+    filtered_articles = UserArticle.filter_hidden_content(user, articles)
+    
+    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in filtered_articles]
 
     return json_result(article_infos)
 

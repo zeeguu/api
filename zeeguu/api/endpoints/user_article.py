@@ -203,3 +203,53 @@ def parse_url():
             "language_code": parsed.meta_lang,
         }
     )
+
+
+# ---------------------------------------------------------------------------
+@api.route("/hide_article", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def hide_article():
+    """
+    Hide an article from the user's feed.
+    When hiding an article, both the original and all simplified versions are hidden.
+    When unhiding, both the original and all simplified versions are unhidden.
+    
+    :param article_id: The ID of the article to hide (can be original or simplified)
+    :param hidden: true/false - whether to hide or unhide the article
+    :return: "OK" on success
+    """
+    
+    article_id = int(request.form.get("article_id"))
+    hidden = request.form.get("hidden", "true")
+    hidden_state = hidden in ["true", "True", "1"]
+    
+    article = Article.query.filter_by(id=article_id).one()
+    user = User.find_by_id(flask.g.user_id)
+    
+    # Determine the parent article (if this is a simplified version)
+    # and get all related articles to hide/unhide
+    articles_to_update = []
+    
+    if article.parent_article_id:
+        # This is a simplified article - get the parent
+        parent_article = article.parent_article
+        articles_to_update.append(parent_article)
+        # Add all simplified versions
+        articles_to_update.extend(parent_article.simplified_versions)
+    else:
+        # This is the parent article
+        articles_to_update.append(article)
+        # Add all its simplified versions
+        articles_to_update.extend(article.simplified_versions)
+    
+    # Update hidden state for all related articles
+    for art in articles_to_update:
+        user_article = UserArticle.find_or_create(db_session, user, art)
+        user_article.set_hidden(hidden_state)
+        db_session.add(user_article)
+    
+    db_session.commit()
+    
+    return "OK"
