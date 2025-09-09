@@ -6,6 +6,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
+from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
@@ -789,6 +790,13 @@ def add_custom_word():
         
         log(f"Successfully found user word '{word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}")
         
+        # Create a simple context identifier for user-edited text
+        # Since USER_EDITED_TEXT doesn't have a specific table mapping,
+        # we just create the identifier to mark the context type
+        context_identifier = ContextIdentifier(
+            context_type=ContextType.USER_EDITED_TEXT
+        )
+        
         # Create bookmark using find_or_create with proper position data
         bookmark = Bookmark.find_or_create(
             db_session,
@@ -805,7 +813,7 @@ def add_custom_word():
             total_tokens=total_tokens_found,
             c_sentence_i=c_sentence_i,
             c_token_i=c_token_i,
-            context_identifier=None,  # No context identifier for user-added words
+            context_identifier=context_identifier,
         )
         
         # Set this bookmark as preferred for the user word
