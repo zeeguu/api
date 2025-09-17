@@ -343,12 +343,8 @@ class Article(db.Model):
             summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
         fk_difficulty = self.get_fk_difficulty()
 
-        # If cefr_level is set, use it. Otherwise, infer from fk
-        if self.cefr_level:
-            cefr_level = self.cefr_level
-        else:
-            # Fallback to calculating from FK difficulty
-            cefr_level = fk_to_cefr(fk_difficulty)
+        # Only use CEFR level if it's been assessed by LLM, otherwise None
+        cefr_level = self.cefr_level
 
         result_dict = dict(
             id=self.id,
@@ -707,8 +703,12 @@ class Article(db.Model):
             source.htmlContent,
             uploader,
         )
+        
+        # Copy the CEFR level from the source article
+        if source.cefr_level:
+            new_article.cefr_level = source.cefr_level
+        
         session.add(new_article)
-
         session.commit()
         return new_article.id
 
@@ -740,8 +740,19 @@ class Article(db.Model):
             htmlContent,
             uploader,
         )
+        
         session.add(new_article)
-
+        
+        # Assess CEFR level using LLM for uploaded texts
+        try:
+            from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level
+            assessed_level = assess_article_cefr_level(title, content, language.code)
+            if assessed_level:
+                new_article.cefr_level = assessed_level
+                print(f"LLM assessed uploaded article {new_article.id} as {assessed_level} level")
+        except Exception as e:
+            print(f"Could not assess CEFR level for uploaded article: {e}")
+        
         session.commit()
         return new_article.id
 
