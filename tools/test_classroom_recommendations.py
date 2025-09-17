@@ -185,18 +185,31 @@ def test_user_recommendations(user_email, show_details=True, count=20):
             print("\nDiagnosis:")
             
             # Check each cohort
+            user_language_code = user.learned_language.code if user.learned_language else None
             for cohort in cohorts:
                 cohort_articles_raw = CohortArticleMap.get_articles_info_for_cohort(cohort)
                 print(f"\n  Cohort: {cohort.name}")
                 print(f"    - Has {len(cohort_articles_raw)} assigned articles")
-                print(f"    - Cohort language ID: {cohort.language_id}")
-                print(f"    - User learned language ID: {user.learned_language_id}")
-                if cohort.language_id != user.learned_language_id:
-                    print(f"    ❌ Language mismatch - articles won't show!")
+                print(f"    - User learned language: {user_language_code}")
+                
+                # Check article languages
+                article_languages = {}
+                matching_articles = 0
+                for article_info in cohort_articles_raw:
+                    article_lang = article_info.get("language", "unknown")
+                    article_languages[article_lang] = article_languages.get(article_lang, 0) + 1
+                    if article_lang == user_language_code:
+                        matching_articles += 1
+                
+                print(f"    - Article languages: {dict(article_languages)}")
+                print(f"    - Articles matching user language: {matching_articles}")
+                
+                if matching_articles == 0:
+                    print(f"    ❌ No articles in user's language ({user_language_code})!")
                 else:
-                    print(f"    ✅ Language matches")
+                    print(f"    ✅ {matching_articles} articles match user's language")
             
-            print("\nTo fix: Either change user's learned language or cohort's language to match.")
+            print(f"\nTo fix: Add articles in user's language ({user_language_code}) to the cohort(s).")
     except Exception as e:
         print(f"Error getting cohort articles: {e}")
         import traceback
