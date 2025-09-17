@@ -344,12 +344,15 @@ class User(db.Model):
         try:
             for c in self.cohorts:
                 cohort = Cohort.find(c.cohort_id)
-                if cohort.language_id == self.learned_language_id:
-                    # Only add texts on the current "learning language"
-                    cohort_articles = CohortArticleMap.get_articles_info_for_cohort(
-                        cohort
-                    )
-                    all_articles += cohort_articles
+                # Get all articles from this cohort
+                cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
+                
+                # Filter articles by the user's learned language
+                user_language_code = self.learned_language.code if self.learned_language else None
+                for article_info in cohort_articles:
+                    if article_info.get("language") == user_language_code:
+                        all_articles.append(article_info)
+                        
             return all_articles
         except NoResultFound as e:
             return []
