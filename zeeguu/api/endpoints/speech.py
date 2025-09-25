@@ -14,7 +14,7 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 PREFERRED_VOICES = {
     "da": "da-DK-Wavenet-F",
     "fr": "fr-FR-Chirp3-HD-Erinome",
-    "en": "en-US",
+    "en": "en-US-Chirp-HD-F",
     "nl": "nl-NL-Chirp3-HD-Achernar",
     "de": "de-DE-Chirp-HD-F",
     "it": "it-IT-Neural2-A",
