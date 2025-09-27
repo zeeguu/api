@@ -55,7 +55,7 @@ def get_user_cohorts(user):
     return cohorts
 
 
-def test_user_recommendations(user_email, show_details=True, count=20):
+def analyze_user_recommendations(user_email, show_details=True, count=20):
     """Test recommendations for a specific user."""
 
     app = create_app()
@@ -302,7 +302,7 @@ def main():
 
     args = parser.parse_args()
 
-    test_user_recommendations(
+    analyze_user_recommendations(
         args.email, show_details=not args.no_details, count=args.count
     )
 
