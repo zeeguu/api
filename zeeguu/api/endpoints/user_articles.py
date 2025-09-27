@@ -36,26 +36,57 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     It also includes articles from user's search subscriptions if they
     are relevant enough. The articles are then sorted by published date.
 
+    URL parameters:
+    - exclude_saved: if 'true', exclude saved articles from results
+
+    Note: Hidden articles are always excluded from recommendations.
     """
 
     user = User.find_by_id(flask.g.user_id)
+
+    # Get exclusion parameters from request args
+    exclude_saved = request.args.get("exclude_saved", "false").lower() == "true"
+
+    # Collect article IDs to exclude
+    articles_to_exclude = []
+
+    if exclude_saved:
+        # Get all saved article IDs for the user
+        saved_articles = PersonalCopy.all_for(user)
+        saved_article_ids = [article.id for article in saved_articles]
+        articles_to_exclude.extend(saved_article_ids)
+
+    # Always exclude hidden articles from recommendations
+    hidden_user_articles = (
+        UserArticle.query.filter_by(user=user)
+        .filter(UserArticle.hidden.isnot(None))
+        .all()
+    )
+    hidden_article_ids = [ua.article_id for ua in hidden_user_articles]
+    articles_to_exclude.extend(hidden_article_ids)
+
+    # Remove duplicates from the exclusion list
+    articles_to_exclude = list(set(articles_to_exclude))
+
     try:
-        content = article_recommendations_for_user(user, count, page)
+        content = article_recommendations_for_user(
+            user, count, page, articles_to_exclude
+        )
         print("Total content found: ", len(content))
     except Exception as e:
         # Elasticsearch failed, fall back to database query
         print(f"Elasticsearch unavailable, using DB fallback: {type(e).__name__}")
-        content = (
-            Article.query.filter_by(broken=0)
-            .filter_by(language_id=user.learned_language_id)
-            .order_by(Article.published_time.desc())
-            .limit(20)
+        query = Article.query.filter_by(broken=0).filter_by(
+            language_id=user.learned_language_id
         )
 
-    # Filter out hidden articles (including their simplified versions)
-    filtered_content = UserArticle.filter_hidden_content(user, content)
+        # Apply exclusions to the fallback query as well
+        if articles_to_exclude:
+            query = query.filter(Article.id.notin_(articles_to_exclude))
 
-    content_infos = get_user_info_from_content_recommendations(user, filtered_content)
+        content = query.order_by(Article.published_time.desc()).limit(20).all()
+
+    content_infos = get_user_info_from_content_recommendations(user, content)
     return json_result(content_infos)
 
 

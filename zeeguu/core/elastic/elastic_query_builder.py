@@ -59,7 +59,8 @@ def build_elastic_recommender_query(
     topics_to_include,
     topics_to_exclude,
     user_ignored_sources,
-    page,
+    articles_to_exclude=None,
+    page=0,
 ):
     """
 
@@ -123,11 +124,30 @@ def build_elastic_recommender_query(
         must_not.append(match("content", unwanted_user_topics))
         must_not.append(match("title", unwanted_user_topics))
 
+    # Exclude sources that user has repeatedly scrolled past (behavioral filtering)
+    # Note: Each Article has a source_id that links to a Source record, which is an
+    # abstraction for all content types (Article, Video, etc.). This filters based on
+    # user behavior - sources they've scrolled past multiple times without engaging.
     if user_ignored_sources:
         must_not.append(
             terms(
                 "source_id",
                 user_ignored_sources,
+            )
+        )
+
+    # Exclude specific article IDs (explicit filtering for saved/hidden articles)
+    # Note: While there's potential overlap with user_ignored_sources above (since each
+    # article has a source_id), these serve different purposes:
+    # - user_ignored_sources: behavioral (what user scrolls past)
+    # - articles_to_exclude: explicit user actions (saved or hidden articles)
+    # An article might be excluded by both mechanisms, but that's fine - Elasticsearch
+    # handles this efficiently, and the filters capture different user intentions.
+    if articles_to_exclude:
+        must_not.append(
+            terms(
+                "article_id",
+                articles_to_exclude,
             )
         )
 

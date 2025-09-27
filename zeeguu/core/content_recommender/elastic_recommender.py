@@ -101,6 +101,7 @@ def article_recommendations_for_user(
     user,
     count,
     page=0,
+    articles_to_exclude=None,
     es_scale="1d",
     es_offset="1d",
     es_decay=0.6,
@@ -119,6 +120,8 @@ def article_recommendations_for_user(
         these articles are still shown even if not tagged by the topics selected.
 
         Fails if no language is selected.
+
+        :param articles_to_exclude: List of article IDs to exclude from results
 
     :return:
 
@@ -152,6 +155,7 @@ def article_recommendations_for_user(
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
+        articles_to_exclude=articles_to_exclude,
         page=page,
     )
 
