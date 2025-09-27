@@ -32,7 +32,7 @@ class UserWord(db.Model):
     learned_time = db.Column(db.DateTime)
 
     level = db.Column(db.Integer)
-    
+
     is_user_added = db.Column(db.Boolean, default=False)
 
     preferred_bookmark_id = db.Column(db.Integer, db.ForeignKey("bookmark.id"))
@@ -78,7 +78,7 @@ class UserWord(db.Model):
         self.exercise_log.append(exercise)
 
     def should_be_studied(self):
-        return (self.starred or self.fit_for_study) and not self.is_learned()
+        return self.fit_for_study and not self.is_learned()
 
     def set_unfit_for_study(self, session=None):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
@@ -217,8 +217,12 @@ class UserWord(db.Model):
             **exercise_info_dict,
             "user_word_id": self.id,
             "meaning_id": self.meaning_id,
-            "is_user_added": self.is_user_added if self.is_user_added is not None else False,
-            "learned_datetime": self.learned_time.isoformat() if self.learned_time else None,
+            "is_user_added": (
+                self.is_user_added if self.is_user_added is not None else False
+            ),
+            "learned_datetime": (
+                self.learned_time.isoformat() if self.learned_time else None
+            ),
         }
 
         return result
@@ -306,7 +310,7 @@ class UserWord(db.Model):
     def find_or_create(cls, session, user, meaning, is_user_added=False):
         """
         Find or create a UserWord for a user and meaning.
-        
+
         Since Meaning.find_or_create() already handles semantic deduplication,
         we can trust that each meaning is unique and canonical.
         """

@@ -322,7 +322,7 @@ class User(db.Model):
         Update last_seen timestamp, but only once per day to minimize database writes.
         """
         now = datetime.datetime.now()
-        
+
         # Only update if last_seen is None or it's a different day
         if not self.last_seen or self.last_seen.date() < now.date():
             self.last_seen = now
@@ -346,13 +346,15 @@ class User(db.Model):
                 cohort = Cohort.find(c.cohort_id)
                 # Get all articles from this cohort
                 cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
-                
+
                 # Filter articles by the user's learned language
-                user_language_code = self.learned_language.code if self.learned_language else None
+                user_language_code = (
+                    self.learned_language.code if self.learned_language else None
+                )
                 for article_info in cohort_articles:
                     if article_info.get("language") == user_language_code:
                         all_articles.append(article_info)
-                        
+
             return all_articles
         except NoResultFound as e:
             return []
@@ -397,25 +399,35 @@ class User(db.Model):
         :return:
         """
         from zeeguu.logging import log
-        
-        log(f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating new salt and password hash")
-        
+
+        log(
+            f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating new salt and password hash"
+        )
+
         salt_bytes = "".join(chr(random.randint(0, 255)) for _ in range(32)).encode(
             "utf-8"
         )
 
         old_password_hash = self.password
         old_salt = self.password_salt
-        
+
         self.password = password_hash(password, salt_bytes)
         self.password_salt = salt_bytes.hex()
-        
+
         if old_salt:
-            log(f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'")
-            log(f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'")
+            log(
+                f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'"
+            )
+            log(
+                f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'"
+            )
         else:
-            log(f"UPDATE_PASSWORD: user_id={self.id} - New salt: '{self.password_salt[:20]}...', New hash: '{self.password[:20]}...'")
-        log(f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated")
+            log(
+                f"UPDATE_PASSWORD: user_id={self.id} - New salt: '{self.password_salt[:20]}...', New hash: '{self.password[:20]}...'"
+            )
+        log(
+            f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated"
+        )
 
     def all_reading_sessions(
         self,
@@ -473,9 +485,9 @@ class User(db.Model):
         query = query.filter(Bookmark.time <= before_date)
         # Include bookmarks that have a source_id OR are from article_preview OR are from exercises
         query = query.filter(
-            (Bookmark.source_id != None) | 
-            (Bookmark.translation_source == 'article_preview') |
-            (Bookmark.translation_source == 'exercise')
+            (Bookmark.source_id != None)
+            | (Bookmark.translation_source == "article_preview")
+            | (Bookmark.translation_source == "exercise")
         )
         query = query.order_by(Bookmark.time)
 
@@ -554,7 +566,7 @@ class User(db.Model):
         this returns unique user words that have been learned.
         """
         from zeeguu.core.model import Phrase, Meaning, UserWord
-        
+
         query = zeeguu.core.model.db.session.query(UserWord)
         learned = (
             query.join(Meaning, UserWord.meaning_id == Meaning.id)
@@ -572,7 +584,7 @@ class User(db.Model):
         Returns the count of unique user words that have been learned.
         """
         from zeeguu.core.model import Phrase, Meaning, UserWord
-        
+
         query = zeeguu.core.model.db.session.query(UserWord)
         learned = (
             query.join(Meaning, UserWord.meaning_id == Meaning.id)
@@ -753,6 +765,39 @@ class User(db.Model):
 
         return json_bookmarks
 
+    def user_words_for_article(
+        self,
+        article_id,
+        good_for_study=False,
+        json=True,
+    ):
+        from zeeguu.core.model import Bookmark, Article, UserWord
+
+        # Get UserWords for this article through bookmarks
+        query = zeeguu.core.model.db.session.query(UserWord)
+        user_words = (
+            query.join(Bookmark, UserWord.id == Bookmark.user_word_id)
+            .join(Article, Bookmark.source_id == Article.source_id)
+            .filter(Article.id == article_id)
+            .filter(UserWord.user_id == self.id)
+            .distinct()  # Avoid duplicates if multiple bookmarks exist for same word
+            .order_by(UserWord.id.asc())
+            .all()
+        )
+
+        if good_for_study:
+            user_words = [word for word in user_words if word.should_be_studied()]
+
+        if not json:
+            return user_words
+
+        # Convert to JSON format
+        json_words = []
+        for word in user_words:
+            json_words.append(word.as_dictionary())
+
+        return json_words
+
     def bookmarks_by_url_by_date(self, n_days=365):
         bookmarks_list, dates = self.bookmarks_by_date()
 
@@ -813,21 +858,21 @@ class User(db.Model):
 
         lang_info = UserLanguage.with_language_id(self.learned_language_id, self)
         return ["A1", "A2", "B1", "B2", "C1", "C2"][lang_info.cefr_level - 1]
-    
+
     def get_all_languages(self):
         """Get all languages that this user has words in."""
         from zeeguu.core.model import Language, Phrase, Meaning, UserWord
-        
-        languages = zeeguu.core.model.db.session.query(Language).join(
-            Phrase, Phrase.language_id == Language.id
-        ).join(
-            Meaning, Meaning.origin_id == Phrase.id
-        ).join(
-            UserWord, UserWord.meaning_id == Meaning.id
-        ).filter(
-            UserWord.user_id == self.id
-        ).distinct().all()
-        
+
+        languages = (
+            zeeguu.core.model.db.session.query(Language)
+            .join(Phrase, Phrase.language_id == Language.id)
+            .join(Meaning, Meaning.origin_id == Phrase.id)
+            .join(UserWord, UserWord.meaning_id == Meaning.id)
+            .filter(UserWord.user_id == self.id)
+            .distinct()
+            .all()
+        )
+
         return languages
 
     def levels_for(self, language: Language):
@@ -940,32 +985,44 @@ class User(db.Model):
     @classmethod
     def authorize(cls, email, password):
         from zeeguu.logging import log
-        
+
         try:
             log(f"AUTHORIZE: Looking up user with email '{email}'")
             user = cls.find(email)
             log(f"AUTHORIZE: Found user {user.id} for email '{email}'")
-            
+
             # Hash the provided password with user's salt
-            provided_password_hash = password_hash(password, bytes.fromhex(user.password_salt))
+            provided_password_hash = password_hash(
+                password, bytes.fromhex(user.password_salt)
+            )
             stored_password_hash = user.password
-            
-            log(f"AUTHORIZE: user_id={user.id}, provided_hash_length={len(provided_password_hash)}, stored_hash_length={len(stored_password_hash)}")
-            
+
+            log(
+                f"AUTHORIZE: user_id={user.id}, provided_hash_length={len(provided_password_hash)}, stored_hash_length={len(stored_password_hash)}"
+            )
+
             if provided_password_hash == stored_password_hash:
-                log(f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - Password hash matches")
+                log(
+                    f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - Password hash matches"
+                )
                 return user
             else:
-                log(f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - Password hash mismatch")
-                log(f"AUTHORIZE DEBUG: provided_hash='{provided_password_hash[:20]}...', stored_hash='{stored_password_hash[:20]}...'")
+                log(
+                    f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - Password hash mismatch"
+                )
+                log(
+                    f"AUTHORIZE DEBUG: provided_hash='{provided_password_hash[:20]}...', stored_hash='{stored_password_hash[:20]}...'"
+                )
                 return None
-                
+
         except sqlalchemy.orm.exc.NoResultFound:
             log(f"AUTHORIZE FAILED: No user found with email '{email}'")
             warning(f"Login attempt with wrong email: {email}")
             return None
         except Exception as e:
-            log(f"AUTHORIZE ERROR: Exception during authorization for email '{email}': {str(e)}")
+            log(
+                f"AUTHORIZE ERROR: Exception during authorization for email '{email}': {str(e)}"
+            )
             return None
 
     @classmethod
