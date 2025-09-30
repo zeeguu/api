@@ -289,8 +289,16 @@ class Article(db.Model):
         block_elements = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote']
         
         for element in soup.find_all(block_elements):
+            # Skip blockquote containers - we'll process their paragraph children instead
+            if element.name == 'blockquote':
+                continue
+
+            # For paragraphs inside blockquotes, use special formatting to indicate they're part of a quote
+            if element.name == 'p' and element.find_parent('blockquote'):
+                tag_name = 'blockquote'
+                text_content = element.get_text().strip()
             # For list items, get direct text content (not nested lists)
-            if element.name == 'li':
+            elif element.name == 'li':
                 # Get only direct text content, excluding nested ul/ol
                 text_parts = []
                 for content in element.contents:
@@ -302,13 +310,14 @@ class Article(db.Model):
                         # Direct text node
                         text_parts.append(str(content).strip())
                 text_content = ' '.join(text_parts).strip()
+                tag_name = element.name
             else:
                 # For other elements, preserve some inline formatting by getting inner HTML
                 # and then extracting text, but keep track of formatting
                 text_content = element.get_text().strip()
+                tag_name = element.name
 
             if text_content:  # Only create fragments for non-empty content
-                tag_name = element.name
                 ArticleFragment.find_or_create(
                     session, self, text_content, order, tag_name, commit=False
                 )
