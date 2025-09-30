@@ -590,16 +590,35 @@ def _create_targeted_simplified_version(content, title, language_code, original_
 def assess_article_cefr_level(title, content, language_code):
     """
     Assess the CEFR level of an article using the new SimplificationService.
-    
+
     Args:
         title: Article title
-        content: Article content  
+        content: Article content
         language_code: Language code (e.g., 'da', 'es')
-        
+
     Returns:
         CEFR level string (A1, A2, B1, B2, C1, C2) or None if failed
     """
     from zeeguu.core.llm_services.simplification_service import get_simplification_service
-    
+
     service = get_simplification_service()
     return service.assess_cefr_level(title, content, language_code)
+
+
+def assess_article_cefr_level_deepseek_only(title, content, language_code):
+    """
+    Assess the CEFR level using DeepSeek only for consistency with batch crawling.
+    Use this when creating clones/copies to ensure same model evaluates as during crawling.
+
+    Args:
+        title: Article title
+        content: Article content
+        language_code: Language code (e.g., 'da', 'es')
+
+    Returns:
+        CEFR level string (A1, A2, B1, B2, C1, C2) or None if failed
+    """
+    from zeeguu.core.llm_services.simplification_service import get_simplification_service
+
+    service = get_simplification_service()
+    return service.assess_cefr_level_deepseek_only(title, content, language_code)

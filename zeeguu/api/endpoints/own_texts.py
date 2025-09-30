@@ -20,9 +20,10 @@ def upload_own_text():
     content = request.form.get("content", "")
     htmlContent = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
+    original_cefr_level = request.form.get("original_cefr_level", None)
     user = User.find_by_id(flask.g.user_id)
     new_article_id = Article.create_from_upload(
-        db_session, title, content, htmlContent, user, language
+        db_session, title, content, htmlContent, user, language, original_cefr_level
     )
 
     return str(new_article_id)

@@ -714,15 +714,20 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language
+        cls, session, title, content, htmlContent, uploader, language, original_cefr_level=None
     ):
+        from zeeguu.core.content_cleaning import cleanup_text
+
         current_time = datetime.now()
+
+        # Clean the content to ensure Source text is plain text without HTML
+        clean_content = cleanup_text(content)
 
         # Create a Source object for the uploaded content
         source_type = SourceType.find_by_type(SourceType.ARTICLE)
         source = Source.find_or_create(
             session,
-            content,
+            clean_content,
             source_type,
             language,
             0,  # broken flag
@@ -740,20 +745,33 @@ class Article(db.Model):
             htmlContent,
             uploader,
         )
-        
+
         session.add(new_article)
-        
-        # Assess CEFR level using LLM for uploaded texts
-        try:
-            from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level
-            assessed_level = assess_article_cefr_level(title, content, language.code)
-            if assessed_level:
-                new_article.cefr_level = assessed_level
-                print(f"LLM assessed uploaded article {new_article.id} as {assessed_level} level")
-        except Exception as e:
-            print(f"Could not assess CEFR level for uploaded article: {e}")
-        
         session.commit()
+
+        # Create article fragments for reader tokenization
+        new_article.create_article_fragments(session)
+
+        # If we have an original CEFR level (from copying), preserve it
+        if original_cefr_level:
+            new_article.cefr_level = original_cefr_level
+        else:
+            # Assess CEFR level using DeepSeek only for consistency with batch crawling
+            try:
+                from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level_deepseek_only
+                assessed_level = assess_article_cefr_level_deepseek_only(title, content, language.code)
+                if assessed_level:
+                    new_article.cefr_level = assessed_level
+            except Exception as e:
+                print(f"Could not assess CEFR level for uploaded article: {e}")
+
+        session.commit()
+
+        # Log after commit when ID is available
+        if original_cefr_level:
+            print(f"Preserved original CEFR level {original_cefr_level} for copied article {new_article.id}")
+        elif new_article.cefr_level:
+            print(f"DeepSeek assessed uploaded article {new_article.id} as {new_article.cefr_level} level")
         return new_article.id
 
     @classmethod

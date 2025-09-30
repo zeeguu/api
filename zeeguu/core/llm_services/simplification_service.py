@@ -22,6 +22,25 @@ class SimplificationService:
         result = self.assess_cefr_and_topic(title, content, language_code)
         return result[0] if isinstance(result, tuple) else result
 
+    def assess_cefr_level_deepseek_only(
+        self, title: str, content: str, language_code: str = "ro"
+    ) -> str:
+        """
+        Assess CEFR level using DeepSeek only (for consistency with batch crawling).
+        Use this when creating clones/copies to ensure same model evaluates as during crawling.
+        """
+        if not self.deepseek_api_key:
+            log("DEEPSEEK_API_SIMPLIFICATIONS not configured, falling back to hybrid approach")
+            return self.assess_cefr_level(title, content, language_code)
+
+        log(f"Using DeepSeek for CEFR assessment (consistency mode)")
+        try:
+            result = self._assess_cefr_deepseek(title, content, language_code)
+            return result[0] if isinstance(result, tuple) else result
+        except Exception as e:
+            log(f"DeepSeek CEFR assessment failed: {e}")
+            return "B1"  # fallback
+
     def assess_cefr_and_topic(
         self, title: str, content: str, language_code: str = "ro"
     ) -> tuple:
