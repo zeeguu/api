@@ -51,10 +51,17 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     articles_to_exclude = []
 
     if exclude_saved:
-        # Get all saved article IDs for the user
+        # Get all saved articles for the user
         saved_articles = PersonalCopy.all_for(user)
-        saved_article_ids = [article.id for article in saved_articles]
-        articles_to_exclude.extend(saved_article_ids)
+
+        # Exclude both the PersonalCopy article IDs and their parent article IDs
+        for article in saved_articles:
+            # Add the PersonalCopy article ID
+            articles_to_exclude.append(article.id)
+
+            # If this is a simplified version, also exclude the original article
+            if article.parent_article_id:
+                articles_to_exclude.append(article.parent_article_id)
 
     # Always exclude hidden articles from recommendations
     hidden_user_articles = (
