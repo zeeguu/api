@@ -248,11 +248,20 @@ class Article(db.Model):
         return False
 
     def update(self, db_session, language, content, htmlContent, title):
+        from zeeguu.core.model.article_fragment import ArticleFragment
+
         self.language = language
         self.update_content(db_session, content, commit=False)
         self.title = title
         self.htmlContent = htmlContent
         self.summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+
+        # Delete existing fragments
+        ArticleFragment.query.filter_by(article_id=self.id).delete()
+
+        # Recreate fragments with updated content
+        self.create_article_fragments(db_session)
+
         db_session.commit()
 
     def create_article_fragments(self, session):
@@ -262,13 +271,13 @@ class Article(db.Model):
         """
         from zeeguu.core.model.article_fragment import ArticleFragment
         from bs4 import BeautifulSoup
-        
+
         # Get HTML content - use htmlContent if available, otherwise fall back to plain text
         html_content = getattr(self, 'htmlContent', None) or self.source.get_content()
-        
+
         if not html_content:
             return
-            
+
         # Parse HTML content
         soup = BeautifulSoup(html_content, 'html.parser')
         
@@ -297,7 +306,7 @@ class Article(db.Model):
                 # For other elements, preserve some inline formatting by getting inner HTML
                 # and then extracting text, but keep track of formatting
                 text_content = element.get_text().strip()
-                
+
             if text_content:  # Only create fragments for non-empty content
                 tag_name = element.name
                 ArticleFragment.find_or_create(
@@ -714,7 +723,7 @@ class Article(db.Model):
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language, original_cefr_level=None
+        cls, session, title, content, htmlContent, uploader, language, original_cefr_level=None, img_url=None
     ):
         from zeeguu.core.content_cleaning import cleanup_text
 
@@ -745,6 +754,11 @@ class Article(db.Model):
             htmlContent,
             uploader,
         )
+
+        # Set image URL if provided (when cloning)
+        if img_url:
+            from zeeguu.core.model.url import Url
+            new_article.img_url = Url.find_or_create(session, img_url)
 
         session.add(new_article)
         session.commit()
