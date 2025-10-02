@@ -27,6 +27,8 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     # JP
     "For abonnenter",
     "article abonné",
+    # Danish media paywalls
+    "Læs videre for 1 kr.",
 ]
 
 incomplete_suggesting_terminations = "Read More"
