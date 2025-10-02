@@ -1026,3 +1026,85 @@ class Article(db.Model):
     @classmethod
     def with_title_containing(cls, needle):
         return cls.query.filter(cls.title.like(f"%{needle}%")).all()
+
+    def safe_delete(self, session, user):
+        """
+        Attempts to permanently delete an article if only the given user has interacted with it.
+        If other users have interacted, just marks it as deleted.
+
+        Returns True if permanently deleted, False if only marked as deleted.
+        """
+        from zeeguu.core.model import (
+            UserArticle, PersonalCopy, UserReadingSession,
+            UserActivityData, CohortArticleMap
+        )
+
+        # Check if other users have interacted with this article
+        should_permanently_delete = True
+
+        # 1. Check UserReadingSession
+        reading_sessions = UserReadingSession.query.filter_by(article_id=self.id).all()
+        other_user_sessions = [rs for rs in reading_sessions if rs.user_id != user.id]
+        if other_user_sessions:
+            should_permanently_delete = False
+
+        # 2. Check UserActivityData
+        if should_permanently_delete and self.source_id:
+            activity_data = UserActivityData.query.filter_by(source_id=self.source_id).all()
+            other_user_activity = [ad for ad in activity_data if ad.user_id != user.id]
+            if other_user_activity:
+                should_permanently_delete = False
+
+        # 3. Check UserArticle
+        if should_permanently_delete:
+            user_articles = UserArticle.query.filter_by(article_id=self.id).all()
+            other_user_articles = [ua for ua in user_articles if ua.user_id != user.id]
+            if other_user_articles:
+                should_permanently_delete = False
+
+        # 4. Check PersonalCopy
+        if should_permanently_delete:
+            personal_copies = PersonalCopy.query.filter_by(article_id=self.id).all()
+            other_user_copies = [pc for pc in personal_copies if pc.user_id != user.id]
+            if other_user_copies:
+                should_permanently_delete = False
+
+        # 5. Check CohortArticleMap
+        if should_permanently_delete:
+            cohort_maps = CohortArticleMap.query.filter_by(article_id=self.id).all()
+            if cohort_maps:
+                should_permanently_delete = False
+
+        if should_permanently_delete:
+            # Safe to permanently delete - only this user has interacted with it
+
+            # Remove this user's reading sessions
+            for rs in reading_sessions:
+                session.delete(rs)
+
+            # Remove this user's activity data
+            if self.source_id:
+                activity_data = UserActivityData.query.filter_by(source_id=self.source_id).all()
+                for ad in activity_data:
+                    session.delete(ad)
+
+            # Remove this user's article interactions
+            user_articles = UserArticle.query.filter_by(article_id=self.id).all()
+            for ua in user_articles:
+                session.delete(ua)
+
+            # Remove this user's personal copies
+            personal_copies = PersonalCopy.query.filter_by(article_id=self.id).all()
+            for pc in personal_copies:
+                session.delete(pc)
+
+            # Delete the article itself
+            session.delete(self)
+            session.commit()
+            return True
+        else:
+            # Just mark as deleted - other users have interacted with it
+            self.deleted = 1
+            session.commit()
+            CohortArticleMap.delete_all_for_article(session, self.id)
+            return False

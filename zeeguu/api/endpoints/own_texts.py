@@ -54,15 +54,26 @@ def delete_own_text(id):
 
     try:
         a = Article.query.filter(Article.id == id).one()
-        a.deleted = 1
-        db_session.commit()
+        user = User.find_by_id(flask.g.user_id)
 
-        CohortArticleMap.delete_all_for_article(db_session, id)
+        was_permanently_deleted = a.safe_delete(db_session, user)
 
-        return "OK"
+        if was_permanently_deleted:
+            return json_result(dict(
+                success=True,
+                message="Article permanently deleted"
+            ))
+        else:
+            return json_result(dict(
+                success=True,
+                message="Article hidden from your library. Other users who have read this article can still access it."
+            ))
 
     except sqlalchemy.orm.exc.NoResultFound:
-        return "An article with that ID does not exist."
+        return json_result(dict(
+            success=False,
+            message="Article not found"
+        ))
 
 
 @api.route("/update_own_text/<article_id>", methods=["POST"])
