@@ -4,6 +4,20 @@ Delete duplicate articles that have no user interactions.
 
 Finds near-duplicate articles using simhash and deletes the duplicates
 if they have no bookmarks, readings, or other user references.
+
+Usage:
+    python delete_duplicate_articles.py [language_code] [--delete]
+
+    language_code: Optional. If provided, only process that language.
+                   If omitted, processes all available languages.
+    --delete: Optional. If provided, actually deletes duplicates.
+              If omitted, runs in dry-run mode.
+
+Examples:
+    python delete_duplicate_articles.py           # Dry run for all languages
+    python delete_duplicate_articles.py --delete  # Delete for all languages
+    python delete_duplicate_articles.py de        # Dry run for German only
+    python delete_duplicate_articles.py de --delete  # Delete German duplicates
 """
 
 from datetime import datetime, timedelta
@@ -43,36 +57,32 @@ def has_user_interactions(article):
     return False
 
 
-def find_and_delete_duplicates(
-    language_code=None, days_back=1, distance_threshold=5, dry_run=True
+def find_and_delete_duplicates_for_language(
+    language, days_back=1, distance_threshold=5, dry_run=True
 ):
     """
-    Find duplicate articles and delete those without user interactions.
+    Find duplicate articles for a specific language and delete those without user interactions.
 
     Args:
-        language_code: Only check articles in this language (None = all languages)
+        language: Language object to check articles for
         days_back: How many days back to check for duplicates
         distance_threshold: Maximum hamming distance to consider duplicates
         dry_run: If True, only report what would be deleted without actually deleting
-    """
 
+    Returns:
+        Number of duplicates found
+    """
     cutoff = datetime.now() - timedelta(days=days_back)
 
     query = Article.query.filter(
         Article.published_time >= cutoff,
         Article.content.isnot(None),
         Article.broken == 0,
+        Article.language_id == language.id,
     )
 
-    if language_code:
-        language = Language.find(language_code)
-        query = query.filter(Article.language_id == language.id)
-        logp(f"Checking {language.name} articles from last {days_back} days...")
-    else:
-        logp(f"Checking all articles from last {days_back} days...")
-
     articles = query.all()
-    logp(f"Found {len(articles)} articles to check")
+    logp(f"Found {len(articles)} {language.name} articles to check")
 
     # Compute simhashes for all articles
     article_hashes = []
@@ -159,12 +169,61 @@ def find_and_delete_duplicates(
 
     if not dry_run and deleted_count > 0:
         db_session.commit()
-        logp(f"\n✅ Deleted {deleted_count} duplicate articles")
+        logp(f"\n✅ Deleted {deleted_count} duplicate {language.name} articles")
     elif dry_run:
-        logp(f"\n[DRY RUN] Would delete {len(duplicates_to_delete)} articles")
-        logp("Run with dry_run=False to actually delete")
+        logp(
+            f"\n[DRY RUN] Would delete {len(duplicates_to_delete)} {language.name} articles"
+        )
     else:
-        logp(f"\nNo duplicates found to delete")
+        logp(f"\nNo {language.name} duplicates found to delete")
+
+    return len(duplicates_to_delete)
+
+
+def find_and_delete_duplicates(
+    language_code=None, days_back=1, distance_threshold=5, dry_run=True
+):
+    """
+    Find duplicate articles and delete those without user interactions.
+
+    Args:
+        language_code: Only check articles in this language (None = all languages)
+        days_back: How many days back to check for duplicates
+        distance_threshold: Maximum hamming distance to consider duplicates
+        dry_run: If True, only report what would be deleted without actually deleting
+    """
+
+    if language_code:
+        # Process single language
+        language = Language.find(language_code)
+        logp(f"Checking {language.name} articles from last {days_back} days...")
+        find_and_delete_duplicates_for_language(
+            language, days_back, distance_threshold, dry_run
+        )
+    else:
+        # Process all languages being crawled
+        logp(
+            f"Checking all languages from last {days_back} days (processing each language separately)..."
+        )
+        languages = Language.available_languages()
+        logp(f"Processing {len(languages)} languages: {[l.name for l in languages]}\n")
+
+        total_duplicates = 0
+        for language in languages:
+            logp(f"\n{'='*60}")
+            logp(f"Processing {language.name}...")
+            logp(f"{'='*60}")
+            duplicates = find_and_delete_duplicates_for_language(
+                language, days_back, distance_threshold, dry_run
+            )
+            total_duplicates += duplicates
+
+        logp(f"\n{'='*60}")
+        logp(f"SUMMARY")
+        logp(f"{'='*60}")
+        logp(f"Total duplicates across all languages: {total_duplicates}")
+        if dry_run:
+            logp("Run with --delete flag to actually delete articles.")
 
 
 if __name__ == "__main__":
