@@ -195,7 +195,13 @@ def find_and_delete_duplicates(
 
     if language_code:
         # Process single language
-        language = Language.find(language_code)
+        try:
+            language = Language.find(language_code)
+        except Exception:
+            logp(f"Error: Language '{language_code}' not found in database.")
+            logp(f"Available language codes: {', '.join(Language.CODES_OF_LANGUAGES_BEING_CRAWLED)}")
+            return
+
         logp(f"Checking {language.name} articles from last {days_back} days...")
         find_and_delete_duplicates_for_language(
             language, days_back, distance_threshold, dry_run
@@ -230,7 +236,8 @@ if __name__ == "__main__":
     import sys
 
     # Parse command line arguments
-    language_code = sys.argv[1] if len(sys.argv) > 1 else None
+    args = [arg for arg in sys.argv[1:] if arg != "--delete"]
+    language_code = args[0] if args else None
     dry_run = "--delete" not in sys.argv
 
     if dry_run:
