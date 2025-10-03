@@ -14,6 +14,7 @@ from sqlalchemy import (
     BigInteger,
 )
 from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -35,6 +36,35 @@ MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
 HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
 MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
+
+
+class UnsignedBigInteger(TypeDecorator):
+    """Handles unsigned 64-bit integers for both MySQL and SQLite."""
+    impl = BigInteger
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'mysql':
+            return dialect.type_descriptor(BIGINT(unsigned=True))
+        else:
+            # SQLite doesn't have unsigned, store as string to avoid overflow
+            return dialect.type_descriptor(String(20))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name != 'mysql':
+            # Convert to string for SQLite
+            return str(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name != 'mysql':
+            # Convert back to int from string for SQLite
+            return int(value) if value else None
+        return value
 # \n matches a line-feed (newline) character (ASCII 10)
 # \s matches any whitespace character (equivalent to [\r\n\t\f\v  ])
 # \n matches a line-feed (newline) character (ASCII 10)
@@ -70,7 +100,7 @@ class Article(db.Model):
     broken = Column(Integer)
     deleted = Column(Integer)
     video = Column(Integer)
-    content_simhash = Column(BIGINT(unsigned=True))
+    content_simhash = Column(UnsignedBigInteger)
 
     # Simplified article relationship fields
     parent_article_id = Column(Integer, ForeignKey("article.id"))
