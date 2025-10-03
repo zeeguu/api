@@ -13,6 +13,7 @@ from sqlalchemy import (
     Enum,
     BigInteger,
 )
+from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -69,7 +70,7 @@ class Article(db.Model):
     broken = Column(Integer)
     deleted = Column(Integer)
     video = Column(Integer)
-    content_simhash = Column(BigInteger().with_variant(BigInteger(unsigned=True), 'mysql'))
+    content_simhash = Column(BIGINT(unsigned=True))
 
     # Simplified article relationship fields
     parent_article_id = Column(Integer, ForeignKey("article.id"))
