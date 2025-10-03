@@ -11,6 +11,7 @@ from sqlalchemy import (
     UnicodeText,
     desc,
     Enum,
+    BigInteger,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
@@ -68,6 +69,7 @@ class Article(db.Model):
     broken = Column(Integer)
     deleted = Column(Integer)
     video = Column(Integer)
+    content_simhash = Column(BigInteger().with_variant(BigInteger(unsigned=True), 'mysql'))
 
     # Simplified article relationship fields
     parent_article_id = Column(Integer, ForeignKey("article.id"))

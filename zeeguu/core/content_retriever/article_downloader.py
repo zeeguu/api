@@ -9,6 +9,8 @@ about and downloads new articles saving them in the DB.
 import newspaper
 from time import time
 from pymysql import DataError
+from datetime import datetime, timedelta
+from simhash import Simhash
 
 from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log, logp
@@ -35,15 +37,59 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
-from zeeguu.core.llm_services.article_simplification import auto_create_simplified_versions
+from zeeguu.core.llm_services.article_simplification import (
+    auto_create_simplified_versions,
+)
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 
+# Duplicate detection settings
+SIMHASH_DUPLICATE_DISTANCE_THRESHOLD = 5  # Hamming distance <= 5 (~92% similar)
+SIMHASH_LOOKBACK_DAYS = 3  # Only check articles from last 2 days
 
 import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
+
+
+def compute_simhash(text):
+    """Compute simhash for article content."""
+    if not text:
+        return None
+    # Use first ~1000 words to avoid very long articles
+    truncated = " ".join(text.split()[:1000])
+    return Simhash(truncated).value
+
+
+def is_duplicate_by_simhash(content, feed, session):
+    """
+    Check if article content is a near-duplicate of recent articles from the same feed.
+    Returns (is_duplicate: bool, duplicate_article_id: int or None)
+    """
+    if not content:
+        return False, None
+
+    # Compute simhash for new article
+    new_simhash = compute_simhash(content)
+    if new_simhash is None:
+        return False, None
+
+    # Get recent articles from same feed
+    cutoff = datetime.now() - timedelta(days=SIMHASH_LOOKBACK_DAYS)
+    recent_articles = model.Article.query.filter(
+        model.Article.feed_id == feed.id,
+        model.Article.published_time >= cutoff,
+        model.Article.content_simhash.isnot(None),
+    ).all()
+
+    # Check hamming distance against each recent article
+    for existing in recent_articles:
+        distance = Simhash(new_simhash).distance(Simhash(existing.content_simhash))
+        if distance <= SIMHASH_DUPLICATE_DISTANCE_THRESHOLD:
+            return True, existing.id
+
+    return False, None
 
 
 def _url_after_redirects(url):
@@ -296,20 +342,12 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         raise SkippedAlreadyInDB()
 
     np_article = readability_download_and_parse(url)
-    
-    # Enhanced deduplication: check by content if URL-based check fails
-    # This prevents duplicate articles that have no URL or different URLs but same content
+
+    # Check for near-duplicate content using simhash
     if np_article and np_article.text:
-        # Check for duplicates based on title, content, and source
-        existing_article = model.Article.find_by_content_and_source(
-            title=title,
-            content_preview=np_article.text[:1000],  # Use first 1000 chars as fingerprint
-            feed_id=feed.id,
-            language_id=feed.language.id
-        )
-        
-        if existing_article:
-            logp(f" - Duplicate content found (ID: {existing_article.id})")
+        is_dup, dup_id = is_duplicate_by_simhash(np_article.text, feed, session)
+        if is_dup:
+            logp(f" - Near-duplicate content detected (similar to article {dup_id})")
             raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
@@ -356,6 +394,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         htmlContent=np_article.htmlContent,
     )
 
+    # Compute and store simhash for duplicate detection
+    new_article.content_simhash = compute_simhash(np_article.text)
+
     session.add(new_article)
 
     if not is_quality_article:
@@ -377,19 +418,25 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     _, topics = add_topics(new_article, feed, url_keywords, session)
     logp(f"Topics ({topics})")
     session.add(new_article)
-    
+
     # Auto-create simplified versions for the new article
     try:
         simplified_articles = auto_create_simplified_versions(session, new_article)
         if simplified_articles:
-            logp(f"Auto-created {len(simplified_articles)} simplified versions for article {new_article.id}")
+            logp(
+                f"Auto-created {len(simplified_articles)} simplified versions for article {new_article.id}"
+            )
         else:
-            logp(f"No simplified versions created for article {new_article.id} (see logs for reason)")
+            logp(
+                f"No simplified versions created for article {new_article.id} (see logs for reason)"
+            )
     except Exception as e:
         # Don't fail the entire crawl if simplification fails
-        logp(f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}")
+        logp(
+            f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}"
+        )
         capture_to_sentry(e)
-    
+
     return new_article
 
 

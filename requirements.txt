@@ -30,6 +30,7 @@ pyphen
 regex
 requests
 requests_mock
+simhash
 sentry-sdk[flask]
 sortedcontainers
 SQLAlchemy>=2.0
