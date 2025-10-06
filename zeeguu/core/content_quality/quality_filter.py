@@ -29,6 +29,16 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     "article abonné",
     # Danish media paywalls
     "Læs videre for 1 kr.",
+    # Portuguese paywalls
+    "artigo exclusivo para assinantes",
+    "já é assinante? faça login aqui",
+    # Spanish paywalls
+    "suscríbete para seguir leyendo",
+    # French paywalls
+    "pour accéder gratuitement au site (hors contenus exclusifs abonnés)",
+    "en vous abonnant, vous accédez à la source de référence",
+    # Swedish paywalls
+    "som inloggad kan du ta del av flera smarta funktioner",
 ]
 
 incomplete_suggesting_terminations = "Read More"
