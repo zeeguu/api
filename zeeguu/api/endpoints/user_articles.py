@@ -6,7 +6,7 @@ from zeeguu.core.content_recommender import (
     content_recommendations,
     get_user_info_from_content_recommendations,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User
+from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, UserArticleBrokenReport
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -71,6 +71,13 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     )
     hidden_article_ids = [ua.article_id for ua in hidden_user_articles]
     articles_to_exclude.extend(hidden_article_ids)
+
+    # Exclude articles that the user has reported as broken
+    user_reported_articles = UserArticleBrokenReport.query.filter_by(
+        user_id=user.id
+    ).all()
+    reported_article_ids = [report.article_id for report in user_reported_articles]
+    articles_to_exclude.extend(reported_article_ids)
 
     # Remove duplicates from the exclusion list
     articles_to_exclude = list(set(articles_to_exclude))

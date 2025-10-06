@@ -40,17 +40,46 @@ from zeeguu.core.content_retriever import (
 from zeeguu.core.llm_services.article_simplification import (
     auto_create_simplified_versions,
 )
+from zeeguu.core.content_quality.advertorial_detection import is_advertorial
+from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 
 # Duplicate detection settings
 SIMHASH_DUPLICATE_DISTANCE_THRESHOLD = 5  # Hamming distance <= 5 (~92% similar)
+
+# Paywall sampling settings - save limited samples per day for pattern analysis
+MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE = 10
 SIMHASH_LOOKBACK_DAYS = 3  # Only check articles from last 2 days
 
 import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
+
+
+def _should_save_paywall_sample(session, language):
+    """
+    Check if we should save this LLM-detected paywall as a sample for pattern analysis.
+
+    Limits to MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE per language to avoid DB bloat.
+    Only counts LLM-detected paywalls (not text pattern ones).
+    """
+    from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
+
+    # Count LLM-detected paywalled articles saved today for this language
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    count = (
+        session.query(model.Article)
+        .join(ArticleBrokenMap, ArticleBrokenMap.article_id == model.Article.id)
+        .filter(model.Article.language_id == language.id)
+        .filter(ArticleBrokenMap.broken_code == LowQualityTypes.LLM_PAYWALL_PATTERN)
+        .filter(model.Article.published_time >= today_start)
+        .count()
+    )
+
+    return count < MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE
 
 
 def compute_simhash(text):
@@ -419,6 +448,17 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     logp(f"Topics ({topics})")
     session.add(new_article)
 
+    # Check for advertorial content before expensive simplification
+    is_advert, advert_reason = is_advertorial(
+        url=url, title=title, content=np_article.text
+    )
+    if is_advert:
+        logp(
+            f"Article detected as advertorial by pattern ({advert_reason}), marking as broken and skipping simplification"
+        )
+        new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
+        return new_article
+
     # Auto-create simplified versions for the new article
     try:
         simplified_articles = auto_create_simplified_versions(session, new_article)
@@ -431,11 +471,30 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
                 f"No simplified versions created for article {new_article.id} (see logs for reason)"
             )
     except Exception as e:
-        # Don't fail the entire crawl if simplification fails
-        logp(
-            f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}"
-        )
-        capture_to_sentry(e)
+        error_msg = str(e).lower()
+
+        # Check if LLM detected advertorial - always save for pattern analysis
+        if "advertorial" in error_msg:
+            logp(f"LLM detected advertorial content, marking article as broken")
+            new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
+        # Check if LLM detected paywall - sample to avoid DB bloat
+        elif "paywall" in error_msg:
+            should_save = _should_save_paywall_sample(session, new_article.language)
+            if should_save:
+                logp(f"LLM detected paywall - saving as sample for pattern analysis")
+                new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
+            else:
+                logp(f"LLM detected paywall - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)")
+                # Don't save the article - delete it
+                session.delete(new_article)
+                session.commit()
+                return None
+        else:
+            # Don't fail the entire crawl if simplification fails for other reasons
+            logp(
+                f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}"
+            )
+            capture_to_sentry(e)
 
     return new_article
 

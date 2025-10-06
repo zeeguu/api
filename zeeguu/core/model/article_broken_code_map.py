@@ -11,11 +11,15 @@ class LowQualityTypes:
     TOO_SHORT = "TOO_SHORT"
     TOO_LONG = "TOO_LONG"
     HTML_PATTERN = "HTML_PATTERN"
-    TEXT_PAYWALL_PATTERN = "PAYWALL_PATTERN"
+    TEXT_PAYWALL_PATTERN = "PAYWALL_PATTERN"       # Detected by text pattern matching
+    LLM_PAYWALL_PATTERN = "LLM_PAYWALL"            # Detected by LLM during simplification
     INCOMPLETE_PATTERN = "INCOMPLETE_PATTERN"
     LIVE_BLOG = "LIVE_BLOG"
     ML_PREDICTION = "ML_PREDICTION"
     LANGUAGE_DOES_NOT_MATCH_FEED = "LANGUAGE_DOES_NOT_MATCH_FEED"
+    ADVERTORIAL_PATTERN = "ADVERTORIAL_PATTERN"    # Detected by URL/keyword patterns
+    ADVERTORIAL_LLM = "ADVERTORIAL_LLM"            # Detected by LLM during simplification
+    USER_REPORTED = "USER_REPORTED"
 
 
 class ArticleBrokenMap(db.Model):

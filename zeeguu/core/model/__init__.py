@@ -20,6 +20,7 @@ from .unique_code import UniqueCode
 
 
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
+from .user_article_broken_report import UserArticleBrokenReport
 from .bookmark_context import BookmarkContext
 from .article_fragment_context import ArticleFragmentContext
 from .article_title_context import ArticleTitleContext

@@ -42,6 +42,15 @@ IMPORTANT: If the article appears to be incomplete due to a paywall, simply resp
 - Articles that have audio elements mentioned ("Lyt til artiklen", "Læst op af") but very little text content
 - Articles that appear to be just a teaser or introduction without the main content
 
+IMPORTANT: If the article appears to be promotional/advertorial content rather than genuine news, simply respond with: "advertorial". This includes:
+- Articles primarily promoting specific products with pricing/discounts ("Ne laissez pas passer cette offre", "à -30%", "en promotion")
+- Articles with affiliate marketing language ("meilleure offre", "bon plan", "code promo")
+- Articles focused on shopping recommendations rather than journalistic news content
+- Articles with repeated brand/retailer mentions (Rakuten, Amazon, etc.) in a promotional context
+- Articles that are essentially product advertisements disguised as news
+- Articles with strong call-to-action language for purchasing ("profitez", "achetez maintenant")
+- Articles that read like shopping guides or product catalogs rather than news reporting
+
 INSTRUCTIONS:
 1. First assess the original article's CEFR level
 2. Create simplified versions for ALL levels simpler than the original

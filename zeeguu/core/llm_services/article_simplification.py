@@ -132,7 +132,11 @@ def simplify_article_adaptive_levels(
 
         # Check if article is unfinished due to paywall
         if result.lower().strip() == "unfinished":
-            raise Exception("Article appears to be incomplete due to paywall")
+            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+
+        # Check if article is advertorial
+        if result.lower().strip() == "advertorial":
+            raise Exception("ADVERTORIAL: Article appears to be advertorial/promotional content")
 
         log(f"  Parsing response sections...")
         # Parse the response

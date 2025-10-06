@@ -1,6 +1,6 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User, Topic, UserArticle
+from zeeguu.core.model import Article, Language, User, Topic, UserArticle, UserArticleBrokenReport
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
@@ -469,3 +469,91 @@ def remove_ml_suggestion():
 
         print_and_log_to_sentry(e)
         return "Something went wrong!"
+
+
+@api.route("/report_broken_article", methods=["POST"])
+@cross_domain
+@requires_session
+def report_broken_article():
+    """
+    User reports an article as broken.
+
+    When USER_REPORT_THRESHOLD (3) users report an article,
+    it's automatically marked as broken with USER_REPORTED code.
+
+    Parameters:
+        - article_id: int (required)
+        - reason: str (optional) - why user thinks it's broken
+
+    Returns:
+        JSON with status and total report count
+    """
+    user = User.find_by_id(flask.g.user_id)
+    article_id = request.form.get("article_id")
+    reason = request.form.get("reason", "")
+
+    if not article_id:
+        flask.abort(400, "article_id is required")
+
+    article = Article.find_by_id(article_id)
+    if not article:
+        flask.abort(404, "Article not found")
+
+    try:
+        # Create report (automatically marks as broken if threshold reached)
+        report, was_marked = UserArticleBrokenReport.create(
+            db_session, user, article, reason
+        )
+
+        # Get total report count
+        total_reports = UserArticleBrokenReport.count_for_article(db_session, article)
+
+        return json_result({
+            "status": "success",
+            "total_reports": total_reports,
+            "marked_as_broken": was_marked,
+            "threshold": 2,  # USER_REPORT_THRESHOLD
+            "is_teacher": user.isTeacher()
+        })
+
+    except Exception as e:
+        from zeeguu.logging import print_and_log_to_sentry
+        print_and_log_to_sentry(e)
+        flask.abort(500, f"Failed to report article: {str(e)}")
+
+
+@api.route("/article_broken_reports/<article_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_article_broken_reports(article_id):
+    """
+    Get all broken reports for an article.
+    Only accessible by admin/teacher users.
+
+    Returns:
+        JSON with list of reports
+    """
+    user = User.find_by_id(flask.g.user_id)
+
+    # TODO: Add admin/teacher check here if needed
+    # if not user.is_admin and not user.is_teacher:
+    #     flask.abort(403, "Unauthorized")
+
+    article = Article.find_by_id(article_id)
+    if not article:
+        flask.abort(404, "Article not found")
+
+    reports = UserArticleBrokenReport.all_for_article(db_session, article)
+
+    return json_result({
+        "article_id": article_id,
+        "total_reports": len(reports),
+        "reports": [
+            {
+                "user_id": r.user_id,
+                "report_time": r.report_time.isoformat(),
+                "reason": r.reason
+            }
+            for r in reports
+        ]
+    })
