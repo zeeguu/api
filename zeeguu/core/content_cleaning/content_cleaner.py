@@ -18,13 +18,32 @@ JUNK_PATTERNS_TO_REMOVE = [
     #     Le Monde
     "Le Monde avec AFP",
     "Vous pouvez lire Le Monde sur un seul appareil à la fois",
-    "Ce message s’affichera sur l’autre appareil.",
+    "Ce message s'affichera sur l'autre appareil.",
     "Découvrir les offres multicomptes",
-    "Votre abonnement n’autorise pas la lecture de cet article",
+    "Votre abonnement n'autorise pas la lecture de cet article",
     "Lecture restreinte",
-    "Pour plus d’informations, merci de contacter notre service commercial.",
+    "Pour plus d'informations, merci de contacter notre service commercial.",
     #     dk
     "Artiklen fortsætter efter annoncen",
+    # French cookie notices
+    "Passer la publicité",
+    "La suite après cette publicité",
+    "Quel plaisir de vous retrouver, avant d'accéder à l'équipe, merci d'accepter les cookies.",
+    "En cas de refus, navigation et fonctionnalités seront limitées sur le site.",
+    "Vos préférences s'appliqueront uniquement à nos sites",
+    "Plus d'informations : politique de confidentialité.",
+    "L'équipe shopping du figaro est indépendante de la rédaction.",
+    # German affiliate links
+    "Preis kann jetzt höher sein.",
+    "Mehr erfahren.",
+    "Der preis für dich bleibt dabei unveränder.",
+    "Hat dir der beitrag gefallen?",
+    "Folge uns auf msn und google news",
+    # Portuguese editorial disclaimers
+    "Os textos nesta secção refletem a opinião pessoal dos autores.",
+    "Não representam a visão nem espelham o seu posicionamento editorial.",
+    # Swedish account notices
+    "Du vet väl att du kan skapa ett gratiskonto på dn?",
 ]
 
 JUNK_PATTERNS_DATA_FOLDER = os.path.dirname(__file__)
