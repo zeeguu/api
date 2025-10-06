@@ -123,11 +123,14 @@ def tag_existing_advertorials(
         # Get article URL
         url_string = article.url.as_string() if article.url else None
 
-        # Check if already tagged as advertorial
+        # Check if already tagged as advertorial (either pattern or LLM detected)
         existing_tag = (
             ArticleBrokenMap.query.filter(
                 ArticleBrokenMap.article_id == article.id,
-                ArticleBrokenMap.broken_code == LowQualityTypes.ADVERTORIAL,
+                ArticleBrokenMap.broken_code.in_([
+                    LowQualityTypes.ADVERTORIAL_PATTERN,
+                    LowQualityTypes.ADVERTORIAL_LLM
+                ])
             )
             .first()
         )
@@ -168,7 +171,7 @@ def tag_existing_advertorials(
             # Tag the article (unless dry run)
             if not dry_run:
                 try:
-                    article.set_as_broken(db.session, LowQualityTypes.ADVERTORIAL)
+                    article.set_as_broken(db.session, LowQualityTypes.ADVERTORIAL_PATTERN)
                     print(f"✓ Tagged article {article.id}: {article.title[:60]}...")
                 except Exception as e:
                     print(
