@@ -41,6 +41,7 @@ from zeeguu.core.llm_services.article_simplification import (
     auto_create_simplified_versions,
 )
 from zeeguu.core.content_quality.advertorial_detection import is_advertorial
+from zeeguu.core.content_quality.disturbing_content_detection import is_disturbing_content
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
@@ -459,6 +460,17 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
         return new_article
 
+    # Check for disturbing content before expensive simplification
+    is_disturbing, disturbing_reason = is_disturbing_content(
+        title=title, content=np_article.text, language=feed.language.code
+    )
+    if is_disturbing:
+        logp(
+            f"Article detected as disturbing content by pattern ({disturbing_reason}), marking as broken and skipping simplification"
+        )
+        new_article.set_as_broken(session, LowQualityTypes.DISTURBING_CONTENT_PATTERN)
+        return new_article
+
     # Auto-create simplified versions for the new article
     try:
         simplified_articles = auto_create_simplified_versions(session, new_article)
@@ -477,6 +489,10 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         if "advertorial" in error_msg:
             logp(f"LLM detected advertorial content, marking article as broken")
             new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
+        # Check if LLM detected disturbing content - always save for pattern analysis
+        elif "disturbing_content" in error_msg:
+            logp(f"LLM detected disturbing content, marking article as broken")
+            new_article.set_as_broken(session, LowQualityTypes.DISTURBING_CONTENT_LLM)
         # Check if LLM detected paywall - sample to avoid DB bloat
         elif "paywall" in error_msg:
             should_save = _should_save_paywall_sample(session, new_article.language)

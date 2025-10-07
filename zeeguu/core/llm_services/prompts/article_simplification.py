@@ -51,6 +51,14 @@ IMPORTANT: If the article appears to be promotional/advertorial content rather t
 - Articles with strong call-to-action language for purchasing ("profitez", "achetez maintenant")
 - Articles that read like shopping guides or product catalogs rather than news reporting
 
+IMPORTANT: If the article's primary focus is disturbing content (violence, death, disaster, tragedy), simply respond with: "disturbing_content". This includes:
+- Articles about violent crimes (murders, assaults, shootings)
+- Articles about war, armed conflict, or terrorism
+- Articles about accidents with casualties (plane crashes, disasters)
+- Articles about tragic deaths or mass casualties
+- Articles focused on graphic violence or suffering
+Note: Historical or educational articles about difficult topics are generally acceptable - focus on whether the article's PRIMARY purpose is reporting current disturbing events
+
 INSTRUCTIONS:
 1. First assess the original article's CEFR level
 2. Create simplified versions for ALL levels simpler than the original

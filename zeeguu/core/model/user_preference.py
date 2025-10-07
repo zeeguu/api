@@ -40,6 +40,7 @@ class UserPreference(db.Model):
     TRANSLATE_IN_READER = "translate_reader"
     PRONOUNCE_IN_READER = "pronounce_reader"
     MAX_WORDS_TO_SCHEDULE = "max_words_to_schedule"
+    FILTER_DISTURBING_CONTENT = "filter_disturbing_content"  # Filter violence/death/tragedy articles
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user
@@ -93,6 +94,14 @@ class UserPreference(db.Model):
     @classmethod
     def is_productive_exercises_preference_enabled(cls, user: User):
         return cls.get_productive_exercises_setting(user) == "true"
+
+    @classmethod
+    def is_filter_disturbing_content_enabled(cls, user: User):
+        """Check if user has enabled filtering of disturbing content. Default: False."""
+        filter_setting = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
+        ).first()
+        return filter_setting and filter_setting.value == "true"
 
     # Generic preference handling
     # ---------------------------

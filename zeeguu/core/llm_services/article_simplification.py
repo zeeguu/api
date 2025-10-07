@@ -138,6 +138,10 @@ def simplify_article_adaptive_levels(
         if result.lower().strip() == "advertorial":
             raise Exception("ADVERTORIAL: Article appears to be advertorial/promotional content")
 
+        # Check if article is disturbing content
+        if result.lower().strip() == "disturbing_content":
+            raise Exception("DISTURBING_CONTENT: Article contains disturbing content (violence/death/tragedy)")
+
         log(f"  Parsing response sections...")
         # Parse the response
         sections = {}
