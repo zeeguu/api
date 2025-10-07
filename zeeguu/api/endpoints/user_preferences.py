@@ -70,6 +70,16 @@ def save_user_preferences():
         pronounce_reader.value = pronounce_reader_value
         db_session.add(pronounce_reader)
 
+    filter_disturbing_content_value = data.get(UserPreference.FILTER_DISTURBING_CONTENT, None)
+    if filter_disturbing_content_value:
+        filter_disturbing_content = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.FILTER_DISTURBING_CONTENT,
+        )
+        filter_disturbing_content.value = filter_disturbing_content_value
+        db_session.add(filter_disturbing_content)
+
     db_session.add(user)
     db_session.commit()
     return "OK"
