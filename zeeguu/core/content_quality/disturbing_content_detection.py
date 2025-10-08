@@ -169,7 +169,7 @@ DISTURBING_KEYWORDS = {
 }
 
 
-def is_disturbing_content(title: str = None, content: str = None, language: str = "en") -> tuple[bool, str]:
+def is_disturbing_content_based_on_keywords(title: str = None, content: str = None, language: str = "en") -> tuple[bool, str]:
     """
     Check if article contains disturbing content (violence, death, disaster, tragedy).
 

@@ -402,7 +402,7 @@ def simplify_article(article_id):
 
     # Simplify now (user is waiting) - only create user's level
     try:
-        from zeeguu.core.llm_services.article_simplification import (
+        from zeeguu.core.llm_services.simplification_and_classification import (
             create_user_specific_simplified_version,
         )
 

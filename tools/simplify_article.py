@@ -25,9 +25,9 @@ import argparse
 from datetime import date
 from zeeguu.api.app import create_app
 from zeeguu.core.model import Article, db
-from zeeguu.core.llm_services.article_simplification import (
+from zeeguu.core.llm_services.simplification_and_classification import (
     create_simplified_article_adaptive,
-    auto_create_simplified_versions,
+    simplify_and_classify,
 )
 
 
@@ -187,7 +187,7 @@ def simplify_all_levels(article_id):
         print(
             f"\n🤖 Using AI to assess original level and create all appropriate simplified versions..."
         )
-        simplified_articles = auto_create_simplified_versions(db.session, article)
+        simplified_articles, classifications = simplify_and_classify(db.session, article)
 
         if not simplified_articles:
             print(f"\n⚠️  No simplified versions created for article {article.id}")
@@ -267,7 +267,7 @@ def simplify_articles_by_date(target_date, date_name):
             continue
         
         try:
-            simplified_articles = auto_create_simplified_versions(db.session, article)
+            simplified_articles, classifications = simplify_and_classify(db.session, article)
             if simplified_articles:
                 print(f"✅ Created {len(simplified_articles)} simplified versions for article {article.id}")
                 total_success += 1

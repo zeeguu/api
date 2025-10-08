@@ -6,8 +6,13 @@ from zeeguu.core.content_recommender import (
     content_recommendations,
     get_user_info_from_content_recommendations,
 )
-from zeeguu.core.model import UserArticle, Article, PersonalCopy, User, UserArticleBrokenReport, UserPreference
-from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap, LowQualityTypes
+from zeeguu.core.model import (
+    UserArticle,
+    Article,
+    PersonalCopy,
+    User,
+    UserArticleBrokenReport,
+)
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -79,19 +84,6 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     ).all()
     reported_article_ids = [report.article_id for report in user_reported_articles]
     articles_to_exclude.extend(reported_article_ids)
-
-    # Exclude disturbing content if user has enabled the filter
-    if UserPreference.is_filter_disturbing_content_enabled(user):
-        disturbing_articles = (
-            ArticleBrokenMap.query
-            .filter(ArticleBrokenMap.broken_code.in_([
-                LowQualityTypes.DISTURBING_CONTENT_PATTERN,
-                LowQualityTypes.DISTURBING_CONTENT_LLM
-            ]))
-            .all()
-        )
-        disturbing_article_ids = [abm.article_id for abm in disturbing_articles]
-        articles_to_exclude.extend(disturbing_article_ids)
 
     # Remove duplicates from the exclusion list
     articles_to_exclude = list(set(articles_to_exclude))

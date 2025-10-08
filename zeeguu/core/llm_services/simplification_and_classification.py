@@ -1,5 +1,10 @@
 """
-Content simplifier for creating CEFR-level appropriate versions of articles using DeepSeek API.
+Article simplification and content classification using DeepSeek API.
+
+This module handles:
+- Creating CEFR-level appropriate simplified versions of articles
+- Classifying content (disturbing news, etc.)
+- Both operations done in a single LLM call for efficiency
 """
 
 import os
@@ -138,10 +143,6 @@ def simplify_article_adaptive_levels(
         if result.lower().strip() == "advertorial":
             raise Exception("ADVERTORIAL: Article appears to be advertorial/promotional content")
 
-        # Check if article is disturbing content
-        if result.lower().strip() == "disturbing_content":
-            raise Exception("DISTURBING_CONTENT: Article contains disturbing content (violence/death/tragedy)")
-
         log(f"  Parsing response sections...")
         # Parse the response
         sections = {}
@@ -154,6 +155,7 @@ def simplify_article_adaptive_levels(
             if ":" in line and any(
                 line.startswith(prefix)
                 for prefix in [
+                    "DISTURBING_CONTENT",
                     "ORIGINAL_LEVEL",
                     "ORIGINAL_SUMMARY",
                     "SIMPLIFIED_LEVELS",
@@ -188,6 +190,7 @@ def simplify_article_adaptive_levels(
         def clean_text(text):
             return text.strip("[](){}\"'")
 
+        is_disturbing = clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
         original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
         original_summary = clean_text(sections.get("ORIGINAL_SUMMARY", ""))
         simplified_levels_str = clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
@@ -239,10 +242,11 @@ def simplify_article_adaptive_levels(
                 raise Exception(f"Missing or incomplete content for {level} level")
 
         log(
-            f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level})"
+            f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
         )
 
         return {
+            "is_disturbing": is_disturbing,
             "original_cefr_level": original_level,
             "original_summary": original_summary,
             "simplified_levels": simplified_levels,
@@ -343,12 +347,17 @@ def create_simplified_article_adaptive(
         raise Exception(f"Failed to create {cefr_level} simplified version: {str(e)}")
 
 
-def auto_create_simplified_versions(
+def simplify_and_classify(
     session, original_article: Article
-) -> list[Article]:
+) -> tuple[list[Article], list[tuple[str, str]]]:
     """
-    Automatically create simplified versions for new articles based on LLM-assessed CEFR level.
-    Uses a single API call to assess the original level and create all appropriate simplified versions.
+    Simplify article to multiple CEFR levels and classify content type (e.g., disturbing).
+
+    Uses a single LLM call to:
+    1. Assess the original article's CEFR level
+    2. Create all appropriate simplified versions
+    3. Detect content classifications (disturbing news, etc.)
+
     This function is designed to be called by the crawler/article creation process.
 
     Args:
@@ -356,7 +365,10 @@ def auto_create_simplified_versions(
         original_article: The original article to simplify
 
     Returns:
-        List of created simplified articles
+        Tuple of (simplified_articles, classifications)
+        - simplified_articles: List of created simplified Article objects
+        - classifications: List of (classification_type, detection_method) tuples
+          e.g., [("DISTURBING", "LLM")]
     """
 
     # Only create simplified versions for articles that don't already have them
@@ -365,14 +377,14 @@ def auto_create_simplified_versions(
         log(
             f"SKIP: Article {original_article.id} is already a simplified version (parent: {original_article.parent_article_id})"
         )
-        return []
+        return [], []
 
     if original_article.simplified_versions:
         existing_levels = [v.cefr_level for v in original_article.simplified_versions]
         log(
             f"SKIP: Article {original_article.id} already has {len(original_article.simplified_versions)} simplified versions: {existing_levels}"
         )
-        return []
+        return [], []
 
     # Only simplify articles with substantial content
     word_count = original_article.get_word_count()
@@ -380,7 +392,7 @@ def auto_create_simplified_versions(
         log(
             f"SKIP: Article {original_article.id} is too short for simplification - {word_count} words (minimum: 100 words)"
         )
-        return []
+        return [], []
 
     log(
         f"STARTING: Auto-creating simplified versions for article {original_article.id}"
@@ -401,6 +413,7 @@ def auto_create_simplified_versions(
         log(f"  LLM call completed successfully")
 
         # Extract the results
+        is_disturbing = result.get("is_disturbing", False)
         original_level = result["original_cefr_level"]
         original_summary = result["original_summary"]
         simplified_levels = result["simplified_levels"]
@@ -410,12 +423,17 @@ def auto_create_simplified_versions(
         log(f"    Original level: {original_level}")
         log(f"    Simplified levels to create: {simplified_levels}")
         log(f"    Versions returned by LLM: {list(versions.keys())}")
+        log(f"    Disturbing content detected: {is_disturbing}")
 
         if not simplified_levels:
             log(
                 f"SKIP: Article {original_article.id} is already at {original_level} level - no simpler versions needed (AI assessment)"
             )
-            return []
+            # Return classifications even if no simplification needed
+            classifications = []
+            if is_disturbing:
+                classifications.append(("DISTURBING", "LLM"))
+            return [], classifications
 
         # Update the original article with assessed metadata
         log(f"  Updating original article metadata...")
@@ -470,13 +488,19 @@ def auto_create_simplified_versions(
         session.commit()
         log(f"  URL updates committed")
 
+        # Collect classifications detected by LLM
+        classifications = []
+        if is_disturbing:
+            log(f"  LLM detected disturbing content - will be tagged by caller")
+            classifications.append(("DISTURBING", "LLM"))
+
         log(
             f"SUCCESS: Created {len(simplified_articles)} simplified versions for article {original_article.id}"
         )
         log(f"  Original level (AI-assessed): {original_level}")
         log(f"  Created levels: {[a.cefr_level for a in simplified_articles]}")
         log(f"  Article IDs: {[a.id for a in simplified_articles]}")
-        return simplified_articles
+        return simplified_articles, classifications
 
     except Exception as e:
         error_msg = str(e)

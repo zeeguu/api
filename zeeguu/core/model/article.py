@@ -814,7 +814,7 @@ class Article(db.Model):
         else:
             # Assess CEFR level using DeepSeek only for consistency with batch crawling
             try:
-                from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level_deepseek_only
+                from zeeguu.core.llm_services.simplification_and_classification import assess_article_cefr_level_deepseek_only
                 assessed_level = assess_article_cefr_level_deepseek_only(title, content, language.code)
                 if assessed_level:
                     new_article.cefr_level = assessed_level
@@ -915,7 +915,7 @@ class Article(db.Model):
         # Add LLM-based CEFR level assessment for accurate difficulty (only when requested)
         if do_llm_assessment:
             try:
-                from zeeguu.core.llm_services.article_simplification import assess_article_cefr_level
+                from zeeguu.core.llm_services.simplification_and_classification import assess_article_cefr_level
                 assessed_level = assess_article_cefr_level(new_article.title, new_article.get_content(), language.code)
                 if assessed_level:
                     new_article.cefr_level = assessed_level

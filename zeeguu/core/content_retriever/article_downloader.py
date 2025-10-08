@@ -37,11 +37,13 @@ from zeeguu.core.elastic.indexing import index_in_elasticsearch
 from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
-from zeeguu.core.llm_services.article_simplification import (
-    auto_create_simplified_versions,
+from zeeguu.core.llm_services.simplification_and_classification import (
+    simplify_and_classify,
 )
 from zeeguu.core.content_quality.advertorial_detection import is_advertorial
-from zeeguu.core.content_quality.disturbing_content_detection import is_disturbing_content
+from zeeguu.core.content_quality.disturbing_content_detection import (
+    is_disturbing_content_based_on_keywords,
+)
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
@@ -289,9 +291,11 @@ def download_from_feed(
                 )
 
             downloaded += 1
-            if save_in_elastic and not new_article.broken:
-                if new_article:
-                    index_in_elasticsearch(new_article, session)
+            # Index all non-broken articles in ES
+            # Note: Disturbing content is NOT marked as broken - it's valid content
+            # tagged in ArticleBrokenMap and filtered by user preference in ES queries
+            if save_in_elastic and new_article and not new_article.broken:
+                index_in_elasticsearch(new_article, session)
 
             downloaded_titles.append(
                 new_article.title + " " + new_article.url.as_string()
@@ -460,20 +464,20 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
         return new_article
 
-    # Check for disturbing content before expensive simplification
-    is_disturbing, disturbing_reason = is_disturbing_content(
+    # Check for disturbing content (keyword-based detection)
+    is_disturbing_keyword, disturbing_reason = is_disturbing_content_based_on_keywords(
         title=title, content=np_article.text, language=feed.language.code
     )
-    if is_disturbing:
+    if is_disturbing_keyword:
         logp(
-            f"Article detected as disturbing content by pattern ({disturbing_reason}), marking as broken and skipping simplification"
+            f"Article contains disturbing content ({disturbing_reason}), will tag after simplification"
         )
-        new_article.set_as_broken(session, LowQualityTypes.DISTURBING_CONTENT_PATTERN)
-        return new_article
 
-    # Auto-create simplified versions for the new article
+    # Auto-create simplified versions and classify content
     try:
-        simplified_articles = auto_create_simplified_versions(session, new_article)
+        simplified_articles, llm_classifications = simplify_and_classify(
+            session, new_article
+        )
         if simplified_articles:
             logp(
                 f"Auto-created {len(simplified_articles)} simplified versions for article {new_article.id}"
@@ -482,6 +486,32 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
             logp(
                 f"No simplified versions created for article {new_article.id} (see logs for reason)"
             )
+
+        # Collect all classifications (keyword + LLM) and save them once
+        all_classifications = []
+
+        # Add keyword-based classification
+        if is_disturbing_keyword:
+            all_classifications.append(("DISTURBING", "KEYWORD"))
+
+        # Add LLM-based classifications
+        all_classifications.extend(llm_classifications)
+
+        # Save all classifications at once
+        if all_classifications:
+            from zeeguu.core.model.article_classification import (
+                ArticleClassification,
+                ClassificationType,
+                DetectionMethod,
+            )
+
+            for classification_type, detection_method in all_classifications:
+                logp(
+                    f"Tagging article {new_article.id} as {classification_type} ({detection_method} detection)"
+                )
+                ArticleClassification.find_or_create(
+                    session, new_article, classification_type, detection_method
+                )
     except Exception as e:
         error_msg = str(e).lower()
 
@@ -489,10 +519,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         if "advertorial" in error_msg:
             logp(f"LLM detected advertorial content, marking article as broken")
             new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
-        # Check if LLM detected disturbing content - always save for pattern analysis
-        elif "disturbing_content" in error_msg:
-            logp(f"LLM detected disturbing content, marking article as broken")
-            new_article.set_as_broken(session, LowQualityTypes.DISTURBING_CONTENT_LLM)
         # Check if LLM detected paywall - sample to avoid DB bloat
         elif "paywall" in error_msg:
             should_save = _should_save_paywall_sample(session, new_article.language)
@@ -500,7 +526,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
                 logp(f"LLM detected paywall - saving as sample for pattern analysis")
                 new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
             else:
-                logp(f"LLM detected paywall - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)")
+                logp(
+                    f"LLM detected paywall - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
+                )
                 # Don't save the article - delete it
                 session.delete(new_article)
                 session.commit()

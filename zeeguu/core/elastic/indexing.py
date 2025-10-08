@@ -1,6 +1,7 @@
 from zeeguu.core.model import UrlKeyword, Topic
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
+from zeeguu.core.model.article_classification import ArticleClassification, ClassificationType
 
 from elasticsearch import Elasticsearch
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -141,6 +142,12 @@ def document_from_article(article, session, current_doc=None):
     # saves time by skipping it.
     if current_doc is not None:
         embedding_generation_required = current_doc["content"] != article.get_content()
+
+    # Check if article has disturbing content classification
+    is_disturbing = ArticleClassification.has_classification(
+        article, ClassificationType.DISTURBING
+    )
+
     doc = {
         "article_id": article.id,
         "source_id": article.source_id,
@@ -159,6 +166,7 @@ def document_from_article(article, session, current_doc=None):
         "fk_difficulty": article.get_fk_difficulty(),
         "url": article.url.as_string(),
         "video": article.video,
+        "is_disturbing": is_disturbing,
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = list(current_doc["sem_vec"])

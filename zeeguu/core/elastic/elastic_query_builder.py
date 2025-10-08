@@ -60,6 +60,7 @@ def build_elastic_recommender_query(
     topics_to_exclude,
     user_ignored_sources,
     articles_to_exclude=None,
+    filter_disturbing=False,
     page=0,
 ):
     """
@@ -150,6 +151,10 @@ def build_elastic_recommender_query(
                 articles_to_exclude,
             )
         )
+
+    # Filter disturbing content if user has enabled the preference
+    if filter_disturbing:
+        must_not.append({"match": {"is_disturbing": True}})
 
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations

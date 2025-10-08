@@ -28,6 +28,7 @@ from zeeguu.core.model import (
     UserArticle,
     UserVideo,
     Language,
+    UserPreference,
 )
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.util.timer_logging_decorator import time_this
@@ -141,6 +142,9 @@ def article_recommendations_for_user(
 
     es = Elasticsearch(ES_CONN_STRING)
 
+    # Check if user has enabled disturbing content filtering
+    filter_disturbing = UserPreference.is_filter_disturbing_content_enabled(user)
+
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -156,6 +160,7 @@ def article_recommendations_for_user(
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
         articles_to_exclude=articles_to_exclude,
+        filter_disturbing=filter_disturbing,
         page=page,
     )
 

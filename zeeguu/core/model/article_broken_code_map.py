@@ -19,8 +19,6 @@ class LowQualityTypes:
     LANGUAGE_DOES_NOT_MATCH_FEED = "LANGUAGE_DOES_NOT_MATCH_FEED"
     ADVERTORIAL_PATTERN = "ADVERTORIAL_PATTERN"    # Detected by URL/keyword patterns
     ADVERTORIAL_LLM = "ADVERTORIAL_LLM"            # Detected by LLM during simplification
-    DISTURBING_CONTENT_PATTERN = "DISTURBING_CONTENT_PATTERN"  # Detected by keyword patterns
-    DISTURBING_CONTENT_LLM = "DISTURBING_CONTENT_LLM"          # Detected by LLM during simplification
     USER_REPORTED = "USER_REPORTED"
 
 
