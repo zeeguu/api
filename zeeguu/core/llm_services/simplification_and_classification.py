@@ -537,7 +537,7 @@ def simplify_and_classify(
                 f"  NO ROLLBACK: Error is not database-related, preserving original article"
             )
 
-        return []
+        return [], []
 
 
 def create_user_specific_simplified_version(session, article, target_level):
