@@ -64,44 +64,10 @@ def main():
     
     print(f"✅ {article_count} articole copiate în stiri-simple.github.io")
     print(f"📄 index.html actualizat")
-    
-    # Git operations pentru deployment
-    print("📦 Commitez și fac push...")
+    print()
+    print("✨ Generarea și copierea fișierelor s-a încheiat cu succes!")
+    print("🔧 Git operations (commit & push) trebuie rulate pe host, nu în container.")
 
-    # Schimbă în directorul proiectului de știri
-    original_dir = os.getcwd()
-    os.chdir(news_project_path)
-
-    try:
-        # Mark directory as safe for git operations
-        os.system(f"git config --global --add safe.directory {news_project_path}")
-
-        # Add toate fișierele
-        exit_code = os.system("git add .")
-        if exit_code != 0:
-            print("❌ Eroare la git add")
-            return False
-            
-        # Commit cu timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        commit_message = f"Update știri - {timestamp}"
-        exit_code = os.system(f'git commit -m "{commit_message}"')
-        if exit_code != 0:
-            print("⚠️  Nu au fost găsite modificări de committat")
-            return True  # Nu e o eroare dacă nu sunt modificări
-            
-        # Push
-        exit_code = os.system("git push")
-        if exit_code != 0:
-            print("❌ Eroare la git push")
-            return False
-            
-        print("🚀 Deployment complet! Site-ul va fi actualizat în ~5 minute.")
-        
-    finally:
-        # Revin la directorul original
-        os.chdir(original_dir)
-    
     return True
 
 if __name__ == "__main__":
