@@ -31,6 +31,12 @@ cd "$STIRI_DIR"
 # Mark directory as safe (in case of ownership issues)
 git config --global --add safe.directory "$STIRI_DIR" 2>/dev/null || true
 
+# Pull latest changes first (in case of manual edits)
+echo "⬇️  Pulling latest changes..."
+git pull --rebase || {
+    echo "⚠️  Pull failed, but continuing..."
+}
+
 # Add all changes
 git add .
 
