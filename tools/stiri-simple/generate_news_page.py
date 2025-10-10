@@ -285,90 +285,7 @@ def generate_article_html(article):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>{article.title}</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 18px;
-            line-height: 1.8;
-            padding: 20px;
-            max-width: 100%;
-            background-color: #f5f5f5;
-            color: #333;
-        }}
-        
-        .back-button {{
-            display: block;
-            width: 100%;
-            padding: 20px;
-            background-color: #007AFF;
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border: none;
-            cursor: pointer;
-        }}
-        
-        .back-button:hover {{
-            background-color: #0051D5;
-        }}
-        
-        .article-container {{
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        
-        h1 {{
-            font-size: 28px;
-            line-height: 1.3;
-            margin-bottom: 15px;
-            color: #1a1a1a;
-        }}
-        
-        .meta {{
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e0e0e0;
-        }}
-        
-        .content {{
-            font-size: 18px;
-            line-height: 1.8;
-            color: #333;
-        }}
-        
-        .content p {{
-            margin-bottom: 15px;
-        }}
-        
-        img {{
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 20px 0;
-            border-radius: 10px;
-        }}
-        
-        @media (min-width: 768px) {{
-            body {{
-                max-width: 700px;
-                margin: 0 auto;
-            }}
-        }}
-    </style>
+    <link rel="stylesheet" href="../article-styles.css">
 </head>
 <body>
     <button onclick="history.back()" class="back-button">← Înapoi la știri</button>
@@ -382,7 +299,9 @@ def generate_article_html(article):
             {article.htmlContent or article.content.replace(chr(10), '<br>' + chr(10)) if article.content else ''}
         </div>
     </div>
-    
+
+    <button onclick="history.back()" class="back-button-bottom">← Înapoi la știri</button>
+
     <script>
         // Preserve portal URL from referrer if available
         if (document.referrer) {{
@@ -483,169 +402,7 @@ def generate_index_html(articles, current_date):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Știri - Română A2</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 16px;
-            line-height: 1.6;
-            padding: 20px;
-            max-width: 100%;
-            background-color: #f5f5f5;
-            color: #333;
-        }}
-        
-        .back-button {{
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: block;
-            width: 90%;
-            max-width: 300px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            font-size: 22px;
-            font-weight: bold;
-            border-radius: 15px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
-        }}
-        
-        .back-button:hover {{
-            transform: translateX(-50%) translateY(-2px);
-            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
-            background: linear-gradient(135deg, #e1467c 0%, #f04867 100%);
-        }}
-        
-        .back-button:focus {{
-            outline: 3px solid #FFD700;
-            outline-offset: 2px;
-        }}
-        
-        .generated-note {{
-            font-size: 12px;
-            text-align: center;
-            color: #666;
-            margin-bottom: 20px;
-            font-style: italic;
-        }}
-        
-        h1 {{
-            font-size: 32px;
-            text-align: center;
-            margin-top: 100px;
-            margin-bottom: 30px;
-            color: #1a1a1a;
-        }}
-        
-        .date-header {{
-            font-size: 24px;
-            color: #333;
-            margin: 40px 0 20px 0;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #007AFF;
-            font-weight: 600;
-        }}
-        
-        .date-header:first-child {{
-            margin-top: 0px;
-        }}
-        
-        .news-item {{
-            background-color: white;
-            margin-bottom: 20px;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }}
-        
-        .news-link {{
-            display: block;
-            padding: 20px;
-            text-decoration: none;
-            color: inherit;
-        }}
-        
-        .news-link:hover {{
-            background-color: #f9f9f9;
-        }}
-        
-        .news-item img {{
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            margin: -20px -20px 15px -20px;
-            border-radius: 0;
-        }}
-        
-        .news-item h2 {{
-            font-size: 22px;
-            line-height: 1.3;
-            margin-bottom: 10px;
-            color: #1a1a1a;
-        }}
-        
-        .summary {{
-            font-size: 16px;
-            line-height: 1.6;
-            color: #666;
-            margin-bottom: 10px;
-        }}
-        
-        .read-more {{
-            font-size: 14px;
-            color: #007AFF;
-            font-weight: 600;
-        }}
-        
-        .no-news {{
-            text-align: center;
-            padding: 40px;
-            font-size: 18px;
-            color: #666;
-        }}
-        
-        @media (min-width: 768px) {{
-            body {{
-                max-width: 700px;
-                margin: 0 auto;
-            }}
-            
-            .news-item img {{
-                height: 250px;
-            }}
-        }}
-        
-        /* Accessibility improvements */
-        @media (prefers-reduced-motion: reduce) {{
-            * {{
-                animation: none !important;
-                transition: none !important;
-            }}
-        }}
-        
-        @media (prefers-contrast: high) {{
-            .news-item {{
-                border: 2px solid #333;
-            }}
-            
-            .read-more {{
-                text-decoration: underline;
-            }}
-        }}
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <a href="../index.html" class="back-button" id="backButton" style="display: block;" aria-label="Acasă">
@@ -683,13 +440,305 @@ def generate_index_html(articles, current_date):
     return html
 
 
+def generate_css_files(output_dir):
+    """
+    Genereaza fisierele CSS in directorul de output.
+    """
+    # Generate styles.css for index page
+    styles_css = """* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 24px;
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 100%;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.back-button {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: block;
+    width: 90%;
+    max-width: 300px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 33px;
+    font-weight: bold;
+    border-radius: 15px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+.back-button:hover {
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+    background: linear-gradient(135deg, #e1467c 0%, #f04867 100%);
+}
+
+.back-button:focus {
+    outline: 3px solid #FFD700;
+    outline-offset: 2px;
+}
+
+.generated-note {
+    font-size: 18px;
+    text-align: center;
+    color: #666;
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+h1 {
+    font-size: 48px;
+    text-align: center;
+    margin-top: 160px;
+    margin-bottom: 30px;
+    color: #1a1a1a;
+}
+
+.date-header {
+    font-size: 36px;
+    color: #333;
+    margin: 40px 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #007AFF;
+    font-weight: 600;
+}
+
+.date-header:first-child {
+    margin-top: 0px;
+}
+
+.news-item {
+    background-color: white;
+    margin-bottom: 40px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.news-link {
+    display: block;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.news-link:hover {
+    background-color: #f9f9f9;
+}
+
+.news-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    margin: -20px -20px 15px -20px;
+    border-radius: 0;
+}
+
+.news-item h2 {
+    font-size: 33px;
+    line-height: 1.3;
+    margin-bottom: 10px;
+    color: #1a1a1a;
+}
+
+.summary {
+    font-size: 24px;
+    line-height: 1.6;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.read-more {
+    font-size: 21px;
+    color: #007AFF;
+    font-weight: 600;
+}
+
+.no-news {
+    text-align: center;
+    padding: 40px;
+    font-size: 27px;
+    color: #666;
+}
+
+@media (min-width: 768px) {
+    body {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .news-item img {
+        height: 250px;
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media (prefers-contrast: high) {
+    .news-item {
+        border: 2px solid #333;
+    }
+
+    .read-more {
+        text-decoration: underline;
+    }
+}
+"""
+
+    # Generate article-styles.css for article pages
+    article_styles_css = """* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 27px;
+    line-height: 1.8;
+    padding: 20px;
+    padding-top: 120px;
+    max-width: 100%;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.back-button {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: block;
+    width: 90%;
+    max-width: 700px;
+    padding: 20px;
+    background-color: #007AFF;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 30px;
+    font-weight: bold;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+}
+
+.back-button:hover {
+    background-color: #0051D5;
+}
+
+.back-button-bottom {
+    display: block;
+    width: 100%;
+    padding: 20px;
+    margin-top: 30px;
+    background-color: #007AFF;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 30px;
+    font-weight: bold;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+}
+
+.back-button-bottom:hover {
+    background-color: #0051D5;
+}
+
+.article-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h1 {
+    font-size: 42px;
+    line-height: 1.3;
+    margin-bottom: 15px;
+    color: #1a1a1a;
+}
+
+.meta {
+    font-size: 21px;
+    color: #666;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.content {
+    font-size: 27px;
+    line-height: 1.8;
+    color: #333;
+}
+
+.content p {
+    margin-bottom: 15px;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 20px 0;
+    border-radius: 10px;
+}
+
+@media (min-width: 768px) {
+    body {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+}
+"""
+
+    # Write CSS files
+    with open(output_dir / "styles.css", "w", encoding="utf-8") as f:
+        f.write(styles_css)
+    print("Generated styles.css")
+
+    with open(output_dir / "article-styles.css", "w", encoding="utf-8") as f:
+        f.write(article_styles_css)
+    print("Generated article-styles.css")
+
+
 def main():
     """
     Genereaza paginile HTML.
     """
     output_dir = Path(__file__).parent / "output"
     output_dir.mkdir(exist_ok=True)
-    
+
+    # Generate CSS files
+    generate_css_files(output_dir)
+
     # Data curentă pentru structura de linkuri
     current_date = datetime.now().strftime("%Y-%m-%d")
     
