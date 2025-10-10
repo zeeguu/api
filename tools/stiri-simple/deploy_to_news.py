@@ -25,8 +25,8 @@ def main():
         print("❌ Eroare la generarea știrilor")
         return False
         
-    # Găsește calea către stiri-simple.github.io (parallel with tools/)
-    news_project_path = Path(__file__).parent / "../../stiri-simple.github.io"
+    # Găsește calea către stiri-simple.github.io (mounted as volume in Docker)
+    news_project_path = Path("/deployments/stiri-simple.github.io")
     output_path = Path(__file__).parent / "output"
     
     if not news_project_path.exists():

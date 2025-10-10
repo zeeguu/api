@@ -97,6 +97,7 @@ services:
     volumes:
       - .:/Zeeguu-API
       - ${ZEEGUU_DATA_FOLDER}:/zeeguu-data
+      - ${STIRI_SIMPLE_DEPLOY_PATH:-../../deployments/stiri-simple.github.io}:/deployments/stiri-simple.github.io
     #      - ./api.cfg:/Zeeguu-API/api.cfg
     #      - ./fmd.cfg:/Zeeguu-API/fmd.cfg
     #      - ./lu-mir-zeeguu-credentials.json:/Zeeguu-API/lu-mir-zeeguu-credentials.json
