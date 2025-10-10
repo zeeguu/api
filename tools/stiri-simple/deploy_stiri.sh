@@ -32,8 +32,9 @@ cd "$STIRI_DIR"
 git config --global --add safe.directory "$STIRI_DIR" 2>/dev/null || true
 
 # Pull latest changes first (in case of manual CSS/style edits)
+# Use --autostash to temporarily stash our new files, pull, then reapply
 echo "⬇️  Pulling latest changes from remote..."
-if ! git pull; then
+if ! git pull --autostash; then
     echo "❌ Pull failed! There may be conflicts. Please resolve manually."
     exit 1
 fi
