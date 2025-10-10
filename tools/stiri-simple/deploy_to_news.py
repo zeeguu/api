@@ -38,13 +38,21 @@ def main():
         return False
         
     print(f"📁 Copiez conținutul în {news_project_path}")
-    
+
     # Copiază index.html
     shutil.copy(output_path / "index.html", news_project_path / "index.html")
-    
+
+    # Copiază styles.css dacă există
+    if (output_path / "styles.css").exists():
+        shutil.copy(output_path / "styles.css", news_project_path / "styles.css")
+
     # Creează directorul articles dacă nu există
     articles_dir = news_project_path / "articles"
     articles_dir.mkdir(exist_ok=True)
+
+    # Copiază article-styles.css dacă există
+    if (output_path / "article-styles.css").exists():
+        shutil.copy(output_path / "article-styles.css", articles_dir / "article-styles.css")
     
     # Creează subdirectorul cu data curentă
     current_date = datetime.now().strftime("%Y-%m-%d")

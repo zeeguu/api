@@ -31,13 +31,14 @@ cd "$STIRI_DIR"
 # Mark directory as safe (in case of ownership issues)
 git config --global --add safe.directory "$STIRI_DIR" 2>/dev/null || true
 
-# Pull latest changes first (in case of manual edits)
-echo "⬇️  Pulling latest changes..."
-git pull --rebase || {
-    echo "⚠️  Pull failed, but continuing..."
-}
+# Pull latest changes first (in case of manual CSS/style edits)
+echo "⬇️  Pulling latest changes from remote..."
+if ! git pull; then
+    echo "❌ Pull failed! There may be conflicts. Please resolve manually."
+    exit 1
+fi
 
-# Add all changes
+# Add all new generated files
 git add .
 
 # Check if there are changes to commit
@@ -49,9 +50,12 @@ else
     git commit -m "Update știri - $TIMESTAMP"
 
     # Push to remote
-    git push
-
-    echo "🚀 Deployment complete! Site will update in ~5 minutes."
+    if git push; then
+        echo "🚀 Deployment complete! Site will update in ~5 minutes."
+    else
+        echo "❌ Push failed! Please check the repository status."
+        exit 1
+    fi
 fi
 
 echo "✅ Done!"
