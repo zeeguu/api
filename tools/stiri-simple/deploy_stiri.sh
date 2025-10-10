@@ -28,6 +28,9 @@ echo
 echo "📦 Committing and pushing changes..."
 cd "$STIRI_DIR"
 
+# Mark directory as safe (in case of ownership issues)
+git config --global --add safe.directory "$STIRI_DIR" 2>/dev/null || true
+
 # Add all changes
 git add .
 
