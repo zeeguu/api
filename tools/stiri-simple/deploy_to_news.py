@@ -67,12 +67,15 @@ def main():
     
     # Git operations pentru deployment
     print("📦 Commitez și fac push...")
-    
+
     # Schimbă în directorul proiectului de știri
     original_dir = os.getcwd()
     os.chdir(news_project_path)
-    
+
     try:
+        # Mark directory as safe for git operations
+        os.system(f"git config --global --add safe.directory {news_project_path}")
+
         # Add toate fișierele
         exit_code = os.system("git add .")
         if exit_code != 0:
