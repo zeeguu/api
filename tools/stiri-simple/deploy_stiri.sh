@@ -9,16 +9,18 @@ set -e  # Exit on error
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 API_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-STIRI_DIR="$API_DIR/../../deployments/stiri-simple.github.io"
+OPS_API_DIR="/home/zeeguu/ops/running/api"
+STIRI_DIR="/home/zeeguu/ops/deployments/stiri-simple.github.io"
 
 echo "🚀 Starting stiri-simple deployment..."
-echo "   API dir: $API_DIR"
+echo "   Source API dir: $API_DIR"
+echo "   Ops API dir: $OPS_API_DIR"
 echo "   Stiri dir: $STIRI_DIR"
 echo
 
-# Step 1: Run the generator inside the container
+# Step 1: Run the generator inside the container (from ops/running/api where docker-compose.yml is)
 echo "📰 Generating news content in container..."
-cd "$API_DIR"
+cd "$OPS_API_DIR"
 docker compose run --rm --name stiri_deploy zapi python tools/stiri-simple/deploy_to_news.py
 
 # Step 2: Git operations on the host
