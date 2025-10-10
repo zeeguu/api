@@ -15,9 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 def main():
     """Generează știrile și le copiază în proiectul zeeguu-news."""
     print("🚀 Generez știri pentru deployment...")
-    
+
     # Rulează generatorul principal
-    exit_code = os.system("python generate_news_page.py")
+    script_dir = Path(__file__).parent
+    generate_script = script_dir / "generate_news_page.py"
+    exit_code = os.system(f"python {generate_script}")
     
     if exit_code != 0:
         print("❌ Eroare la generarea știrilor")
@@ -48,11 +50,16 @@ def main():
     current_date = datetime.now().strftime("%Y-%m-%d")
     date_dir = articles_dir / current_date
     date_dir.mkdir(exist_ok=True)
-    
-    # Copiază articolele în directorul de date
-    for article_file in output_path.glob("article_*.html"):
-        shutil.copy(article_file, date_dir / article_file.name)
-        
+
+    # Copiază articolele din subdirectorul articles/current_date
+    source_articles_dir = output_path / "articles" / current_date
+
+    if not source_articles_dir.exists():
+        print(f"⚠️  Nu există director cu articole pentru {current_date}")
+    else:
+        for article_file in source_articles_dir.glob("article_*.html"):
+            shutil.copy(article_file, date_dir / article_file.name)
+
     article_count = len(list(date_dir.glob("article_*.html")))
     
     print(f"✅ {article_count} articole copiate în stiri-simple.github.io")

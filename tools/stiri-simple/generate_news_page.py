@@ -225,7 +225,7 @@ def is_too_complex_or_long(article):
     return False
 
 
-def get_recent_romanian_articles_a2(days_back=7, filter_negative=True, filter_complex=True):
+def get_recent_romanian_articles_a2(days_back=3, filter_negative=True, filter_complex=True):
     """
     Obtine articolele recente in romana simplificate la nivelul A2.
     Filtreaza stirile negative daca filter_negative=True.
@@ -648,8 +648,8 @@ def generate_index_html(articles, current_date):
     </style>
 </head>
 <body>
-    <a href="../index.html" class="back-button" id="backButton" style="display: block;" aria-label="Portal F">
-        ← Portal F
+    <a href="../index.html" class="back-button" id="backButton" style="display: block;" aria-label="Acasă">
+        ← Acasă
     </a>
     
     <div class="generated-note">Generat la {generated_time}</div>
@@ -694,7 +694,7 @@ def main():
     current_date = datetime.now().strftime("%Y-%m-%d")
     
     print("Obținere articole din baza de date...")
-    articles = get_recent_romanian_articles_a2(filter_negative=True, filter_complex=True)
+    articles = get_recent_romanian_articles_a2(filter_negative=True, filter_complex=False)
     
     if not articles:
         print("Nu s-au găsit articole simplificate A2 în română.")
