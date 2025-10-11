@@ -54,7 +54,6 @@ def _feature_map():
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
-        "merle_exercises": _merle_exercises,
         "exercise_levels": _exercise_levels,
         "daily_audio": _daily_audio,
     }
@@ -68,13 +67,6 @@ def _tiago_exercises(user):
     right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
     right_language = user.learned_language.code in ["da"]
     return right_user and right_language
-
-
-def _merle_exercises(user):
-    ## This is the exercises with 2 stages.
-    right_user = user.invitation_code == "learning-cycle"
-
-    return right_user
 
 
 def _exercise_levels(user):
