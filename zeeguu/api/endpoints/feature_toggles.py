@@ -54,7 +54,6 @@ def _feature_map():
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
-        "exercise_levels": _exercise_levels,
         "daily_audio": _daily_audio,
     }
 
@@ -67,12 +66,6 @@ def _tiago_exercises(user):
     right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
     right_language = user.learned_language.code in ["da"]
     return right_user and right_language
-
-
-def _exercise_levels(user):
-    "This is such a cool feature that it should be used by everybody"
-    # A user can only have either _merle_exercies or _exercise_levels.
-    return True and user.invitation_code != "learning-cycle"
 
 
 def _no_audio_exercises(user):

@@ -29,9 +29,6 @@ class SchedulerTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
 
-        # A user with the two cycles rule
-        self.user_rule_cycle = UserRule()
-
         # A user with the four levels
         self.user_rule_levels = UserRule()
         self.four_levels_user = self.user_rule_levels.user
