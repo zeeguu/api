@@ -60,6 +60,30 @@ import zeeguu
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
+# Source-specific content filters - skip articles matching these patterns
+# Maps domain patterns to lists of keywords that indicate non-article content
+SOURCE_CONTENT_FILTERS = {
+    "videnskab.dk": ["puslespil"],  # Interactive puzzles
+    # Add more sources and their filter keywords here as needed
+}
+
+
+def should_filter_by_source_keywords(url, title):
+    """
+    Check if article should be filtered based on source-specific keywords.
+    Returns (should_filter: bool, reason: str)
+    """
+    url_lower = url.lower()
+    title_lower = title.lower()
+
+    for domain, keywords in SOURCE_CONTENT_FILTERS.items():
+        if domain in url_lower:
+            for keyword in keywords:
+                if keyword in title_lower:
+                    return True, f"Filtered by source rule: {domain} + '{keyword}' in title"
+
+    return False, ""
+
 
 def _should_save_paywall_sample(session, language):
     """
@@ -305,6 +329,10 @@ def download_from_feed(
             logp("- Article too old")
             continue
 
+        except NotAppropriateForReading as e:
+            logp(f" - Not appropriate for reading: {e.reason}")
+            continue
+
         except SkippedForLowQuality as e:
             logp(f" - Low quality: {e.reason}")
             skipped_due_to_low_quality += 1
@@ -369,6 +397,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     title = feed_item["title"]
 
     published_datetime = feed_item["published_datetime"]
+
+    # Check source-specific content filters
+    should_filter, filter_reason = should_filter_by_source_keywords(url, title)
+    if should_filter:
+        raise NotAppropriateForReading(filter_reason)
 
     art = model.Article.find(url)
 
