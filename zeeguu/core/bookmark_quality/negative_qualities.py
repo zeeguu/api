@@ -12,15 +12,13 @@ def bad_quality_bookmark(bookmark):
 
 def uncommon_word_for_beginner_user(user_word):
     from zeeguu.core.model import UserLanguage
-    from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 
     user_language = UserLanguage.query.filter_by(
         user=user_word.user, language=user_word.user.learned_language
     ).first()
 
     if user_language and user_language.cefr_level:
-        cefr_string = fk_to_cefr(user_language.cefr_level)
-        if cefr_string in ["A1", "A2"]:
+        if user_language.cefr_level in ["A1", "A2"]:
             if user_word.meaning.frequency and user_word.meaning.frequency in [
                 MeaningFrequency.UNCOMMON,
                 MeaningFrequency.RARE,
