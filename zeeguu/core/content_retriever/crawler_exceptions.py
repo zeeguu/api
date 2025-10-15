@@ -14,3 +14,8 @@ class SkippedForLowQuality(Exception):
 
 class SkippedAlreadyInDB(Exception):
     pass
+
+
+class NotAppropriateForReading(Exception):
+    def __init__(self, reason):
+        self.reason = reason
