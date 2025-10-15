@@ -70,6 +70,27 @@ class UserPreference(db.Model):
         return cls.set(session, user, cls.DIFFICULTY_ESTIMATOR, key)
 
     @classmethod
+    def validate_max_words_to_schedule(cls, value):
+        """
+        Validates and caps the max_words_to_schedule value.
+        Returns a valid integer between 1 and MAX_WORDS_TO_SCHEDULE_CAP,
+        or DEFAULT_MAX_WORDS_TO_SCHEDULE if the value is invalid.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import (
+            DEFAULT_MAX_WORDS_TO_SCHEDULE,
+            MAX_WORDS_TO_SCHEDULE_CAP,
+        )
+
+        try:
+            value_as_int = int(value)
+            # Cap at maximum to prevent SQL errors with huge LIMIT values
+            # Also ensure minimum of 1
+            return min(max(value_as_int, 1), MAX_WORDS_TO_SCHEDULE_CAP)
+        except (ValueError, TypeError, OverflowError):
+            # If value is invalid, return default
+            return DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+    @classmethod
     def get_max_words_to_schedule(cls, user):
         from zeeguu.core.word_scheduling.basicSR.basicSR import (
             DEFAULT_MAX_WORDS_TO_SCHEDULE,
@@ -82,7 +103,7 @@ class UserPreference(db.Model):
         if len(max_words_to_schedule) == 0:
             return DEFAULT_MAX_WORDS_TO_SCHEDULE
 
-        return int(max_words_to_schedule[0].value)
+        return cls.validate_max_words_to_schedule(max_words_to_schedule[0].value)
 
     @classmethod
     def get_productive_exercises_setting(cls, user: User):
