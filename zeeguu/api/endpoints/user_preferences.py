@@ -26,10 +26,14 @@ def save_user_preferences():
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
+        # Validate and cap the value to prevent SQL errors
+        validated_value = UserPreference.validate_max_words_to_schedule(
+            max_words_to_schedule_value
+        )
         pref = UserPreference.find_or_create(
             db_session, user, UserPreference.MAX_WORDS_TO_SCHEDULE
         )
-        pref.value = max_words_to_schedule_value
+        pref.value = str(validated_value)
         db_session.add(pref)
 
     audio_exercises_value = data.get(UserPreference.AUDIO_EXERCISES, None)

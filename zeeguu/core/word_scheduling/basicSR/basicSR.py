@@ -10,6 +10,7 @@ from zeeguu.core.model.user_word import UserWord
 ONE_DAY = 60 * 24
 
 DEFAULT_MAX_WORDS_TO_SCHEDULE = 20
+MAX_WORDS_TO_SCHEDULE_CAP = 100  # Maximum allowed value to prevent SQL LIMIT errors
 
 
 class BasicSRSchedule(db.Model):
