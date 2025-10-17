@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from sqlalchemy import (
     Column,
     UniqueConstraint,
@@ -8,18 +9,16 @@ from sqlalchemy import (
     Boolean,
     Float,
     or_,
-    desc,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, User
-from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
+from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
+from zeeguu.core.model.db import db
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
-
-from zeeguu.core.model.db import db
 
 
 class UserArticle(db.Model):
@@ -78,7 +77,17 @@ class UserArticle(db.Model):
     # When set, article won't appear in recommendations
     hidden = Column(DateTime)
 
-    def __init__(self, user, article, opened=None, starred=None, liked=None, reading_completion=0.0, completed_at=None, hidden=None):
+    def __init__(
+        self,
+        user,
+        article,
+        opened=None,
+        starred=None,
+        liked=None,
+        reading_completion=0.0,
+        completed_at=None,
+        hidden=None,
+    ):
         self.user = user
         self.article = article
         self.opened = opened
@@ -169,7 +178,16 @@ class UserArticle(db.Model):
             return cls.query.filter_by(user=user, article=article).one()
         except NoResultFound:
             try:
-                new = cls(user, article, opened=opened, liked=liked, starred=starred, reading_completion=reading_completion, completed_at=completed_at, hidden=hidden)
+                new = cls(
+                    user,
+                    article,
+                    opened=opened,
+                    liked=liked,
+                    starred=starred,
+                    reading_completion=reading_completion,
+                    completed_at=completed_at,
+                    hidden=hidden,
+                )
                 session.add(new)
                 session.commit()
                 return new
@@ -257,7 +275,11 @@ class UserArticle(db.Model):
         user_articles = cls.all_starred_or_liked_articles_of_user(user)
 
         return [
-            cls.user_article_info(user, cls.select_appropriate_article_for_user(user, each.article), with_translations=False)
+            cls.user_article_info(
+                user,
+                cls.select_appropriate_article_for_user(user, each.article),
+                with_translations=False,
+            )
             for each in user_articles
             if each.last_interaction() is not None
         ]
@@ -275,11 +297,11 @@ class UserArticle(db.Model):
         """
         Filter out articles that are hidden by the user.
         Handles both regular articles and simplified articles with hidden parents.
-        
+
         Args:
             user: The user object
             articles: List of Article objects to filter
-            
+
         Returns:
             List of Article objects with hidden articles removed
         """
@@ -289,15 +311,15 @@ class UserArticle(db.Model):
             user_article = cls.find(user, article)
             if user_article and user_article.hidden:
                 continue
-                
+
             # If this is a simplified article, check if parent is hidden
             if article.parent_article_id:
                 parent_user_article = cls.find(user, article.parent_article)
                 if parent_user_article and parent_user_article.hidden:
                     continue
-            
+
             filtered.append(article)
-        
+
         return filtered
 
     @classmethod
@@ -305,16 +327,16 @@ class UserArticle(db.Model):
         """
         Filter out hidden articles from mixed content (articles and videos).
         Videos and other non-Article content types are preserved.
-        
+
         Args:
             user: The user object
             content_list: List of content items (Articles, Videos, etc.)
-            
+
         Returns:
             List of content items with hidden articles removed
         """
         from zeeguu.core.model import Article
-        
+
         filtered = []
         for item in content_list:
             # Only filter Article objects, preserve other types
@@ -322,22 +344,24 @@ class UserArticle(db.Model):
                 user_article = cls.find(user, item)
                 if user_article and user_article.hidden:
                     continue
-                    
+
                 # If this is a simplified article, check if parent is hidden
                 if item.parent_article_id:
                     parent_user_article = cls.find(user, item.parent_article)
                     if parent_user_article and parent_user_article.hidden:
                         continue
-                
+
                 filtered.append(item)
             else:
                 # Keep videos and other content types
                 filtered.append(item)
-        
+
         return filtered
 
     @classmethod
-    def select_appropriate_article_for_user(cls, user: User, article: Article) -> Article:
+    def select_appropriate_article_for_user(
+        cls, user: User, article: Article
+    ) -> Article:
         """
         Selects the appropriate article version for a user based on their CEFR level.
         Used for recommendations, search results, and listings.
@@ -346,7 +370,7 @@ class UserArticle(db.Model):
             user_cefr_level = user.cefr_level_for_learned_language()
         except (AttributeError, IndexError, TypeError):
             user_cefr_level = None
-        
+
         return article.get_appropriate_version_for_user_level(user_cefr_level)
 
     @classmethod
@@ -356,7 +380,7 @@ class UserArticle(db.Model):
         """
         Returns user-specific article information for the given article.
         No longer handles article selection - that should be done by the caller.
-        
+
         Args:
             user: The user requesting the article info
             article: The article to get info for
@@ -366,13 +390,29 @@ class UserArticle(db.Model):
 
         from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.article_title_context import ArticleTitleContext
-        from zeeguu.core.model.user_activitiy_data import UserActivityData
         from zeeguu.core.model.article_fragment_context import (
             ArticleFragmentContext,
         )
 
         # Initialize returned info with the article info
-        returned_info = article.article_info(with_content=with_content)
+        # Use teacher version if user is a teacher (includes CEFR assessments)
+        if user.isTeacher():
+            returned_info = article.article_info_for_teacher()
+            # Merge content if requested
+            if with_content:
+                content_info = article.article_info(with_content=True)
+                returned_info.update(
+                    {
+                        k: v
+                        for k, v in content_info.items()
+                        if k.startswith("content")
+                        or k.startswith("tokenized")
+                        or k == "paragraphs"
+                        or k == "htmlContent"
+                    }
+                )
+        else:
+            returned_info = article.article_info(with_content=with_content)
         user_article_info = UserArticle.find(user, article)
         user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
         user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
@@ -405,7 +445,9 @@ class UserArticle(db.Model):
 
         else:
             # Use stored reading completion - no more expensive calculations!
-            returned_info["reading_completion"] = user_article_info.reading_completion or 0.0
+            returned_info["reading_completion"] = (
+                user_article_info.reading_completion or 0.0
+            )
             returned_info["starred"] = user_article_info.starred is not None
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
@@ -453,52 +495,49 @@ class UserArticle(db.Model):
         Returns tokenized summary and title for an article with user bookmarks.
         This is a lightweight version of user_article_info that only processes
         the summary and title, not the full article content.
-        
+
         Args:
             user: The user requesting the article summary
             article: The article to get summary info for
         """
-        from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.article_summary_context import ArticleSummaryContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-        
+
         tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-        
+
         result = {
             "id": article.id,
             "language": article.language.code,
         }
-        
+
         # Tokenize summary if available
         if article.summary:
             summary_context_id = ContextIdentifier(
-                ContextType.ARTICLE_SUMMARY,
-                article_id=article.id
+                ContextType.ARTICLE_SUMMARY, article_id=article.id
             )
-            
+
             result["tokenized_summary"] = {
                 "tokens": tokenizer.tokenize_text(article.summary, flatten=False),
                 "context_identifier": summary_context_id.as_dictionary(),
                 "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
                     user.id, article.id
-                )
+                ),
             }
-        
+
         # Tokenize title
         title_context_id = ContextIdentifier(
-            ContextType.ARTICLE_TITLE,
-            article_id=article.id
+            ContextType.ARTICLE_TITLE, article_id=article.id
         )
-        
+
         result["tokenized_title"] = {
             "tokens": tokenizer.tokenize_text(article.title, flatten=False),
             "context_identifier": title_context_id.as_dictionary(),
             "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
                 user.id, article.id
-            )
+            ),
         }
-        
+
         return result

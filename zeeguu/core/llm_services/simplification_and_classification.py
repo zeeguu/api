@@ -621,7 +621,7 @@ def _create_targeted_simplified_version(content, title, language_code, original_
 
 def assess_article_cefr_level(title, content, language_code):
     """
-    Assess the CEFR level of an article using the new SimplificationService.
+    Assess the CEFR level of an article using LLM fallback chain (Anthropic → DeepSeek).
 
     Args:
         title: Article title
@@ -629,12 +629,15 @@ def assess_article_cefr_level(title, content, language_code):
         language_code: Language code (e.g., 'da', 'es')
 
     Returns:
-        CEFR level string (A1, A2, B1, B2, C1, C2) or None if failed
+        Tuple of (cefr_level, method) where:
+        - cefr_level: CEFR level string (A1, A2, B1, B2, C1, C2) or None if failed
+        - method: Assessment method used ("llm_assessed_anthropic" or "llm_assessed_deepseek")
     """
     from zeeguu.core.llm_services.simplification_service import get_simplification_service
 
     service = get_simplification_service()
-    return service.assess_cefr_level(title, content, language_code)
+    cefr_level, topic, method = service.assess_cefr_and_topic_with_fallback(title, content, language_code)
+    return (cefr_level, method)
 
 
 def assess_article_cefr_level_deepseek_only(title, content, language_code):
