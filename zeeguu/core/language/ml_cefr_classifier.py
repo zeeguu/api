@@ -128,10 +128,15 @@ def load_model(language_code):
     """
     # Check cache first
     if language_code in _MODEL_CACHE:
-        return _MODEL_CACHE[language_code]
+        cached = _MODEL_CACHE[language_code]
+        if cached is None:
+            log(f"ML model for {language_code} is cached as unavailable")
+        return cached
 
     try:
         data_folder = os.environ.get("ZEEGUU_DATA_FOLDER")
+        log(f"ML classifier: ZEEGUU_DATA_FOLDER = {data_folder}")
+
         if not data_folder:
             log(
                 f"ZEEGUU_DATA_FOLDER not set, ML classifier unavailable for {language_code}"
@@ -147,6 +152,18 @@ def load_model(language_code):
             f"cefr_classifier_{language_code}.pkl",
         )
 
+        log(f"ML classifier: Looking for model at {model_path}")
+        log(f"ML classifier: File exists: {os.path.exists(model_path)}")
+
+        if os.path.exists(model_path):
+            # Check permissions
+            log(f"ML classifier: File is readable: {os.access(model_path, os.R_OK)}")
+            try:
+                file_size = os.path.getsize(model_path)
+                log(f"ML classifier: File size: {file_size} bytes ({file_size / (1024*1024):.1f} MB)")
+            except Exception as e:
+                log(f"ML classifier: Could not get file size: {e}")
+
         if not os.path.exists(model_path):
             log(f"ML model not found for {language_code}: {model_path}")
             # Cache the None result to avoid repeated filesystem checks
@@ -155,16 +172,22 @@ def load_model(language_code):
 
         log(f"Loading ML model for {language_code} from disk (first time)")
         with open(model_path, "rb") as f:
+            log(f"ML classifier: File opened successfully, loading pickle...")
             data = pickle.load(f)
+            log(f"ML classifier: Pickle loaded, type: {type(data)}")
             # Extract model from dict (pickle file contains metadata)
             model = data.get("model") if isinstance(data, dict) else data
+            log(f"ML classifier: Model extracted, type: {type(model)}")
 
         # Cache the loaded model
         _MODEL_CACHE[language_code] = model
+        log(f"ML classifier: Model for {language_code} cached successfully")
         return model
 
     except Exception as e:
         log(f"Failed to load ML model for {language_code}: {e}")
+        import traceback
+        log(f"ML classifier traceback: {traceback.format_exc()}")
         # Cache the None result to avoid repeated failed attempts
         _MODEL_CACHE[language_code] = None
         return None
@@ -183,23 +206,32 @@ def predict_cefr_level(content, language_code, fk_difficulty, word_count):
     Returns:
         CEFR level string ('A1', 'A2', 'B1', 'B2', 'C1', 'C2') or None if model unavailable
     """
+    log(f"ML classifier: predict_cefr_level called for language={language_code}, word_count={word_count}, fk={fk_difficulty}")
 
     # Load model for this language
     model = load_model(language_code)
     if model is None:
+        log(f"ML classifier: Model not available for {language_code}, returning None")
         return None
+
+    log(f"ML classifier: Model loaded successfully, extracting features...")
 
     # Extract features
     features = extract_features(content, fk_difficulty, word_count)
+    log(f"ML classifier: Features extracted: {features}")
 
     # Reshape for sklearn (expects 2D array)
     features = features.reshape(1, -1)
 
     # Predict
     try:
+        log(f"ML classifier: Making prediction...")
         prediction = model.predict(features)[0]
+        log(f"ML classifier: Prediction successful: {prediction}")
         return prediction
 
     except Exception as e:
         log(f"ML prediction failed for {language_code}: {e}")
+        import traceback
+        log(f"ML classifier prediction traceback: {traceback.format_exc()}")
         return None
