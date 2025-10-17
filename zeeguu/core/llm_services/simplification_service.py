@@ -1,5 +1,5 @@
 """
-Text simplification service using LLM providers with hybrid Anthropic/DeepSeek approach
+Text simplification service using LLM providers with Anthropic→DeepSeek fallback chain
 """
 
 import os
@@ -9,18 +9,11 @@ from zeeguu.logging import log
 
 
 class SimplificationService:
-    """Service for text simplification using hybrid LLM approach"""
+    """Service for text simplification using LLM fallback chain (Anthropic → DeepSeek)"""
 
     def __init__(self):
         self.anthropic_api_key = os.getenv("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
         self.deepseek_api_key = os.getenv("DEEPSEEK_API_SIMPLIFICATIONS")
-
-    def assess_cefr_level(
-        self, title: str, content: str, language_code: str = "ro"
-    ) -> str:
-        """Legacy method that returns only CEFR level for backward compatibility"""
-        result = self.assess_cefr_and_topic(title, content, language_code)
-        return result[0] if isinstance(result, tuple) else result
 
     def assess_cefr_level_deepseek_only(
         self, title: str, content: str, language_code: str = "ro"
@@ -30,8 +23,9 @@ class SimplificationService:
         Use this when creating clones/copies to ensure same model evaluates as during crawling.
         """
         if not self.deepseek_api_key:
-            log("DEEPSEEK_API_SIMPLIFICATIONS not configured, falling back to hybrid approach")
-            return self.assess_cefr_level(title, content, language_code)
+            log("DEEPSEEK_API_SIMPLIFICATIONS not configured, falling back to LLM chain")
+            cefr_level, topic, method = self.assess_cefr_and_topic_with_fallback(title, content, language_code)
+            return cefr_level
 
         log(f"Using DeepSeek for CEFR assessment (consistency mode)")
         try:
@@ -39,16 +33,17 @@ class SimplificationService:
             return result[0] if isinstance(result, tuple) else result
         except Exception as e:
             log(f"DeepSeek CEFR assessment failed: {e}")
-            return "B1"  # fallback
+            return None  # No assessment possible
 
-    def assess_cefr_and_topic(
+    def assess_cefr_and_topic_with_fallback(
         self, title: str, content: str, language_code: str = "ro"
     ) -> tuple:
         """
-        Assess CEFR level and topic using hybrid approach:
-        - Anthropic for real-time calls (fast)
-        - DeepSeek for batch processing (slower but reliable)
-        Returns tuple: (cefr_level, topic)
+        Assess CEFR level and topic using LLM fallback chain:
+        - Try Anthropic first (fast, real-time)
+        - Fall back to DeepSeek if Anthropic fails (slower, batch processing)
+
+        Returns tuple: (cefr_level, topic, method)
         """
         # Try Anthropic first (faster for real-time use)
         if self.anthropic_api_key:
@@ -56,7 +51,9 @@ class SimplificationService:
             try:
                 result = self._assess_cefr_anthropic(title, content, language_code)
                 if result:
-                    return result
+                    # Add method info to result
+                    cefr_level, topic = result
+                    return (cefr_level, topic, "llm_assessed_anthropic")
             except Exception as e:
                 log(f"Anthropic CEFR and topic assessment failed, falling back to DeepSeek: {e}")
 
@@ -64,14 +61,17 @@ class SimplificationService:
         if self.deepseek_api_key:
             log(f"Using DeepSeek for batch CEFR and topic assessment")
             try:
-                return self._assess_cefr_deepseek(title, content, language_code)
+                result = self._assess_cefr_deepseek(title, content, language_code)
+                # Add method info to result
+                cefr_level, topic = result
+                return (cefr_level, topic, "llm_assessed_deepseek")
             except Exception as e:
                 log(f"DeepSeek CEFR and topic assessment failed: {e}")
 
         log(
             "Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_SIMPLIFICATIONS configured"
         )
-        return ("B1", None)  # fallback
+        return (None, None, None)  # No assessment possible
 
     def simplify_text(
         self,
@@ -81,9 +81,9 @@ class SimplificationService:
         language_code: str = "ro",
     ) -> Optional[Dict]:
         """
-        Simplify text using hybrid approach:
-        - Anthropic for real-time calls (fast, extension use)
-        - DeepSeek for batch processing (slower, background use)
+        Simplify text using LLM fallback chain:
+        - Try Anthropic first (fast, real-time, extension use)
+        - Fall back to DeepSeek if needed (slower, batch processing)
 
         Returns: Dict with 'title', 'content', 'summary' keys or None if failed
         """
@@ -348,8 +348,10 @@ TOPIC: Business"""
                             cefr_level = level
                             break
                     if not cefr_level:
-                        cefr_level = "B1"  # ultimate fallback
-                
+                        # Can't parse response - return None
+                        log(f"Could not extract valid CEFR level from Anthropic response: {result}")
+                        return None
+
                 # For now, return a tuple with both values
                 return (cefr_level, topic)
             else:
@@ -427,13 +429,13 @@ TOPIC: [topic]"""
 
             if response.status_code != 200:
                 log(f"DeepSeek API error for CEFR assessment: {response.status_code}")
-                return ("B1", None)
+                return (None, None)
 
             result = response.json()["choices"][0]["message"]["content"].strip()
             
             if result == "INCOMPLETE":
                 log("Article appears to be incomplete due to paywall")
-                return ("B1", None)
+                return (None, None)
 
             # Parse the response to extract CEFR and topic
             lines = result.split('\n')
@@ -455,14 +457,16 @@ TOPIC: [topic]"""
                         cefr_level = level
                         break
                 if not cefr_level:
-                    cefr_level = "B1"  # ultimate fallback
+                    # Can't parse response - return None
+                    log(f"Could not extract valid CEFR level from DeepSeek response: {result}")
+                    return (None, None)
             
             log(f"Successfully assessed CEFR level: {cefr_level}, Topic: {topic}")
             return (cefr_level, topic)
 
         except Exception as e:
             log(f"Error in DeepSeek CEFR assessment: {e}")
-            return ("B1", None)
+            return (None, None)
 
     def _translate_and_adapt_anthropic(
         self, title: str, content: str, source_language: str, target_language: str, target_level: str

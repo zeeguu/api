@@ -40,8 +40,14 @@ def find_or_create_article():
         flask.abort(400)
 
     try:
-        article = Article.find_or_create(db_session, url, do_llm_assessment=True)
+        article = Article.find_or_create(db_session, url)
         print("-- article found or created: " + str(article.id))
+
+        # Assess CEFR level for user-initiated article reading
+        # (only assess if article doesn't already have an assessment)
+        if not article.cefr_assessment or not article.cefr_assessment.llm_cefr_level:
+            article.assess_cefr_level(db_session)
+            print("-- article CEFR level assessed")
 
         uai = UserArticle.user_article_info(user, article, with_content=True)
         print("-- returning user article info: ", json.dumps(uai)[:50])

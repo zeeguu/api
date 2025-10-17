@@ -195,6 +195,13 @@ def article_recommendations_for_user(
         c for c in final_article_mix if c is not None and not c.broken
     ] + articles_from_searches[:maximum_added_search_articles]
 
+    # Filter out articles uploaded by the user themselves
+    # (teachers shouldn't see their own uploaded texts in their recommendations)
+    content = [
+        c for c in content
+        if not (isinstance(c, Article) and c.uploader_id == user.id)
+    ]
+
     sorted_content = sorted(content, key=lambda x: x.published_time, reverse=True)
 
     return sorted_content

@@ -40,3 +40,5 @@ from . import user_watching_session
 from . import audio_lessons
 from . import article_simplification
 from . import generated_examples
+from . import cefr_assessment
+from . import article_cefr_recompute

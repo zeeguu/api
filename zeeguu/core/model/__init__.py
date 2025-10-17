@@ -7,6 +7,7 @@ from .url import Url
 from .domain_name import DomainName
 
 from .article import Article
+from .article_cefr_assessment import ArticleCefrAssessment
 from .text import Text
 from .phrase import Phrase
 from .user import User

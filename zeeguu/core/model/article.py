@@ -1,5 +1,4 @@
 import re
-
 from datetime import datetime
 
 from sqlalchemy import (
@@ -14,21 +13,20 @@ from sqlalchemy import (
     BigInteger,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.core.model.article_topic_map import TopicOriginType
+from sqlalchemy.types import TypeDecorator
 
-from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
+from zeeguu.core.language.ml_cefr_classifier import predict_cefr_level
+from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
+from zeeguu.core.model.article_topic_map import TopicOriginType
+from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
+from zeeguu.core.model.db import db
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
-from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.core.language.fk_to_cefr import fk_to_cefr
 from zeeguu.logging import log
-
-from zeeguu.core.model.db import db
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
@@ -40,11 +38,12 @@ MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
 
 class UnsignedBigInteger(TypeDecorator):
     """Handles unsigned 64-bit integers for both MySQL and SQLite."""
+
     impl = BigInteger
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'mysql':
+        if dialect.name == "mysql":
             return dialect.type_descriptor(BIGINT(unsigned=True))
         else:
             # SQLite doesn't have unsigned, store as string to avoid overflow
@@ -53,7 +52,7 @@ class UnsignedBigInteger(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
-        if dialect.name != 'mysql':
+        if dialect.name != "mysql":
             # Convert to string for SQLite
             return str(value)
         return value
@@ -61,10 +60,12 @@ class UnsignedBigInteger(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        if dialect.name != 'mysql':
+        if dialect.name != "mysql":
             # Convert back to int from string for SQLite
             return int(value) if value else None
         return value
+
+
 # \n matches a line-feed (newline) character (ASCII 10)
 # \s matches any whitespace character (equivalent to [\r\n\t\f\v  ])
 # \n matches a line-feed (newline) character (ASCII 10)
@@ -118,6 +119,14 @@ class Article(db.Model):
         "AIGenerator", foreign_keys=[simplification_ai_generator_id]
     )
 
+    # 1:1 relationship to CEFR assessment data
+    cefr_assessment = relationship(
+        "ArticleCefrAssessment",
+        back_populates="article",
+        uselist=False,  # 1:1 relationship
+        cascade="all, delete-orphan",
+    )
+
     from zeeguu.core.model.url import Url
 
     from zeeguu.core.model.feed import Feed
@@ -165,7 +174,7 @@ class Article(db.Model):
     # Or maybe an article that's behind a paywall and
     # has only the first paragraph available
     MINIMUM_WORD_COUNT = 90
-    
+
     # Articles that are too long might be extraction errors
     # or could cost too much in API calls for processing
     MAXIMUM_WORD_COUNT = 10000
@@ -306,43 +315,43 @@ class Article(db.Model):
         from bs4 import BeautifulSoup
 
         # Get HTML content - use htmlContent if available, otherwise fall back to plain text
-        html_content = getattr(self, 'htmlContent', None) or self.source.get_content()
+        html_content = getattr(self, "htmlContent", None) or self.source.get_content()
 
         if not html_content:
             return
 
         # Parse HTML content
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
+        soup = BeautifulSoup(html_content, "html.parser")
+
         # Extract text content from HTML elements and create fragments
         order = 0
         # Include block-level HTML elements: headings, paragraphs, list items, blockquotes
         # Note: We skip ul/ol containers to avoid duplication, only process individual li items
         # Note: We skip inline elements like strong, em here as they should be preserved within their parent blocks
-        block_elements = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote']
-        
+        block_elements = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
+
         for element in soup.find_all(block_elements):
             # Skip blockquote containers - we'll process their paragraph children instead
-            if element.name == 'blockquote':
+            if element.name == "blockquote":
                 continue
 
             # For paragraphs inside blockquotes, use special formatting to indicate they're part of a quote
-            if element.name == 'p' and element.find_parent('blockquote'):
-                tag_name = 'blockquote'
+            if element.name == "p" and element.find_parent("blockquote"):
+                tag_name = "blockquote"
                 text_content = element.get_text().strip()
             # For list items, get direct text content (not nested lists)
-            elif element.name == 'li':
+            elif element.name == "li":
                 # Get only direct text content, excluding nested ul/ol
                 text_parts = []
                 for content in element.contents:
-                    if hasattr(content, 'get_text'):
+                    if hasattr(content, "get_text"):
                         # Skip nested lists
-                        if content.name not in ['ul', 'ol']:
+                        if content.name not in ["ul", "ol"]:
                             text_parts.append(content.get_text().strip())
                     else:
                         # Direct text node
                         text_parts.append(str(content).strip())
-                text_content = ' '.join(text_parts).strip()
+                text_content = " ".join(text_parts).strip()
                 tag_name = element.name
             else:
                 # For other elements, preserve some inline formatting by getting inner HTML
@@ -355,7 +364,7 @@ class Article(db.Model):
                     session, self, text_content, order, tag_name, commit=False
                 )
                 order += 1
-        
+
         # If no HTML elements found, fall back to splitting plain text
         if order == 0:
             for i, paragraph in enumerate(self.source.get_content().split("\n\n")):
@@ -394,8 +403,13 @@ class Article(db.Model):
             summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
         fk_difficulty = self.get_fk_difficulty()
 
-        # Only use CEFR level if it's been assessed by LLM, otherwise None
-        cefr_level = self.cefr_level
+        # Use effective_cefr_level from assessment table (SINGLE SOURCE OF TRUTH)
+        # Fallback to legacy article.cefr_level only if assessment doesn't exist
+        if self.cefr_assessment and self.cefr_assessment.effective_cefr_level:
+            cefr_level = self.cefr_assessment.effective_cefr_level
+        else:
+            # Legacy fallback
+            cefr_level = self.cefr_level
 
         result_dict = dict(
             id=self.id,
@@ -493,13 +507,63 @@ class Article(db.Model):
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 
+        # Add uploader name for classroom articles (so students can see who shared the text)
+        if self.uploader:
+            result_dict["uploader_name"] = self.uploader.name
+
         return result_dict
 
     def article_info_for_teacher(self):
         from zeeguu.core.model import CohortArticleMap
 
-        info = self.article_info()
+        info = self.article_info(with_content=True)
         info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
+
+        # Include CEFR assessment details for teacher view
+        if self.cefr_assessment:
+            info["cefr_assessments"] = {
+                "llm": {
+                    "level": self.cefr_assessment.llm_cefr_level,
+                    "method": self.cefr_assessment.llm_method,
+                    "assessed_at": self.cefr_assessment.llm_assessed_at.isoformat() if self.cefr_assessment.llm_assessed_at else None,
+                },
+                "ml": {
+                    "level": self.cefr_assessment.ml_cefr_level,
+                    "method": self.cefr_assessment.ml_method,
+                    "assessed_at": self.cefr_assessment.ml_assessed_at.isoformat() if self.cefr_assessment.ml_assessed_at else None,
+                },
+                "teacher": {
+                    "level": self.cefr_assessment.teacher_cefr_level,
+                    "method": self.cefr_assessment.teacher_method,
+                    "assessed_at": self.cefr_assessment.teacher_assessed_at.isoformat() if self.cefr_assessment.teacher_assessed_at else None,
+                },
+                "effective_cefr_level": self.cefr_assessment.effective_cefr_level,
+                # Keep display_cefr for backward compatibility
+                "display_cefr": self.cefr_assessment.effective_cefr_level,
+                "simplification_target_level": self.cefr_assessment.simplification_target_level,
+            }
+        else:
+            # Fallback for articles without assessment records yet
+            info["cefr_assessments"] = {
+                "llm": {
+                    "level": self.cefr_level,
+                    "method": None,
+                    "assessed_at": None,
+                },
+                "ml": {
+                    "level": None,
+                    "method": None,
+                    "assessed_at": None,
+                },
+                "teacher": {
+                    "level": None,
+                    "method": None,
+                    "assessed_at": None,
+                },
+                "effective_cefr_level": self.cefr_level,
+                # Keep display_cefr for backward compatibility
+                "display_cefr": self.cefr_level,
+            }
 
         return info
 
@@ -509,25 +573,48 @@ class Article(db.Model):
     def get_appropriate_version_for_user_level(self, user_cefr_level):
         """
         Returns the appropriate article version for the user's CEFR level.
+        Supports compound levels: B1 user can read "B1/B2" articles.
         Falls back to original if no simplified version exists.
         """
         if not user_cefr_level:
             return self
 
-        # If this is already a simplified version, check if it's the right level
+        def matches_user_level(article):
+            """Check if article matches user level (using assessment table as source of truth)."""
+            # Get effective level from assessment table (source of truth)
+            if article.cefr_assessment and article.cefr_assessment.effective_cefr_level:
+                article_level = article.cefr_assessment.effective_cefr_level
+            else:
+                # Legacy fallback
+                article_level = article.cefr_level
+
+            if not article_level:
+                return False
+
+            # Exact match
+            if article_level == user_cefr_level:
+                return True
+
+            # Compound level match: "B1/B2" matches both B1 and B2 users
+            if "/" in article_level:
+                lower, upper = article_level.split("/")
+                return user_cefr_level in [lower, upper]
+
+            return False
+
+        # If this is already a simplified version, check if it matches
         if self.parent_article_id:
-            # Check if this simplified version matches the user's level
-            if self.cefr_level == user_cefr_level:
+            if matches_user_level(self):
                 return self
             else:
-                # If not the right level, delegate to parent article to find the right version
+                # Delegate to parent article to find the right version
                 return self.parent_article.get_appropriate_version_for_user_level(
                     user_cefr_level
                 )
 
         # Look for simplified version matching user's level
         for simplified in self.simplified_versions:
-            if simplified.cefr_level == user_cefr_level:
+            if matches_user_level(simplified):
                 return simplified
 
         # Fallback to original article
@@ -577,16 +664,17 @@ class Article(db.Model):
         simplified_html = ""
         if simplified_content:
             # If content starts with HTML tags, it's already been converted
-            if simplified_content.strip().startswith('<'):
+            if simplified_content.strip().startswith("<"):
                 simplified_html = simplified_content
             else:
                 # Convert markdown/plain text to HTML
                 import markdown2
+
                 simplified_html = markdown2.markdown(
-                    simplified_content, 
-                    extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                    simplified_content,
+                    extras=["break-on-newline", "fenced-code-blocks", "tables"],
                 )
-        
+
         simplified_article = cls(
             placeholder_url,  # Temporary placeholder URL
             simplified_title,
@@ -649,6 +737,36 @@ class Article(db.Model):
             final_url = Url.find_or_create(session, final_url_string)
             simplified_article.url = final_url
             session.add(simplified_article)  # Ensure the updated article is tracked
+            session.commit()
+
+            # Create assessment record for simplified article
+            from zeeguu.core.model import ArticleCefrAssessment
+
+            simplified_assessment = ArticleCefrAssessment.find_or_create(
+                session, simplified_article.id, commit=False
+            )
+
+            # Store what level we asked LLM to simplify TO (might differ from actual measured level)
+            # Note: We don't set llm_cefr_level here because that would conflate target with measurement
+            # The ML assessment below will provide the actual measured difficulty
+            simplified_assessment.simplification_target_level = cefr_level
+
+            # ALWAYS run ML assessment on simplified text to verify actual difficulty
+            # This lets us detect when simplification didn't work as intended
+            try:
+                ml_level = predict_cefr_level(
+                    simplified_article.get_content(),
+                    simplified_article.language.code,
+                    simplified_article.get_fk_difficulty(),
+                    simplified_article.get_word_count(),
+                )
+                if ml_level:
+                    simplified_assessment.set_ml_assessment(ml_level, "ml")
+                    log(f"Simplified article {simplified_article.id}: Target={cefr_level}, ML measured={ml_level}")
+            except Exception as e:
+                log(f"Failed to run ML assessment on simplified article {simplified_article.id}: {e}")
+
+            session.add(simplified_assessment)
             session.commit()
 
             # Refresh to ensure we have the latest state
@@ -740,32 +858,69 @@ class Article(db.Model):
 
     @classmethod
     def create_clone(cls, session, source, uploader):
-        # TODO: Why does this NOP the url?
-        current_time = datetime.now()
-        new_article = Article(
-            None,
-            source.title,
-            None,
-            source.source,
-            source.summary,
-            current_time,
-            None,
-            source.language,
-            source.htmlContent,
-            uploader,
+        """
+        Clone an existing article for a new uploader (e.g., teacher sharing with another teacher).
+
+        Uses create_from_upload() to avoid code duplication, then copies the detailed
+        assessment records (both LLM and ML) from the source article.
+        """
+        # Get image URL as string if it exists
+        img_url_string = source.img_url.as_string() if source.img_url else None
+
+        # Create article using create_from_upload, preserving the original CEFR level
+        # This will run ML assessment but preserve LLM assessment from source
+        new_article_id = cls.create_from_upload(
+            session,
+            title=source.title,
+            content=source.get_content(),
+            htmlContent=source.htmlContent,
+            uploader=uploader,
+            language=source.language,
+            original_cefr_level=source.cefr_level,  # Preserve existing assessment
+            img_url=img_url_string,
         )
-        
-        # Copy the CEFR level from the source article
-        if source.cefr_level:
-            new_article.cefr_level = source.cefr_level
-        
-        session.add(new_article)
-        session.commit()
-        return new_article.id
+
+        # Now copy the detailed assessment records from source (both LLM and ML methods)
+        # This ensures we preserve the assessment provenance (which LLM was used, etc.)
+        if source.cefr_assessment:
+            from zeeguu.core.model import ArticleCefrAssessment
+
+            cloned_assessment = ArticleCefrAssessment.find_or_create(
+                session, new_article_id, commit=False
+            )
+
+            # Copy LLM assessment (overwrite what create_from_upload set)
+            if source.cefr_assessment.llm_cefr_level:
+                cloned_assessment.set_llm_assessment(
+                    source.cefr_assessment.llm_cefr_level,
+                    source.cefr_assessment.llm_method,
+                )
+
+            # Copy ML assessment (overwrite fresh ML assessment from create_from_upload)
+            if source.cefr_assessment.ml_cefr_level:
+                cloned_assessment.set_ml_assessment(
+                    source.cefr_assessment.ml_cefr_level,
+                    source.cefr_assessment.ml_method,
+                )
+
+            # Don't copy teacher override (new article shouldn't inherit manual overrides)
+
+            session.add(cloned_assessment)
+            session.commit()
+
+        return new_article_id
 
     @classmethod
     def create_from_upload(
-        cls, session, title, content, htmlContent, uploader, language, original_cefr_level=None, img_url=None
+        cls,
+        session,
+        title,
+        content,
+        htmlContent,
+        uploader,
+        language,
+        original_cefr_level=None,
+        img_url=None,
     ):
         from zeeguu.core.content_cleaning import cleanup_text
 
@@ -800,7 +955,12 @@ class Article(db.Model):
         # Set image URL if provided (when cloning)
         if img_url:
             from zeeguu.core.model.url import Url
-            new_article.img_url = Url.find_or_create(session, img_url)
+
+            # Validate that img_url is actually a URL, not HTML content
+            if img_url.startswith(('http://', 'https://')):
+                new_article.img_url = Url.find_or_create(session, img_url)
+            else:
+                log(f"Invalid img_url format (not a URL): {img_url[:100]}...")
 
         session.add(new_article)
         session.commit()
@@ -808,27 +968,133 @@ class Article(db.Model):
         # Create article fragments for reader tokenization
         new_article.create_article_fragments(session)
 
-        # If we have an original CEFR level (from copying), preserve it
+        session.commit()
+
+        # Assess CEFR level using both LLM and ML
+        from zeeguu.core.model import ArticleCefrAssessment
+
+        llm_level = None
+        ml_level = None
+
         if original_cefr_level:
+            # Preserve original level as LLM assessment
+            llm_level = original_cefr_level
             new_article.cefr_level = original_cefr_level
         else:
-            # Assess CEFR level using DeepSeek only for consistency with batch crawling
+            # LLM assessment using DeepSeek
             try:
-                from zeeguu.core.llm_services.simplification_and_classification import assess_article_cefr_level_deepseek_only
-                assessed_level = assess_article_cefr_level_deepseek_only(title, content, language.code)
-                if assessed_level:
-                    new_article.cefr_level = assessed_level
-            except Exception as e:
-                print(f"Could not assess CEFR level for uploaded article: {e}")
+                from zeeguu.core.llm_services.simplification_and_classification import (
+                    assess_article_cefr_level_deepseek_only,
+                )
 
-        session.commit()
+                llm_level = assess_article_cefr_level_deepseek_only(
+                    title, content, language.code
+                )
+                if llm_level:
+                    new_article.cefr_level = llm_level
+            except Exception as e:
+                print(f"Could not assess CEFR level with LLM for uploaded article: {e}")
+
+        # ML assessment
+        try:
+            ml_level = predict_cefr_level(
+                new_article.get_content(),
+                language.code,
+                new_article.get_fk_difficulty(),
+                new_article.get_word_count(),
+            )
+        except Exception as e:
+            print(f"Could not assess CEFR level with ML for uploaded article: {e}")
+
+        # Create assessment record with both LLM and ML assessments
+        if llm_level or ml_level:
+            assessment = ArticleCefrAssessment.find_or_create(
+                session, new_article.id, commit=False
+            )
+
+            if llm_level:
+                assessment.set_llm_assessment(llm_level, "llm_assessed_deepseek")
+            if ml_level:
+                # ML model successfully predicted a level
+                assessment.set_ml_assessment(ml_level, "ml")
+
+            session.add(assessment)
+            session.commit()
 
         # Log after commit when ID is available
         if original_cefr_level:
-            print(f"Preserved original CEFR level {original_cefr_level} for copied article {new_article.id}")
+            print(
+                f"Preserved original CEFR level {original_cefr_level} for copied article {new_article.id}"
+            )
         elif new_article.cefr_level:
-            print(f"DeepSeek assessed uploaded article {new_article.id} as {new_article.cefr_level} level")
+            print(
+                f"DeepSeek assessed uploaded article {new_article.id} as {new_article.cefr_level} level"
+            )
         return new_article.id
+
+    def assess_cefr_level(self, session):
+        """
+        Assess article CEFR level using both LLM (fallback chain) and ML classifiers.
+
+        This is a separate method to follow single responsibility principle - article
+        creation and assessment are independent concerns.
+
+        Updates:
+            - self.cefr_level: Set to LLM assessment if available
+            - ArticleCefrAssessment record: Creates/updates with both LLM and ML results
+
+        Returns:
+            None (modifies article and database in place)
+        """
+        from zeeguu.core.model import ArticleCefrAssessment
+
+        llm_level = None
+        llm_method = None
+        ml_level = None
+
+        # LLM assessment (with fallback chain: Anthropic → DeepSeek)
+        try:
+            from zeeguu.core.llm_services.simplification_and_classification import (
+                assess_article_cefr_level,
+            )
+
+            llm_level, llm_method = assess_article_cefr_level(
+                self.title, self.get_content(), self.language.code
+            )
+            if llm_level:
+                self.cefr_level = llm_level
+                log(
+                    f"LLM assessed article {self.id} as {llm_level} level (method: {llm_method})"
+                )
+        except Exception as e:
+            log(f"Failed to assess CEFR level with LLM for article {self.id}: {str(e)}")
+
+        # ML assessment (fast, always try)
+        try:
+            ml_level = predict_cefr_level(
+                self.get_content(),
+                self.language.code,
+                self.get_fk_difficulty(),
+                self.get_word_count(),
+            )
+            if ml_level:
+                log(f"ML assessed article {self.id} as {ml_level} level")
+        except Exception as e:
+            log(f"Failed to assess CEFR level with ML for article {self.id}: {str(e)}")
+
+        # Create assessment record with both LLM and ML assessments
+        if llm_level or ml_level:
+            assessment = ArticleCefrAssessment.find_or_create(
+                session, self.id, commit=False
+            )
+
+            if llm_level:
+                assessment.set_llm_assessment(llm_level, llm_method)
+            if ml_level:
+                assessment.set_ml_assessment(ml_level, "ml")
+
+            session.add(assessment)
+            session.commit()
 
     @classmethod
     def find_or_create(
@@ -838,9 +1104,12 @@ class Article(db.Model):
         html_content=None,
         title=None,
         authors: str = "",
-        do_llm_assessment: bool = False,
     ):
         """
+        Find existing article by URL or create new article from URL.
+
+        Note: This method does NOT assess CEFR level. Call article.assess_cefr_level(session)
+        separately if needed (e.g., for user-initiated article reading).
 
         If article for url found, return ID
 
@@ -899,7 +1168,6 @@ class Article(db.Model):
             language,
             html_content,
         )
-        # Remove once migration is complete
 
         session.add(new_article)
 
@@ -912,20 +1180,9 @@ class Article(db.Model):
         url_keywords = add_url_keywords(new_article, session)
         add_topics(new_article, None, url_keywords, session)
 
-        # Add LLM-based CEFR level assessment for accurate difficulty (only when requested)
-        if do_llm_assessment:
-            try:
-                from zeeguu.core.llm_services.simplification_and_classification import assess_article_cefr_level
-                assessed_level = assess_article_cefr_level(new_article.title, new_article.get_content(), language.code)
-                if assessed_level:
-                    new_article.cefr_level = assessed_level
-                    log(f"LLM assessed article {new_article.id} as {assessed_level} level")
-            except Exception as e:
-                log(f"Failed to assess CEFR level for article {new_article.id}: {str(e)}")
-                # Continue without LLM assessment - will fall back to FK calculation
-
         session.add(new_article)
         session.commit()
+
         return new_article
 
     @classmethod
@@ -1068,8 +1325,11 @@ class Article(db.Model):
         Returns True if permanently deleted, False if only marked as deleted.
         """
         from zeeguu.core.model import (
-            UserArticle, PersonalCopy, UserReadingSession,
-            UserActivityData, CohortArticleMap
+            UserArticle,
+            PersonalCopy,
+            UserReadingSession,
+            UserActivityData,
+            CohortArticleMap,
         )
 
         # Check if other users have interacted with this article
@@ -1083,7 +1343,9 @@ class Article(db.Model):
 
         # 2. Check UserActivityData
         if should_permanently_delete and self.source_id:
-            activity_data = UserActivityData.query.filter_by(source_id=self.source_id).all()
+            activity_data = UserActivityData.query.filter_by(
+                source_id=self.source_id
+            ).all()
             other_user_activity = [ad for ad in activity_data if ad.user_id != user.id]
             if other_user_activity:
                 should_permanently_delete = False
@@ -1117,7 +1379,9 @@ class Article(db.Model):
 
             # Remove this user's activity data
             if self.source_id:
-                activity_data = UserActivityData.query.filter_by(source_id=self.source_id).all()
+                activity_data = UserActivityData.query.filter_by(
+                    source_id=self.source_id
+                ).all()
                 for ad in activity_data:
                     session.delete(ad)
 
