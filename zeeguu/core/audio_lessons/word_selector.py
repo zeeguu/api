@@ -59,6 +59,12 @@ def select_words_for_audio_lesson(
     Select words for an audio lesson. This is the centralized algorithm used by both
     the daily lesson generator and precomputation scripts.
 
+    Strategy:
+    1. Prioritize scheduled words due today (need practice)
+    2. Fill with other scheduled words if needed (accelerate learning)
+    3. If schedule not full, add unscheduled words (introduce new words)
+    4. Words can repeat across lessons (removed "already in lessons" filter)
+
     Args:
         user: The user to select words for
         num_words: Number of words to select (default 3)
@@ -80,42 +86,25 @@ def select_words_for_audio_lesson(
             f"[select_words_for_audio_lesson] Getting learning words for user {user.id} in {language.name}"
         )
 
-    # Filter out words that have already been in audio lessons for this user
-    existing_meaning_ids = get_meanings_already_in_audio_lessons(user)
-
-    if log_enabled:
-        logp(
-            f"[select_words_for_audio_lesson] Found {len(existing_meaning_ids)} meanings already used in lessons"
-        )
-
-    # Get user's words that are currently being learned
-
-    # Get scheduled words for this language that are due today, excluding already used meanings
-    scheduled_query = BasicSRSchedule._scheduled_user_words_query(user, language)
-    scheduled_query = scheduled_query.filter(
-        BasicSRSchedule.next_practice_time < _get_end_of_today()
-    )
-    if existing_meaning_ids:
-        scheduled_query = scheduled_query.filter(
-            ~UserWord.meaning_id.in_(existing_meaning_ids)
-        )
-    scheduled_query = scheduled_query.order_by(
-        -Phrase.rank.desc(), BasicSRSchedule.cooling_interval.desc()
-    )
-    learning_words = scheduled_query.limit(num_words).all()
-
-    # Track which words are unscheduled
+    # Track which words are unscheduled (for auto-scheduling if pipeline not full)
     unscheduled_word_ids = set()
 
-    # If not enough, get more scheduled words for this language
+    # Step 1: Get scheduled words due today (highest priority - need practice!)
+    scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
+    scheduled_due_query = scheduled_due_query.filter(
+        BasicSRSchedule.next_practice_time < _get_end_of_today()
+    )
+    scheduled_due_query = scheduled_due_query.order_by(
+        -Phrase.rank.desc(), BasicSRSchedule.cooling_interval.desc()
+    )
+    learning_words = scheduled_due_query.limit(num_words).all()
+
+    if log_enabled:
+        logp(f"[select_words_for_audio_lesson] Found {len(learning_words)} scheduled words due today")
+
+    # Step 2: If not enough, get other scheduled words (accelerate learning)
     if len(learning_words) < num_words:
-        more_scheduled_query = BasicSRSchedule._scheduled_user_words_query(
-            user, language
-        )
-        if existing_meaning_ids:
-            more_scheduled_query = more_scheduled_query.filter(
-                ~UserWord.meaning_id.in_(existing_meaning_ids)
-            )
+        more_scheduled_query = BasicSRSchedule._scheduled_user_words_query(user, language)
         # Exclude words we already have
         existing_user_word_ids = [w.id for w in learning_words]
         if existing_user_word_ids:
@@ -126,47 +115,62 @@ def select_words_for_audio_lesson(
         more_words = more_scheduled_query.limit(num_words - len(learning_words)).all()
         learning_words.extend(more_words)
 
-    # If still not enough, get unscheduled words that could be added to learning
+        if log_enabled:
+            logp(f"[select_words_for_audio_lesson] Added {len(more_words)} other scheduled words")
+
+    # Step 3: If schedule not full, add unscheduled words (introduce new words)
     if len(learning_words) < num_words:
-        # Get user's unscheduled words for this language
-        unscheduled_query = (
-            UserWord.query.filter(UserWord.user_id == user.id)
-            .filter(UserWord.learned_time == None)  # Not learned
-            .filter(UserWord.fit_for_study == 1)  # Fit for study
-            .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
-            .filter(BasicSRSchedule.id == None)  # Not scheduled
-            .join(Meaning, UserWord.meaning_id == Meaning.id)
-            .join(Phrase, Meaning.origin_id == Phrase.id)
-            .filter(Phrase.language_id == language.id)
-        )
-        if existing_meaning_ids:
-            unscheduled_query = unscheduled_query.filter(
-                ~UserWord.meaning_id.in_(existing_meaning_ids)
-            )
-        # Exclude words we already have
-        existing_user_word_ids = [w.id for w in learning_words]
-        if existing_user_word_ids:
-            unscheduled_query = unscheduled_query.filter(
-                ~UserWord.id.in_(existing_user_word_ids)
-            )
-        # Order by word rank (most important/common words first)
-        unscheduled_query = unscheduled_query.order_by(
-            -Phrase.rank.desc()  # Negative desc for ascending order (lower rank = more important)
-        )
-        unscheduled_words = unscheduled_query.limit(
-            num_words - len(learning_words)
-        ).all()
-        learning_words.extend(unscheduled_words)
+        from zeeguu.core.model.user_preference import UserPreference
 
-        # Track these unscheduled words
-        unscheduled_word_ids.update(w.id for w in unscheduled_words)
+        # Check if user's schedule has room for more words
+        max_words = UserPreference.get_max_words_to_schedule(user)
+        current_count = BasicSRSchedule.scheduled_user_words_count(user)
+        has_room = current_count < max_words
 
-        if log_enabled and unscheduled_words:
-            logp(
-                f"[select_words_for_audio_lesson] Added {len(unscheduled_words)} unscheduled words to selection"
+        if has_room:
+            # Get user's unscheduled words for this language
+            unscheduled_query = (
+                UserWord.query.filter(UserWord.user_id == user.id)
+                .filter(UserWord.learned_time == None)  # Not learned
+                .filter(UserWord.fit_for_study == 1)  # Fit for study
+                .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+                .filter(BasicSRSchedule.id == None)  # Not scheduled
+                .join(Meaning, UserWord.meaning_id == Meaning.id)
+                .join(Phrase, Meaning.origin_id == Phrase.id)
+                .filter(Phrase.language_id == language.id)
             )
+            # Exclude words we already have
+            existing_user_word_ids = [w.id for w in learning_words]
+            if existing_user_word_ids:
+                unscheduled_query = unscheduled_query.filter(
+                    ~UserWord.id.in_(existing_user_word_ids)
+                )
+            # Order by word rank (most important/common words first)
+            unscheduled_query = unscheduled_query.order_by(
+                -Phrase.rank.desc()  # Negative desc for ascending order (lower rank = more important)
+            )
+            # Only add as many as there's room for
+            room_available = max_words - current_count
+            words_needed = num_words - len(learning_words)
+            can_add = min(room_available, words_needed)
 
-    # If still not enough, get recently learned words for this language (if enabled)
+            unscheduled_words = unscheduled_query.limit(can_add).all()
+            learning_words.extend(unscheduled_words)
+
+            # Track these unscheduled words
+            unscheduled_word_ids.update(w.id for w in unscheduled_words)
+
+            if log_enabled and unscheduled_words:
+                logp(
+                    f"[select_words_for_audio_lesson] Added {len(unscheduled_words)} unscheduled words (schedule has room: {current_count}/{max_words})"
+                )
+        else:
+            if log_enabled:
+                logp(
+                    f"[select_words_for_audio_lesson] Schedule full ({current_count}/{max_words}), not adding unscheduled words"
+                )
+
+    # Step 4: If still not enough, get recently learned words (keep reinforcing)
     if len(learning_words) < num_words and include_recently_learned:
         recently_learned_query = (
             UserWord.query.filter(UserWord.user_id == user.id)
@@ -175,11 +179,7 @@ def select_words_for_audio_lesson(
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == language.id)
         )
-        if existing_meaning_ids:
-            recently_learned_query = recently_learned_query.filter(
-                ~UserWord.meaning_id.in_(existing_meaning_ids)
-            )
-        # Exclude words we already have
+        # Exclude words we already have in this lesson
         existing_user_word_ids = [w.id for w in learning_words]
         if existing_user_word_ids:
             recently_learned_query = recently_learned_query.filter(
@@ -192,6 +192,9 @@ def select_words_for_audio_lesson(
             num_words - len(learning_words)
         ).all()
         learning_words.extend(recently_learned)
+
+        if log_enabled and recently_learned:
+            logp(f"[select_words_for_audio_lesson] Added {len(recently_learned)} recently learned words")
 
     if log_enabled:
         logp(

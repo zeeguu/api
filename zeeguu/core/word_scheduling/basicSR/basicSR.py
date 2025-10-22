@@ -138,10 +138,8 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def user_words_not_scheduled(cls, user, limit):
-        from zeeguu.core.model.bookmark import Bookmark
-
         unscheduled_meanings = (
-            UserWord.query.join(Bookmark, Bookmark.user_word_id == UserWord.id)
+            UserWord.query
             .filter(UserWord.user_id == user.id)
             .outerjoin(BasicSRSchedule)
             .filter(UserWord.learned_time == None)
@@ -196,7 +194,6 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def _scheduled_user_words_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
-        from zeeguu.core.model.bookmark import Bookmark
 
         query = (
             UserWord.query.join(cls)
@@ -204,7 +201,6 @@ class BasicSRSchedule(db.Model):
             .filter(UserWord.fit_for_study == 1)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .join(Bookmark, Bookmark.user_word_id == UserWord.id)
             .filter(Phrase.language_id == _lang_to_look_at)
             .filter(BasicSRSchedule.id != None)
         )

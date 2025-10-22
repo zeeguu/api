@@ -221,13 +221,15 @@ class DailyLessonGenerator:
             db.session.add(daily_lesson)
             logp(f"[generate_daily_lesson] Created daily lesson object")
 
-            # Schedule the unscheduled words that were added to the lesson
+            # Schedule unscheduled words that were included in the lesson
+            # The word selector already checked if there's room (current_count < max_words_to_schedule)
+            # before including unscheduled words, so it's safe to schedule them now.
             if unscheduled_words:
                 for user_word in unscheduled_words:
                     # Create initial schedule for this word
                     schedule = FourLevelsPerWord.find_or_create(db.session, user_word)
                     logp(
-                        f"[generate_daily_lesson] Scheduled previously unscheduled word: {user_word.meaning.origin.content}"
+                        f"[generate_daily_lesson] Scheduled unscheduled word: {user_word.meaning.origin.content}"
                     )
 
             # Generate audio lesson for each selected word

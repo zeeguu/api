@@ -212,6 +212,32 @@ class UserWord(db.Model):
 
         exercise_info_dict["from"] = self.meaning.origin.content
 
+        # Determine scheduling reason and days info
+        scheduling_reason = None
+        days_until_practice = None
+
+        if self.is_user_added:
+            scheduling_reason = "manually_added"
+        elif next_practice_time:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+
+            # Calculate days difference
+            time_diff = next_practice_time - now
+            days_diff = time_diff.days
+
+            if next_practice_time <= now:
+                # Overdue or due today
+                if days_diff < -1:
+                    scheduling_reason = "overdue"
+                    days_until_practice = abs(days_diff)
+                else:
+                    scheduling_reason = "due_today"
+            else:
+                # Future practice (early practice scenario)
+                scheduling_reason = "early_practice"
+                days_until_practice = days_diff
+
         result = {
             **self.preferred_bookmark.as_dictionary(with_context_tokenized=True),
             **exercise_info_dict,
@@ -229,6 +255,8 @@ class UserWord(db.Model):
             "meaning_frequency": (
                 self.meaning.frequency.value if self.meaning.frequency else None
             ),
+            "scheduling_reason": scheduling_reason,
+            "days_until_practice": days_until_practice,
         }
 
         return result
