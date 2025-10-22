@@ -105,9 +105,10 @@ def create_app(testing=False):
 
         # Get all supported languages from the database
         from zeeguu.core.model import Language
-        with app.app_context():
-            all_languages = Language.all_languages()
-            language_codes = [lang.code for lang in all_languages]
+
+        # Use CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED for preloading
+        # (these are the languages that have wordstats data)
+        language_codes = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
 
         # Preload all language dictionaries
         LanguageInfo.load_in_memory_for(language_codes)
