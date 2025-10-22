@@ -97,4 +97,24 @@ def create_app(testing=False):
     )
     warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
 
+    # Preload wordstats in production for faster response times
+    if app.config.get("PRELOAD_WORDSTATS", False):
+        warning("*** Preloading wordstats dictionaries...")
+        start_time = time.time()
+        from wordstats import LanguageInfo
+
+        # Get all supported languages from the database
+        from zeeguu.core.model import Language
+        with app.app_context():
+            all_languages = Language.all_languages()
+            language_codes = [lang.code for lang in all_languages]
+
+        # Preload all language dictionaries
+        LanguageInfo.load_in_memory_for(language_codes)
+
+        elapsed = time.time() - start_time
+        warning(f"*** Wordstats preloaded {len(language_codes)} languages in {elapsed:.2f}s")
+    else:
+        warning("*** Wordstats will use lazy loading (PRELOAD_WORDSTATS=False)")
+
     return app
