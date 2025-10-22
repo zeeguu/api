@@ -285,13 +285,7 @@ class DailyLessonGenerator:
                 "audio_url": f"/audio/daily_lessons/{daily_lesson.id}.mp3",
                 "duration_seconds": daily_lesson.duration_seconds,
                 "generation_time_seconds": round(generation_time, 2),
-                "words": [
-                    {
-                        "origin": w.meaning.origin.content,
-                        "translation": w.meaning.translation.content,
-                    }
-                    for w in selected_words
-                ],
+                "words": [w.as_dictionary() for w in selected_words],
             }
 
         except Exception as e:
@@ -349,6 +343,8 @@ class DailyLessonGenerator:
 
     def _format_lesson_response(self, lesson):
         """Format a lesson into the standard response format."""
+        from zeeguu.core.model import UserWord
+
         # Check if audio file exists
         audio_path = os.path.join(
             ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
@@ -357,7 +353,7 @@ class DailyLessonGenerator:
         if not os.path.exists(audio_path):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        # Get lesson details including words
+        # Get lesson details including words with full metadata
         words = []
         for segment in lesson.segments:
             if (
@@ -365,12 +361,24 @@ class DailyLessonGenerator:
                 and segment.audio_lesson_meaning
             ):
                 meaning = segment.audio_lesson_meaning.meaning
-                words.append(
-                    {
-                        "origin": meaning.origin.content,
-                        "translation": meaning.translation.content,
-                    }
-                )
+
+                # Find the UserWord for this meaning to get scheduling metadata
+                user_word = UserWord.query.filter_by(
+                    user_id=lesson.user_id,
+                    meaning_id=meaning.id
+                ).first()
+
+                if user_word:
+                    # Use full UserWord serialization to include scheduling_reason
+                    words.append(user_word.as_dictionary())
+                else:
+                    # Fallback to basic info if UserWord not found (shouldn't happen)
+                    words.append(
+                        {
+                            "origin": meaning.origin.content,
+                            "translation": meaning.translation.content,
+                        }
+                    )
 
         return {
             "lesson_id": lesson.id,
