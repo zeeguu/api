@@ -223,6 +223,12 @@ class UserWord(db.Model):
             "learned_datetime": (
                 self.learned_time.isoformat() if self.learned_time else None
             ),
+            "phrase_type": (
+                self.meaning.phrase_type.value if self.meaning.phrase_type else None
+            ),
+            "meaning_frequency": (
+                self.meaning.frequency.value if self.meaning.frequency else None
+            ),
         }
 
         return result
