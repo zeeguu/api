@@ -219,8 +219,9 @@ class UserWord(db.Model):
         if self.is_user_added:
             scheduling_reason = "manually_added"
         elif next_practice_time:
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc)
+            from datetime import datetime
+            # Use naive datetime to match next_practice_time from database
+            now = datetime.now()
 
             # Calculate days difference
             time_diff = next_practice_time - now
