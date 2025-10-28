@@ -30,6 +30,8 @@ from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.phrase import Phrase
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 
@@ -69,11 +71,12 @@ def cleanup_greek_audio_lessons(dry_run=False):
     print(f"📊 Found {len(daily_lessons)} daily Greek audio lessons")
 
     # Find all individual meaning lessons for Greek words
-    # (These are linked via meanings which have a language)
+    # (Join through meaning -> origin phrase -> language)
     meaning_lessons = (
         db.session.query(AudioLessonMeaning)
-        .join(AudioLessonMeaning.meaning)
-        .filter_by(language_id=greek.id)
+        .join(Meaning, AudioLessonMeaning.meaning_id == Meaning.id)
+        .join(Phrase, Meaning.origin_id == Phrase.id)
+        .filter(Phrase.language_id == greek.id)
         .all()
     )
     print(f"📊 Found {len(meaning_lessons)} individual Greek meaning lessons\n")
@@ -147,6 +150,15 @@ def cleanup_greek_audio_lessons(dry_run=False):
             print(f"    Audio file: {audio_file} (exists)")
         else:
             print(f"    Audio file: {audio_file} (not found)")
+
+        # Print script content
+        print(f"    Script preview:")
+        script_lines = lesson.script.split('\n')
+        for i, line in enumerate(script_lines[:8]):  # Show first 8 lines
+            if line.strip():
+                print(f"      {line[:80]}")  # Truncate long lines
+        if len(script_lines) > 8:
+            print(f"      ... ({len(script_lines) - 8} more lines)")
         print()
 
     print("-" * 70)
