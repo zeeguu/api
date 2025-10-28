@@ -1,59 +1,31 @@
 FROM python:3.12.7
 
-RUN apt-get clean all
-RUN apt-get update
-RUN apt-get upgrade -y
-RUN apt-get dist-upgrade -y
+# Use BuildKit cache mount for apt to speed up package installation
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get clean all && \
+    apt-get update && \
+    apt-get upgrade -y && \
+    apt-get dist-upgrade -y
 
-# We use ACL to modify folder permissions later
-RUN apt-get install acl
-
-# Git
-# ---
-# required by github dependencies in requirements.txt
-RUN apt-get -y install git
-
-
-# mysql CL client
-# -------------------------
-# - good for debugging sometimes
-RUN apt-get install -y mysql\*
-
-
-# libmysqlclient
-# --------------
-# - required to be able to install mysqlclient with pip
-#   https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
-RUN apt-get install -y default-libmysqlclient-dev
-
-
-# mysql CL client
-# -------------------------
-# - good for debugging sometimes
-RUN apt-get install -y mysql\*
-
-
-# libmysqlclient
-# --------------
-# - required to be able to install mysqlclient with pip
-#   https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
-RUN apt-get install -y default-libmysqlclient-dev
-
-
-# Apache
-# ------
-RUN apt-get install -y \
+# Install all system packages in one layer with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get install -y \
+    acl \
+    git \
+    mysql* \
+    default-libmysqlclient-dev \
     apache2 \
     apache2-dev \
-    vim
-
-# needed for mp3 work with audio lessons
-RUN apt-get install -y ffmpeg
+    vim \
+    ffmpeg
 
 
 # mod_wsgi
 # --------
-RUN pip install mod_wsgi
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install mod_wsgi
 
 RUN /bin/bash -c 'mod_wsgi-express install-module | tee /etc/apache2/mods-available/wsgi.{load,conf}'
 RUN a2enmod wsgi
@@ -104,7 +76,9 @@ COPY ./setup.py /Zeeguu-API/setup.py
 WORKDIR /Zeeguu-API
 
 # Install requirements and run the setup.py
-RUN python -m pip install -r requirements.txt
+# Use BuildKit cache mount to persist pip cache between builds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install -r requirements.txt
 
 
 # setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
