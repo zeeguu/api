@@ -36,6 +36,7 @@ sortedcontainers
 SQLAlchemy>=2.0
 wordstats==1.1.0
 google-cloud-texttospeech==2.3.0
+azure-cognitiveservices-speech==1.40.0
 timeago
 pymysql
 yagmail

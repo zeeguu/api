@@ -35,15 +35,17 @@ VOICE_CONFIG = {
         "man": "en-US-Wavenet-D",
         "woman": "en-US-Wavenet-F",
     },
-    "ro-RO": {  # Romanian
-        "woman": "ro-RO-Wavenet-A",
-        "man": "ro-RO-Standard-A",
-        "teacher": "ro-RO-Wavenet-A",  # Teacher voice in Romanian
+    "ro-RO": {  # Romanian - using Azure (Google has no Romanian support)
+        "woman": "ro-RO-AlinaNeural",
+        "man": "ro-RO-EmilNeural",
+        "teacher": "ro-RO-AlinaNeural",  # Teacher voice in Romanian
+        "provider": "azure",  # Mark as Azure provider
     },
-    "el-GR": {  # Greek
-        "woman": "el-GR-Wavenet-A",
-        "man": "el-GR-Standard-A",
-        "teacher": "el-GR-Wavenet-A",  # Teacher voice in Greek
+    "el-GR": {  # Greek - using Azure (Google only has female voices)
+        "woman": "el-GR-AthinaNeural",
+        "man": "el-GR-NestorasNeural",
+        "teacher": "el-GR-AthinaNeural",  # Teacher voice in Greek
+        "provider": "azure",  # Mark as Azure provider
     },
 }
 

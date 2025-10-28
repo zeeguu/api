@@ -1,5 +1,6 @@
 """
-Voice synthesizer for audio lessons using Google Cloud Text-to-Speech.
+Voice synthesizer for audio lessons using Google Cloud Text-to-Speech and Azure TTS.
+Uses Azure for languages not well-supported by Google (e.g., Greek with male voices).
 """
 
 import os
@@ -15,7 +16,9 @@ from zeeguu.core.audio_lessons.voice_config import (
     get_teacher_voice,
     normalize_language_code,
     DEFAULT_SILENCE_SECONDS,
+    VOICE_CONFIG,
 )
+from zeeguu.core.audio_lessons.azure_voice_synthesizer import AzureVoiceSynthesizer
 from zeeguu.logging import log
 
 
@@ -23,8 +26,12 @@ class VoiceSynthesizer:
     """Handles text-to-speech synthesis and audio file management."""
 
     def __init__(self):
-        """Initialize the Google Cloud TTS client."""
-        self.client = texttospeech.TextToSpeechClient()
+        """Initialize the Google Cloud TTS client and Azure TTS client if needed."""
+        self.google_client = texttospeech.TextToSpeechClient()
+
+        # Initialize Azure client (lazy initialization on first use)
+        self.azure_client = None
+
         self.audio_dir = ZEEGUU_DATA_FOLDER + "/audio"
         self.lessons_dir = os.path.join(self.audio_dir, "lessons")
         self.segments_dir = os.path.join(self.audio_dir, "segments")
@@ -32,6 +39,21 @@ class VoiceSynthesizer:
         # Create directories if they don't exist
         os.makedirs(self.lessons_dir, exist_ok=True)
         os.makedirs(self.segments_dir, exist_ok=True)
+
+    def _uses_azure(self, language_code: str) -> bool:
+        """Check if this language uses Azure instead of Google."""
+        try:
+            full_code = normalize_language_code(language_code)
+            config = VOICE_CONFIG.get(full_code, {})
+            return config.get("provider") == "azure"
+        except ValueError:
+            return False
+
+    def _get_azure_client(self) -> AzureVoiceSynthesizer:
+        """Get or create the Azure TTS client (lazy initialization)."""
+        if self.azure_client is None:
+            self.azure_client = AzureVoiceSynthesizer()
+        return self.azure_client
 
     def parse_script(self, script: str) -> List[Tuple[str, str, float]]:
         """
@@ -107,23 +129,41 @@ class VoiceSynthesizer:
     def text_to_speech(
         self, text: str, voice_config: dict, speaking_rate: float = 1.0
     ) -> bytes:
-        """Convert text to speech using Google Cloud TTS."""
-        synthesis_input = texttospeech.SynthesisInput(text=text)
+        """
+        Convert text to speech using Google Cloud TTS or Azure TTS.
+        Routes to appropriate provider based on language configuration.
+        """
+        language_code = voice_config["language_code"]
+        voice_name = voice_config["name"]
 
-        voice = texttospeech.VoiceSelectionParams(
-            language_code=voice_config["language_code"], name=voice_config["name"]
-        )
+        # Check if we should use Azure for this language
+        if self._uses_azure(language_code):
+            log(f"Using Azure TTS for {language_code}")
+            azure_client = self._get_azure_client()
+            return azure_client.text_to_speech(
+                text=text,
+                voice_id=voice_name,
+                speaking_rate=speaking_rate,
+                language_code=language_code,
+            )
+        else:
+            # Use Google TTS (default)
+            synthesis_input = texttospeech.SynthesisInput(text=text)
 
-        audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=speaking_rate,
-        )
+            voice = texttospeech.VoiceSelectionParams(
+                language_code=language_code, name=voice_name
+            )
 
-        response = self.client.synthesize_speech(
-            input=synthesis_input, voice=voice, audio_config=audio_config
-        )
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=speaking_rate,
+            )
 
-        return response.audio_content
+            response = self.google_client.synthesize_speech(
+                input=synthesis_input, voice=voice, audio_config=audio_config
+            )
+
+            return response.audio_content
 
     def get_cached_audio_path(
         self, text: str, voice_id: str, speaking_rate: float = 1.0
