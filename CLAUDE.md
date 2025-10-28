@@ -16,6 +16,46 @@ source ~/.venvs/z_env/bin/activate && python -m pytest
 source ~/.venvs/z_env/bin/activate && python <command>
 ```
 
+## Tool Scripts Structure
+- **All tool scripts that access the database MUST initialize Flask app context**
+- **Required boilerplate at the top of every tool file** (after imports, before any database operations):
+
+```python
+from zeeguu.api.app import create_app
+from zeeguu.core.model import db
+
+app = create_app()
+app.app_context().push()
+```
+
+- **Why**: SQLAlchemy requires Flask application context to perform database operations
+- **When**: Any script in `tools/` that queries or modifies database models needs this
+- **Where**: Place after all imports, before any code that uses `db.session` or model queries
+
+Example:
+```python
+#!/usr/bin/env python
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# REQUIRED: Initialize Flask app context for database access
+from zeeguu.api.app import create_app
+from zeeguu.core.model import db
+
+app = create_app()
+app.app_context().push()
+
+# Now safe to import and use models
+from zeeguu.core.model.user import User
+from zeeguu.core.model.language import Language
+
+# Your tool code here...
+users = User.query.all()  # This works because app context is initialized
+```
+
 ## Database Migrations
 - **Migrations are SQL scripts, NOT Alembic**: Do not use `alembic revision`
 - **Migration location**: Place all migration scripts in `tools/migrations/` folder
