@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 """
-Cleanup script to remove old Greek audio lessons that were generated
+Cleanup script to remove old Greek audio files that were generated
 before Azure TTS integration (which only had female voices).
 
 This script:
 1. Finds all Greek audio lessons in the database
-2. Deletes the database records
-3. Deletes the audio files from disk
+2. Analyzes scripts to see which have both Man/Woman speakers
+3. Deletes ONLY the audio files (keeps database records with scripts)
 4. Clears cached audio segments for Greek
 
-Run this to force regeneration of Greek lessons with proper male/female voices.
+The system will regenerate audio when lessons are requested again.
 
 Usage:
     python -m tools.cleanup_greek_audio_lessons [--dry-run]
@@ -33,9 +33,16 @@ from zeeguu.core.model.language import Language
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 
+def analyze_script(script):
+    """Check if script has both Man and Woman speakers."""
+    has_man = "Man:" in script
+    has_woman = "Woman:" in script
+    return has_man, has_woman
+
+
 def cleanup_greek_audio_lessons(dry_run=False):
     """
-    Remove all Greek audio lessons from database and filesystem.
+    Remove Greek audio files (keeps database records).
 
     Args:
         dry_run: If True, only report what would be deleted without actually deleting
@@ -46,9 +53,12 @@ def cleanup_greek_audio_lessons(dry_run=False):
     print("=" * 70)
 
     if dry_run:
-        print("🔍 DRY RUN MODE - No actual changes will be made\n")
+        print("🔍 DRY RUN MODE - No actual changes will be made")
     else:
-        print("⚠️  LIVE MODE - This will delete data!\n")
+        print("⚠️  LIVE MODE - This will delete audio files!")
+
+    print("✓ Database records will be kept, only audio files deleted")
+    print()
 
     # Get Greek language
     greek = Language.find_or_create("el")
@@ -94,13 +104,34 @@ def cleanup_greek_audio_lessons(dry_run=False):
             print(f"    Audio file: {audio_file} (not found)")
         print()
 
-    # Process meaning lessons
+    # Process meaning lessons and analyze scripts
     print("-" * 70)
     print("MEANING LESSONS:")
     print("-" * 70)
 
+    scripts_with_both = 0
+    scripts_woman_only = 0
+    scripts_man_only = 0
+    scripts_neither = 0
+
     for lesson in meaning_lessons:
-        print(f"  • Meaning lesson {lesson.id}")
+        has_man, has_woman = analyze_script(lesson.script)
+
+        # Track statistics
+        if has_man and has_woman:
+            scripts_with_both += 1
+            status = "✓ Both speakers"
+        elif has_woman and not has_man:
+            scripts_woman_only += 1
+            status = "⚠️  Woman only"
+        elif has_man and not has_woman:
+            scripts_man_only += 1
+            status = "⚠️  Man only"
+        else:
+            scripts_neither += 1
+            status = "❌ Neither speaker"
+
+        print(f"  • Meaning lesson {lesson.id} - {status}")
         print(f"    Word: {lesson.meaning.from_lang_word}")
         print(f"    Translation: {lesson.meaning.to_lang_word}")
         print(f"    CEFR: {lesson.difficulty_level}")
@@ -117,6 +148,15 @@ def cleanup_greek_audio_lessons(dry_run=False):
         else:
             print(f"    Audio file: {audio_file} (not found)")
         print()
+
+    print("-" * 70)
+    print("SCRIPT ANALYSIS:")
+    print("-" * 70)
+    print(f"✓ Scripts with both Man & Woman: {scripts_with_both}")
+    print(f"⚠️  Scripts with Woman only:       {scripts_woman_only}")
+    print(f"⚠️  Scripts with Man only:          {scripts_man_only}")
+    print(f"❌ Scripts with neither:          {scripts_neither}")
+    print()
 
     # Find cached Greek audio segments
     segments_dir = os.path.join(ZEEGUU_DATA_FOLDER, "audio/segments")
@@ -141,8 +181,8 @@ def cleanup_greek_audio_lessons(dry_run=False):
     print("=" * 70)
     print("SUMMARY:")
     print("=" * 70)
-    print(f"Daily lessons to delete:    {len(daily_lessons)}")
-    print(f"Meaning lessons to delete:  {len(meaning_lessons)}")
+    print(f"Daily lessons (keep in DB): {len(daily_lessons)}")
+    print(f"Meaning lessons (keep in DB): {len(meaning_lessons)}")
     print(f"Audio files to delete:      {len(audio_files_to_delete)}")
     print(f"Cached segments to delete:  {len(greek_segments)}")
     print("=" * 70)
@@ -153,33 +193,15 @@ def cleanup_greek_audio_lessons(dry_run=False):
         return
 
     # Confirm deletion
-    response = input("⚠️  Are you sure you want to DELETE all of this? (yes/no): ")
+    response = input("⚠️  Are you sure you want to DELETE audio files? (yes/no): ")
+
     if response.lower() != "yes":
         print("❌ Aborted - no changes made")
         return
 
-    print("\n🗑️  Deleting data...\n")
-
-    # Delete from database (cascading will handle segments)
-    deleted_count = 0
-
-    print("Deleting daily lessons from database...")
-    for lesson in daily_lessons:
-        db.session.delete(lesson)
-        deleted_count += 1
-    print(f"  ✓ Marked {deleted_count} daily lessons for deletion")
-
-    deleted_count = 0
-    print("Deleting meaning lessons from database...")
-    for lesson in meaning_lessons:
-        db.session.delete(lesson)
-        deleted_count += 1
-    print(f"  ✓ Marked {deleted_count} meaning lessons for deletion")
-
-    # Commit database changes
-    print("Committing database changes...")
-    db.session.commit()
-    print("  ✓ Database changes committed")
+    print("\n🗑️  Deleting audio files...\n")
+    print("✓ Keeping database records (only deleting audio files)")
+    print("  Audio will be regenerated with new Azure voices when lessons are requested")
 
     # Delete audio files
     deleted_files = 0
@@ -206,16 +228,19 @@ def cleanup_greek_audio_lessons(dry_run=False):
     print("\n" + "=" * 70)
     print("✅ CLEANUP COMPLETE")
     print("=" * 70)
-    print("\nNew Greek audio lessons will be regenerated with:")
+    print("\nAudio files have been deleted. Database records kept.")
+    print("When users request lessons, audio will be regenerated with:")
     print("  • Azure TTS (both male and female voices)")
-    print("  • Improved script generation")
+    print("  • Improved script generation (requires both speakers)")
     print("  • Updated voice configuration")
+    print("\n💡 NOTE: Audio is regenerated automatically when users request lessons")
+    print("   No manual intervention needed!")
     print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Cleanup old Greek audio lessons to force regeneration with Azure TTS"
+        description="Cleanup old Greek audio files to force regeneration with Azure TTS"
     )
     parser.add_argument(
         "--dry-run",
