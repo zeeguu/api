@@ -35,6 +35,13 @@ from zeeguu.core.model.phrase import Phrase
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 
+from zeeguu.api.app import create_app
+from zeeguu.core.model import db
+
+app = create_app()
+app.app_context().push()
+
+
 def analyze_script(script):
     """Check if script has both Man and Woman speakers."""
     has_man = "Man:" in script
