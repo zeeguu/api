@@ -11,7 +11,7 @@ CREATE TABLE ai_models
 
 -- Insert current model
 INSERT INTO ai_models (model_name, description)
-VALUES ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet used for meaning frequency classification');
+VALUES ('claude-sonnet-4-5-20250929', 'Claude Sonnet 4.5 used for meaning frequency classification');
 
 -- Add frequency columns to meaning table
 ALTER TABLE meaning
@@ -46,7 +46,7 @@ ALTER TABLE meaning
         FOREIGN KEY (frequency_model_id) REFERENCES ai_models (id);
 
 -- Example usage:
--- Get model ID: SELECT id FROM ai_models WHERE model_name = 'claude-3-5-sonnet-20241022';
+-- Get model ID: SELECT id FROM ai_models WHERE model_name = 'claude-sonnet-4-5-20250929';
 -- UPDATE meaning SET 
 --   frequency = 'COMMON',
 --   frequency_model_id = 1,

@@ -68,4 +68,4 @@ class AIGenerator(db.Model):
     @classmethod
     def get_current_classification_model(cls):
         """Get the current model used for meaning frequency classification."""
-        return cls.query.filter_by(model_name="claude-3-5-sonnet-20241022").first()
+        return cls.query.filter_by(model_name="claude-sonnet-4-5-20250929").first()

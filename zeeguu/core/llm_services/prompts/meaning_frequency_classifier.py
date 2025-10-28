@@ -54,7 +54,7 @@ def create_meaning_frequency_prompt(meaning):
 # from anthropic import Anthropic
 # client = Anthropic(api_key=api_key)
 # response = client.messages.create(
-#     model="claude-3-5-sonnet-20241022",  # Use current best model
+#     model="claude-sonnet-4-5-20250929",  # Latest model (September 2025)
 #     max_tokens=20,  # Need space for "frequency,phrase_type"
 #     temperature=0,  # Deterministic response
 #     messages=[{

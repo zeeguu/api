@@ -23,8 +23,8 @@ class AnthropicService(LLMService):
         try:
             import anthropic
             self.client = anthropic.Anthropic(api_key=self.api_key)
-            # Use the same model as meaning frequency classification for consistency
-            self.model = "claude-3-5-sonnet-20241022"
+            # Use Claude Sonnet 4.5 (latest model as of September 2025)
+            self.model = "claude-sonnet-4-5-20250929"
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     

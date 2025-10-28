@@ -15,7 +15,7 @@ from zeeguu.logging import log, logp
 class MeaningFrequencyClassifier:
     """Classifies meaning frequencies using Claude API."""
 
-    MODEL_NAME = "claude-3-5-sonnet-20241022"  # Most capable current model for accuracy
+    MODEL_NAME = "claude-sonnet-4-5-20250929"  # Latest model (September 2025)
 
     def __init__(self):
         """Initialize with Anthropic client."""
