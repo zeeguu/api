@@ -4,6 +4,8 @@ This module provides the core algorithm for selecting words for audio lessons,
 used by both the main audio lesson generator and analysis tools.
 """
 
+from datetime import datetime, timedelta
+
 from zeeguu.core.model import UserWord, Phrase
 from zeeguu.core.model import (
     db,
@@ -18,16 +20,19 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
 from zeeguu.logging import logp
 
 
-def get_meanings_already_in_audio_lessons(user: User) -> set:
+def get_meanings_already_in_audio_lessons(user: User, days: int = 7) -> set:
     """
-    Get the set of meaning IDs that have already been used in audio lessons for a user.
+    Get the set of meaning IDs that have already been used in recent audio lessons for a user.
 
     Args:
         user: The user to check
+        days: Number of days to look back (default 7)
 
     Returns:
         Set of meaning IDs
     """
+    cutoff_date = datetime.now() - timedelta(days=days)
+
     meanings_already_in_lessons = (
         db.session.query(Meaning.id)
         .join(AudioLessonMeaning, AudioLessonMeaning.meaning_id == Meaning.id)
@@ -40,6 +45,7 @@ def get_meanings_already_in_audio_lessons(user: User) -> set:
             DailyAudioLesson.id == DailyAudioLessonSegment.daily_audio_lesson_id,
         )
         .filter(DailyAudioLesson.user_id == user.id)
+        .filter(DailyAudioLesson.created_at >= cutoff_date)
         .distinct()
         .all()
     )
@@ -63,7 +69,7 @@ def select_words_for_audio_lesson(
     1. Prioritize scheduled words due today (need practice)
     2. Fill with other scheduled words if needed (accelerate learning)
     3. If schedule not full, add unscheduled words (introduce new words)
-    4. Words can repeat across lessons (removed "already in lessons" filter)
+    4. Exclude words used in audio lessons within the last 7 days (provide variety)
 
     Args:
         user: The user to select words for
@@ -89,11 +95,21 @@ def select_words_for_audio_lesson(
     # Track which words are unscheduled (for auto-scheduling if pipeline not full)
     unscheduled_word_ids = set()
 
+    # Get meanings already used in recent audio lessons (last 7 days)
+    meanings_in_recent_lessons = get_meanings_already_in_audio_lessons(user, days=7)
+    if log_enabled and meanings_in_recent_lessons:
+        logp(f"[select_words_for_audio_lesson] Excluding {len(meanings_in_recent_lessons)} meanings from recent lessons (last 7 days)")
+
     # Step 1: Get scheduled words due today (highest priority - need practice!)
     scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
     scheduled_due_query = scheduled_due_query.filter(
         BasicSRSchedule.next_practice_time < _get_end_of_today()
     )
+    # Exclude words already in recent audio lessons
+    if meanings_in_recent_lessons:
+        scheduled_due_query = scheduled_due_query.filter(
+            ~UserWord.meaning_id.in_(meanings_in_recent_lessons)
+        )
     scheduled_due_query = scheduled_due_query.order_by(
         -Phrase.rank.desc(), BasicSRSchedule.cooling_interval.desc()
     )
@@ -110,6 +126,11 @@ def select_words_for_audio_lesson(
         if existing_user_word_ids:
             more_scheduled_query = more_scheduled_query.filter(
                 ~UserWord.id.in_(existing_user_word_ids)
+            )
+        # Exclude words already in recent audio lessons
+        if meanings_in_recent_lessons:
+            more_scheduled_query = more_scheduled_query.filter(
+                ~UserWord.meaning_id.in_(meanings_in_recent_lessons)
             )
         more_scheduled_query = more_scheduled_query.order_by(-Phrase.rank.desc())
         more_words = more_scheduled_query.limit(num_words - len(learning_words)).all()
@@ -144,6 +165,11 @@ def select_words_for_audio_lesson(
             if existing_user_word_ids:
                 unscheduled_query = unscheduled_query.filter(
                     ~UserWord.id.in_(existing_user_word_ids)
+                )
+            # Exclude words already in recent audio lessons
+            if meanings_in_recent_lessons:
+                unscheduled_query = unscheduled_query.filter(
+                    ~UserWord.meaning_id.in_(meanings_in_recent_lessons)
                 )
             # Order by word rank (most important/common words first)
             unscheduled_query = unscheduled_query.order_by(
@@ -184,6 +210,11 @@ def select_words_for_audio_lesson(
         if existing_user_word_ids:
             recently_learned_query = recently_learned_query.filter(
                 ~UserWord.id.in_(existing_user_word_ids)
+            )
+        # Exclude words already in recent audio lessons
+        if meanings_in_recent_lessons:
+            recently_learned_query = recently_learned_query.filter(
+                ~UserWord.meaning_id.in_(meanings_in_recent_lessons)
             )
         recently_learned_query = recently_learned_query.order_by(
             UserWord.learned_time.desc()
