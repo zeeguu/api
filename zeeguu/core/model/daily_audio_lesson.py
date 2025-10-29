@@ -122,7 +122,11 @@ class DailyAudioLesson(db.Model):
     def pause_at(self, position_seconds):
         """Record pause position for later resume"""
         self.last_paused_at = datetime.now()
-        self.pause_position_seconds = position_seconds
+        # Ensure pause position doesn't exceed duration (prevents MediaSession API errors)
+        if self.duration_seconds and position_seconds > self.duration_seconds:
+            self.pause_position_seconds = self.duration_seconds
+        else:
+            self.pause_position_seconds = position_seconds
 
     def resume(self):
         """Clear pause state when resuming (don't increment listen count)"""
