@@ -20,13 +20,13 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
 from zeeguu.logging import logp
 
 
-def get_meanings_already_in_audio_lessons(user: User, days: int = 7) -> set:
+def get_meanings_already_in_audio_lessons(user: User, days: int = 14) -> set:
     """
     Get the set of meaning IDs that have already been used in recent audio lessons for a user.
 
     Args:
         user: The user to check
-        days: Number of days to look back (default 7)
+        days: Number of days to look back (default 14)
 
     Returns:
         Set of meaning IDs
@@ -69,7 +69,7 @@ def select_words_for_audio_lesson(
     1. Prioritize scheduled words due today (need practice)
     2. Fill with other scheduled words if needed (accelerate learning)
     3. If schedule not full, add unscheduled words (introduce new words)
-    4. Exclude words used in audio lessons within the last 7 days (provide variety)
+    4. Exclude words used in audio lessons within the last 14 days (provide variety)
 
     Args:
         user: The user to select words for
@@ -95,10 +95,10 @@ def select_words_for_audio_lesson(
     # Track which words are unscheduled (for auto-scheduling if pipeline not full)
     unscheduled_word_ids = set()
 
-    # Get meanings already used in recent audio lessons (last 7 days)
-    meanings_in_recent_lessons = get_meanings_already_in_audio_lessons(user, days=7)
+    # Get meanings already used in recent audio lessons (last 14 days)
+    meanings_in_recent_lessons = get_meanings_already_in_audio_lessons(user, days=14)
     if log_enabled and meanings_in_recent_lessons:
-        logp(f"[select_words_for_audio_lesson] Excluding {len(meanings_in_recent_lessons)} meanings from recent lessons (last 7 days)")
+        logp(f"[select_words_for_audio_lesson] Excluding {len(meanings_in_recent_lessons)} meanings from recent lessons (last 14 days)")
 
     # Step 1: Get scheduled words due today (highest priority - need practice!)
     scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
