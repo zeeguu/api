@@ -123,37 +123,12 @@ def create_app(testing=False):
         sys.stderr.flush()
 
     # Clean up database session after each request to return connections to pool
-    # Using both teardown_request and teardown_appcontext to ensure it runs
     @app.teardown_request
     def shutdown_session_request(exception=None):
-        import sys
-        import threading
-        import time
-        thread_id = threading.current_thread().ident
-        timestamp = time.time()
-        print(f"[DB-SESSION-TEARDOWN-REQUEST] Removing session [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
-        sys.stderr.flush()
         db.session.remove()
-        print(f"[DB-SESSION-TEARDOWN-REQUEST] Session removed successfully [thread={thread_id}]", file=sys.stderr)
-        sys.stderr.flush()
         if exception:
-            print(f"[DB-SESSION-TEARDOWN-REQUEST] Exception during request: {exception}", file=sys.stderr)
-            sys.stderr.flush()
-
-    @app.teardown_appcontext
-    def shutdown_session_appcontext(exception=None):
-        import sys
-        import threading
-        import time
-        thread_id = threading.current_thread().ident
-        timestamp = time.time()
-        print(f"[DB-SESSION-TEARDOWN-APPCONTEXT] Removing session [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
-        sys.stderr.flush()
-        db.session.remove()
-        print(f"[DB-SESSION-TEARDOWN-APPCONTEXT] Session removed successfully [thread={thread_id}]", file=sys.stderr)
-        sys.stderr.flush()
-        if exception:
-            print(f"[DB-SESSION-TEARDOWN-APPCONTEXT] Exception during request: {exception}", file=sys.stderr)
+            import sys
+            print(f"[DB-SESSION-TEARDOWN] Exception during request: {exception}", file=sys.stderr)
             sys.stderr.flush()
 
     # Add static file serving for audio files

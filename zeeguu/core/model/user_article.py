@@ -19,7 +19,7 @@ from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedba
 from zeeguu.core.model.db import db
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.util.encoding import datetime_to_json
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 
 class UserArticle(db.Model):
@@ -519,14 +519,14 @@ class UserArticle(db.Model):
         # Re-enabling with extensive logging to debug CPU accumulation
         import time
         start_time = time.time()
-        logp(f"[TOKENIZATION-START] Article {article.id} - Starting tokenization")
+        log(f"[TOKENIZATION-START] Article {article.id} - Starting tokenization")
 
         # Get or create tokenization cache
         from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
         cache_start = time.time()
         cache = ArticleTokenizationCache.find_or_create(db.session, article)
         cache_time = time.time() - cache_start
-        logp(f"[TOKENIZATION-CACHE] Article {article.id} - Cache lookup took {cache_time:.3f}s")
+        log(f"[TOKENIZATION-CACHE] Article {article.id} - Cache lookup took {cache_time:.3f}s")
 
         # Tokenize summary if available
         if article.summary:
@@ -539,33 +539,33 @@ class UserArticle(db.Model):
             if cache.tokenized_summary:
                 try:
                     tokenized_summary = json.loads(cache.tokenized_summary)
-                    logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Using cached summary")
+                    log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Using cached summary")
                 except (json.JSONDecodeError, TypeError):
                     tokenized_summary = None
-                    logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Cache corrupt, will re-tokenize")
+                    log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Cache corrupt, will re-tokenize")
             else:
                 tokenized_summary = None
-                logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - No cache, will tokenize")
+                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - No cache, will tokenize")
 
             # If no cache, tokenize and cache it
             if tokenized_summary is None:
                 tokenizer_start = time.time()
                 tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
                 tokenizer_get_time = time.time() - tokenizer_start
-                logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
+                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
 
                 tokenize_start = time.time()
                 tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
                 tokenize_time = time.time() - tokenize_start
-                logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Tokenized summary in {tokenize_time:.3f}s")
+                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Tokenized summary in {tokenize_time:.3f}s")
 
                 json_start = time.time()
                 cache.tokenized_summary = json.dumps(tokenized_summary)
                 json_time = time.time() - json_start
-                logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - JSON dumps took {json_time:.3f}s")
+                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - JSON dumps took {json_time:.3f}s")
 
                 db.session.add(cache)
-                logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Added cache to session")
+                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Added cache to session")
                 # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
             bookmark_start = time.time()
@@ -577,7 +577,7 @@ class UserArticle(db.Model):
                 ),
             }
             bookmark_time = time.time() - bookmark_start
-            logp(f"[TOKENIZATION-SUMMARY] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
+            log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
 
         # Tokenize title (always present)
         title_context_id = ContextIdentifier(
@@ -588,33 +588,33 @@ class UserArticle(db.Model):
         if cache.tokenized_title:
             try:
                 tokenized_title = json.loads(cache.tokenized_title)
-                logp(f"[TOKENIZATION-TITLE] Article {article.id} - Using cached title")
+                log(f"[TOKENIZATION-TITLE] Article {article.id} - Using cached title")
             except (json.JSONDecodeError, TypeError):
                 tokenized_title = None
-                logp(f"[TOKENIZATION-TITLE] Article {article.id} - Cache corrupt, will re-tokenize")
+                log(f"[TOKENIZATION-TITLE] Article {article.id} - Cache corrupt, will re-tokenize")
         else:
             tokenized_title = None
-            logp(f"[TOKENIZATION-TITLE] Article {article.id} - No cache, will tokenize")
+            log(f"[TOKENIZATION-TITLE] Article {article.id} - No cache, will tokenize")
 
         # If no cache, tokenize and cache it
         if tokenized_title is None:
             tokenizer_start = time.time()
             tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
             tokenizer_get_time = time.time() - tokenizer_start
-            logp(f"[TOKENIZATION-TITLE] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
+            log(f"[TOKENIZATION-TITLE] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
 
             tokenize_start = time.time()
             tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
             tokenize_time = time.time() - tokenize_start
-            logp(f"[TOKENIZATION-TITLE] Article {article.id} - Tokenized title in {tokenize_time:.3f}s")
+            log(f"[TOKENIZATION-TITLE] Article {article.id} - Tokenized title in {tokenize_time:.3f}s")
 
             json_start = time.time()
             cache.tokenized_title = json.dumps(tokenized_title)
             json_time = time.time() - json_start
-            logp(f"[TOKENIZATION-TITLE] Article {article.id} - JSON dumps took {json_time:.3f}s")
+            log(f"[TOKENIZATION-TITLE] Article {article.id} - JSON dumps took {json_time:.3f}s")
 
             db.session.add(cache)
-            logp(f"[TOKENIZATION-TITLE] Article {article.id} - Added cache to session")
+            log(f"[TOKENIZATION-TITLE] Article {article.id} - Added cache to session")
             # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
         bookmark_start = time.time()
@@ -626,9 +626,9 @@ class UserArticle(db.Model):
             ),
         }
         bookmark_time = time.time() - bookmark_start
-        logp(f"[TOKENIZATION-TITLE] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
+        log(f"[TOKENIZATION-TITLE] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
 
         total_time = time.time() - start_time
-        logp(f"[TOKENIZATION-END] Article {article.id} - Total tokenization took {total_time:.3f}s")
+        log(f"[TOKENIZATION-END] Article {article.id} - Total tokenization took {total_time:.3f}s")
 
         return result
