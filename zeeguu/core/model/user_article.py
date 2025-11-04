@@ -496,22 +496,28 @@ class UserArticle(db.Model):
         This is a lightweight version of user_article_info that only processes
         the summary and title, not the full article content.
 
+        Uses cached tokenization when available to avoid expensive Stanza processing.
+
         Args:
             user: The user requesting the article summary
             article: The article to get summary info for
         """
+        import json
         from zeeguu.core.model.article_summary_context import ArticleSummaryContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-
-        tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+        from . import db
 
         result = {
             "id": article.id,
             "language": article.language.code,
         }
+
+        # Get or create tokenization cache
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        cache = ArticleTokenizationCache.find_or_create(db.session, article)
 
         # Tokenize summary if available
         if article.summary:
@@ -519,21 +525,55 @@ class UserArticle(db.Model):
                 ContextType.ARTICLE_SUMMARY, article_id=article.id
             )
 
+            # Try to use cached tokenization
+            if cache.tokenized_summary:
+                try:
+                    tokenized_summary = json.loads(cache.tokenized_summary)
+                except (json.JSONDecodeError, TypeError):
+                    tokenized_summary = None
+            else:
+                tokenized_summary = None
+
+            # If no cache, tokenize and cache it
+            if tokenized_summary is None:
+                tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+                tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
+                cache.tokenized_summary = json.dumps(tokenized_summary)
+                db.session.add(cache)
+                db.session.commit()
+
             result["tokenized_summary"] = {
-                "tokens": tokenizer.tokenize_text(article.summary, flatten=False),
+                "tokens": tokenized_summary,
                 "context_identifier": summary_context_id.as_dictionary(),
                 "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
                     user.id, article.id
                 ),
             }
 
-        # Tokenize title
+        # Tokenize title (always present)
         title_context_id = ContextIdentifier(
             ContextType.ARTICLE_TITLE, article_id=article.id
         )
 
+        # Try to use cached tokenization
+        if cache.tokenized_title:
+            try:
+                tokenized_title = json.loads(cache.tokenized_title)
+            except (json.JSONDecodeError, TypeError):
+                tokenized_title = None
+        else:
+            tokenized_title = None
+
+        # If no cache, tokenize and cache it
+        if tokenized_title is None:
+            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+            tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
+            cache.tokenized_title = json.dumps(tokenized_title)
+            db.session.add(cache)
+            db.session.commit()
+
         result["tokenized_title"] = {
-            "tokens": tokenizer.tokenize_text(article.title, flatten=False),
+            "tokens": tokenized_title,
             "context_identifier": title_context_id.as_dictionary(),
             "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
                 user.id, article.id

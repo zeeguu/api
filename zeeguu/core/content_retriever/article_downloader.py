@@ -68,6 +68,41 @@ SOURCE_CONTENT_FILTERS = {
 }
 
 
+def _cache_article_tokenization(article, session):
+    """
+    Pre-tokenize and cache article summary and title to avoid expensive CPU work
+    during user requests. This runs during feed crawling so users never experience
+    the slow first-time tokenization.
+    """
+    import json
+    from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+
+    try:
+        tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+
+        # Create cache entry
+        cache = ArticleTokenizationCache(article_id=article.id)
+
+        # Cache tokenized title (always present)
+        if article.title:
+            tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
+            cache.tokenized_title = json.dumps(tokenized_title)
+            logp(f"  - Cached tokenized title ({len(tokenized_title)} sentences)")
+
+        # Cache tokenized summary (if present)
+        if article.summary:
+            tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
+            cache.tokenized_summary = json.dumps(tokenized_summary)
+            logp(f"  - Cached tokenized summary ({len(tokenized_summary)} sentences)")
+
+        session.add(cache)
+    except Exception as e:
+        logp(f"  - Warning: Failed to cache tokenization: {e}")
+        # Don't fail the whole article download if tokenization fails
+        pass
+
+
 def should_filter_by_source_keywords(url, title):
     """
     Check if article should be filtered based on source-specific keywords.
@@ -485,6 +520,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     _, topics = add_topics(new_article, feed, url_keywords, session)
     logp(f"Topics ({topics})")
     session.add(new_article)
+
+    # Pre-tokenize and cache summary/title to avoid expensive CPU work during user requests
+    _cache_article_tokenization(new_article, session)
 
     # Check for advertorial content before expensive simplification
     is_advert, advert_reason = is_advertorial(

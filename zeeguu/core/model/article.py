@@ -127,6 +127,14 @@ class Article(db.Model):
         cascade="all, delete-orphan",
     )
 
+    # 1:1 relationship to tokenization cache
+    tokenization_cache = relationship(
+        "ArticleTokenizationCache",
+        back_populates="article",
+        uselist=False,  # 1:1 relationship
+        cascade="all, delete-orphan",
+    )
+
     from zeeguu.core.model.url import Url
 
     from zeeguu.core.model.feed import Feed

@@ -67,14 +67,16 @@ def create_app(testing=False):
     # inspired from: https://stackoverflow.com/a/47278172/1200070
 
     # Configure connection pool to handle concurrent requests
-    # Default is 5 + 10 overflow = 15 total connections
-    # Increase to handle higher concurrency
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_size": 10,  # Core pool size (up from default 5)
-        "max_overflow": 20,  # Additional connections when pool exhausted (up from default 10)
-        "pool_recycle": 3600,  # Recycle connections after 1 hour to avoid MySQL timeout
-        "pool_pre_ping": True,  # Verify connections before using them
-    }
+    # Only apply pool settings for MySQL, not for SQLite (used in tests)
+    if "mysql" in app.config["SQLALCHEMY_DATABASE_URI"].lower():
+        # Default is 5 + 10 overflow = 15 total connections
+        # Increase to handle higher concurrency
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_size": 10,  # Core pool size (up from default 5)
+            "max_overflow": 20,  # Additional connections when pool exhausted (up from default 10)
+            "pool_recycle": 3600,  # Recycle connections after 1 hour to avoid MySQL timeout
+            "pool_pre_ping": True,  # Verify connections before using them
+        }
 
     from zeeguu.core.model.db import db
 
