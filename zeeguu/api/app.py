@@ -210,4 +210,29 @@ def create_app(testing=False):
     else:
         warning("*** Wordstats will use lazy loading (PRELOAD_WORDSTATS=False)")
 
+    # Preload Stanza tokenizers to avoid blocking during requests
+    if app.config.get("PRELOAD_STANZA", True):  # Default to True
+        warning("*** Preloading Stanza tokenizers...")
+        start_time = time.time()
+        from zeeguu.core.model import Language
+        from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
+        from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
+
+        language_codes = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
+
+        # Preload tokenizers for all supported languages
+        for lang_code in language_codes:
+            try:
+                language = Language.find_or_create(lang_code)
+                # Create tokenizer (will cache the model)
+                tokenizer = StanzaTokenizer(language, TokenizerModel.STANZA_TOKEN_ONLY)
+                warning(f"*** Preloaded Stanza tokenizer for {lang_code}")
+            except Exception as e:
+                warning(f"*** Failed to preload Stanza for {lang_code}: {e}")
+
+        elapsed = time.time() - start_time
+        warning(f"*** Stanza tokenizers preloaded for {len(language_codes)} languages in {elapsed:.2f}s")
+    else:
+        warning("*** Stanza tokenizers will use lazy loading (PRELOAD_STANZA=False)")
+
     return app
