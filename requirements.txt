@@ -68,7 +68,7 @@ lxml_html_clean
 pydantic>=1.10.8
 
 # nlp pipeline
-stanza==1.10.1
+stanza==1.11.0
 
 # For videos
 emoji
