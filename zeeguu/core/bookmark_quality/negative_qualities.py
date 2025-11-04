@@ -79,14 +79,17 @@ def origin_is_subsumed_in_other_bookmark(bookmark):
     from zeeguu.core.model.bookmark import Bookmark
     import time
 
-    logp(f"[QUALITY-TIMING] origin_is_subsumed_in_other_bookmark START for bookmark_id={bookmark.id}, context_id={bookmark.context_id}")
+    context_preview = bookmark.get_context()[:100] if bookmark.get_context() else "None"
+    logp(f"[QUALITY-TIMING] origin_is_subsumed_in_other_bookmark START for bookmark_id={bookmark.id}, context_id={bookmark.context_id}, word='{bookmark.user_word.meaning.origin.content}', context='{context_preview}'")
     start_time = time.time()
 
+    query_start = time.time()
     all_bookmarks_in_text = Bookmark.find_all_for_context_and_user(
         bookmark.context, bookmark.user_word.user
     )
+    query_time = time.time() - query_start
 
-    logp(f"[QUALITY-TIMING] find_all_for_context_and_user returned {len(all_bookmarks_in_text)} bookmarks in {time.time() - start_time:.3f}s")
+    logp(f"[QUALITY-TIMING] find_all_for_context_and_user returned {len(all_bookmarks_in_text)} bookmarks in {query_time:.3f}s")
 
     for each in all_bookmarks_in_text:
         if each != bookmark:

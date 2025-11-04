@@ -36,7 +36,11 @@ def get_one_translation(from_lang_code, to_lang_code):
     """
     :return: json array with translations
     """
+    from zeeguu.logging import log
+    log(f"[TRANSLATION-ENTRY] get_one_translation CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}")
+
     word_str = request.json["word"].strip(punctuation_extended)
+    log(f"[TRANSLATION-ENTRY] word='{word_str}'")
     w_sent_i = request.json.get("w_sent_i", None)
     w_token_i = request.json.get("w_token_i", None)
     w_total_tokens = request.json.get("w_total_tokens", None)
