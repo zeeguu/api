@@ -515,12 +515,15 @@ class UserArticle(db.Model):
             "language": article.language.code,
         }
 
+        # DISABLED FOR DEMO - backend has infinite loop bug
+        if False:
         # Get or create tokenization cache
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
-        cache = ArticleTokenizationCache.find_or_create(db.session, article)
+        # from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        # cache = ArticleTokenizationCache.find_or_create(db.session, article)
 
         # Tokenize summary if available
-        if article.summary:
+            pass
+        if False and article.summary:
             summary_context_id = ContextIdentifier(
                 ContextType.ARTICLE_SUMMARY, article_id=article.id
             )
@@ -550,8 +553,10 @@ class UserArticle(db.Model):
                 ),
             }
 
+        # DISABLED FOR DEMO
+        if False:
         # Tokenize title (always present)
-        title_context_id = ContextIdentifier(
+            title_context_id = ContextIdentifier(
             ContextType.ARTICLE_TITLE, article_id=article.id
         )
 
