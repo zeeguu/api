@@ -34,7 +34,7 @@ RUN a2enmod headers
 # ML: maybe better to map this file from outside?
 RUN echo '\n\
 <VirtualHost *:8080>\n\
-    WSGIDaemonProcess zeeguu_api home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
+    WSGIDaemonProcess zeeguu_api processes=4 threads=15 request-timeout=300 home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
     WSGIScriptAlias / /Zeeguu-API/zeeguu_api.wsgi\n\
     <Location />\n\
         WSGIProcessGroup zeeguu_api\n\
