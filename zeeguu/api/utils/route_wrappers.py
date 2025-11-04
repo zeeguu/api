@@ -24,7 +24,9 @@ def requires_session(view):
 
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
+        import sys
         print("--> /" + view.__name__)
+        sys.stdout.flush()
         try:
             session_uuid = flask.request.args["session"]
 
@@ -57,15 +59,27 @@ def requires_session(view):
 
             flask.g.user_id = user_id
             flask.g.session_uuid = session_uuid
-            
+
             # Update user's last_seen timestamp (once per day maximum)
+            print(f"[SESSION-DEBUG] Loading user {user_id}")
+            sys.stdout.flush()
             from zeeguu.core.model import User
             from zeeguu.core.model.db import db
+            print(f"[SESSION-DEBUG] About to call User.find_by_id({user_id})")
+            sys.stdout.flush()
             user = User.find_by_id(user_id)
+            print(f"[SESSION-DEBUG] User loaded: {user.email if user else 'None'}")
+            sys.stdout.flush()
             if user:
+                print(f"[SESSION-DEBUG] About to call update_last_seen_if_needed()")
+                sys.stdout.flush()
                 user.update_last_seen_if_needed(db.session)
+                print(f"[SESSION-DEBUG] About to commit()")
+                sys.stdout.flush()
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
+                print(f"[SESSION-DEBUG] Commit completed")
+                sys.stdout.flush()
         except BadRequestKeyError as e:
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
