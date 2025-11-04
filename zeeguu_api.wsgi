@@ -39,18 +39,18 @@ logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 #     print("flask_monitornig_dashboard package is not present. Running w/o FMD.")
 
 
-try:
-    import flask_monitoringdashboard as fmd
-    import flask
-    from zeeguu.core.model import Session
-
-    fmd.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
-    fmd.config.get_group_by = lambda: Session.find(request=flask.request).user_id
-    fmd.bind(application)
-except Exception as e:
-    import traceback
-
-    traceback.print_exc()
+# try:
+#     import flask_monitoringdashboard as fmd
+#     import flask
+#     from zeeguu.core.model import Session
+#
+#     fmd.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
+#     fmd.config.get_group_by = lambda: Session.find(request=flask.request).user_id
+#     fmd.bind(application)
+# except Exception as e:
+#     import traceback
+#
+#     traceback.print_exc()
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":
     # Make sure to keep this in sync with zeeguu_api_dev.wsgi
