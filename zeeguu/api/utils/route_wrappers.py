@@ -66,37 +66,15 @@ def requires_session(view):
             flask.g.session_uuid = session_uuid
 
             # Update user's last_seen timestamp (once per day maximum)
-            step_start = time_module.time()
-            print(f"[SESSION-DEBUG] Loading user {user_id} [time={step_start}]")
-            sys.stdout.flush()
             from zeeguu.core.model import User
             from zeeguu.core.model.db import db
 
-            step_start = time_module.time()
-            print(f"[SESSION-DEBUG] About to call User.find_by_id({user_id}) [time={step_start}]")
-            sys.stdout.flush()
             user = User.find_by_id(user_id)
-            elapsed = time_module.time() - step_start
-            print(f"[SESSION-DEBUG] User loaded: {user.email if user else 'None'} [elapsed={elapsed:.3f}s]")
-            sys.stdout.flush()
 
             if user:
-                step_start = time_module.time()
-                print(f"[SESSION-DEBUG] About to call update_last_seen_if_needed() [time={step_start}]")
-                sys.stdout.flush()
                 user.update_last_seen_if_needed(db.session)
-                elapsed = time_module.time() - step_start
-                print(f"[SESSION-DEBUG] update_last_seen_if_needed completed [elapsed={elapsed:.3f}s]")
-                sys.stdout.flush()
-
-                step_start = time_module.time()
-                print(f"[SESSION-DEBUG] About to commit() [time={step_start}]")
-                sys.stdout.flush()
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
-                elapsed = time_module.time() - step_start
-                print(f"[SESSION-DEBUG] Commit completed [elapsed={elapsed:.3f}s]")
-                sys.stdout.flush()
         except BadRequestKeyError as e:
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
