@@ -148,6 +148,23 @@ def create_app(testing=False):
     zeeguu.core.app = app
 
     # print(app.config)
+    # Log the current git commit hash
+    try:
+        import subprocess
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL
+        ).decode('utf-8').strip()[:8]
+        git_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL
+        ).decode('utf-8').strip()
+        warning(f"*** ==== ZEEGUU API VERSION: {git_branch}@{git_hash}")
+    except Exception:
+        warning("*** ==== ZEEGUU API VERSION: <git info unavailable>")
+
     # Log the DB connection string; after masking the password
     db_connection_string = app.config["SQLALCHEMY_DATABASE_URI"]
     anon_conn_string = re.sub(
