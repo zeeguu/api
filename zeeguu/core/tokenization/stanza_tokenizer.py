@@ -6,6 +6,7 @@ from zeeguu.config import ZEEGUU_RESOURCES_FOLDER
 
 import stanza
 import os
+import threading
 
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
