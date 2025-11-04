@@ -97,6 +97,17 @@ def requires_session(view):
                 elapsed = time_module.time() - step_start
                 print(f"[SESSION-DEBUG] Commit completed [elapsed={elapsed:.3f}s]")
                 sys.stdout.flush()
+
+                # CRITICAL: Remove session immediately after commit to return connection to pool
+                # This ensures the connection is released before expensive endpoint operations
+                # (like Stanza model loading) that happen during response generation
+                step_start = time_module.time()
+                print(f"[SESSION-DEBUG] About to remove session [time={step_start}]")
+                sys.stdout.flush()
+                db.session.remove()
+                elapsed = time_module.time() - step_start
+                print(f"[SESSION-DEBUG] Session removed (connection returned) [elapsed={elapsed:.3f}s]")
+                sys.stdout.flush()
         except BadRequestKeyError as e:
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
