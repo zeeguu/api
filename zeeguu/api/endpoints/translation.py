@@ -24,6 +24,7 @@ from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.text import Text
 from . import api, db_session
+from zeeguu.logging import log as zeeguu_log
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -33,6 +34,7 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 @cross_domain
 @requires_session
 def get_one_translation(from_lang_code, to_lang_code):
+    zeeguu_log(f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED get_one_translation function: from={from_lang_code}, to={to_lang_code}")
     """
     :return: json array with translations
     """
