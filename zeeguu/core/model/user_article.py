@@ -515,12 +515,14 @@ class UserArticle(db.Model):
             "language": article.language.code,
         }
 
+        # TEMPORARY: Disable tokenization for demo - causing CPU issues
+        # TODO: Re-enable after debugging the hanging tokenization bug
         # Get or create tokenization cache
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
-        cache = ArticleTokenizationCache.find_or_create(db.session, article)
+        # from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        # cache = ArticleTokenizationCache.find_or_create(db.session, article)
 
         # Tokenize summary if available
-        if article.summary:
+        if False:  # Disabled - article.summary:
             summary_context_id = ContextIdentifier(
                 ContextType.ARTICLE_SUMMARY, article_id=article.id
             )
@@ -550,8 +552,10 @@ class UserArticle(db.Model):
                 ),
             }
 
+        # TEMPORARY: Disable title tokenization for demo
+        if False:  # Disabled
         # Tokenize title (always present)
-        title_context_id = ContextIdentifier(
+            title_context_id = ContextIdentifier(
             ContextType.ARTICLE_TITLE, article_id=article.id
         )
 
