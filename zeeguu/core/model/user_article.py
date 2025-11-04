@@ -540,7 +540,7 @@ class UserArticle(db.Model):
                 tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
                 cache.tokenized_summary = json.dumps(tokenized_summary)
                 db.session.add(cache)
-                db.session.commit()
+                # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
             result["tokenized_summary"] = {
                 "tokens": tokenized_summary,
@@ -570,7 +570,7 @@ class UserArticle(db.Model):
             tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
             cache.tokenized_title = json.dumps(tokenized_title)
             db.session.add(cache)
-            db.session.commit()
+            # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
         result["tokenized_title"] = {
             "tokens": tokenized_title,
