@@ -495,9 +495,11 @@ class UserArticle(db.Model):
             # (full content tokenization includes everything)
             summary_info = cls.user_article_summary_info(user, article)
             # Merge summary-specific keys into the returned info
-            for key in ["interactiveSummary", "interactiveTitle"]:
-                if key in summary_info:
-                    returned_info[key] = summary_info[key]
+            # Map to frontend-expected keys for backwards compatibility
+            if "tokenized_summary" in summary_info:
+                returned_info["interactiveSummary"] = summary_info["tokenized_summary"]
+            if "tokenized_title" in summary_info:
+                returned_info["interactiveTitle"] = summary_info["tokenized_title"]
 
         return returned_info
 
