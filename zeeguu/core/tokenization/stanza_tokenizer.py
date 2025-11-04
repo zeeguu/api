@@ -27,6 +27,8 @@ class StanzaTokenizer(ZeeguuTokenizer):
     # We cache the models to avoid having to re-initialize pipelines everytime.
     # Once the model is loaded it's kept in memory for later use.
     CACHED_NLP_PIPELINES = {}
+    # Thread lock to prevent race condition when loading models
+    _PIPELINE_LOAD_LOCK = threading.Lock()
 
     def _get_processor(model: TokenizerModel):
         if model == TokenizerModel.STANZA_TOKEN_ONLY:
@@ -40,14 +42,18 @@ class StanzaTokenizer(ZeeguuTokenizer):
         key = (self.language.code, self.model_type)
         if self.model_type in StanzaTokenizer.STANZA_MODELS:
             # Store used models.
+            # Use double-checked locking pattern to avoid race condition
             if key not in StanzaTokenizer.CACHED_NLP_PIPELINES:
-                pipeline = stanza.Pipeline(
-                    lang=self.language.code,
-                    processors=StanzaTokenizer._get_processor(model),
-                    download_method=None,
-                    model_dir=STANZA_RESOURCE_DIR,
-                )
-                StanzaTokenizer.CACHED_NLP_PIPELINES[key] = pipeline
+                with StanzaTokenizer._PIPELINE_LOAD_LOCK:
+                    # Check again after acquiring lock (another thread might have loaded it)
+                    if key not in StanzaTokenizer.CACHED_NLP_PIPELINES:
+                        pipeline = stanza.Pipeline(
+                            lang=self.language.code,
+                            processors=StanzaTokenizer._get_processor(model),
+                            download_method=None,
+                            model_dir=STANZA_RESOURCE_DIR,
+                        )
+                        StanzaTokenizer.CACHED_NLP_PIPELINES[key] = pipeline
         self.nlp_pipeline = StanzaTokenizer.CACHED_NLP_PIPELINES[key]
 
     def is_language_supported(self, language: Language):
