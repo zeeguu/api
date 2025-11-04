@@ -66,6 +66,16 @@ def create_app(testing=False):
     app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
     # inspired from: https://stackoverflow.com/a/47278172/1200070
 
+    # Configure connection pool to handle concurrent requests
+    # Default is 5 + 10 overflow = 15 total connections
+    # Increase to handle higher concurrency
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_size": 10,  # Core pool size (up from default 5)
+        "max_overflow": 20,  # Additional connections when pool exhausted (up from default 10)
+        "pool_recycle": 3600,  # Recycle connections after 1 hour to avoid MySQL timeout
+        "pool_pre_ping": True,  # Verify connections before using them
+    }
+
     from zeeguu.core.model.db import db
 
     db.init_app(app)
@@ -109,6 +119,15 @@ def create_app(testing=False):
         timestamp = time.time()
         print(f"[FLASK-REQUEST-START] {flask.request.method} {flask.request.path} [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
         sys.stderr.flush()
+
+    # Clean up database session after each request to return connections to pool
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        import sys
+        db.session.remove()
+        if exception:
+            print(f"[DB-SESSION-TEARDOWN] Exception during request: {exception}", file=sys.stderr)
+            sys.stderr.flush()
 
     # Add static file serving for audio files
     @app.route("/audio/<path:filename>")
