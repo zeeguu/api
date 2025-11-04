@@ -124,7 +124,15 @@ def create_app(testing=False):
     @app.teardown_appcontext
     def shutdown_session(exception=None):
         import sys
+        import threading
+        import time
+        thread_id = threading.current_thread().ident
+        timestamp = time.time()
+        print(f"[DB-SESSION-TEARDOWN] Removing session [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
+        sys.stderr.flush()
         db.session.remove()
+        print(f"[DB-SESSION-TEARDOWN] Session removed successfully [thread={thread_id}]", file=sys.stderr)
+        sys.stderr.flush()
         if exception:
             print(f"[DB-SESSION-TEARDOWN] Exception during request: {exception}", file=sys.stderr)
             sys.stderr.flush()
