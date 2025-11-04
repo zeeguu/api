@@ -95,6 +95,12 @@ def get_one_translation(from_lang_code, to_lang_code):
             source = "DEV_SKIP"
             t1 = {translation: translation, likelihood: likelihood, source: source}
         else:
+            from zeeguu.logging import log
+            import time
+
+            log(f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}")
+            start_time = time.time()
+
             data = {
                 "source_language": from_lang_code,
                 "target_language": to_lang_code,
@@ -109,11 +115,16 @@ def get_one_translation(from_lang_code, to_lang_code):
             if not t1:
                 t1 = microsoft_contextual_translate(data)
 
+            elapsed = time.time() - start_time
+            log(f"[TRANSLATION-TIMING] Translation API call completed in {elapsed:.3f}s, result='{t1.get('translation', 'N/A')}'")
+
+        log(f"[TRANSLATION-TIMING] About to call Bookmark.find_or_create for word='{word_str}'")
+        bookmark_start = time.time()
         user = User.find_by_id(flask.g.user_id)
-        
+
         # Get translation source from frontend, default to 'reading'
         translation_source = request.json.get("translation_source", "reading")
-        
+
         bookmark = Bookmark.find_or_create(
             db_session,
             user,
@@ -135,6 +146,9 @@ def get_one_translation(from_lang_code, to_lang_code):
             context_identifier=context_identifier,
             translation_source=translation_source,
         )
+
+        bookmark_elapsed = time.time() - bookmark_start
+        log(f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'")
 
     return json_result(
         {

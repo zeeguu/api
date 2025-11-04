@@ -320,22 +320,37 @@ class Bookmark(db.Model):
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
         """
+        from zeeguu.logging import log
+        import time
 
+        log(f"[BOOKMARK-TIMING] find_or_create START for word='{_origin}'")
+        start_time = time.time()
+
+        log(f"[BOOKMARK-TIMING] Creating Meaning for '{_origin}' -> '{_translation}'")
+        meaning_start = time.time()
         meaning = Meaning.find_or_create(
             session, _origin, _origin_lang, _translation, _translation_lang
         )
+        log(f"[BOOKMARK-TIMING] Meaning.find_or_create took {time.time() - meaning_start:.3f}s")
 
+        log(f"[BOOKMARK-TIMING] Creating UserWord")
+        uw_start = time.time()
         user_word = UserWord.find_or_create(session, user, meaning)
+        log(f"[BOOKMARK-TIMING] UserWord.find_or_create took {time.time() - uw_start:.3f}s")
 
+        log(f"[BOOKMARK-TIMING] Getting Source")
         source = Source.find_by_id(source_id)
 
         # TODO: This will be temporary.
+        log(f"[BOOKMARK-TIMING] Getting Article")
         article = None
         if source_id and not article_id:
             article = Article.find_by_source_id(source_id)
         if article_id:
             article = Article.query.filter_by(id=article_id).one()
 
+        log(f"[BOOKMARK-TIMING] Creating BookmarkContext")
+        ctx_start = time.time()
         context = BookmarkContext.find_or_create(
             session,
             _context,
@@ -346,7 +361,10 @@ class Bookmark(db.Model):
             left_ellipsis,
             right_ellipsis,
         )
+        log(f"[BOOKMARK-TIMING] BookmarkContext.find_or_create took {time.time() - ctx_start:.3f}s")
 
+        log(f"[BOOKMARK-TIMING] Creating Text")
+        text_start = time.time()
         text = Text.find_or_create(
             session,
             _context,
@@ -360,14 +378,18 @@ class Bookmark(db.Model):
             left_ellipsis,
             right_ellipsis,
         )
+        log(f"[BOOKMARK-TIMING] Text.find_or_create took {time.time() - text_start:.3f}s")
 
         now = datetime.now()
 
+        log(f"[BOOKMARK-TIMING] Finding or creating bookmark instance")
         try:
             # try to find this bookmark
             bookmark = Bookmark.find_by_usermeaning_and_context(user_word, context)
+            log(f"[BOOKMARK-TIMING] Found existing bookmark id={bookmark.id}")
 
         except sqlalchemy.orm.exc.NoResultFound as e:
+            log(f"[BOOKMARK-TIMING] Creating new bookmark")
             bookmark = cls(
                 user_word,
                 source,
@@ -382,20 +404,32 @@ class Bookmark(db.Model):
         except Exception as e:
             raise e
 
+        log(f"[BOOKMARK-TIMING] Adding bookmark to session and committing")
+        commit_start = time.time()
         session.add(bookmark)
         bookmark.create_context_mapping(session, context_identifier, commit=False)
         session.add(bookmark)
         session.commit()
+        log(f"[BOOKMARK-TIMING] First commit took {time.time() - commit_start:.3f}s")
 
         # Set this bookmark as the preferred bookmark if none is set
         if user_word.preferred_bookmark is None:
+            log(f"[BOOKMARK-TIMING] Setting preferred bookmark")
             user_word.preferred_bookmark = bookmark
             session.add(user_word)
 
         # Update fit_for_study after bookmark is created
+        log(f"[BOOKMARK-TIMING] Calling update_fit_for_study")
+        fit_start = time.time()
         user_word.update_fit_for_study(session)
-        session.commit()
+        log(f"[BOOKMARK-TIMING] update_fit_for_study took {time.time() - fit_start:.3f}s")
 
+        log(f"[BOOKMARK-TIMING] Final commit")
+        final_commit_start = time.time()
+        session.commit()
+        log(f"[BOOKMARK-TIMING] Final commit took {time.time() - final_commit_start:.3f}s")
+
+        log(f"[BOOKMARK-TIMING] find_or_create TOTAL TIME: {time.time() - start_time:.3f}s")
         return bookmark
 
     def sorted_exercise_log(self):

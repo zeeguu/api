@@ -100,17 +100,30 @@ class UserWord(db.Model):
         :param session:
         :return:
         """
+        from zeeguu.logging import log
+        import time
+
+        log(f"[USERWORD-TIMING] update_fit_for_study START for word='{self.meaning.origin.content}'")
+        start_time = time.time()
+
         old_fit_for_study = self.fit_for_study
+
+        log(f"[USERWORD-TIMING] Calling fit_for_study check")
+        fit_check_start = time.time()
         self.fit_for_study = fit_for_study(self)
+        log(f"[USERWORD-TIMING] fit_for_study check took {time.time() - fit_check_start:.3f}s, result={self.fit_for_study}")
 
         # If the word became unfit for study, clear its schedule
         if old_fit_for_study and not self.fit_for_study:
             from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
+            log(f"[USERWORD-TIMING] Clearing schedule (word became unfit)")
             BasicSRSchedule.clear_user_word_schedule(session, self)
 
         if session:
             session.add(self)
+
+        log(f"[USERWORD-TIMING] update_fit_for_study TOTAL: {time.time() - start_time:.3f}s")
 
     def validate_data_integrity(self):
         """
