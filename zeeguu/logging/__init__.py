@@ -22,7 +22,6 @@ def debug(msg):
 
 def log(msg):
     info(msg)
-    print(msg)
 
 
 def warning(msg):
@@ -34,8 +33,9 @@ def critical(msg):
 
 
 def logp(msg):
+    # Just log - no duplicate printing
+    # (Previously this printed twice causing log spam)
     log(msg)
-    print(msg)
 
 
 def print_and_log_to_sentry(e: Exception):
