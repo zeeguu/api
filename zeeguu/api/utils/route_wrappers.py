@@ -27,6 +27,14 @@ def requires_session(view):
         import sys
         print("--> /" + view.__name__)
         sys.stdout.flush()
+
+        # Enable SQL query logging for debugging
+        import logging
+        logging.basicConfig()
+        sql_logger = logging.getLogger('sqlalchemy.engine')
+        original_level = sql_logger.level
+        sql_logger.setLevel(logging.INFO)
+
         try:
             session_uuid = flask.request.args["session"]
 
@@ -95,6 +103,9 @@ def requires_session(view):
             traceback.print_exc()
             print("-- Some other exception. Aborting")
             flask.abort(401)
+        finally:
+            # Restore original SQL logging level
+            sql_logger.setLevel(original_level)
 
         return view(*args, **kwargs)
 
