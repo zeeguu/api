@@ -25,15 +25,12 @@ def requires_session(view):
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
         import sys
-        print("--> /" + view.__name__)
+        import threading
+        import time as time_module
+        request_start = time_module.time()
+        thread_id = threading.current_thread().ident
+        print(f"--> /{view.__name__} [thread={thread_id}] [time={time_module.time()}]")
         sys.stdout.flush()
-
-        # Enable SQL query logging for debugging
-        import logging
-        logging.basicConfig()
-        sql_logger = logging.getLogger('sqlalchemy.engine')
-        original_level = sql_logger.level
-        sql_logger.setLevel(logging.INFO)
 
         try:
             session_uuid = flask.request.args["session"]
@@ -69,24 +66,36 @@ def requires_session(view):
             flask.g.session_uuid = session_uuid
 
             # Update user's last_seen timestamp (once per day maximum)
-            print(f"[SESSION-DEBUG] Loading user {user_id}")
+            step_start = time_module.time()
+            print(f"[SESSION-DEBUG] Loading user {user_id} [time={step_start}]")
             sys.stdout.flush()
             from zeeguu.core.model import User
             from zeeguu.core.model.db import db
-            print(f"[SESSION-DEBUG] About to call User.find_by_id({user_id})")
+
+            step_start = time_module.time()
+            print(f"[SESSION-DEBUG] About to call User.find_by_id({user_id}) [time={step_start}]")
             sys.stdout.flush()
             user = User.find_by_id(user_id)
-            print(f"[SESSION-DEBUG] User loaded: {user.email if user else 'None'}")
+            elapsed = time_module.time() - step_start
+            print(f"[SESSION-DEBUG] User loaded: {user.email if user else 'None'} [elapsed={elapsed:.3f}s]")
             sys.stdout.flush()
+
             if user:
-                print(f"[SESSION-DEBUG] About to call update_last_seen_if_needed()")
+                step_start = time_module.time()
+                print(f"[SESSION-DEBUG] About to call update_last_seen_if_needed() [time={step_start}]")
                 sys.stdout.flush()
                 user.update_last_seen_if_needed(db.session)
-                print(f"[SESSION-DEBUG] About to commit()")
+                elapsed = time_module.time() - step_start
+                print(f"[SESSION-DEBUG] update_last_seen_if_needed completed [elapsed={elapsed:.3f}s]")
+                sys.stdout.flush()
+
+                step_start = time_module.time()
+                print(f"[SESSION-DEBUG] About to commit() [time={step_start}]")
                 sys.stdout.flush()
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
-                print(f"[SESSION-DEBUG] Commit completed")
+                elapsed = time_module.time() - step_start
+                print(f"[SESSION-DEBUG] Commit completed [elapsed={elapsed:.3f}s]")
                 sys.stdout.flush()
         except BadRequestKeyError as e:
             # This surely happens for missing session key
@@ -103,10 +112,10 @@ def requires_session(view):
             traceback.print_exc()
             print("-- Some other exception. Aborting")
             flask.abort(401)
-        finally:
-            # Restore original SQL logging level
-            sql_logger.setLevel(original_level)
 
+        elapsed = time_module.time() - request_start
+        print(f"<-- /{view.__name__} [thread={thread_id}] [elapsed={elapsed:.3f}s]")
+        sys.stdout.flush()
         return view(*args, **kwargs)
 
     return wrapped_view

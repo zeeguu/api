@@ -69,6 +69,25 @@ def create_app(testing=False):
 
     db.init_app(app)
 
+    # Add SQL query listener to catch source_text queries
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+    import sys
+
+    @event.listens_for(Engine, "before_cursor_execute")
+    def detect_source_text_query(conn, cursor, statement, parameters, context, executemany):
+        if "source_text" in statement.lower():
+            # Check if it's a full table scan (SELECT without WHERE on source_text)
+            if "select" in statement.lower() and "from source_text" in statement.lower():
+                if "where" not in statement.lower():
+                    print(f"\n!!! FULL TABLE SCAN DETECTED ON source_text !!!", file=sys.stderr)
+                    print(f"Statement: {statement[:500]}", file=sys.stderr)
+                    print(f"Parameters: {parameters}", file=sys.stderr)
+                    import traceback
+                    print("Call stack:", file=sys.stderr)
+                    traceback.print_stack(file=sys.stderr)
+                    sys.stderr.flush()
+
     # Creating the DB tables if needed
     # Note that this must be called after all the model classes are loaded
     # And they are loaded above, in the import db... which implicitly loads the model package
