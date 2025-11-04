@@ -2,6 +2,7 @@
 from zeeguu.config.loader import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask, send_from_directory
+import flask
 import time
 import os
 import re
@@ -97,6 +98,17 @@ def create_app(testing=False):
     from .endpoints import api
 
     app.register_blueprint(api)
+
+    # Add request logging to catch ALL requests before they hit endpoints
+    @app.before_request
+    def log_request_start():
+        import sys
+        import time
+        import threading
+        thread_id = threading.current_thread().ident
+        timestamp = time.time()
+        print(f"[FLASK-REQUEST-START] {flask.request.method} {flask.request.path} [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
+        sys.stderr.flush()
 
     # Add static file serving for audio files
     @app.route("/audio/<path:filename>")
