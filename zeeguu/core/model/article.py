@@ -299,6 +299,7 @@ class Article(db.Model):
 
     def update(self, db_session, language, content, htmlContent, title):
         from zeeguu.core.model.article_fragment import ArticleFragment
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
         self.language = language
         self.update_content(db_session, content, commit=False)
@@ -308,6 +309,9 @@ class Article(db.Model):
 
         # Delete existing fragments
         ArticleFragment.query.filter_by(article_id=self.id).delete()
+
+        # Invalidate tokenization cache since content/title/summary changed
+        ArticleTokenizationCache.query.filter_by(article_id=self.id).delete()
 
         # Recreate fragments with updated content
         self.create_article_fragments(db_session)

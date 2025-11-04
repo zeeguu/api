@@ -376,7 +376,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True
+        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True
     ):
         """
         Returns user-specific article information for the given article.
@@ -387,6 +387,7 @@ class UserArticle(db.Model):
             article: The article to get info for
             with_content: Whether to include full content/tokenization
             with_translations: Whether to include translation data
+            with_summary: Whether to include tokenized summary/title (default True for homepage performance)
         """
 
         from zeeguu.core.model.bookmark import Bookmark
@@ -487,6 +488,16 @@ class UserArticle(db.Model):
             returned_info["has_personal_copy"] = True
         else:
             returned_info["has_personal_copy"] = False
+
+        # Include tokenized summary if requested (enabled by default for homepage performance)
+        if with_summary and not with_content:
+            # Only include summary if we're not already including full content
+            # (full content tokenization includes everything)
+            summary_info = cls.user_article_summary_info(user, article)
+            # Merge summary-specific keys into the returned info
+            for key in ["interactiveSummary", "interactiveTitle"]:
+                if key in summary_info:
+                    returned_info[key] = summary_info[key]
 
         return returned_info
 

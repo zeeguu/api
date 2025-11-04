@@ -56,21 +56,35 @@ def user_article():
 @requires_session
 def user_article_summary():
     """
+    DEPRECATED: This endpoint is now redundant. The /user_articles/recommended endpoint
+    includes tokenized summary/title data directly (via the interactiveSummary and
+    interactiveTitle fields).
+
+    This endpoint is maintained for backwards compatibility with forks/extensions.
+
     Returns tokenized summary (and optionally title) for an article with user bookmarks.
     Much lighter than user_article as it doesn't tokenize the full content.
-    
+
     :param article_id: article identifier
     :return: json with tokenized summary/title and user bookmarks
     """
-    
+    from zeeguu.logging import log
+
     article_id = request.args.get("article_id", "")
     if not article_id:
         flask.abort(400)
-    
+
     article_id = int(article_id)
+
+    # Log deprecation warning (but not too frequently to avoid log spam)
+    import random
+    if random.random() < 0.1:  # Log ~10% of calls
+        log(f"[DEPRECATION] /user_article_summary called for article {article_id}. "
+            "This endpoint is deprecated - use /user_articles/recommended which includes summary data.")
+
     article = Article.query.filter_by(id=article_id).one()
     user = User.find_by_id(flask.g.user_id)
-    
+
     return json_result(UserArticle.user_article_summary_info(user, article))
 
 
