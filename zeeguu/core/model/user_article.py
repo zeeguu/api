@@ -582,13 +582,16 @@ class UserArticle(db.Model):
                 # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
             bookmark_start = time.time()
-            result["tokenized_summary"] = {
-                "tokens": tokenized_summary,
-                "context_identifier": summary_context_id.as_dictionary(),
-                "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
-                    user.id, article.id
-                ),
-            }
+            # Use no_autoflush to prevent premature flush of tokenization cache
+            # while querying for bookmarks (avoids lock timeouts)
+            with db.session.no_autoflush:
+                result["tokenized_summary"] = {
+                    "tokens": tokenized_summary,
+                    "context_identifier": summary_context_id.as_dictionary(),
+                    "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
+                        user.id, article.id
+                    ),
+                }
             bookmark_time = time.time() - bookmark_start
             log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
 
@@ -631,13 +634,16 @@ class UserArticle(db.Model):
             # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
 
         bookmark_start = time.time()
-        result["tokenized_title"] = {
-            "tokens": tokenized_title,
-            "context_identifier": title_context_id.as_dictionary(),
-            "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
-                user.id, article.id
-            ),
-        }
+        # Use no_autoflush to prevent premature flush of tokenization cache
+        # while querying for bookmarks (avoids lock timeouts)
+        with db.session.no_autoflush:
+            result["tokenized_title"] = {
+                "tokens": tokenized_title,
+                "context_identifier": title_context_id.as_dictionary(),
+                "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                    user.id, article.id
+                ),
+            }
         bookmark_time = time.time() - bookmark_start
         log(f"[TOKENIZATION-TITLE] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
 
