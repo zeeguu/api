@@ -93,3 +93,37 @@ def update_own_text(article_id):
     db_session.commit()
 
     return "OK"
+
+
+@api.route("/estimate_article_cefr", methods=["POST"])
+@cross_domain
+@requires_session
+def estimate_article_cefr():
+    """
+    Estimate CEFR level for article content without requiring an article ID.
+    Used when creating new articles before they're saved to the database.
+
+    Returns ML assessment for the given content.
+    """
+    from zeeguu.api.endpoints.article_cefr_recompute import compute_ml_assessment
+
+    content = request.form.get("content", "")
+    language_code = request.form.get("language", "")
+    title = request.form.get("title", "")  # Not used for ML, but kept for API compatibility
+
+    if not content or not language_code:
+        return json_result({"error": "Content and language are required"}), 400
+
+    ml_assessment, ml_method = compute_ml_assessment(content, language_code)
+
+    if ml_assessment is None:
+        return json_result({
+            "cefr_level": None,
+            "assessment_method": None,
+            "error": "Could not estimate CEFR level for this language"
+        })
+
+    return json_result({
+        "cefr_level": ml_assessment,
+        "assessment_method": ml_method
+    })
