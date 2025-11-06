@@ -52,7 +52,10 @@ def test_reset_password(client):
     db.session.add(code)
     db.session.commit()
 
-    form_data = dict(code=code, password="updated")
+    # Store the code value before the object is detached
+    code_value = code.code
+
+    form_data = dict(code=code_value, password="updated")
     rv = client.post("/reset_password/" + TEST_EMAIL, data=form_data)
     assert rv.status_code == 200
 
@@ -64,7 +67,10 @@ def test_reset_password_can_use_new_password(client):
     db.session.add(code)
     db.session.commit()
 
-    form_data = dict(code=code, password="updated")
+    # Store the code value before the object is detached
+    code_value = code.code
+
+    form_data = dict(code=code_value, password="updated")
     rv = client.post("/reset_password/" + TEST_EMAIL, data=form_data)
     assert rv.status_code == 200
 
@@ -82,13 +88,16 @@ def test_reset_password_returns_400_invalid_code(client):
     db.session.add(code)
     db.session.commit()
 
+    # Store the code value before the object is detached
+    code_value = code.code
+
     # invalid_code
     form_data = dict(code="thiswontwork", password="updated")
     rv = client.post("/reset_password/" + TEST_EMAIL, data=form_data)
     assert rv.status_code == 400
 
     # password too short
-    form_data = dict(code=code, password="2sh")
+    form_data = dict(code=code_value, password="2sh")
     rv = client.post("/reset_password/" + TEST_EMAIL, data=form_data)
     assert rv.status_code == 400
 

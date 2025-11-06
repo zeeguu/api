@@ -125,7 +125,12 @@ def create_app(testing=False):
     # Clean up database session after each request to return connections to pool
     @app.teardown_request
     def shutdown_session_request(exception=None):
-        db.session.remove()
+        try:
+            db.session.remove()
+        except RuntimeError:
+            # If we're outside of application context (e.g., during test teardown),
+            # the session has already been cleaned up or doesn't need cleanup
+            pass
         if exception:
             import sys
             print(f"[DB-SESSION-TEARDOWN] Exception during request: {exception}", file=sys.stderr)
