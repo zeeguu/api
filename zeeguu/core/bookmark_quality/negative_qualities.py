@@ -7,6 +7,7 @@ def bad_quality_bookmark(bookmark):
         origin_is_subsumed_in_other_bookmark(bookmark)
         or context_is_too_long(bookmark)
         or translation_already_in_context_bug(bookmark)
+        or word_not_in_context(bookmark)
     )
 
 
@@ -119,6 +120,33 @@ def translation_already_in_context_bug(bookmark):
 
     if bookmark.user_word.meaning.translation.content in bookmark.get_context():
         return True
+
+
+def word_not_in_context(bookmark):
+    """
+    Check if the word being learned doesn't appear in the context.
+
+    This can happen due to:
+    - Accent/diacritic variations (orienté vs oriente)
+    - Verb conjugations (hatte vs hätte)
+    - Unicode corruption (bad vs båd)
+
+    These bookmarks cannot be properly highlighted in exercises.
+    """
+    import unicodedata
+
+    try:
+        word = bookmark.user_word.meaning.origin.content
+        context = bookmark.get_context()
+
+        # Normalize both for fair comparison
+        word_norm = unicodedata.normalize('NFC', word).lower()
+        context_norm = unicodedata.normalize('NFC', context).lower()
+
+        return word_norm not in context_norm
+    except Exception:
+        # If we can't check, assume it's OK (fail open)
+        return False
 
 
 def _split_words_from_context(bookmark):
