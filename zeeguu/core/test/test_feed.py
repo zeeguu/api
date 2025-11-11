@@ -18,6 +18,8 @@ class FeedTest(ModelTestMixIn, TestCase):
         self.newspaper_da = FeedRule().feed_newspaper_da
         self.crawl_report.add_feed(self.spiegel)
         self.crawl_report.add_feed(self.newspaper_da)
+        # Download articles - this is slow (~5s per setUp) but necessary
+        # since ModelTestMixIn.tearDown() drops the entire database after each test
         download_from_feed(self.spiegel, db.session, self.crawl_report, 3, False)
         download_from_feed(self.newspaper_da, db.session, self.crawl_report, 3, False)
 

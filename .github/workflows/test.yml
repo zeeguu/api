@@ -28,17 +28,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Cache Stanza models
+        id: cache-stanza
         uses: actions/cache@v3
         with:
           path: stanza_resources
-          key: ${{ runner.os }}-stanza-models-v1
+          key: ${{ runner.os }}-stanza-models-v2
           restore-keys: |
             ${{ runner.os }}-stanza-models-
       - name: Cache NLTK data
+        id: cache-nltk
         uses: actions/cache@v3
         with:
           path: nltk_data
-          key: ${{ runner.os }}-nltk-data-v1
+          key: ${{ runner.os }}-nltk-data-v2
           restore-keys: |
             ${{ runner.os }}-nltk-data-
       - name: Install dependencies
@@ -49,7 +51,13 @@ jobs:
           echo "ZEEGUU_RESOURCES_FOLDER=$ZEEGUU_RESOURCES_FOLDER" >> $GITHUB_ENV
           echo $ZEEGUU_RESOURCES_FOLDER
           python setup.py develop
-          python install_stanza_models.py
+          # Only install Stanza models if not cached
+          if [ ! -d "stanza_resources" ] || [ -z "$(ls -A stanza_resources)" ]; then
+            echo "Installing Stanza models..."
+            python install_stanza_models.py
+          else
+            echo "Stanza models cached, skipping installation"
+          fi
       - name: Test with pytest
         run: |
           export NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data
