@@ -118,6 +118,13 @@ def delete_bookmarks(bookmark_ids, dry_run=True):
 
             user_word = bookmark.user_word
 
+            # Delete any example_sentence_context records that reference this bookmark
+            # This prevents foreign key constraint errors
+            db.session.execute(
+                db.text("DELETE FROM example_sentence_context WHERE bookmark_id = :bid"),
+                {"bid": bookmark.id}
+            )
+
             # Find all other bookmarks for this user_word
             other_bookmarks = (
                 Bookmark.query.filter(Bookmark.user_word_id == user_word.id)
