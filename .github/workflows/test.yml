@@ -33,4 +33,5 @@ jobs:
       - name: Test with pytest
         run: |
           export NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data
+          export DEV_SKIP_TRANSLATION=1
           pytest
