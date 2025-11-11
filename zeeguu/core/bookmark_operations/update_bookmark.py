@@ -361,7 +361,7 @@ def validate_and_update_position(bookmark, word_str, context_str):
     return None  # Success
 
 
-def context_or_word_changed(word_str, context_str, bookmark):
+def context_or_word_changed(word_str, context_str, bookmark, original_user_word):
     """
     Check if context or word has changed from original bookmark.
 
@@ -369,6 +369,7 @@ def context_or_word_changed(word_str, context_str, bookmark):
         word_str: New origin word
         context_str: New context sentence
         bookmark: Original bookmark
+        original_user_word: The UserWord before any updates (to compare against)
 
     Returns:
         bool: True if context or word changed
@@ -378,9 +379,19 @@ def context_or_word_changed(word_str, context_str, bookmark):
 
     is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
-    is_same_word = bookmark.user_word.meaning.origin.content == word_str
+    is_same_word = original_user_word.meaning.origin.content == word_str
 
-    return not is_same_text or not is_same_context or not is_same_word
+    # Return True if ANY of these changed (word OR context)
+    word_changed = not is_same_word
+    context_changed = not is_same_text or not is_same_context
+
+    print(f"[UPDATE_BOOKMARK] context_or_word_changed check:")
+    print(f"  original_word: '{original_user_word.meaning.origin.content}' -> new_word: '{word_str}'")
+    print(f"  is_same_word: {is_same_word}, word_changed: {word_changed}")
+    print(f"  is_same_context: {is_same_context}, context_changed: {context_changed}")
+    print(f"  result: {word_changed or context_changed}")
+
+    return word_changed or context_changed
 
 
 def format_response(bookmark, new_user_word):

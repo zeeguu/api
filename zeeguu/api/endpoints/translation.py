@@ -313,7 +313,7 @@ def update_translation(bookmark_id):
         )
 
     # Step 8: Validate word position if context or word changed
-    if context_or_word_changed(word_str, context_str, bookmark):
+    if context_or_word_changed(word_str, context_str, bookmark, old_user_word):
         error_response = validate_and_update_position(bookmark, word_str, context_str)
         if error_response:
             return error_response  # Validation failed, return error
