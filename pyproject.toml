@@ -28,7 +28,7 @@ ensure_newline_before_comments = true
 line_length = 88
 
 [tool.pytest.ini_options]
-# Parallel execution and performance optimizations
+# Performance optimizations
 addopts = "--tb=short --strict-markers -p no:warnings"
 # Disable verbose output to reduce I/O overhead
 console_output_style = "classic"
