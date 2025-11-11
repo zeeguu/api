@@ -106,21 +106,50 @@ def estimate_article_cefr():
     Returns ML assessment for the given content.
     """
     from zeeguu.api.endpoints.article_cefr_recompute import compute_ml_assessment
+    from zeeguu.logging import log
 
     content = request.form.get("content", "")
     language_code = request.form.get("language", "")
     title = request.form.get("title", "")  # Not used for ML, but kept for API compatibility
 
+    log(f"estimate_article_cefr: received language_code='{language_code}', content length={len(content)}, title='{title}'")
+
     if not content or not language_code:
-        return json_result({"error": "Content and language are required"}), 400
+        error_msg = f"Missing required fields - content: {len(content)} chars, language: '{language_code}'"
+        log(f"estimate_article_cefr: ERROR - {error_msg}")
+        return json_result({"error": error_msg}), 400
 
     ml_assessment, ml_method = compute_ml_assessment(content, language_code)
 
+    log(f"estimate_article_cefr: ML assessment result: level={ml_assessment}, method={ml_method}")
+
     if ml_assessment is None:
+        # Check if model exists for this language
+        import os
+        data_folder = os.environ.get("ZEEGUU_DATA_FOLDER")
+        model_path = None
+        if data_folder:
+            model_path = os.path.join(
+                data_folder,
+                "ml_models",
+                "cefr_estimation",
+                f"cefr_classifier_{language_code}.pkl",
+            )
+
+        model_exists = model_path and os.path.exists(model_path)
+        error_msg = f"ML model unavailable for language '{language_code}' (model exists: {model_exists}, path: {model_path})"
+        log(f"estimate_article_cefr: {error_msg}")
+
         return json_result({
             "cefr_level": None,
             "assessment_method": None,
-            "error": "Could not estimate CEFR level for this language"
+            "error": error_msg,
+            "debug": {
+                "language_code": language_code,
+                "model_exists": model_exists,
+                "model_path": model_path,
+                "data_folder": data_folder
+            }
         })
 
     return json_result({
