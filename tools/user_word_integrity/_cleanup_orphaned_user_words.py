@@ -127,11 +127,19 @@ def delete_orphaned_user_words(orphaned_user_words, dry_run=True):
     deleted_count = 0
     for uw in orphaned_user_words:
         try:
-            # Also delete any associated spaced repetition schedules
+            # Delete associated data first (schedules and exercises)
             from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+            from zeeguu.core.model import Exercise
+
+            # Delete schedule
             schedule = BasicSRSchedule.find_by_user_word(uw)
             if schedule:
                 db.session.delete(schedule)
+
+            # Delete exercises (must be deleted before UserWord due to NOT NULL constraint)
+            exercises = Exercise.query.filter_by(user_word_id=uw.id).all()
+            for ex in exercises:
+                db.session.delete(ex)
 
             db.session.delete(uw)
             deleted_count += 1
