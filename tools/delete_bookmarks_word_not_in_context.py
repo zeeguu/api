@@ -27,22 +27,41 @@ from zeeguu.core.model.bookmark import Bookmark
 import unicodedata
 
 
-def find_problematic_bookmarks():
-    """Find all bookmarks where word does not appear in context."""
+def find_problematic_bookmarks(start_percent=95, end_percent=100):
+    """
+    Find all bookmarks where word does not appear in context.
+
+    Args:
+        start_percent: Start scanning from this percentage (0-100)
+        end_percent: Stop scanning at this percentage (0-100)
+    """
     print('Finding all bookmarks where word does not appear in context...')
-    print('This will take several minutes...')
+    print(f'Scanning range: {start_percent}% to {end_percent}%')
     print()
 
     problematic_ids = []
     batch_size = 1000
     total = Bookmark.query.count()
+
+    # Calculate offset range
+    start_offset = int(total * start_percent / 100)
+    end_offset = int(total * end_percent / 100)
+
     checked = 0
 
     print(f'Total bookmarks in database: {total}')
+    print(f'Scanning bookmarks {start_offset} to {end_offset}')
     print()
 
-    for offset in range(0, total, batch_size):
-        bookmarks = Bookmark.query.offset(offset).limit(batch_size).all()
+    # Query in reverse order (highest IDs first) to find recent problematic bookmarks
+    for offset in range(start_offset, end_offset, batch_size):
+        bookmarks = (
+            Bookmark.query
+            .order_by(Bookmark.id.desc())
+            .offset(offset - start_offset)
+            .limit(batch_size)
+            .all()
+        )
 
         for bookmark in bookmarks:
             try:
@@ -61,8 +80,9 @@ def find_problematic_bookmarks():
 
             checked += 1
 
-        if checked % 10000 == 0:
-            print(f'Progress: {checked}/{total} ({100*checked/total:.1f}%) - Found {len(problematic_ids)} problematic')
+        if checked % 1000 == 0 or checked == end_offset - start_offset:
+            progress = start_percent + (checked / (end_offset - start_offset)) * (end_percent - start_percent)
+            print(f'Progress: {checked}/{end_offset - start_offset} ({progress:.1f}%) - Found {len(problematic_ids)} problematic')
 
         if len(bookmarks) < batch_size:
             break
@@ -120,8 +140,9 @@ def delete_bookmarks(bookmark_ids, dry_run=True):
 
             # Delete any example_sentence_context records that reference this bookmark
             # This prevents foreign key constraint errors
+            from sqlalchemy import text
             db.session.execute(
-                db.text("DELETE FROM example_sentence_context WHERE bookmark_id = :bid"),
+                text("DELETE FROM example_sentence_context WHERE bookmark_id = :bid"),
                 {"bid": bookmark.id}
             )
 
@@ -187,11 +208,17 @@ def delete_bookmarks(bookmark_ids, dry_run=True):
 
 
 if __name__ == '__main__':
-    # Check for --delete flag
-    do_delete = '--delete' in sys.argv
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Delete bookmarks where word does not appear in context')
+    parser.add_argument('--delete', action='store_true', help='Actually delete the bookmarks (default is dry run)')
+    parser.add_argument('--start', type=int, default=95, help='Start scanning from this percentage (0-100)')
+    parser.add_argument('--end', type=int, default=100, help='Stop scanning at this percentage (0-100)')
+
+    args = parser.parse_args()
 
     # Find problematic bookmarks
-    problematic_ids = find_problematic_bookmarks()
+    problematic_ids = find_problematic_bookmarks(start_percent=args.start, end_percent=args.end)
 
     # Delete (or show what would be deleted)
-    delete_bookmarks(problematic_ids, dry_run=not do_delete)
+    delete_bookmarks(problematic_ids, dry_run=not args.delete)

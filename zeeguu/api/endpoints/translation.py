@@ -104,7 +104,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             translation = f"T-({to_lang_code})-'{word_str}'"
             likelihood = None
             source = "DEV_SKIP"
-            t1 = {translation: translation, likelihood: likelihood, source: source}
+            t1 = {"translation": translation, "likelihood": likelihood, "source": source}
         else:
             from zeeguu.logging import log
             import time
