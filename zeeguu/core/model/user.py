@@ -554,8 +554,6 @@ class User(db.Model):
             .filter(UserWord.learned_time != None)
             .all()
         )
-        for e in learned:
-            print(f"{e.id} {e.learned_time}")
 
         return len(learned)
 

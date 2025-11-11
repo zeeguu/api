@@ -3,13 +3,15 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
 
 def fit_for_study(user_word):
+    # Convert user_preference to int for comparison (handles string/int type mismatch from DB)
+    preference = int(user_word.user_preference or 0)
+
     return (
         (
             quality_meaning(user_word)
-            or user_word.user_preference == UserWordExPreference.USE_IN_EXERCISES
+            or preference == UserWordExPreference.USE_IN_EXERCISES
         )
-        and not user_word.user_preference
-        == UserWordExPreference.DONT_USE_IN_EXERCISES
+        and not preference == UserWordExPreference.DONT_USE_IN_EXERCISES
     )
 
 

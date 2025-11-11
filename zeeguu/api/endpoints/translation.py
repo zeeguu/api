@@ -34,12 +34,17 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 @cross_domain
 @requires_session
 def get_one_translation(from_lang_code, to_lang_code):
-    zeeguu_log(f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED get_one_translation function: from={from_lang_code}, to={to_lang_code}")
+    zeeguu_log(
+        f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED get_one_translation function: from={from_lang_code}, to={to_lang_code}"
+    )
     """
     :return: json array with translations
     """
     from zeeguu.logging import log
-    log(f"[TRANSLATION-ENTRY] get_one_translation CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}")
+
+    log(
+        f"[TRANSLATION-ENTRY] get_one_translation CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}"
+    )
 
     word_str = request.json["word"].strip(punctuation_extended)
     log(f"[TRANSLATION-ENTRY] word='{word_str}'")
@@ -104,7 +109,9 @@ def get_one_translation(from_lang_code, to_lang_code):
             from zeeguu.logging import log
             import time
 
-            log(f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}")
+            log(
+                f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}"
+            )
             start_time = time.time()
 
             data = {
@@ -122,9 +129,13 @@ def get_one_translation(from_lang_code, to_lang_code):
                 t1 = microsoft_contextual_translate(data)
 
             elapsed = time.time() - start_time
-            log(f"[TRANSLATION-TIMING] Translation API call completed in {elapsed:.3f}s, result='{t1.get('translation', 'N/A')}'")
+            log(
+                f"[TRANSLATION-TIMING] Translation API call completed in {elapsed:.3f}s, result='{t1.get('translation', 'N/A')}'"
+            )
 
-        log(f"[TRANSLATION-TIMING] About to call Bookmark.find_or_create for word='{word_str}'")
+        log(
+            f"[TRANSLATION-TIMING] About to call Bookmark.find_or_create for word='{word_str}'"
+        )
         bookmark_start = time.time()
         user = User.find_by_id(flask.g.user_id)
 
@@ -154,7 +165,9 @@ def get_one_translation(from_lang_code, to_lang_code):
         )
 
         bookmark_elapsed = time.time() - bookmark_start
-        log(f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'")
+        log(
+            f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'"
+        )
 
     return json_result(
         {
@@ -216,169 +229,103 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 @requires_session
 def update_translation(bookmark_id):
     """
+    User updates a bookmark - updates word, translation, and/or context.
 
-        User updates a bookmark
+    This endpoint handles complex logic including:
+    - Switching to new UserWord if meaning changed
+    - Transferring learning progress (schedule, exercises, preferences)
+    - Cleaning up orphaned UserWords
+    - Validating word position in context
 
-    :return: in case of success, the bookmark_id
+    See docs/BOOKMARK_UPDATE_LOGIC.md for detailed documentation.
 
+    :param bookmark_id: ID of bookmark to update
+    :return: Updated bookmark as JSON, or error response
     """
+    from zeeguu.core.bookmark_operations.update_bookmark import (
+        parse_update_params,
+        find_or_create_meaning,
+        find_or_create_context,
+        transfer_learning_progress,
+        cleanup_old_user_word,
+        context_or_word_changed,
+        validate_and_update_position,
+        format_response,
+    )
 
-    # All these POST params are mandatory
-    word_str = unquote_plus(request.json["word"]).strip(punctuation_extended)
-    translation_str = request.json["translation"]
-    context_str = request.json.get("context", "").strip()
-    context_identifier = request.json.get("context_identifier", None)
-    context_type = context_identifier["context_type"]
+    print(f"[UPDATE_BOOKMARK] ========== START: bookmark_id={bookmark_id} ==========")
 
+    # Step 1: Parse and validate input
     bookmark = Bookmark.find(bookmark_id)
+    params = parse_update_params(request.json, bookmark)
 
-    meaning = Meaning.find_or_create(
-        db_session,
-        word_str,
-        bookmark.user_word.meaning.origin.language.code,
-        translation_str,
-        bookmark.user_word.meaning.translation.language.code,
+    # Unpack variables for readability
+    word_str = params['word_str']
+    translation_str = params['translation_str']
+    context_str = params['context_str']
+    context_type = params['context_type']
+    origin_lang_code = params['origin_lang_code']
+    translation_lang_code = params['translation_lang_code']
+
+    # Step 2: Find or create new meaning (word/translation pair)
+    meaning = find_or_create_meaning(
+        db_session, word_str, origin_lang_code, translation_str, translation_lang_code
     )
 
-    prev_context = BookmarkContext.find_by_id(bookmark.context_id)
-    prev_text = Text.find_by_id(bookmark.text_id)
+    # Step 3: Find or create new text and context
+    text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
 
-    is_same_text = prev_text.content == context_str
-    is_same_context = prev_context and prev_context.get_content() == context_str
-
-    text = Text.find_or_create(
-        db_session,
-        context_str,
-        bookmark.user_word.meaning.origin.language,
-        bookmark.text.url,
-        bookmark.text.article if is_same_text else None,
-        prev_text.paragraph_i if is_same_text else None,
-        prev_text.sentence_i if is_same_text else None,
-        prev_text.token_i if is_same_text else None,
-        prev_text.in_content if is_same_text else None,
-        prev_text.left_ellipsis if is_same_text else None,
-        prev_text.right_ellipsis if is_same_text else None,
-    )
-
-    ## TO-DO: Update context type once web sends that information.
-    context = BookmarkContext.find_or_create(
-        db_session,
-        context_str,
-        context_type,
-        bookmark.user_word.meaning.origin.language,
-        prev_context.sentence_i if is_same_context else None,
-        prev_context.token_i if is_same_context else None,
-        prev_context.left_ellipsis if is_same_context else None,
-        prev_context.right_ellipsis if is_same_context else None,
-    )
-
-    # Store the old UserWord's learning status before switching
+    # Step 4: Find or create UserWord for new meaning
     old_user_word = bookmark.user_word
-    old_fit_for_study = old_user_word.fit_for_study
-    old_user_preference = old_user_word.user_preference
-    old_level = old_user_word.level
-    
-    # Create a new UserWord with the updated meaning
-    new_user_word = UserWord.find_or_create(
-        db_session,
-        bookmark.user_word.user,
-        meaning
+    print(
+        f"[UPDATE_BOOKMARK] Old UserWord: {old_user_word.id}, word: '{old_user_word.meaning.origin.content}'"
     )
-    
-    # If we're switching to a different UserWord (not just updating the same one)
-    # and the old one was fit for study, preserve that status
-    if new_user_word.id != old_user_word.id and old_fit_for_study:
-        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
-        
-        # Transfer the level from old UserWord to new UserWord
-        new_user_word.level = old_level
-        
-        # If the new UserWord is marked as unfit due to quality checks,
-        # but the user was actively studying it, override with user preference
-        if not new_user_word.fit_for_study and old_user_preference != UserWordExPreference.DONT_USE_IN_EXERCISES:
-            new_user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-            new_user_word.update_fit_for_study(db_session)
-        
-        # Update preferred bookmark if needed
-        if not new_user_word.preferred_bookmark:
-            new_user_word.preferred_bookmark_id = bookmark.id
-        
-        # Transfer the schedule from old UserWord to new UserWord
-        old_schedule = BasicSRSchedule.find_by_user_word(old_user_word)
-        if old_schedule:
-            # Check if new UserWord already has a schedule
-            new_schedule = BasicSRSchedule.find_by_user_word(new_user_word)
-            if not new_schedule:
-                # Create a new schedule for the new UserWord with the same state
-                new_schedule = FourLevelsPerWord(user_word=new_user_word)
-                new_schedule.next_practice_time = old_schedule.next_practice_time
-                new_schedule.consecutive_correct_answers = old_schedule.consecutive_correct_answers
-                new_schedule.cooling_interval = old_schedule.cooling_interval
-                db_session.add(new_schedule)
-            
-            # Delete the old schedule
-            db_session.delete(old_schedule)
-    
+
+    new_user_word = UserWord.find_or_create(
+        db_session, bookmark.user_word.user, meaning
+    )
+    print(
+        f"[UPDATE_BOOKMARK] New UserWord: {new_user_word.id}, word: '{new_user_word.meaning.origin.content}'"
+    )
+
+    # Step 5: Transfer learning progress if UserWord changed
+    if new_user_word.id != old_user_word.id:
+        transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
+
+    # Step 6: Reassign bookmark to new entities
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
+    print(f"[UPDATE_BOOKMARK] Reassigned bookmark to UserWord {new_user_word.id}")
 
-    if (
-        not is_same_text
-        or not is_same_context
-        or bookmark.user_word.meaning.origin.content != word_str
-    ):
-        # Context has changed - validate and update position anchoring
-        from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
-        
-        # Validate that the word appears exactly once in the new context
-        validation_result = validate_single_occurrence(
-            word_str, 
-            context_str, 
-            bookmark.user_word.meaning.origin.language
+    # Set preferred_bookmark_id AFTER reassignment (if UserWord changed and doesn't have one)
+    if new_user_word.id != old_user_word.id and not new_user_word.preferred_bookmark:
+        new_user_word.preferred_bookmark_id = bookmark.id
+        db_session.add(new_user_word)
+        print(f"[UPDATE_BOOKMARK] Set preferred_bookmark_id to {bookmark.id}")
+
+    # Step 7: Clean up old UserWord
+    if new_user_word.id != old_user_word.id:
+        cleanup_old_user_word(db_session, old_user_word, bookmark)
+    else:
+        print(
+            f"[UPDATE_BOOKMARK] Same UserWord (ID: {new_user_word.id}), no cleanup needed"
         )
-        
-        if not validation_result['valid']:
-            log(f"ERROR: Word validation failed for bookmark update '{word_str}' in context '{context_str}': {validation_result['error_type']}")
-            
-            # Return appropriate error response based on error type
-            if validation_result['error_type'] == 'multiple_occurrences':
-                return json_result({
-                    "error": "Ambiguous word placement",
-                    "detail": validation_result['error_message'],
-                    "word": word_str,
-                    "context": context_str
-                }, status=400)
-            else:
-                return json_result({
-                    "error": "Word not found in context" if validation_result['error_type'] == 'not_found' else "Processing failed",
-                    "detail": validation_result['error_message'],
-                    "word": word_str,
-                    "context": context_str
-                }, status=400)
-        
-        # Extract position data from validation result
-        position_data = validation_result['position_data']
-        bookmark.sentence_i = position_data['sentence_i']
-        bookmark.token_i = position_data['token_i']
-        bookmark.total_tokens = position_data['total_tokens']
-        if not is_same_context:
-            from zeeguu.core.model.context_type import ContextType
 
-            bookmark.context.context_type = ContextType.find_by_type(
-                ContextType.USER_EDITED_TEXT
-            )
+    # Step 8: Validate word position if context or word changed
+    if context_or_word_changed(word_str, context_str, bookmark):
+        error_response = validate_and_update_position(bookmark, word_str, context_str)
+        if error_response:
+            return error_response  # Validation failed, return error
 
+    # Step 9: Commit changes and return response
     db_session.add(bookmark)
-
-    updated_bookmark = bookmark.as_dictionary(
-        with_exercise_info=True, with_context_tokenized=True, with_context=True
-    )
     db_session.commit()
 
-    return json_result(updated_bookmark)
+    # Refresh to get latest fit_for_study status
+    db_session.refresh(new_user_word)
+
+    return format_response(bookmark, new_user_word)
 
 
 # ================================================

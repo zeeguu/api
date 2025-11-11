@@ -252,9 +252,22 @@ def report_learned_bookmark(bookmark_id):
 @cross_domain
 @requires_session
 def set_user_word_exercise_preference(bookmark_id):
+    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+        FourLevelsPerWord,
+    )
+
     bookmark = Bookmark.find(bookmark_id)
-    bookmark.user_preference = UserWordExPreference.USE_IN_EXERCISES
-    bookmark.user_word.update_fit_for_study(db_session)
+    user_word = bookmark.user_word
+
+    # Fix: set preference on UserWord, not Bookmark
+    user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
+    user_word.update_fit_for_study(db_session)
+
+    # Ensure a schedule exists for this UserWord
+    if user_word.fit_for_study:
+        FourLevelsPerWord.find_or_create(db_session, user_word)
+        print(f"[USE_IN_EXERCISES] Created/found schedule for UserWord {user_word.id}")
+
     db_session.commit()
     return "OK"
 

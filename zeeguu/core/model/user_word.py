@@ -125,37 +125,79 @@ class UserWord(db.Model):
 
         log(f"[USERWORD-TIMING] update_fit_for_study TOTAL: {time.time() - start_time:.3f}s")
 
-    def validate_data_integrity(self):
+    def validate_data_integrity(self, strict=False):
         """
         Validates that this UserWord is in a consistent state.
-        Attempts to repair data integrity issues when possible.
-        Raises ValueError only if repair is not possible.
+
+        Args:
+            strict: If True, raises exceptions on data integrity issues.
+                   If False (default), logs warnings and auto-repairs where safe.
+
+        NOTE: This method is called during read operations (as_dictionary),
+        so when strict=False it MUST NOT modify the database permanently.
+        Any repairs should happen during write operations.
         """
-        if self.preferred_bookmark is None:
-            # Try to repair by setting the first bookmark as preferred
-            bookmarks = self.bookmarks()
-            if len(bookmarks) > 0:
-                self.preferred_bookmark = bookmarks[0]
-                # Log this repair for monitoring
-                from zeeguu.logging import log
+        from zeeguu.logging import log
 
-                log(
-                    f"WARNING: Repaired UserWord {self.id} by setting preferred_bookmark to {bookmarks[0].id}"
+        bookmarks = self.bookmarks()
+
+        # Check 1: Verify preferred_bookmark actually belongs to this UserWord
+        if self.preferred_bookmark_id is not None:
+            bookmark_ids = [b.id for b in bookmarks]
+
+            if self.preferred_bookmark_id not in bookmark_ids:
+                error_msg = (
+                    f"DATA INTEGRITY ERROR: UserWord {self.id} ('{self.meaning.origin.content}') "
+                    f"has preferred_bookmark_id={self.preferred_bookmark_id} which doesn't belong to it. "
+                    f"Actual bookmark IDs: {bookmark_ids}"
                 )
-                # Save the repair
-                from zeeguu.core.model import db
 
-                db.session.add(self)
-                db.session.commit()
+                if strict:
+                    raise ValueError(error_msg)
+                else:
+                    log(f"WARNING: {error_msg}")
+                    # Auto-repair: use first bookmark if available
+                    if len(bookmarks) > 0:
+                        log(f"  → Temporarily using first bookmark (ID {bookmarks[0].id}) for this operation")
+                        self.preferred_bookmark = bookmarks[0]
+                    else:
+                        log(f"  → No bookmarks available, setting preferred_bookmark to None")
+                        self.preferred_bookmark = None
+
+        # Check 2: UserWord should have at least one bookmark
+        if len(bookmarks) == 0:
+            error_msg = (
+                f"DATA INTEGRITY ERROR: UserWord {self.id} ('{self.meaning.origin.content}') "
+                f"has no bookmarks at all - orphaned UserWord"
+            )
+
+            if strict:
+                raise ValueError(error_msg)
             else:
-                # No bookmarks at all - this is a serious data integrity issue
-                raise ValueError(
-                    f"UserWord {self.id} has no bookmarks at all - cannot repair"
-                )
+                log(f"WARNING: {error_msg}")
+                # This is a serious issue - cannot auto-repair during read
+                raise ValueError(error_msg)
+
+        # Check 3: If UserWord has bookmarks but NULL preferred_bookmark, auto-repair
+        if self.preferred_bookmark is None and len(bookmarks) > 0:
+            error_msg = (
+                f"DATA INTEGRITY WARNING: UserWord {self.id} ('{self.meaning.origin.content}') "
+                f"has no preferred_bookmark but has {len(bookmarks)} bookmark(s). "
+                f"Using first bookmark (ID {bookmarks[0].id}) for this operation."
+            )
+
+            if strict:
+                raise ValueError(error_msg)
+            else:
+                log(error_msg)
+                # Temporarily use first bookmark for this read operation only
+                # Don't commit this change - it will be fixed on next write
+                self.preferred_bookmark = bookmarks[0]
 
     def as_dictionary(self):
-        # Ensure data integrity
-        self.validate_data_integrity()
+        # Note: Data integrity validation removed from hot path for performance
+        # Run periodic checks with: python -m tools._check_and_fix_data_integrity
+        # Write-time validation happens via SQLAlchemy event listeners
 
         try:
             translation_word = self.meaning.translation.content
@@ -281,6 +323,7 @@ class UserWord(db.Model):
         all = (
             Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(UserWord.id == self.id)
+            .order_by(Bookmark.id.asc())  # Deterministic ordering by ID (oldest first)
             .all()
         )
         return all
@@ -383,3 +426,38 @@ class UserWord(db.Model):
             return True
         except NoResultFound:
             return False
+
+
+# SQLAlchemy event listener to validate preferred_bookmark_id before insert/update
+@sqlalchemy.event.listens_for(UserWord, "before_insert")
+@sqlalchemy.event.listens_for(UserWord, "before_update")
+def validate_preferred_bookmark_before_write(mapper, connection, target):
+    """
+    Validates that the preferred_bookmark_id actually belongs to this UserWord
+    before writing to the database.
+
+    This prevents data corruption by catching integrity issues at write time.
+    """
+    from zeeguu.core.model import Bookmark
+
+    # Only validate if preferred_bookmark_id is set
+    if target.preferred_bookmark_id is not None:
+        # Check if the bookmark belongs to this UserWord
+        bookmark = connection.execute(
+            sqlalchemy.select(Bookmark.user_word_id).where(
+                Bookmark.id == target.preferred_bookmark_id
+            )
+        ).first()
+
+        if bookmark is None:
+            raise ValueError(
+                f"DATA INTEGRITY ERROR: Cannot set preferred_bookmark_id={target.preferred_bookmark_id} "
+                f"for UserWord {target.id} - bookmark does not exist"
+            )
+
+        if bookmark[0] != target.id:
+            raise ValueError(
+                f"DATA INTEGRITY ERROR: Cannot set preferred_bookmark_id={target.preferred_bookmark_id} "
+                f"for UserWord {target.id} ('{target.meaning.origin.content}') - "
+                f"this bookmark belongs to UserWord {bookmark[0]}, not {target.id}"
+            )
