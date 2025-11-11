@@ -206,6 +206,9 @@ class Bookmark(db.Model):
             tokenizer = get_tokenizer(
                 self.user_word.meaning.origin.language, TOKENIZER_MODEL
             )
+            # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
+            # Even though most contexts have only 1 paragraph, the structure must be preserved
+            # for compatibility with InteractiveText._updateTokensWithBookmarks()
             result["context_tokenized"] = tokenizer.tokenize_text(
                 self.context.get_content(),
                 flatten=False,
