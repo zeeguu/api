@@ -20,13 +20,14 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Cache pip dependencies
+      - name: Cache virtual environment
+        id: cache-venv
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          path: venv
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-venv-${{ matrix.python-version }}-
       - name: Cache Stanza models
         id: cache-stanza
         uses: actions/cache@v3
@@ -45,12 +46,27 @@ jobs:
             ${{ runner.os }}-nltk-data-
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
           export ZEEGUU_RESOURCES_FOLDER=`pwd`
           echo "ZEEGUU_RESOURCES_FOLDER=$ZEEGUU_RESOURCES_FOLDER" >> $GITHUB_ENV
           echo $ZEEGUU_RESOURCES_FOLDER
-          python setup.py develop
+
+          # Create and activate virtual environment
+          if [ ! -d "venv" ]; then
+            echo "Creating virtual environment..."
+            python -m venv venv
+          fi
+          source venv/bin/activate
+
+          # Only install if cache missed or requirements changed
+          if [ "${{ steps.cache-venv.outputs.cache-hit }}" != 'true' ]; then
+            echo "Installing Python dependencies..."
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            python setup.py develop
+          else
+            echo "Using cached virtual environment"
+          fi
+
           # Only install Stanza models if not cached
           if [ ! -d "stanza_resources" ] || [ -z "$(ls -A stanza_resources)" ]; then
             echo "Installing Stanza models..."
@@ -60,6 +76,7 @@ jobs:
           fi
       - name: Test with pytest
         run: |
+          source venv/bin/activate
           export NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data
           export DEV_SKIP_TRANSLATION=1
           pytest
