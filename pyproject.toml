@@ -29,10 +29,12 @@ line_length = 88
 
 [tool.pytest.ini_options]
 # Parallel execution and performance optimizations
-addopts = "--tb=short --strict-markers"
+addopts = "--tb=short --strict-markers -p no:warnings"
 # Disable verbose output to reduce I/O overhead
 console_output_style = "classic"
 # Skip slow imports in collection phase where possible
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+# Disable unnecessary features for speed
+# Note: warnings are still raised, just not displayed during test run

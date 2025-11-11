@@ -99,6 +99,9 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     else:
         # TODO: must remove theurl, and title - they are not used in the calling method.
+        from zeeguu.logging import log
+        import time
+
         if IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
             translation = f"T-({to_lang_code})-'{word_str}'"
@@ -106,9 +109,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             source = "DEV_SKIP"
             t1 = {"translation": translation, "likelihood": likelihood, "source": source}
         else:
-            from zeeguu.logging import log
-            import time
-
             log(
                 f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}"
             )
