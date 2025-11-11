@@ -194,8 +194,9 @@ def create_app(testing=False):
 
     # Preload Stanza tokenizers to avoid blocking during requests
     # This must run inside app context since it needs the database
+    # Skip preloading during tests to avoid 8+ second overhead per test file
     with app.app_context():
-        if app.config.get("PRELOAD_STANZA", True):  # Default to True
+        if app.config.get("PRELOAD_STANZA", True) and not testing:  # Default to True, disabled for tests
             warning("*** Preloading Stanza tokenizers...")
             start_time = time.time()
             from zeeguu.core.model import Language

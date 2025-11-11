@@ -361,21 +361,24 @@ def validate_and_update_position(bookmark, word_str, context_str):
     return None  # Success
 
 
-def context_or_word_changed(word_str, context_str, bookmark, original_user_word):
+def context_or_word_changed(word_str, context_str, bookmark, original_user_word, old_context_id=None, old_text_id=None):
     """
     Check if context or word has changed from original bookmark.
 
     Args:
         word_str: New origin word
         context_str: New context sentence
-        bookmark: Original bookmark
+        bookmark: Original bookmark (may have been reassigned already)
         original_user_word: The UserWord before any updates (to compare against)
+        old_context_id: Original context_id (if bookmark was already reassigned)
+        old_text_id: Original text_id (if bookmark was already reassigned)
 
     Returns:
         bool: True if context or word changed
     """
-    prev_context = BookmarkContext.find_by_id(bookmark.context_id)
-    prev_text = Text.find_by_id(bookmark.text_id)
+    # Use provided IDs if available (bookmark may have been reassigned already)
+    prev_context = BookmarkContext.find_by_id(old_context_id or bookmark.context_id)
+    prev_text = Text.find_by_id(old_text_id or bookmark.text_id)
 
     is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
