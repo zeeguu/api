@@ -146,6 +146,21 @@ def create_app(testing=False):
     # We're saving the zeeguu.core.app so we can refer to the config from deep in the code...
     zeeguu.core.app = app
 
+    # Flask Monitoring Dashboard
+    try:
+        import flask_monitoringdashboard as dashboard
+
+        dashboard.config.init_from(envvar="FLASK_MONITORING_DASHBOARD_CONFIG")
+
+        from zeeguu.core.model import Session
+
+        dashboard.config.get_group_by = lambda: Session.find(request=flask.request).user_id
+        dashboard.bind(app=app)
+
+        warning("*** Flask Monitoring Dashboard enabled")
+    except Exception as e:
+        warning(f"*** Flask Monitoring Dashboard not available: {e}")
+
     # print(app.config)
     # Log the current git commit hash
     try:
