@@ -42,7 +42,7 @@ RUN mkdir -p $ZEEGUU_RESOURCES_FOLDER
 COPY . /Zeeguu-API
 
 # Make entrypoint script executable
-RUN chmod +x docker-entrypoint.sh
+RUN chmod +x /Zeeguu-API/docker-entrypoint.sh
 
 # Install the application
 RUN python setup.py develop

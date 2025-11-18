@@ -25,7 +25,7 @@ pymysql
 SQLAlchemy>=2.0
 
 # Web framework core
-flask==2.3.2
+Flask>=3.0.0
 Werkzeug>=3.0.6
 flask_sqlalchemy>=3.0
 Flask-Assets
