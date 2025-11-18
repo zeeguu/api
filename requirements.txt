@@ -1,6 +1,101 @@
-# Master requirements file - includes both base and app requirements
-# For Docker: Split into two layers for better caching
-# For local dev: Install all at once with `pip install -r requirements.txt`
+# Master requirements file
+# Use CPU-only PyTorch to save space (~1.5GB smaller than GPU version)
+--extra-index-url https://download.pytorch.org/whl/cpu
 
--r requirements-base.txt
--r requirements-app.txt
+# ML/NLP frameworks (HEAVY - includes PyTorch via stanza)
+torch
+stanza==1.11.0
+spacy>=3.0.0,<4.0.0
+en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1-py3-none-any.whl
+de_core_news_md @ https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.7.0/de_core_news_md-3.7.0-py3-none-any.whl
+da_core_news_md @ https://github.com/explosion/spacy-models/releases/download/da_core_news_md-3.7.0/da_core_news_md-3.7.0-py3-none-any.whl
+nltk
+
+# Scientific computing stack
+numpy
+scipy==1.13.0
+scikit-learn==1.4.0
+pandas
+matplotlib
+seaborn
+
+# Database
+mysqlclient
+pymysql
+SQLAlchemy>=2.0
+
+# Web framework core
+flask==2.3.2
+werkzeug==3.0.2
+flask_sqlalchemy>=3.0
+Flask-Assets
+flask_cors
+flask_monitoringdashboard
+
+# Cloud services
+google-cloud-texttospeech==2.3.0
+azure-cognitiveservices-speech==1.40.0
+
+# Search
+elasticsearch==8.12.1
+elasticsearch-dsl==8.12.0
+elastic-transport==8.12.0
+
+# HTML/XML parsing
+beautifulsoup4
+lxml
+lxml_html_clean
+
+# Zeeguu custom packages
+git+https://github.com/zeeguu/apimux.git@master#egg=apimux
+git+https://github.com/zeeguu/python-translators@master#egg=python_translators
+git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
+wordstats==1.1.0
+
+# Web scraping & parsing
+newspaper3k==0.2.7
+feedparser
+markdown2
+
+# Language processing utilities
+jieba3k
+langdetect
+rapidfuzz==3.0.0
+pyphen
+regex
+
+# HTTP & APIs
+requests
+requests_mock
+anthropic>=0.40.0
+
+# Utilities
+markupsafe
+blinker
+deprecated
+Faker
+human-readable
+jinja2
+tqdm
+sortedcontainers
+simhash
+timeago
+yagmail
+google
+wheel
+emoji
+youtube_transcript_api
+pydub
+Pillow
+cryptography
+protobuf
+
+# Monitoring
+sentry-sdk[flask]
+
+# Testing
+pytest
+pytest-testmon
+
+# Version constraints
+pydantic>=1.10.8

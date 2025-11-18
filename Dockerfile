@@ -19,25 +19,16 @@ VOLUME /Zeeguu-API
 
 # Copy requirements first for better layer caching
 RUN mkdir -p /Zeeguu-API
-
-# Install base requirements (heavy, rarely change) in separate layer
-# Use --no-cache-dir to avoid disk space issues with large packages
-COPY ./requirements-base.txt /Zeeguu-API/requirements-base.txt
-WORKDIR /Zeeguu-API
-RUN python -m pip install --no-cache-dir -r requirements-base.txt
-
-# Install app requirements (lighter, change more often) in separate layer
-# Use BuildKit cache mount here - app deps are small enough and change frequently
-COPY ./requirements-app.txt /Zeeguu-API/requirements-app.txt
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install -r requirements-app.txt
-
-# Install gunicorn
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install gunicorn
-
-# Copy setup.py for later installation
+COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
+
+WORKDIR /Zeeguu-API
+
+# Install Python requirements with BuildKit cache mount
+# CPU-only PyTorch (~2.5GB) + cache (~1-2GB) = ~4GB, fits in 14GB GitHub runner
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install -r requirements.txt && \
+    python -m pip install gunicorn
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
