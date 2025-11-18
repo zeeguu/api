@@ -20,12 +20,10 @@ JUNK_PATTERNS_TO_REMOVE = [
     "Vous pouvez lire Le Monde sur un seul appareil à la fois",
     "Ce message s'affichera sur l'autre appareil.",
     "Découvrir les offres multicomptes",
-    "Votre abonnement n'autorise pas la lecture de cet article",
-    "Lecture restreinte",
     "Pour plus d'informations, merci de contacter notre service commercial.",
     #     dk
     "Artiklen fortsætter efter annoncen",
-    # French cookie notices
+    # French cookie/ad notices
     "Passer la publicité",
     "La suite après cette publicité",
     "Quel plaisir de vous retrouver, avant d'accéder à l'équipe, merci d'accepter les cookies.",

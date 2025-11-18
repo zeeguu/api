@@ -44,6 +44,8 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     # French paywalls
     "pour accéder gratuitement au site (hors contenus exclusifs abonnés)",
     "en vous abonnant, vous accédez",
+    "Votre abonnement n'autorise pas la lecture de cet article",
+    "Lecture restreinte",
     # Swedish/Danish paywalls
     "som inloggad kan du ta del av flera smarta funktioner",
     "er du allerede prenumerant, logga in för att fortsätta läsa",

@@ -22,16 +22,21 @@ VOLUME /Zeeguu-API
 
 # Copy requirements first for better layer caching
 RUN mkdir -p /Zeeguu-API
-COPY ./requirements.txt /Zeeguu-API/requirements.txt
-COPY ./setup.py /Zeeguu-API/setup.py
 
+# Install base requirements (heavy, rarely change) in separate layer
+COPY ./requirements-base.txt /Zeeguu-API/requirements-base.txt
 WORKDIR /Zeeguu-API
+RUN python -m pip install --no-cache-dir -r requirements-base.txt
 
-# Install Python requirements including gunicorn
-# Use BuildKit cache mount to speed up builds while keeping final image clean
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install -r requirements.txt && \
-    python -m pip install gunicorn
+# Install app requirements (lighter, change more often) in separate layer
+COPY ./requirements-app.txt /Zeeguu-API/requirements-app.txt
+RUN python -m pip install --no-cache-dir -r requirements-app.txt
+
+# Install gunicorn
+RUN python -m pip install --no-cache-dir gunicorn
+
+# Copy setup.py for later installation
+COPY ./setup.py /Zeeguu-API/setup.py
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
