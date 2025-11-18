@@ -27,7 +27,7 @@ regex
 # HTTP & APIs
 requests
 requests_mock
-anthropic
+anthropic>=0.40.0
 
 # Utilities
 markupsafe
