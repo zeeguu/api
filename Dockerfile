@@ -1,8 +1,8 @@
-FROM python:3.12.7
+FROM python:3.12
 
 # Install system packages (removed Apache)
 # Note: Removed apt-get upgrade to enable Docker layer caching
-# The base python:3.12.7 image is already up-to-date
+# Using python:3.12 moving tag for automatic security updates
 RUN apt-get update && \
     apt-get install -y \
     acl \
