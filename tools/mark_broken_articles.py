@@ -168,11 +168,15 @@ def tag_low_quality_articles(
                 if not dry_run:
                     try:
                         article.set_as_broken(db.session, code)
+                        url = article.url.as_string() if article.url else "No URL"
                         print(f"✓ Tagged article {article.id} ({code}): {article.title[:60]}...")
+                        print(f"  URL: {url}")
                     except Exception as e:
                         print(f"✗ Failed to tag article {article.id}: {e}")
                 else:
+                    url = article.url.as_string() if article.url else "No URL"
                     print(f"[DRY RUN] Would tag article {article.id} ({code}): {article.title[:60]}...")
+                    print(f"          URL: {url}")
 
                 continue
 
@@ -197,11 +201,15 @@ def tag_low_quality_articles(
                 if not dry_run:
                     try:
                         article.set_as_broken(db.session, code)
+                        url = article.url.as_string() if article.url else "No URL"
                         print(f"✓ Tagged article {article.id} ({code}): {article.title[:60]}...")
+                        print(f"  URL: {url}")
                     except Exception as e:
                         print(f"✗ Failed to tag article {article.id}: {e}")
                 else:
+                    url = article.url.as_string() if article.url else "No URL"
                     print(f"[DRY RUN] Would tag article {article.id} ({code}): {article.title[:60]}...")
+                    print(f"          URL: {url}")
 
         except Exception as e:
             print(f"⚠ Error processing article {article.id}: {e}")
