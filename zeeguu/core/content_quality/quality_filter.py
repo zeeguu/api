@@ -18,8 +18,14 @@ HTML_READ_MORE_PATTERNS = [
 PLAIN_TEXT_PAYWALL_PATTERNS = [
     "Create an account for free access to:",  # New Scientist
     "édition abonné",  # /www.lemonde.fr
-    # Politiken, JP
+    # Politiken, JP, Danish media
     "Allerede abonnent?",
+    "Er du abonnent?",
+    "Velkommen tilbage. Log ind",
+    "Bliv abonnent",
+    "få adgang til hele artiklen",
+    "Du er godt i gang",
+    "Ingen binding",
     "FOR ABONNENTER",
     # Ing
     "Alternativt kan du købe et abonnement",
