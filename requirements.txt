@@ -60,7 +60,7 @@ markdown2
 # Language processing utilities
 jieba3k
 langdetect
-rapidfuzz==3.0.0
+rapidfuzz
 pyphen
 regex
 
