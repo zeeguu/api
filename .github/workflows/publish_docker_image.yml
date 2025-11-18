@@ -22,7 +22,7 @@ jobs:
         id: cache
         with:
           path: cache-pip
-          key: pip-cache-${{ hashFiles('requirements.txt') }}
+          key: pip-cache-v1
           restore-keys: |
             pip-cache-
 
