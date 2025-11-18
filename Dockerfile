@@ -13,7 +13,9 @@ RUN apt-get install -y \
     mysql* \
     default-libmysqlclient-dev \
     vim \
-    ffmpeg
+    ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Zeeguu-API setup
 VOLUME /Zeeguu-API
@@ -26,8 +28,10 @@ COPY ./setup.py /Zeeguu-API/setup.py
 WORKDIR /Zeeguu-API
 
 # Install Python requirements including gunicorn
+# Use pip cache during install for speed, then purge to save space
 RUN python -m pip install -r requirements.txt && \
-    python -m pip install gunicorn
+    python -m pip install gunicorn && \
+    python -m pip cache purge
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
