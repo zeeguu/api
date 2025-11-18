@@ -28,10 +28,10 @@ COPY ./setup.py /Zeeguu-API/setup.py
 WORKDIR /Zeeguu-API
 
 # Install Python requirements including gunicorn
-# Use --no-cache-dir to prevent disk space issues during build
-# Docker layer caching will still make rebuilds fast when requirements.txt unchanged
-RUN python -m pip install --no-cache-dir -r requirements.txt && \
-    python -m pip install --no-cache-dir gunicorn
+# Use BuildKit cache mount to speed up builds while keeping final image clean
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install -r requirements.txt && \
+    python -m pip install gunicorn
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
