@@ -81,6 +81,10 @@ def tag_low_quality_articles(
     # Build query
     query = Article.query
 
+    # CRITICAL: Exclude simplified articles and user-uploaded content
+    query = query.filter(Article.parent_article_id == None)  # Not a simplified version
+    query = query.filter(Article.uploader_id == None)  # Not user-uploaded
+
     if language_code:
         language = Language.find(language_code)
         if not language:
