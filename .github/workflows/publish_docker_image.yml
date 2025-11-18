@@ -16,15 +16,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Debug - Show cache info
-        run: |
-          echo "=== GitHub Actions Cache Info ==="
-          gh cache list || echo "No caches found or gh not authenticated"
-          echo "=== Disk space before build ==="
-          df -h
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
@@ -47,17 +38,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Enable BuildKit debug output
-          build-args: |
-            BUILDKIT_PROGRESS=plain
-
-      - name: Debug - Show cache info after build
-        run: |
-          echo "=== GitHub Actions Cache Info After Build ==="
-          gh cache list | head -20
-          echo "=== Disk space after build ==="
-          df -h
-        env:
-          GH_TOKEN: ${{ github.token }}
 
 
