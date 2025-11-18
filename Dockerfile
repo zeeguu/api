@@ -27,8 +27,10 @@ WORKDIR /Zeeguu-API
 # Install Python requirements with BuildKit cache mount
 # CPU-only PyTorch (~2.5GB) + cache (~1-2GB) = ~4GB, fits in 14GB GitHub runner
 RUN --mount=type=cache,target=/root/.cache/pip \
+    ls -lah /root/.cache/pip 2>/dev/null || echo "Cache empty on first run" && \
     python -m pip install -r requirements.txt && \
-    python -m pip install gunicorn
+    python -m pip install gunicorn && \
+    echo "Cache size after install:" && du -sh /root/.cache/pip
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
