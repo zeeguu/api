@@ -24,11 +24,15 @@ COPY ./setup.py /Zeeguu-API/setup.py
 
 WORKDIR /Zeeguu-API
 
-# Install Python requirements
-# Use --no-cache-dir for reliability and to avoid stale git-based dependencies
-# Build time: ~7-8 min (acceptable given correctness guarantees)
-RUN python -m pip install --no-cache-dir -r requirements.txt && \
-    python -m pip install --no-cache-dir gunicorn
+# Install Python requirements with BuildKit cache mount
+# Cache persisted to Docker Hub registry for reuse across builds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    echo "=== Pip cache before install ===" && \
+    ls -lah /root/.cache/pip 2>/dev/null || echo "Cache empty (first build)" && \
+    python -m pip install -r requirements.txt && \
+    python -m pip install gunicorn && \
+    echo "=== Pip cache after install ===" && \
+    du -sh /root/.cache/pip
 
 # Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
