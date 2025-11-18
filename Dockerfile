@@ -24,16 +24,20 @@ VOLUME /Zeeguu-API
 RUN mkdir -p /Zeeguu-API
 
 # Install base requirements (heavy, rarely change) in separate layer
+# Use --no-cache-dir to avoid disk space issues with large packages
 COPY ./requirements-base.txt /Zeeguu-API/requirements-base.txt
 WORKDIR /Zeeguu-API
 RUN python -m pip install --no-cache-dir -r requirements-base.txt
 
 # Install app requirements (lighter, change more often) in separate layer
+# Use BuildKit cache mount here - app deps are small enough and change frequently
 COPY ./requirements-app.txt /Zeeguu-API/requirements-app.txt
-RUN python -m pip install --no-cache-dir -r requirements-app.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install -r requirements-app.txt
 
 # Install gunicorn
-RUN python -m pip install --no-cache-dir gunicorn
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install gunicorn
 
 # Copy setup.py for later installation
 COPY ./setup.py /Zeeguu-API/setup.py
