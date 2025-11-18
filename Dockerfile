@@ -25,7 +25,7 @@ COPY ./setup.py /Zeeguu-API/setup.py
 WORKDIR /Zeeguu-API
 
 # Install Python requirements with BuildKit cache mount
-# Cache persisted to Docker Hub registry for reuse across builds
+# Cache persisted via buildkit-cache-dance action to GitHub Actions cache
 RUN --mount=type=cache,target=/root/.cache/pip \
     echo "=== Pip cache before install ===" && \
     ls -lah /root/.cache/pip 2>/dev/null || echo "Cache empty (first build)" && \
