@@ -1,13 +1,10 @@
 FROM python:3.12.7
 
-# Update and upgrade system packages
-RUN apt-get clean all && \
-    apt-get update && \
-    apt-get upgrade -y && \
-    apt-get dist-upgrade -y
-
 # Install system packages (removed Apache)
-RUN apt-get install -y \
+# Note: Removed apt-get upgrade to enable Docker layer caching
+# The base python:3.12.7 image is already up-to-date
+RUN apt-get update && \
+    apt-get install -y \
     acl \
     git \
     mysql* \
