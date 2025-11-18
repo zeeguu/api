@@ -29,14 +29,23 @@ JUNK_PATTERNS_TO_REMOVE = [
     "Passer la publicité",
     "La suite après cette publicité",
     "Quel plaisir de vous retrouver, avant d'accéder à l'équipe, merci d'accepter les cookies.",
+    "Accepter les cookies et accéder à l'équipe gratuitement",
+    "L'équipe, les sociétés de son groupe et utilisent des cookies",
+    "et pourront être modifiées à tout moment via le menu",
+    "Cela nous permet de vous afficher de la publicité personnalisée",
     "En cas de refus, navigation et fonctionnalités seront limitées sur le site.",
     "Vos préférences s'appliqueront uniquement à nos sites",
     "Plus d'informations : politique de confidentialité.",
     "L'équipe shopping du figaro est indépendante de la rédaction.",
     # German affiliate links
     "Preis kann jetzt höher sein.",
+    "Der preis für dich bleibt gleich.",
     "Mehr erfahren.",
-    "Der preis für dich bleibt dabei unveränder.",
+    "Der preis für dich bleibt dabei unverändert.",
+    "Diese affiliate-links sind durch ein",
+    "symbol gekennzeichnet.",
+    "Wenn du über diese links einkaufst, erhalten wir eine provision",
+    "Das hilft unserer arbeit.",
     "Hat dir der beitrag gefallen?",
     "Folge uns auf msn und google news",
     # Portuguese editorial disclaimers
@@ -44,6 +53,18 @@ JUNK_PATTERNS_TO_REMOVE = [
     "Não representam a visão nem espelham o seu posicionamento editorial.",
     # Swedish account notices
     "Du vet väl att du kan skapa ett gratiskonto på dn?",
+    # Italian newsletter prompts
+    "Vuoi ricevere tutto il meglio di vogue italia nella tua casella di posta?",
+    "Iscriviti alla newsletter",
+    "Notizie e approfondimenti sugli avvenimenti politici",
+    "Leggi anche:",
+    # Greek boilerplate
+    "φόρτωση text-to-speech",
+    "ακολουθήστε το techmaniacs.gr",
+    "ένας ακόμα τρόπος να μαθαίνετε τα πάντα πρώτοι",
+    # French navigation
+    "a lire aussi",
+    "à lire aussi",
 ]
 
 JUNK_PATTERNS_DATA_FOLDER = os.path.dirname(__file__)

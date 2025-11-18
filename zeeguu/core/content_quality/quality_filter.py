@@ -26,6 +26,7 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     "få adgang til hele artiklen",
     "Du er godt i gang",
     "Ingen binding",
+    "fortsæt med at læse",
     "FOR ABONNENTER",
     # Ing
     "Alternativt kan du købe et abonnement",
@@ -42,9 +43,17 @@ PLAIN_TEXT_PAYWALL_PATTERNS = [
     "suscríbete para seguir leyendo",
     # French paywalls
     "pour accéder gratuitement au site (hors contenus exclusifs abonnés)",
-    "en vous abonnant, vous accédez à la source de référence",
-    # Swedish paywalls
+    "en vous abonnant, vous accédez",
+    # Swedish/Danish paywalls
     "som inloggad kan du ta del av flera smarta funktioner",
+    "er du allerede prenumerant, logga in för att fortsätta läsa",
+    "är du redan prenumerant, logga in",
+    "passa på – 0 kr fram till 1 feb, sedan endast 85 kr/mån",
+    "ingen bindningstid, säg upp enkelt när du vill",
+    "❌der opstod en fejl",
+    # English paywalls
+    "power up with unlimited access to wired",
+    "subscribe today",
 ]
 
 incomplete_suggesting_terminations = "Read More"
