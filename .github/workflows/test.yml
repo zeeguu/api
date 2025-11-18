@@ -67,6 +67,21 @@ jobs:
             echo "Using cached virtual environment"
           fi
 
+          # Ensure NLTK data is downloaded (even if venv cached)
+          if [ ! -d "nltk_data" ] || [ -z "$(ls -A nltk_data)" ]; then
+            echo "Downloading NLTK data..."
+            python -c "
+import nltk
+import os
+nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
+nltk.download('punkt', download_dir=nltk_data_dir)
+nltk.download('punkt_tab', download_dir=nltk_data_dir)
+nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_dir)
+            "
+          else
+            echo "NLTK data cached"
+          fi
+
           # Only install Stanza models if not cached
           if [ ! -d "stanza_resources" ] || [ -z "$(ls -A stanza_resources)" ]; then
             echo "Installing Stanza models..."
