@@ -1,125 +1,74 @@
 FROM python:3.12.7
 
-# Use BuildKit cache mount for apt to speed up package installation
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get clean all && \
+# Update and upgrade system packages
+RUN apt-get clean all && \
     apt-get update && \
     apt-get upgrade -y && \
     apt-get dist-upgrade -y
 
-# Install all system packages in one layer with cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get install -y \
+# Install system packages (removed Apache)
+RUN apt-get install -y \
     acl \
     git \
     mysql* \
     default-libmysqlclient-dev \
-    apache2 \
-    apache2-dev \
     vim \
     ffmpeg
 
-
-# mod_wsgi
-# --------
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install mod_wsgi
-
-RUN /bin/bash -c 'mod_wsgi-express install-module | tee /etc/apache2/mods-available/wsgi.{load,conf}'
-RUN a2enmod wsgi
-RUN a2enmod headers
-
-# ML: maybe better to map this file from outside?
-RUN echo '\n\
-<VirtualHost *:8080>\n\
-    WSGIDaemonProcess zeeguu_api processes=4 threads=15 request-timeout=300 home=/zeeguu-data/ python-path=/Zeeguu-API/\n\
-    WSGIScriptAlias / /Zeeguu-API/zeeguu_api.wsgi\n\
-    <Location />\n\
-        WSGIProcessGroup zeeguu_api\n\
-	    WSGIApplicationGroup %{GLOBAL}\n\
-    </Location>\n\
-    <Directory "/Zeeguu-API">\n\
-        <Files "zeeguu_api.wsgi">\n\
-            Require all granted\n\
-        </Files>\n\
-    </Directory>\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    LogLevel info\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
-</VirtualHost>' > /etc/apache2/sites-available/zeeguu-api.conf
-
-
-# ML: is this needed?
-RUN chown -R www-data:www-data /var/www
-
-
-# have apache listen on port 8080
-RUN sed -i "s,Listen 80,Listen 8080,g" /etc/apache2/ports.conf
-
-
-# Zeeguu-Api
-# ----------
-
-# Declare that this will be mounted from a volume
+# Zeeguu-API setup
 VOLUME /Zeeguu-API
 
-# We need to copy the requirements file it in order to be able to install it
-# However, we're not copying the whole folder, such that in case we make a change in the folder
-# (e.g. to this build file) the whole cache is not invalidated and the build process does
-# not have to start from scratch
+# Copy requirements first for better layer caching
 RUN mkdir -p /Zeeguu-API
 COPY ./requirements.txt /Zeeguu-API/requirements.txt
 COPY ./setup.py /Zeeguu-API/setup.py
 
 WORKDIR /Zeeguu-API
 
-# Install requirements and run the setup.py
-# Use BuildKit cache mount to persist pip cache between builds
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install -r requirements.txt
+# Install Python requirements including gunicorn
+RUN python -m pip install -r requirements.txt && \
+    python -m pip install gunicorn
 
-
-# setup.py installs NLTK in the $ZEEGUU_RESOURCES_FOLDER folder, so we create it
+# Setup NLTK resources folder
 ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
 RUN mkdir -p $ZEEGUU_RESOURCES_FOLDER
 
-
-
-
-# Copy the rest of the files
-# (this is done after the requirements are installed, so that the layer does not need to be changed
-# if only the code is being changed...
+# Copy the rest of the application
 COPY . /Zeeguu-API
 
-RUN python setup.py develop #Installs the nltk resources in the /zeeguu_resources/nltk_data
+# Install the application
+RUN python setup.py develop
 
-# For nltk to know where to look we need to set an envvar inside of the image
+# Set NLTK data path
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
-
-# We can only run this here, after we copied the files,
-# because it depends on the zeeguuu.core.languages
+# Install Stanza models
 RUN python install_stanza_models.py
 
-
-# Create the temporary folder for newspaper and make sure that it can be
-# written by www-data
+# Create temporary folder for newspaper scraper
 ENV SCRAPER_FOLDER=/tmp/.newspaper_scraper
-RUN mkdir -p $SCRAPER_FOLDER # -p does not report error if folder already exists
+RUN mkdir -p $SCRAPER_FOLDER
 
-
-# Ensure that apache processes have acess to relevant folders
-RUN chown -R www-data:www-data $SCRAPER_FOLDER
-RUN chown -R www-data:www-data $ZEEGUU_RESOURCES_FOLDER
-
-
+# Set config path
 ENV ZEEGUU_CONFIG=/Zeeguu-API/default_docker.cfg
 
+# Data volume
 VOLUME /zeeguu-data
 
-RUN a2dissite 000-default.conf
-RUN a2ensite zeeguu-api
+# Expose port
+EXPOSE 8080
 
-
+# Run with Gunicorn
+# 4 workers (processes) with 15 threads each = 60 concurrent handlers
+# --timeout 300 = 5 minute request timeout
+# NOTE: --preload removed - causes database connection sharing across workers leading to deadlocks
+# Each worker now initializes its own DB connections and Stanza models (slight memory overhead but safe)
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:8080", \
+     "--workers", "4", \
+     "--threads", "15", \
+     "--timeout", "300", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info", \
+     "zeeguu.api.app:create_app()"]
