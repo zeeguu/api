@@ -2,6 +2,9 @@
 # These get their own Docker layer for better caching
 
 # ML/NLP frameworks (HEAVY - includes PyTorch via stanza)
+# Use CPU-only PyTorch to save ~1.5GB (no GPU on server)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 stanza==1.11.0
 spacy>=3.0.0,<4.0.0
 en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1-py3-none-any.whl
