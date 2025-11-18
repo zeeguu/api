@@ -208,8 +208,12 @@ def tag_low_quality_articles(
     print("SUMMARY")
     print("=" * 80)
     print(f"Total articles processed: {stats['total_processed']}")
+    print(f"Already tagged (skipped): {stats['already_tagged']}")
     print(f"Detected low quality: {stats['detected_low_quality']}")
-    print(f"Already tagged: {stats['already_tagged']}")
+
+    if stats['total_processed'] > 0:
+        detection_rate = (stats['detected_low_quality'] / (stats['total_processed'] - stats['already_tagged']) * 100) if (stats['total_processed'] - stats['already_tagged']) > 0 else 0
+        print(f"Detection rate: {detection_rate:.1f}%")
 
     if show_stats and detection_reasons:
         print(f"\n" + "-" * 80)
@@ -218,7 +222,8 @@ def tag_low_quality_articles(
         for code, count in sorted(
             detection_reasons.items(), key=lambda x: x[1], reverse=True
         ):
-            print(f"  {code}: {count}")
+            percentage = (count / stats['detected_low_quality'] * 100) if stats['detected_low_quality'] > 0 else 0
+            print(f"  {code}: {count} ({percentage:.1f}%)")
 
     if show_stats and detected_articles:
         print(f"\n" + "-" * 80)
