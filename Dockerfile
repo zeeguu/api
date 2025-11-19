@@ -35,7 +35,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     du -sh /root/.cache/pip
 
 # Setup NLTK resources folder
-ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-resources
+# Use /zeeguu-data to match docker-compose volume mount
+ENV ZEEGUU_RESOURCES_FOLDER=/zeeguu-data
 RUN mkdir -p $ZEEGUU_RESOURCES_FOLDER
 
 # Copy the rest of the application
