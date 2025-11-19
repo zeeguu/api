@@ -1150,7 +1150,7 @@ class Article(db.Model):
         # If extension pre-extracted all data, use it directly (skip readability server)
         if text_content:
             print("-- using pre-extracted data from extension")
-            summary = text_content
+            article_text = text_content
             authors = author if author else ""
             # Detect language from text content
             from langdetect import detect
@@ -1166,7 +1166,7 @@ class Article(db.Model):
 
             # newspaper Article objects use .html, not .htmlContent
             html_content = np_article.html
-            summary = np_article.summary
+            article_text = np_article.text  # Full article text from readability server
             title = np_article.title
             authors = ", ".join(np_article.authors or [])
             lang = np_article.meta_lang
@@ -1186,7 +1186,7 @@ class Article(db.Model):
 
         source = Source.find_or_create(
             session,
-            np_article.text,
+            article_text,
             source_type,
             language,
             0,
@@ -1197,7 +1197,7 @@ class Article(db.Model):
             title,
             authors,
             source,
-            summary,
+            None,  # Let constructor create 300-char summary from source
             datetime.now(),
             None,
             language,
