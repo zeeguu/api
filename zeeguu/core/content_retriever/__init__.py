@@ -10,9 +10,9 @@ def download_and_parse(url):
     return np_article
 
 
-def readability_download_and_parse(url):
+def readability_download_and_parse(url, html_content=None):
     from .parse_with_readability_server import download_and_parse as _download_and_parse
 
-    np_article = _download_and_parse(url)
+    np_article = _download_and_parse(url, html_content=html_content)
 
     return np_article
