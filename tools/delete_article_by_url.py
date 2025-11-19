@@ -14,7 +14,7 @@ app = create_app()
 app.app_context().push()
 
 
-def delete_article_by_url(url_string):
+def delete_article_by_url(url_string, force=False):
     """Delete an article and its associated data by URL."""
 
     # Find the URL
@@ -38,13 +38,34 @@ def delete_article_by_url(url_string):
     print(f"  Language: {article.language.name}")
     print(f"  URL: {canonical_url}")
 
-    # Ask for confirmation
-    response = input("\nDelete this article? (yes/no): ")
-    if response.lower() != 'yes':
-        print("Cancelled.")
-        return False
+    # Check for related data
+    from zeeguu.core.model import UserArticle, ArticleFragment
+    user_articles = UserArticle.query.filter_by(article_id=article.id).count()
+    fragments = ArticleFragment.query.filter_by(article_id=article.id).count()
 
-    # Delete the article (cascading deletes should handle related data)
+    print(f"\nRelated data:")
+    print(f"  UserArticles: {user_articles}")
+    print(f"  ArticleFragments: {fragments}")
+
+    # Ask for confirmation
+    if not force:
+        response = input("\nDelete this article and all related data? (yes/no): ")
+        if response.lower() != 'yes':
+            print("Cancelled.")
+            return False
+
+    # Delete related data first (in correct order to avoid FK violations)
+    print("\nDeleting related data...")
+
+    # Delete user articles
+    deleted = UserArticle.query.filter_by(article_id=article.id).delete()
+    print(f"  Deleted {deleted} UserArticle records")
+
+    # Delete article fragments
+    deleted = ArticleFragment.query.filter_by(article_id=article.id).delete()
+    print(f"  Deleted {deleted} ArticleFragment records")
+
+    # Now delete the article
     db.session.delete(article)
     db.session.commit()
 
