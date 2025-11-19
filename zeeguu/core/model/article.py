@@ -1161,7 +1161,14 @@ class Article(db.Model):
         authors = ", ".join(np_article.authors or [])
         lang = np_article.meta_lang
 
-        language = Language.find(lang)
+        # Try to find the language - if not supported, raise NoResultFound
+        # which will be caught in the endpoint and return 406
+        try:
+            language = Language.find(lang)
+        except Exception as e:
+            # Language code not supported - log for debugging
+            print(f"-- detected language '{lang}' is not supported in Zeeguu")
+            raise  # Re-raise to be caught as NoResultFound in endpoint
 
         # Create new article and save it to DB
         url_object = Url.find_or_create(session, canonical_url)
