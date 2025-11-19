@@ -27,12 +27,19 @@ def download_and_parse(url, html_content=None):
         # this is a temporary solution for allowing translations
         # on pages that do not have "articles" downloadable by newspaper.
 
+    # Debug: log extracted text length and meta_lang from HTML
+    print(f"-- newspaper extracted {len(parsed.text)} chars, meta_lang from HTML: '{parsed.meta_lang}'")
+    print(f"-- first 200 chars of text: {parsed.text[:200]}")
+
     if parsed.meta_lang == "":
         try:
-            parsed.meta_lang = detect(parsed.text)
-        except Exception:
+            detected = detect(parsed.text)
+            print(f"-- langdetect detected: '{detected}'")
+            parsed.meta_lang = detected
+        except Exception as e:
             # langdetect can fail on texts with no features, very short texts, etc.
             # Leave meta_lang empty and let Article.find_or_create handle it
+            print(f"-- langdetect failed: {e}")
             pass
 
     # Other relevant attributes: title, text, summary, authors
