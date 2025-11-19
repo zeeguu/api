@@ -1117,6 +1117,7 @@ class Article(db.Model):
         text_content=None,
         title=None,
         author=None,
+        image_url=None,
     ):
         """
         Find existing article by URL or create new article from URL.
@@ -1146,6 +1147,9 @@ class Article(db.Model):
         found = cls.find(canonical_url)
         if found:
             return found
+
+        # Initialize np_article to None (only set if using readability server)
+        np_article = None
 
         # If extension pre-extracted all data, use it directly (skip readability server)
         if text_content:
@@ -1208,9 +1212,15 @@ class Article(db.Model):
 
         new_article.create_article_fragments(session)
 
-        main_img_url = extract_article_image(np_article)
-        if main_img_url and main_img_url != "":
-            new_article.img_url = Url.find_or_create(session, main_img_url)
+        # Set article image
+        # If extension provided image_url, use it
+        if image_url:
+            new_article.img_url = Url.find_or_create(session, image_url)
+        # Otherwise, extract from np_article if we have it (readability server path)
+        elif np_article:
+            main_img_url = extract_article_image(np_article)
+            if main_img_url and main_img_url != "":
+                new_article.img_url = Url.find_or_create(session, main_img_url)
 
         url_keywords = add_url_keywords(new_article, session)
         add_topics(new_article, None, url_keywords, session)

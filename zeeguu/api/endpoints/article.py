@@ -38,6 +38,7 @@ def find_or_create_article():
     text_content = request.form.get("textContent", "") if pre_extracted else None
     title = request.form.get("title", "") if pre_extracted else None
     author = request.form.get("author", "") if pre_extracted else None
+    image_url = request.form.get("imageUrl", "") if pre_extracted else None
 
     print("-- url: " + url)
     print("-- pre_extracted: " + str(pre_extracted))
@@ -55,7 +56,8 @@ def find_or_create_article():
             html_content=html_content,
             text_content=text_content,
             title=title,
-            author=author
+            author=author,
+            image_url=image_url
         )
         print("-- article found or created: " + str(article.id))
 
