@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """
-Delete an article by URL.
+Delete an article by URL or ID.
 
 Usage:
     python tools/delete_article_by_url.py "https://example.com/article"
+    python tools/delete_article_by_url.py --id 12345
 """
 
 import sys
@@ -17,19 +18,23 @@ app.app_context().push()
 def delete_article_by_url(url_string, force=False):
     """Delete an article and its associated data by URL."""
 
-    # Find the URL
-    canonical_url = Url.extract_canonical_url(url_string)
-    url_obj = Url.find(canonical_url)
+    try:
+        # Find the URL
+        canonical_url = Url.extract_canonical_url(url_string)
+        url_obj = Url.find(canonical_url)
 
-    if not url_obj:
-        print(f"❌ URL not found: {canonical_url}")
-        return False
+        if not url_obj:
+            print(f"❌ URL not found: {canonical_url}")
+            return False
 
-    # Find the article
-    article = Article.query.filter_by(url_id=url_obj.id).first()
+        # Find the article
+        article = Article.query.filter_by(url_id=url_obj.id).first()
 
-    if not article:
-        print(f"❌ Article not found for URL: {canonical_url}")
+        if not article:
+            print(f"❌ Article not found for URL: {canonical_url}")
+            return False
+    except Exception as e:
+        print(f"❌ Error finding article: {e}")
         return False
 
     print(f"Found article:")
@@ -56,6 +61,11 @@ def delete_article_by_url(url_string, force=False):
 
     # Delete related data first (in correct order to avoid FK violations)
     print("\nDeleting related data...")
+
+    # Delete user reading sessions first
+    from zeeguu.core.model import UserReadingSession
+    deleted = UserReadingSession.query.filter_by(article_id=article.id).delete()
+    print(f"  Deleted {deleted} UserReadingSession records")
 
     # Delete user articles
     deleted = UserArticle.query.filter_by(article_id=article.id).delete()
