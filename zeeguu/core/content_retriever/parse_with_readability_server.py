@@ -10,7 +10,7 @@ from zeeguu.core.content_retriever.crawler_exceptions import (
 
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
 READABILITY_SERVER_CLEANUP_POST_URI = "http://readability_server:3456/cleanup"
-TIMEOUT_SECONDS = 20
+TIMEOUT_SECONDS = 60  # Increased for large HTML files with embedded styles
 
 
 def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
