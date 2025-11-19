@@ -1147,12 +1147,8 @@ class Article(db.Model):
 
         from zeeguu.core.content_retriever import readability_download_and_parse
 
-        # If HTML content provided, use it; otherwise fetch from readability server
-        if html_content:
-            from zeeguu.core.content_retriever import parse_with_newspaper
-            np_article = parse_with_newspaper.download_and_parse(canonical_url, html_content)
-        else:
-            np_article = readability_download_and_parse(canonical_url)
+        # Use readability server for parsing (supports both URL fetching and HTML content)
+        np_article = readability_download_and_parse(canonical_url, html_content=html_content)
 
         # newspaper Article objects use .html, not .htmlContent
         html_content = np_article.html
