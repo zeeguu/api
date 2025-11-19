@@ -32,7 +32,15 @@ def find_or_create_article():
 
     url = request.form.get("url", "")
     html_content = request.form.get("htmlContent", "")
+
+    # Check if extension has pre-extracted all the data
+    pre_extracted = request.form.get("preExtracted", "") == "true"
+    text_content = request.form.get("textContent", "") if pre_extracted else None
+    title = request.form.get("title", "") if pre_extracted else None
+    author = request.form.get("author", "") if pre_extracted else None
+
     print("-- url: " + url)
+    print("-- pre_extracted: " + str(pre_extracted))
     user = User.find_by_id(flask.g.user_id)
     print("-- user: " + str(user.id))
 
@@ -41,7 +49,14 @@ def find_or_create_article():
         flask.abort(400)
 
     try:
-        article = Article.find_or_create(db_session, url, html_content=html_content)
+        article = Article.find_or_create(
+            db_session,
+            url,
+            html_content=html_content,
+            text_content=text_content,
+            title=title,
+            author=author
+        )
         print("-- article found or created: " + str(article.id))
 
         # Assess CEFR level for user-initiated article reading

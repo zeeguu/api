@@ -1114,8 +1114,9 @@ class Article(db.Model):
         session,
         url: str,
         html_content=None,
+        text_content=None,
         title=None,
-        authors: str = "",
+        author=None,
     ):
         """
         Find existing article by URL or create new article from URL.
@@ -1125,9 +1126,10 @@ class Article(db.Model):
 
         If article for url found, return ID
 
-        If not found,
-            - if htmlContent is present, create article for that
-            - if not, download and create article then return
+        If not found:
+            - if text_content is provided (pre-extracted by extension), use it directly
+            - else if html_content is present, parse it with readability server
+            - else download and parse article
         """
         from zeeguu.core.model import Url, Language
         from zeeguu.core.model.source import Source
@@ -1145,17 +1147,24 @@ class Article(db.Model):
         if found:
             return found
 
-        from zeeguu.core.content_retriever import readability_download_and_parse
+        # If extension pre-extracted all data, use it directly (skip readability server)
+        if text_content:
+            print("-- using pre-extracted data from extension")
+            summary = text_content
+            authors = author if author else ""
+            lang = None  # Will be detected below
+        else:
+            # Use readability server for parsing (crawler or legacy path)
+            print("-- using readability server for extraction")
+            from zeeguu.core.content_retriever import readability_download_and_parse
+            np_article = readability_download_and_parse(canonical_url, html_content=html_content)
 
-        # Use readability server for parsing (supports both URL fetching and HTML content)
-        np_article = readability_download_and_parse(canonical_url, html_content=html_content)
-
-        # newspaper Article objects use .html, not .htmlContent
-        html_content = np_article.html
-        summary = np_article.summary
-        title = np_article.title
-        authors = ", ".join(np_article.authors or [])
-        lang = np_article.meta_lang
+            # newspaper Article objects use .html, not .htmlContent
+            html_content = np_article.html
+            summary = np_article.summary
+            title = np_article.title
+            authors = ", ".join(np_article.authors or [])
+            lang = np_article.meta_lang
 
         # Try to find the language - if not supported, raise NoResultFound
         # which will be caught in the endpoint and return 406
