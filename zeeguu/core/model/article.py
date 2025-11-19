@@ -1147,7 +1147,12 @@ class Article(db.Model):
 
         from zeeguu.core.content_retriever import readability_download_and_parse
 
-        np_article = readability_download_and_parse(canonical_url)
+        # If HTML content provided, use it; otherwise fetch from readability server
+        if html_content:
+            from zeeguu.core.content_retriever import parse_with_newspaper
+            np_article = parse_with_newspaper.download_and_parse(canonical_url, html_content)
+        else:
+            np_article = readability_download_and_parse(canonical_url)
 
         html_content = np_article.htmlContent
         summary = np_article.summary

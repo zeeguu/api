@@ -2,9 +2,23 @@ import newspaper
 from langdetect import detect
 
 
-def download_and_parse(url):
+def download_and_parse(url, html_content=None):
+    """
+    Parse article using newspaper3k.
+
+    Args:
+        url: Article URL
+        html_content: Optional pre-fetched HTML content. If provided, skip download.
+    """
     parsed = newspaper.Article(url=url)
-    parsed.download()
+
+    if html_content:
+        # Use provided HTML content instead of downloading
+        parsed.set_html(html_content)
+    else:
+        # Download HTML from URL
+        parsed.download()
+
     parsed.parse()
 
     if parsed.text == "":
@@ -14,7 +28,12 @@ def download_and_parse(url):
         # on pages that do not have "articles" downloadable by newspaper.
 
     if parsed.meta_lang == "":
-        parsed.meta_lang = detect(parsed.text)
+        try:
+            parsed.meta_lang = detect(parsed.text)
+        except Exception:
+            # langdetect can fail on texts with no features, very short texts, etc.
+            # Leave meta_lang empty and let Article.find_or_create handle it
+            pass
 
     # Other relevant attributes: title, text, summary, authors
     return parsed

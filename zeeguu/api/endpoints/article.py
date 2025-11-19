@@ -31,6 +31,7 @@ def find_or_create_article():
     """
 
     url = request.form.get("url", "")
+    html_content = request.form.get("htmlContent", "")
     print("-- url: " + url)
     user = User.find_by_id(flask.g.user_id)
     print("-- user: " + str(user.id))
@@ -40,7 +41,7 @@ def find_or_create_article():
         flask.abort(400)
 
     try:
-        article = Article.find_or_create(db_session, url)
+        article = Article.find_or_create(db_session, url, html_content=html_content)
         print("-- article found or created: " + str(article.id))
 
         # Assess CEFR level for user-initiated article reading
@@ -56,7 +57,13 @@ def find_or_create_article():
         print(f"Exception: '{e}'")
         flask.abort(406, "Language not supported")
     except Exception as e:
+        from zeeguu.core.content_retriever.crawler_exceptions import FailedToParseWithReadabilityServer
         from zeeguu.logging import print_and_log_to_sentry
+
+        # Check if it's a parsing failure
+        if isinstance(e, FailedToParseWithReadabilityServer):
+            print(f"Failed to parse article: {e}")
+            flask.abort(422, "Could not parse article content")
 
         print_and_log_to_sentry(e)
 
