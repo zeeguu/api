@@ -1152,7 +1152,12 @@ class Article(db.Model):
             print("-- using pre-extracted data from extension")
             summary = text_content
             authors = author if author else ""
-            lang = None  # Will be detected below
+            # Detect language from text content
+            from langdetect import detect
+            try:
+                lang = detect(text_content)
+            except:
+                lang = None
         else:
             # Use readability server for parsing (crawler or legacy path)
             print("-- using readability server for extraction")
