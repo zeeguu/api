@@ -1154,7 +1154,8 @@ class Article(db.Model):
         else:
             np_article = readability_download_and_parse(canonical_url)
 
-        html_content = np_article.htmlContent
+        # newspaper Article objects use .html, not .htmlContent
+        html_content = np_article.html
         summary = np_article.summary
         title = np_article.title
         authors = ", ".join(np_article.authors or [])
