@@ -37,18 +37,35 @@ def delete_article_by_url(url_string, force=False):
         print(f"❌ Error finding article: {e}")
         return False
 
+    return delete_article(article, force)
+
+
+def delete_article_by_id(article_id, force=False):
+    """Delete an article by ID."""
+    article = Article.query.get(article_id)
+
+    if not article:
+        print(f"❌ Article not found with ID: {article_id}")
+        return False
+
+    return delete_article(article, force)
+
+
+def delete_article(article, force=False):
+    """Common deletion logic for both URL and ID."""
     print(f"Found article:")
     print(f"  ID: {article.id}")
     print(f"  Title: {article.title}")
     print(f"  Language: {article.language.name}")
-    print(f"  URL: {canonical_url}")
 
     # Check for related data
-    from zeeguu.core.model import UserArticle, ArticleFragment
+    from zeeguu.core.model import UserArticle, ArticleFragment, UserReadingSession
     user_articles = UserArticle.query.filter_by(article_id=article.id).count()
     fragments = ArticleFragment.query.filter_by(article_id=article.id).count()
+    sessions = UserReadingSession.query.filter_by(article_id=article.id).count()
 
     print(f"\nRelated data:")
+    print(f"  UserReadingSessions: {sessions}")
     print(f"  UserArticles: {user_articles}")
     print(f"  ArticleFragments: {fragments}")
 
@@ -59,23 +76,19 @@ def delete_article_by_url(url_string, force=False):
             print("Cancelled.")
             return False
 
-    # Delete related data first (in correct order to avoid FK violations)
+    # Delete related data first
     print("\nDeleting related data...")
 
-    # Delete user reading sessions first
-    from zeeguu.core.model import UserReadingSession
     deleted = UserReadingSession.query.filter_by(article_id=article.id).delete()
     print(f"  Deleted {deleted} UserReadingSession records")
 
-    # Delete user articles
     deleted = UserArticle.query.filter_by(article_id=article.id).delete()
     print(f"  Deleted {deleted} UserArticle records")
 
-    # Delete article fragments
     deleted = ArticleFragment.query.filter_by(article_id=article.id).delete()
     print(f"  Deleted {deleted} ArticleFragment records")
 
-    # Now delete the article
+    # Delete article
     db.session.delete(article)
     db.session.commit()
 
@@ -84,9 +97,18 @@ def delete_article_by_url(url_string, force=False):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python tools/delete_article_by_url.py <url>")
+    if len(sys.argv) < 2:
+        print("Usage:")
+        print("  python tools/delete_article_by_url.py <url>")
+        print("  python tools/delete_article_by_url.py --id <article_id>")
         sys.exit(1)
 
-    url = sys.argv[1]
-    delete_article_by_url(url)
+    if sys.argv[1] == '--id':
+        if len(sys.argv) != 3:
+            print("Error: --id requires an article ID")
+            sys.exit(1)
+        article_id = int(sys.argv[2])
+        delete_article_by_id(article_id)
+    else:
+        url = sys.argv[1]
+        delete_article_by_url(url)
