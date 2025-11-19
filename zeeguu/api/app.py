@@ -114,6 +114,10 @@ def create_app(testing=False):
     # Add request logging to catch ALL requests before they hit endpoints
     @app.before_request
     def log_request_start():
+        # Skip logging for noisy endpoints
+        if flask.request.path == "/upload_user_activity_data":
+            return
+
         import sys
         import time
         import threading
