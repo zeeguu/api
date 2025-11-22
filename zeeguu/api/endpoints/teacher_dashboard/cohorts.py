@@ -46,6 +46,16 @@ def remove_cohort(cohort_id):
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
+        # Mark invitation codes as deleted for legacy students
+        # This prevents them from being auto-enrolled if a new class reuses the same invite code
+        if selected_cohort.inv_code:
+            legacy_students = User.query.filter_by(
+                invitation_code=selected_cohort.inv_code
+            ).all()
+            for student in legacy_students:
+                student.invitation_code = f"deleted_{student.invitation_code}"
+                db.session.add(student)
+
         # Remove all student-cohort relationships
         UserCohortMap.query.filter_by(cohort_id=cohort_id).delete()
 

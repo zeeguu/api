@@ -50,6 +50,7 @@ class User(db.Model):
     cohorts = relationship("UserCohortMap", back_populates="user")
 
     is_dev = Column(Boolean)
+    created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
 
     def __init__(
@@ -62,6 +63,8 @@ class User(db.Model):
         invitation_code=None,
         is_dev=0,
     ):
+        from datetime import datetime
+
         self.email = email
         self.name = name
         self.update_password(password)
@@ -69,6 +72,7 @@ class User(db.Model):
         self.native_language = native_language or Language.default_native_language()
         self.invitation_code = invitation_code
         self.is_dev = is_dev
+        self.created_at = datetime.now()
 
     @classmethod
     def create_anonymous(
