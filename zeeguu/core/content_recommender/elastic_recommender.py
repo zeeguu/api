@@ -202,6 +202,25 @@ def article_recommendations_for_user(
         if not (isinstance(c, Article) and c.uploader_id == user.id)
     ]
 
+    # Filter out teacher-uploaded texts that are not currently shared with user's active cohorts
+    # (students should only see teacher texts if they're currently in a cohort that has that text)
+    from zeeguu.core.model.cohort_article_map import CohortArticleMap
+    user_cohort_ids = [cohort.cohort_id for cohort in user.cohorts]
+    if user_cohort_ids:
+        cohort_article_ids = set(
+            mapping.article_id
+            for mapping in CohortArticleMap.query.filter(
+                CohortArticleMap.cohort_id.in_(user_cohort_ids)
+            ).all()
+        )
+    else:
+        cohort_article_ids = set()
+
+    content = [
+        c for c in content
+        if not (isinstance(c, Article) and c.uploader_id is not None and c.id not in cohort_article_ids)
+    ]
+
     sorted_content = sorted(content, key=lambda x: x.published_time, reverse=True)
 
     return sorted_content

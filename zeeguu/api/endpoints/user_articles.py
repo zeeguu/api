@@ -96,6 +96,8 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     except Exception as e:
         # Elasticsearch failed, fall back to database query
         print(f"Elasticsearch unavailable, using DB fallback: {type(e).__name__}")
+        from zeeguu.core.model.cohort_article_map import CohortArticleMap
+
         query = Article.query.filter_by(broken=0).filter_by(
             language_id=user.learned_language_id
         )
@@ -105,6 +107,23 @@ def user_articles_recommended(count: int = 15, page: int = 0):
             query = query.filter(Article.id.notin_(articles_to_exclude))
 
         content = query.order_by(Article.published_time.desc()).limit(20).all()
+
+        # Filter out teacher-uploaded texts not in user's active cohorts
+        user_cohort_ids = [cohort.cohort_id for cohort in user.cohorts]
+        if user_cohort_ids:
+            cohort_article_ids = set(
+                mapping.article_id
+                for mapping in CohortArticleMap.query.filter(
+                    CohortArticleMap.cohort_id.in_(user_cohort_ids)
+                ).all()
+            )
+        else:
+            cohort_article_ids = set()
+
+        content = [
+            article for article in content
+            if not (article.uploader_id is not None and article.id not in cohort_article_ids)
+        ]
 
     content_infos = get_user_info_from_content_recommendations(user, content)
     return json_result(content_infos)
