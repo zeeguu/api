@@ -17,6 +17,7 @@ def get_embedding_from_video(v):
             "article_content": v.get_content(),
             "article_language": v.language.name.lower(),
         },
+        timeout=60,
     )
     return r.json()
 
@@ -28,6 +29,7 @@ def get_embedding_from_article(a: Article):
             "article_content": a.get_content(),
             "article_language": a.language.name.lower(),
         },
+        timeout=60,
     )
     return r.json()
 
@@ -39,7 +41,7 @@ def get_embedding_from_text(text: str, language: str = None):
     if language:
         data["article_language"] = language
     try:
-        r = requests.post(url=f"{EMB_API_CONN_STRING}/get_article_embedding", json=data, timeout=5)
+        r = requests.post(url=f"{EMB_API_CONN_STRING}/get_article_embedding", json=data, timeout=60)
         return r.json()
     except Exception as e:
         print(f"Warning: Embedding service unavailable: {e}")
