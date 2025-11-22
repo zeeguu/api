@@ -60,14 +60,18 @@ def delete_article(article, force=False):
 
     # Check for related data
     from zeeguu.core.model import UserArticle, ArticleFragment, UserReadingSession
+    from zeeguu.core.model.cohort_article_map import CohortArticleMap
+
     user_articles = UserArticle.query.filter_by(article_id=article.id).count()
     fragments = ArticleFragment.query.filter_by(article_id=article.id).count()
     sessions = UserReadingSession.query.filter_by(article_id=article.id).count()
+    cohort_mappings = CohortArticleMap.query.filter_by(article_id=article.id).count()
 
     print(f"\nRelated data:")
     print(f"  UserReadingSessions: {sessions}")
     print(f"  UserArticles: {user_articles}")
     print(f"  ArticleFragments: {fragments}")
+    print(f"  CohortArticleMaps: {cohort_mappings}")
 
     # Ask for confirmation
     if not force:
@@ -87,6 +91,9 @@ def delete_article(article, force=False):
 
     deleted = ArticleFragment.query.filter_by(article_id=article.id).delete()
     print(f"  Deleted {deleted} ArticleFragment records")
+
+    deleted = CohortArticleMap.query.filter_by(article_id=article.id).delete()
+    print(f"  Deleted {deleted} CohortArticleMap records")
 
     # Delete article
     db.session.delete(article)

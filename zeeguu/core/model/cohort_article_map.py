@@ -41,6 +41,7 @@ class CohortArticleMap(db.Model):
         articles = [
             _adapted_article_info(relation)
             for relation in cls.query.filter_by(cohort=cohort).all()
+            if relation.article is not None  # Defensive check for orphaned mappings
         ]
         return sorted(articles, key=lambda x: x["metrics"]["difficulty"])
 
