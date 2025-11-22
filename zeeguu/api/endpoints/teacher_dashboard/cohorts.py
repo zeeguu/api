@@ -36,26 +36,28 @@ from zeeguu.core.model.db import db
 def remove_cohort(cohort_id):
     """
     Removes cohort by cohort_id.
-    Can only be called successfully if the class is empty.
+    Also removes all students from the cohort.
 
     """
-    from zeeguu.core.model import TeacherCohortMap
+    from zeeguu.core.model import TeacherCohortMap, UserCohortMap
 
     check_permission_for_cohort(cohort_id)
 
     try:
         selected_cohort = Cohort.query.filter_by(id=cohort_id).one()
 
-        for student in selected_cohort.get_students():
-            student.cohorts = []
-            db.session.add(student)
+        # Remove all student-cohort relationships
+        UserCohortMap.query.filter_by(cohort_id=cohort_id).delete()
 
+        # Remove all teacher-cohort relationships
         links = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
         for link in links:
             db.session.delete(link)
 
+        # Remove all article-cohort relationships
         CohortArticleMap.delete_all_for_cohort(db.session, cohort_id)
 
+        # Finally, delete the cohort itself
         db.session.delete(selected_cohort)
         db.session.commit()
         return "OK"
