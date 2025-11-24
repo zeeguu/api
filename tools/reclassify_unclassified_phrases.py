@@ -31,7 +31,7 @@ app.app_context().push()
 # Now safe to import and use models
 from zeeguu.core.model import User, UserWord, Meaning, Phrase
 from zeeguu.core.model.meaning_frequency_classifier import MeaningFrequencyClassifier
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 
 def get_recently_active_users(days=30):
@@ -114,18 +114,18 @@ def reclassify_for_users(users, limit=None, dry_run=False, batch_size=15, intera
 
     for user in users:
         stats['users_processed'] += 1
-        logp(f"\n{'='*80}")
-        logp(f"Processing user {user.id} ({user.name})")
+        log(f"\n{'='*80}")
+        log(f"Processing user {user.id} ({user.name})")
 
         # Get unclassified multi-word meanings for this user
         user_word_meanings = get_unclassified_multi_word_meanings(user)
         stats['meanings_found'] += len(user_word_meanings)
 
         if not user_word_meanings:
-            logp(f"  No unclassified multi-word phrases found")
+            log(f"  No unclassified multi-word phrases found")
             continue
 
-        logp(f"  Found {len(user_word_meanings)} unclassified multi-word phrases")
+        log(f"  Found {len(user_word_meanings)} unclassified multi-word phrases")
 
         # Extract unique meanings (avoid duplicates)
         seen_meaning_ids = set()
@@ -135,13 +135,13 @@ def reclassify_for_users(users, limit=None, dry_run=False, batch_size=15, intera
                 seen_meaning_ids.add(meaning.id)
                 meanings_to_classify.append(meaning)
 
-        logp(f"  Unique meanings to classify: {len(meanings_to_classify)}")
+        log(f"  Unique meanings to classify: {len(meanings_to_classify)}")
 
         # Process in batches
         for batch_start in range(0, len(meanings_to_classify), batch_size):
             # Check limit
             if limit and total_classified >= limit:
-                logp(f"\nReached limit of {limit} classifications. Stopping.")
+                log(f"\nReached limit of {limit} classifications. Stopping.")
                 return stats
 
             # Get current batch
@@ -151,11 +151,11 @@ def reclassify_for_users(users, limit=None, dry_run=False, batch_size=15, intera
 
             batch = meanings_to_classify[batch_start:batch_end]
 
-            logp(f"\n  Batch {batch_start//batch_size + 1}: Classifying {len(batch)} meanings...")
+            log(f"\n  Batch {batch_start//batch_size + 1}: Classifying {len(batch)} meanings...")
 
             if dry_run:
                 for meaning in batch:
-                    logp(f"    [DRY RUN] Would classify: '{meaning.origin.content}' → '{meaning.translation.content}'")
+                    log(f"    [DRY RUN] Would classify: '{meaning.origin.content}' → '{meaning.translation.content}'")
                     stats['meanings_classified'] += 1
                     total_classified += 1
                 continue
@@ -176,20 +176,20 @@ def reclassify_for_users(users, limit=None, dry_run=False, batch_size=15, intera
                     phrase_type_str = meaning.phrase_type.value
                     stats[phrase_type_str] = stats.get(phrase_type_str, 0) + 1
 
-                    logp(f"    ✓ '{meaning.origin.content}': {meaning.frequency.value if meaning.frequency else 'unknown'}, {phrase_type_str}")
+                    log(f"    ✓ '{meaning.origin.content}': {meaning.frequency.value if meaning.frequency else 'unknown'}, {phrase_type_str}")
 
                     # Handle arbitrary_multi_word interactively
                     if meaning.phrase_type == PhraseType.ARBITRARY_MULTI_WORD:
                         if interactive:
-                            logp(f"      ⚠️  Classified as arbitrary_multi_word (not a good unit of study)")
-                            logp(f"         Translation: '{meaning.translation.content}'")
+                            log(f"      ⚠️  Classified as arbitrary_multi_word (not a good unit of study)")
+                            log(f"         Translation: '{meaning.translation.content}'")
                             response = input(f"         Unschedule this word? [Y/n/q(uit)]: ").strip().lower()
 
                             if response == 'q' or response == 'quit':
-                                logp("\n[Interactive mode] User quit. Stopping.")
+                                log("\n[Interactive mode] User quit. Stopping.")
                                 return stats
                             elif response == 'n' or response == 'no':
-                                logp(f"         Skipped - keeping as fit for study")
+                                log(f"         Skipped - keeping as fit for study")
                                 # Revert the classification for this meaning
                                 meaning.phrase_type = None
                                 meaning.frequency = None
@@ -200,13 +200,13 @@ def reclassify_for_users(users, limit=None, dry_run=False, batch_size=15, intera
                                 stats['arbitrary_multi_word'] -= 1
                                 continue
                             else:
-                                logp(f"         ✓ Unscheduling (marked as NOT fit for study)")
+                                log(f"         ✓ Unscheduling (marked as NOT fit for study)")
                         else:
-                            logp(f"      ⚠️  Marked as NOT fit for study")
+                            log(f"      ⚠️  Marked as NOT fit for study")
                 elif meaning.frequency:
-                    logp(f"    ✓ '{meaning.origin.content}': {meaning.frequency.value} (phrase_type classification failed)")
+                    log(f"    ✓ '{meaning.origin.content}': {meaning.frequency.value} (phrase_type classification failed)")
                 else:
-                    logp(f"    ✗ '{meaning.origin.content}': Classification failed")
+                    log(f"    ✗ '{meaning.origin.content}': Classification failed")
 
             # Small delay between batches
             if batch_end < len(meanings_to_classify):
@@ -256,32 +256,32 @@ def main():
 
     args = parser.parse_args()
 
-    logp("="*80)
-    logp("Reclassifying Unclassified Multi-Word Phrases")
-    logp("="*80)
-    logp(f"Configuration:")
-    logp(f"  Days lookback: {args.days}")
-    logp(f"  Limit: {args.limit if args.limit else 'No limit'}")
-    logp(f"  Batch size: {args.batch_size}")
-    logp(f"  Interactive: {args.interactive}")
-    logp(f"  Dry run: {args.dry_run}")
-    logp(f"  Specific user: {args.user_id if args.user_id else 'All recently active'}")
-    logp("")
+    log("="*80)
+    log("Reclassifying Unclassified Multi-Word Phrases")
+    log("="*80)
+    log(f"Configuration:")
+    log(f"  Days lookback: {args.days}")
+    log(f"  Limit: {args.limit if args.limit else 'No limit'}")
+    log(f"  Batch size: {args.batch_size}")
+    log(f"  Interactive: {args.interactive}")
+    log(f"  Dry run: {args.dry_run}")
+    log(f"  Specific user: {args.user_id if args.user_id else 'All recently active'}")
+    log("")
 
     # Get users to process
     if args.user_id:
         users = [User.query.get(args.user_id)]
         if not users[0]:
-            logp(f"Error: User {args.user_id} not found")
+            log(f"Error: User {args.user_id} not found")
             return
-        logp(f"Processing single user: {users[0].name}")
+        log(f"Processing single user: {users[0].name}")
     else:
-        logp(f"Finding users active in last {args.days} days...")
+        log(f"Finding users active in last {args.days} days...")
         users = get_recently_active_users(args.days)
-        logp(f"Found {len(users)} recently active users")
+        log(f"Found {len(users)} recently active users")
 
     if not users:
-        logp("No users to process")
+        log("No users to process")
         return
 
     # Process users
@@ -294,23 +294,23 @@ def main():
     )
 
     # Print summary
-    logp("\n" + "="*80)
-    logp("SUMMARY")
-    logp("="*80)
-    logp(f"Users processed: {stats['users_processed']}")
-    logp(f"Unclassified meanings found: {stats['meanings_found']}")
-    logp(f"Meanings classified: {stats['meanings_classified']}")
-    logp(f"Meanings failed: {stats['meanings_failed']}")
-    logp("")
-    logp("Classification breakdown:")
-    logp(f"  - Arbitrary multi-word (unscheduled): {stats['arbitrary_multi_word']}")
-    logp(f"  - Collocations: {stats.get('collocation', 0)}")
-    logp(f"  - Idioms: {stats.get('idiom', 0)}")
-    logp(f"  - Expressions: {stats.get('expression', 0)}")
-    logp(f"  - Single word: {stats.get('single_word', 0)}")
+    log("\n" + "="*80)
+    log("SUMMARY")
+    log("="*80)
+    log(f"Users processed: {stats['users_processed']}")
+    log(f"Unclassified meanings found: {stats['meanings_found']}")
+    log(f"Meanings classified: {stats['meanings_classified']}")
+    log(f"Meanings failed: {stats['meanings_failed']}")
+    log("")
+    log("Classification breakdown:")
+    log(f"  - Arbitrary multi-word (unscheduled): {stats['arbitrary_multi_word']}")
+    log(f"  - Collocations: {stats.get('collocation', 0)}")
+    log(f"  - Idioms: {stats.get('idiom', 0)}")
+    log(f"  - Expressions: {stats.get('expression', 0)}")
+    log(f"  - Single word: {stats.get('single_word', 0)}")
 
     if args.dry_run:
-        logp("\n[DRY RUN] No changes were made to the database")
+        log("\n[DRY RUN] No changes were made to the database")
 
 
 if __name__ == '__main__':

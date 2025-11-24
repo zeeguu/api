@@ -2,13 +2,13 @@ import feedparser
 import requests
 
 from .feed_handler import FeedHandler
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 
 class RSSFeed(FeedHandler):
     def __init__(self, url: str, feed_type: int):
         super().__init__(url, feed_type)
-        logp(f"Using RSS Handler ({self.url})")
+        log(f"Using RSS Handler ({self.url})")
 
     def extract_feed_metadata(self) -> None:
         print("Extracting Feed Metadata.")

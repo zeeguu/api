@@ -3,10 +3,10 @@
 Crawl articles for one or more languages sequentially.
 
 Usage:
-    python crawl_languages.py                # Crawl all languages (default)
-    python crawl_languages.py --all          # Crawl all languages (explicit)
-    python crawl_languages.py da             # Crawl only Danish
-    python crawl_languages.py da pt en       # Crawl Danish, Portuguese, and English
+    python tools/crawler/crawl.py                # Crawl all languages (default)
+    python tools/crawler/crawl.py --all          # Crawl all languages (explicit)
+    python tools/crawler/crawl.py da             # Crawl only Danish
+    python tools/crawler/crawl.py da pt en       # Crawl Danish, Portuguese, and English
 """
 from datetime import datetime
 import sys
@@ -15,8 +15,10 @@ from feed_retrieval import retrieve_articles_for_language
 from zeeguu.logging import log
 import logging
 
+# Configure logging to show INFO level
 logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 logging.getLogger("zeeguu.core").setLevel(logging.INFO)
+logging.getLogger("zeeguu.logging").setLevel(logging.INFO)
 
 from zeeguu.api.app import create_app
 

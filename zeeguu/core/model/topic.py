@@ -1,4 +1,4 @@
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
@@ -47,14 +47,14 @@ class Topic(db.Model):
         if hasattr(Topic, "cached_articles") and (
             self.cached_articles.get(self.id, None)
         ):
-            logp(f"Topic: getting the cached articles for topic: {self.title}")
+            log(f"Topic: getting the cached articles for topic: {self.title}")
             all_ids = Topic.cached_articles[self.id]
             return Article.query.filter(Article.id.in_(all_ids)).all()
 
         if not hasattr(Topic, "cached_articles"):
             Topic.cached_articles = {}
 
-        logp("computing and caching the articles for topic: " + self.title)
+        log("computing and caching the articles for topic: " + self.title)
         Topic.cached_articles[self.id] = [
             each.id
             for each in Article.query.order_by(Article.published_time.desc())

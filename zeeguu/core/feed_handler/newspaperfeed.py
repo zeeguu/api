@@ -1,7 +1,7 @@
 import newspaper
 from .feed_handler import FeedHandler
 
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 
 class NewspaperFeed(FeedHandler):
@@ -14,7 +14,7 @@ class NewspaperFeed(FeedHandler):
     ):
         self.use_cache = use_cache
         super().__init__(url, feed_type)
-        logp(f"Using Newspaper Handler ({self.url})")
+        log(f"Using Newspaper Handler ({self.url})")
 
     def extract_feed_metadata(self) -> None:
         print("Extracting Feed Metadata.")
@@ -62,6 +62,6 @@ class NewspaperFeed(FeedHandler):
                 )
                 feed_items.append(new_item_data_dict)
             except Exception as e:
-                logp(f"Failed article: {article}, with '{e}'")
+                log(f"Failed article: {article}, with '{e}'")
 
         return feed_items

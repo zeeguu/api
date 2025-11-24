@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from simhash import Simhash
 
 from zeeguu.core.content_retriever.crawler_exceptions import *
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 from zeeguu.core import model
 
@@ -88,17 +88,17 @@ def _cache_article_tokenization(article, session):
         if article.title:
             tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
             cache.tokenized_title = json.dumps(tokenized_title)
-            logp(f"  - Cached tokenized title ({len(tokenized_title)} sentences)")
+            log(f"  - Cached tokenized title ({len(tokenized_title)} sentences)")
 
         # Cache tokenized summary (if present)
         if article.summary:
             tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
             cache.tokenized_summary = json.dumps(tokenized_summary)
-            logp(f"  - Cached tokenized summary ({len(tokenized_summary)} sentences)")
+            log(f"  - Cached tokenized summary ({len(tokenized_summary)} sentences)")
 
         session.add(cache)
     except Exception as e:
-        logp(f"  - Warning: Failed to cache tokenization: {e}")
+        log(f"  - Warning: Failed to cache tokenization: {e}")
         # Don't fail the whole article download if tokenization fails
         pass
 
@@ -303,12 +303,12 @@ def download_from_feed(
             session.add(feed)
             session.commit()
 
-        logp(feed_item["url"])
+        log(feed_item["url"])
         # check if the article is already in the DB
         art = model.Article.find(feed_item["url"])
         if art:
             skipped_already_in_db += 1
-            logp(" - Already in DB")
+            log(" - Already in DB")
             continue
 
         try:
@@ -318,7 +318,7 @@ def download_from_feed(
             art = model.Article.find(url)
             if art:
                 skipped_already_in_db += 1
-                logp(" - Already in DB")
+                log(" - Already in DB")
                 continue
 
         except requests.exceptions.TooManyRedirects:
@@ -329,7 +329,7 @@ def download_from_feed(
             )
 
         if banned_url(url):
-            logp("Banned Url")
+            log("Banned Url")
             continue
 
         try:
@@ -361,37 +361,37 @@ def download_from_feed(
             )
 
         except SkippedForTooOld:
-            logp("- Article too old")
+            log("- Article too old")
             continue
 
         except NotAppropriateForReading as e:
-            logp(f" - Not appropriate for reading: {e.reason}")
+            log(f" - Not appropriate for reading: {e.reason}")
             continue
 
         except SkippedForLowQuality as e:
-            logp(f" - Low quality: {e.reason}")
+            log(f" - Low quality: {e.reason}")
             skipped_due_to_low_quality += 1
             continue
 
         except SkippedAlreadyInDB:
             skipped_already_in_db += 1
-            logp(" - Already in DB")
+            log(" - Already in DB")
             continue
 
         except FailedToParseWithReadabilityServer as e:
-            logp(f" - failed to parse with readability server (server said: {e})")
+            log(f" - failed to parse with readability server (server said: {e})")
             continue
 
         except newspaper.ArticleException as e:
-            logp(f"Newspaper can't download article at: {url}")
+            log(f"Newspaper can't download article at: {url}")
             continue
 
         except DataError as e:
-            logp(f"Data error ({e}) for: {url}")
+            log(f"Data error ({e}) for: {url}")
             continue
 
         except requests.exceptions.Timeout:
-            logp(
+            log(
                 f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
             )
             continue
@@ -403,9 +403,9 @@ def download_from_feed(
             traceback.print_stack()
             capture_to_sentry(e)
             if hasattr(e, "message"):
-                logp(e.message)
+                log(e.message)
             else:
-                logp(e)
+                log(e)
             continue
     crawl_report.set_feed_total_articles(feed, len(items))
     crawl_report.set_feed_total_downloaded(feed, downloaded)
@@ -418,10 +418,10 @@ def download_from_feed(
     for each in downloaded_titles:
         summary_stream += f" - {each}\n"
 
-    logp(f"*** Downloaded: {downloaded} From: {feed.title}")
-    logp(f"*** Low Quality: {skipped_due_to_low_quality}")
-    logp(f"*** Already in DB: {skipped_already_in_db}")
-    logp(f"*** ")
+    log(f"*** Downloaded: {downloaded} From: {feed.title}")
+    log(f"*** Low Quality: {skipped_due_to_low_quality}")
+    log(f"*** Already in DB: {skipped_already_in_db}")
+    log(f"*** ")
     session.commit()
 
     return summary_stream
@@ -430,6 +430,8 @@ def download_from_feed(
 def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     title = feed_item["title"]
+    log(f" → Processing: {title[:80]}")
+    log(f"   URL: {url}")
 
     published_datetime = feed_item["published_datetime"]
 
@@ -443,13 +445,15 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if art:
         raise SkippedAlreadyInDB()
 
+    log(f"   Downloading article content...")
     np_article = readability_download_and_parse(url)
+    log(f"   ✓ Article downloaded ({len(np_article.text) if np_article.text else 0} chars)")
 
     # Check for near-duplicate content using simhash
     if np_article and np_article.text:
         is_dup, dup_id = is_duplicate_by_simhash(np_article.text, feed, session)
         if is_dup:
-            logp(f" - Near-duplicate content detected (similar to article {dup_id})")
+            log(f" - Near-duplicate content detected (similar to article {dup_id})")
             raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
@@ -515,22 +519,25 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
     if main_img_url != "":
         new_article.img_url = Url.find_or_create(session, main_img_url)
 
+    log(f"   Extracting topics...")
     url_keywords = add_url_keywords(new_article, session)
-    logp(f"Topic Keywords: ({url_keywords})")
+    log(f"   URL Keywords: {[str(k) for k in url_keywords]}")
     _, topics = add_topics(new_article, feed, url_keywords, session)
-    logp(f"Topics ({topics})")
+    log(f"   ✓ Topics assigned: {topics}")
     session.add(new_article)
 
     # Pre-tokenize and cache summary/title to avoid expensive CPU work during user requests
+    log(f"   Caching tokenization...")
     _cache_article_tokenization(new_article, session)
 
     # Check for advertorial content before expensive simplification
+    log(f"   Checking for advertorial content...")
     is_advert, advert_reason = is_advertorial(
         url=url, title=title, content=np_article.text
     )
     if is_advert:
-        logp(
-            f"Article detected as advertorial by pattern ({advert_reason}), marking as broken and skipping simplification"
+        log(
+            f"   ⚠ Advertorial detected ({advert_reason}), skipping simplification"
         )
         new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
         return new_article
@@ -540,22 +547,24 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         title=title, content=np_article.text, language=feed.language.code
     )
     if is_disturbing_keyword:
-        logp(
-            f"Article contains disturbing content ({disturbing_reason}), will tag after simplification"
+        log(
+            f"   ⚠ Disturbing content detected ({disturbing_reason})"
         )
 
     # Auto-create simplified versions and classify content
+    log(f"   Calling LLM for simplification and classification...")
     try:
         simplified_articles, llm_classifications = simplify_and_classify(
             session, new_article
         )
+        log(f"   ✓ LLM call completed")
         if simplified_articles:
-            logp(
-                f"Auto-created {len(simplified_articles)} simplified versions for article {new_article.id}"
+            log(
+                f"   Created {len(simplified_articles)} simplified versions"
             )
         else:
-            logp(
-                f"No simplified versions created for article {new_article.id} (see logs for reason)"
+            log(
+                f"   No simplified versions created"
             )
 
         # Collect all classifications (keyword + LLM) and save them once
@@ -577,7 +586,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
             )
 
             for classification_type, detection_method in all_classifications:
-                logp(
+                log(
                     f"Tagging article {new_article.id} as {classification_type} ({detection_method} detection)"
                 )
                 ArticleClassification.find_or_create(
@@ -588,16 +597,16 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
         # Check if LLM detected advertorial - always save for pattern analysis
         if "advertorial" in error_msg:
-            logp(f"LLM detected advertorial content, marking article as broken")
+            log(f"LLM detected advertorial content, marking article as broken")
             new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
         # Check if LLM detected paywall - sample to avoid DB bloat
         elif "paywall" in error_msg:
             should_save = _should_save_paywall_sample(session, new_article.language)
             if should_save:
-                logp(f"LLM detected paywall - saving as sample for pattern analysis")
+                log(f"LLM detected paywall - saving as sample for pattern analysis")
                 new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
             else:
-                logp(
+                log(
                     f"LLM detected paywall - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
                 )
                 # Don't save the article - delete it
@@ -606,7 +615,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
                 return None
         else:
             # Don't fail the entire crawl if simplification fails for other reasons
-            logp(
+            log(
                 f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}"
             )
             capture_to_sentry(e)

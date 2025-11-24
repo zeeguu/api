@@ -4,7 +4,7 @@ from sqlalchemy.exc import NoResultFound
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.phrase import Phrase
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 
 # I've thought a lot about what could be alternative names for this concept
@@ -261,15 +261,15 @@ class Meaning(db.Model):
                         try:
                             classifier = MeaningFrequencyClassifier()
                             classifier.classify_and_update_meaning(meaning, db.session)
-                            logp(
+                            log(
                                 f">>> Successfully classified meaning {meaning.origin.content} as {meaning.frequency},{meaning.phrase_type} in background"
                             )
                         except ValueError as ve:
-                            logp(
+                            log(
                                 f"Classification disabled for meaning {meaning_id}: {str(ve)}"
                             )
                         except Exception as ce:
-                            logp(
+                            log(
                                 f"Classification failed for meaning {meaning_id}: {str(ce)}"
                             )
                     else:
@@ -278,7 +278,7 @@ class Meaning(db.Model):
                         )
 
             except Exception as e:
-                logp(f"Error classifying meaning {meaning_id} in background: {str(e)}")
+                log(f"Error classifying meaning {meaning_id} in background: {str(e)}")
 
         # Start background thread
         thread = threading.Thread(target=classify_in_background)

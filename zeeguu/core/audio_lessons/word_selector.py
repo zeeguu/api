@@ -17,7 +17,7 @@ from zeeguu.core.model import (
 )
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 
 def get_meanings_already_in_audio_lessons(user: User, days: int = 14) -> set:
@@ -88,7 +88,7 @@ def select_words_for_audio_lesson(
         language = user.learned_language
 
     if log_enabled:
-        logp(
+        log(
             f"[select_words_for_audio_lesson] Getting learning words for user {user.id} in {language.name}"
         )
 
@@ -98,7 +98,7 @@ def select_words_for_audio_lesson(
     # Get meanings already used in recent audio lessons (last 14 days)
     meanings_in_recent_lessons = get_meanings_already_in_audio_lessons(user, days=14)
     if log_enabled and meanings_in_recent_lessons:
-        logp(f"[select_words_for_audio_lesson] Excluding {len(meanings_in_recent_lessons)} meanings from recent lessons (last 14 days)")
+        log(f"[select_words_for_audio_lesson] Excluding {len(meanings_in_recent_lessons)} meanings from recent lessons (last 14 days)")
 
     # Step 1: Get scheduled words due today (highest priority - need practice!)
     scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
@@ -116,7 +116,7 @@ def select_words_for_audio_lesson(
     learning_words = scheduled_due_query.limit(num_words).all()
 
     if log_enabled:
-        logp(f"[select_words_for_audio_lesson] Found {len(learning_words)} scheduled words due today")
+        log(f"[select_words_for_audio_lesson] Found {len(learning_words)} scheduled words due today")
 
     # Step 2: If not enough, get other scheduled words (accelerate learning)
     if len(learning_words) < num_words:
@@ -137,7 +137,7 @@ def select_words_for_audio_lesson(
         learning_words.extend(more_words)
 
         if log_enabled:
-            logp(f"[select_words_for_audio_lesson] Added {len(more_words)} other scheduled words")
+            log(f"[select_words_for_audio_lesson] Added {len(more_words)} other scheduled words")
 
     # Step 3: If schedule not full, add unscheduled words (introduce new words)
     if len(learning_words) < num_words:
@@ -187,12 +187,12 @@ def select_words_for_audio_lesson(
             unscheduled_word_ids.update(w.id for w in unscheduled_words)
 
             if log_enabled and unscheduled_words:
-                logp(
+                log(
                     f"[select_words_for_audio_lesson] Added {len(unscheduled_words)} unscheduled words (schedule has room: {current_count}/{max_words})"
                 )
         else:
             if log_enabled:
-                logp(
+                log(
                     f"[select_words_for_audio_lesson] Schedule full ({current_count}/{max_words}), not adding unscheduled words"
                 )
 
@@ -225,10 +225,10 @@ def select_words_for_audio_lesson(
         learning_words.extend(recently_learned)
 
         if log_enabled and recently_learned:
-            logp(f"[select_words_for_audio_lesson] Added {len(recently_learned)} recently learned words")
+            log(f"[select_words_for_audio_lesson] Added {len(recently_learned)} recently learned words")
 
     if log_enabled:
-        logp(
+        log(
             f"[select_words_for_audio_lesson] Found {len(learning_words)} words in user's learning queue"
         )
 
@@ -252,10 +252,10 @@ def select_words_for_audio_lesson(
     selected_words = [w[0] for w in available_words[:num_words]]
 
     if log_enabled:
-        logp(
+        log(
             f"[select_words_for_audio_lesson] Available words after filtering: {len(available_words)}"
         )
-        logp(
+        log(
             f"[select_words_for_audio_lesson] Selected {len(selected_words)} words: {[w.meaning.origin.content for w in selected_words]}"
         )
 

@@ -25,7 +25,7 @@ from simhash import Simhash
 import zeeguu.core
 from zeeguu.core.model import Article, Language, Bookmark, UserArticle
 from zeeguu.api.app import create_app
-from zeeguu.logging import logp
+from zeeguu.logging import log
 
 app = create_app()
 app.app_context().push()
@@ -82,7 +82,7 @@ def find_and_delete_duplicates_for_language(
     )
 
     articles = query.all()
-    logp(f"Found {len(articles)} {language.name} articles to check")
+    log(f"Found {len(articles)} {language.name} articles to check")
 
     # Compute simhashes for all articles
     article_hashes = []
@@ -91,7 +91,7 @@ def find_and_delete_duplicates_for_language(
         if simhash:
             article_hashes.append((article, simhash))
 
-    logp(f"Computed {len(article_hashes)} simhashes")
+    log(f"Computed {len(article_hashes)} simhashes")
 
     # Group articles by feed for faster comparison
     from collections import defaultdict
@@ -100,14 +100,14 @@ def find_and_delete_duplicates_for_language(
     for article, simhash in article_hashes:
         by_feed[article.feed_id].append((article, simhash))
 
-    logp(f"Articles spread across {len(by_feed)} feeds")
+    log(f"Articles spread across {len(by_feed)} feeds")
 
     # Find duplicates within each feed
     duplicates_to_delete = []
     seen = set()
 
     for feed_id, feed_articles in by_feed.items():
-        logp(f"Checking feed {feed_id} ({len(feed_articles)} articles)...")
+        log(f"Checking feed {feed_id} ({len(feed_articles)} articles)...")
 
         for i, (article1, hash1) in enumerate(feed_articles):
             if article1.id in seen:
@@ -134,7 +134,7 @@ def find_and_delete_duplicates_for_language(
 
                     if older_has_users and newer_has_users:
                         # Both have users, keep both
-                        logp(
+                        log(
                             f"Both have users, keeping both: {older.id} and {newer.id}"
                         )
                         continue
@@ -151,17 +151,17 @@ def find_and_delete_duplicates_for_language(
                         duplicates_to_delete.append((older, newer, distance))
                         seen.add(older.id)
 
-    logp(f"\nFound {len(duplicates_to_delete)} duplicates to delete")
+    log(f"\nFound {len(duplicates_to_delete)} duplicates to delete")
 
     # Report/delete duplicates
     deleted_count = 0
     for to_delete, to_keep, distance in duplicates_to_delete:
-        logp(
+        log(
             f"\n{'[DRY RUN] Would delete' if dry_run else 'Deleting'} article {to_delete.id}"
         )
-        logp(f"  Title: {to_delete.title[:80]}")
-        logp(f"  Published: {to_delete.published_time}")
-        logp(f"  Keeping article {to_keep.id} (distance: {distance})")
+        log(f"  Title: {to_delete.title[:80]}")
+        log(f"  Published: {to_delete.published_time}")
+        log(f"  Keeping article {to_keep.id} (distance: {distance})")
 
         if not dry_run:
             db_session.delete(to_delete)
@@ -169,13 +169,13 @@ def find_and_delete_duplicates_for_language(
 
     if not dry_run and deleted_count > 0:
         db_session.commit()
-        logp(f"\n✅ Deleted {deleted_count} duplicate {language.name} articles")
+        log(f"\n✅ Deleted {deleted_count} duplicate {language.name} articles")
     elif dry_run:
-        logp(
+        log(
             f"\n[DRY RUN] Would delete {len(duplicates_to_delete)} {language.name} articles"
         )
     else:
-        logp(f"\nNo {language.name} duplicates found to delete")
+        log(f"\nNo {language.name} duplicates found to delete")
 
     return len(duplicates_to_delete)
 
@@ -198,38 +198,38 @@ def find_and_delete_duplicates(
         try:
             language = Language.find(language_code)
         except Exception:
-            logp(f"Error: Language '{language_code}' not found in database.")
-            logp(f"Available language codes: {', '.join(Language.CODES_OF_LANGUAGES_BEING_CRAWLED)}")
+            log(f"Error: Language '{language_code}' not found in database.")
+            log(f"Available language codes: {', '.join(Language.CODES_OF_LANGUAGES_BEING_CRAWLED)}")
             return
 
-        logp(f"Checking {language.name} articles from last {days_back} days...")
+        log(f"Checking {language.name} articles from last {days_back} days...")
         find_and_delete_duplicates_for_language(
             language, days_back, distance_threshold, dry_run
         )
     else:
         # Process all languages being crawled
-        logp(
+        log(
             f"Checking all languages from last {days_back} days (processing each language separately)..."
         )
         languages = Language.available_languages()
-        logp(f"Processing {len(languages)} languages: {[l.name for l in languages]}\n")
+        log(f"Processing {len(languages)} languages: {[l.name for l in languages]}\n")
 
         total_duplicates = 0
         for language in languages:
-            logp(f"\n{'='*60}")
-            logp(f"Processing {language.name}...")
-            logp(f"{'='*60}")
+            log(f"\n{'='*60}")
+            log(f"Processing {language.name}...")
+            log(f"{'='*60}")
             duplicates = find_and_delete_duplicates_for_language(
                 language, days_back, distance_threshold, dry_run
             )
             total_duplicates += duplicates
 
-        logp(f"\n{'='*60}")
-        logp(f"SUMMARY")
-        logp(f"{'='*60}")
-        logp(f"Total duplicates across all languages: {total_duplicates}")
+        log(f"\n{'='*60}")
+        log(f"SUMMARY")
+        log(f"{'='*60}")
+        log(f"Total duplicates across all languages: {total_duplicates}")
         if dry_run:
-            logp("Run with --delete flag to actually delete articles.")
+            log("Run with --delete flag to actually delete articles.")
 
 
 if __name__ == "__main__":
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     dry_run = "--delete" not in sys.argv
 
     if dry_run:
-        logp("Running in DRY RUN mode. Add --delete flag to actually delete articles.")
+        log("Running in DRY RUN mode. Add --delete flag to actually delete articles.")
 
     find_and_delete_duplicates(
         language_code=language_code, days_back=10, distance_threshold=5, dry_run=dry_run

@@ -7,7 +7,7 @@ from pydub import AudioSegment
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.model import DailyAudioLesson
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 
 class LessonBuilder:
@@ -62,11 +62,11 @@ class LessonBuilder:
                 audio_path = None
 
             if audio_path and os.path.exists(audio_path):
-                logp(f"Adding segment audio: {audio_path}")
+                log(f"Adding segment audio: {audio_path}")
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
             else:
-                logp(
+                log(
                     f"Warning: Audio file not found for segment {segment.id}: {audio_path}"
                 )
 

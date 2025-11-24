@@ -12,7 +12,7 @@ from zeeguu.core.llm_services.prompts.meaning_frequency_classifier import (
 )
 from zeeguu.core.model.meaning import MeaningFrequency
 from zeeguu.core.model.meaning import PhraseType
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 
 class MeaningFrequencyClassifier:
@@ -305,7 +305,7 @@ class MeaningFrequencyClassifier:
 
         if user_words:
             session.commit()
-            logp(
+            log(
                 f"Updated fit_for_study for {len(user_words)} user words referencing meaning {meaning.id}"
             )
 

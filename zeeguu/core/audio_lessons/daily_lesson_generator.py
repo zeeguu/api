@@ -18,7 +18,7 @@ from zeeguu.core.model import (
     DailyAudioLesson,
 )
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 
 class DailyLessonGenerator:
@@ -40,13 +40,13 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with lesson details or error information
         """
-        logp(
+        log(
             f"[generate_daily_lesson_for_user] Starting for user {user.id} ({user.name}), timezone_offset={timezone_offset}"
         )
 
         # Check if user has access to daily audio lessons
         if not user.has_feature("daily_audio"):
-            logp(
+            log(
                 f"[generate_daily_lesson_for_user] User {user.id} does not have daily_audio feature"
             )
             return {
@@ -55,25 +55,25 @@ class DailyLessonGenerator:
             }
 
         # Check if a lesson already exists for today
-        logp(f"[generate_daily_lesson_for_user] Checking for existing lesson today")
+        log(f"[generate_daily_lesson_for_user] Checking for existing lesson today")
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
             # Return existing lesson instead of generating a new one
-            logp(
+            log(
                 f"[generate_daily_lesson_for_user] Found existing lesson {existing_lesson.get('lesson_id')} for today"
             )
             return existing_lesson
 
         # Select words for the lesson and get info about unscheduled words
-        logp(f"[generate_daily_lesson_for_user] Selecting words for lesson")
+        log(f"[generate_daily_lesson_for_user] Selecting words for lesson")
         selected_words, unscheduled_words = self.select_words_for_lesson(
             user, 3, return_unscheduled_info=True
         )
-        logp(
+        log(
             f"[generate_daily_lesson_for_user] Selected {len(selected_words)} words for lesson"
         )
         if len(selected_words) < 2:
-            logp(
+            log(
                 f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 2"
             )
             return {
@@ -86,7 +86,7 @@ class DailyLessonGenerator:
         origin_language = user.learned_language.code
         translation_language = user.native_language.code
         cefr_level = user.cefr_level_for_learned_language()
-        logp(
+        log(
             f"[generate_daily_lesson_for_user] User languages: {origin_language}->{translation_language}, CEFR: {cefr_level}"
         )
 
@@ -208,7 +208,7 @@ class DailyLessonGenerator:
         start_time = time.time()
 
         try:
-            logp(
+            log(
                 f"[generate_daily_lesson] Starting lesson generation for user {user.id} with {len(selected_words)} words"
             )
 
@@ -219,7 +219,7 @@ class DailyLessonGenerator:
                 language=user.learned_language,
             )
             db.session.add(daily_lesson)
-            logp(f"[generate_daily_lesson] Created daily lesson object")
+            log(f"[generate_daily_lesson] Created daily lesson object")
 
             # Schedule unscheduled words that were included in the lesson
             # The word selector already checked if there's room (current_count < max_words_to_schedule)
@@ -228,14 +228,14 @@ class DailyLessonGenerator:
                 for user_word in unscheduled_words:
                     # Create initial schedule for this word
                     schedule = FourLevelsPerWord.find_or_create(db.session, user_word)
-                    logp(
+                    log(
                         f"[generate_daily_lesson] Scheduled unscheduled word: {user_word.meaning.origin.content}"
                     )
 
             # Generate audio lesson for each selected word
             for idx, user_word in enumerate(selected_words):
                 meaning = user_word.meaning
-                logp(
+                log(
                     f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
                 )
 
@@ -245,7 +245,7 @@ class DailyLessonGenerator:
                         user_word, origin_language, translation_language, cefr_level
                     )
                 except Exception as e:
-                    logp(
+                    log(
                         f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
                     )
                     db.session.rollback()
@@ -270,7 +270,7 @@ class DailyLessonGenerator:
                 daily_lesson.duration_seconds = total_duration
 
             except Exception as e:
-                logp(f"[generate_daily_lesson] Failed to build daily lesson: {str(e)}")
+                log(f"[generate_daily_lesson] Failed to build daily lesson: {str(e)}")
                 db.session.rollback()
                 return {"error": f"Failed to build daily lesson: {str(e)}"}
 
@@ -290,12 +290,12 @@ class DailyLessonGenerator:
 
         except Exception as e:
             db.session.rollback()
-            logp(
+            log(
                 f"[generate_daily_lesson] Unexpected error in daily lesson generation: {str(e)}"
             )
             import traceback
 
-            logp(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
+            log(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}
 
     def _check_user_access(self, user):
@@ -772,17 +772,17 @@ class DailyLessonGenerator:
                         f"Audio lesson completion for lesson {lesson.id}",
                     )
 
-                    logp(
+                    log(
                         f"[audio_lesson_completion] Progressed word: {meaning.origin.content}"
                     )
 
-            logp(
+            log(
                 f"[audio_lesson_completion] Successfully progressed words for lesson {lesson.id}"
             )
 
         except Exception as e:
             # Don't fail lesson completion if word progression fails
-            logp(
+            log(
                 f"[audio_lesson_completion] Error progressing words for lesson {lesson.id}: {str(e)}"
             )
             from sentry_sdk import capture_exception
@@ -847,13 +847,13 @@ Generated by Zeeguu Audio Lesson System
             if to_email:
                 mailer = ZeeguuMailer(subject, body, to_email)
                 mailer.send()
-                logp(
+                log(
                     f"[lesson_completion] Sent completion notification for lesson {lesson.id}"
                 )
 
         except Exception as e:
             # Don't fail lesson completion if email fails
-            logp(f"[lesson_completion] Failed to send email notification: {str(e)}")
+            log(f"[lesson_completion] Failed to send email notification: {str(e)}")
             from sentry_sdk import capture_exception
 
             capture_exception(e)

@@ -24,7 +24,7 @@ from time import time
 import zeeguu.core
 
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.logging import log, logp
+from zeeguu.logging import log
 
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
@@ -61,7 +61,7 @@ def download_for_feeds(list_of_feeds, crawl_report):
 
         except PendingRollbackError as e:
             db_session.rollback()
-            logp(
+            log(
                 "Something went wrong and we had to rollback a transaction; following is the full stack trace:"
             )
             traceback.print_exc()
@@ -71,7 +71,7 @@ def download_for_feeds(list_of_feeds, crawl_report):
             traceback.print_exc()
             crawl_report.add_feed_error(feed, str(e))
 
-    logp(f"Successfully finished processing {counter} feeds.")
+    log(f"Successfully finished processing {counter} feeds.")
     return summary_stream
 
 
@@ -88,7 +88,7 @@ def retrieve_articles_for_language(language_code, send_email=False):
     summary_stream = download_for_feeds(all_language_feeds, crawl_report)
     if send_email:
 
-        logp("sending summary email")
+        log("sending summary email")
 
         import datetime
 
