@@ -13,7 +13,8 @@ from zeeguu.core.content_quality.quality_filter import (
     sufficient_quality,
     LowQualityTypes,
 )
-from tools.crawl_summary.crawl_report import CrawlReport
+
+from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
 
 from zeeguu.core.test.mocking_the_web import *
 

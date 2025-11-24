@@ -1,5 +1,5 @@
-from tools.crawl_summary.crawl_report import CrawlReport
-from tools.feed_retrieval import download_for_feeds
+from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
+from zeeguu.operations.crawler.feed_retrieval import download_for_feeds
 from zeeguu.core.model import Feed
 from zeeguu.api.app import create_app
 

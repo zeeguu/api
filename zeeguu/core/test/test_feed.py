@@ -7,7 +7,8 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.feed_handler import FEED_TYPE
-from tools.crawl_summary.crawl_report import CrawlReport
+
+from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
 
 
 class FeedTest(ModelTestMixIn, TestCase):

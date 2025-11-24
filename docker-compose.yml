@@ -53,6 +53,20 @@ services:
     networks:
       - zeeguu_backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3456/ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  autoheal:
+    image: willfarrell/autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   embedding_api:
     image: zeeguu/semantic-emb-api:main

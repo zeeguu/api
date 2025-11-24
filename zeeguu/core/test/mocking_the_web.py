@@ -1,6 +1,7 @@
 import os
 from zeeguu.core.content_retriever.parse_with_readability_server import (
     READABILITY_SERVER_CLEANUP_URI,
+    READABILITY_SERVER_CLEANUP_POST_URI,
     download_and_parse,
 )
 from zeeguu.core.semantic_vector_api import EMB_API_CONN_STRING
@@ -97,6 +98,19 @@ URLS_TO_MOCK = {
     URL_SPIEGEL_IMG_2: "spiegel_nancy.html",
 }
 
+# Mapping from article URL to readability JSON response file
+URL_TO_READABILITY_JSON = {
+    URL_KLEINE_PRINZ: "der_kleine_prinz.json",
+    URL_FAZ_LEIGHTATHLETIK: "faz_leichtathletik.json",
+    URL_CNN_KATHMANDU: "cnn_kathmandu.json",
+    URL_SPIEGEL_VENEZUELA: "spiegel_venezuela.json",
+    URL_SPIEGEL_NANCY: "spiegel_nancy.json",
+    URL_VERDENS_INDONESIA: "verdensbedste_indonesien.json",
+    URL_VERDENS_JORD: "verdensbedste_jorde.json",
+    URL_LEMONDE_FORMATION: "lemonde_formation.json",
+    URL_ML_JP_PAYWALL: "jp_article_example.json",
+}
+
 
 def mock_requests_get(m):
     def mock_requests_get_for_url(m, url):
@@ -108,6 +122,26 @@ def mock_requests_get(m):
 
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
+
+    # Mock POST requests to readability server
+    # The POST body contains {"url": "...", "htmlContent": "..."}
+    # We need to return the appropriate JSON based on the URL in the body
+    def readability_post_callback(request, context):
+        import json as json_module
+        request_data = json_module.loads(request.text)
+        article_url = request_data.get("url")
+
+        # Find the matching JSON file for this URL
+        if article_url in URL_TO_READABILITY_JSON:
+            json_file = URL_TO_READABILITY_JSON[article_url]
+            with open(os.path.join(TESTDATA_FOLDER, json_file), encoding="UTF-8") as f:
+                return f.read()
+
+        # Default response if URL not found
+        context.status_code = 500
+        return '{"error": "URL not mocked"}'
+
+    m.post(READABILITY_SERVER_CLEANUP_POST_URI, text=readability_post_callback)
 
     # When creating a new article we need to be able to "call" the embedding API
     # so we return some random vector; thus, not used in the tests per se, but ensure that Article objects can be
