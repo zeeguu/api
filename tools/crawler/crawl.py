@@ -13,6 +13,8 @@ import sys
 
 from feed_retrieval import retrieve_articles_for_language
 from zeeguu.logging import log
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.core.model import Feed
 import logging
 
 # Configure logging to show INFO level
@@ -24,6 +26,71 @@ from zeeguu.api.app import create_app
 
 app = create_app()
 app.app_context().push()
+
+
+def generate_crawl_summary(crawl_reports):
+    """Generate a concise summary from multiple crawl reports"""
+    summary = "ZEEGUU CRAWLER SUMMARY\n"
+    summary += "=" * 60 + "\n\n"
+
+    total_new = 0
+    total_in_db = 0
+    total_low_quality = 0
+    total_errors = 0
+
+    for lang_code, report in crawl_reports.items():
+        lang_data = report.data["lang"][lang_code]
+        lang_new = 0
+        lang_in_db = 0
+        lang_low_quality = 0
+        lang_errors = 0
+
+        summary += f"\n{lang_code.upper()}\n"
+        summary += "-" * 40 + "\n"
+
+        for feed_id, feed_data in lang_data["feeds"].items():
+            feed = Feed.find_by_id(feed_id)
+            if not feed:
+                continue
+
+            new = feed_data.get("total_downloaded", 0) or 0
+            in_db = feed_data.get("total_in_db", 0) or 0
+            low_q = feed_data.get("total_low_quality", 0) or 0
+            errors = len(feed_data.get("feed_errors", []))
+
+            lang_new += new
+            lang_in_db += in_db
+            lang_low_quality += low_q
+            lang_errors += errors
+
+            # Only show feeds with activity or errors
+            if new > 0 or errors > 0:
+                status = ""
+                if errors > 0:
+                    status = f" [ERROR]"
+                elif new == 0 and in_db > 0:
+                    status = " [all in DB]"
+
+                summary += f"  {feed.title[:40]:40s} | New: {new:3d} | InDB: {in_db:3d} | LowQ: {low_q:3d}{status}\n"
+
+        total_new += lang_new
+        total_in_db += lang_in_db
+        total_low_quality += lang_low_quality
+        total_errors += lang_errors
+
+        summary += f"\n  {lang_code.upper()} Total: {lang_new} new, {lang_in_db} already in DB, {lang_low_quality} low quality"
+        if lang_errors > 0:
+            summary += f", {lang_errors} errors"
+        summary += f" | Time: {lang_data.get('total_time', 0):.1f}s\n"
+
+    summary += "\n" + "=" * 60 + "\n"
+    summary += f"OVERALL: {total_new} new articles, {total_in_db} already in DB, {total_low_quality} low quality"
+    if total_errors > 0:
+        summary += f", {total_errors} errors"
+    summary += "\n"
+
+    return summary
+
 
 # All available languages in order of priority
 ALL_LANGUAGES = ['da', 'pt', 'sv', 'ro', 'nl', 'fr', 'en', 'el', 'de', 'es', 'it']
@@ -43,11 +110,14 @@ else:
 start = datetime.now()
 log(f"=== Starting crawl for languages: {languages_to_crawl} at: {start} ===")
 
+crawl_reports = {}
+
 for lang in languages_to_crawl:
     lang_start = datetime.now()
     log(f"\n>>> Starting {lang.upper()} crawler <<<")
     try:
-        retrieve_articles_for_language(lang, send_email=False)
+        crawl_report = retrieve_articles_for_language(lang, send_email=False)
+        crawl_reports[lang] = crawl_report
         lang_duration = datetime.now() - lang_start
         log(f">>> Finished {lang.upper()} in {lang_duration} <<<")
     except Exception as e:
@@ -56,5 +126,21 @@ for lang in languages_to_crawl:
         traceback.print_exc()
 
 end = datetime.now()
+total_duration = end - start
 log(f"=== Finished crawling {len(languages_to_crawl)} language(s) at: {end} ===")
-log(f"=== Total duration: {end - start} ===")
+log(f"=== Total duration: {total_duration} ===")
+
+# Generate and send summary email
+summary = generate_crawl_summary(crawl_reports)
+log("\n" + summary)
+
+try:
+    mailer = ZeeguuMailer(
+        f"Zeeguu Crawler Summary - {end.strftime('%Y-%m-%d %H:%M')}",
+        summary,
+        "zeeguu.team@gmail.com",
+    )
+    mailer.send()
+    log("Summary email sent successfully")
+except Exception as e:
+    log(f"Failed to send summary email: {e}")
