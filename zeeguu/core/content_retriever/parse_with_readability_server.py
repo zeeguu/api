@@ -24,41 +24,73 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
     """
     # This code will be run twice when using a newspaper source
     # Maybe add a flag to avoid running this if the feed type == newspaper
-    np_article = newspaper.Article(url=url)
+    # Configure newspaper with timeout
+    config = newspaper.Config()
+    config.fetch_images = False
+    config.request_timeout = 10  # 10 second timeout for downloading
+
+    from zeeguu.logging import log
+
+    np_article = newspaper.Article(url=url, config=config)
 
     if html_content:
         # Use provided HTML content instead of downloading
+        log(f"   Using pre-fetched HTML content")
         np_article.set_html(html_content)
     else:
         # Download HTML from URL
-        np_article.download()
+        log(f"   Downloading HTML with newspaper (timeout: {config.request_timeout}s)...")
+        try:
+            np_article.download()
+            log(f"   ✓ HTML downloaded ({len(np_article.html) if np_article.html else 0} bytes)")
+        except Exception as e:
+            log(f"   ✗ Newspaper download failed: {e}")
+            raise
 
+    log(f"   Parsing HTML with newspaper...")
     np_article.parse()
+    log(f"   ✓ Parsed ({len(np_article.text)} chars)")
 
     if np_article.text == "":
+        log(f"   ⚠ Newspaper extracted empty text")
         # raise Exception("Newspaper got empty article from: " + url)
         np_article.text = "N/A"
         # this is a temporary solution for allowing translations
         # on pages that do not have "articles" downloadable by newspaper.
 
     # Call readability server - use POST if we have HTML content, GET otherwise
-    if html_content:
-        # POST endpoint with HTML content
-        result = requests.post(
-            READABILITY_SERVER_CLEANUP_POST_URI,
-            json={"url": url, "htmlContent": html_content},
-            timeout=request_timeout
-        )
-    else:
-        # GET endpoint - server will fetch the URL
-        result = requests.get(READABILITY_SERVER_CLEANUP_URI + url, timeout=request_timeout)
+    log(f"   Calling readability server...")
+    try:
+        if html_content:
+            # POST endpoint with HTML content
+            result = requests.post(
+                READABILITY_SERVER_CLEANUP_POST_URI,
+                json={"url": url, "htmlContent": html_content},
+                timeout=request_timeout
+            )
+        else:
+            # GET endpoint - server will fetch the URL
+            result = requests.get(READABILITY_SERVER_CLEANUP_URI + url, timeout=request_timeout)
 
-    if result.status_code == 500:
-        raise FailedToParseWithReadabilityServer(result.text)
+        log(f"   ✓ Readability server responded (status: {result.status_code})")
 
-    result_dict = json.loads(result.text)
-    np_article.text = result_dict["text"]
-    np_article.htmlContent = result_dict["html"]
+        if result.status_code == 500:
+            log(f"   ✗ Readability server error: {result.text}")
+            raise FailedToParseWithReadabilityServer(result.text)
+
+        result_dict = json.loads(result.text)
+        text_length = len(result_dict.get("text", ""))
+        html_length = len(result_dict.get("html", ""))
+        log(f"   Extracted {text_length} chars of text, {html_length} chars of HTML")
+
+        np_article.text = result_dict["text"]
+        np_article.htmlContent = result_dict["html"]
+    except requests.exceptions.Timeout:
+        log(f"   ✗ Readability server timeout after {request_timeout}s")
+        raise
+    except requests.exceptions.RequestException as e:
+        log(f"   ✗ Readability server request failed: {e}")
+        raise
     
     # Use title from readability server if available and better than newspaper's
     if "title" in result_dict and result_dict["title"]:
