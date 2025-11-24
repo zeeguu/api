@@ -553,11 +553,13 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
 
     # Auto-create simplified versions and classify content
     log(f"   Calling LLM for simplification and classification...")
+    llm_start_time = time()
     try:
         simplified_articles, llm_classifications = simplify_and_classify(
             session, new_article
         )
-        log(f"   ✓ LLM call completed")
+        llm_duration = time() - llm_start_time
+        log(f"   ✓ LLM call completed in {llm_duration:.1f}s")
         if simplified_articles:
             log(
                 f"   Created {len(simplified_articles)} simplified versions"
@@ -593,21 +595,22 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
                     session, new_article, classification_type, detection_method
                 )
     except Exception as e:
+        llm_duration = time() - llm_start_time
         error_msg = str(e).lower()
 
         # Check if LLM detected advertorial - always save for pattern analysis
         if "advertorial" in error_msg:
-            log(f"LLM detected advertorial content, marking article as broken")
+            log(f"   ✗ LLM detected advertorial content after {llm_duration:.1f}s, marking article as broken")
             new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
         # Check if LLM detected paywall - sample to avoid DB bloat
         elif "paywall" in error_msg:
             should_save = _should_save_paywall_sample(session, new_article.language)
             if should_save:
-                log(f"LLM detected paywall - saving as sample for pattern analysis")
+                log(f"   ✗ LLM detected paywall after {llm_duration:.1f}s - saving as sample for pattern analysis")
                 new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
             else:
                 log(
-                    f"LLM detected paywall - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
+                    f"   ✗ LLM detected paywall after {llm_duration:.1f}s - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
                 )
                 # Don't save the article - delete it
                 session.delete(new_article)
@@ -616,7 +619,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report):
         else:
             # Don't fail the entire crawl if simplification fails for other reasons
             log(
-                f"Failed to auto-create simplified versions for article {new_article.id}: {str(e)}"
+                f"   ✗ LLM failed after {llm_duration:.1f}s for article {new_article.id}: {str(e)}"
             )
             capture_to_sentry(e)
 
