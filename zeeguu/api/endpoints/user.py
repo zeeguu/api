@@ -1,17 +1,15 @@
-import json
-
 import flask
-from zeeguu.api.endpoints.feature_toggles import features_for_user
-import zeeguu.core
-from zeeguu.core.model import User
 
+import zeeguu.core
+from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.model import User
+from zeeguu.core.model.feedback_component import FeedbackComponent
+from zeeguu.core.model.url import Url
+from zeeguu.core.model.user_feedback import UserFeedback
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
-from zeeguu.core.model.feedback_component import FeedbackComponent
-from zeeguu.core.model.user_feedback import UserFeedback
-from zeeguu.core.model.url import Url
 
 
 @api.route("/learned_language", methods=["GET"])
@@ -116,37 +114,45 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
             # Handle case where viewport_settings is not a dict (defensive programming)
             if not isinstance(viewport_settings, dict):
                 continue  # Skip this session if viewport_settings is invalid
-            
+
             # Check for new simplified format first (with viewportRatio)
             if "viewportRatio" in viewport_settings:
                 # New optimized format: just use the pre-calculated viewport ratio
                 viewport_ratio = viewport_settings["viewportRatio"]
                 # Tolerance is 1/4 of the viewport ratio (keeps same UX as before)
                 tolerance = viewport_ratio / 4
-            
+
             # Fall back to old format for backwards compatibility
-            elif all(key in viewport_settings for key in ["scrollHeight", "clientHeight", "bottomRowHeight"]):
+            elif all(
+                key in viewport_settings
+                for key in ["scrollHeight", "clientHeight", "bottomRowHeight"]
+            ):
                 scrollHeight = viewport_settings["scrollHeight"]
                 clientHeight = viewport_settings["clientHeight"]
                 bottomRowHeight = viewport_settings["bottomRowHeight"]
                 # Calculate tolerance the old way
                 tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
-            
+
             # If we only have partial data (scrollHeight + clientHeight without bottomRowHeight)
-            elif "scrollHeight" in viewport_settings and "clientHeight" in viewport_settings:
+            elif (
+                "scrollHeight" in viewport_settings
+                and "clientHeight" in viewport_settings
+            ):
                 scrollHeight = viewport_settings["scrollHeight"]
                 clientHeight = viewport_settings["clientHeight"]
                 # Assume bottomRowHeight is 0 if not provided (reasonable fallback)
                 tolerance = clientHeight / scrollHeight / 4
-            
+
             else:
                 # Skip this session if we can't calculate tolerance
                 continue
-            
+
             art = Article.find_by_id(art_id)
-            art_info = UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, art))
+            art_info = UserArticle.user_article_info(
+                user, UserArticle.select_appropriate_article_for_user(user, art)
+            )
             art_info["time_last_read"] = date_read
-            
+
             # Apply tolerance to get adjusted reading position
             last_reading_percentage = last_reading_point - tolerance
             if last_reading_percentage <= 0:
@@ -217,17 +223,19 @@ def send_feedback():
     session = zeeguu.core.model.db.session
     message = flask.request.form.get("message", "")
     url = flask.request.form.get("currentUrl", None)
-    
+
     # Get component name from frontend
     component_name = flask.request.form.get("feedbackComponentName", "")
-    
+
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
     user = User.find_by_id(flask.g.user_id)
-    
+
     # Use component name or default
-    feedback_component = FeedbackComponent.find_or_create(session, component_name or "General Feedback")
-    
+    feedback_component = FeedbackComponent.find_or_create(
+        session, component_name or "General Feedback"
+    )
+
     if url is not None:
         url = Url.find_or_create(session, url)
 
