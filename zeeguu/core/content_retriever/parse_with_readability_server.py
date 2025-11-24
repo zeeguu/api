@@ -60,6 +60,8 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
 
     # Call readability server - use POST if we have HTML content, GET otherwise
     log(f"   Calling readability server...")
+    import time
+    readability_start = time.time()
     try:
         if html_content:
             # POST endpoint with HTML content
@@ -72,7 +74,8 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
             # GET endpoint - server will fetch the URL
             result = requests.get(READABILITY_SERVER_CLEANUP_URI + url, timeout=request_timeout)
 
-        log(f"   ✓ Readability server responded (status: {result.status_code})")
+        readability_duration = time.time() - readability_start
+        log(f"   ✓ Readability server responded in {readability_duration:.1f}s (status: {result.status_code})")
 
         if result.status_code == 500:
             log(f"   ✗ Readability server error: {result.text}")
