@@ -10,7 +10,7 @@ from zeeguu.core.content_retriever.crawler_exceptions import (
 
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
 READABILITY_SERVER_CLEANUP_POST_URI = "http://readability_server:3456/cleanup"
-TIMEOUT_SECONDS = 60  # Increased for large HTML files with embedded styles
+TIMEOUT_SECONDS = 10  # Most articles complete in 1-3s; 10s timeout for problem sites
 
 
 def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
@@ -28,6 +28,7 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
     config = newspaper.Config()
     config.fetch_images = False
     config.request_timeout = 10  # 10 second timeout for downloading
+    config.browser_user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'  # Modern browser UA
 
     from zeeguu.logging import log
 
@@ -58,21 +59,20 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
         # this is a temporary solution for allowing translations
         # on pages that do not have "articles" downloadable by newspaper.
 
-    # Call readability server - use POST if we have HTML content, GET otherwise
+    # Call readability server - always use POST with the HTML we already fetched
     log(f"   Calling readability server...")
     import time
     readability_start = time.time()
     try:
-        if html_content:
-            # POST endpoint with HTML content
-            result = requests.post(
-                READABILITY_SERVER_CLEANUP_POST_URI,
-                json={"url": url, "htmlContent": html_content},
-                timeout=request_timeout
-            )
-        else:
-            # GET endpoint - server will fetch the URL
-            result = requests.get(READABILITY_SERVER_CLEANUP_URI + url, timeout=request_timeout)
+        # Use the HTML content we already fetched (either passed in or downloaded by newspaper)
+        html_to_send = html_content if html_content else np_article.html
+
+        # POST endpoint with HTML content - avoids double fetch!
+        result = requests.post(
+            READABILITY_SERVER_CLEANUP_POST_URI,
+            json={"url": url, "htmlContent": html_to_send},
+            timeout=request_timeout
+        )
 
         readability_duration = time.time() - readability_start
         log(f"   ✓ Readability server responded in {readability_duration:.1f}s (status: {result.status_code})")
