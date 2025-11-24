@@ -71,7 +71,8 @@ def generate_crawl_summary(crawl_reports):
                 elif new == 0 and in_db > 0:
                     status = " [all in DB]"
 
-                summary += f"  {feed.title[:40]:40s} | New: {new:3d} | InDB: {in_db:3d} | LowQ: {low_q:3d}{status}\n"
+                feed_time = feed_data.get("crawl_time", 0) or 0
+                summary += f"  {feed.title[:40]:40s} | New: {new:3d} | InDB: {in_db:3d} | LowQ: {low_q:3d} | Time: {feed_time:5.1f}s{status}\n"
 
         total_new += lang_new
         total_in_db += lang_in_db
@@ -83,10 +84,17 @@ def generate_crawl_summary(crawl_reports):
             summary += f", {lang_errors} errors"
         summary += f" | Time: {lang_data.get('total_time', 0):.1f}s\n"
 
+    # Calculate total time
+    total_time = sum(
+        report.data["lang"][lang_code].get("total_time", 0) or 0
+        for lang_code, report in crawl_reports.items()
+    )
+
     summary += "\n" + "=" * 60 + "\n"
     summary += f"OVERALL: {total_new} new articles, {total_in_db} already in DB, {total_low_quality} low quality"
     if total_errors > 0:
         summary += f", {total_errors} errors"
+    summary += f"\nTotal crawl duration: {total_time:.1f}s ({total_time/60:.1f} minutes)"
     summary += "\n"
 
     return summary
