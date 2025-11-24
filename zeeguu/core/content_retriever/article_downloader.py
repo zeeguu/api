@@ -6,6 +6,7 @@ about and downloads new articles saving them in the DB.
 
 """
 
+import os
 import newspaper
 from time import time
 from pymysql import DataError
@@ -48,7 +49,8 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
-MAX_FEED_PROCESSING_TIME_SECONDS = 300  # 5 minutes per feed
+# Max time per feed (safety valve for sequential crawls) - configurable via env var
+MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
 
 # Duplicate detection settings
 SIMHASH_DUPLICATE_DISTANCE_THRESHOLD = 5  # Hamming distance <= 5 (~92% similar)
