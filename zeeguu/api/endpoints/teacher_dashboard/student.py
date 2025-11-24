@@ -55,34 +55,12 @@ def cohort_member_bookmarks():
         to_string=False
     )
 
-    check_permission_for_cohort(user.cohort_id)
+    check_permission_for_cohort(cohort.id)
 
     # True input causes function to return context too.
     return json_result(
         user.bookmarks_by_day(
             True, from_date, with_title=True, max=10000, language_id=cohort.language_id
-        )
-    )
-
-
-# DEPRECATED: Use the POST instead
-@api.route("/cohort_member_bookmarks/<id>/<time_period>", methods=["GET"])
-@requires_session
-@only_teachers
-def cohort_member_bookmarks_deprecated(id, time_period):
-    user = User.query.filter_by(id=id).one()
-
-    check_permission_for_cohort(user.cohort_id)
-
-    now = today()
-    date = now - timedelta(days=int(time_period))
-
-    cohort_language_id = Cohort.query.filter_by(id=user.cohort_id).one().language_id
-
-    # True input causes function to return context too.
-    return json_result(
-        user.bookmarks_by_day(
-            True, date, with_title=True, max=10000, language_id=cohort_language_id
         )
     )
 
