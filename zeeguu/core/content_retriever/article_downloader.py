@@ -48,6 +48,7 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
+MAX_FEED_PROCESSING_TIME_SECONDS = 300  # 5 minutes per feed
 
 # Duplicate detection settings
 SIMHASH_DUPLICATE_DISTANCE_THRESHOLD = 5  # Hamming distance <= 5 (~92% similar)
@@ -285,6 +286,13 @@ def download_from_feed(
         if downloaded >= limit:
             break
 
+        # Check if we've exceeded the time limit for this feed
+        elapsed_time = time() - start_feed_time
+        if elapsed_time > MAX_FEED_PROCESSING_TIME_SECONDS:
+            log(f"⏱ Feed processing timeout after {elapsed_time:.1f}s ({MAX_FEED_PROCESSING_TIME_SECONDS}s limit)")
+            log(f"   Processed {downloaded} articles before timeout, moving to next feed")
+            break
+
         feed_item_timestamp = feed_item["published_datetime"]
 
         if _date_in_the_future(feed_item_timestamp):
@@ -411,17 +419,21 @@ def download_from_feed(
     crawl_report.set_feed_total_downloaded(feed, downloaded)
     crawl_report.set_feed_total_low_quality(feed, skipped_due_to_low_quality)
     crawl_report.set_feed_total_in_db(feed, skipped_already_in_db)
-    crawl_report.set_feed_crawl_time(feed, round(time() - start_feed_time, 2))
+
+    final_time = round(time() - start_feed_time, 2)
+    crawl_report.set_feed_crawl_time(feed, final_time)
+
     summary_stream += (
         f"{downloaded} new articles from {feed.title} ({len(items)} items)\n"
     )
     for each in downloaded_titles:
         summary_stream += f" - {each}\n"
 
-    log(f"*** Downloaded: {downloaded} From: {feed.title}")
+    timeout_indicator = " [TIMEOUT]" if final_time >= MAX_FEED_PROCESSING_TIME_SECONDS else ""
+    log(f"*** Downloaded: {downloaded} From: {feed.title}{timeout_indicator}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
     log(f"*** Already in DB: {skipped_already_in_db}")
-    log(f"*** ")
+    log(f"*** Time: {final_time}s")
     session.commit()
 
     return summary_stream

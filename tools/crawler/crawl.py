@@ -72,6 +72,10 @@ def generate_crawl_summary(crawl_reports):
                     status = " [all in DB]"
 
                 feed_time = feed_data.get("crawl_time", 0) or 0
+                # Mark feeds that hit the 5-minute timeout
+                if feed_time >= 300:
+                    status += " [TIMEOUT]"
+
                 summary += f"  {feed.title[:40]:40s} | New: {new:3d} | InDB: {in_db:3d} | LowQ: {low_q:3d} | Time: {feed_time:5.1f}s{status}\n"
 
         total_new += lang_new
