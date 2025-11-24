@@ -11,12 +11,16 @@ Usage:
     python tools/crawler/crawl_roundrobin.py --all              # Crawl all languages (explicit)
     python tools/crawler/crawl_roundrobin.py da pt en           # Crawl specific languages
     python tools/crawler/crawl_roundrobin.py --max-time 600 da  # Set max 10 minutes per feed
+    python tools/crawler/crawl_roundrobin.py --recent-days 2    # Only articles from last 2 days
+    python tools/crawler/crawl_roundrobin.py --max-articles 50  # Process max 50 articles per feed
 
 Options:
-    --max-time SECONDS   Maximum time in seconds to spend per feed (default: 300)
+    --max-time SECONDS     Maximum time in seconds to spend per feed (default: 300)
     --articles-per-feed N  Max articles to process per feed before moving to next (default: 1)
+    --recent-days N        Only process articles from last N days (overrides feed last_crawled_time)
+    --max-articles N       Maximum articles to download per feed (default: 1000)
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import argparse
 from collections import defaultdict
@@ -122,13 +126,15 @@ def generate_crawl_summary(crawl_reports):
     return summary
 
 
-def crawl_round_robin(languages_to_crawl, articles_per_feed=1):
+def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None, max_articles_per_feed=1000):
     """
     Crawl feeds in round-robin fashion across languages.
 
     Args:
         languages_to_crawl: List of language codes to crawl
         articles_per_feed: Number of articles to process per feed before switching (default: 1)
+        recent_days: Only process articles from last N days (overrides feed last_crawled_time)
+        max_articles_per_feed: Maximum articles to download per feed (default: 1000)
 
     Returns:
         Dict of crawl reports per language
@@ -152,7 +158,18 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1):
         log(f"{lang_code.upper()}: {len(feeds)} feeds")
 
     log(f"\nTotal feeds across all languages: {total_feeds}")
-    log(f"Processing {articles_per_feed} article(s) per feed before switching\n")
+    log(f"Processing {articles_per_feed} article(s) per feed before switching")
+
+    # If recent_days is set, temporarily override last_crawled_time for all feeds
+    if recent_days:
+        min_date = datetime.now() - timedelta(days=recent_days)
+        log(f"*** Filtering articles: Only processing from last {recent_days} days (since {min_date.strftime('%Y-%m-%d %H:%M')})")
+        for lang_code in languages_to_crawl:
+            for feed in feeds_by_language[lang_code]:
+                if feed.last_crawled_time and feed.last_crawled_time < min_date:
+                    log(f"    Overriding {feed.title}: {feed.last_crawled_time} -> {min_date}")
+                    feed.last_crawled_time = min_date
+    log("")
 
     # Track which feed index we're at for each language
     feed_indices = {lang: 0 for lang in languages_to_crawl}
@@ -194,6 +211,7 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1):
                     feed,
                     db_session,
                     crawl_report,
+                    limit=max_articles_per_feed,
                 )
 
                 feed_time = time() - feed_start_time
@@ -239,6 +257,10 @@ parser.add_argument('--max-time', type=int, default=300,
                    help='Maximum time in seconds per feed (default: 300)')
 parser.add_argument('--articles-per-feed', type=int, default=1,
                    help='Number of articles to process per feed before switching (default: 1)')
+parser.add_argument('--recent-days', type=int, default=None,
+                   help='Only process articles from last N days (overrides feed last_crawled_time)')
+parser.add_argument('--max-articles', type=int, default=1000,
+                   help='Maximum articles to download per feed (default: 1000)')
 
 args = parser.parse_args()
 
@@ -262,10 +284,14 @@ start = datetime.now()
 log(f"=== Starting ROUND-ROBIN crawl for languages: {languages_to_crawl} ===")
 log(f"=== Started at: {start} ===")
 log(f"=== Max time per feed: {args.max_time}s ===")
-log(f"=== Articles per feed: {args.articles_per_feed} ===\n")
+log(f"=== Max articles per feed: {args.max_articles} ===")
+log(f"=== Articles per feed (round-robin): {args.articles_per_feed} ===")
+if args.recent_days:
+    log(f"=== Recent days filter: {args.recent_days} days ===")
+log("")
 
 try:
-    crawl_reports = crawl_round_robin(languages_to_crawl, args.articles_per_feed)
+    crawl_reports = crawl_round_robin(languages_to_crawl, args.articles_per_feed, args.recent_days, args.max_articles)
 
     end = datetime.now()
     total_duration = end - start
