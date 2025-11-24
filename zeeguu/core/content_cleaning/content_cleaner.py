@@ -124,6 +124,8 @@ def filter_noise_patterns(
 
 
 def cleanup_non_content_bits_w_crawl_report(text: str, crawl_report, feed, url) -> str:
+    if text is None:
+        return None
     new_text = text
     new_text = filter_noise_patterns(
         text, set(JUNK_COUNT_PATTERNS), crawl_report, feed, url

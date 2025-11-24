@@ -22,4 +22,6 @@ def flatten_composed_unicode_characters(content):
     # We thus use NFC
     #
     #   (See also: https://stackoverflow.com/a/16467505/1200070)
+    if content is None:
+        return None
     return unicodedata.normalize('NFC', content)
