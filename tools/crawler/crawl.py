@@ -3,13 +3,18 @@
 Crawl articles for one or more languages sequentially.
 
 Usage:
-    python tools/crawler/crawl.py                # Crawl all languages (default)
-    python tools/crawler/crawl.py --all          # Crawl all languages (explicit)
-    python tools/crawler/crawl.py da             # Crawl only Danish
-    python tools/crawler/crawl.py da pt en       # Crawl Danish, Portuguese, and English
+    python tools/crawler/crawl.py                        # Crawl all languages (default)
+    python tools/crawler/crawl.py --all                  # Crawl all languages (explicit)
+    python tools/crawler/crawl.py da                     # Crawl only Danish
+    python tools/crawler/crawl.py da pt en               # Crawl Danish, Portuguese, and English
+    python tools/crawler/crawl.py --max-time 600 da      # Set max 10 minutes per feed
+
+Options:
+    --max-time SECONDS   Maximum time in seconds to spend per feed (default: 300)
 """
 from datetime import datetime
 import sys
+import argparse
 
 from feed_retrieval import retrieve_articles_for_language
 from zeeguu.logging import log
@@ -107,20 +112,34 @@ def generate_crawl_summary(crawl_reports):
 # All available languages in order of priority
 ALL_LANGUAGES = ['da', 'pt', 'sv', 'ro', 'nl', 'fr', 'en', 'el', 'de', 'es', 'it']
 
-# Get languages from command line args, or use all if none specified
-if len(sys.argv) > 1 and sys.argv[1] != '--all':
-    languages_to_crawl = sys.argv[1:]
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Crawl articles for one or more languages')
+parser.add_argument('languages', nargs='*', help='Language codes to crawl (default: all)')
+parser.add_argument('--all', action='store_true', help='Crawl all languages')
+parser.add_argument('--max-time', type=int, default=300,
+                   help='Maximum time in seconds per feed (default: 300)')
+
+args = parser.parse_args()
+
+# Set the max feed processing time as environment variable for the downloader to use
+import os
+os.environ['MAX_FEED_PROCESSING_TIME_SECONDS'] = str(args.max_time)
+
+# Determine which languages to crawl
+if args.all or not args.languages:
+    languages_to_crawl = ALL_LANGUAGES
+else:
+    languages_to_crawl = args.languages
     # Validate languages
     invalid = [lang for lang in languages_to_crawl if lang not in ALL_LANGUAGES]
     if invalid:
         log(f"ERROR: Invalid language codes: {invalid}")
         log(f"Valid languages: {ALL_LANGUAGES}")
         sys.exit(1)
-else:
-    languages_to_crawl = ALL_LANGUAGES
 
 start = datetime.now()
 log(f"=== Starting crawl for languages: {languages_to_crawl} at: {start} ===")
+log(f"=== Max time per feed: {args.max_time}s ===")
 
 crawl_reports = {}
 
