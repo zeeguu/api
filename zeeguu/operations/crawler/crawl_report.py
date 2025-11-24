@@ -15,6 +15,8 @@ CRAWL_REPORT_DATA = os.environ.get(
 class CrawlReport:
     def __init__(self) -> None:
         self.save_dir = CRAWL_REPORT_DATA
+        # Create the directory if it doesn't exist
+        os.makedirs(self.save_dir, exist_ok=True)
         self.data = {"lang": {}}
         self.crawl_report_date = datetime.datetime.now()
 

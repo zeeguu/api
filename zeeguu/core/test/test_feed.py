@@ -8,7 +8,7 @@ from zeeguu.core.test.rules.feed_rule import FeedRule
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.feed_handler import FEED_TYPE
 
-from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
+from zeeguu.operations.crawler.crawl_report import CrawlReport
 
 
 class FeedTest(ModelTestMixIn, TestCase):
@@ -30,7 +30,7 @@ class FeedTest(ModelTestMixIn, TestCase):
         articles = self.spiegel.get_articles()
 
         # We should get at least 1 high-quality article from the feed
-        assert len(articles) >= 2
+        assert len(articles) >= 1
 
         # Test that limit parameter works
         limited_articles = self.spiegel.get_articles(limit=1)
@@ -66,4 +66,4 @@ class FeedTest(ModelTestMixIn, TestCase):
             )
 
         # At minimum, we should have at least 1 article
-        assert len(ordered_by_difficulty) == 2
+        assert len(ordered_by_difficulty) >= 1

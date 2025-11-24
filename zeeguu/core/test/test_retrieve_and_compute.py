@@ -14,7 +14,7 @@ from zeeguu.core.content_quality.quality_filter import (
     LowQualityTypes,
 )
 
-from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
+from zeeguu.operations.crawler.crawl_report import CrawlReport
 
 from zeeguu.core.test.mocking_the_web import *
 

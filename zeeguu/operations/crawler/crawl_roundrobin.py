@@ -34,7 +34,7 @@ from zeeguu.logging import log
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
-from zeeguu.operations.crawl_summary.crawl_report import CrawlReport
+from zeeguu.operations.crawler.crawl_report import CrawlReport
 import logging
 
 # Configure logging to show INFO level
