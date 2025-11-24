@@ -289,8 +289,8 @@ def download_from_feed(
         # Check if we've exceeded the time limit for this feed
         elapsed_time = time() - start_feed_time
         if elapsed_time > MAX_FEED_PROCESSING_TIME_SECONDS:
-            log(f"⏱ Feed processing timeout after {elapsed_time:.1f}s ({MAX_FEED_PROCESSING_TIME_SECONDS}s limit)")
-            log(f"   Processed {downloaded} articles before timeout, moving to next feed")
+            log(f"⏱ Feed max time reached after {elapsed_time:.1f}s ({MAX_FEED_PROCESSING_TIME_SECONDS}s limit)")
+            log(f"   Processed {downloaded} articles, moving to next feed")
             break
 
         feed_item_timestamp = feed_item["published_datetime"]
@@ -429,8 +429,8 @@ def download_from_feed(
     for each in downloaded_titles:
         summary_stream += f" - {each}\n"
 
-    timeout_indicator = " [TIMEOUT]" if final_time >= MAX_FEED_PROCESSING_TIME_SECONDS else ""
-    log(f"*** Downloaded: {downloaded} From: {feed.title}{timeout_indicator}")
+    max_time_indicator = " [MAX_TIME_REACHED]" if final_time >= MAX_FEED_PROCESSING_TIME_SECONDS else ""
+    log(f"*** Downloaded: {downloaded} From: {feed.title}{max_time_indicator}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
     log(f"*** Already in DB: {skipped_already_in_db}")
     log(f"*** Time: {final_time}s")
