@@ -175,6 +175,9 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
     feed_indices = {lang: 0 for lang in languages_to_crawl}
     feeds_completed = 0
 
+    # Global counter for all articles across all feeds
+    global_stats = {'total_downloaded': 0}
+
     # Round-robin through languages until all feeds are processed
     while feeds_completed < total_feeds:
         made_progress = False
@@ -212,6 +215,7 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
                     db_session,
                     crawl_report,
                     limit=max_articles_per_feed,
+                    global_stats=global_stats,
                 )
 
                 feed_time = time() - feed_start_time

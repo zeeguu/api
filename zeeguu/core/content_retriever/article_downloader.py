@@ -250,7 +250,7 @@ def extract_article_image(np_article):
 
 
 def download_from_feed_parallel(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, num_workers=2, worker_providers=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, num_workers=2, worker_providers=None, global_stats=None
 ):
     """
     Download and process feed items using worker threads.
@@ -416,8 +416,13 @@ def download_from_feed_parallel(
                     with results_lock:
                         stats['downloaded'] += 1
                         count = stats['downloaded']
+                        if global_stats is not None:
+                            global_stats['total_downloaded'] += 1
+                            global_count = global_stats['total_downloaded']
+                        else:
+                            global_count = count
 
-                    log(f"[{provider_name.upper()}] ✓ NEW ARTICLE SAVED TO DATABASE (#{count})")
+                    log(f"[{provider_name.upper()}] ✓ NEW ARTICLE SAVED TO DATABASE (#{global_count})")
 
                     # Index in Elasticsearch
                     if save_in_elastic and new_article and not new_article.broken:
@@ -505,7 +510,7 @@ def download_from_feed_parallel(
 
 
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, global_stats=None
 ):
     """
     Download and process feed items.
@@ -521,7 +526,7 @@ def download_from_feed(
     """
     # Use unified worker-based implementation
     num_workers = 2 if PARALLEL_SIMPLIFICATION else 1
-    return download_from_feed_parallel(feed, session, crawl_report, limit, save_in_elastic, num_workers)
+    return download_from_feed_parallel(feed, session, crawl_report, limit, save_in_elastic, num_workers, worker_providers=None, global_stats=global_stats)
 
 
 def download_from_feed_old_sequential(
