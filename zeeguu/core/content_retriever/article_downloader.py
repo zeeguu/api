@@ -12,8 +12,6 @@ from time import time
 from pymysql import DataError
 from datetime import datetime, timedelta
 from simhash import Simhash
-from queue import Queue, Empty
-from threading import Thread, Lock
 
 from zeeguu.core.content_retriever.crawler_exceptions import *
 from zeeguu.logging import log
@@ -50,9 +48,6 @@ from zeeguu.core.content_quality.disturbing_content_detection import (
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
-
-# Number of workers for parallel article processing (default: 2 = DeepSeek + Anthropic)
-NUM_WORKERS = int(os.environ.get('NUM_WORKERS', '2'))
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
@@ -249,311 +244,19 @@ def extract_article_image(np_article):
         return ""
 
 
-def download_from_feed_parallel(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, num_workers=2, worker_providers=None, global_stats=None
-):
-    """
-    Download and process feed items using worker threads.
-
-    Args:
-        num_workers: Number of parallel workers (legacy parameter, ignored if worker_providers is set)
-        worker_providers: List of provider names for each worker, e.g., ['deepseek', 'anthropic', 'deepseek']
-                         If None, uses default mapping based on num_workers:
-                         1 = ['deepseek']
-                         2 = ['deepseek', 'anthropic']
-
-    Examples:
-        # Sequential with DeepSeek
-        download_from_feed_parallel(..., num_workers=1)
-
-        # Parallel A/B testing: DeepSeek vs Anthropic
-        download_from_feed_parallel(..., num_workers=2)
-        download_from_feed_parallel(..., worker_providers=['deepseek', 'anthropic'])
-
-        # Future: 4 workers with 2 DeepSeek + 2 Anthropic
-        download_from_feed_parallel(..., worker_providers=['deepseek', 'deepseek', 'anthropic', 'anthropic'])
-    """
-    # Use worker_providers if specified, otherwise map from num_workers
-    if worker_providers is None:
-        if num_workers == 1:
-            worker_providers = ['deepseek']
-        elif num_workers == 2:
-            worker_providers = ['deepseek', 'anthropic']
-        else:
-            # Future extensibility: support arbitrary number of workers
-            # Default to round-robin between providers
-            worker_providers = ['deepseek', 'anthropic'] * (num_workers // 2)
-            if num_workers % 2 == 1:
-                worker_providers.append('deepseek')
-
-    num_workers = len(worker_providers)
-
-    if num_workers == 1:
-        log(f"Using {num_workers} worker: {worker_providers[0].upper()} only")
-    elif num_workers == 2 and worker_providers == ['deepseek', 'anthropic']:
-        log(f"🔀 Using {num_workers} workers: DeepSeek + Anthropic")
-    else:
-        provider_counts = {}
-        for p in worker_providers:
-            provider_counts[p] = provider_counts.get(p, 0) + 1
-        provider_summary = ", ".join([f"{count}x{p.upper()}" for p, count in provider_counts.items()])
-        log(f"🔀 Using {num_workers} workers: {provider_summary}")
-
-    # Shared state
-    feed_item_queue = Queue()
-    results_lock = Lock()
-    feed_update_lock = Lock()  # Separate lock for feed database updates
-    should_stop = {'value': False}  # Shared flag for stopping all workers
-
-    # Shared counters
-    stats = {
-        'downloaded': 0,
-        'downloaded_titles': [],
-        'skipped_due_to_low_quality': 0,
-        'skipped_already_in_db': 0,
-        'last_retrieval_time_seen': None,
-    }
-
-    start_feed_time = time()
-
-    # Get feed items
-    last_retrieval_time_from_DB = feed.last_crawled_time if feed.last_crawled_time else None
-    if last_retrieval_time_from_DB:
-        log(f"LAST CRAWLED::: {last_retrieval_time_from_DB}")
-
-    try:
-        items = feed.feed_items(last_retrieval_time_from_DB)
-    except Exception as e:
-        import traceback
-        traceback.print_stack()
-        capture_to_sentry(e)
-        return ""
-
-    # Capture Flask app object for worker threads (current_app proxy doesn't work in threads)
-    from flask import current_app
-    app = current_app._get_current_object()
-
-    # Store feed ID for workers to reload in their own sessions
-    feed_id = feed.id
-
-    # Worker function
-    def worker(provider_name):
-        # Each thread needs its own Flask app context for database operations
-        with app.app_context():
-            # Get thread-local session and reload feed in this thread's session
-            thread_session = model.db.session
-            thread_feed = Feed.find_by_id(feed_id)
-            # Eagerly load the language relationship to avoid DetachedInstanceError
-            _ = thread_feed.language.code if thread_feed else None
-
-            while True:
-                # Check shared stop flag first
-                if should_stop['value']:
-                    break
-
-                try:
-                    # Get next item from queue (timeout to check if we're done)
-                    feed_item = feed_item_queue.get(timeout=0.1)
-                    if feed_item is None:  # Poison pill
-                        break
-
-                    # Check time limit
-                    elapsed_time = time() - start_feed_time
-                    if elapsed_time > MAX_FEED_PROCESSING_TIME_SECONDS:
-                        log(f"[{provider_name.upper()}] ⏱ Feed max time reached, stopping all workers")
-                        should_stop['value'] = True
-                        break
-
-                    # Check download limit
-                    with results_lock:
-                        if stats['downloaded'] >= limit:
-                            should_stop['value'] = True
-                            break
-
-                    # Process timestamps
-                    feed_item_timestamp = feed_item["published_datetime"]
-                    if _date_in_the_future(feed_item_timestamp):
-                        log(f"[{provider_name.upper()}] Article from the future!")
-                        continue
-
-                    with results_lock:
-                        if (not stats['last_retrieval_time_seen']) or (feed_item_timestamp > stats['last_retrieval_time_seen']):
-                            stats['last_retrieval_time_seen'] = feed_item_timestamp
-                            crawl_report.set_feed_last_article_date(thread_feed, feed_item_timestamp)
-
-                    # Update feed last_crawled_time with separate lock to avoid database deadlocks
-                    with feed_update_lock:
-                        if stats['last_retrieval_time_seen'] and stats['last_retrieval_time_seen'] > thread_feed.last_crawled_time:
-                            crawl_report.set_feed_last_article_date(thread_feed, stats['last_retrieval_time_seen'])
-                            thread_feed.last_crawled_time = stats['last_retrieval_time_seen']
-                            thread_session.add(thread_feed)
-                            thread_session.commit()
-
-                    # Check if already in DB
-                    log(f"[{provider_name.upper()}] {feed_item['url']}")
-                    art = model.Article.find(feed_item["url"])
-                    if art:
-                        with results_lock:
-                            stats['skipped_already_in_db'] += 1
-                        log(f"[{provider_name.upper()}] - Already in DB")
-                        continue
-
-                    try:
-                        url = _url_after_redirects(feed_item["url"])
-                        art = model.Article.find(url)
-                        if art:
-                            with results_lock:
-                                stats['skipped_already_in_db'] += 1
-                            log(f"[{provider_name.upper()}] - Already in DB")
-                            continue
-                    except requests.exceptions.TooManyRedirects:
-                        log(f"[{provider_name.upper()}] - Too many redirects")
-                        continue
-                    except Exception as e:
-                        log(f"[{provider_name.upper()}] - Could not get url after redirects: {e}")
-                        continue
-
-                    if banned_url(url):
-                        log(f"[{provider_name.upper()}] Banned Url")
-                        continue
-
-                    # Download and process the article with specified provider
-                    try:
-                        new_article = download_feed_item(
-                            thread_session, thread_feed, feed_item, url, crawl_report, simplification_provider=provider_name
-                        )
-
-                        # Politiken-specific fix
-                        if thread_feed.id == 136:
-                            new_article.title = (
-                                new_article.title.replace("Ã¥", "å")
-                                .replace("Ã¸", "ø")
-                                .replace("Ã¦", "æ")
-                            )
-
-                        with results_lock:
-                            stats['downloaded'] += 1
-                            count = stats['downloaded']
-                            if global_stats is not None:
-                                global_stats['total_downloaded'] += 1
-                                global_count = global_stats['total_downloaded']
-                            else:
-                                global_count = count
-
-                        log(f"[{provider_name.upper()}] ✓ NEW ARTICLE SAVED TO DATABASE (#{global_count})")
-
-                        # Index in Elasticsearch
-                        if save_in_elastic and new_article and not new_article.broken:
-                            index_in_elasticsearch(new_article, thread_session)
-
-                        with results_lock:
-                            stats['downloaded_titles'].append(
-                                new_article.title + " " + new_article.url.as_string()
-                            )
-
-                    except SkippedForTooOld:
-                        log(f"[{provider_name.upper()}] - Article too old")
-                    except NotAppropriateForReading as e:
-                        log(f"[{provider_name.upper()}] - Not appropriate for reading: {e.reason}")
-                    except SkippedForLowQuality as e:
-                        log(f"[{provider_name.upper()}] - Low quality: {e.reason}")
-                        with results_lock:
-                            stats['skipped_due_to_low_quality'] += 1
-                    except SkippedAlreadyInDB:
-                        with results_lock:
-                            stats['skipped_already_in_db'] += 1
-                        log(f"[{provider_name.upper()}] - Already in DB")
-                    except FailedToParseWithReadabilityServer as e:
-                        log(f"[{provider_name.upper()}] - Failed to parse with readability server: {e}")
-                    except newspaper.ArticleException as e:
-                        log(f"[{provider_name.upper()}] Newspaper can't download article at: {url}")
-                    except DataError as e:
-                        log(f"[{provider_name.upper()}] Data error ({e}) for: {url}")
-                    except requests.exceptions.Timeout:
-                        log(f"[{provider_name.upper()}] Request timed out after {TIMEOUT_SECONDS} seconds")
-                    except Exception as e:
-                        import traceback
-                        print(f"[{provider_name.upper()}] Error: {e}")
-                        traceback.print_exc()
-                        capture_to_sentry(e)
-
-                except Empty:
-                    # Queue is empty, check if we're done
-                    pass
-
-    # Fill the queue with feed items
-    for feed_item in items:
-        feed_item_queue.put(feed_item)
-
-    # Add poison pills (one per worker)
-    for _ in range(num_workers):
-        feed_item_queue.put(None)
-
-    # Start workers based on provider list
-    workers = []
-    for i, provider in enumerate(worker_providers):
-        worker_name = f"{provider.capitalize()}-Worker-{i+1}" if worker_providers.count(provider) > 1 else f"{provider.capitalize()}-Worker"
-        worker_thread = Thread(target=worker, args=(provider,), name=worker_name)
-        workers.append(worker_thread)
-
-    # Start all workers
-    for w in workers:
-        w.start()
-
-    # Wait for all to finish
-    for w in workers:
-        w.join()
-
-    # Generate summary
-    crawl_report.set_feed_total_articles(feed, len(items))
-    crawl_report.set_feed_total_downloaded(feed, stats['downloaded'])
-    crawl_report.set_feed_total_low_quality(feed, stats['skipped_due_to_low_quality'])
-    crawl_report.set_feed_total_in_db(feed, stats['skipped_already_in_db'])
-
-    final_time = round(time() - start_feed_time, 2)
-    crawl_report.set_feed_crawl_time(feed, final_time)
-
-    summary_stream = f"{stats['downloaded']} new articles from {feed.title} ({len(items)} items)\n"
-    for each in stats['downloaded_titles']:
-        summary_stream += f" - {each}\n"
-
-    max_time_indicator = " [MAX_TIME_REACHED]" if final_time >= MAX_FEED_PROCESSING_TIME_SECONDS else ""
-    log(f"*** Downloaded: {stats['downloaded']} From: {feed.title}{max_time_indicator}")
-    log(f"*** Low Quality: {stats['skipped_due_to_low_quality']}")
-    log(f"*** Already in DB: {stats['skipped_already_in_db']}")
-    log(f"*** Time: {final_time}s")
-    session.commit()
-
-    return summary_stream
-
-
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, global_stats=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None
 ):
     """
-    Download and process feed items.
 
     Session is needed because this saves stuff to the DB.
+
 
     last_crawled_time is useful because otherwise there would be a lot of time
     wasted trying to retrieve the same articles, especially the ones which
     can't be retrieved, so they won't be cached.
 
-    Uses NUM_WORKERS environment variable to control parallelism:
-    - NUM_WORKERS=2 (default): 2 workers (DeepSeek + Anthropic)
-    - NUM_WORKERS=1: Sequential processing with DeepSeek only
-    - NUM_WORKERS=4: 4 workers (2x DeepSeek + 2x Anthropic)
-    """
-    # Use unified worker-based implementation
-    return download_from_feed_parallel(feed, session, crawl_report, limit, save_in_elastic, NUM_WORKERS, worker_providers=None, global_stats=global_stats)
 
-
-def download_from_feed_old_sequential(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True
-):
-    """
-    OLD SEQUENTIAL VERSION - Kept for reference but no longer used.
-    The download_from_feed() function now uses the worker-based approach for both modes.
     """
 
     summary_stream = ""
@@ -646,6 +349,7 @@ def download_from_feed_old_sequential(
                 feed_item,
                 url,
                 crawl_report,
+                simplification_provider=simplification_provider,
             )
             # Politiken sometimes has titles that have
             # strange characters instead of å æ ø
@@ -828,7 +532,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     new_article.create_article_fragments(session)
 
     main_img_url = extract_article_image(np_article)
-    if main_img_url and main_img_url != "":
+    if main_img_url != "":
         new_article.img_url = Url.find_or_create(session, main_img_url)
 
     log(f"   Extracting topics...")
@@ -864,8 +568,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         )
 
     # Auto-create simplified versions and classify content
-    provider_msg = f" using {simplification_provider.upper()}" if simplification_provider else ""
-    log(f"   Calling LLM for simplification and classification{provider_msg}...")
+    log(f"   Calling LLM for simplification and classification...")
     llm_start_time = time()
     try:
         simplified_articles, llm_classifications = simplify_and_classify(
