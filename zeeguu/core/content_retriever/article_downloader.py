@@ -330,138 +330,141 @@ def download_from_feed_parallel(
 
     # Worker function
     def worker(provider_name):
-        while True:
-            # Check shared stop flag first
-            if should_stop['value']:
-                break
-
-            try:
-                # Get next item from queue (timeout to check if we're done)
-                feed_item = feed_item_queue.get(timeout=0.1)
-                if feed_item is None:  # Poison pill
+        # Each thread needs its own Flask app context for database operations
+        from flask import current_app
+        with current_app.app_context():
+            while True:
+                # Check shared stop flag first
+                if should_stop['value']:
                     break
 
-                # Check time limit
-                elapsed_time = time() - start_feed_time
-                if elapsed_time > MAX_FEED_PROCESSING_TIME_SECONDS:
-                    log(f"[{provider_name.upper()}] ⏱ Feed max time reached, stopping all workers")
-                    should_stop['value'] = True
-                    break
+                try:
+                    # Get next item from queue (timeout to check if we're done)
+                    feed_item = feed_item_queue.get(timeout=0.1)
+                    if feed_item is None:  # Poison pill
+                        break
 
-                # Check download limit
-                with results_lock:
-                    if stats['downloaded'] >= limit:
+                    # Check time limit
+                    elapsed_time = time() - start_feed_time
+                    if elapsed_time > MAX_FEED_PROCESSING_TIME_SECONDS:
+                        log(f"[{provider_name.upper()}] ⏱ Feed max time reached, stopping all workers")
                         should_stop['value'] = True
                         break
 
-                # Process timestamps
-                feed_item_timestamp = feed_item["published_datetime"]
-                if _date_in_the_future(feed_item_timestamp):
-                    log(f"[{provider_name.upper()}] Article from the future!")
-                    continue
-
-                with results_lock:
-                    if (not stats['last_retrieval_time_seen']) or (feed_item_timestamp > stats['last_retrieval_time_seen']):
-                        stats['last_retrieval_time_seen'] = feed_item_timestamp
-                        crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
-
-                    if stats['last_retrieval_time_seen'] > feed.last_crawled_time:
-                        crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
-                        feed.last_crawled_time = stats['last_retrieval_time_seen']
-                        session.add(feed)
-                        session.commit()
-
-                # Check if already in DB
-                log(f"[{provider_name.upper()}] {feed_item['url']}")
-                art = model.Article.find(feed_item["url"])
-                if art:
+                    # Check download limit
                     with results_lock:
-                        stats['skipped_already_in_db'] += 1
-                    log(f"[{provider_name.upper()}] - Already in DB")
-                    continue
+                        if stats['downloaded'] >= limit:
+                            should_stop['value'] = True
+                            break
 
-                try:
-                    url = _url_after_redirects(feed_item["url"])
-                    art = model.Article.find(url)
+                    # Process timestamps
+                    feed_item_timestamp = feed_item["published_datetime"]
+                    if _date_in_the_future(feed_item_timestamp):
+                        log(f"[{provider_name.upper()}] Article from the future!")
+                        continue
+
+                    with results_lock:
+                        if (not stats['last_retrieval_time_seen']) or (feed_item_timestamp > stats['last_retrieval_time_seen']):
+                            stats['last_retrieval_time_seen'] = feed_item_timestamp
+                            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
+
+                        if stats['last_retrieval_time_seen'] > feed.last_crawled_time:
+                            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
+                            feed.last_crawled_time = stats['last_retrieval_time_seen']
+                            session.add(feed)
+                            session.commit()
+
+                    # Check if already in DB
+                    log(f"[{provider_name.upper()}] {feed_item['url']}")
+                    art = model.Article.find(feed_item["url"])
                     if art:
                         with results_lock:
                             stats['skipped_already_in_db'] += 1
                         log(f"[{provider_name.upper()}] - Already in DB")
                         continue
-                except requests.exceptions.TooManyRedirects:
-                    log(f"[{provider_name.upper()}] - Too many redirects")
-                    continue
-                except Exception as e:
-                    log(f"[{provider_name.upper()}] - Could not get url after redirects: {e}")
-                    continue
 
-                if banned_url(url):
-                    log(f"[{provider_name.upper()}] Banned Url")
-                    continue
+                    try:
+                        url = _url_after_redirects(feed_item["url"])
+                        art = model.Article.find(url)
+                        if art:
+                            with results_lock:
+                                stats['skipped_already_in_db'] += 1
+                            log(f"[{provider_name.upper()}] - Already in DB")
+                            continue
+                    except requests.exceptions.TooManyRedirects:
+                        log(f"[{provider_name.upper()}] - Too many redirects")
+                        continue
+                    except Exception as e:
+                        log(f"[{provider_name.upper()}] - Could not get url after redirects: {e}")
+                        continue
 
-                # Download and process the article with specified provider
-                try:
-                    new_article = download_feed_item(
-                        session, feed, feed_item, url, crawl_report, simplification_provider=provider_name
-                    )
+                    if banned_url(url):
+                        log(f"[{provider_name.upper()}] Banned Url")
+                        continue
 
-                    # Politiken-specific fix
-                    if feed.id == 136:
-                        new_article.title = (
-                            new_article.title.replace("Ã¥", "å")
-                            .replace("Ã¸", "ø")
-                            .replace("Ã¦", "æ")
+                    # Download and process the article with specified provider
+                    try:
+                        new_article = download_feed_item(
+                            session, feed, feed_item, url, crawl_report, simplification_provider=provider_name
                         )
 
-                    with results_lock:
-                        stats['downloaded'] += 1
-                        count = stats['downloaded']
-                        if global_stats is not None:
-                            global_stats['total_downloaded'] += 1
-                            global_count = global_stats['total_downloaded']
-                        else:
-                            global_count = count
+                        # Politiken-specific fix
+                        if feed.id == 136:
+                            new_article.title = (
+                                new_article.title.replace("Ã¥", "å")
+                                .replace("Ã¸", "ø")
+                                .replace("Ã¦", "æ")
+                            )
 
-                    log(f"[{provider_name.upper()}] ✓ NEW ARTICLE SAVED TO DATABASE (#{global_count})")
+                        with results_lock:
+                            stats['downloaded'] += 1
+                            count = stats['downloaded']
+                            if global_stats is not None:
+                                global_stats['total_downloaded'] += 1
+                                global_count = global_stats['total_downloaded']
+                            else:
+                                global_count = count
 
-                    # Index in Elasticsearch
-                    if save_in_elastic and new_article and not new_article.broken:
-                        index_in_elasticsearch(new_article, session)
+                        log(f"[{provider_name.upper()}] ✓ NEW ARTICLE SAVED TO DATABASE (#{global_count})")
 
-                    with results_lock:
-                        stats['downloaded_titles'].append(
-                            new_article.title + " " + new_article.url.as_string()
-                        )
+                        # Index in Elasticsearch
+                        if save_in_elastic and new_article and not new_article.broken:
+                            index_in_elasticsearch(new_article, session)
 
-                except SkippedForTooOld:
-                    log(f"[{provider_name.upper()}] - Article too old")
-                except NotAppropriateForReading as e:
-                    log(f"[{provider_name.upper()}] - Not appropriate for reading: {e.reason}")
-                except SkippedForLowQuality as e:
-                    log(f"[{provider_name.upper()}] - Low quality: {e.reason}")
-                    with results_lock:
-                        stats['skipped_due_to_low_quality'] += 1
-                except SkippedAlreadyInDB:
-                    with results_lock:
-                        stats['skipped_already_in_db'] += 1
-                    log(f"[{provider_name.upper()}] - Already in DB")
-                except FailedToParseWithReadabilityServer as e:
-                    log(f"[{provider_name.upper()}] - Failed to parse with readability server: {e}")
-                except newspaper.ArticleException as e:
-                    log(f"[{provider_name.upper()}] Newspaper can't download article at: {url}")
-                except DataError as e:
-                    log(f"[{provider_name.upper()}] Data error ({e}) for: {url}")
-                except requests.exceptions.Timeout:
-                    log(f"[{provider_name.upper()}] Request timed out after {TIMEOUT_SECONDS} seconds")
-                except Exception as e:
-                    import traceback
-                    print(f"[{provider_name.upper()}] Error: {e}")
-                    traceback.print_exc()
-                    capture_to_sentry(e)
+                        with results_lock:
+                            stats['downloaded_titles'].append(
+                                new_article.title + " " + new_article.url.as_string()
+                            )
 
-            except Empty:
-                # Queue is empty, check if we're done
-                pass
+                    except SkippedForTooOld:
+                        log(f"[{provider_name.upper()}] - Article too old")
+                    except NotAppropriateForReading as e:
+                        log(f"[{provider_name.upper()}] - Not appropriate for reading: {e.reason}")
+                    except SkippedForLowQuality as e:
+                        log(f"[{provider_name.upper()}] - Low quality: {e.reason}")
+                        with results_lock:
+                            stats['skipped_due_to_low_quality'] += 1
+                    except SkippedAlreadyInDB:
+                        with results_lock:
+                            stats['skipped_already_in_db'] += 1
+                        log(f"[{provider_name.upper()}] - Already in DB")
+                    except FailedToParseWithReadabilityServer as e:
+                        log(f"[{provider_name.upper()}] - Failed to parse with readability server: {e}")
+                    except newspaper.ArticleException as e:
+                        log(f"[{provider_name.upper()}] Newspaper can't download article at: {url}")
+                    except DataError as e:
+                        log(f"[{provider_name.upper()}] Data error ({e}) for: {url}")
+                    except requests.exceptions.Timeout:
+                        log(f"[{provider_name.upper()}] Request timed out after {TIMEOUT_SECONDS} seconds")
+                    except Exception as e:
+                        import traceback
+                        print(f"[{provider_name.upper()}] Error: {e}")
+                        traceback.print_exc()
+                        capture_to_sentry(e)
+
+                except Empty:
+                    # Queue is empty, check if we're done
+                    pass
 
     # Fill the queue with feed items
     for feed_item in items:
