@@ -302,6 +302,7 @@ def download_from_feed_parallel(
     # Shared state
     feed_item_queue = Queue()
     results_lock = Lock()
+    feed_update_lock = Lock()  # Separate lock for feed database updates
     should_stop = {'value': False}  # Shared flag for stopping all workers
 
     # Shared counters
@@ -342,6 +343,8 @@ def download_from_feed_parallel(
             # Get thread-local session and reload feed in this thread's session
             thread_session = model.db.session
             thread_feed = Feed.find_by_id(feed_id)
+            # Eagerly load the language relationship to avoid DetachedInstanceError
+            _ = thread_feed.language.code if thread_feed else None
 
             while True:
                 # Check shared stop flag first
@@ -378,8 +381,10 @@ def download_from_feed_parallel(
                             stats['last_retrieval_time_seen'] = feed_item_timestamp
                             crawl_report.set_feed_last_article_date(thread_feed, feed_item_timestamp)
 
-                        if stats['last_retrieval_time_seen'] > thread_feed.last_crawled_time:
-                            crawl_report.set_feed_last_article_date(thread_feed, feed_item_timestamp)
+                    # Update feed last_crawled_time with separate lock to avoid database deadlocks
+                    with feed_update_lock:
+                        if stats['last_retrieval_time_seen'] and stats['last_retrieval_time_seen'] > thread_feed.last_crawled_time:
+                            crawl_report.set_feed_last_article_date(thread_feed, stats['last_retrieval_time_seen'])
                             thread_feed.last_crawled_time = stats['last_retrieval_time_seen']
                             thread_session.add(thread_feed)
                             thread_session.commit()
@@ -823,7 +828,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     new_article.create_article_fragments(session)
 
     main_img_url = extract_article_image(np_article)
-    if main_img_url != "":
+    if main_img_url and main_img_url != "":
         new_article.img_url = Url.find_or_create(session, main_img_url)
 
     log(f"   Extracting topics...")
