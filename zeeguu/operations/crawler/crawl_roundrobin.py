@@ -108,7 +108,7 @@ def generate_crawl_summary(crawl_reports):
         summary += f"\n  {lang_code.upper()} Total: {lang_new} new, {lang_in_db} already in DB, {lang_low_quality} low quality"
         if lang_errors > 0:
             summary += f", {lang_errors} errors"
-        summary += f" | Time: {lang_data.get('total_time', 0):.1f}s\n"
+        summary += f" | Time: {lang_data.get('total_time', 0) or 0:.1f}s\n"
 
     # Calculate total time
     total_time = sum(
