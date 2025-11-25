@@ -51,8 +51,8 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 
-# Enable parallel processing with two workers (one for DeepSeek, one for Anthropic)
-PARALLEL_SIMPLIFICATION = os.environ.get('PARALLEL_SIMPLIFICATION', '1') == '1'
+# Number of workers for parallel article processing (default: 2 = DeepSeek + Anthropic)
+NUM_WORKERS = int(os.environ.get('NUM_WORKERS', '2'))
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
@@ -289,15 +289,15 @@ def download_from_feed_parallel(
     num_workers = len(worker_providers)
 
     if num_workers == 1:
-        log(f"Sequential mode: Using {worker_providers[0].upper()} only")
+        log(f"Using {num_workers} worker: {worker_providers[0].upper()} only")
     elif num_workers == 2 and worker_providers == ['deepseek', 'anthropic']:
-        log(f"🔀 PARALLEL MODE: Using 2 workers (DeepSeek + Anthropic)")
+        log(f"🔀 Using {num_workers} workers: DeepSeek + Anthropic")
     else:
         provider_counts = {}
         for p in worker_providers:
             provider_counts[p] = provider_counts.get(p, 0) + 1
         provider_summary = ", ".join([f"{count}x{p.upper()}" for p, count in provider_counts.items()])
-        log(f"🔀 PARALLEL MODE: Using {num_workers} workers ({provider_summary})")
+        log(f"🔀 Using {num_workers} workers: {provider_summary}")
 
     # Shared state
     feed_item_queue = Queue()
@@ -521,12 +521,13 @@ def download_from_feed(
     wasted trying to retrieve the same articles, especially the ones which
     can't be retrieved, so they won't be cached.
 
-    Uses parallel processing with 2 workers (DeepSeek + Anthropic) if PARALLEL_SIMPLIFICATION=1,
-    or sequential processing with 1 worker (DeepSeek only) if PARALLEL_SIMPLIFICATION=0.
+    Uses NUM_WORKERS environment variable to control parallelism:
+    - NUM_WORKERS=2 (default): 2 workers (DeepSeek + Anthropic)
+    - NUM_WORKERS=1: Sequential processing with DeepSeek only
+    - NUM_WORKERS=4: 4 workers (2x DeepSeek + 2x Anthropic)
     """
     # Use unified worker-based implementation
-    num_workers = 2 if PARALLEL_SIMPLIFICATION else 1
-    return download_from_feed_parallel(feed, session, crawl_report, limit, save_in_elastic, num_workers, worker_providers=None, global_stats=global_stats)
+    return download_from_feed_parallel(feed, session, crawl_report, limit, save_in_elastic, NUM_WORKERS, worker_providers=None, global_stats=global_stats)
 
 
 def download_from_feed_old_sequential(

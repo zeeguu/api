@@ -1,0 +1,94 @@
+{
+  "semanticDomains": {
+    "Database": {
+      "keywords": [
+        "db.Model",
+        "db.Column",
+        "db.Integer",
+        "db.String",
+        "db.ForeignKey",
+        "relationship",
+        "Column",
+        "Table",
+        "query",
+        "session",
+        "commit",
+        "filter_by",
+        "find_by_id"
+      ],
+      "imports": [
+        "sqlalchemy",
+        "zeeguu.core.model.db",
+        "flask_sqlalchemy"
+      ],
+      "pathPatterns": [
+        "**/model/**",
+        "**/models/**"
+      ]
+    },
+    "API": {
+      "keywords": [
+        "@api.route",
+        "@cross_domain",
+        "@requires_session",
+        "flask.request",
+        "flask.g",
+        "json_result",
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "imports": [
+        "flask",
+        "zeeguu.api",
+        "zeeguu.api.endpoints"
+      ],
+      "pathPatterns": [
+        "**/endpoints/**",
+        "**/api/**"
+      ]
+    },
+    "Testing": {
+      "keywords": [
+        "def test_",
+        "assert",
+        "setUp",
+        "tearDown",
+        "TestCase"
+      ],
+      "pathPatterns": [
+        "**/test/**",
+        "**/tests/**",
+        "test_*.py"
+      ]
+    },
+    "Auth": {
+      "keywords": [
+        "password",
+        "password_hash",
+        "password_salt",
+        "login",
+        "session",
+        "requires_session",
+        "user_account",
+        "authentication"
+      ],
+      "pathPatterns": [
+        "**/account_management/**",
+        "**/auth/**"
+      ]
+    },
+    "UI": {
+      "enabled": false
+    },
+    "Config": {
+      "pathPatterns": [
+        "*.cfg",
+        "setup.py",
+        "*.toml",
+        "docker-compose.yml"
+      ]
+    }
+  }
+}
