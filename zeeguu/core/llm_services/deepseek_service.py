@@ -14,22 +14,24 @@ from zeeguu.logging import log
 
 class DeepSeekService(LLMService):
     """Service for DeepSeek API"""
-    
-    def __init__(self, api_key: Optional[str] = None):
+
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 120):
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY")
         if not self.api_key:
             raise ValueError("DEEPSEEK_API_KEY environment variable not set")
-        
+
         self.base_url = "https://api.deepseek.com/v1"
         self.model = "deepseek-chat"
+        # Set timeout (default 120 seconds = 2 minutes)
+        self.timeout = timeout
 
     def _make_deepseek_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Make DeepSeek API request - fail fast"""
+        """Make DeepSeek API request with timeout"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-        
+
         # DeepSeek uses OpenAI-compatible format
         payload = {
             "model": self.model,
@@ -40,13 +42,13 @@ class DeepSeekService(LLMService):
             "max_tokens": max_tokens,
             "temperature": temperature
         }
-        
+
         try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=15  # Reduced timeout for faster failure
+                timeout=self.timeout
             )
             
             if response.status_code == 200:

@@ -108,7 +108,7 @@ def get_precomputed_meanings_count(user, language):
     return (precomputed_count, next_words)
 
 
-def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
+def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_seconds=600):
     """
     Generate an audio lesson for a specific meaning using the shared logic.
 
@@ -116,6 +116,7 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
         user: The user who owns this meaning
         user_word: The UserWord object containing the meaning
         cefr_level: CEFR level for the lesson
+        timeout_seconds: Maximum time to spend generating this lesson (default: 10 minutes)
 
     Returns:
         AudioLessonMeaning object or None if generation fails
@@ -175,25 +176,48 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1"):
         return None
 
     try:
-        # Use the shared generation logic from DailyLessonGenerator
-        audio_lesson_meaning = lesson_generator.generate_audio_lesson_meaning(
-            user_word,
-            origin_language,
-            translation_language,
-            cefr_level,
-            "claude-v1",
-        )
+        import signal
 
-        db.session.commit()
+        class TimeoutException(Exception):
+            pass
 
-        if SHOW_DETAILS:
-            rank, status = get_word_display_info()
-            output(
-                f"        ✓ Generated audio lesson for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status}, {audio_lesson_meaning.duration_seconds}s)"
+        def timeout_handler(signum, frame):
+            raise TimeoutException("Audio lesson generation timed out")
+
+        # Set up timeout
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout_seconds)
+
+        try:
+            # Use the shared generation logic from DailyLessonGenerator
+            audio_lesson_meaning = lesson_generator.generate_audio_lesson_meaning(
+                user_word,
+                origin_language,
+                translation_language,
+                cefr_level,
+                "claude-v1",
             )
 
-        return audio_lesson_meaning
+            db.session.commit()
 
+            if SHOW_DETAILS:
+                rank, status = get_word_display_info()
+                output(
+                    f"        ✓ Generated audio lesson for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status}, {audio_lesson_meaning.duration_seconds}s)"
+                )
+
+            return audio_lesson_meaning
+
+        finally:
+            # Cancel the alarm
+            signal.alarm(0)
+
+    except TimeoutException:
+        db.session.rollback()
+        output(
+            f"        ✗ Timeout (>{timeout_seconds}s) generating audio for {meaning.origin.content}"
+        )
+        return None
     except Exception as e:
         db.session.rollback()
         output(
@@ -230,133 +254,144 @@ start_time = time.time()
 
 for user, last_activity in user_activity_map:
     total_users += 1
-    output(
-        f"\n{total_users}. {user.name} (last active: {last_activity.strftime('%Y-%m-%d')})"
-    )
-    output(f"   Main language: {user.learned_language.name}")
 
-    # Get user's CEFR level
-    cefr_level = user.cefr_level_for_learned_language()
-
-    # Get all languages for this user
     try:
+        output(
+            f"\n{total_users}. {user.name} (last active: {last_activity.strftime('%Y-%m-%d')})"
+        )
+        output(f"   Main language: {user.learned_language.name}")
+
+        # Get user's CEFR level
+        cefr_level = user.cefr_level_for_learned_language()
+
+        # Get all languages for this user
         user_languages = user.get_all_languages()
         user_meanings_count = 0
 
         for language in user_languages:
-            # Check how many meanings are already precomputed for next lesson
-            precomputed_count, next_words = get_precomputed_meanings_count(
-                user, language
-            )
-
-            if precomputed_count == -1:
-                output(
-                    f"   [{language.name}] Not enough words available for lessons (need at least 2, has {len(next_words)})"
+            try:
+                # Check how many meanings are already precomputed for next lesson
+                precomputed_count, next_words = get_precomputed_meanings_count(
+                    user, language
                 )
-                continue
 
-            if precomputed_count >= 3:
-                if SHOW_DETAILS and next_words:
-                    # Show the precomputed meanings
-                    precomputed_meanings = []
-                    for user_word in next_words[
-                        :3
-                    ]:  # Show first 3 (the ones for next lesson)
-                        existing_lesson = AudioLessonMeaning.find_by_meaning(
-                            user_word.meaning
-                        )
-                        if existing_lesson:
-                            meaning = user_word.meaning
-                            try:
-                                from wordstats import Word
+                if precomputed_count == -1:
+                    output(
+                        f"   [{language.name}] Not enough words available for lessons (need at least 2, has {len(next_words)})"
+                    )
+                    continue
 
-                                word_stats = Word.stats(
-                                    meaning.origin.content, meaning.origin.language.code
+                if precomputed_count >= 3:
+                    if SHOW_DETAILS and next_words:
+                        # Show the precomputed meanings
+                        precomputed_meanings = []
+                        for user_word in next_words[
+                            :3
+                        ]:  # Show first 3 (the ones for next lesson)
+                            existing_lesson = AudioLessonMeaning.find_by_meaning(
+                                user_word.meaning
+                            )
+                            if existing_lesson:
+                                meaning = user_word.meaning
+                                try:
+                                    from wordstats import Word
+
+                                    word_stats = Word.stats(
+                                        meaning.origin.content, meaning.origin.language.code
+                                    )
+                                    rank = word_stats.rank if word_stats else "N/A"
+                                except:
+                                    rank = "N/A"
+
+                                # Determine scheduling status
+                                from zeeguu.core.word_scheduling.basicSR.basicSR import (
+                                    BasicSRSchedule,
+                                    _get_end_of_today,
                                 )
-                                rank = word_stats.rank if word_stats else "N/A"
-                            except:
-                                rank = "N/A"
 
-                            # Determine scheduling status
-                            from zeeguu.core.word_scheduling.basicSR.basicSR import (
-                                BasicSRSchedule,
-                                _get_end_of_today,
-                            )
-
-                            if user_word.is_learned():
-                                status = "learned"
-                            else:
-                                scheduled_today = BasicSRSchedule.query.filter(
-                                    BasicSRSchedule.user_word_id == user_word.id,
-                                    BasicSRSchedule.next_practice_time
-                                    < _get_end_of_today(),
-                                ).first()
-                                if scheduled_today:
-                                    status = "scheduled_today"
+                                if user_word.is_learned():
+                                    status = "learned"
                                 else:
-                                    scheduled = BasicSRSchedule.query.filter(
-                                        BasicSRSchedule.user_word_id == user_word.id
+                                    scheduled_today = BasicSRSchedule.query.filter(
+                                        BasicSRSchedule.user_word_id == user_word.id,
+                                        BasicSRSchedule.next_practice_time
+                                        < _get_end_of_today(),
                                     ).first()
-                                    status = "scheduled" if scheduled else "unscheduled"
+                                    if scheduled_today:
+                                        status = "scheduled_today"
+                                    else:
+                                        scheduled = BasicSRSchedule.query.filter(
+                                            BasicSRSchedule.user_word_id == user_word.id
+                                        ).first()
+                                        status = "scheduled" if scheduled else "unscheduled"
 
-                            precomputed_meanings.append(
-                                f"{meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
+                                precomputed_meanings.append(
+                                    f"{meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
+                                )
+
+                        if precomputed_meanings:
+                            output(
+                                f"   [{language.name}] Already has the following precomputed meanings for next lesson:"
                             )
-
-                    if precomputed_meanings:
-                        output(
-                            f"   [{language.name}] Already has the following precomputed meanings for next lesson:"
-                        )
-                        for meaning_info in precomputed_meanings:
-                            output(f"        ✓ {meaning_info}")
+                            for meaning_info in precomputed_meanings:
+                                output(f"        ✓ {meaning_info}")
+                        else:
+                            output(
+                                f"   [{language.name}] Already has enough precomputed meanings for next lesson"
+                            )
                     else:
                         output(
                             f"   [{language.name}] Already has enough precomputed meanings for next lesson"
                         )
-                else:
+                    continue
+
+                # Only process the words that don't have audio lessons yet
+                words_to_process = []
+                for user_word in next_words:
+                    existing_lesson = AudioLessonMeaning.find_by_meaning(user_word.meaning)
+                    if not existing_lesson:
+                        words_to_process.append(user_word)
+
+                if words_to_process:
                     output(
-                        f"   [{language.name}] Already has enough precomputed meanings for next lesson"
+                        f"   [{language.name}] Has {precomputed_count}/3 precomputed, processing {len(words_to_process)} more meanings:"
                     )
+
+                    for user_word in words_to_process:
+                        total_meanings_processed += 1
+                        user_meanings_count += 1
+                        language_breakdown[language.name] += 1
+
+                        # Generate audio lesson for this meaning
+                        audio_lesson = generate_audio_lesson_for_meaning(
+                            user, user_word, cefr_level
+                        )
+
+                        if audio_lesson:
+                            if (
+                                hasattr(audio_lesson, "created_by")
+                                and audio_lesson.created_by == "claude-v1"
+                            ):
+                                total_audio_generated += 1
+                            else:
+                                total_audio_existing += 1
+                        elif not DRY_RUN:
+                            total_failures += 1
+
+            except Exception as language_error:
+                output(f"   [{language.name}] Error processing language: {str(language_error)}")
+                # Continue with next language
                 continue
-
-            # Only process the words that don't have audio lessons yet
-            words_to_process = []
-            for user_word in next_words:
-                existing_lesson = AudioLessonMeaning.find_by_meaning(user_word.meaning)
-                if not existing_lesson:
-                    words_to_process.append(user_word)
-
-            if words_to_process:
-                output(
-                    f"   [{language.name}] Has {precomputed_count}/3 precomputed, processing {len(words_to_process)} more meanings:"
-                )
-
-                for user_word in words_to_process:
-                    total_meanings_processed += 1
-                    user_meanings_count += 1
-                    language_breakdown[language.name] += 1
-
-                    # Generate audio lesson for this meaning
-                    audio_lesson = generate_audio_lesson_for_meaning(
-                        user, user_word, cefr_level
-                    )
-
-                    if audio_lesson:
-                        if (
-                            hasattr(audio_lesson, "created_by")
-                            and audio_lesson.created_by == "claude-v1"
-                        ):
-                            total_audio_generated += 1
-                        else:
-                            total_audio_existing += 1
-                    elif not DRY_RUN:
-                        total_failures += 1
 
         if user_meanings_count == 0:
             output("   No meanings to process")
 
     except Exception as e:
-        output(f"   Error processing user: {str(e)}")
+        output(f"   ✗ Error processing user {user.name}: {str(e)}")
+        import traceback
+        output(f"   Traceback: {traceback.format_exc()}")
+        # Continue with next user
+        continue
 
 # Summary
 end_time = time.time()

@@ -14,15 +14,18 @@ from zeeguu.logging import log
 class AnthropicService(LLMService):
     """Service for Anthropic's Claude API"""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 120):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-        
+
+        # Set timeout (default 120 seconds = 2 minutes)
+        self.timeout = timeout
+
         # Import anthropic only if we're going to use it
         try:
             import anthropic
-            self.client = anthropic.Anthropic(api_key=self.api_key)
+            self.client = anthropic.Anthropic(api_key=self.api_key, timeout=self.timeout)
             # Use Claude Sonnet 4.5 (latest model as of September 2025)
             self.model = "claude-sonnet-4-5-20250929"
         except ImportError:
