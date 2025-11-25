@@ -332,10 +332,17 @@ def download_from_feed_parallel(
     from flask import current_app
     app = current_app._get_current_object()
 
+    # Store feed ID for workers to reload in their own sessions
+    feed_id = feed.id
+
     # Worker function
     def worker(provider_name):
         # Each thread needs its own Flask app context for database operations
         with app.app_context():
+            # Get thread-local session and reload feed in this thread's session
+            thread_session = model.db.session
+            thread_feed = Feed.find_by_id(feed_id)
+
             while True:
                 # Check shared stop flag first
                 if should_stop['value']:
@@ -369,13 +376,13 @@ def download_from_feed_parallel(
                     with results_lock:
                         if (not stats['last_retrieval_time_seen']) or (feed_item_timestamp > stats['last_retrieval_time_seen']):
                             stats['last_retrieval_time_seen'] = feed_item_timestamp
-                            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
+                            crawl_report.set_feed_last_article_date(thread_feed, feed_item_timestamp)
 
-                        if stats['last_retrieval_time_seen'] > feed.last_crawled_time:
-                            crawl_report.set_feed_last_article_date(feed, feed_item_timestamp)
-                            feed.last_crawled_time = stats['last_retrieval_time_seen']
-                            session.add(feed)
-                            session.commit()
+                        if stats['last_retrieval_time_seen'] > thread_feed.last_crawled_time:
+                            crawl_report.set_feed_last_article_date(thread_feed, feed_item_timestamp)
+                            thread_feed.last_crawled_time = stats['last_retrieval_time_seen']
+                            thread_session.add(thread_feed)
+                            thread_session.commit()
 
                     # Check if already in DB
                     log(f"[{provider_name.upper()}] {feed_item['url']}")
@@ -408,11 +415,11 @@ def download_from_feed_parallel(
                     # Download and process the article with specified provider
                     try:
                         new_article = download_feed_item(
-                            session, feed, feed_item, url, crawl_report, simplification_provider=provider_name
+                            thread_session, thread_feed, feed_item, url, crawl_report, simplification_provider=provider_name
                         )
 
                         # Politiken-specific fix
-                        if feed.id == 136:
+                        if thread_feed.id == 136:
                             new_article.title = (
                                 new_article.title.replace("Ã¥", "å")
                                 .replace("Ã¸", "ø")
@@ -432,7 +439,7 @@ def download_from_feed_parallel(
 
                         # Index in Elasticsearch
                         if save_in_elastic and new_article and not new_article.broken:
-                            index_in_elasticsearch(new_article, session)
+                            index_in_elasticsearch(new_article, thread_session)
 
                         with results_lock:
                             stats['downloaded_titles'].append(
