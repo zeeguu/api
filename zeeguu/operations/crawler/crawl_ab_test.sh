@@ -17,9 +17,15 @@ echo "=== Starting A/B Test Crawl at $(date) ==="
 echo "DeepSeek log: $LOG_FILE_DEEPSEEK (max articles: $DEEPSEEK_MAX_ARTICLES)"
 echo "Anthropic log: $LOG_FILE_ANTHROPIC (max articles: $ANTHROPIC_MAX_ARTICLES)"
 
+# Stop and remove specific crawler containers if they exist
+docker stop crawler_w_deepseek 2>/dev/null || true
+docker rm crawler_w_deepseek 2>/dev/null || true
+docker stop crawler_w_anthropic 2>/dev/null || true
+docker rm crawler_w_anthropic 2>/dev/null || true
+
 # Run both crawlers in parallel
-docker compose run --rm crawler python zeeguu/operations/crawler/crawl.py da pt sv ro nl --provider deepseek --max-articles $DEEPSEEK_MAX_ARTICLES "$@" >> "$LOG_FILE_DEEPSEEK" 2>&1 &
-docker compose run --rm crawler python zeeguu/operations/crawler/crawl.py fr en el de es it --provider anthropic --max-articles $ANTHROPIC_MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC" 2>&1 &
+docker compose run --rm --name crawler_w_deepseek crawler python zeeguu/operations/crawler/crawl.py da pt sv ro nl --provider deepseek --max-articles $DEEPSEEK_MAX_ARTICLES "$@" >> "$LOG_FILE_DEEPSEEK" 2>&1 &
+docker compose run --rm --name crawler_w_anthropic crawler python zeeguu/operations/crawler/crawl.py fr en el de es it --provider anthropic --max-articles $ANTHROPIC_MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC" 2>&1 &
 
 # Wait for both to complete
 wait
