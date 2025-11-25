@@ -58,17 +58,18 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
 
 
 def simplify_article_adaptive_levels(
-    title: str, content: str, target_language: str, model: str = "deepseek-chat"
+    title: str, content: str, target_language: str, model: str = "deepseek-chat", simplification_provider: str = None
 ) -> dict:
     """
     Simplify article to all levels simpler than the original using a single API call.
-    The LLM assesses the original level and creates all appropriate simplified versions.
+    Uses DeepSeek by default (Anthropic used in parallel mode for A/B comparison).
 
     Args:
         title: Original article title
         content: Original article content
         target_language: Language code (e.g., 'da', 'es')
-        model: DeepSeek model to use
+        model: Model to use (deprecated, provider chosen automatically)
+        simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
 
     Returns:
         Dict containing all simplified versions and original metadata:
@@ -80,7 +81,9 @@ def simplify_article_adaptive_levels(
                 'A1': {'title': str, 'content': str, 'summary': str},
                 'A2': {'title': str, 'content': str, 'summary': str},
                 ...
-            }
+            },
+            'provider': str,  # 'deepseek' or 'anthropic'
+            'model_name': str  # e.g., 'deepseek-chat' or 'claude-3-haiku-20240307'
         }
 
     Raises:
@@ -91,48 +94,89 @@ def simplify_article_adaptive_levels(
     prompt_template = get_adaptive_simplification_prompt(target_language)
     prompt = prompt_template.format(title=title, content=content)
 
-    # Initialize DeepSeek client
-    api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+    # Use specified provider if set (for parallel processing), otherwise default to DeepSeek
+    provider = simplification_provider if simplification_provider else 'deepseek'
+    log(f"Using {provider.upper()} provider for simplification")
+
+    # Try the chosen provider first, fallback to the other if it fails
+    if provider == 'deepseek':
+        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+    else:
+        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+
     if not api_key:
-        raise Exception("DEEPSEEK_API_SIMPLIFICATIONS environment variable not set")
+        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
+        provider = 'anthropic' if provider == 'deepseek' else 'deepseek'
+        api_key = fallback_api_key
+        if not api_key:
+            raise Exception("Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set")
 
     try:
         log(f"Adaptively simplifying article '{title[:50]}...' in {target_language}")
         log(f"  Article length: {len(content)} characters")
         log(f"  Prompt length: {len(prompt)} characters")
 
-        # Make DeepSeek API call
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-
-        data = {
-            "model": "deepseek-chat",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 6000,  # Increased for multiple levels
-            "temperature": 0.1,
-        }
-
-        log(f"  Sending request to DeepSeek API...")
+        # Make API call based on provider
         api_start_time = time.time()
-        response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions", 
-            headers=headers, 
-            json=data,
-            timeout=180  # 3 minute timeout
-        )
+
+        if provider == 'deepseek':
+            model_name = "deepseek-chat"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+            data = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 6000,
+                "temperature": 0.1,
+            }
+            log(f"  Sending request to DeepSeek API...")
+            response = requests.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=180
+            )
+        else:  # anthropic
+            model_name = "claude-3-haiku-20240307"
+            headers = {
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            }
+            data = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 4000,
+                "temperature": 0.1,
+            }
+            log(f"  Sending request to Anthropic API...")
+            response = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=data,
+                timeout=180
+            )
+
         api_duration = time.time() - api_start_time
-        log(f"  DeepSeek API responded with status: {response.status_code} (took {api_duration:.2f} seconds)")
+        log(f"  {provider.upper()} API responded with status: {response.status_code} (took {api_duration:.2f} seconds)")
 
         if response.status_code != 200:
             raise Exception(
-                f"DeepSeek API error: {response.status_code} - {response.text}"
+                f"{provider.upper()} API error: {response.status_code} - {response.text}"
             )
 
-        log(f"  Parsing DeepSeek API response...")
+        log(f"  Parsing {provider.upper()} API response...")
         response_json = response.json()
-        result = response_json["choices"][0]["message"]["content"].strip()
+
+        # Extract result based on provider
+        if provider == 'deepseek':
+            result = response_json["choices"][0]["message"]["content"].strip()
+        else:  # anthropic
+            result = response_json["content"][0]["text"].strip()
         log(f"  Response length: {len(result)} characters")
 
         # Check if article is unfinished due to paywall
@@ -251,6 +295,8 @@ def simplify_article_adaptive_levels(
             "original_summary": original_summary,
             "simplified_levels": simplified_levels,
             "versions": versions,
+            "provider": provider,
+            "model_name": model_name,
         }
 
     except Timeout as e:
@@ -310,6 +356,8 @@ def create_simplified_article_adaptive(
         original_summary = result["original_summary"]
         simplified_levels = result["simplified_levels"]
         versions = result["versions"]
+        provider = result["provider"]
+        model_name = result["model_name"]
 
         # Check if the requested level is available
         if cefr_level not in versions:
@@ -325,7 +373,6 @@ def create_simplified_article_adaptive(
 
         # Create the simplified article
         version_data = versions[cefr_level]
-        model_name = "deepseek-chat"
 
         simplified_article = Article.create_simplified_version(
             session=session,
@@ -348,7 +395,7 @@ def create_simplified_article_adaptive(
 
 
 def simplify_and_classify(
-    session, original_article: Article
+    session, original_article: Article, simplification_provider: str = None
 ) -> tuple[list[Article], list[tuple[str, str]]]:
     """
     Simplify article to multiple CEFR levels and classify content type (e.g., disturbing).
@@ -363,6 +410,7 @@ def simplify_and_classify(
     Args:
         session: Database session
         original_article: The original article to simplify
+        simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
 
     Returns:
         Tuple of (simplified_articles, classifications)
@@ -409,7 +457,7 @@ def simplify_and_classify(
 
         log(f"  Calling LLM for assessment and simplification...")
         log(f"  Request details: title_len={len(title)}, content_len={len(content)}, language={language_code}")
-        result = simplify_article_adaptive_levels(title, content, language_code)
+        result = simplify_article_adaptive_levels(title, content, language_code, simplification_provider=simplification_provider)
         log(f"  LLM call completed successfully")
 
         # Extract the results
@@ -418,8 +466,11 @@ def simplify_and_classify(
         original_summary = result["original_summary"]
         simplified_levels = result["simplified_levels"]
         versions = result["versions"]
+        provider = result["provider"]
+        model_name = result["model_name"]
 
         log(f"  LLM Assessment complete:")
+        log(f"    Provider used: {provider.upper()} ({model_name})")
         log(f"    Original level: {original_level}")
         log(f"    Simplified levels to create: {simplified_levels}")
         log(f"    Versions returned by LLM: {list(versions.keys())}")
@@ -444,7 +495,6 @@ def simplify_and_classify(
         # Create all simplified articles
         log(f"  Creating {len(simplified_levels)} simplified articles in database...")
         simplified_articles = []
-        model_name = "deepseek-chat"
 
         for level in simplified_levels:
             log(f"    Creating {level} version...")
