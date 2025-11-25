@@ -328,11 +328,14 @@ def download_from_feed_parallel(
         capture_to_sentry(e)
         return ""
 
+    # Capture Flask app object for worker threads (current_app proxy doesn't work in threads)
+    from flask import current_app
+    app = current_app._get_current_object()
+
     # Worker function
     def worker(provider_name):
         # Each thread needs its own Flask app context for database operations
-        from flask import current_app
-        with current_app.app_context():
+        with app.app_context():
             while True:
                 # Check shared stop flag first
                 if should_stop['value']:
