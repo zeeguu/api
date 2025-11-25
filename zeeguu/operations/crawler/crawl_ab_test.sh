@@ -9,9 +9,9 @@ ALL_LANGUAGES="da pt sv ro nl fr en el de es it"
 DEEPSEEK_LANGS="da pt sv ro nl"
 ANTHROPIC_LANGS="fr en el de es it"
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-API_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# API directory should be the current working directory when script is run
+# This allows running from /home/zeeguu/ops/running/api on the server
+API_DIR="${API_DIR:-$(pwd)}"
 
 # Parse arguments (pass through to crawler)
 EXTRA_ARGS="$@"
