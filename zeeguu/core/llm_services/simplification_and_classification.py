@@ -281,13 +281,31 @@ def simplify_article_adaptive_levels(
         if not original_summary:
             raise Exception("Missing original summary in response")
 
+        # Filter out incomplete levels but keep the ones that are complete
+        valid_levels = []
+        invalid_levels = []
         for level in simplified_levels:
-            if level not in versions or not all(versions[level].values()):
-                raise Exception(f"Missing or incomplete content for {level} level")
+            if level in versions and all(versions[level].values()):
+                valid_levels.append(level)
+            else:
+                invalid_levels.append(level)
+                log(f"  Warning: Missing or incomplete content for {level} level, skipping")
 
-        log(
-            f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
-        )
+        # Update simplified_levels to only include valid ones
+        simplified_levels = valid_levels
+
+        # Only fail if we got NO valid levels at all
+        if not simplified_levels:
+            raise Exception(f"No complete simplified versions were created. Incomplete levels: {invalid_levels}")
+
+        if invalid_levels:
+            log(
+                f"Partially successful: simplified article to {len(simplified_levels)} levels: {simplified_levels} (skipped incomplete: {invalid_levels})"
+            )
+        else:
+            log(
+                f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
+            )
 
         return {
             "is_disturbing": is_disturbing,
