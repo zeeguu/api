@@ -360,6 +360,7 @@ def download_from_feed(
                 )
 
             downloaded += 1
+            log(f"✓ NEW ARTICLE SAVED TO DATABASE (#{downloaded})")
             # Index all non-broken articles in ES
             # Note: Disturbing content is NOT marked as broken - it's valid content
             # tagged in ArticleBrokenMap and filtered by user preference in ES queries
