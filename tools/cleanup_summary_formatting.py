@@ -15,6 +15,7 @@ sys.path.insert(0, "/Users/gh/zeeguu/api")
 from zeeguu.api.app import create_app
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
 
 def strip_markdown_from_summary(text):
@@ -79,9 +80,16 @@ def main():
             article.summary = cleaned
             db.session.add(article)
 
+            # Invalidate tokenization cache so summary gets re-tokenized
+            cache = ArticleTokenizationCache.get_for_article(db.session, article.id)
+            if cache and cache.tokenized_summary:
+                cache.tokenized_summary = None
+                db.session.add(cache)
+                print(f"  (invalidated tokenization cache)")
+
     if not args.dry_run:
         db.session.commit()
-        print(f"\n✓ Updated {len(affected)} article summaries")
+        print(f"\n✓ Updated {len(affected)} article summaries and invalidated their tokenization caches")
     else:
         print(f"\n[DRY RUN] Would update {len(affected)} article summaries")
 
