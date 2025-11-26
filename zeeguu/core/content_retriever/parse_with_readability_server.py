@@ -52,13 +52,6 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
     np_article.parse()
     log(f"   ✓ Parsed ({len(np_article.text)} chars)")
 
-    if np_article.text == "":
-        log(f"   ⚠ Newspaper extracted empty text")
-        # raise Exception("Newspaper got empty article from: " + url)
-        np_article.text = "N/A"
-        # this is a temporary solution for allowing translations
-        # on pages that do not have "articles" downloadable by newspaper.
-
     # Call readability server - always use POST with the HTML we already fetched
     log(f"   Calling readability server...")
     import time
@@ -91,15 +84,12 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
         np_article.text = result_dict["text"]
         np_article.htmlContent = result_dict["html"]
     except requests.exceptions.Timeout:
-        log(f"   ✗ Readability server timeout after {request_timeout}s - using newspaper text instead")
-        # Fallback: use newspaper's extraction when readability times out
-        # This is better than failing completely on complex sites
-        np_article.htmlContent = np_article.html
-        # Continue with newspaper's already-parsed text (line 52)
+        readability_duration = time.time() - readability_start
+        log(f"   ✗ Readability server timeout after {request_timeout}s - rejecting article")
+        raise FailedToParseWithReadabilityServer(f"Readability server timeout after {request_timeout}s")
     except requests.exceptions.RequestException as e:
-        log(f"   ✗ Readability server request failed: {e} - using newspaper text instead")
-        # Fallback to newspaper extraction
-        np_article.htmlContent = np_article.html
+        log(f"   ✗ Readability server request failed: {e} - rejecting article")
+        raise FailedToParseWithReadabilityServer(f"Readability server request failed: {e}")
 
     # Use title from readability server if available and better than newspaper's
     if result_dict and "title" in result_dict and result_dict["title"]:
