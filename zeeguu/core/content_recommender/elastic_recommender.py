@@ -190,10 +190,26 @@ def article_recommendations_for_user(
             use_readability_priority=True,
         )
 
-    # Limit the searched added content to a maximum of 10 extra items.
-    content = [
-        c for c in final_article_mix if c is not None and not c.broken
-    ] + articles_from_searches[:maximum_added_search_articles]
+    # Combine organic recommendations with search results, deduplicating by source_id
+    # (articles with the same source_id are the same content, just different CEFR levels)
+    seen_source_ids = set()
+    content = []
+    for c in final_article_mix:
+        if c is None or c.broken:
+            continue
+        if c.source_id not in seen_source_ids:
+            seen_source_ids.add(c.source_id)
+            content.append(c)
+
+    # Add search results, skipping duplicates (limit to maximum_added_search_articles)
+    added_from_search = 0
+    for c in articles_from_searches:
+        if added_from_search >= maximum_added_search_articles:
+            break
+        if c.source_id not in seen_source_ids:
+            seen_source_ids.add(c.source_id)
+            content.append(c)
+            added_from_search += 1
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
