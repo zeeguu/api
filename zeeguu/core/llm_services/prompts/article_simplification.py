@@ -92,7 +92,7 @@ DISTURBING_CONTENT: [YES or NO - is the article's primary focus disturbing conte
 
 ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
 
-ORIGINAL_SUMMARY: [write a 3-sentence summary of the original article in <<LANGUAGE_NAME>> at its original CEFR level]
+ORIGINAL_SUMMARY: [write a 3-sentence plain text summary (NO markdown formatting, no bold/italic) of the original article in <<LANGUAGE_NAME>> at its original CEFR level]
 
 SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1" - leave empty if original is A1]
 
@@ -102,7 +102,7 @@ SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1"
 
 [LEVEL]_CONTENT: [write simplified content in <<LANGUAGE_NAME>> using Markdown formatting]
 
-[LEVEL]_SUMMARY: [write 3-sentence summary in <<LANGUAGE_NAME>>]
+[LEVEL]_SUMMARY: [write 3-sentence plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>>]
 
 <<LANGUAGE_NAME>> = {language_name}
 

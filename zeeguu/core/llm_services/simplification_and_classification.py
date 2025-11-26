@@ -234,9 +234,20 @@ def simplify_article_adaptive_levels(
         def clean_text(text):
             return text.strip("[](){}\"'")
 
+        def strip_markdown_from_summary(text):
+            """Remove markdown bold/italic formatting from summary text."""
+            import re
+            # Remove bold (**text** or __text__)
+            text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+            text = re.sub(r'__(.+?)__', r'\1', text)
+            # Remove italic (*text* or _text_)
+            text = re.sub(r'\*(.+?)\*', r'\1', text)
+            text = re.sub(r'(?<!\w)_(.+?)_(?!\w)', r'\1', text)
+            return text
+
         is_disturbing = clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
         original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
-        original_summary = clean_text(sections.get("ORIGINAL_SUMMARY", ""))
+        original_summary = strip_markdown_from_summary(clean_text(sections.get("ORIGINAL_SUMMARY", "")))
         simplified_levels_str = clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
 
         # Parse simplified levels
@@ -270,7 +281,7 @@ def simplify_article_adaptive_levels(
                 versions[level] = {
                     "title": clean_text(sections[title_key]),
                     "content": clean_text(sections[content_key]),
-                    "summary": clean_text(sections[summary_key]),
+                    "summary": strip_markdown_from_summary(clean_text(sections[summary_key])),
                 }
                 log(f"    Successfully extracted {level} version")
             else:
