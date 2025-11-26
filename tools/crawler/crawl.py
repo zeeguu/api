@@ -91,7 +91,7 @@ def generate_crawl_summary(crawl_reports):
         summary += f"\n  {lang_code.upper()} Total: {lang_new} new, {lang_in_db} already in DB, {lang_low_quality} low quality"
         if lang_errors > 0:
             summary += f", {lang_errors} errors"
-        summary += f" | Time: {lang_data.get('total_time', 0):.1f}s\n"
+        summary += f" | Time: {lang_data.get('total_time', 0) or 0:.1f}s\n"
 
     # Calculate total time
     total_time = sum(
@@ -149,6 +149,15 @@ for lang in languages_to_crawl:
     try:
         crawl_report = retrieve_articles_for_language(lang, send_email=False)
         crawl_reports[lang] = crawl_report
+
+        # Calculate and set total time for this language
+        lang_data = crawl_report.data["lang"][lang]
+        total_time = sum(
+            feed_data.get("crawl_time", 0) or 0
+            for feed_data in lang_data["feeds"].values()
+        )
+        crawl_report.set_total_time(lang, total_time)
+
         lang_duration = datetime.now() - lang_start
         log(f">>> Finished {lang.upper()} in {lang_duration} <<<")
     except Exception as e:

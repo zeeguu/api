@@ -108,7 +108,7 @@ def generate_crawl_summary(crawl_reports):
         summary += f"\n  {lang_code.upper()} Total: {lang_new} new, {lang_in_db} already in DB, {lang_low_quality} low quality"
         if lang_errors > 0:
             summary += f", {lang_errors} errors"
-        summary += f" | Time: {lang_data.get('total_time', 0):.1f}s\n"
+        summary += f" | Time: {lang_data.get('total_time', 0) or 0:.1f}s\n"
 
     # Calculate total time
     total_time = sum(
@@ -239,8 +239,15 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
 
     log(f"\nFinished processing {feeds_completed} feeds across {len(languages_to_crawl)} languages")
 
-    # Save reports and calculate total times
+    # Calculate and save total times per language
     for lang_code, crawl_report in crawl_reports.items():
+        # Calculate total time for this language
+        lang_data = crawl_report.data["lang"][lang_code]
+        total_time = sum(
+            feed_data.get("crawl_time", 0) or 0
+            for feed_data in lang_data["feeds"].values()
+        )
+        crawl_report.set_total_time(lang_code, total_time)
         crawl_report.save_crawl_report()
 
     return crawl_reports
