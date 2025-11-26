@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, UnicodeText, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from zeeguu.core.model.db import db
 
@@ -23,7 +24,20 @@ class ArticleTokenizationCache(db.Model):
 
     @classmethod
     def find_or_create(cls, session, article):
-        """Find existing cache or create new empty cache for article"""
+        """
+        Find existing cache or create new empty cache for article.
+
+        Handles race conditions where the same article might be processed
+        multiple times in the same request (e.g., duplicates in search results)
+        by checking if we already have a pending cache object in the session.
+        """
+        # First check if we already have this cache in the session's identity map
+        # This handles the case where the same article appears multiple times
+        # in the same request (e.g., duplicates in search/recommendations)
+        for obj in session.new:
+            if isinstance(obj, cls) and obj.article_id == article.id:
+                return obj
+
         cache = session.query(cls).filter_by(article_id=article.id).first()
         if not cache:
             cache = cls(article_id=article.id)
