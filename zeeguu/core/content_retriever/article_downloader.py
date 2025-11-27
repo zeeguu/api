@@ -265,6 +265,7 @@ def download_from_feed(
     downloaded_titles = []
     skipped_due_to_low_quality = 0
     skipped_already_in_db = 0
+    skipped_other = 0  # banned URLs, future dates, etc.
 
     last_retrieval_time_from_DB = None
     last_retrieval_time_seen_this_crawl = None
@@ -299,6 +300,7 @@ def download_from_feed(
 
         if _date_in_the_future(feed_item_timestamp):
             log("Article from the future!")
+            skipped_other += 1
             continue
 
         if (not last_retrieval_time_seen_this_crawl) or (
@@ -340,6 +342,7 @@ def download_from_feed(
 
         if banned_url(url):
             log("Banned Url")
+            skipped_other += 1
             continue
 
         try:
@@ -374,10 +377,12 @@ def download_from_feed(
 
         except SkippedForTooOld:
             log("- Article too old")
+            skipped_other += 1
             continue
 
         except NotAppropriateForReading as e:
             log(f" - Not appropriate for reading: {e.reason}")
+            skipped_other += 1
             continue
 
         except SkippedForLowQuality as e:
@@ -392,20 +397,24 @@ def download_from_feed(
 
         except FailedToParseWithReadabilityServer as e:
             log(f" - failed to parse with readability server (server said: {e})")
+            skipped_other += 1
             continue
 
         except newspaper.ArticleException as e:
             log(f"Newspaper can't download article at: {url}")
+            skipped_other += 1
             continue
 
         except DataError as e:
             log(f"Data error ({e}) for: {url}")
+            skipped_other += 1
             continue
 
         except requests.exceptions.Timeout:
             log(
                 f"The request from the server was timed out after {TIMEOUT_SECONDS} seconds."
             )
+            skipped_other += 1
             continue
 
         except Exception as e:
@@ -418,11 +427,18 @@ def download_from_feed(
                 log(e.message)
             else:
                 log(e)
+            skipped_other += 1
             continue
+    # Calculate unprocessed: articles in feed that we didn't even attempt
+    # (due to time limit or article count limit being reached)
+    processed_count = downloaded + skipped_already_in_db + skipped_due_to_low_quality + skipped_other
+    skipped_unprocessed = len(items) - processed_count
+
     crawl_report.set_feed_total_articles(feed, len(items))
     crawl_report.set_feed_total_downloaded(feed, downloaded)
     crawl_report.set_feed_total_low_quality(feed, skipped_due_to_low_quality)
     crawl_report.set_feed_total_in_db(feed, skipped_already_in_db)
+    crawl_report.set_feed_total_skipped_unprocessed(feed, skipped_unprocessed)
 
     final_time = round(time() - start_feed_time, 2)
     crawl_report.set_feed_crawl_time(feed, final_time)
@@ -437,6 +453,8 @@ def download_from_feed(
     log(f"*** Downloaded: {downloaded} From: {feed.title}{max_time_indicator}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
     log(f"*** Already in DB: {skipped_already_in_db}")
+    if skipped_unprocessed > 0:
+        log(f"*** Unprocessed (timeout/limit): {skipped_unprocessed}")
     log(f"*** Time: {final_time}s")
     session.commit()
 

@@ -57,6 +57,7 @@ class CrawlReport:
             "total_downloaded": None,
             "total_low_quality": None,
             "total_in_db": None,
+            "total_skipped_unprocessed": None,
         }
 
     def set_total_time(self, lang_code: str, total_time):
@@ -89,6 +90,10 @@ class CrawlReport:
     def set_feed_total_in_db(self, feed, total_in_db):
         feed_dict = self._get_feed_dict(feed)
         feed_dict["total_in_db"] = total_in_db
+
+    def set_feed_total_skipped_unprocessed(self, feed, total_skipped_unprocessed):
+        feed_dict = self._get_feed_dict(feed)
+        feed_dict["total_skipped_unprocessed"] = total_skipped_unprocessed
 
     def set_non_quality_reason(self, feed, non_quality_reason_counts: dict):
         feed_dict = self._get_feed_dict(feed)
