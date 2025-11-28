@@ -203,7 +203,7 @@ def crawl_stats_dashboard():
             total_articles += article_count
             total_simplified += simplified_count
 
-            # Get feeds for this language
+            # Get feeds for this language with article counts
             feeds = (
                 db_session.query(
                     Feed.id, Feed.title,
@@ -220,6 +220,30 @@ def crawl_stats_dashboard():
                 .all()
             )
             feed_stats[language.code] = feeds
+
+            # Get topics per feed for this language
+            feed_topic_stats = (
+                db_session.query(
+                    Feed.id,
+                    Topic.title,
+                    func.count(Article.id).label("count")
+                )
+                .join(Article, Article.feed_id == Feed.id)
+                .join(ArticleTopicMap, ArticleTopicMap.article_id == Article.id)
+                .join(Topic, Topic.id == ArticleTopicMap.topic_id)
+                .filter(Feed.language_id == language.id)
+                .filter(Article.published_time >= cutoff)
+                .filter(Article.broken == 0)
+                .filter(Article.parent_article_id == None)
+                .group_by(Feed.id, Topic.title)
+                .all()
+            )
+            # Group by feed_id
+            from collections import defaultdict
+            topics_by_feed = defaultdict(list)
+            for feed_id, topic_title, count in feed_topic_stats:
+                topics_by_feed[feed_id].append((topic_title, count))
+            feed_stats[f"{language.code}_topics"] = topics_by_feed
 
     # Get topic stats per language
     from sqlalchemy.orm import aliased
@@ -409,18 +433,30 @@ def crawl_stats_dashboard():
         </div>
 
         <div class="section">
-            <h2>📰 Top Feeds by Language</h2>"""
+            <h2>📰 Feeds by Language (with Topics)</h2>"""
 
-    for lang in lang_stats[:5]:  # Top 5 languages
+    for lang in lang_stats:  # All languages with articles
         code = lang["code"]
         if code in feed_stats and feed_stats[code]:
+            topics_by_feed = feed_stats.get(f"{code}_topics", {})
             html += f"""
             <h3><span class="lang-code">{code.upper()}</span> {lang["name"]}</h3>
             <table>
-                <tr><th>Feed</th><th>Articles</th></tr>"""
-            for feed_id, feed_title, count in feed_stats[code][:5]:
+                <tr><th>Feed</th><th>Articles</th><th>Topics</th></tr>"""
+            for feed_id, feed_title, count in feed_stats[code][:10]:
+                # Get topics for this feed
+                feed_topics = topics_by_feed.get(feed_id, [])
+                if feed_topics:
+                    # Sort by count descending and format as "Topic(count)"
+                    topics_str = ", ".join([f"{t}({c})" for t, c in sorted(feed_topics, key=lambda x: -x[1])])
+                else:
+                    topics_str = "<span style='color:#999'>—</span>"
                 html += f"""
-                <tr><td>{feed_title}</td><td>{count}</td></tr>"""
+                <tr>
+                    <td>{feed_title}</td>
+                    <td>{count}</td>
+                    <td style="font-size:0.85em">{topics_str}</td>
+                </tr>"""
             html += "</table>"
 
     html += f"""
