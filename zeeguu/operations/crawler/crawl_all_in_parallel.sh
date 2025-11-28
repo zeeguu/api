@@ -25,7 +25,8 @@ LANG_CONFIG_es="20 25"
 LANG_CONFIG_it="20 25"
 
 # Default languages (when no language args provided)
-DEFAULT_LANGUAGES="pt sv ro nl en el de es it"
+# Note: da, fr, de run hourly via separate cron job
+DEFAULT_LANGUAGES="pt sv ro nl en el es it"
 
 # Default provider
 PROVIDER="deepseek"
