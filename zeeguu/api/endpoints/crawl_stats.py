@@ -129,13 +129,14 @@ def crawl_stats():
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
+    from zeeguu.core.content_retriever.article_downloader import get_max_simplified_for_language, MAX_SIMPLIFIED_POPULAR, MAX_SIMPLIFIED_DEFAULT
 
     for topic_id, topic_title, count in topic_counts:
         result["by_topic"][topic_title] = {
             "id": topic_id,
             "simplified_today": count,
-            "daily_cap_per_lang": MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY,
+            "daily_cap_popular": MAX_SIMPLIFIED_POPULAR,
+            "daily_cap_default": MAX_SIMPLIFIED_DEFAULT,
         }
 
     return result
@@ -266,7 +267,7 @@ def crawl_stats_dashboard():
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
+    from zeeguu.core.content_retriever.article_downloader import get_max_simplified_for_language, MAX_SIMPLIFIED_POPULAR, MAX_SIMPLIFIED_DEFAULT, POPULAR_LANGUAGES
 
     # Sort languages by article count
     lang_stats.sort(key=lambda x: x["articles"], reverse=True)
@@ -360,8 +361,8 @@ def crawl_stats_dashboard():
                 <div class="label">Active Languages</div>
             </div>
             <div class="stat-card">
-                <div class="number">{MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}</div>
-                <div class="label">Cap/Topic/Lang</div>
+                <div class="number">{MAX_SIMPLIFIED_POPULAR}/{MAX_SIMPLIFIED_DEFAULT}</div>
+                <div class="label">Cap (pop/other)</div>
             </div>
         </div>
 
@@ -392,7 +393,7 @@ def crawl_stats_dashboard():
 
         <div class="section">
             <h2>🏷️ Simplified by Topic per Language (Today)</h2>
-            <p style="color:#7f8c8d; margin-bottom:15px;">Daily cap: {MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY} simplified articles per topic per language</p>"""
+            <p style="color:#7f8c8d; margin-bottom:15px;">Daily cap: {MAX_SIMPLIFIED_POPULAR}/topic for popular langs ({', '.join(sorted(POPULAR_LANGUAGES)).upper()}), {MAX_SIMPLIFIED_DEFAULT}/topic for others</p>"""
 
     # Group topic stats by language
     from collections import defaultdict
@@ -404,6 +405,7 @@ def crawl_stats_dashboard():
         for lang_code in sorted(topics_by_lang.keys()):
             topics = topics_by_lang[lang_code]
             lang_name = topics[0][0]  # Get language name from first entry
+            max_for_lang = get_max_simplified_for_language(lang_code)
             html += f"""
             <h3><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h3>
             <table>
@@ -414,14 +416,14 @@ def crawl_stats_dashboard():
                     <th style="width:220px">Progress</th>
                 </tr>"""
             for _, topic_id, topic_title, count in topics:
-                cap_reached = count >= MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
-                bar_width = min(int((count / MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY) * 200), 200)
+                cap_reached = count >= max_for_lang
+                bar_width = min(int((count / max_for_lang) * 200), 200)
                 status_class = "cap-reached" if cap_reached else "cap-ok"
-                status_text = "CAP REACHED" if cap_reached else f"{MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY - count} remaining"
+                status_text = "CAP REACHED" if cap_reached else f"{max_for_lang - count} remaining"
                 html += f"""
                 <tr>
                     <td>{topic_title}</td>
-                    <td>{count} / {MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}</td>
+                    <td>{count} / {max_for_lang}</td>
                     <td class="{status_class}">{status_text}</td>
                     <td><div class="bar-container"><div class="bar" style="width:{bar_width}px; background: {'#e74c3c' if cap_reached else '#27ae60'}"></div></div></td>
                 </tr>"""

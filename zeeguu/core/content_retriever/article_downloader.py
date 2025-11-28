@@ -471,7 +471,18 @@ def download_from_feed(
     return summary_stream
 
 
-MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY = 10  # Cap simplifications per topic per language per day
+# Cap simplifications per topic per language per day
+# Popular languages (high user activity) get higher caps
+POPULAR_LANGUAGES = {"da", "fr", "de"}  # Danish, French, German
+MAX_SIMPLIFIED_POPULAR = 50  # For popular languages
+MAX_SIMPLIFIED_DEFAULT = 20  # For other languages
+
+
+def get_max_simplified_for_language(language_code):
+    """Get the daily topic simplification cap for a given language."""
+    if language_code.lower() in POPULAR_LANGUAGES:
+        return MAX_SIMPLIFIED_POPULAR
+    return MAX_SIMPLIFIED_DEFAULT
 
 
 def get_todays_simplified_counts_by_language_topic(session, language_id):
@@ -636,6 +647,8 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     skip_simplification_due_to_cap = False
     article_topic_ids = [t.topic_id for t in new_article.topics]
     language_id = feed.language_id
+    lang_code = feed.language.code
+    max_for_lang = get_max_simplified_for_language(lang_code)
 
     if topic_simplification_counts is not None and article_topic_ids:
         # Check if ANY topic still needs simplified articles today for this language
@@ -643,14 +656,14 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         for topic_id in article_topic_ids:
             key = (language_id, topic_id)
             current_count = topic_simplification_counts.get(key, 0)
-            if current_count < MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY:
+            if current_count < max_for_lang:
                 needs_simplification = True
                 break
 
         if not needs_simplification:
             skip_simplification_due_to_cap = True
             topic_names = [t.topic.title for t in new_article.topics]
-            log(f"   ⏭ Skipping simplification - daily cap ({MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}/topic/lang) reached for: {topic_names}")
+            log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {topic_names}")
             return new_article
 
     # Auto-create simplified versions and classify content
