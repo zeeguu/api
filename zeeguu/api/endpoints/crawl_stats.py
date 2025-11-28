@@ -447,14 +447,14 @@ def crawl_stats_dashboard():
                 # Get topics for this feed
                 feed_topics = topics_by_feed.get(feed_id, [])
                 if feed_topics:
-                    # Sort by count descending and format as "Topic(count)"
-                    topics_str = ", ".join([f"{t}({c})" for t, c in sorted(feed_topics, key=lambda x: -x[1])])
+                    # Sort by count descending and format as "Topic (count)" on separate lines
+                    topics_str = "<br>".join([f"{t} ({c})" for t, c in sorted(feed_topics, key=lambda x: -x[1])])
                 else:
                     topics_str = "<span style='color:#999'>—</span>"
                 html += f"""
                 <tr>
-                    <td>{feed_title}</td>
-                    <td>{count}</td>
+                    <td style="vertical-align:top">{feed_title}</td>
+                    <td style="vertical-align:top">{count}</td>
                     <td style="font-size:0.85em">{topics_str}</td>
                 </tr>"""
             html += "</table>"
