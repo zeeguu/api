@@ -471,14 +471,16 @@ def download_from_feed(
     return summary_stream
 
 
-MAX_SIMPLIFIED_PER_TOPIC_PER_DAY = 5  # Cap simplifications per topic per day
+MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY = 10  # Cap simplifications per topic per language per day
 
 
-def get_todays_simplified_counts_by_topic(session, language_id):
+def get_todays_simplified_counts_by_language_topic(session, language_id):
     """Get count of simplified articles per topic created today for a given language.
 
     Simplified articles are stored in the Article table with parent_article_id set.
     Topics are on the parent article, so we join: SimplifiedArticle -> ParentArticle -> ArticleTopicMap
+
+    Returns dict of {topic_id: count} for this specific language.
     """
     from datetime import datetime
     from zeeguu.core.model import ArticleTopicMap
@@ -629,23 +631,26 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             f"   ⚠ Disturbing content detected ({disturbing_reason})"
         )
 
-    # Check topic simplification cap - skip simplification if all topics are "full" for today
+    # Check topic simplification cap - skip simplification if all topics are "full" for this language today
+    # topic_simplification_counts is keyed by (language_id, topic_id) tuple
     skip_simplification_due_to_cap = False
     article_topic_ids = [t.topic_id for t in new_article.topics]
+    language_id = feed.language_id
 
     if topic_simplification_counts is not None and article_topic_ids:
-        # Check if ANY topic still needs simplified articles today
+        # Check if ANY topic still needs simplified articles today for this language
         needs_simplification = False
         for topic_id in article_topic_ids:
-            current_count = topic_simplification_counts.get(topic_id, 0)
-            if current_count < MAX_SIMPLIFIED_PER_TOPIC_PER_DAY:
+            key = (language_id, topic_id)
+            current_count = topic_simplification_counts.get(key, 0)
+            if current_count < MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY:
                 needs_simplification = True
                 break
 
         if not needs_simplification:
             skip_simplification_due_to_cap = True
             topic_names = [t.topic.title for t in new_article.topics]
-            log(f"   ⏭ Skipping simplification - daily topic cap ({MAX_SIMPLIFIED_PER_TOPIC_PER_DAY}) reached for: {topic_names}")
+            log(f"   ⏭ Skipping simplification - daily cap ({MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}/topic/lang) reached for: {topic_names}")
             return new_article
 
     # Auto-create simplified versions and classify content
@@ -662,9 +667,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
                 f"   Created {len(simplified_articles)} simplified versions"
             )
             # Update topic simplification counts after successful simplification
+            # Key is (language_id, topic_id) to track per language
             if topic_simplification_counts is not None:
                 for topic_id in article_topic_ids:
-                    topic_simplification_counts[topic_id] = topic_simplification_counts.get(topic_id, 0) + 1
+                    key = (language_id, topic_id)
+                    topic_simplification_counts[key] = topic_simplification_counts.get(key, 0) + 1
         else:
             log(
                 f"   No simplified versions created"

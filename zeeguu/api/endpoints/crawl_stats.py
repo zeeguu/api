@@ -129,14 +129,13 @@ def crawl_stats():
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_DAY
+    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
 
     for topic_id, topic_title, count in topic_counts:
         result["by_topic"][topic_title] = {
             "id": topic_id,
             "simplified_today": count,
-            "daily_cap": MAX_SIMPLIFIED_PER_TOPIC_PER_DAY,
-            "cap_reached": count >= MAX_SIMPLIFIED_PER_TOPIC_PER_DAY,
+            "daily_cap_per_lang": MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY,
         }
 
     return result
@@ -222,26 +221,28 @@ def crawl_stats_dashboard():
             )
             feed_stats[language.code] = feeds
 
-    # Get topic stats
+    # Get topic stats per language
     from sqlalchemy.orm import aliased
     ParentArticle = aliased(Article)
 
-    topic_stats = (
+    topic_stats_by_lang = (
         db_session.query(
+            Language.code, Language.name,
             Topic.id, Topic.title,
             func.count(Article.id).label("count")
         )
         .join(ParentArticle, Article.parent_article_id == ParentArticle.id)
         .join(ArticleTopicMap, ArticleTopicMap.article_id == ParentArticle.id)
         .join(Topic, Topic.id == ArticleTopicMap.topic_id)
+        .join(Language, ParentArticle.language_id == Language.id)
         .filter(Article.published_time >= today_start)
         .filter(Article.parent_article_id != None)
-        .group_by(Topic.id, Topic.title)
-        .order_by(func.count(Article.id).desc())
+        .group_by(Language.code, Language.name, Topic.id, Topic.title)
+        .order_by(Language.name, func.count(Article.id).desc())
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_DAY
+    from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
 
     # Sort languages by article count
     lang_stats.sort(key=lambda x: x["articles"], reverse=True)
@@ -335,8 +336,8 @@ def crawl_stats_dashboard():
                 <div class="label">Active Languages</div>
             </div>
             <div class="stat-card">
-                <div class="number">{MAX_SIMPLIFIED_PER_TOPIC_PER_DAY}</div>
-                <div class="label">Daily Cap/Topic</div>
+                <div class="number">{MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}</div>
+                <div class="label">Cap/Topic/Lang</div>
             </div>
         </div>
 
@@ -361,12 +362,26 @@ def crawl_stats_dashboard():
                     <td><div class="bar-container"><div class="bar" style="width:{bar_width}px"></div></div></td>
                 </tr>"""
 
-    html += """
+    html += f"""
             </table>
         </div>
 
         <div class="section">
-            <h2>🏷️ Simplified by Topic (Today)</h2>
+            <h2>🏷️ Simplified by Topic per Language (Today)</h2>
+            <p style="color:#7f8c8d; margin-bottom:15px;">Daily cap: {MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY} simplified articles per topic per language</p>"""
+
+    # Group topic stats by language
+    from collections import defaultdict
+    topics_by_lang = defaultdict(list)
+    for lang_code, lang_name, topic_id, topic_title, count in topic_stats_by_lang:
+        topics_by_lang[lang_code].append((lang_name, topic_id, topic_title, count))
+
+    if topics_by_lang:
+        for lang_code in sorted(topics_by_lang.keys()):
+            topics = topics_by_lang[lang_code]
+            lang_name = topics[0][0]  # Get language name from first entry
+            html += f"""
+            <h3><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h3>
             <table>
                 <tr>
                     <th>Topic</th>
@@ -374,25 +389,23 @@ def crawl_stats_dashboard():
                     <th>Status</th>
                     <th style="width:220px">Progress</th>
                 </tr>"""
-
-    for topic_id, topic_title, count in topic_stats:
-        cap_reached = count >= MAX_SIMPLIFIED_PER_TOPIC_PER_DAY
-        bar_width = min(int((count / MAX_SIMPLIFIED_PER_TOPIC_PER_DAY) * 200), 200)
-        status_class = "cap-reached" if cap_reached else "cap-ok"
-        status_text = "CAP REACHED" if cap_reached else f"{MAX_SIMPLIFIED_PER_TOPIC_PER_DAY - count} remaining"
-        html += f"""
+            for _, topic_id, topic_title, count in topics:
+                cap_reached = count >= MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY
+                bar_width = min(int((count / MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY) * 200), 200)
+                status_class = "cap-reached" if cap_reached else "cap-ok"
+                status_text = "CAP REACHED" if cap_reached else f"{MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY - count} remaining"
+                html += f"""
                 <tr>
                     <td>{topic_title}</td>
-                    <td>{count} / {MAX_SIMPLIFIED_PER_TOPIC_PER_DAY}</td>
+                    <td>{count} / {MAX_SIMPLIFIED_PER_TOPIC_PER_LANGUAGE_PER_DAY}</td>
                     <td class="{status_class}">{status_text}</td>
                     <td><div class="bar-container"><div class="bar" style="width:{bar_width}px; background: {'#e74c3c' if cap_reached else '#27ae60'}"></div></div></td>
                 </tr>"""
-
-    if not topic_stats:
-        html += """<tr><td colspan="4" style="text-align:center; color:#7f8c8d">No simplified articles today</td></tr>"""
+            html += "</table>"
+    else:
+        html += """<p style="text-align:center; color:#7f8c8d">No simplified articles today</p>"""
 
     html += """
-            </table>
         </div>
 
         <div class="section">
