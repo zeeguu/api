@@ -7,6 +7,7 @@ class TokenizerModel(IntEnum):
     NLTK = 1
     STANZA_TOKEN_ONLY = 2
     STANZA_TOKEN_POS = 3
+    STANZA_TOKEN_POS_DEP = 4
 
 
 PARAGRAPH_DELIMITER = re.compile(r"\n\n+")

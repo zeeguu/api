@@ -23,7 +23,7 @@ STANZA_RESOURCE_DIR = os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources")
 
 class StanzaTokenizer(ZeeguuTokenizer):
     STANZA_MODELS = set(
-        [TokenizerModel.STANZA_TOKEN_ONLY, TokenizerModel.STANZA_TOKEN_POS]
+        [TokenizerModel.STANZA_TOKEN_ONLY, TokenizerModel.STANZA_TOKEN_POS, TokenizerModel.STANZA_TOKEN_POS_DEP]
     )
     # We cache the models to avoid having to re-initialize pipelines everytime.
     # Once the model is loaded it's kept in memory for later use.
@@ -36,6 +36,8 @@ class StanzaTokenizer(ZeeguuTokenizer):
             return "tokenize"
         elif model == TokenizerModel.STANZA_TOKEN_POS:
             return "tokenize,pos"
+        elif model == TokenizerModel.STANZA_TOKEN_POS_DEP:
+            return "tokenize,pos,lemma,depparse"
         return ""
 
     def __init__(self, language: Language, model: TokenizerModel):
@@ -71,8 +73,11 @@ class StanzaTokenizer(ZeeguuTokenizer):
         has_space,
         as_serializable_dictionary,
         pos=None,
+        dep=None,
+        head=None,
+        lemma=None,
     ):
-        token = Token(t, par_i, sent_i, w_i, has_space, pos)
+        token = Token(t, par_i, sent_i, w_i, has_space, pos, dep, head, lemma)
         if as_serializable_dictionary:
             return token.as_serializable_dictionary()
         return token
@@ -131,6 +136,11 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     text = accumulator + text
                     accumulator = ""
 
+                # Extract dependency information if available
+                dep = t_details.get("deprel", None)
+                head = t_details.get("head", None)
+                lemma = t_details.get("lemma", None)
+
                 sent_list.append(
                     self._get_token(
                         text,
@@ -140,6 +150,9 @@ class StanzaTokenizer(ZeeguuTokenizer):
                         has_space,
                         as_serializable_dictionary,
                         pos=t_details.get("upos", None),
+                        dep=dep,
+                        head=head,
+                        lemma=lemma,
                     )
                 )
                 t_i += 1

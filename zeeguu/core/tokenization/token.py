@@ -50,11 +50,15 @@ class Token:
         return text
 
     def __init__(
-        self, text, par_i=None, sent_i=None, token_i=None, has_space=None, pos=None
+        self, text, par_i=None, sent_i=None, token_i=None, has_space=None, pos=None,
+        dep=None, head=None, lemma=None
     ):
         """
         sent_i - the sentence in the overall text.
         token_i - the index of the token in the original sentence.
+        dep - dependency relation (e.g., 'compound:prt', 'nsubj', 'root')
+        head - head token index (0-based, 0 = root)
+        lemma - lemmatized form of the token
         """
         self.text = Token._token_punctuation_processing(text)
         self.is_sent_start = token_i == 0
@@ -70,6 +74,9 @@ class Token:
         self.is_like_num = Token.NUM_REGEX.match(text) is not None
         self.has_space = has_space
         self.pos = pos
+        self.dep = dep
+        self.head = head
+        self.lemma = lemma
 
     def __repr__(self):
         return self.text
@@ -90,4 +97,7 @@ class Token:
             "is_like_url": self.is_like_url,
             "has_space": self.has_space,
             "pos": self.pos,
+            "dep": self.dep,
+            "head": self.head,
+            "lemma": self.lemma,
         }

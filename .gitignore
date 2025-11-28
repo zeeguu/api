@@ -49,4 +49,6 @@ venv311_py311/
 diagrams/*.png
 diagrams/*.json
 
-
+# Keep internal technical design documents private
+experiments/
+docs/particle_verb_detection.md

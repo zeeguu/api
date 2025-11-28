@@ -38,10 +38,8 @@
       ],
       "ignorePackages": [
         "*test*",
-        "core.model",
         "core.util"
       ]
-
     },
     "content-retrieval": {
       "packages": [
