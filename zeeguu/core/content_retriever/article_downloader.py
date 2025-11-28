@@ -266,6 +266,7 @@ def download_from_feed(
     skipped_due_to_low_quality = 0
     skipped_already_in_db = 0
     skipped_other = 0  # banned URLs, future dates, etc.
+    skipped_readability_timeout = 0
 
     last_retrieval_time_from_DB = None
     last_retrieval_time_seen_this_crawl = None
@@ -396,8 +397,13 @@ def download_from_feed(
             continue
 
         except FailedToParseWithReadabilityServer as e:
-            log(f" - failed to parse with readability server (server said: {e})")
-            skipped_other += 1
+            error_msg = str(e).lower()
+            if "timeout" in error_msg:
+                log(f" - readability server timeout")
+                skipped_readability_timeout += 1
+            else:
+                log(f" - failed to parse with readability server (server said: {e})")
+                skipped_other += 1
             continue
 
         except newspaper.ArticleException as e:
@@ -431,7 +437,7 @@ def download_from_feed(
             continue
     # Calculate unprocessed: articles in feed that we didn't even attempt
     # (due to time limit or article count limit being reached)
-    processed_count = downloaded + skipped_already_in_db + skipped_due_to_low_quality + skipped_other
+    processed_count = downloaded + skipped_already_in_db + skipped_due_to_low_quality + skipped_other + skipped_readability_timeout
     skipped_unprocessed = len(items) - processed_count
 
     crawl_report.set_feed_total_articles(feed, len(items))
@@ -439,6 +445,7 @@ def download_from_feed(
     crawl_report.set_feed_total_low_quality(feed, skipped_due_to_low_quality)
     crawl_report.set_feed_total_in_db(feed, skipped_already_in_db)
     crawl_report.set_feed_total_skipped_unprocessed(feed, skipped_unprocessed)
+    crawl_report.set_feed_total_readability_timeout(feed, skipped_readability_timeout)
 
     final_time = round(time() - start_feed_time, 2)
     crawl_report.set_feed_crawl_time(feed, final_time)
@@ -453,6 +460,8 @@ def download_from_feed(
     log(f"*** Downloaded: {downloaded} From: {feed.title}{max_time_indicator}")
     log(f"*** Low Quality: {skipped_due_to_low_quality}")
     log(f"*** Already in DB: {skipped_already_in_db}")
+    if skipped_readability_timeout > 0:
+        log(f"*** Readability Timeouts: {skipped_readability_timeout}")
     if skipped_unprocessed > 0:
         log(f"*** Unprocessed (timeout/limit): {skipped_unprocessed}")
     log(f"*** Time: {final_time}s")
