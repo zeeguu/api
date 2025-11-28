@@ -1,0 +1,28 @@
+CRAWLER=/home/zeeguu/src/api/zeeguu/operations/crawler/crawl_all_in_parallel.sh
+RUN=/home/zeeguu/src/api/zeeguu/operations/run_task.sh
+
+# Hourly: Danish, French, German
+10 * * * * $CRAWLER --provider anthropic da fr de
+
+# Three times a day
+06 10 * * * $CRAWLER --provider deepseek pt sv ro nl en el es it
+50 14 * * * $CRAWLER --provider deepseek pt sv ro nl en el es it
+50 20 * * * $CRAWLER --provider deepseek pt sv ro nl en el es it
+
+# cleanup old reports
+59 23 * * * find /home/zeeguu/data/crawl-reports/ -type f -mtime +7 -execdir rm -- '{}' \;
+
+# weekly reports
+54 14 * * MON $RUN weekly_report tools/report_generator/generate_report.py
+
+# daily reports
+50 23 * * * $RUN daily_report tools/report_generator/generate_report.py 1
+
+# search subscription notifications
+39 09 * * * $RUN search_notifications tools/notify_search_subscribers.py
+
+# precompute audio lesson content
+12 07 * * * $RUN precompute_audio tools/precompute_upcoming_meaning_lessons.py --send-email --days 30
+
+# prefetch example sentences
+12 09 * * * $RUN prefetch_sentences tools/prefetch_example_sentences_for_users.py --all --send-email

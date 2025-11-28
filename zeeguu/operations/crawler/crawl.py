@@ -167,6 +167,28 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
         crawl_report.add_language(lang_code)
         crawl_reports[lang_code] = crawl_report
 
+    # Track simplified articles per topic per day (shared across all feeds/languages)
+    # This ensures topic diversity - once 5 articles are simplified for a topic TODAY, skip simplification
+    # Initialize from database with today's counts
+    from zeeguu.core.content_retriever.article_downloader import get_todays_simplified_counts_by_topic
+    topic_simplification_counts = defaultdict(int)
+
+    # Load today's counts from DB for all languages we're crawling
+    for lang_code in languages_to_crawl:
+        language = Language.find(lang_code)
+        if language:
+            todays_counts = get_todays_simplified_counts_by_topic(db_session, language.id)
+            for topic_id, count in todays_counts.items():
+                topic_simplification_counts[topic_id] += count
+
+    if topic_simplification_counts:
+        log(f"Today's simplified article counts by topic (from DB):")
+        from zeeguu.core.model import Topic
+        for topic_id, count in sorted(topic_simplification_counts.items(), key=lambda x: -x[1]):
+            topic = Topic.find_by_id(topic_id)
+            topic_name = topic.title if topic else f"Unknown({topic_id})"
+            log(f"  {topic_name}: {count}")
+
     # Get all feeds grouped by language
     feeds_by_language = {}
     total_feeds = 0
@@ -234,6 +256,7 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
                     crawl_report,
                     limit=max_articles_per_feed,
                     simplification_provider=simplification_provider,
+                    topic_simplification_counts=topic_simplification_counts,
                 )
 
                 feed_time = time() - feed_start_time
@@ -260,6 +283,17 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
             break
 
     log(f"\nFinished processing {feeds_completed} feeds across {len(languages_to_crawl)} languages")
+
+    # Log topic simplification summary
+    if topic_simplification_counts:
+        from zeeguu.core.model import Topic
+        from zeeguu.core.content_retriever.article_downloader import MAX_SIMPLIFIED_PER_TOPIC_PER_DAY
+        log(f"\nTopic Simplification Summary (daily cap: {MAX_SIMPLIFIED_PER_TOPIC_PER_DAY} per topic):")
+        for topic_id, count in sorted(topic_simplification_counts.items(), key=lambda x: -x[1]):
+            topic = Topic.find_by_id(topic_id)
+            topic_name = topic.title if topic else f"Unknown({topic_id})"
+            cap_indicator = " [DAILY CAP REACHED]" if count >= MAX_SIMPLIFIED_PER_TOPIC_PER_DAY else ""
+            log(f"  {topic_name}: {count} today{cap_indicator}")
 
     # Calculate and save total times per language
     for lang_code, crawl_report in crawl_reports.items():

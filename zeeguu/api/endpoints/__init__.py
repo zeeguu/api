@@ -42,3 +42,4 @@ from . import article_simplification
 from . import generated_examples
 from . import cefr_assessment
 from . import article_cefr_recompute
+from . import crawl_stats

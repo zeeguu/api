@@ -12,17 +12,22 @@ DOCKER_COMPOSE="docker compose -f $API_DIR/docker-compose.yml"
 
 # Per-language configuration: MAX_ARTICLES MAX_TIME_MINUTES
 # Format: LANG_CONFIG_<code>="max_articles max_time_minutes"
-LANG_CONFIG_da="100 50"
-LANG_CONFIG_pt="50 25"
-LANG_CONFIG_sv="5 25"
-LANG_CONFIG_ro="5 25"
-LANG_CONFIG_nl="20 25"
-LANG_CONFIG_fr="40 50"
-LANG_CONFIG_en="20 25"
-LANG_CONFIG_el="20 25"
-LANG_CONFIG_de="20 25"
-LANG_CONFIG_es="20 25"
-LANG_CONFIG_it="20 25"
+# High activity languages (20+ active users in last 2 weeks)
+LANG_CONFIG_da="100 50"  # 22 users - runs hourly
+LANG_CONFIG_fr="40 50"   # 45 users - runs hourly
+LANG_CONFIG_de="20 25"   # 31 users - runs hourly
+LANG_CONFIG_en="20 25"   # 26 users
+
+# Medium activity languages (10+ users)
+LANG_CONFIG_nl="15 25"   # 10 users
+
+# Low activity languages (1-3 users)
+LANG_CONFIG_el="5 25"    # 3 users
+LANG_CONFIG_pt="5 25"    # 1 user
+LANG_CONFIG_ro="5 25"    # 1 user
+LANG_CONFIG_es="5 25"    # 1 user
+LANG_CONFIG_it="5 25"    # 1 user
+LANG_CONFIG_sv="5 25"    # 0 users
 
 # Default languages (when no language args provided)
 # Note: da, fr, de run hourly via separate cron job

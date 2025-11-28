@@ -245,7 +245,7 @@ def extract_article_image(np_article):
 
 
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None, topic_simplification_counts=None
 ):
     """
 
@@ -354,6 +354,7 @@ def download_from_feed(
                 url,
                 crawl_report,
                 simplification_provider=simplification_provider,
+                topic_simplification_counts=topic_simplification_counts,
             )
             # Politiken sometimes has titles that have
             # strange characters instead of å æ ø
@@ -470,7 +471,41 @@ def download_from_feed(
     return summary_stream
 
 
-def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
+MAX_SIMPLIFIED_PER_TOPIC_PER_DAY = 5  # Cap simplifications per topic per day
+
+
+def get_todays_simplified_counts_by_topic(session, language_id):
+    """Get count of simplified articles per topic created today for a given language.
+
+    Simplified articles are stored in the Article table with parent_article_id set.
+    Topics are on the parent article, so we join: SimplifiedArticle -> ParentArticle -> ArticleTopicMap
+    """
+    from datetime import datetime
+    from zeeguu.core.model import ArticleTopicMap
+    from sqlalchemy import func
+    from sqlalchemy.orm import aliased
+
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Simplified articles have parent_article_id set
+    # Topics are associated with the parent article
+    ParentArticle = aliased(model.Article)
+
+    results = (
+        session.query(ArticleTopicMap.topic_id, func.count(model.Article.id))
+        .join(ParentArticle, model.Article.parent_article_id == ParentArticle.id)
+        .join(ArticleTopicMap, ArticleTopicMap.article_id == ParentArticle.id)
+        .filter(ParentArticle.language_id == language_id)
+        .filter(model.Article.published_time >= today_start)
+        .filter(model.Article.parent_article_id != None)
+        .group_by(ArticleTopicMap.topic_id)
+        .all()
+    )
+
+    return {topic_id: count for topic_id, count in results}
+
+
+def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, topic_simplification_counts=None):
 
     title = feed_item["title"]
     log(f" → Processing: {title[:80]}")
@@ -594,6 +629,25 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             f"   ⚠ Disturbing content detected ({disturbing_reason})"
         )
 
+    # Check topic simplification cap - skip simplification if all topics are "full" for today
+    skip_simplification_due_to_cap = False
+    article_topic_ids = [t.topic_id for t in new_article.topics]
+
+    if topic_simplification_counts is not None and article_topic_ids:
+        # Check if ANY topic still needs simplified articles today
+        needs_simplification = False
+        for topic_id in article_topic_ids:
+            current_count = topic_simplification_counts.get(topic_id, 0)
+            if current_count < MAX_SIMPLIFIED_PER_TOPIC_PER_DAY:
+                needs_simplification = True
+                break
+
+        if not needs_simplification:
+            skip_simplification_due_to_cap = True
+            topic_names = [t.topic.title for t in new_article.topics]
+            log(f"   ⏭ Skipping simplification - daily topic cap ({MAX_SIMPLIFIED_PER_TOPIC_PER_DAY}) reached for: {topic_names}")
+            return new_article
+
     # Auto-create simplified versions and classify content
     log(f"   Calling LLM for simplification and classification...")
     llm_start_time = time()
@@ -607,6 +661,10 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             log(
                 f"   Created {len(simplified_articles)} simplified versions"
             )
+            # Update topic simplification counts after successful simplification
+            if topic_simplification_counts is not None:
+                for topic_id in article_topic_ids:
+                    topic_simplification_counts[topic_id] = topic_simplification_counts.get(topic_id, 0) + 1
         else:
             log(
                 f"   No simplified versions created"
