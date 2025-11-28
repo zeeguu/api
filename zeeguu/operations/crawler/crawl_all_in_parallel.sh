@@ -5,17 +5,17 @@ cd /home/zeeguu/ops/running/api
 
 # Per-language configuration: MAX_ARTICLES MAX_TIME_MINUTES
 # Format: LANG_CONFIG_<code>="max_articles max_time_minutes"
-LANG_CONFIG_da="1000 5"
-LANG_CONFIG_pt="1000 5"
-LANG_CONFIG_sv="1000 5"
-LANG_CONFIG_ro="1000 5"
-LANG_CONFIG_nl="1000 5"
-LANG_CONFIG_fr="1000 5"
-LANG_CONFIG_en="1000 5"
-LANG_CONFIG_el="1000 5"
-LANG_CONFIG_de="1000 5"
-LANG_CONFIG_es="1000 5"
-LANG_CONFIG_it="1000 5"
+LANG_CONFIG_da="100 25"
+LANG_CONFIG_pt="50 25"
+LANG_CONFIG_sv="5 25"
+LANG_CONFIG_ro="5 25"
+LANG_CONFIG_nl="20 25"
+LANG_CONFIG_fr="40 25"
+LANG_CONFIG_en="20 25"
+LANG_CONFIG_el="20 25"
+LANG_CONFIG_de="20 25"
+LANG_CONFIG_es="20 25"
+LANG_CONFIG_it="20 25"
 
 # All supported languages
 LANGUAGES="da pt sv ro nl fr en el de es it"
