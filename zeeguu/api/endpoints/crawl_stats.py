@@ -444,7 +444,7 @@ def crawl_stats_dashboard():
             html += f"""
             <h3><span class="lang-code">{code.upper()}</span> {lang["name"]}</h3>
             <table>
-                <tr><th>Feed</th><th>Articles</th><th>Topics</th></tr>"""
+                <tr><th style="max-width:420px">Feed</th><th>Articles</th><th>Topics</th></tr>"""
             for feed_id, feed_title, count in feed_stats[code][:10]:
                 # Get topics for this feed
                 feed_topics = topics_by_feed.get(feed_id, [])
@@ -455,7 +455,7 @@ def crawl_stats_dashboard():
                     topics_str = "<span style='color:#999'>—</span>"
                 html += f"""
                 <tr>
-                    <td style="vertical-align:top">{feed_title}</td>
+                    <td style="vertical-align:top; max-width:420px; word-wrap:break-word">{feed_title}</td>
                     <td style="vertical-align:top">{count}</td>
                     <td style="font-size:0.85em">{topics_str}</td>
                 </tr>"""
