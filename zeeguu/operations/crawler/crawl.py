@@ -31,7 +31,6 @@ from time import time
 
 import zeeguu.core
 from zeeguu.logging import log
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
 from zeeguu.operations.crawler.crawl_report import CrawlReport
@@ -380,20 +379,9 @@ try:
     log(f"\n=== Finished at: {end} ===")
     log(f"=== Total duration: {total_duration} ===")
 
-    # Generate and send summary email
+    # Generate summary (logged only, no email)
     summary = generate_crawl_summary(crawl_reports)
     log("\n" + summary)
-
-    try:
-        mailer = ZeeguuMailer(
-            f"Zeeguu Round-Robin Crawler Summary - {end.strftime('%Y-%m-%d %H:%M')}",
-            summary,
-            "zeeguu.team@gmail.com",
-        )
-        mailer.send()
-        log("Summary email sent successfully")
-    except Exception as e:
-        log(f"Failed to send summary email: {e}")
 
 except Exception as e:
     log(f"FATAL ERROR: {e}")
