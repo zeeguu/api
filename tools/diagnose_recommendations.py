@@ -73,8 +73,9 @@ def diagnose_user(user_identifier):
         for ua in hidden_articles:
             article = Article.find_by_id(ua.article_id)
             if article and article.topics:
-                topic_name = article.topics.title if hasattr(article.topics, 'title') else str(article.topics)
-                hidden_topics[topic_name] = hidden_topics.get(topic_name, 0) + 1
+                for topic_map in article.topics:
+                    topic_name = topic_map.topic.title
+                    hidden_topics[topic_name] = hidden_topics.get(topic_name, 0) + 1
         if hidden_topics:
             print("   Hidden by topic:")
             for topic, count in sorted(hidden_topics.items(), key=lambda x: -x[1])[:10]:
@@ -119,8 +120,9 @@ def diagnose_user(user_identifier):
             result_topics = {}
             for item in content:
                 if hasattr(item, 'topics') and item.topics:
-                    topic_name = item.topics.title if hasattr(item.topics, 'title') else str(item.topics)
-                    result_topics[topic_name] = result_topics.get(topic_name, 0) + 1
+                    for topic_map in item.topics:
+                        topic_name = topic_map.topic.title
+                        result_topics[topic_name] = result_topics.get(topic_name, 0) + 1
 
             print("   Topics in results:")
             for topic, count in sorted(result_topics.items(), key=lambda x: -x[1]):
