@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: stanza_resources
-          key: ${{ runner.os }}-stanza-models-v2
+          key: ${{ runner.os }}-stanza-models-v3
           restore-keys: |
             ${{ runner.os }}-stanza-models-
       - name: Cache NLTK data
