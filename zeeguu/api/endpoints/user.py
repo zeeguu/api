@@ -99,7 +99,6 @@ def learned_and_native_language():
 def get_user_unfinished_reading_sessions(total_sessions: int = 1):
     """
     Retrieves the last uncompleted sessions based on the SCROLL events of the user.
-
     """
     user = User.find_by_id(flask.g.user_id)
     last_sessions = (
@@ -107,60 +106,61 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
             user, limit=total_sessions
         )
     )
-    list_result = []
+
+    # Step 1: Filter sessions and collect articles with their extra data
+    articles_to_fetch = []
+    session_data = {}  # article_id -> (date_read, last_reading_percentage)
+
     for s in last_sessions:
         art_id, date_read, viewport_settings, last_reading_point = s
-        if last_reading_point < 0.9 and last_reading_point > 0:
-            # Handle case where viewport_settings is not a dict (defensive programming)
-            if not isinstance(viewport_settings, dict):
-                continue  # Skip this session if viewport_settings is invalid
+        if not (last_reading_point < 0.9 and last_reading_point > 0):
+            continue
 
-            # Check for new simplified format first (with viewportRatio)
-            if "viewportRatio" in viewport_settings:
-                # New optimized format: just use the pre-calculated viewport ratio
-                viewport_ratio = viewport_settings["viewportRatio"]
-                # Tolerance is 1/4 of the viewport ratio (keeps same UX as before)
-                tolerance = viewport_ratio / 4
+        if not isinstance(viewport_settings, dict):
+            continue
 
-            # Fall back to old format for backwards compatibility
-            elif all(
-                key in viewport_settings
-                for key in ["scrollHeight", "clientHeight", "bottomRowHeight"]
-            ):
-                scrollHeight = viewport_settings["scrollHeight"]
-                clientHeight = viewport_settings["clientHeight"]
-                bottomRowHeight = viewport_settings["bottomRowHeight"]
-                # Calculate tolerance the old way
-                tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
+        # Calculate tolerance
+        if "viewportRatio" in viewport_settings:
+            tolerance = viewport_settings["viewportRatio"] / 4
+        elif all(
+            key in viewport_settings
+            for key in ["scrollHeight", "clientHeight", "bottomRowHeight"]
+        ):
+            scrollHeight = viewport_settings["scrollHeight"]
+            clientHeight = viewport_settings["clientHeight"]
+            bottomRowHeight = viewport_settings["bottomRowHeight"]
+            tolerance = clientHeight / ((scrollHeight - bottomRowHeight)) / 4
+        elif (
+            "scrollHeight" in viewport_settings
+            and "clientHeight" in viewport_settings
+        ):
+            scrollHeight = viewport_settings["scrollHeight"]
+            clientHeight = viewport_settings["clientHeight"]
+            tolerance = clientHeight / scrollHeight / 4
+        else:
+            continue
 
-            # If we only have partial data (scrollHeight + clientHeight without bottomRowHeight)
-            elif (
-                "scrollHeight" in viewport_settings
-                and "clientHeight" in viewport_settings
-            ):
-                scrollHeight = viewport_settings["scrollHeight"]
-                clientHeight = viewport_settings["clientHeight"]
-                # Assume bottomRowHeight is 0 if not provided (reasonable fallback)
-                tolerance = clientHeight / scrollHeight / 4
+        last_reading_percentage = last_reading_point - tolerance
+        if last_reading_percentage <= 0:
+            continue
 
-            else:
-                # Skip this session if we can't calculate tolerance
-                continue
+        art = Article.find_by_id(art_id)
+        if art:
+            articles_to_fetch.append(art)
+            session_data[art_id] = (date_read, last_reading_percentage)
 
-            art = Article.find_by_id(art_id)
-            art_info = UserArticle.user_article_info(
-                user, UserArticle.select_appropriate_article_for_user(user, art)
-            )
+    # Step 2: Use helper for proper cache handling
+    article_infos = UserArticle.article_infos(user, articles_to_fetch, select_appropriate=True)
+
+    # Step 3: Add session-specific data to each article info
+    for art_info in article_infos:
+        art_id = art_info["id"]
+        if art_id in session_data:
+            date_read, last_reading_percentage = session_data[art_id]
             art_info["time_last_read"] = date_read
-
-            # Apply tolerance to get adjusted reading position
-            last_reading_percentage = last_reading_point - tolerance
-            if last_reading_percentage <= 0:
-                continue
             art_info["last_reading_percentage"] = last_reading_percentage
-            list_result.append(art_info)
 
-    return json_result(list_result)
+    return json_result(article_infos)
 
 
 @api.route("/get_user_details", methods=("GET",))

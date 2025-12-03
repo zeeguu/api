@@ -42,7 +42,7 @@ def own_texts():
 
     # For own/saved texts, show exactly what the teacher uploaded or saved
     # Don't apply automatic article selection based on user's CEFR level
-    article_infos = [UserArticle.user_article_info(user, e) for e in all_articles]
+    article_infos = UserArticle.article_infos(user, all_articles, select_appropriate=False)
 
     return json_result(article_infos)
 

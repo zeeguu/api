@@ -77,29 +77,11 @@ def _cache_article_tokenization(article, session):
     during user requests. This runs during feed crawling so users never experience
     the slow first-time tokenization.
     """
-    import json
-    from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
     from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
     try:
-        tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-
-        # Create cache entry
-        cache = ArticleTokenizationCache(article_id=article.id)
-
-        # Cache tokenized title (always present)
-        if article.title:
-            tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
-            cache.tokenized_title = json.dumps(tokenized_title)
-            log(f"  - Cached tokenized title ({len(tokenized_title)} sentences)")
-
-        # Cache tokenized summary (if present)
-        if article.summary:
-            tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
-            cache.tokenized_summary = json.dumps(tokenized_summary)
-            log(f"  - Cached tokenized summary ({len(tokenized_summary)} sentences)")
-
-        session.add(cache)
+        cache, _ = ArticleTokenizationCache.ensure_populated(session, article)
+        log(f"  - Cached tokenization for article {article.id}")
     except Exception as e:
         log(f"  - Warning: Failed to cache tokenization: {e}")
         # Don't fail the whole article download if tokenization fails

@@ -31,7 +31,17 @@ class CohortArticleMap(db.Model):
         return cls.query.filter_by(article_id=article_id, cohort_id=cohort_id).first()
 
     @classmethod
+    def get_articles_for_cohort(cls, cohort):
+        """Returns Article objects for a cohort (not infos)."""
+        return [
+            relation.article
+            for relation in cls.query.filter_by(cohort=cohort).all()
+            if relation.article is not None
+        ]
+
+    @classmethod
     def get_articles_info_for_cohort(cls, cohort):
+        """Legacy method - returns basic article info without user context."""
         def _adapted_article_info(relation):
             article_info = relation.article.article_info()
             if relation.published_time:

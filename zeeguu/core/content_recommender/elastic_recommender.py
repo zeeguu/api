@@ -501,23 +501,12 @@ def get_user_info_from_content_recommendations(user, content_list):
     """
     Get user-specific info for content recommendations.
 
-    Deduplicates articles that resolve to the same version after
-    select_appropriate_article_for_user (e.g., when search returns
-    both an original article and its simplified version, they may
-    both resolve to the same appropriate version for the user).
+    Handles mixed content (articles + videos) and deduplicates articles.
     """
-    results = []
-    seen_article_ids = set()
+    articles = [c for c in content_list if type(c) is Article]
+    videos = [c for c in content_list if type(c) is not Article]
 
-    for each in content_list:
-        if type(each) is Article:
-            appropriate_article = UserArticle.select_appropriate_article_for_user(user, each)
-            # Skip if we've already processed this article
-            if appropriate_article.id in seen_article_ids:
-                continue
-            seen_article_ids.add(appropriate_article.id)
-            results.append(UserArticle.user_article_info(user, appropriate_article))
-        else:
-            results.append(UserVideo.user_video_info(user, each))
+    results = UserArticle.article_infos(user, articles, select_appropriate=True)
+    results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
     return results

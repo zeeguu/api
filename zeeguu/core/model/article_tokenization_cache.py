@@ -1,8 +1,13 @@
+import json
+import logging
+
 from sqlalchemy import Column, Integer, UnicodeText, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timedelta
 from zeeguu.core.model.db import db
+
+log = logging.getLogger(__name__)
 
 
 class ArticleTokenizationCache(db.Model):
@@ -27,24 +32,67 @@ class ArticleTokenizationCache(db.Model):
         """
         Find existing cache or create new empty cache for article.
 
-        Handles race conditions where the same article might be processed
-        multiple times in the same request (e.g., duplicates in search results)
-        by checking if we already have a pending cache object in the session.
+        Flushes immediately to avoid deadlocks from autoflush during
+        subsequent queries in the same request. Handles race conditions
+        where multiple concurrent requests try to create the same cache.
         """
-        # First check if we already have this cache in the session's identity map
-        # This handles the case where the same article appears multiple times
-        # in the same request (e.g., duplicates in search/recommendations)
-        for obj in session.new:
-            if isinstance(obj, cls) and obj.article_id == article.id:
-                return obj
-
         cache = session.query(cls).filter_by(article_id=article.id).first()
-        if not cache:
-            cache = cls(article_id=article.id)
-            session.add(cache)
+        if cache:
+            return cache
+
+        # Try to create and flush immediately
+        cache = cls(article_id=article.id)
+        session.add(cache)
+        try:
+            session.flush()
+        except IntegrityError:
+            # Another request created it first - rollback and fetch
+            session.rollback()
+            cache = session.query(cls).filter_by(article_id=article.id).first()
+
         return cache
 
     @classmethod
     def get_for_article(cls, session, article_id):
         """Get cache for article, returns None if not found"""
         return session.query(cls).filter_by(article_id=article_id).first()
+
+    @classmethod
+    def ensure_populated(cls, session, article):
+        """
+        Ensure cache exists and is populated with tokenized summary and title.
+
+        This separates the write concern (populating cache) from the read concern
+        (using cached data), allowing callers to batch all writes before reads.
+        """
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
+        cache = cls.find_or_create(session, article)
+        modified = False
+
+        # Populate summary if needed
+        if article.summary and not cache.tokenized_summary:
+            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+            tokenized = tokenizer.tokenize_text(article.summary, flatten=False)
+            cache.tokenized_summary = json.dumps(tokenized)
+            modified = True
+            log.info(f"[CACHE] Article {article.id} - Tokenized and cached summary")
+
+        # Populate title if needed
+        if not cache.tokenized_title:
+            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
+            tokenized = tokenizer.tokenize_text(article.title, flatten=False)
+            cache.tokenized_title = json.dumps(tokenized)
+            modified = True
+            log.info(f"[CACHE] Article {article.id} - Tokenized and cached title")
+
+        return cache, modified
+
+    @classmethod
+    def delete_older_than(cls, session, days=7):
+        """Delete cache entries older than N days. Returns count of deleted rows."""
+        cutoff = datetime.now() - timedelta(days=days)
+        deleted = session.query(cls).filter(cls.created_at < cutoff).delete()
+        session.commit()
+        log.info(f"[CACHE-CLEANUP] Deleted {deleted} cache entries older than {days} days")
+        return deleted

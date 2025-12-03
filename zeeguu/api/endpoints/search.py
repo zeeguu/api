@@ -288,10 +288,10 @@ def search_for_latest_search_terms(search_terms):
         score_threshold=2,
     )
     
-    # Filter out hidden articles  
+    # Filter out hidden articles
     filtered_articles = UserArticle.filter_hidden_content(user, articles)
-    
-    article_infos = [UserArticle.user_article_info(user, UserArticle.select_appropriate_article_for_user(user, a)) for a in filtered_articles]
+
+    article_infos = UserArticle.article_infos(user, filtered_articles, select_appropriate=True)
 
     return json_result(article_infos)
 

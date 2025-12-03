@@ -140,28 +140,7 @@ def saved_articles(page: int = None):
     else:
         saves = PersonalCopy.all_for(user)
 
-    article_infos = [
-        UserArticle.user_article_info(
-            user, UserArticle.select_appropriate_article_for_user(user, e)
-        )
-        for e in saves
-    ]
-
-    return json_result(article_infos)
-
-
-@cross_domain
-@requires_session
-def saved_articles():
-    user = User.find_by_id(flask.g.user_id)
-    saves = PersonalCopy.all_for(user)
-
-    article_infos = [
-        UserArticle.user_article_info(
-            user, UserArticle.select_appropriate_article_for_user(user, e)
-        )
-        for e in saves
-    ]
+    article_infos = UserArticle.article_infos(user, saves, select_appropriate=True)
 
     return json_result(article_infos)
 
@@ -198,12 +177,7 @@ def user_articles_topic_filtered():
     # Filter out hidden articles
     filtered_articles = UserArticle.filter_hidden_articles(user, articles)
 
-    article_infos = [
-        UserArticle.user_article_info(
-            user, UserArticle.select_appropriate_article_for_user(user, a)
-        )
-        for a in filtered_articles
-    ]
+    article_infos = UserArticle.article_infos(user, filtered_articles, select_appropriate=True)
 
     return json_result(article_infos)
 
@@ -254,11 +228,6 @@ def user_articles_foryou():
     # Filter out hidden articles
     filtered_articles = UserArticle.filter_hidden_articles(user, articles)
 
-    article_infos = [
-        UserArticle.user_article_info(
-            user, UserArticle.select_appropriate_article_for_user(user, a)
-        )
-        for a in filtered_articles
-    ]
+    article_infos = UserArticle.article_infos(user, filtered_articles, select_appropriate=True)
 
     return json_result(article_infos)

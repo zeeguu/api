@@ -342,24 +342,25 @@ class User(db.Model):
         session.commit()
 
     def cohort_articles_for_user(self):
-        from zeeguu.core.model import Cohort, CohortArticleMap
+        from zeeguu.core.model import Cohort, CohortArticleMap, UserArticle
 
         all_articles = []
         try:
             for c in self.cohorts:
                 cohort = Cohort.find(c.cohort_id)
                 # Get all articles from this cohort
-                cohort_articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
+                cohort_articles = CohortArticleMap.get_articles_for_cohort(cohort)
 
                 # Filter articles by the user's learned language
-                user_language_code = (
-                    self.learned_language.code if self.learned_language else None
+                user_language_id = (
+                    self.learned_language_id if self.learned_language else None
                 )
-                for article_info in cohort_articles:
-                    if article_info.get("language") == user_language_code:
-                        all_articles.append(article_info)
+                for article in cohort_articles:
+                    if article.language_id == user_language_id:
+                        all_articles.append(article)
 
-            return all_articles
+            # Use the standard helper for proper cache handling
+            return UserArticle.article_infos(self, all_articles, select_appropriate=False)
         except NoResultFound as e:
             return []
 

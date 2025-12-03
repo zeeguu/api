@@ -266,24 +266,18 @@ class UserArticle(db.Model):
     @classmethod
     def all_starred_and_liked_articles_of_user_info(cls, user):
         """
-
-            prepares info as it is promised by /get_starred_articles
-
-        :param user:
-        :return:
+        Prepares info as promised by /get_starred_articles
         """
-
         user_articles = cls.all_starred_or_liked_articles_of_user(user)
 
-        return [
-            cls.user_article_info(
-                user,
-                cls.select_appropriate_article_for_user(user, each.article),
-                with_translations=False,
-            )
+        # Filter first, then use helper for proper cache handling
+        articles = [
+            each.article
             for each in user_articles
             if each.last_interaction() is not None
         ]
+
+        return cls.article_infos(user, articles, select_appropriate=True)
 
     @classmethod
     def exists(cls, obj):
@@ -376,7 +370,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True
+        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None
     ):
         """
         Returns user-specific article information for the given article.
@@ -388,6 +382,7 @@ class UserArticle(db.Model):
             with_content: Whether to include full content/tokenization
             with_translations: Whether to include translation data
             with_summary: Whether to include tokenized summary/title (default True for homepage performance)
+            tokenization_cache: Pre-fetched cache object (optional, avoids extra query)
         """
 
         from zeeguu.core.model.bookmark import Bookmark
@@ -493,7 +488,7 @@ class UserArticle(db.Model):
         if with_summary and not with_content:
             # Only include summary if we're not already including full content
             # (full content tokenization includes everything)
-            summary_info = cls.user_article_summary_info(user, article)
+            summary_info = cls.user_article_summary_info(user, article, tokenization_cache=tokenization_cache)
             # Merge summary-specific keys into the returned info
             # Map to frontend-expected keys for backwards compatibility
             if "tokenized_summary" in summary_info:
@@ -504,24 +499,24 @@ class UserArticle(db.Model):
         return returned_info
 
     @classmethod
-    def user_article_summary_info(cls, user: User, article: Article):
+    def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None):
         """
         Returns tokenized summary and title for an article with user bookmarks.
-        This is a lightweight version of user_article_info that only processes
-        the summary and title, not the full article content.
 
-        Uses cached tokenization when available to avoid expensive Stanza processing.
+        Assumes cache is already populated via ArticleTokenizationCache.ensure_populated().
+        Falls back to on-demand population if cache is missing (for backwards compatibility).
 
         Args:
             user: The user requesting the article summary
             article: The article to get summary info for
+            tokenization_cache: Pre-fetched cache object (optional, avoids extra query)
         """
         import json
         from zeeguu.core.model.article_summary_context import ArticleSummaryContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
-        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
         from . import db
 
         result = {
@@ -529,62 +524,20 @@ class UserArticle(db.Model):
             "language": article.language.code,
         }
 
-        # Re-enabling with extensive logging to debug CPU accumulation
-        import time
-        start_time = time.time()
-        log(f"[TOKENIZATION-START] Article {article.id} - Starting tokenization")
+        # Use provided cache or fetch/create
+        cache = tokenization_cache
+        if not cache:
+            cache = ArticleTokenizationCache.get_for_article(db.session, article.id)
+        if not cache:
+            cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
 
-        # Get or create tokenization cache
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
-        cache_start = time.time()
-        cache = ArticleTokenizationCache.find_or_create(db.session, article)
-        cache_time = time.time() - cache_start
-        log(f"[TOKENIZATION-CACHE] Article {article.id} - Cache lookup took {cache_time:.3f}s")
-
-        # Tokenize summary if available
-        if article.summary:
-            summary_context_id = ContextIdentifier(
-                ContextType.ARTICLE_SUMMARY, article_id=article.id
-            )
-
-            # Try to use cached tokenization
-            check_cache_start = time.time()
-            if cache.tokenized_summary:
-                try:
-                    tokenized_summary = json.loads(cache.tokenized_summary)
-                    log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Using cached summary")
-                except (json.JSONDecodeError, TypeError):
-                    tokenized_summary = None
-                    log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Cache corrupt, will re-tokenize")
-            else:
-                tokenized_summary = None
-                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - No cache, will tokenize")
-
-            # If no cache, tokenize and cache it
-            if tokenized_summary is None:
-                tokenizer_start = time.time()
-                tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-                tokenizer_get_time = time.time() - tokenizer_start
-                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
-
-                tokenize_start = time.time()
-                tokenized_summary = tokenizer.tokenize_text(article.summary, flatten=False)
-                tokenize_time = time.time() - tokenize_start
-                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Tokenized summary in {tokenize_time:.3f}s")
-
-                json_start = time.time()
-                cache.tokenized_summary = json.dumps(tokenized_summary)
-                json_time = time.time() - json_start
-                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - JSON dumps took {json_time:.3f}s")
-
-                db.session.add(cache)
-                log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Added cache to session")
-                # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
-
-            bookmark_start = time.time()
-            # Use no_autoflush to prevent premature flush of tokenization cache
-            # while querying for bookmarks (avoids lock timeouts)
-            with db.session.no_autoflush:
+        # Build summary response
+        if article.summary and cache.tokenized_summary:
+            try:
+                tokenized_summary = json.loads(cache.tokenized_summary)
+                summary_context_id = ContextIdentifier(
+                    ContextType.ARTICLE_SUMMARY, article_id=article.id
+                )
                 result["tokenized_summary"] = {
                     "tokens": tokenized_summary,
                     "context_identifier": summary_context_id.as_dictionary(),
@@ -592,62 +545,87 @@ class UserArticle(db.Model):
                         user.id, article.id
                     ),
                 }
-            bookmark_time = time.time() - bookmark_start
-            log(f"[TOKENIZATION-SUMMARY] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
+            except (json.JSONDecodeError, TypeError):
+                log(f"[SUMMARY] Article {article.id} - Cache corrupt, skipping summary")
 
-        # Tokenize title (always present)
-        title_context_id = ContextIdentifier(
-            ContextType.ARTICLE_TITLE, article_id=article.id
-        )
-
-        # Try to use cached tokenization
+        # Build title response
         if cache.tokenized_title:
             try:
                 tokenized_title = json.loads(cache.tokenized_title)
-                log(f"[TOKENIZATION-TITLE] Article {article.id} - Using cached title")
+                title_context_id = ContextIdentifier(
+                    ContextType.ARTICLE_TITLE, article_id=article.id
+                )
+                result["tokenized_title"] = {
+                    "tokens": tokenized_title,
+                    "context_identifier": title_context_id.as_dictionary(),
+                    "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                        user.id, article.id
+                    ),
+                }
             except (json.JSONDecodeError, TypeError):
-                tokenized_title = None
-                log(f"[TOKENIZATION-TITLE] Article {article.id} - Cache corrupt, will re-tokenize")
-        else:
-            tokenized_title = None
-            log(f"[TOKENIZATION-TITLE] Article {article.id} - No cache, will tokenize")
-
-        # If no cache, tokenize and cache it
-        if tokenized_title is None:
-            tokenizer_start = time.time()
-            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-            tokenizer_get_time = time.time() - tokenizer_start
-            log(f"[TOKENIZATION-TITLE] Article {article.id} - Got tokenizer in {tokenizer_get_time:.3f}s")
-
-            tokenize_start = time.time()
-            tokenized_title = tokenizer.tokenize_text(article.title, flatten=False)
-            tokenize_time = time.time() - tokenize_start
-            log(f"[TOKENIZATION-TITLE] Article {article.id} - Tokenized title in {tokenize_time:.3f}s")
-
-            json_start = time.time()
-            cache.tokenized_title = json.dumps(tokenized_title)
-            json_time = time.time() - json_start
-            log(f"[TOKENIZATION-TITLE] Article {article.id} - JSON dumps took {json_time:.3f}s")
-
-            db.session.add(cache)
-            log(f"[TOKENIZATION-TITLE] Article {article.id} - Added cache to session")
-            # Don't commit here - let Flask teardown handle it to avoid transaction conflicts
-
-        bookmark_start = time.time()
-        # Use no_autoflush to prevent premature flush of tokenization cache
-        # while querying for bookmarks (avoids lock timeouts)
-        with db.session.no_autoflush:
-            result["tokenized_title"] = {
-                "tokens": tokenized_title,
-                "context_identifier": title_context_id.as_dictionary(),
-                "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
-                    user.id, article.id
-                ),
-            }
-        bookmark_time = time.time() - bookmark_start
-        log(f"[TOKENIZATION-TITLE] Article {article.id} - Built result dict in {bookmark_time:.3f}s")
-
-        total_time = time.time() - start_time
-        log(f"[TOKENIZATION-END] Article {article.id} - Total tokenization took {total_time:.3f}s")
+                log(f"[TITLE] Article {article.id} - Cache corrupt, skipping title")
 
         return result
+
+    @classmethod
+    def article_infos(cls, user, articles, select_appropriate=True):
+        """
+        Get article infos for a list of articles with proper cache handling.
+
+        Uses batch optimization:
+        1. Select appropriate versions and deduplicate
+        2. Batch fetch existing caches (single query)
+        3. Populate missing caches only
+        4. Commit all cache writes
+        5. Build response infos (pure reads)
+
+        Args:
+            user: The user requesting the articles
+            articles: List of Article objects
+            select_appropriate: If True, select appropriate version for user's CEFR level
+
+        Returns:
+            List of article info dicts, deduplicated by article ID
+        """
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from . import db
+
+        # Step 1: Select appropriate versions and deduplicate
+        articles_to_process = []
+        seen_ids = set()
+
+        for article in articles:
+            if select_appropriate:
+                article = cls.select_appropriate_article_for_user(user, article)
+
+            if article.id in seen_ids:
+                continue
+            seen_ids.add(article.id)
+            articles_to_process.append(article)
+
+        if not articles_to_process:
+            return []
+
+        # Step 2: Batch fetch existing caches (single query instead of N queries)
+        article_ids = [a.id for a in articles_to_process]
+        existing_caches = {
+            c.article_id: c
+            for c in db.session.query(ArticleTokenizationCache)
+            .filter(ArticleTokenizationCache.article_id.in_(article_ids))
+            .all()
+        }
+
+        # Step 3: Populate missing caches only
+        for article in articles_to_process:
+            if article.id not in existing_caches:
+                cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
+                existing_caches[article.id] = cache
+
+        # Step 4: Commit all cache writes
+        db.session.commit()
+
+        # Step 5: Build response infos (pure reads, using pre-fetched caches)
+        return [
+            cls.user_article_info(user, article, tokenization_cache=existing_caches.get(article.id))
+            for article in articles_to_process
+        ]
