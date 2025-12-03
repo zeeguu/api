@@ -372,10 +372,18 @@ class UserActivityData(db.Model):
         events = query.all()
         sources_skipped = []
         for e in events:
-            parsed_source_list = json.loads(e.extra_data)
-            sources_skipped += [
-                s_id for s_id in parsed_source_list if Source.find_by_id(s_id)
-            ]
+            try:
+                parsed = json.loads(e.extra_data)
+                # extra_data is usually a list of source IDs, but older entries may be a single int
+                if isinstance(parsed, int):
+                    parsed = [parsed]
+                elif not isinstance(parsed, list):
+                    continue
+                sources_skipped += [
+                    s_id for s_id in parsed if Source.find_by_id(s_id)
+                ]
+            except (json.JSONDecodeError, TypeError):
+                continue
         count_times_skipped = Counter(sources_skipped)
         sources_skipped_twice = [
             k for k, c in count_times_skipped.items() if c >= skips_required
