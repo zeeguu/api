@@ -24,8 +24,8 @@ docker stop crawler_w_anthropic 2>/dev/null || true
 docker rm crawler_w_anthropic 2>/dev/null || true
 
 # Run both crawlers in parallel
-docker compose run --rm --name crawler_w_deepseek crawler python zeeguu/operations/crawler/crawl.py fr pt sv ro nl --provider deepseek --max-articles $DEEPSEEK_MAX_ARTICLES "$@" >> "$LOG_FILE_DEEPSEEK" 2>&1 &
-docker compose run --rm --name crawler_w_anthropic crawler python zeeguu/operations/crawler/crawl.py da en el de es it --provider anthropic --max-articles $ANTHROPIC_MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC" 2>&1 &
+docker compose run --rm --name crawler_w_deepseek run_task python zeeguu/operations/crawler/crawl.py fr pt sv ro nl --provider deepseek --max-articles $DEEPSEEK_MAX_ARTICLES "$@" >> "$LOG_FILE_DEEPSEEK" 2>&1 &
+docker compose run --rm --name crawler_w_anthropic run_task python zeeguu/operations/crawler/crawl.py da en el de es it --provider anthropic --max-articles $ANTHROPIC_MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC" 2>&1 &
 
 # Wait for both to complete
 wait

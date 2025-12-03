@@ -32,4 +32,4 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${TASK_NAME}$"; then
     docker rm "$TASK_NAME" 2>/dev/null || true
 fi
 
-docker compose -f "$API_DIR/docker-compose.yml" run --rm --name "$TASK_NAME" zapi python "$@" >> "$LOG_FILE" 2>&1
+docker compose -f "$API_DIR/docker-compose.yml" run --rm --name "$TASK_NAME" run_task python "$@" >> "$LOG_FILE" 2>&1

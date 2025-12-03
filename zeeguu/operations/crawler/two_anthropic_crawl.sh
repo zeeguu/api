@@ -24,8 +24,8 @@ docker stop crawler_anthropic_2 2>/dev/null || true
 docker rm crawler_anthropic_2 2>/dev/null || true
 
 # Run both Anthropic crawlers in parallel with different language sets
-docker compose run --rm --name crawler_anthropic_1 crawler python zeeguu/operations/crawler/crawl.py da pt sv ro nl --provider anthropic --max-articles $MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC_1" 2>&1 &
-docker compose run --rm --name crawler_anthropic_2 crawler python zeeguu/operations/crawler/crawl.py fr en el de es it --provider anthropic --max-articles $MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC_2" 2>&1 &
+docker compose run --rm --name crawler_anthropic_1 run_task python zeeguu/operations/crawler/crawl.py da pt sv ro nl --provider anthropic --max-articles $MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC_1" 2>&1 &
+docker compose run --rm --name crawler_anthropic_2 run_task python zeeguu/operations/crawler/crawl.py fr en el de es it --provider anthropic --max-articles $MAX_ARTICLES "$@" >> "$LOG_FILE_ANTHROPIC_2" 2>&1 &
 
 # Wait for both to complete
 wait
