@@ -30,6 +30,7 @@ VOICE_CONFIG = {
         "man": "nl-NL-Chirp3-HD-Enceladus",  # nl-NL-Chirp3-HD-Algieba
     },
     "sv-SE": {"woman": "sv-SE-Standard-F", "man": "sv-SE-Standard-G"},  # Swedish
+    "pl-PL": {"woman": "pl-PL-Wavenet-F", "man": "pl-PL-Wavenet-G"},  # Polish
     "en-US": {  # English
         "teacher": "en-US-Wavenet-J",
         "man": "en-US-Wavenet-D",
