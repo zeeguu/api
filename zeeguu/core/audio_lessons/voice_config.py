@@ -52,20 +52,10 @@ VOICE_CONFIG = {
 # Default silence duration between sentences (in seconds)
 DEFAULT_SILENCE_SECONDS = 5.0
 
-# Language code mappings from short codes to full locale codes
-LANGUAGE_MAPPINGS = {
-    "da": "da-DK",
-    "es": "es-ES",
-    "it": "it-IT",
-    "fr": "fr-FR",
-    "de": "de-DE",
-    "nl": "nl-NL",
-    "sv": "sv-SE",
-    "en": "en-US",
-    "pt": "pt-PT",
-    "ro": "ro-RO",
-    "el": "el-GR",
-}
+
+def _get_short_to_locale_map() -> dict:
+    """Derive short code to locale mapping from VOICE_CONFIG keys."""
+    return {locale.split("-")[0]: locale for locale in VOICE_CONFIG.keys()}
 
 
 def normalize_language_code(language_code: str) -> str:
@@ -83,11 +73,12 @@ def normalize_language_code(language_code: str) -> str:
         return language_code
 
     # Convert short code to full locale code
-    if language_code in LANGUAGE_MAPPINGS:
-        return LANGUAGE_MAPPINGS[language_code]
+    short_to_locale = _get_short_to_locale_map()
+    if language_code in short_to_locale:
+        return short_to_locale[language_code]
 
     raise ValueError(
-        f"Language {language_code} not supported. Available: {list(LANGUAGE_MAPPINGS.keys())}"
+        f"Language {language_code} not supported. Available: {list(short_to_locale.keys())}"
     )
 
 
@@ -132,3 +123,26 @@ def get_language_voices(language_code: str) -> dict:
     if language_code not in VOICE_CONFIG:
         raise ValueError(f"Language {language_code} not supported")
     return VOICE_CONFIG[language_code]
+
+
+def is_language_supported_for_audio(language_code: str) -> bool:
+    """
+    Check if a language is supported for audio lesson generation.
+
+    Args:
+        language_code: Short code like 'da', 'pl' or full code like 'da-DK'
+
+    Returns:
+        True if the language is supported, False otherwise
+    """
+    # Handle full locale codes
+    if "-" in language_code:
+        return language_code in VOICE_CONFIG
+
+    # Handle short codes
+    return language_code in _get_short_to_locale_map()
+
+
+def get_supported_languages() -> list:
+    """Get list of supported language codes for audio lessons."""
+    return list(_get_short_to_locale_map().keys())

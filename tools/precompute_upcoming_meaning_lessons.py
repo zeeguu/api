@@ -50,6 +50,7 @@ from zeeguu.core.audio_lessons.word_selector import (
     select_words_for_audio_lesson,
 )
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 # Initialize daily lesson generator (contains the audio generation logic)
@@ -270,6 +271,13 @@ for user, last_activity in user_activity_map:
 
         for language in user_languages:
             try:
+                # Check if language is supported for audio generation
+                if not is_language_supported_for_audio(language.code):
+                    output(
+                        f"   [{language.name}] Skipping - audio not supported for this language"
+                    )
+                    continue
+
                 # Check how many meanings are already precomputed for next lesson
                 precomputed_count, next_words = get_precomputed_meanings_count(
                     user, language

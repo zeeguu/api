@@ -90,6 +90,17 @@ class DailyLessonGenerator:
             f"[generate_daily_lesson_for_user] User languages: {origin_language}->{translation_language}, CEFR: {cefr_level}"
         )
 
+        # Check if language is supported for audio generation
+        from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
+        if not is_language_supported_for_audio(origin_language):
+            log(
+                f"[generate_daily_lesson_for_user] Language {origin_language} not supported for audio"
+            )
+            return {
+                "error": f"Audio lessons are not yet available for {user.learned_language.name}",
+                "status_code": 400,
+            }
+
         # Generate the lesson
         return self.generate_daily_lesson(
             user=user,
