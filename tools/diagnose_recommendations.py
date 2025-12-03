@@ -67,34 +67,72 @@ def diagnose_user(user_identifier):
         .all()
     )
     print(f"   Total hidden: {len(hidden_articles)}")
+
+    # Count hidden articles by topic
+    hidden_topics = {}
     if hidden_articles:
-        # Show topics of hidden articles
-        hidden_topics = {}
         for ua in hidden_articles:
             article = Article.find_by_id(ua.article_id)
             if article and article.topics:
                 for topic_map in article.topics:
                     topic_name = topic_map.topic.title
                     hidden_topics[topic_name] = hidden_topics.get(topic_name, 0) + 1
-        if hidden_topics:
-            print("   Hidden by topic:")
-            for topic, count in sorted(hidden_topics.items(), key=lambda x: -x[1])[:10]:
-                print(f"      {topic}: {count}")
+
+    # Count TOTAL articles per topic for this language (from ES)
+    print(f"\n   Articles per topic (hidden vs total available in {user.learned_language.name}):")
+    print("   " + "-" * 55)
+
+    from zeeguu.core.model.topic import Topic
+    es = Elasticsearch(ES_CONN_STRING)
+
+    all_topics = Topic.query.all()
+    topic_stats = []
+
+    for topic in all_topics:
+        # Count total in ES for this language
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"match": {"language": user.learned_language.name}},
+                        {"bool": {"should": [
+                            {"match": {"topics": topic.title}},
+                            {"match": {"topics_inferred": topic.title}}
+                        ]}}
+                    ]
+                }
+            }
+        }
+        try:
+            res = es.count(index=ES_ZINDEX, body=query)
+            total = res.get('count', 0)
+        except:
+            total = "?"
+
+        hidden = hidden_topics.get(topic.title, 0)
+        if total != "?" and total > 0:
+            pct = f"({hidden*100//total}%)" if hidden > 0 else ""
+            topic_stats.append((topic.title, hidden, total, pct))
+
+    # Sort by hidden count descending
+    for topic_name, hidden, total, pct in sorted(topic_stats, key=lambda x: -x[1]):
+        if hidden > 0 or total > 50:  # Show if hidden any, or has significant articles
+            print(f"      {topic_name:30} {hidden:4} hidden / {total:5} total {pct}")
     print()
 
     # 3. Ignored Sources
     print("3. IGNORED SOURCES (behavioral filtering)")
     print("-" * 40)
     ignored_source_ids = UserActivityData.get_sources_ignored_by_user(user)
-    print(f"   Total ignored sources: {len(ignored_source_ids)}")
+    print(f"   Total ignored sources (articles scrolled past 2+ times): {len(ignored_source_ids)}")
     if ignored_source_ids:
-        print("   Ignored sources (showing first 10):")
+        print("   Ignored articles (showing first 10):")
         for sid in ignored_source_ids[:10]:
-            source = Source.find_by_id(sid)
-            if source:
-                # Count articles from this source
-                article_count = Article.query.filter_by(source_id=sid).count()
-                print(f"      Source {sid}: {article_count} articles")
+            article = Article.query.filter_by(source_id=sid).first()
+            if article:
+                title = article.title[:50] + "..." if len(article.title) > 50 else article.title
+                topics = ", ".join([tm.topic.title for tm in article.topics]) if article.topics else "(no topic)"
+                print(f"      [{topics}] {title}")
     print()
 
     # 4. Test ES Query
