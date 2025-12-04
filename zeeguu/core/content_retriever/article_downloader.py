@@ -733,6 +733,7 @@ def add_topics(new_article, feed, url_keywords, session):
     HARDCODED_FEEDS = {
         102: 8,  # The Onion EN
         121: 8,  # Lercio IT
+        214: 8,  # Der Postillon DE
     }
     # Handle Hard coded Feeds
     if feed is not None and feed.id in HARDCODED_FEEDS:
