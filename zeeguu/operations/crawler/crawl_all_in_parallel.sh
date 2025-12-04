@@ -64,10 +64,11 @@ fi
 # Generate timestamp for log files
 TIMESTAMP=$(date +'%Y_%m_%d_%I_%M_%p')
 
-echo "=== Starting Parallel Crawl at $(date) ==="
-echo "Provider: $PROVIDER"
-echo "Languages: $LANGUAGES"
-echo ""
+# Status output disabled to avoid cron emails (logs go to $LOG_FILE)
+# echo "=== Starting Parallel Crawl at $(date) ==="
+# echo "Provider: $PROVIDER"
+# echo "Languages: $LANGUAGES"
+# echo ""
 
 # Stop and remove any existing crawler containers
 for lang in $LANGUAGES; do
@@ -91,12 +92,12 @@ for lang in $LANGUAGES; do
     max_time_seconds=$((max_time_minutes * 60))
 
     LOG_FILE="/var/log/zeeguu/crawler/crawler-${lang}-${TIMESTAMP}.log"
-    echo "Starting crawler for $lang (max_articles=$max_articles, max_time=${max_time_minutes}min) -> $LOG_FILE"
+    # echo "Starting crawler for $lang (max_articles=$max_articles, max_time=${max_time_minutes}min) -> $LOG_FILE"
     $DOCKER_COMPOSE run --rm --name crawler_${lang} run_task python zeeguu/operations/crawler/crawl.py $lang --provider $PROVIDER --max-articles $max_articles --max-time $max_time_seconds >> "$LOG_FILE" 2>&1 &
 done
 
 # Wait for all to complete
 wait
 
-echo ""
-echo "=== Parallel Crawl completed at $(date) ==="
+# echo ""
+# echo "=== Parallel Crawl completed at $(date) ==="
