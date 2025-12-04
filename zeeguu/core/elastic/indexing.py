@@ -180,9 +180,9 @@ def create_or_update_article(article, session):
     pre_existing_hit = get_article_hit_in_es(article.id)
 
     if pre_existing_hit:
-        doc = document_from_article(article, session, pre_existing_hit["_source"])
+        doc = document_from_article(article, session, pre_existing_hit.to_dict())
         # Note, this might be replaced with delete + index given that update is for specific fields
-        res = es_update(id=pre_existing_hit["_id"], body={"doc": doc})
+        res = es_update(id=pre_existing_hit.meta.id, body={"doc": doc})
     else:
         doc = document_from_article(article, session)
         res = es_index(body=doc)
@@ -210,8 +210,17 @@ def create_or_update_doc_for_bulk(article, session):
         # If we don't find by article id, try by using ES id
         hit = get_doc_in_es(article.id, get_source_dict=False)
     if hit:
-        doc_data = document_from_article(article, session, current_doc=hit["_source"])
-        doc["_id"] = hit.meta.id if "meta" in hit else doc["_id"]
+        # hit can be DSL hit object (from get_article_hit_in_es) or raw dict (from get_doc_in_es)
+        if hasattr(hit, 'to_dict'):
+            # DSL hit object
+            current_doc = hit.to_dict()
+            es_id = hit.meta.id
+        else:
+            # Raw ES response dict
+            current_doc = hit["_source"]
+            es_id = hit["_id"]
+        doc_data = document_from_article(article, session, current_doc=current_doc)
+        doc["_id"] = es_id
         doc["_op_type"] = "update"
         doc["_source"] = {"doc": doc_data}
     else:
