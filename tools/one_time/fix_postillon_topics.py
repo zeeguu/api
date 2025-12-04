@@ -24,9 +24,21 @@ POSTILLON_FEED_ID = 214
 articles = Article.query.filter(Article.feed_id == POSTILLON_FEED_ID).all()
 print(f"Re-indexing {len(articles)} Der Postillon articles in Elasticsearch...")
 
+skipped = 0
 for i, article in enumerate(articles, 1):
-    create_or_update_article(article, db.session)
+    # Skip broken/empty articles
+    if article.broken or not article.content or article.word_count == 0:
+        skipped += 1
+        continue
+
+    try:
+        create_or_update_article(article, db.session)
+    except Exception as e:
+        print(f"  Error on article {article.id}: {e}")
+        skipped += 1
+        continue
+
     if i % 50 == 0:
         print(f"  {i}/{len(articles)} done...")
 
-print(f"Done! Re-indexed {len(articles)} articles.")
+print(f"Done! Re-indexed {len(articles) - skipped} articles, skipped {skipped}.")
