@@ -338,7 +338,12 @@ def build_elastic_search_query(
 
     s = (
         Search()
-        .query((Q("match", title=search_terms) | Q("match", content=search_terms)))
+        .query(
+            (
+                Q("match", title={"query": search_terms, "operator": "and"})
+                | Q("match", content={"query": search_terms, "operator": "and"})
+            )
+        )
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
