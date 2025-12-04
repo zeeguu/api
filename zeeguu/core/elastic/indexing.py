@@ -177,7 +177,7 @@ def document_from_article(article, session, current_doc=None):
 
 def create_or_update_article(article, session):
 
-    pre_existing_hit = get_article_hit_in_es(article)
+    pre_existing_hit = get_article_hit_in_es(article.id)
 
     if pre_existing_hit:
         doc = document_from_article(article, session, pre_existing_hit["_source"])
