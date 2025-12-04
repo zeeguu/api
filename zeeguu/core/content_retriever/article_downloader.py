@@ -501,8 +501,9 @@ def get_todays_simplified_counts_by_language_topic(session, language_id):
 
 
 def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, topic_simplification_counts=None):
+    import html
 
-    title = feed_item["title"]
+    title = html.unescape(feed_item["title"])
     log(f" → Processing: {title[:80]}")
     log(f"   URL: {url}")
 
@@ -543,7 +544,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(summary, "lxml")
-    summary = soup.get_text()
+    summary = html.unescape(soup.get_text())
     # then there are cases where the summary is huge... so we clip it
     summary = summary[:MAX_CHAR_COUNT_IN_SUMMARY]
     # and if there is still no summary, we simply use the beginning of
