@@ -47,6 +47,9 @@ class Bookmark(db.Model):
     # Track where this translation/bookmark was created
     translation_source = db.Column(db.Enum('reading', 'exercise', 'article_preview'), default='reading')
 
+    # Link to browsing session if translation was made while browsing article lists
+    browsing_session_id = db.Column(db.Integer, db.ForeignKey("user_browsing_session.id"), nullable=True)
+
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
@@ -61,12 +64,14 @@ class Bookmark(db.Model):
         total_tokens: int = None,
         context: BookmarkContext = None,
         translation_source: str = 'reading',
+        browsing_session_id: int = None,
     ):
         self.user_word = user_word
         self.source = source
         self.text = text
         self.time = time
         self.translation_source = translation_source
+        self.browsing_session_id = browsing_session_id
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
@@ -318,6 +323,7 @@ class Bookmark(db.Model):
         context_identifier: ContextIdentifier = None,
         level: int = 0,
         translation_source: str = 'reading',
+        browsing_session_id: int = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -403,6 +409,7 @@ class Bookmark(db.Model):
                 total_tokens=total_tokens,
                 context=context,
                 translation_source=translation_source,
+                browsing_session_id=browsing_session_id,
             )
         except Exception as e:
             raise e
