@@ -43,7 +43,7 @@ def requires_session(view):
                 ),
             )
             if session_expiry_time is None or datetime.now() > session_expiry_time:
-                from zeeguu.api.endpoints.sessions import (
+                from zeeguu.api.utils.session_helpers import (
                     is_session_too_old,
                     force_user_to_relog,
                 )
