@@ -33,7 +33,10 @@ def requires_session(view):
         sys.stdout.flush()
 
         try:
-            session_uuid = flask.request.args["session"]
+            # Check query param first, then fall back to cookie
+            session_uuid = flask.request.args.get("session") or flask.request.cookies.get("chocolatechip")
+            if not session_uuid:
+                raise KeyError("No session found")
 
             user_id, session_expiry_time = SESSION_CACHE.get(
                 session_uuid,
