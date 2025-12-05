@@ -14,7 +14,7 @@ nltk
 # Scientific computing stack
 numpy
 scipy==1.13.0
-scikit-learn==1.5.0
+scikit-learn==1.4.0  # Pinned to match paywall detection model (trained Jan 2024). TODO: Retrain model with 1.5.0+ in Q1 2026
 pandas
 matplotlib
 seaborn
