@@ -7,12 +7,12 @@ Replaces frequent email notifications with a consolidated dashboard view.
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from flask import request, Response
+from flask import request, Response, make_response, redirect
 from sqlalchemy import func, and_
 
 from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
-from zeeguu.core.model import User, Article, Language
+from zeeguu.core.model import User, Article, Language, Session
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from zeeguu.core.model.cohort import Cohort
@@ -911,3 +911,124 @@ def user_stats_individual_dashboard(user_id):
 </html>"""
 
     return Response(html, mimetype='text/html')
+
+
+@api.route("/admin/login", methods=["GET"])
+@cross_domain
+def admin_login_form():
+    """Show admin login form."""
+    error = request.args.get("error", "")
+    error_html = f'<p style="color:#e74c3c; margin-bottom:15px;">{error}</p>' if error else ""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login - Zeeguu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }}
+        .login-box {{
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }}
+        h1 {{
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-size: 1.5em;
+        }}
+        label {{
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }}
+        input[type="email"], input[type="password"] {{
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }}
+        input:focus {{
+            outline: none;
+            border-color: #3498db;
+        }}
+        button {{
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+        }}
+        button:hover {{
+            background: #2980b9;
+        }}
+        .subtitle {{
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>Admin Dashboard</h1>
+        <p class="subtitle">Sign in to access admin dashboards</p>
+        {error_html}
+        <form method="POST" action="/admin/login">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autofocus>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>"""
+    return Response(html, mimetype='text/html')
+
+
+@api.route("/admin/login", methods=["POST"])
+@cross_domain
+def admin_login_submit():
+    """Process admin login and redirect to dashboard."""
+    email = request.form.get("email", "")
+    password = request.form.get("password", "")
+
+    # Authenticate user
+    user = User.authorize(email, password)
+
+    if not user:
+        return redirect("/admin/login?error=Invalid+credentials")
+
+    if not user.is_admin:
+        return redirect("/admin/login?error=Not+authorized+as+admin")
+
+    # Create session
+    session = Session.create_for_user(user)
+    db_session.add(session)
+    db_session.commit()
+
+    # Set cookie and redirect to dashboard
+    response = make_response(redirect("/user_stats/dashboard"))
+    response.set_cookie("chocolatechip", str(session.uuid))
+    return response
