@@ -113,3 +113,21 @@ def cross_domain(view):
         return response
 
     return wrapped_view
+
+
+def only_admins(view):
+    """
+    Decorator checks that user is an admin.
+    Must be used after @requires_session decorator.
+    """
+
+    @functools.wraps(view)
+    def wrapped_view(*args, **kwargs):
+        from zeeguu.core.model import User
+
+        user = User.find_by_id(flask.g.user_id)
+        if not user or not user.is_admin:
+            flask.abort(401)
+        return view(*args, **kwargs)
+
+    return wrapped_view
