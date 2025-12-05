@@ -33,7 +33,10 @@ def requires_session(view):
         sys.stdout.flush()
 
         try:
-            session_uuid = flask.request.args["session"]
+            # Check query param first, then fall back to cookie
+            session_uuid = flask.request.args.get("session") or flask.request.cookies.get("chocolatechip")
+            if not session_uuid:
+                raise KeyError("No session found")
 
             user_id, session_expiry_time = SESSION_CACHE.get(
                 session_uuid,
@@ -111,5 +114,23 @@ def cross_domain(view):
         response = flask.make_response(view(*args, **kwargs))
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
+
+    return wrapped_view
+
+
+def only_admins(view):
+    """
+    Decorator checks that user is an admin.
+    Must be used after @requires_session decorator.
+    """
+
+    @functools.wraps(view)
+    def wrapped_view(*args, **kwargs):
+        from zeeguu.core.model import User
+
+        user = User.find_by_id(flask.g.user_id)
+        if not user or not user.is_admin:
+            flask.abort(401)
+        return view(*args, **kwargs)
 
     return wrapped_view

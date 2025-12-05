@@ -50,6 +50,7 @@ class User(db.Model):
     cohorts = relationship("UserCohortMap", back_populates="user")
 
     is_dev = Column(Boolean)
+    is_admin = Column(Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
 

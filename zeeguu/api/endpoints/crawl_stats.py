@@ -9,13 +9,15 @@ from flask import request
 from sqlalchemy import func, and_
 
 from . import api, db_session
-from zeeguu.api.utils.route_wrappers import cross_domain
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
 from zeeguu.core.model import Article, Feed, Language, Topic
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 
 
 @api.route("/crawl_stats", methods=["GET"])
 @cross_domain
+@requires_session
+@only_admins
 def crawl_stats():
     """
     Get crawl statistics for today (or specified number of days).
@@ -144,6 +146,8 @@ def crawl_stats():
 
 @api.route("/crawl_stats/today", methods=["GET"])
 @cross_domain
+@requires_session
+@only_admins
 def crawl_stats_today():
     """Shortcut for today's stats only."""
     return crawl_stats()
@@ -151,6 +155,8 @@ def crawl_stats_today():
 
 @api.route("/crawl_stats/week", methods=["GET"])
 @cross_domain
+@requires_session
+@only_admins
 def crawl_stats_week():
     """Get stats for the last 7 days."""
     # Temporarily set days param
@@ -161,6 +167,8 @@ def crawl_stats_week():
 
 @api.route("/crawl_stats/dashboard", methods=["GET"])
 @cross_domain
+@requires_session
+@only_admins
 def crawl_stats_dashboard():
     """HTML dashboard showing crawl statistics."""
     from flask import Response
