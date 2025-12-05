@@ -30,7 +30,11 @@ def get_period_range(period: str):
     now = datetime.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    if period == "week":
+    if period == "today":
+        start = today_start
+        end = now
+        label = "Today"
+    elif period == "week":
         start = today_start - timedelta(days=7)
         end = today_start
         label = "Last 7 days"
@@ -587,6 +591,7 @@ def user_stats_dashboard():
         </p>
 
         <div class="nav">
+            <a href="?period=today" {"class='active'" if period == "today" else ""}>Today</a>
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
@@ -850,6 +855,7 @@ def user_stats_individual_dashboard(user_id):
         </p>
 
         <div class="nav">
+            <a href="?period=today" {"class='active'" if period == "today" else ""}>Today</a>
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
@@ -1245,6 +1251,7 @@ def user_stats_cohort_dashboard(cohort_id):
         </div>
 
         <div class="nav">
+            <a href="?period=today" {"class='active'" if period == "today" else ""}>Today</a>
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
