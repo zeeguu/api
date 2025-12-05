@@ -15,11 +15,14 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only
 from zeeguu.core.model import User, Article, Language, Session
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.model.user_cohort_map import UserCohortMap
+from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.source import Source
 
 
 def get_period_range(period: str):
@@ -153,6 +156,39 @@ def get_translations_for_user(user_id, start, end):
     }
 
 
+def get_audio_lesson_stats_for_user(user_id, start, end):
+    """Get audio lesson stats for a user in the given period."""
+    # Get lessons completed in this period
+    lessons = (
+        DailyAudioLesson.query
+        .filter(DailyAudioLesson.user_id == user_id)
+        .filter(DailyAudioLesson.completed_at >= start)
+        .filter(DailyAudioLesson.completed_at < end)
+        .all()
+    )
+
+    total_duration_sec = sum(l.duration_seconds or 0 for l in lessons)
+
+    # Group by language
+    lessons_by_language = defaultdict(int)
+    duration_by_language = defaultdict(int)
+
+    for lesson in lessons:
+        if lesson.language:
+            lang_code = lesson.language.code
+            lessons_by_language[lang_code] += 1
+            duration_by_language[lang_code] += lesson.duration_seconds or 0
+
+    return {
+        "lesson_count": len(lessons),
+        "duration_sec": total_duration_sec,
+        "duration_min": round(total_duration_sec / 60, 1),
+        "lessons_by_language": dict(lessons_by_language),
+        "duration_by_language": {lang: round(sec / 60, 1) for lang, sec in duration_by_language.items()},
+        "lessons": lessons,
+    }
+
+
 def collect_user_activity(start, end):
     """Collect activity stats for all users in the given period."""
 
@@ -184,11 +220,21 @@ def collect_user_activity(start, end):
         .all()
     )
 
+    # Find all users with completed audio lessons in this period
+    audio_lesson_user_ids = (
+        db_session.query(DailyAudioLesson.user_id)
+        .filter(DailyAudioLesson.completed_at >= start)
+        .filter(DailyAudioLesson.completed_at < end)
+        .distinct()
+        .all()
+    )
+
     # Combine unique user IDs from all activity types
     active_user_ids = (
         set(uid for (uid,) in exercise_user_ids) |
         set(uid for (uid,) in reading_user_ids) |
-        set(uid for (uid,) in bookmark_user_ids)
+        set(uid for (uid,) in bookmark_user_ids) |
+        set(uid for (uid,) in audio_lesson_user_ids)
     )
 
     # Collect stats per user, grouped by language
@@ -203,12 +249,14 @@ def collect_user_activity(start, end):
         exercise_stats = get_exercise_stats_for_user(user_id, start, end)
         reading_stats = get_reading_stats_for_user(user_id, start, end)
         translation_stats = get_translations_for_user(user_id, start, end)
+        audio_stats = get_audio_lesson_stats_for_user(user_id, start, end)
 
         # Determine languages from activity
         active_languages = set()
         active_languages.update(exercise_stats["words_by_language"].keys())
         active_languages.update(reading_stats["articles_by_language"].keys())
         active_languages.update(translation_stats["by_language"].keys())
+        active_languages.update(audio_stats["lessons_by_language"].keys())
 
         if not active_languages:
             active_languages = {"unknown"}
@@ -225,6 +273,9 @@ def collect_user_activity(start, end):
             "reading_duration_min": reading_stats["duration_min"],
             "articles_read": reading_stats["articles_by_language"],
             "translations": translation_stats["by_language"],
+            "audio_lessons": audio_stats["lessons_by_language"],
+            "audio_duration_min": audio_stats["duration_min"],
+            "audio_duration_by_language": audio_stats["duration_by_language"],
             "languages": list(active_languages),
         }
 
@@ -441,12 +492,14 @@ def user_stats_dashboard():
     total_users = set()
     total_exercise_min = 0
     total_reading_min = 0
+    total_audio_min = 0
 
     for lang_code, users in users_by_language.items():
         for u in users:
             total_users.add(u["id"])
             total_exercise_min += u["exercise_duration_min"]
             total_reading_min += u["reading_duration_min"]
+            total_audio_min += u["audio_duration_by_language"].get(lang_code, 0)
 
     # Get language names
     languages = {l.code: l.name for l in Language.available_languages()}
@@ -516,6 +569,12 @@ def user_stats_dashboard():
         .nav a.active {{ background: #2c3e50; }}
         .user-link {{ color: #3498db; text-decoration: none; }}
         .user-link:hover {{ text-decoration: underline; }}
+        .cohort-link {{
+            display: inline-block; padding: 2px 6px;
+            background: #3498db; color: white; border-radius: 4px;
+            font-size: 0.85em; text-decoration: none;
+        }}
+        .cohort-link:hover {{ background: #2980b9; }}
         .no-activity {{ color: #bdc3c7; }}
         .duration {{ font-family: monospace; }}
     </style>
@@ -545,6 +604,10 @@ def user_stats_dashboard():
             <div class="stat-card">
                 <div class="number">{round(total_reading_min, 0):.0f}</div>
                 <div class="label">Reading Minutes</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{round(total_audio_min, 0):.0f}</div>
+                <div class="label">Audio Minutes</div>
             </div>
             <div class="stat-card">
                 <div class="number">{len(users_by_language)}</div>
@@ -582,6 +645,8 @@ def user_stats_dashboard():
                     <th>Reading</th>
                     <th>Articles</th>
                     <th>Translations</th>
+                    <th>Audio</th>
+                    <th>Audio Time</th>
                 </tr>
 """
 
@@ -594,15 +659,27 @@ def user_stats_dashboard():
             exercise_class = "" if user["exercise_duration_min"] > 0 else "no-activity"
             reading_class = "" if user["reading_duration_min"] > 0 else "no-activity"
 
+            audio_lessons = user["audio_lessons"].get(lang_code, 0)
+            audio_duration = user["audio_duration_by_language"].get(lang_code, 0)
+            audio_class = "" if audio_lessons > 0 else "no-activity"
+
+            # Make cohort clickable if it has an ID
+            if user["cohort_id"]:
+                cohort_html = f'<a href="/user_stats/cohort/{user["cohort_id"]}/dashboard?period={period}" class="cohort-link">{cohort_display}</a>'
+            else:
+                cohort_html = f'<span class="cohort-badge">{cohort_display}</span>'
+
             html += f"""
                 <tr>
                     <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{user['name']}</a></td>
-                    <td><span class="cohort-badge">{cohort_display}</span></td>
+                    <td>{cohort_html}</td>
                     <td class="{exercise_class} duration">{user['exercise_duration_min']:.1f} min</td>
                     <td class="{exercise_class}">{exercise_words}</td>
                     <td class="{reading_class} duration">{user['reading_duration_min']:.1f} min</td>
                     <td class="{reading_class}">{articles}</td>
                     <td>{translations}</td>
+                    <td class="{audio_class}">{audio_lessons}</td>
+                    <td class="{audio_class} duration">{audio_duration:.1f} min</td>
                 </tr>
 """
 
@@ -678,9 +755,20 @@ def user_stats_individual_dashboard(user_id):
         .all()
     )
 
+    # Get audio lessons
+    audio_lessons = (
+        DailyAudioLesson.query
+        .filter(DailyAudioLesson.user_id == user_id)
+        .filter(DailyAudioLesson.completed_at >= start)
+        .filter(DailyAudioLesson.completed_at < end)
+        .order_by(DailyAudioLesson.completed_at.desc())
+        .all()
+    )
+
     # Calculate totals
     total_exercise_min = sum((s.duration or 0) / 60000 for s in exercise_sessions)
     total_reading_min = sum((s.duration or 0) / 60000 for s in reading_sessions)
+    total_audio_min = sum((l.duration_seconds or 0) / 60 for l in audio_lessons)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -785,6 +873,14 @@ def user_stats_individual_dashboard(user_id):
                 <div class="label">Reading Minutes</div>
             </div>
             <div class="stat-card">
+                <div class="number">{len(audio_lessons)}</div>
+                <div class="label">Audio Lessons</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{total_audio_min:.0f}</div>
+                <div class="label">Audio Minutes</div>
+            </div>
+            <div class="stat-card">
                 <div class="number">{len(bookmarks)}</div>
                 <div class="label">Translations</div>
             </div>
@@ -846,14 +942,45 @@ def user_stats_individual_dashboard(user_id):
             article_title = article.title if article else "Unknown article"
             article_lang = article.language.code.upper() if article and article.language else "?"
 
+            # Get translations made for this article
+            article_translations = []
+            if article and article.source_id:
+                article_bookmarks = (
+                    Bookmark.query
+                    .join(UserWord, Bookmark.user_word_id == UserWord.id)
+                    .filter(UserWord.user_id == user_id)
+                    .filter(Bookmark.source_id == article.source_id)
+                    .filter(Bookmark.time >= start)
+                    .filter(Bookmark.time < end)
+                    .all()
+                )
+                for bm in article_bookmarks:
+                    if bm.user_word and bm.user_word.meaning:
+                        origin = bm.user_word.meaning.origin
+                        translation = bm.user_word.meaning.translation
+                        article_translations.append({
+                            "word": origin.content if origin else "?",
+                            "translation": translation.content if translation else "?",
+                        })
+
+            words_html = ""
+            if article_translations:
+                words_html = '<ul class="word-list" style="margin-top:10px;">'
+                for t in article_translations:
+                    words_html += f'<li>{t["word"]} → {t["translation"]}</li>'
+                words_html += '</ul>'
+
+            translation_count = f" | {len(article_translations)} words" if article_translations else ""
+
             html += f"""
             <div class="session-card">
                 <div class="session-header">
                     <span class="session-time">{session.start_time.strftime('%H:%M')}</span>
                     <span class="session-lang">{article_lang}</span>
-                    <span class="session-duration">{duration_min:.1f} min</span>
+                    <span class="session-duration">{duration_min:.1f} min{translation_count}</span>
                 </div>
                 <p style="margin:0;"><strong>{article_title}</strong></p>
+                {words_html}
             </div>
 """
     else:
@@ -863,13 +990,44 @@ def user_stats_individual_dashboard(user_id):
         </div>
 
         <div class="section">
-            <h2>Translations</h2>
+            <h2>Audio Lessons</h2>
 """
 
-    if bookmarks:
+    if audio_lessons:
+        for lesson in audio_lessons:
+            duration_min = (lesson.duration_seconds or 0) / 60
+            lesson_lang = lesson.language.code.upper() if lesson.language else "?"
+            completed_time = lesson.completed_at.strftime('%H:%M') if lesson.completed_at else "?"
+
+            html += f"""
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-time">{completed_time}</span>
+                    <span class="session-lang">{lesson_lang}</span>
+                    <span class="session-duration">{duration_min:.1f} min</span>
+                </div>
+                <p style="margin:0;"><strong>Daily Lesson ({lesson.meaning_count} words)</strong></p>
+            </div>
+"""
+    else:
+        html += '<p style="color:#7f8c8d; text-align:center;">No audio lessons in this period.</p>'
+
+    html += """
+        </div>
+"""
+
+    # Filter bookmarks to only show those NOT associated with any reading session article
+    # (those without a source_id, i.e., translations made outside of articles)
+    other_bookmarks = [bm for bm in bookmarks if not bm.source_id]
+
+    if other_bookmarks:
+        html += """
+        <div class="section">
+            <h2>Other Translations</h2>
+"""
         # Group translations by language
         translations_by_lang = defaultdict(list)
-        for bm in bookmarks:
+        for bm in other_bookmarks:
             if bm.user_word and bm.user_word.meaning:
                 origin = bm.user_word.meaning.origin
                 translation = bm.user_word.meaning.translation
@@ -896,15 +1054,294 @@ def user_stats_individual_dashboard(user_id):
                 </ul>
             </div>
 """
-    else:
-        html += '<p style="color:#7f8c8d; text-align:center;">No translations in this period.</p>'
+        html += """
+        </div>
+"""
 
     html += f"""
-        </div>
 
         <p style="color:#7f8c8d; font-size:0.9em; margin-top:30px;">
             Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} |
             <a href="/user_stats/user/{user_id}?period={period}">JSON API</a>
+        </p>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, mimetype='text/html')
+
+
+@api.route("/user_stats/cohort/<int:cohort_id>/dashboard", methods=["GET"])
+@cross_domain
+@requires_session
+@only_admins
+def user_stats_cohort_dashboard(cohort_id):
+    """HTML dashboard for cohort activity with teacher info."""
+    period = request.args.get("period", "yesterday")
+    start, end, period_label = get_period_range(period)
+
+    cohort = Cohort.query.get(cohort_id)
+    if not cohort:
+        return Response("<h1>Cohort not found</h1>", status=404, mimetype='text/html')
+
+    # Get teachers for this cohort
+    teachers = cohort.get_teachers()
+    teacher_names = ", ".join(t.name for t in teachers) if teachers else "No teacher assigned"
+    teacher_emails = ", ".join(t.email for t in teachers) if teachers else ""
+
+    # Get all students in the cohort
+    students = cohort.get_students()
+    student_ids = {s.id for s in students}
+
+    # Collect activity for cohort members only
+    users_by_language = defaultdict(list)
+
+    for user in students:
+        user_id = user.id
+        exercise_stats = get_exercise_stats_for_user(user_id, start, end)
+        reading_stats = get_reading_stats_for_user(user_id, start, end)
+        translation_stats = get_translations_for_user(user_id, start, end)
+        audio_stats = get_audio_lesson_stats_for_user(user_id, start, end)
+
+        # Determine languages from activity
+        active_languages = set()
+        active_languages.update(exercise_stats["words_by_language"].keys())
+        active_languages.update(reading_stats["articles_by_language"].keys())
+        active_languages.update(translation_stats["by_language"].keys())
+        active_languages.update(audio_stats["lessons_by_language"].keys())
+
+        # If no activity, still show under cohort's default language
+        if not active_languages:
+            if cohort.language:
+                active_languages = {cohort.language.code}
+            else:
+                active_languages = {"unknown"}
+
+        user_data = {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "exercise_duration_min": exercise_stats["duration_min"],
+            "exercise_sessions": exercise_stats["session_count"],
+            "exercise_words": exercise_stats["words_by_language"],
+            "reading_duration_min": reading_stats["duration_min"],
+            "articles_read": reading_stats["articles_by_language"],
+            "translations": translation_stats["by_language"],
+            "audio_lessons": audio_stats["lessons_by_language"],
+            "audio_duration_min": audio_stats["duration_min"],
+            "audio_duration_by_language": audio_stats["duration_by_language"],
+            "languages": list(active_languages),
+            "has_activity": (exercise_stats["session_count"] > 0 or
+                           reading_stats["session_count"] > 0 or
+                           translation_stats["total"] > 0 or
+                           audio_stats["lesson_count"] > 0),
+        }
+
+        for lang in active_languages:
+            users_by_language[lang].append(user_data)
+
+    # Calculate totals
+    total_exercise_min = 0
+    total_reading_min = 0
+    total_audio_min = 0
+    active_users = set()
+
+    for lang_code, users in users_by_language.items():
+        for u in users:
+            if u["has_activity"]:
+                active_users.add(u["id"])
+            total_exercise_min += u["exercise_duration_min"]
+            total_reading_min += u["reading_duration_min"]
+            total_audio_min += u["audio_duration_by_language"].get(lang_code, 0)
+
+    # Get language names
+    languages = {l.code: l.name for l in Language.available_languages()}
+
+    # Sort languages by activity
+    sorted_languages = sorted(
+        users_by_language.items(),
+        key=lambda x: sum(u["exercise_duration_min"] + u["reading_duration_min"] for u in x[1]),
+        reverse=True
+    )
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{cohort.name} - Cohort Stats</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }}
+        .container {{ max-width: 1400px; margin: 0 auto; }}
+        h1 {{ color: #2c3e50; margin-bottom: 5px; }}
+        .subtitle {{ color: #7f8c8d; margin-bottom: 20px; }}
+        .back-link {{ color: #3498db; text-decoration: none; margin-bottom: 15px; display: inline-block; }}
+        .back-link:hover {{ text-decoration: underline; }}
+        .teacher-info {{
+            background: #e8f4f8; padding: 15px; border-radius: 8px;
+            margin-bottom: 20px; border-left: 4px solid #3498db;
+        }}
+        .teacher-info h3 {{ margin: 0 0 5px 0; color: #2c3e50; }}
+        .teacher-info p {{ margin: 0; color: #555; }}
+        .summary {{
+            display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;
+        }}
+        .stat-card {{
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }}
+        .stat-card .number {{ font-size: 2em; font-weight: bold; color: #3498db; }}
+        .stat-card .label {{ color: #7f8c8d; font-size: 0.9em; }}
+        .section {{
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }}
+        .section h2 {{ margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #eee; }}
+        th {{ background: #f8f9fa; font-weight: 600; }}
+        tr:hover {{ background: #f8f9fa; }}
+        .lang-code {{
+            display: inline-block; padding: 2px 8px;
+            background: #3498db; color: white; border-radius: 4px;
+            font-weight: bold; font-size: 0.9em;
+        }}
+        .nav {{ margin-bottom: 20px; }}
+        .nav a {{
+            display: inline-block; padding: 8px 16px; margin-right: 10px;
+            background: #3498db; color: white; text-decoration: none;
+            border-radius: 4px;
+        }}
+        .nav a:hover {{ background: #2980b9; }}
+        .nav a.active {{ background: #2c3e50; }}
+        .user-link {{ color: #3498db; text-decoration: none; }}
+        .user-link:hover {{ text-decoration: underline; }}
+        .no-activity {{ color: #bdc3c7; }}
+        .duration {{ font-family: monospace; }}
+        .inactive-row {{ background: #fafafa; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/user_stats/dashboard?period={period}" class="back-link">&larr; Back to overview</a>
+        <h1>{cohort.name}</h1>
+        <p class="subtitle">
+            Invite code: <strong>{cohort.inv_code}</strong> |
+            {period_label} ({start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')})
+        </p>
+
+        <div class="teacher-info">
+            <h3>Teacher</h3>
+            <p><strong>{teacher_names}</strong></p>
+            {f'<p style="font-size:0.9em; color:#666;">{teacher_emails}</p>' if teacher_emails else ''}
+        </div>
+
+        <div class="nav">
+            <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
+            <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
+            <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
+        </div>
+
+        <div class="summary">
+            <div class="stat-card">
+                <div class="number">{len(students)}</div>
+                <div class="label">Total Students</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{len(active_users)}</div>
+                <div class="label">Active Students</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{round(total_exercise_min, 0):.0f}</div>
+                <div class="label">Exercise Minutes</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{round(total_reading_min, 0):.0f}</div>
+                <div class="label">Reading Minutes</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{round(total_audio_min, 0):.0f}</div>
+                <div class="label">Audio Minutes</div>
+            </div>
+        </div>
+"""
+
+    for lang_code, users in sorted_languages:
+        lang_name = languages.get(lang_code, lang_code.upper())
+
+        # Sort users: active first, then by total activity
+        sorted_users = sorted(
+            users,
+            key=lambda u: (u["has_activity"], u["exercise_duration_min"] + u["reading_duration_min"]),
+            reverse=True
+        )
+
+        html += f"""
+        <div class="section">
+            <h2><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h2>
+            <table>
+                <tr>
+                    <th>Student</th>
+                    <th>Exercises</th>
+                    <th>Words</th>
+                    <th>Reading</th>
+                    <th>Articles</th>
+                    <th>Translations</th>
+                    <th>Audio</th>
+                    <th>Audio Time</th>
+                </tr>
+"""
+
+        for user in sorted_users:
+            exercise_words = user["exercise_words"].get(lang_code, 0)
+            articles = user["articles_read"].get(lang_code, 0)
+            translations = user["translations"].get(lang_code, 0)
+            audio_lessons = user["audio_lessons"].get(lang_code, 0)
+            audio_duration = user["audio_duration_by_language"].get(lang_code, 0)
+
+            row_class = "" if user["has_activity"] else "inactive-row"
+            exercise_class = "" if user["exercise_duration_min"] > 0 else "no-activity"
+            reading_class = "" if user["reading_duration_min"] > 0 else "no-activity"
+            audio_class = "" if audio_lessons > 0 else "no-activity"
+
+            html += f"""
+                <tr class="{row_class}">
+                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{user['name']}</a></td>
+                    <td class="{exercise_class} duration">{user['exercise_duration_min']:.1f} min</td>
+                    <td class="{exercise_class}">{exercise_words}</td>
+                    <td class="{reading_class} duration">{user['reading_duration_min']:.1f} min</td>
+                    <td class="{reading_class}">{articles}</td>
+                    <td>{translations}</td>
+                    <td class="{audio_class}">{audio_lessons}</td>
+                    <td class="{audio_class} duration">{audio_duration:.1f} min</td>
+                </tr>
+"""
+
+        html += """
+            </table>
+        </div>
+"""
+
+    if not users_by_language:
+        html += """
+        <div class="section">
+            <p style="text-align:center; color:#7f8c8d; padding: 40px;">
+                No students in this cohort.
+            </p>
+        </div>
+"""
+
+    html += f"""
+        <p style="color:#7f8c8d; font-size:0.9em; margin-top:30px;">
+            Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         </p>
     </div>
 </body>
