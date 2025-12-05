@@ -1,25 +1,11 @@
 import flask
-from datetime import datetime
 from flask import request, make_response, current_app
 from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.session_helpers import is_session_too_old, force_user_to_relog
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
-
-DAYS_BEFORE_EXPIRE = 30  # Days
-
-
-def is_session_too_old(session_object):
-    return (datetime.now() - session_object.last_use).days > DAYS_BEFORE_EXPIRE
-
-
-def force_user_to_relog(session_object, reason: str = ""):
-    print(
-        f"Session for user '{session_object.user_id}' was terminated. Reason: '{reason}'"
-    )
-    db_session.delete(session_object)
-    db_session.commit()
 
 
 @api.route("/session/<email>", methods=["POST"])
