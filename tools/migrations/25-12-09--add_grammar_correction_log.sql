@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS grammar_correction_log (
     -- Which article was corrected
     article_id INT NOT NULL,
 
-    -- What field was corrected: 'title', 'content', or 'summary'
-    field_type VARCHAR(20) NOT NULL,
+    -- What field was corrected
+    field_type ENUM('TITLE', 'CONTENT', 'SUMMARY') NOT NULL,
 
     -- The actual correction (before and after)
     original_text TEXT NOT NULL,

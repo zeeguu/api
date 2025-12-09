@@ -95,4 +95,4 @@ from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment
 
 # grammar correction tracking
-from .grammar_correction_log import GrammarCorrectionLog
+from .grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType

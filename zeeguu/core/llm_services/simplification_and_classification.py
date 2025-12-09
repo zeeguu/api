@@ -628,6 +628,14 @@ def simplify_and_classify(
                 from zeeguu.core.model.grammar_correction_log import GrammarCorrectionLog
                 from .grammar_correction_service import ANTHROPIC_CORRECTION_MODEL
 
+                from zeeguu.core.model.grammar_correction_log import CorrectionFieldType
+
+                field_to_enum = {
+                    "title": CorrectionFieldType.TITLE,
+                    "content": CorrectionFieldType.CONTENT,
+                    "summary": CorrectionFieldType.SUMMARY,
+                }
+
                 for simplified_article in simplified_articles:
                     level = simplified_article.cefr_level
                     if level in uncorrected_versions and level in versions:
@@ -640,7 +648,7 @@ def simplify_and_classify(
                                 GrammarCorrectionLog.log_correction(
                                     session=session,
                                     article_id=simplified_article.id,
-                                    field_type=field,
+                                    field_type=field_to_enum[field],
                                     original_text=uncorrected[field],
                                     corrected_text=corrected[field],
                                     language_code=language_code,

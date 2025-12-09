@@ -9,9 +9,16 @@ This allows us to:
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from enum import Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.db import db
+
+
+class CorrectionFieldType(Enum):
+    TITLE = "title"
+    CONTENT = "content"
+    SUMMARY = "summary"
 
 
 class GrammarCorrectionLog(db.Model):
@@ -29,7 +36,7 @@ class GrammarCorrectionLog(db.Model):
     article = relationship("Article")
 
     # What field was corrected
-    field_type = Column(String(20), nullable=False)  # 'title', 'content', or 'summary'
+    field_type = Column(SQLEnum(CorrectionFieldType), nullable=False)
 
     # The actual correction
     original_text = Column(Text, nullable=False)
