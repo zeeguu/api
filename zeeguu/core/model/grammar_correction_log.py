@@ -47,10 +47,12 @@ class GrammarCorrectionLog(db.Model):
     language = relationship("Language")
 
     # Which model did the simplification (to correlate errors with simplifiers)
-    simplification_model = Column(String(100), nullable=True)
+    simplification_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"), nullable=True, index=True)
+    simplification_ai_generator = relationship("AIGenerator", foreign_keys=[simplification_ai_generator_id])
 
     # Which model did the correction
-    correction_model = Column(String(100), nullable=False)
+    correction_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"), nullable=False)
+    correction_ai_generator = relationship("AIGenerator", foreign_keys=[correction_ai_generator_id])
 
     # When
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -62,16 +64,16 @@ class GrammarCorrectionLog(db.Model):
         original_text,
         corrected_text,
         language_id,
-        correction_model,
-        simplification_model=None,
+        correction_ai_generator_id,
+        simplification_ai_generator_id=None,
     ):
         self.article_id = article_id
         self.field_type = field_type
         self.original_text = original_text
         self.corrected_text = corrected_text
         self.language_id = language_id
-        self.correction_model = correction_model
-        self.simplification_model = simplification_model
+        self.correction_ai_generator_id = correction_ai_generator_id
+        self.simplification_ai_generator_id = simplification_ai_generator_id
 
     def __repr__(self):
         return f"<GrammarCorrectionLog article={self.article_id} field={self.field_type}>"
@@ -85,8 +87,8 @@ class GrammarCorrectionLog(db.Model):
         original_text,
         corrected_text,
         language_id,
-        correction_model,
-        simplification_model=None,
+        correction_ai_generator_id,
+        simplification_ai_generator_id=None,
     ):
         """
         Log a grammar correction if there was actually a change.
@@ -104,8 +106,8 @@ class GrammarCorrectionLog(db.Model):
             original_text=original_text,
             corrected_text=corrected_text,
             language_id=language_id,
-            correction_model=correction_model,
-            simplification_model=simplification_model,
+            correction_ai_generator_id=correction_ai_generator_id,
+            simplification_ai_generator_id=simplification_ai_generator_id,
         )
         session.add(log_entry)
         return log_entry
@@ -132,14 +134,14 @@ class GrammarCorrectionLog(db.Model):
         Useful for comparing error rates between DeepSeek and Anthropic.
 
         Returns:
-            List of (simplification_model, correction_count) tuples
+            List of (simplification_ai_generator_id, correction_count) tuples
         """
         from sqlalchemy import func
 
         query = db.session.query(
-            cls.simplification_model,
+            cls.simplification_ai_generator_id,
             func.count(cls.id).label('correction_count')
-        ).group_by(cls.simplification_model)
+        ).group_by(cls.simplification_ai_generator_id)
 
         if language_id:
             query = query.filter(cls.language_id == language_id)

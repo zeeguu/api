@@ -625,16 +625,19 @@ def simplify_and_classify(
         if uncorrected_versions:
             log(f"  Logging grammar corrections...")
             try:
-                from zeeguu.core.model.grammar_correction_log import GrammarCorrectionLog
+                from zeeguu.core.model.grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType
+                from zeeguu.core.model.ai_generator import AIGenerator
                 from .grammar_correction_service import ANTHROPIC_CORRECTION_MODEL
-
-                from zeeguu.core.model.grammar_correction_log import CorrectionFieldType
 
                 field_to_enum = {
                     "title": CorrectionFieldType.TITLE,
                     "content": CorrectionFieldType.CONTENT,
                     "summary": CorrectionFieldType.SUMMARY,
                 }
+
+                # Get or create AIGenerator records
+                simplification_ai_generator = AIGenerator.find_or_create(session, model_name)
+                correction_ai_generator = AIGenerator.find_or_create(session, ANTHROPIC_CORRECTION_MODEL)
 
                 for simplified_article in simplified_articles:
                     level = simplified_article.cefr_level
@@ -652,8 +655,8 @@ def simplify_and_classify(
                                     original_text=uncorrected[field],
                                     corrected_text=corrected[field],
                                     language_id=original_article.language_id,
-                                    correction_model=ANTHROPIC_CORRECTION_MODEL,
-                                    simplification_model=model_name,
+                                    correction_ai_generator_id=correction_ai_generator.id,
+                                    simplification_ai_generator_id=simplification_ai_generator.id,
                                 )
 
                 session.commit()
