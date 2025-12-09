@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS grammar_correction_log (
     original_text TEXT NOT NULL,
     corrected_text TEXT NOT NULL,
 
-    -- Language for easier querying
-    language_code VARCHAR(10) NOT NULL,
+    -- Language
+    language_id INT NOT NULL,
 
     -- Which model did the simplification (to correlate errors with simplifiers)
     simplification_model VARCHAR(100),
@@ -26,12 +26,13 @@ CREATE TABLE IF NOT EXISTS grammar_correction_log (
     -- When the correction was made
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-    -- Foreign key to article
+    -- Foreign keys
     FOREIGN KEY (article_id) REFERENCES article(id) ON DELETE CASCADE,
+    FOREIGN KEY (language_id) REFERENCES language(id),
 
     -- Indexes for common queries
     INDEX idx_article_id (article_id),
-    INDEX idx_language_code (language_code),
+    INDEX idx_language_id (language_id),
     INDEX idx_created_at (created_at),
     INDEX idx_simplification_model (simplification_model)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -651,7 +651,7 @@ def simplify_and_classify(
                                     field_type=field_to_enum[field],
                                     original_text=uncorrected[field],
                                     corrected_text=corrected[field],
-                                    language_code=language_code,
+                                    language_id=original_article.language_id,
                                     correction_model=ANTHROPIC_CORRECTION_MODEL,
                                     simplification_model=model_name,
                                 )
