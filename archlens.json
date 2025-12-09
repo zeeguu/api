@@ -24,6 +24,9 @@
           "depth": 1
         }
       ],
+      "files": [
+        "api.app"
+      ],
       "ignorePackages": [
         "*test*",
         "core"
@@ -52,6 +55,93 @@
         "core.nlp_pipeline",
         "core.semantic_search",
         "core.tokenization"
+      ]
+    },
+    "content-pipeline": {
+      "packages": [
+        "core.feed_handler",
+        "core.content_retriever",
+        "core.content_cleaning",
+        "core.content_quality",
+        "core.tokenization",
+        "core.elastic",
+        "core.content_recommender"
+      ],
+      "files": [
+        "core.model.article",
+        "core.model.feed",
+        "core.model.source"
+      ]
+    },
+    "learning-system": {
+      "packages": [
+        "core.word_scheduling",
+        "core.exercises",
+        "core.bookmark_quality",
+        "core.bookmark_operations"
+      ],
+      "files": [
+        "core.model.bookmark",
+        "core.model.user_word",
+        "core.model.exercise",
+        "core.model.exercise_outcome",
+        "api.endpoints.bookmarks_and_words",
+        "api.endpoints.exercises"
+      ]
+    },
+    "language-processing": {
+      "packages": [
+        "core.tokenization",
+        "core.nlp_pipeline",
+        "core.language",
+        "core.ml_models",
+        "core.llm_services",
+        "core.semantic_search",
+        "core.semantic_vector_api"
+      ],
+      "files": [
+        "api.endpoints.translation",
+        "api.endpoints.nlp"
+      ]
+    },
+    "user-management": {
+      "packages": [
+        "core.account_management",
+        "core.user_statistics",
+        "core.user_activity_hooks"
+      ],
+      "files": [
+        "core.model.user",
+        "core.model.session",
+        "core.model.cohort",
+        "core.model.teacher",
+        "api.endpoints.accounts",
+        "api.endpoints.user",
+        "api.endpoints.sessions"
+      ]
+    },
+    "audio-lessons": {
+      "packages": [
+        "core.audio_lessons",
+        "core.llm_services"
+      ],
+      "files": [
+        "core.model.daily_audio_lesson",
+        "core.model.daily_audio_lesson_segment",
+        "core.model.audio_lesson_meaning",
+        "api.endpoints.audio_lessons"
+      ]
+    },
+    "llm-services-files": {
+      "packages": [
+        "core.llm_services.prompts"
+      ],
+      "files": [
+        "core.llm_services.anthropic_service",
+        "core.llm_services.deepseek_service",
+        "core.llm_services.llm_service",
+        "core.llm_services.simplification_service",
+        "core.llm_services.simplification_and_classification"
       ]
     }
   }
