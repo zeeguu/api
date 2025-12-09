@@ -1,10 +1,11 @@
 """
-Article simplification and content classification using DeepSeek API.
+Article simplification and content classification.
 
 This module handles:
 - Creating CEFR-level appropriate simplified versions of articles
 - Classifying content (disturbing news, etc.)
 - Both operations done in a single LLM call for efficiency
+- Round-robin between DeepSeek and Anthropic for A/B comparison
 """
 
 import os
@@ -15,6 +16,24 @@ from zeeguu.logging import log
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .prompts.article_simplification import get_adaptive_simplification_prompt
+
+
+# Round-robin counter for alternating between providers
+_simplification_provider_counter = 0
+
+
+def _get_next_simplification_provider() -> str:
+    """
+    Round-robin between 'deepseek' and 'anthropic' for simplification.
+    This allows A/B comparison of error rates between providers.
+    """
+    global _simplification_provider_counter
+    _simplification_provider_counter += 1
+
+    if _simplification_provider_counter % 2 == 0:
+        return 'deepseek'
+    else:
+        return 'anthropic'
 
 
 def get_target_levels_for_original_level(original_level: str) -> list[str]:
@@ -58,7 +77,8 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
 
 
 def simplify_article_adaptive_levels(
-    title: str, content: str, target_language: str, model: str = "deepseek-chat", simplification_provider: str = None
+    title: str, content: str, target_language: str, model: str = "deepseek-chat",
+    simplification_provider: str = None, correct_grammar: bool = True
 ) -> dict:
     """
     Simplify article to all levels simpler than the original using a single API call.
@@ -70,6 +90,7 @@ def simplify_article_adaptive_levels(
         target_language: Language code (e.g., 'da', 'es')
         model: Model to use (deprecated, provider chosen automatically)
         simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
+        correct_grammar: Whether to run a separate grammar/spelling correction pass after simplification (default: True). Corrections are logged to grammar_correction_log table for monitoring.
 
     Returns:
         Dict containing all simplified versions and original metadata:
@@ -94,8 +115,12 @@ def simplify_article_adaptive_levels(
     prompt_template = get_adaptive_simplification_prompt(target_language)
     prompt = prompt_template.format(title=title, content=content)
 
-    # Use specified provider if set (for parallel processing), otherwise default to DeepSeek
-    provider = simplification_provider if simplification_provider else 'deepseek'
+    # Choose provider: use specified, or round-robin between deepseek and anthropic
+    if simplification_provider:
+        provider = simplification_provider
+    else:
+        # Round-robin based on a simple counter
+        provider = _get_next_simplification_provider()
     log(f"Using {provider.upper()} provider for simplification")
 
     # Try the chosen provider first, fallback to the other if it fails
@@ -318,12 +343,40 @@ def simplify_article_adaptive_levels(
                 f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
             )
 
+        # Grammar correction pass - fix spelling/grammar errors introduced during simplification
+        uncorrected_versions = None
+        if correct_grammar and simplified_levels:
+            log(f"  Running grammar correction pass on {len(simplified_levels)} simplified versions...")
+            try:
+                from .grammar_correction_service import get_grammar_correction_service
+                grammar_service = get_grammar_correction_service()
+
+                # Keep a copy of uncorrected versions for logging
+                import copy
+                uncorrected_versions = copy.deepcopy(versions)
+
+                for level in simplified_levels:
+                    if level in versions:
+                        log(f"    Correcting {level} version...")
+                        corrected = grammar_service.correct_simplified_version(
+                            versions[level], target_language, provider="anthropic"
+                        )
+                        versions[level] = corrected
+                        log(f"    {level} version corrected")
+
+                log(f"  Grammar correction completed for all levels")
+            except Exception as e:
+                # Log but don't fail - uncorrected simplification is better than no simplification
+                log(f"  WARNING: Grammar correction failed, using uncorrected versions: {e}")
+                uncorrected_versions = None  # Don't log if correction failed
+
         return {
             "is_disturbing": is_disturbing,
             "original_cefr_level": original_level,
             "original_summary": original_summary,
             "simplified_levels": simplified_levels,
             "versions": versions,
+            "uncorrected_versions": uncorrected_versions,  # For logging corrections
             "provider": provider,
             "model_name": model_name,
         }
@@ -495,6 +548,7 @@ def simplify_and_classify(
         original_summary = result["original_summary"]
         simplified_levels = result["simplified_levels"]
         versions = result["versions"]
+        uncorrected_versions = result.get("uncorrected_versions")  # For logging corrections
         provider = result["provider"]
         model_name = result["model_name"]
 
@@ -566,6 +620,39 @@ def simplify_and_classify(
         log(f"  Committing URL updates...")
         session.commit()
         log(f"  URL updates committed")
+
+        # Log grammar corrections if any were made
+        if uncorrected_versions:
+            log(f"  Logging grammar corrections...")
+            try:
+                from zeeguu.core.model.grammar_correction_log import GrammarCorrectionLog
+                from .grammar_correction_service import ANTHROPIC_CORRECTION_MODEL
+
+                for simplified_article in simplified_articles:
+                    level = simplified_article.cefr_level
+                    if level in uncorrected_versions and level in versions:
+                        uncorrected = uncorrected_versions[level]
+                        corrected = versions[level]
+
+                        # Log each field if it changed
+                        for field in ["title", "content", "summary"]:
+                            if field in uncorrected and field in corrected:
+                                GrammarCorrectionLog.log_correction(
+                                    session=session,
+                                    article_id=simplified_article.id,
+                                    field_type=field,
+                                    original_text=uncorrected[field],
+                                    corrected_text=corrected[field],
+                                    language_code=language_code,
+                                    correction_model=ANTHROPIC_CORRECTION_MODEL,
+                                    simplification_model=model_name,
+                                )
+
+                session.commit()
+                log(f"  Grammar corrections logged")
+            except Exception as e:
+                log(f"  WARNING: Failed to log grammar corrections: {e}")
+                # Don't fail the whole operation just because logging failed
 
         # Collect classifications detected by LLM
         classifications = []
