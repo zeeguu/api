@@ -1,0 +1,169 @@
+"""
+Tracks grammar/spelling corrections made to simplified articles.
+
+This allows us to:
+1. See how many errors are being fixed
+2. Identify patterns in errors
+3. Compare error rates between different simplification models
+4. Evaluate if the correction pass is worth the cost
+"""
+
+from datetime import datetime
+from enum import Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy.orm import relationship
+from zeeguu.core.model.db import db
+
+
+class CorrectionFieldType(Enum):
+    TITLE = "title"
+    CONTENT = "content"
+    SUMMARY = "summary"
+
+
+class GrammarCorrectionLog(db.Model):
+    """
+    Log of grammar/spelling corrections made to simplified articles.
+    """
+
+    __tablename__ = "grammar_correction_log"
+    __table_args__ = {"mysql_collate": "utf8mb4_unicode_ci"}
+
+    id = Column(Integer, primary_key=True)
+
+    # Which article was corrected
+    article_id = Column(Integer, ForeignKey("article.id"), nullable=False, index=True)
+    article = relationship("Article")
+
+    # What field was corrected
+    field_type = Column(SQLEnum(CorrectionFieldType), nullable=False)
+
+    # The actual correction
+    original_text = Column(Text, nullable=False)
+    corrected_text = Column(Text, nullable=False)
+
+    # Language
+    language_id = Column(Integer, ForeignKey("language.id"), nullable=False, index=True)
+    language = relationship("Language")
+
+    # Which model did the simplification (to correlate errors with simplifiers)
+    simplification_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"), nullable=True, index=True)
+    simplification_ai_generator = relationship("AIGenerator", foreign_keys=[simplification_ai_generator_id])
+
+    # Which model did the correction
+    correction_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"), nullable=False)
+    correction_ai_generator = relationship("AIGenerator", foreign_keys=[correction_ai_generator_id])
+
+    # When
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    def __init__(
+        self,
+        article_id,
+        field_type,
+        original_text,
+        corrected_text,
+        language_id,
+        correction_ai_generator_id,
+        simplification_ai_generator_id=None,
+    ):
+        self.article_id = article_id
+        self.field_type = field_type
+        self.original_text = original_text
+        self.corrected_text = corrected_text
+        self.language_id = language_id
+        self.correction_ai_generator_id = correction_ai_generator_id
+        self.simplification_ai_generator_id = simplification_ai_generator_id
+
+    def __repr__(self):
+        return f"<GrammarCorrectionLog article={self.article_id} field={self.field_type}>"
+
+    @classmethod
+    def log_correction(
+        cls,
+        session,
+        article_id,
+        field_type,
+        original_text,
+        corrected_text,
+        language_id,
+        correction_ai_generator_id,
+        simplification_ai_generator_id=None,
+    ):
+        """
+        Log a grammar correction if there was actually a change.
+
+        Returns:
+            GrammarCorrectionLog if correction was logged, None if texts were identical
+        """
+        # Only log if there was an actual change
+        if original_text == corrected_text:
+            return None
+
+        log_entry = cls(
+            article_id=article_id,
+            field_type=field_type,
+            original_text=original_text,
+            corrected_text=corrected_text,
+            language_id=language_id,
+            correction_ai_generator_id=correction_ai_generator_id,
+            simplification_ai_generator_id=simplification_ai_generator_id,
+        )
+        session.add(log_entry)
+        return log_entry
+
+    @classmethod
+    def get_corrections_for_article(cls, article_id):
+        """Get all corrections made to an article."""
+        return cls.query.filter_by(article_id=article_id).all()
+
+    @classmethod
+    def get_corrections_by_language(cls, language_id, limit=100):
+        """Get recent corrections for a language."""
+        return (
+            cls.query.filter_by(language_id=language_id)
+            .order_by(cls.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @classmethod
+    def get_correction_stats_by_simplifier(cls, language_id=None):
+        """
+        Get correction counts grouped by simplification model.
+        Useful for comparing error rates between DeepSeek and Anthropic.
+
+        Returns:
+            List of (simplification_ai_generator_id, correction_count) tuples
+        """
+        from sqlalchemy import func
+
+        query = db.session.query(
+            cls.simplification_ai_generator_id,
+            func.count(cls.id).label('correction_count')
+        ).group_by(cls.simplification_ai_generator_id)
+
+        if language_id:
+            query = query.filter(cls.language_id == language_id)
+
+        return query.all()
+
+    @classmethod
+    def get_correction_stats_by_field(cls, language_id=None):
+        """
+        Get correction counts grouped by field type.
+
+        Returns:
+            List of (field_type, correction_count) tuples
+        """
+        from sqlalchemy import func
+
+        query = db.session.query(
+            cls.field_type,
+            func.count(cls.id).label('correction_count')
+        ).group_by(cls.field_type)
+
+        if language_id:
+            query = query.filter(cls.language_id == language_id)
+
+        return query.all()

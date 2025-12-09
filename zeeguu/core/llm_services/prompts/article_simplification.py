@@ -2,23 +2,14 @@
 Prompt templates for article simplification using LLMs.
 """
 
-LANGUAGE_NAMES = {
-    "da": "Danish",
-    "es": "Spanish", 
-    "en": "English",
-    "de": "German",
-    "fr": "French",
-    "nl": "Dutch",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "ro": "Romanian",
-}
+from zeeguu.core.model.language import Language
+
 
 def get_adaptive_simplification_prompt(language: str) -> str:
     """
     Get the prompt template for creating all simplified versions based on the original article's level.
     """
-    language_name = LANGUAGE_NAMES.get(language, language)
+    language_name = Language.LANGUAGE_NAMES.get(language, language)
 
     return f"""You are an expert <<LANGUAGE_NAME>> language teacher. Your task is to assess an article's CEFR level and create simplified versions for ALL levels that are simpler than the original.
 
@@ -70,10 +61,18 @@ SIMPLIFICATION RULES:
 - PARAGRAPH-BY-PARAGRAPH: Work through each original paragraph and simplify its language while keeping all its content
 - For A1: Use basic vocabulary (1000 words) and simple sentences, but express ALL the original ideas
   Example: "Scientists conducted research" → "Scientists did research" (NOT "There was research")
-- For A2: Use expanded vocabulary (2000 words) with simple connectors, but maintain ALL details  
+- For A2: Use expanded vocabulary (2000 words) with simple connectors, but maintain ALL details
   Example: Include all facts, numbers, examples, and explanations from the original
 - For B1+: Use appropriate complexity while preserving ALL original content and structure
 - IMPORTANT: If original has 5 paragraphs, simplified version should have 5 paragraphs too
+
+PROOFREADING (CRITICAL):
+- Before outputting each simplified version, carefully proofread it for spelling and grammar errors
+- Ensure ALL words are correctly spelled in <<LANGUAGE_NAME>> - do not drop or add letters
+- Verify verb conjugations match the subject (person, number)
+- Check noun forms (singular/plural, gender where applicable)
+- Verify article-noun agreement
+- Simple vocabulary does NOT mean incorrect spelling - A1 text must still be grammatically perfect
 
 MARKDOWN FORMATTING RULES:
 - Use proper Markdown syntax for all content
