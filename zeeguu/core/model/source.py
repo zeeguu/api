@@ -43,7 +43,7 @@ class Source(db.Model):
         )
 
     def get_content(self):
-        return self.source_text.content
+        return self.source_text.content if self.source_text else ""
 
     @classmethod
     def find_by_id(cls, id: int):
