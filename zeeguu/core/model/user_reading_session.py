@@ -34,7 +34,7 @@ class UserReadingSession(db.Model):
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
-    reading_source = db.Column(db.String(20))  # 'extension' or 'web'
+    reading_source = db.Column(db.Enum('extension', 'web', name='reading_source_enum'))
 
     def __init__(self, user_id, article_id, current_time=None, reading_source=None):
         self.user_id = user_id
