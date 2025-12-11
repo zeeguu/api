@@ -141,6 +141,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
         # Get translation source from frontend, default to 'reading'
         translation_source = request.json.get("translation_source", "reading")
+        browsing_session_id = request.json.get("browsing_session_id", None)
 
         bookmark = Bookmark.find_or_create(
             db_session,
@@ -162,6 +163,7 @@ def get_one_translation(from_lang_code, to_lang_code):
             total_tokens=w_total_tokens,
             context_identifier=context_identifier,
             translation_source=translation_source,
+            browsing_session_id=browsing_session_id,
         )
 
         bookmark_elapsed = time.time() - bookmark_start
