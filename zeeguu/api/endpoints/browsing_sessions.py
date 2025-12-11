@@ -5,7 +5,6 @@ from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
 from .helpers.activity_sessions import update_activity_session
 from ...core.model import UserBrowsingSession
-from datetime import datetime
 
 
 @api.route(
@@ -14,10 +13,7 @@ from datetime import datetime
 )
 @requires_session
 def browsing_session_start():
-    page_type = request.form.get("page_type", "home")
-    session = UserBrowsingSession(flask.g.user_id, page_type, datetime.now())
-    db_session.add(session)
-    db_session.commit()
+    session = UserBrowsingSession._create_new_session(db_session, flask.g.user_id)
     return json_result(dict(id=session.id))
 
 
