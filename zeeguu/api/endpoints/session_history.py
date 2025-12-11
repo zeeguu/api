@@ -22,7 +22,7 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
-from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
+from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS, EVENT_OPEN_ARTICLE
 
 
 def _bookmarks_for_reading_session(session_id, language_id=None):
@@ -236,12 +236,22 @@ def session_history():
         )
         focus_level = _calculate_focus_level(interruptions, rs.duration, len(bookmarks))
 
-        # Determine reading source: extension (has uploader, no feed) vs web reader (has feed)
+        # Determine reading source from OPEN ARTICLE activity log
+        # The source (EXTENSION or UMR) is stored in extra_data field
         reading_source = None
-        if rs.article:
-            if rs.article.uploader_id and not rs.article.feed_id:
+        open_article_event = (
+            UserActivityData.query
+            .filter(UserActivityData.user_id == user.id)
+            .filter(UserActivityData.event == EVENT_OPEN_ARTICLE)
+            .filter(UserActivityData.article_id == rs.article_id)
+            .filter(UserActivityData.time >= rs.start_time)
+            .filter(UserActivityData.time <= rs.start_time + timedelta(minutes=5))
+            .first()
+        )
+        if open_article_event and open_article_event.extra_data:
+            if open_article_event.extra_data == "EXTENSION":
                 reading_source = "extension"
-            elif rs.article.feed_id:
+            elif open_article_event.extra_data == "UMR":
                 reading_source = "web"
 
         sessions.append(
