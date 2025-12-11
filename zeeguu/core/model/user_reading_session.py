@@ -34,8 +34,9 @@ class UserReadingSession(db.Model):
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
+    reading_source = db.Column(db.String(20))  # 'extension' or 'web'
 
-    def __init__(self, user_id, article_id, current_time=None):
+    def __init__(self, user_id, article_id, current_time=None, reading_source=None):
         self.user_id = user_id
         self.article_id = article_id
         self.is_active = True
@@ -48,6 +49,7 @@ class UserReadingSession(db.Model):
         self.start_time = current_time
         self.last_action_time = current_time
         self.duration = 0
+        self.reading_source = reading_source
 
     def human_readable_duration(self):
         return human_readable_duration(self.duration)

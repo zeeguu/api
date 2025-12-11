@@ -15,7 +15,9 @@ from datetime import datetime
 @requires_session
 def reading_session_start():
     article_id = int(request.form.get("article_id", ""))
-    session = UserReadingSession(flask.g.user_id, article_id, datetime.now())
+    # reading_source: 'extension' or 'web' (optional for backwards compatibility)
+    reading_source = request.form.get("reading_source", None)
+    session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source)
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))
