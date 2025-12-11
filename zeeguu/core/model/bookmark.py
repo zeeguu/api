@@ -50,6 +50,9 @@ class Bookmark(db.Model):
     # Link to browsing session if translation was made while browsing article lists
     browsing_session_id = db.Column(db.Integer, db.ForeignKey("user_browsing_session.id"), nullable=True)
 
+    # Link to reading session if translation was made while reading an article
+    reading_session_id = db.Column(db.Integer, db.ForeignKey("user_reading_session.id"), nullable=True)
+
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
@@ -65,6 +68,7 @@ class Bookmark(db.Model):
         context: BookmarkContext = None,
         translation_source: str = 'reading',
         browsing_session_id: int = None,
+        reading_session_id: int = None,
     ):
         self.user_word = user_word
         self.source = source
@@ -72,6 +76,7 @@ class Bookmark(db.Model):
         self.time = time
         self.translation_source = translation_source
         self.browsing_session_id = browsing_session_id
+        self.reading_session_id = reading_session_id
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
@@ -176,7 +181,7 @@ class Bookmark(db.Model):
         result["from"] = self.user_word.meaning.origin.content
         result["to"] = self.user_word.meaning.translation.content
         result["fit_for_study"] = self.user_word.fit_for_study
-        result["url"] = self.text.url()
+        result["url"] = self.text.url() if self.text else ""
         
         # Add word rank if available
         word_rank = self.user_word.meaning.origin.rank
@@ -324,6 +329,7 @@ class Bookmark(db.Model):
         level: int = 0,
         translation_source: str = 'reading',
         browsing_session_id: int = None,
+        reading_session_id: int = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -410,6 +416,7 @@ class Bookmark(db.Model):
                 context=context,
                 translation_source=translation_source,
                 browsing_session_id=browsing_session_id,
+                reading_session_id=reading_session_id,
             )
         except Exception as e:
             raise e
