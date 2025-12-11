@@ -171,7 +171,7 @@ class Bookmark(db.Model):
         result["from"] = self.user_word.meaning.origin.content
         result["to"] = self.user_word.meaning.translation.content
         result["fit_for_study"] = self.user_word.fit_for_study
-        result["url"] = self.text.url()
+        result["url"] = self.text.url() if self.text else ""
         
         # Add word rank if available
         word_rank = self.user_word.meaning.origin.rank
