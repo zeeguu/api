@@ -236,6 +236,14 @@ def session_history():
         )
         focus_level = _calculate_focus_level(interruptions, rs.duration, len(bookmarks))
 
+        # Determine reading source: extension (has uploader, no feed) vs web reader (has feed)
+        reading_source = None
+        if rs.article:
+            if rs.article.uploader_id and not rs.article.feed_id:
+                reading_source = "extension"
+            elif rs.article.feed_id:
+                reading_source = "web"
+
         sessions.append(
             {
                 "session_type": "reading",
@@ -244,6 +252,7 @@ def session_history():
                 "duration_readable": format_duration(rs.duration),
                 "article_id": rs.article_id,
                 "article_title": rs.article.title if rs.article else None,
+                "reading_source": reading_source,
                 "words": bookmarks,
                 "word_count": len(bookmarks),
                 "interruptions": interruptions,
