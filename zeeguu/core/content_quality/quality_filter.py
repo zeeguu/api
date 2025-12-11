@@ -3,17 +3,10 @@ from langdetect import detect
 from zeeguu.core.model import Article, LowQualityTypes
 from zeeguu.core.ml_models import is_paywalled, ID_TO_LABEL_PAYWALL
 
-# Feeds that should skip HTML pattern analysis
-# These feeds have paywall patterns in their raw HTML (sidebar/footer) but
-# still deliver full article content that can be extracted by readability
-SKIP_HTML_PATTERN_CHECK_FEEDS = [
-    "pourlascience.fr",  # Has paywall patterns but delivers full content via RSS
-]
-
 HTML_READ_MORE_PATTERNS = [
     "To continue reading this premium",  # New Scientist
     "Cet article est réservé aux abonnés",  # Le Figaro
-    "L'accès à la totalité de l'article est protégé",  # Le Monde
+    "L’accès à la totalité de l’article est protégé",  # Le Monde
     "Ces informations sont destinées au groupe Bayard",  # 1jour1actu
     "Article réservé aux abonnés"
     # der spiegel
@@ -140,24 +133,10 @@ def sufficient_quality_plain_text(text, lang_code=None):
     return True, "", ""
 
 
-def _should_skip_html_check(feed_url: str) -> bool:
-    """Check if feed should skip HTML pattern analysis."""
-    if not feed_url:
-        return False
-    for domain in SKIP_HTML_PATTERN_CHECK_FEEDS:
-        if domain in feed_url:
-            return True
-    return False
-
-
-def sufficient_quality(art: newspaper.Article, lang_code=None, feed_url=None) -> tuple[bool, str, str]:
-    # Skip HTML check for whitelisted feeds that have paywall patterns
-    # in raw HTML but still deliver extractable content
-    if not _should_skip_html_check(feed_url):
-        res, reason, code = sufficient_quality_html(art.html)
-        if not res:
-            return False, reason, code
-
+def sufficient_quality(art: newspaper.Article, lang_code=None) -> tuple[bool, str, str]:
+    res, reason, code = sufficient_quality_html(art.html)
+    if not res:
+        return False, reason, code
     res, reason, code = sufficient_quality_plain_text(art.text, lang_code)
     if not res:
         return False, reason, code

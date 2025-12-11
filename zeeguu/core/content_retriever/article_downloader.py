@@ -531,7 +531,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
-        np_article, feed.language.code, feed_url=feed.url.as_string() if feed.url else None
+        np_article, feed.language.code
     )
     if is_quality_article:
         np_article.text = cleanup_text_w_crawl_report(
