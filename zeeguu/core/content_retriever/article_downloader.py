@@ -84,8 +84,12 @@ def _cache_article_tokenization(article, session):
         log(f"  - Cached tokenization for article {article.id}")
     except Exception as e:
         log(f"  - Warning: Failed to cache tokenization: {e}")
+        # Rollback to clean session state, preventing PendingRollbackError in subsequent operations
+        try:
+            session.rollback()
+        except Exception:
+            pass  # Session may already be clean
         # Don't fail the whole article download if tokenization fails
-        pass
 
 
 def should_filter_by_source_keywords(url, title):
