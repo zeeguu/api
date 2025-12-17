@@ -107,6 +107,8 @@ class Article(db.Model):
     parent_article_id = Column(Integer, ForeignKey("article.id"))
     # this is at the moment populated by an LLM
     cefr_level = Column(Enum("A1", "A2", "B1", "B2", "C1", "C2"))
+    # news = current events (time-sensitive), general = evergreen content
+    article_type = Column(Enum("news", "general"))
     simplification_ai_generator_id = Column(Integer, ForeignKey("ai_generator.id"))
 
     # Self-referential relationship for simplified versions

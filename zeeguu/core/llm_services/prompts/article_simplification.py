@@ -89,6 +89,8 @@ You must respond in the exact format shown below. Do NOT include any explanation
 
 DISTURBING_CONTENT: [YES or NO - is the article's primary focus disturbing content (violence, death, disaster, tragedy)? This includes violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence. Note: Historical or educational articles about difficult topics are acceptable - focus on current disturbing events.]
 
+ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (politics, breaking news, weather, sports results, someone visiting somewhere today, elections, daily events). GENERAL = evergreen content you could read months later (science explainers, cultural topics, how-to guides, historical articles, general knowledge, health/lifestyle advice).]
+
 ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
 
 ORIGINAL_SUMMARY: [write a 3-sentence plain text summary (NO markdown formatting, no bold/italic) of the original article in <<LANGUAGE_NAME>> at its original CEFR level]
