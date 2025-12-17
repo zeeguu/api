@@ -260,10 +260,15 @@ def download_from_feed(
     try:
         items = feed.feed_items(last_retrieval_time_from_DB)
     except Exception as e:
-        import traceback
-
-        traceback.print_stack()
-        capture_to_sentry(e)
+        error_msg = str(e).lower()
+        # Don't send expected HTTP errors to Sentry - these are normal for unavailable feeds
+        is_http_error = any(code in error_msg for code in ['404', '403', '401', '410', '503'])
+        if is_http_error:
+            log(f"[REQUEST FAILED] Feed unavailable: {feed.title} - {e}")
+        else:
+            import traceback
+            traceback.print_stack()
+            capture_to_sentry(e)
         return ""
 
     skipped_already_in_db = 0
