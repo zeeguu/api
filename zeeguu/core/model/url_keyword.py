@@ -147,6 +147,8 @@ class UrlKeyword(db.Model):
 
     @classmethod
     def get_url_keywords_from_url(cls, url: Url):
+        if url is None:
+            return []
         try:
             path = str(url.path)
             topic_k = filter(cls.topic_filter, path.split("/"))
