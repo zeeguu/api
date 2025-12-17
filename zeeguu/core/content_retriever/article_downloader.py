@@ -267,7 +267,13 @@ def download_from_feed(
         error_msg = str(e).lower()
         # Don't send expected HTTP errors to Sentry - these are normal for unavailable feeds
         is_http_error = any(code in error_msg for code in ['404', '403', '401', '410', '503'])
-        if is_http_error:
+        # Don't send transient connection errors to Sentry - servers go up and down
+        is_connection_error = any(term in error_msg for term in [
+            'connection refused', 'connection reset', 'connection timed out',
+            'max retries exceeded', 'newconnectionerror', 'timeout',
+            'temporary failure in name resolution', 'name or service not known'
+        ])
+        if is_http_error or is_connection_error:
             log(f"[REQUEST FAILED] Feed unavailable: {feed.title} - {e}")
         else:
             import traceback
