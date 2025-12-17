@@ -225,6 +225,7 @@ def simplify_article_adaptive_levels(
                 line.startswith(prefix)
                 for prefix in [
                     "DISTURBING_CONTENT",
+                    "ARTICLE_TYPE",
                     "ORIGINAL_LEVEL",
                     "ORIGINAL_SUMMARY",
                     "SIMPLIFIED_LEVELS",
@@ -271,6 +272,8 @@ def simplify_article_adaptive_levels(
             return text
 
         is_disturbing = clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+        article_type_raw = clean_text(sections.get("ARTICLE_TYPE", "")).upper()
+        article_type = article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
         original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
         original_summary = strip_markdown_from_summary(clean_text(sections.get("ORIGINAL_SUMMARY", "")))
         simplified_levels_str = clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
@@ -372,6 +375,7 @@ def simplify_article_adaptive_levels(
 
         return {
             "is_disturbing": is_disturbing,
+            "article_type": article_type.lower() if article_type else None,
             "original_cefr_level": original_level,
             "original_summary": original_summary,
             "simplified_levels": simplified_levels,
@@ -544,6 +548,7 @@ def simplify_and_classify(
 
         # Extract the results
         is_disturbing = result.get("is_disturbing", False)
+        article_type = result.get("article_type")
         original_level = result["original_cefr_level"]
         original_summary = result["original_summary"]
         simplified_levels = result["simplified_levels"]
@@ -555,6 +560,7 @@ def simplify_and_classify(
         log(f"  LLM Assessment complete:")
         log(f"    Provider used: {provider.upper()} ({model_name})")
         log(f"    Original level: {original_level}")
+        log(f"    Article type: {article_type}")
         log(f"    Simplified levels to create: {simplified_levels}")
         log(f"    Versions returned by LLM: {list(versions.keys())}")
         log(f"    Disturbing content detected: {is_disturbing}")
@@ -563,6 +569,14 @@ def simplify_and_classify(
             log(
                 f"SKIP: Article {original_article.id} is already at {original_level} level - no simpler versions needed (AI assessment)"
             )
+            # Still update article metadata even if no simplification needed
+            original_article.cefr_level = original_level
+            if article_type:
+                original_article.article_type = article_type
+            if not original_article.summary:
+                original_article.summary = original_summary
+            session.commit()
+
             # Return classifications even if no simplification needed
             classifications = []
             if is_disturbing:
@@ -572,6 +586,8 @@ def simplify_and_classify(
         # Update the original article with assessed metadata
         log(f"  Updating original article metadata...")
         original_article.cefr_level = original_level
+        if article_type:
+            original_article.article_type = article_type
         if not original_article.summary:
             original_article.summary = original_summary
 
