@@ -3,7 +3,7 @@ import logging
 
 from sqlalchemy import Column, Integer, UnicodeText, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from datetime import datetime, timedelta
 from zeeguu.core.model.db import db
 
@@ -48,6 +48,13 @@ class ArticleTokenizationCache(db.Model):
         except IntegrityError:
             # Another request created it first - rollback and fetch
             session.rollback()
+            cache = session.query(cls).filter_by(article_id=article.id).first()
+        except OperationalError as e:
+            # Lock wait timeout or other DB operational error - rollback to clean session state
+            # This prevents PendingRollbackError in subsequent operations
+            log.warning(f"[CACHE] OperationalError during cache creation for article {article.id}: {e}")
+            session.rollback()
+            # Try to fetch existing cache (another process may have created it)
             cache = session.query(cls).filter_by(article_id=article.id).first()
 
         return cache
