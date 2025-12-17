@@ -19,3 +19,7 @@ class SkippedAlreadyInDB(Exception):
 class NotAppropriateForReading(Exception):
     def __init__(self, reason):
         self.reason = reason
+
+
+class SkippedForLongUrl(Exception):
+    pass

@@ -379,6 +379,10 @@ def download_from_feed(
             log(" - Already in DB")
             continue
 
+        except SkippedForLongUrl:
+            skipped_other += 1
+            continue
+
         except FailedToParseWithReadabilityServer as e:
             error_msg = str(e).lower()
             if "timeout" in error_msg:
@@ -506,6 +510,12 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     title = html.unescape(feed_item["title"])
     log(f" → Processing: {title[:80]}")
     log(f"   URL: {url}")
+
+    # Skip URLs with paths too long for the database
+    url_path = Url.get_path(url)
+    if len(url_path) > 255:
+        log(f"   Skipping: URL path too long ({len(url_path)} chars)")
+        raise SkippedForLongUrl()
 
     published_datetime = feed_item["published_datetime"]
 
