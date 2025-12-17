@@ -150,7 +150,8 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
             session_data[art_id] = (date_read, last_reading_percentage)
 
     # Step 2: Use helper for proper cache handling
-    article_infos = UserArticle.article_infos(user, articles_to_fetch, select_appropriate=True)
+    # select_appropriate=False: user should resume the same article version they started
+    article_infos = UserArticle.article_infos(user, articles_to_fetch, select_appropriate=False)
 
     # Step 3: Add session-specific data to each article info
     for art_info in article_infos:
