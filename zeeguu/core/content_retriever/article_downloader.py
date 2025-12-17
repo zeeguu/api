@@ -600,7 +600,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     new_article.create_article_fragments(session)
 
     main_img_url = extract_article_image(np_article)
-    if main_img_url != "":
+    if main_img_url:
         new_article.img_url = Url.find_or_create(session, main_img_url)
 
     log(f"   Extracting topics...")
