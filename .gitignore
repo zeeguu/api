@@ -53,3 +53,5 @@ diagrams/*.json
 # Keep internal technical design documents private
 experiments/
 docs/particle_verb_detection.md
+/.testmondata-wal
+/.testmondata-shm
