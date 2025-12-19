@@ -11,6 +11,7 @@ Usage:
     python -m tools.fix_feed --id 194 --deactivate
     python -m tools.fix_feed --id 194 --activate
     python -m tools.fix_feed --title "Tom Standage"
+    python -m tools.fix_feed --id 75 --discover "elpais.es"
 """
 
 import argparse
@@ -177,6 +178,7 @@ def main():
     parser.add_argument("--auto", action="store_true", help="Automatically apply first valid RSS URL found")
     parser.add_argument("--deactivate", action="store_true", help="Deactivate the feed(s)")
     parser.add_argument("--activate", action="store_true", help="Activate the feed(s)")
+    parser.add_argument("--discover", type=str, help="Domain to search for RSS feeds (e.g. 'elpais.es')")
     args = parser.parse_args()
 
     if args.deactivate and args.activate:
@@ -214,14 +216,24 @@ def main():
             activate_feed(feed, args.dry_run)
             continue
 
+        current_valid = False
         if feed.url:
             # Check current URL
             current_valid, current_status = check_rss_url(feed.url.as_string())
             status_icon = "✓" if current_valid else "✗"
             print(f"  Current URL status: {status_icon} {current_status}")
 
+        # If current URL works and no explicit --discover, skip
+        if current_valid and not args.discover:
+            print(f"\n  ✓ Feed is healthy, no action needed.")
+            continue
+
         # Get base domain for discovery
-        if feed.url:
+        if args.discover:
+            base_domain = args.discover
+            if not base_domain.startswith('http'):
+                base_domain = f"https://{base_domain}"
+        elif feed.url:
             parsed = urlparse(feed.url.as_string())
             base_domain = f"{parsed.scheme}://{parsed.netloc}"
         else:
@@ -238,7 +250,8 @@ def main():
                 valid_urls.append(url)
 
         if not valid_urls:
-            print(f"\n  ⚠ No valid RSS feeds found. Try searching manually.")
+            print(f"\n  ⚠ No valid RSS feeds found at {base_domain}.")
+            print(f"     Try: python -m tools.fix_feed --id {feed.id} --discover <other-domain>")
             continue
 
         if args.auto and valid_urls:
