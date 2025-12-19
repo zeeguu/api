@@ -10,6 +10,7 @@ Usage:
     python -m tools.fix_feed --id 194
     python -m tools.fix_feed --id 194 --deactivate
     python -m tools.fix_feed --id 194 --activate
+    python -m tools.fix_feed --title "Tom Standage"
 """
 
 import argparse
@@ -51,6 +52,11 @@ def find_feeds_by_domain(domain_query: str):
         .all()
     )
     return feeds
+
+
+def find_feeds_by_title(title_query: str):
+    """Find feeds matching a title pattern (case-insensitive)."""
+    return Feed.query.filter(Feed.title.ilike(f"%{title_query}%")).all()
 
 
 def find_feed_by_id(feed_id: int):
@@ -165,6 +171,7 @@ def update_feed_url(feed: Feed, new_url: str, dry_run: bool = False):
 def main():
     parser = argparse.ArgumentParser(description="Fix broken feeds")
     parser.add_argument("--domain", type=str, help="Search for feeds by domain (partial match)")
+    parser.add_argument("--title", type=str, help="Search for feeds by title (partial match, case-insensitive)")
     parser.add_argument("--id", type=int, help="Find feed by ID")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
     parser.add_argument("--auto", action="store_true", help="Automatically apply first valid RSS URL found")
@@ -175,13 +182,15 @@ def main():
     if args.deactivate and args.activate:
         parser.error("Cannot use both --deactivate and --activate")
 
-    if not args.domain and not args.id:
-        parser.error("Either --domain or --id is required")
+    if not args.domain and not args.id and not args.title:
+        parser.error("One of --domain, --title, or --id is required")
 
     # Find feeds
     if args.id:
         feed = find_feed_by_id(args.id)
         feeds = [feed] if feed else []
+    elif args.title:
+        feeds = find_feeds_by_title(args.title)
     else:
         feeds = find_feeds_by_domain(args.domain)
 
