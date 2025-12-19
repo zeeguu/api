@@ -93,8 +93,33 @@ def check_rss_url(url: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+def discover_rss_from_html(url: str) -> list[str]:
+    """Find RSS links in HTML <link> tags."""
+    try:
+        response = requests.get(url, timeout=10, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; ZeeguuBot/1.0)'
+        })
+        if response.status_code != 200:
+            return []
+
+        # Look for <link rel="alternate" type="application/rss+xml" href="...">
+        import re
+        rss_links = re.findall(
+            r'<link[^>]+rel=["\']alternate["\'][^>]+type=["\']application/rss\+xml["\'][^>]+href=["\']([^"\']+)["\']',
+            response.text, re.IGNORECASE
+        )
+        # Also try reversed order (href before type)
+        rss_links += re.findall(
+            r'<link[^>]+href=["\']([^"\']+)["\'][^>]+type=["\']application/rss\+xml["\']',
+            response.text, re.IGNORECASE
+        )
+        return list(set(rss_links))  # dedupe
+    except requests.RequestException:
+        return []
+
+
 def discover_rss_feeds(base_domain: str) -> list[tuple[str, bool, str]]:
-    """Try common RSS paths and return results."""
+    """Try common RSS paths and HTML discovery, return results."""
     results = []
 
     # Ensure domain has scheme
@@ -104,6 +129,13 @@ def discover_rss_feeds(base_domain: str) -> list[tuple[str, bool, str]]:
     # Remove trailing slash
     base_domain = base_domain.rstrip('/')
 
+    # First, try to find RSS links in HTML
+    html_feeds = discover_rss_from_html(base_domain)
+    for url in html_feeds:
+        is_valid, status = check_rss_url(url)
+        results.append((url, is_valid, f"from HTML: {status}"))
+
+    # Then try common paths
     for path in RSS_PATHS:
         url = f"{base_domain}{path}"
         is_valid, status = check_rss_url(url)
