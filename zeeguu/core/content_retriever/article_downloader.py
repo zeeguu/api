@@ -174,7 +174,9 @@ def is_duplicate_by_simhash(content, feed, session):
 
 def _url_after_redirects(url):
     # solve redirects and save the clean url
-    response = requests.get(url)
+    # Some sites block requests without User-Agent (e.g. atlasmag.dk)
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; ZeeguuBot/1.0)"}
+    response = requests.get(url, headers=headers, timeout=10)
     return response.url
 
 
