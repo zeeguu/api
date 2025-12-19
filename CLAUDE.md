@@ -101,6 +101,24 @@ This is the Zeeguu API project which requires the z_env virtual environment to r
   schedule = BasicSRSchedule.find_or_create(db.session, user_word)
   ```
 
+## Feed System
+- **Feed URL Structure**: Feed URLs are NOT stored as a single string. They're split across tables:
+  - `feed.url_id` → `url.id`
+  - `url.domain_name_id` → `domain_name.id` (contains the domain like `https://example.com`)
+  - `url.path` (contains the path like `/rss` or `/feed`)
+- **Finding feeds by domain**: Always join through domain_name table:
+  ```sql
+  SELECT f.id, f.title, f.feed_type, f.deactivated, d.domain_name, u.path
+  FROM feed f
+  JOIN url u ON f.url_id = u.id
+  JOIN domain_name d ON u.domain_name_id = d.id
+  WHERE d.domain_name LIKE '%example%';
+  ```
+- **Feed types**:
+  - `feed_type=0`: RSSFeed (uses feedparser)
+  - `feed_type=1`: NewspaperFeed (uses `newspaper.build()` which auto-discovers feeds)
+- **Deactivating broken feeds**: `UPDATE feed SET deactivated = 1 WHERE id = <ID>;`
+
 ## Source and Article Architecture
 - **Source Model**: An abstraction layer that unifies all content types (Article, Video, etc.) in the system
 - **source_id in Articles/Videos**: Each Article and Video has a `source_id` that links to its corresponding Source record
