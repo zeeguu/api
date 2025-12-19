@@ -4,25 +4,23 @@ Shows exercise sessions, reading sessions, and word progress grouped by language
 Replaces frequent email notifications with a consolidated dashboard view.
 """
 
-from datetime import datetime, timedelta
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from flask import request, Response, make_response, redirect
-from sqlalchemy import func, and_
 
-from . import api, db_session
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
-from zeeguu.core.model import User, Article, Language, Session
+from zeeguu.core.model import User, Language, Session
+from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.cohort import Cohort
+from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+from zeeguu.core.model.exercise import Exercise
+from zeeguu.core.model.user_browsing_session import UserBrowsingSession
+from zeeguu.core.model.user_cohort_map import UserCohortMap
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
-from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
-from zeeguu.core.model.cohort import Cohort
-from zeeguu.core.model.user_cohort_map import UserCohortMap
-from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
-from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.user_word import UserWord
-from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.source import Source
+from . import api, db_session
 
 
 def get_period_range(period: str):
@@ -71,8 +69,7 @@ def get_user_cohort_info(user):
 def get_exercise_stats_for_user(user_id, start, end):
     """Get exercise session stats for a user in the given period."""
     sessions = (
-        UserExerciseSession.query
-        .filter(UserExerciseSession.user_id == user_id)
+        UserExerciseSession.query.filter(UserExerciseSession.user_id == user_id)
         .filter(UserExerciseSession.start_time >= start)
         .filter(UserExerciseSession.start_time < end)
         .all()
@@ -85,11 +82,7 @@ def get_exercise_stats_for_user(user_id, start, end):
     words_by_language = defaultdict(set)
 
     for session in sessions:
-        exercises = (
-            Exercise.query
-            .filter(Exercise.session_id == session.id)
-            .all()
-        )
+        exercises = Exercise.query.filter(Exercise.session_id == session.id).all()
         for ex in exercises:
             if ex.user_word and ex.user_word.meaning and ex.user_word.meaning.origin:
                 lang = ex.user_word.meaning.origin.language
@@ -100,7 +93,9 @@ def get_exercise_stats_for_user(user_id, start, end):
         "session_count": session_count,
         "duration_ms": total_duration_ms,
         "duration_min": round(total_duration_ms / 60000, 1),
-        "words_by_language": {lang: len(words) for lang, words in words_by_language.items()},
+        "words_by_language": {
+            lang: len(words) for lang, words in words_by_language.items()
+        },
         "sessions": sessions,
     }
 
@@ -108,8 +103,7 @@ def get_exercise_stats_for_user(user_id, start, end):
 def get_reading_stats_for_user(user_id, start, end):
     """Get reading session stats for a user in the given period."""
     sessions = (
-        UserReadingSession.query
-        .filter(UserReadingSession.user_id == user_id)
+        UserReadingSession.query.filter(UserReadingSession.user_id == user_id)
         .filter(UserReadingSession.start_time >= start)
         .filter(UserReadingSession.start_time < end)
         .all()
@@ -129,7 +123,46 @@ def get_reading_stats_for_user(user_id, start, end):
         "session_count": len(sessions),
         "duration_ms": total_duration_ms,
         "duration_min": round(total_duration_ms / 60000, 1),
-        "articles_by_language": {lang: len(arts) for lang, arts in articles_by_language.items()},
+        "articles_by_language": {
+            lang: len(arts) for lang, arts in articles_by_language.items()
+        },
+        "sessions": sessions,
+    }
+
+
+def get_browsing_stats_for_user(user_id, start, end):
+    """Get browsing session stats for a user in the given period."""
+    sessions = (
+        UserBrowsingSession.query.filter(UserBrowsingSession.user_id == user_id)
+        .filter(UserBrowsingSession.start_time >= start)
+        .filter(UserBrowsingSession.start_time < end)
+        .all()
+    )
+
+    total_duration_ms = sum(s.duration or 0 for s in sessions)
+
+    # Get translations made during browsing sessions
+    words_by_language = defaultdict(int)
+    session_ids = [s.id for s in sessions]
+
+    if session_ids:
+        browsing_bookmarks = (
+            Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user_id)
+            .filter(Bookmark.browsing_session_id.in_(session_ids))
+            .all()
+        )
+        for bm in browsing_bookmarks:
+            if bm.user_word and bm.user_word.meaning and bm.user_word.meaning.origin:
+                lang = bm.user_word.meaning.origin.language
+                if lang:
+                    words_by_language[lang.code] += 1
+
+    return {
+        "session_count": len(sessions),
+        "duration_ms": total_duration_ms,
+        "duration_min": round(total_duration_ms / 60000, 1),
+        "words_by_language": dict(words_by_language),
         "sessions": sessions,
     }
 
@@ -139,8 +172,7 @@ def get_translations_for_user(user_id, start, end):
     from zeeguu.core.model.bookmark import Bookmark
 
     bookmarks = (
-        Bookmark.query
-        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         .filter(UserWord.user_id == user_id)
         .filter(Bookmark.time >= start)
         .filter(Bookmark.time < end)
@@ -164,8 +196,7 @@ def get_audio_lesson_stats_for_user(user_id, start, end):
     """Get audio lesson stats for a user in the given period."""
     # Get lessons completed in this period
     lessons = (
-        DailyAudioLesson.query
-        .filter(DailyAudioLesson.user_id == user_id)
+        DailyAudioLesson.query.filter(DailyAudioLesson.user_id == user_id)
         .filter(DailyAudioLesson.completed_at >= start)
         .filter(DailyAudioLesson.completed_at < end)
         .all()
@@ -188,7 +219,9 @@ def get_audio_lesson_stats_for_user(user_id, start, end):
         "duration_sec": total_duration_sec,
         "duration_min": round(total_duration_sec / 60, 1),
         "lessons_by_language": dict(lessons_by_language),
-        "duration_by_language": {lang: round(sec / 60, 1) for lang, sec in duration_by_language.items()},
+        "duration_by_language": {
+            lang: round(sec / 60, 1) for lang, sec in duration_by_language.items()
+        },
         "lessons": lessons,
     }
 
@@ -233,12 +266,22 @@ def collect_user_activity(start, end):
         .all()
     )
 
+    # Find all users with browsing sessions in this period
+    browsing_user_ids = (
+        db_session.query(UserBrowsingSession.user_id)
+        .filter(UserBrowsingSession.start_time >= start)
+        .filter(UserBrowsingSession.start_time < end)
+        .distinct()
+        .all()
+    )
+
     # Combine unique user IDs from all activity types
     active_user_ids = (
-        set(uid for (uid,) in exercise_user_ids) |
-        set(uid for (uid,) in reading_user_ids) |
-        set(uid for (uid,) in bookmark_user_ids) |
-        set(uid for (uid,) in audio_lesson_user_ids)
+        set(uid for (uid,) in exercise_user_ids)
+        | set(uid for (uid,) in reading_user_ids)
+        | set(uid for (uid,) in bookmark_user_ids)
+        | set(uid for (uid,) in audio_lesson_user_ids)
+        | set(uid for (uid,) in browsing_user_ids)
     )
 
     # Collect stats per user, grouped by language
@@ -252,6 +295,7 @@ def collect_user_activity(start, end):
         cohort_name, cohort_id = get_user_cohort_info(user)
         exercise_stats = get_exercise_stats_for_user(user_id, start, end)
         reading_stats = get_reading_stats_for_user(user_id, start, end)
+        browsing_stats = get_browsing_stats_for_user(user_id, start, end)
         translation_stats = get_translations_for_user(user_id, start, end)
         audio_stats = get_audio_lesson_stats_for_user(user_id, start, end)
 
@@ -259,6 +303,7 @@ def collect_user_activity(start, end):
         active_languages = set()
         active_languages.update(exercise_stats["words_by_language"].keys())
         active_languages.update(reading_stats["articles_by_language"].keys())
+        active_languages.update(browsing_stats["words_by_language"].keys())
         active_languages.update(translation_stats["by_language"].keys())
         active_languages.update(audio_stats["lessons_by_language"].keys())
 
@@ -276,6 +321,8 @@ def collect_user_activity(start, end):
             "exercise_words": exercise_stats["words_by_language"],
             "reading_duration_min": reading_stats["duration_min"],
             "articles_read": reading_stats["articles_by_language"],
+            "browsing_duration_min": browsing_stats["duration_min"],
+            "browsing_words": browsing_stats["words_by_language"],
             "translations": translation_stats["by_language"],
             "audio_lessons": audio_stats["lessons_by_language"],
             "audio_duration_min": audio_stats["duration_min"],
@@ -321,7 +368,7 @@ def user_stats():
             "total_active_users": 0,
             "total_exercise_minutes": 0,
             "total_reading_minutes": 0,
-        }
+        },
     }
 
     seen_users = set()
@@ -334,7 +381,9 @@ def user_stats():
             "user_count": len(users),
             "exercise_minutes": round(lang_exercise_min, 1),
             "reading_minutes": round(lang_reading_min, 1),
-            "users": sorted(users, key=lambda u: u["exercise_duration_min"], reverse=True),
+            "users": sorted(
+                users, key=lambda u: u["exercise_duration_min"], reverse=True
+            ),
         }
 
         result["summary"]["total_exercise_minutes"] += lang_exercise_min
@@ -344,8 +393,12 @@ def user_stats():
             seen_users.add(u["id"])
 
     result["summary"]["total_active_users"] = len(seen_users)
-    result["summary"]["total_exercise_minutes"] = round(result["summary"]["total_exercise_minutes"], 1)
-    result["summary"]["total_reading_minutes"] = round(result["summary"]["total_reading_minutes"], 1)
+    result["summary"]["total_exercise_minutes"] = round(
+        result["summary"]["total_exercise_minutes"], 1
+    )
+    result["summary"]["total_reading_minutes"] = round(
+        result["summary"]["total_reading_minutes"], 1
+    )
 
     return result
 
@@ -372,8 +425,7 @@ def user_stats_individual(user_id):
 
     # Get exercise sessions with details
     exercise_sessions = (
-        UserExerciseSession.query
-        .filter(UserExerciseSession.user_id == user_id)
+        UserExerciseSession.query.filter(UserExerciseSession.user_id == user_id)
         .filter(UserExerciseSession.start_time >= start)
         .filter(UserExerciseSession.start_time < end)
         .order_by(UserExerciseSession.start_time.desc())
@@ -393,26 +445,29 @@ def user_stats_individual(user_id):
                 if origin:
                     if origin.language and not session_lang:
                         session_lang = origin.language.code
-                    words.append({
-                        "word": origin.content if origin else "?",
-                        "translation": translation.content if translation else "?",
-                        "outcome": ex.outcome.outcome if ex.outcome else "?",
-                        "solving_speed_ms": ex.solving_speed,
-                    })
+                    words.append(
+                        {
+                            "word": origin.content if origin else "?",
+                            "translation": translation.content if translation else "?",
+                            "outcome": ex.outcome.outcome if ex.outcome else "?",
+                            "solving_speed_ms": ex.solving_speed,
+                        }
+                    )
 
-        exercise_session_details.append({
-            "id": session.id,
-            "start_time": session.start_time.isoformat(),
-            "duration_min": round((session.duration or 0) / 60000, 1),
-            "language": session_lang,
-            "word_count": len(words),
-            "words": words,
-        })
+        exercise_session_details.append(
+            {
+                "id": session.id,
+                "start_time": session.start_time.isoformat(),
+                "duration_min": round((session.duration or 0) / 60000, 1),
+                "language": session_lang,
+                "word_count": len(words),
+                "words": words,
+            }
+        )
 
     # Get reading sessions with details
     reading_sessions = (
-        UserReadingSession.query
-        .filter(UserReadingSession.user_id == user_id)
+        UserReadingSession.query.filter(UserReadingSession.user_id == user_id)
         .filter(UserReadingSession.start_time >= start)
         .filter(UserReadingSession.start_time < end)
         .order_by(UserReadingSession.start_time.desc())
@@ -422,19 +477,22 @@ def user_stats_individual(user_id):
     reading_session_details = []
     for session in reading_sessions:
         article = session.article
-        reading_session_details.append({
-            "id": session.id,
-            "start_time": session.start_time.isoformat(),
-            "duration_min": round((session.duration or 0) / 60000, 1),
-            "article_id": session.article_id,
-            "article_title": article.title if article else "Unknown",
-            "article_language": article.language.code if article and article.language else None,
-        })
+        reading_session_details.append(
+            {
+                "id": session.id,
+                "start_time": session.start_time.isoformat(),
+                "duration_min": round((session.duration or 0) / 60000, 1),
+                "article_id": session.article_id,
+                "article_title": article.title if article else "Unknown",
+                "article_language": (
+                    article.language.code if article and article.language else None
+                ),
+            }
+        )
 
     # Get translations/bookmarks
     bookmarks = (
-        Bookmark.query
-        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         .filter(UserWord.user_id == user_id)
         .filter(Bookmark.time >= start)
         .filter(Bookmark.time < end)
@@ -447,12 +505,16 @@ def user_stats_individual(user_id):
         if bm.user_word and bm.user_word.meaning:
             origin = bm.user_word.meaning.origin
             translation = bm.user_word.meaning.translation
-            translation_details.append({
-                "word": origin.content if origin else "?",
-                "translation": translation.content if translation else "?",
-                "time": bm.time.isoformat() if bm.time else None,
-                "language": origin.language.code if origin and origin.language else None,
-            })
+            translation_details.append(
+                {
+                    "word": origin.content if origin else "?",
+                    "translation": translation.content if translation else "?",
+                    "time": bm.time.isoformat() if bm.time else None,
+                    "language": (
+                        origin.language.code if origin and origin.language else None
+                    ),
+                }
+            )
 
     return {
         "period": {
@@ -473,11 +535,15 @@ def user_stats_individual(user_id):
         "translations": translation_details,
         "summary": {
             "exercise_session_count": len(exercise_session_details),
-            "exercise_minutes": round(sum(s["duration_min"] for s in exercise_session_details), 1),
+            "exercise_minutes": round(
+                sum(s["duration_min"] for s in exercise_session_details), 1
+            ),
             "reading_session_count": len(reading_session_details),
-            "reading_minutes": round(sum(s["duration_min"] for s in reading_session_details), 1),
+            "reading_minutes": round(
+                sum(s["duration_min"] for s in reading_session_details), 1
+            ),
             "translation_count": len(translation_details),
-        }
+        },
     }
 
 
@@ -496,6 +562,7 @@ def user_stats_dashboard():
     total_users = set()
     total_exercise_min = 0
     total_reading_min = 0
+    total_browsing_min = 0
     total_audio_min = 0
 
     for lang_code, users in users_by_language.items():
@@ -503,6 +570,7 @@ def user_stats_dashboard():
             total_users.add(u["id"])
             total_exercise_min += u["exercise_duration_min"]
             total_reading_min += u["reading_duration_min"]
+            total_browsing_min += u["browsing_duration_min"]
             total_audio_min += u["audio_duration_by_language"].get(lang_code, 0)
 
     # Get language names
@@ -511,8 +579,10 @@ def user_stats_dashboard():
     # Sort languages by activity
     sorted_languages = sorted(
         users_by_language.items(),
-        key=lambda x: sum(u["exercise_duration_min"] + u["reading_duration_min"] for u in x[1]),
-        reverse=True
+        key=lambda x: sum(
+            u["exercise_duration_min"] + u["reading_duration_min"] for u in x[1]
+        ),
+        reverse=True,
     )
 
     html = f"""<!DOCTYPE html>
@@ -550,8 +620,19 @@ def user_stats_dashboard():
         .section h2 {{ margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
         .section h3 {{ margin-top: 20px; color: #34495e; }}
         table {{ width: 100%; border-collapse: collapse; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #eee; }}
+        th, td {{ padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }}
         th {{ background: #f8f9fa; font-weight: 600; }}
+        th.group-header {{
+            text-align: center;
+            background: #e8f4f8;
+            border-bottom: 2px solid #3498db;
+            font-size: 0.95em;
+        }}
+        th.sub-header {{
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 500;
+        }}
         tr:hover {{ background: #f8f9fa; }}
         .lang-code {{
             display: inline-block; padding: 2px 8px;
@@ -611,6 +692,10 @@ def user_stats_dashboard():
                 <div class="label">Reading Minutes</div>
             </div>
             <div class="stat-card">
+                <div class="number">{round(total_browsing_min, 0):.0f}</div>
+                <div class="label">Browsing Minutes</div>
+            </div>
+            <div class="stat-card">
                 <div class="number">{round(total_audio_min, 0):.0f}</div>
                 <div class="label">Audio Minutes</div>
             </div>
@@ -625,12 +710,15 @@ def user_stats_dashboard():
         lang_name = languages.get(lang_code, lang_code.upper())
         lang_exercise_min = sum(u["exercise_duration_min"] for u in users)
         lang_reading_min = sum(u["reading_duration_min"] for u in users)
+        lang_browsing_min = sum(u["browsing_duration_min"] for u in users)
 
         # Sort users by total activity
         sorted_users = sorted(
             users,
-            key=lambda u: u["exercise_duration_min"] + u["reading_duration_min"],
-            reverse=True
+            key=lambda u: u["exercise_duration_min"]
+            + u["reading_duration_min"]
+            + u["browsing_duration_min"],
+            reverse=True,
         )
 
         html += f"""
@@ -639,19 +727,27 @@ def user_stats_dashboard():
             <p style="color:#7f8c8d; margin-bottom:15px;">
                 {len(users)} active users |
                 {round(lang_exercise_min, 0):.0f} min exercises |
-                {round(lang_reading_min, 0):.0f} min reading
+                {round(lang_reading_min, 0):.0f} min reading |
+                {round(lang_browsing_min, 0):.0f} min browsing
             </p>
             <table>
                 <tr>
-                    <th>User</th>
-                    <th>Cohort / Code</th>
-                    <th>Exercises</th>
-                    <th>Words</th>
-                    <th>Reading</th>
-                    <th>Articles</th>
-                    <th>Translations</th>
-                    <th>Audio</th>
-                    <th>Audio Time</th>
+                    <th rowspan="2">User</th>
+                    <th rowspan="2">Cohort / Code</th>
+                    <th colspan="2" class="group-header">Exercises</th>
+                    <th colspan="2" class="group-header">Reading</th>
+                    <th colspan="2" class="group-header">Browsing</th>
+                    <th colspan="2" class="group-header">Audio</th>
+                </tr>
+                <tr>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Words</th>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Articles</th>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Words</th>
+                    <th class="sub-header">Count</th>
+                    <th class="sub-header">Time</th>
                 </tr>
 """
 
@@ -659,10 +755,11 @@ def user_stats_dashboard():
             cohort_display = user["cohort_name"] or "—"
             exercise_words = user["exercise_words"].get(lang_code, 0)
             articles = user["articles_read"].get(lang_code, 0)
-            translations = user["translations"].get(lang_code, 0)
+            browsing_words = user["browsing_words"].get(lang_code, 0)
 
             exercise_class = "" if user["exercise_duration_min"] > 0 else "no-activity"
             reading_class = "" if user["reading_duration_min"] > 0 else "no-activity"
+            browsing_class = "" if user["browsing_duration_min"] > 0 else "no-activity"
 
             audio_lessons = user["audio_lessons"].get(lang_code, 0)
             audio_duration = user["audio_duration_by_language"].get(lang_code, 0)
@@ -682,7 +779,8 @@ def user_stats_dashboard():
                     <td class="{exercise_class}">{exercise_words}</td>
                     <td class="{reading_class} duration">{user['reading_duration_min']:.1f} min</td>
                     <td class="{reading_class}">{articles}</td>
-                    <td>{translations}</td>
+                    <td class="{browsing_class} duration">{user['browsing_duration_min']:.1f} min</td>
+                    <td class="{browsing_class}">{browsing_words}</td>
                     <td class="{audio_class}">{audio_lessons}</td>
                     <td class="{audio_class} duration">{audio_duration:.1f} min</td>
                 </tr>
@@ -711,7 +809,7 @@ def user_stats_dashboard():
 </body>
 </html>"""
 
-    return Response(html, mimetype='text/html')
+    return Response(html, mimetype="text/html")
 
 
 @api.route("/user_stats/user/<int:user_id>/dashboard", methods=["GET"])
@@ -725,14 +823,13 @@ def user_stats_individual_dashboard(user_id):
 
     user = User.find_by_id(user_id)
     if not user:
-        return Response("<h1>User not found</h1>", status=404, mimetype='text/html')
+        return Response("<h1>User not found</h1>", status=404, mimetype="text/html")
 
     cohort_name, cohort_id = get_user_cohort_info(user)
 
     # Get exercise sessions with details
     exercise_sessions = (
-        UserExerciseSession.query
-        .filter(UserExerciseSession.user_id == user_id)
+        UserExerciseSession.query.filter(UserExerciseSession.user_id == user_id)
         .filter(UserExerciseSession.start_time >= start)
         .filter(UserExerciseSession.start_time < end)
         .order_by(UserExerciseSession.start_time.desc())
@@ -741,8 +838,7 @@ def user_stats_individual_dashboard(user_id):
 
     # Get reading sessions with details
     reading_sessions = (
-        UserReadingSession.query
-        .filter(UserReadingSession.user_id == user_id)
+        UserReadingSession.query.filter(UserReadingSession.user_id == user_id)
         .filter(UserReadingSession.start_time >= start)
         .filter(UserReadingSession.start_time < end)
         .order_by(UserReadingSession.start_time.desc())
@@ -751,8 +847,7 @@ def user_stats_individual_dashboard(user_id):
 
     # Get translations/bookmarks
     bookmarks = (
-        Bookmark.query
-        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         .filter(UserWord.user_id == user_id)
         .filter(Bookmark.time >= start)
         .filter(Bookmark.time < end)
@@ -762,8 +857,7 @@ def user_stats_individual_dashboard(user_id):
 
     # Get audio lessons
     audio_lessons = (
-        DailyAudioLesson.query
-        .filter(DailyAudioLesson.user_id == user_id)
+        DailyAudioLesson.query.filter(DailyAudioLesson.user_id == user_id)
         .filter(DailyAudioLesson.completed_at >= start)
         .filter(DailyAudioLesson.completed_at < end)
         .order_by(DailyAudioLesson.completed_at.desc())
@@ -912,7 +1006,11 @@ def user_stats_individual_dashboard(user_id):
                         session_lang = origin.language.code.upper()
 
                     outcome = ex.outcome.outcome if ex.outcome else "?"
-                    outcome_class = "word-correct" if outcome == "C" else "word-incorrect" if outcome == "W" else ""
+                    outcome_class = (
+                        "word-correct"
+                        if outcome == "C"
+                        else "word-incorrect" if outcome == "W" else ""
+                    )
                     word = origin.content if origin else "?"
                     trans = translation.content if translation else "?"
                     speed_sec = (ex.solving_speed or 0) / 1000
@@ -946,14 +1044,15 @@ def user_stats_individual_dashboard(user_id):
             duration_min = (session.duration or 0) / 60000
             article = session.article
             article_title = article.title if article else "Unknown article"
-            article_lang = article.language.code.upper() if article and article.language else "?"
+            article_lang = (
+                article.language.code.upper() if article and article.language else "?"
+            )
 
             # Get translations made for this article
             article_translations = []
             if article and article.source_id:
                 article_bookmarks = (
-                    Bookmark.query
-                    .join(UserWord, Bookmark.user_word_id == UserWord.id)
+                    Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
                     .filter(UserWord.user_id == user_id)
                     .filter(Bookmark.source_id == article.source_id)
                     .filter(Bookmark.time >= start)
@@ -964,19 +1063,25 @@ def user_stats_individual_dashboard(user_id):
                     if bm.user_word and bm.user_word.meaning:
                         origin = bm.user_word.meaning.origin
                         translation = bm.user_word.meaning.translation
-                        article_translations.append({
-                            "word": origin.content if origin else "?",
-                            "translation": translation.content if translation else "?",
-                        })
+                        article_translations.append(
+                            {
+                                "word": origin.content if origin else "?",
+                                "translation": (
+                                    translation.content if translation else "?"
+                                ),
+                            }
+                        )
 
             words_html = ""
             if article_translations:
                 words_html = '<ul class="word-list" style="margin-top:10px;">'
                 for t in article_translations:
                     words_html += f'<li>{t["word"]} → {t["translation"]}</li>'
-                words_html += '</ul>'
+                words_html += "</ul>"
 
-            translation_count = f" | {len(article_translations)} words" if article_translations else ""
+            translation_count = (
+                f" | {len(article_translations)} words" if article_translations else ""
+            )
 
             html += f"""
             <div class="session-card">
@@ -1003,7 +1108,9 @@ def user_stats_individual_dashboard(user_id):
         for lesson in audio_lessons:
             duration_min = (lesson.duration_seconds or 0) / 60
             lesson_lang = lesson.language.code.upper() if lesson.language else "?"
-            completed_time = lesson.completed_at.strftime('%H:%M') if lesson.completed_at else "?"
+            completed_time = (
+                lesson.completed_at.strftime("%H:%M") if lesson.completed_at else "?"
+            )
 
             html += f"""
             <div class="session-card">
@@ -1037,12 +1144,16 @@ def user_stats_individual_dashboard(user_id):
             if bm.user_word and bm.user_word.meaning:
                 origin = bm.user_word.meaning.origin
                 translation = bm.user_word.meaning.translation
-                lang_code = origin.language.code.upper() if origin and origin.language else "?"
-                translations_by_lang[lang_code].append({
-                    "word": origin.content if origin else "?",
-                    "translation": translation.content if translation else "?",
-                    "time": bm.time,
-                })
+                lang_code = (
+                    origin.language.code.upper() if origin and origin.language else "?"
+                )
+                translations_by_lang[lang_code].append(
+                    {
+                        "word": origin.content if origin else "?",
+                        "translation": translation.content if translation else "?",
+                        "time": bm.time,
+                    }
+                )
 
         for lang_code, translations in sorted(translations_by_lang.items()):
             html += f"""
@@ -1054,7 +1165,7 @@ def user_stats_individual_dashboard(user_id):
                 <ul class="word-list">
 """
             for t in translations:
-                time_str = t["time"].strftime('%H:%M') if t["time"] else ""
+                time_str = t["time"].strftime("%H:%M") if t["time"] else ""
                 html += f'<li>{t["word"]} → {t["translation"]} <span style="color:#999">({time_str})</span></li>'
             html += """
                 </ul>
@@ -1074,7 +1185,7 @@ def user_stats_individual_dashboard(user_id):
 </body>
 </html>"""
 
-    return Response(html, mimetype='text/html')
+    return Response(html, mimetype="text/html")
 
 
 @api.route("/user_stats/cohort/<int:cohort_id>/dashboard", methods=["GET"])
@@ -1088,11 +1199,13 @@ def user_stats_cohort_dashboard(cohort_id):
 
     cohort = Cohort.query.get(cohort_id)
     if not cohort:
-        return Response("<h1>Cohort not found</h1>", status=404, mimetype='text/html')
+        return Response("<h1>Cohort not found</h1>", status=404, mimetype="text/html")
 
     # Get teachers for this cohort
     teachers = cohort.get_teachers()
-    teacher_names = ", ".join(t.name for t in teachers) if teachers else "No teacher assigned"
+    teacher_names = (
+        ", ".join(t.name for t in teachers) if teachers else "No teacher assigned"
+    )
     teacher_emails = ", ".join(t.email for t in teachers) if teachers else ""
 
     # Get all students in the cohort
@@ -1106,6 +1219,7 @@ def user_stats_cohort_dashboard(cohort_id):
         user_id = user.id
         exercise_stats = get_exercise_stats_for_user(user_id, start, end)
         reading_stats = get_reading_stats_for_user(user_id, start, end)
+        browsing_stats = get_browsing_stats_for_user(user_id, start, end)
         translation_stats = get_translations_for_user(user_id, start, end)
         audio_stats = get_audio_lesson_stats_for_user(user_id, start, end)
 
@@ -1113,6 +1227,7 @@ def user_stats_cohort_dashboard(cohort_id):
         active_languages = set()
         active_languages.update(exercise_stats["words_by_language"].keys())
         active_languages.update(reading_stats["articles_by_language"].keys())
+        active_languages.update(browsing_stats["words_by_language"].keys())
         active_languages.update(translation_stats["by_language"].keys())
         active_languages.update(audio_stats["lessons_by_language"].keys())
 
@@ -1132,15 +1247,20 @@ def user_stats_cohort_dashboard(cohort_id):
             "exercise_words": exercise_stats["words_by_language"],
             "reading_duration_min": reading_stats["duration_min"],
             "articles_read": reading_stats["articles_by_language"],
+            "browsing_duration_min": browsing_stats["duration_min"],
+            "browsing_words": browsing_stats["words_by_language"],
             "translations": translation_stats["by_language"],
             "audio_lessons": audio_stats["lessons_by_language"],
             "audio_duration_min": audio_stats["duration_min"],
             "audio_duration_by_language": audio_stats["duration_by_language"],
             "languages": list(active_languages),
-            "has_activity": (exercise_stats["session_count"] > 0 or
-                           reading_stats["session_count"] > 0 or
-                           translation_stats["total"] > 0 or
-                           audio_stats["lesson_count"] > 0),
+            "has_activity": (
+                exercise_stats["session_count"] > 0
+                or reading_stats["session_count"] > 0
+                or browsing_stats["session_count"] > 0
+                or translation_stats["total"] > 0
+                or audio_stats["lesson_count"] > 0
+            ),
         }
 
         for lang in active_languages:
@@ -1149,6 +1269,7 @@ def user_stats_cohort_dashboard(cohort_id):
     # Calculate totals
     total_exercise_min = 0
     total_reading_min = 0
+    total_browsing_min = 0
     total_audio_min = 0
     active_users = set()
 
@@ -1158,6 +1279,7 @@ def user_stats_cohort_dashboard(cohort_id):
                 active_users.add(u["id"])
             total_exercise_min += u["exercise_duration_min"]
             total_reading_min += u["reading_duration_min"]
+            total_browsing_min += u["browsing_duration_min"]
             total_audio_min += u["audio_duration_by_language"].get(lang_code, 0)
 
     # Get language names
@@ -1166,8 +1288,13 @@ def user_stats_cohort_dashboard(cohort_id):
     # Sort languages by activity
     sorted_languages = sorted(
         users_by_language.items(),
-        key=lambda x: sum(u["exercise_duration_min"] + u["reading_duration_min"] for u in x[1]),
-        reverse=True
+        key=lambda x: sum(
+            u["exercise_duration_min"]
+            + u["reading_duration_min"]
+            + u["browsing_duration_min"]
+            for u in x[1]
+        ),
+        reverse=True,
     )
 
     html = f"""<!DOCTYPE html>
@@ -1212,8 +1339,19 @@ def user_stats_cohort_dashboard(cohort_id):
         }}
         .section h2 {{ margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
         table {{ width: 100%; border-collapse: collapse; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #eee; }}
+        th, td {{ padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }}
         th {{ background: #f8f9fa; font-weight: 600; }}
+        th.group-header {{
+            text-align: center;
+            background: #e8f4f8;
+            border-bottom: 2px solid #3498db;
+            font-size: 0.95em;
+        }}
+        th.sub-header {{
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 500;
+        }}
         tr:hover {{ background: #f8f9fa; }}
         .lang-code {{
             display: inline-block; padding: 2px 8px;
@@ -1275,6 +1413,10 @@ def user_stats_cohort_dashboard(cohort_id):
                 <div class="label">Reading Minutes</div>
             </div>
             <div class="stat-card">
+                <div class="number">{round(total_browsing_min, 0):.0f}</div>
+                <div class="label">Browsing Minutes</div>
+            </div>
+            <div class="stat-card">
                 <div class="number">{round(total_audio_min, 0):.0f}</div>
                 <div class="label">Audio Minutes</div>
             </div>
@@ -1287,8 +1429,13 @@ def user_stats_cohort_dashboard(cohort_id):
         # Sort users: active first, then by total activity
         sorted_users = sorted(
             users,
-            key=lambda u: (u["has_activity"], u["exercise_duration_min"] + u["reading_duration_min"]),
-            reverse=True
+            key=lambda u: (
+                u["has_activity"],
+                u["exercise_duration_min"]
+                + u["reading_duration_min"]
+                + u["browsing_duration_min"],
+            ),
+            reverse=True,
         )
 
         html += f"""
@@ -1296,27 +1443,35 @@ def user_stats_cohort_dashboard(cohort_id):
             <h2><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h2>
             <table>
                 <tr>
-                    <th>Student</th>
-                    <th>Exercises</th>
-                    <th>Words</th>
-                    <th>Reading</th>
-                    <th>Articles</th>
-                    <th>Translations</th>
-                    <th>Audio</th>
-                    <th>Audio Time</th>
+                    <th rowspan="2">Student</th>
+                    <th colspan="2" class="group-header">Exercises</th>
+                    <th colspan="2" class="group-header">Reading</th>
+                    <th colspan="2" class="group-header">Browsing</th>
+                    <th colspan="2" class="group-header">Audio</th>
+                </tr>
+                <tr>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Words</th>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Articles</th>
+                    <th class="sub-header">Time</th>
+                    <th class="sub-header">Words</th>
+                    <th class="sub-header">Count</th>
+                    <th class="sub-header">Time</th>
                 </tr>
 """
 
         for user in sorted_users:
             exercise_words = user["exercise_words"].get(lang_code, 0)
             articles = user["articles_read"].get(lang_code, 0)
-            translations = user["translations"].get(lang_code, 0)
+            browsing_words = user["browsing_words"].get(lang_code, 0)
             audio_lessons = user["audio_lessons"].get(lang_code, 0)
             audio_duration = user["audio_duration_by_language"].get(lang_code, 0)
 
             row_class = "" if user["has_activity"] else "inactive-row"
             exercise_class = "" if user["exercise_duration_min"] > 0 else "no-activity"
             reading_class = "" if user["reading_duration_min"] > 0 else "no-activity"
+            browsing_class = "" if user["browsing_duration_min"] > 0 else "no-activity"
             audio_class = "" if audio_lessons > 0 else "no-activity"
 
             html += f"""
@@ -1326,7 +1481,8 @@ def user_stats_cohort_dashboard(cohort_id):
                     <td class="{exercise_class}">{exercise_words}</td>
                     <td class="{reading_class} duration">{user['reading_duration_min']:.1f} min</td>
                     <td class="{reading_class}">{articles}</td>
-                    <td>{translations}</td>
+                    <td class="{browsing_class} duration">{user['browsing_duration_min']:.1f} min</td>
+                    <td class="{browsing_class}">{browsing_words}</td>
                     <td class="{audio_class}">{audio_lessons}</td>
                     <td class="{audio_class} duration">{audio_duration:.1f} min</td>
                 </tr>
@@ -1354,7 +1510,7 @@ def user_stats_cohort_dashboard(cohort_id):
 </body>
 </html>"""
 
-    return Response(html, mimetype='text/html')
+    return Response(html, mimetype="text/html")
 
 
 @api.route("/admin/login", methods=["GET"])
@@ -1362,7 +1518,9 @@ def user_stats_cohort_dashboard(cohort_id):
 def admin_login_form():
     """Show admin login form."""
     error = request.args.get("error", "")
-    error_html = f'<p style="color:#e74c3c; margin-bottom:15px;">{error}</p>' if error else ""
+    error_html = (
+        f'<p style="color:#e74c3c; margin-bottom:15px;">{error}</p>' if error else ""
+    )
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1448,7 +1606,7 @@ def admin_login_form():
     </div>
 </body>
 </html>"""
-    return Response(html, mimetype='text/html')
+    return Response(html, mimetype="text/html")
 
 
 @api.route("/admin/login", methods=["POST"])
