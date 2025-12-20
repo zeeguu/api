@@ -533,22 +533,26 @@ def get_user_info_from_content_recommendations(user, content_list):
     articles = [c for c in content_list if type(c) is Article]
     videos = [c for c in content_list if type(c) is not Article]
 
-    # Build a map of title -> matched_searches before article_infos
-    # (title is stable across article version swaps, unlike source_id)
-    matched_searches_by_title = {}
+    # Build a map of root_article_id -> matched_searches
+    # root_id is stable across version swaps (parent_article_id for simplified, own id for originals)
+    matched_searches_by_root = {}
     for article in articles:
-        if hasattr(article, '_matched_searches') and article.title:
-            matched_searches_by_title[article.title.lower()] = article._matched_searches
-    print(f"DEBUG get_user_info: matched_searches_by_title keys = {list(matched_searches_by_title.keys())}")
+        if hasattr(article, '_matched_searches'):
+            root_id = article.parent_article_id or article.id
+            matched_searches_by_root[root_id] = article._matched_searches
+    print(f"DEBUG get_user_info: matched_searches_by_root = {matched_searches_by_root}")
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
 
-    # Add matched_searches to results based on title
+    # Add matched_searches to results based on root article id
     matched_count = 0
+    result_root_ids = [(r.get('id'), r.get('parent_article_id')) for r in results]
+    print(f"DEBUG get_user_info: result (id, parent_id) = {result_root_ids}")
     for result in results:
-        title = result.get('title', '').lower()
-        if title and title in matched_searches_by_title:
-            result['matched_searches'] = matched_searches_by_title[title]
+        # Result might be a simplified version (has parent_article_id) or original
+        root_id = result.get('parent_article_id') or result.get('id')
+        if root_id and root_id in matched_searches_by_root:
+            result['matched_searches'] = matched_searches_by_root[root_id]
             matched_count += 1
     print(f"DEBUG get_user_info: added matched_searches to {matched_count} results")
 
