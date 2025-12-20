@@ -177,10 +177,11 @@ def article_recommendations_for_user(
     ]
     final_article_mix.extend([c for c in content_objects if c is not None])
 
-    # Get articles based on Search preferences
+    # Get articles based on Search preferences and track which search matched
     articles_from_searches = []
+    search_matches_by_source = {}  # Maps source_id -> list of matched search terms
     for search in wanted_user_searches.split():
-        articles_from_searches += article_and_video_search_for_user(
+        search_results = article_and_video_search_for_user(
             user,
             1,
             search,
@@ -189,6 +190,12 @@ def article_recommendations_for_user(
             use_published_priority=True,
             use_readability_priority=True,
         )
+        for article in search_results:
+            if article.source_id not in search_matches_by_source:
+                search_matches_by_source[article.source_id] = []
+            if search not in search_matches_by_source[article.source_id]:
+                search_matches_by_source[article.source_id].append(search)
+        articles_from_searches += search_results
 
     # Combine organic recommendations with search results, deduplicating by source_id
     # (articles with the same source_id are the same content, just different CEFR levels)
@@ -210,6 +217,11 @@ def article_recommendations_for_user(
             seen_source_ids.add(c.source_id)
             content.append(c)
             added_from_search += 1
+
+    # Attach matched searches to content objects (by source_id so it works even with version swapping)
+    for c in content:
+        if c.source_id in search_matches_by_source:
+            c._matched_searches = search_matches_by_source[c.source_id]
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
@@ -506,7 +518,21 @@ def get_user_info_from_content_recommendations(user, content_list):
     articles = [c for c in content_list if type(c) is Article]
     videos = [c for c in content_list if type(c) is not Article]
 
+    # Build a map of source_id -> matched_searches before any deduplication
+    # (since article_infos may swap articles for different CEFR versions)
+    matched_searches_by_source = {}
+    for article in articles:
+        if hasattr(article, '_matched_searches'):
+            matched_searches_by_source[article.source_id] = article._matched_searches
+
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
+
+    # Add matched_searches to results based on source_id
+    for result in results:
+        source_id = result.get('source_id')
+        if source_id and source_id in matched_searches_by_source:
+            result['matched_searches'] = matched_searches_by_source[source_id]
+
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
     return results
