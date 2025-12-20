@@ -218,25 +218,11 @@ def article_recommendations_for_user(
             content.append(c)
             added_from_search += 1
 
-    # Attach matched searches to content objects (by source_id so it works even with version swapping)
-    # Also check organic results by matching search terms against title/content
-    search_terms_list = wanted_user_searches.split() if wanted_user_searches else []
-    print(f"DEBUG: search_terms_list = {search_terms_list}")
-    print(f"DEBUG: search_matches_by_source = {search_matches_by_source}")
+    # Attach matched searches to content objects
+    # Only tag articles that came from explicit search queries (not organic title matching)
     for c in content:
-        matched = []
-        # First check if we found it via explicit search query
         if c.source_id in search_matches_by_source:
-            matched = search_matches_by_source[c.source_id][:]
-        # Also check title for organic results that may match search terms
-        if hasattr(c, 'title') and c.title:
-            title_lower = c.title.lower()
-            for term in search_terms_list:
-                if term.lower() in title_lower and term not in matched:
-                    matched.append(term)
-        if matched:
-            c._matched_searches = matched
-            print(f"DEBUG: attached matched_searches {matched} to article {c.id} (source_id={c.source_id}, title={c.title[:50] if c.title else 'N/A'})")
+            c._matched_searches = search_matches_by_source[c.source_id]
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
@@ -540,21 +526,15 @@ def get_user_info_from_content_recommendations(user, content_list):
         if hasattr(article, '_matched_searches'):
             root_id = article.parent_article_id or article.id
             matched_searches_by_root[root_id] = article._matched_searches
-    print(f"DEBUG get_user_info: matched_searches_by_root = {matched_searches_by_root}")
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
 
     # Add matched_searches to results based on root article id
-    matched_count = 0
-    result_root_ids = [(r.get('id'), r.get('parent_article_id')) for r in results]
-    print(f"DEBUG get_user_info: result (id, parent_id) = {result_root_ids}")
     for result in results:
         # Result might be a simplified version (has parent_article_id) or original
         root_id = result.get('parent_article_id') or result.get('id')
         if root_id and root_id in matched_searches_by_root:
             result['matched_searches'] = matched_searches_by_root[root_id]
-            matched_count += 1
-    print(f"DEBUG get_user_info: added matched_searches to {matched_count} results")
 
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
