@@ -221,6 +221,8 @@ def article_recommendations_for_user(
     # Attach matched searches to content objects (by source_id so it works even with version swapping)
     # Also check organic results by matching search terms against title/content
     search_terms_list = wanted_user_searches.split() if wanted_user_searches else []
+    print(f"DEBUG: search_terms_list = {search_terms_list}")
+    print(f"DEBUG: search_matches_by_source = {search_matches_by_source}")
     for c in content:
         matched = []
         # First check if we found it via explicit search query
@@ -234,6 +236,7 @@ def article_recommendations_for_user(
                     matched.append(term)
         if matched:
             c._matched_searches = matched
+            print(f"DEBUG: attached matched_searches {matched} to article {c.id} (source_id={c.source_id}, title={c.title[:50] if c.title else 'N/A'})")
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
@@ -536,14 +539,18 @@ def get_user_info_from_content_recommendations(user, content_list):
     for article in articles:
         if hasattr(article, '_matched_searches'):
             matched_searches_by_source[article.source_id] = article._matched_searches
+    print(f"DEBUG get_user_info: matched_searches_by_source = {matched_searches_by_source}")
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
 
     # Add matched_searches to results based on source_id
+    matched_count = 0
     for result in results:
         source_id = result.get('source_id')
         if source_id and source_id in matched_searches_by_source:
             result['matched_searches'] = matched_searches_by_source[source_id]
+            matched_count += 1
+    print(f"DEBUG get_user_info: added matched_searches to {matched_count} results")
 
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
