@@ -179,7 +179,7 @@ def article_recommendations_for_user(
 
     # Get articles based on Search preferences and track which search matched
     articles_from_searches = []
-    search_matches = {}  # Maps article.id -> list of matched search terms
+    search_matches_by_source = {}  # Maps source_id -> list of matched search terms
     for search in wanted_user_searches.split():
         search_results = article_and_video_search_for_user(
             user,
@@ -191,9 +191,10 @@ def article_recommendations_for_user(
             use_readability_priority=True,
         )
         for article in search_results:
-            if article.id not in search_matches:
-                search_matches[article.id] = []
-            search_matches[article.id].append(search)
+            if article.source_id not in search_matches_by_source:
+                search_matches_by_source[article.source_id] = []
+            if search not in search_matches_by_source[article.source_id]:
+                search_matches_by_source[article.source_id].append(search)
         articles_from_searches += search_results
 
     # Combine organic recommendations with search results, deduplicating by source_id
@@ -217,10 +218,22 @@ def article_recommendations_for_user(
             content.append(c)
             added_from_search += 1
 
-    # Attach matched searches to content objects
+    # Attach matched searches to content objects (by source_id so it works even with version swapping)
+    # Also check organic results by matching search terms against title/content
+    search_terms_list = wanted_user_searches.split() if wanted_user_searches else []
     for c in content:
-        if c.id in search_matches:
-            c._matched_searches = search_matches[c.id]
+        matched = []
+        # First check if we found it via explicit search query
+        if c.source_id in search_matches_by_source:
+            matched = search_matches_by_source[c.source_id][:]
+        # Also check title for organic results that may match search terms
+        if hasattr(c, 'title') and c.title:
+            title_lower = c.title.lower()
+            for term in search_terms_list:
+                if term.lower() in title_lower and term not in matched:
+                    matched.append(term)
+        if matched:
+            c._matched_searches = matched
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
