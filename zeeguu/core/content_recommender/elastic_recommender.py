@@ -219,9 +219,21 @@ def article_recommendations_for_user(
             added_from_search += 1
 
     # Attach matched searches to content objects (by source_id so it works even with version swapping)
+    # Also check organic results by matching search terms against title/content
+    search_terms_list = wanted_user_searches.split() if wanted_user_searches else []
     for c in content:
+        matched = []
+        # First check if we found it via explicit search query
         if c.source_id in search_matches_by_source:
-            c._matched_searches = search_matches_by_source[c.source_id]
+            matched = search_matches_by_source[c.source_id][:]
+        # Also check title for organic results that may match search terms
+        if hasattr(c, 'title') and c.title:
+            title_lower = c.title.lower()
+            for term in search_terms_list:
+                if term.lower() in title_lower and term not in matched:
+                    matched.append(term)
+        if matched:
+            c._matched_searches = matched
 
     # Filter out articles uploaded by the user themselves
     # (teachers shouldn't see their own uploaded texts in their recommendations)
