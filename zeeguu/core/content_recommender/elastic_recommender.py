@@ -533,22 +533,22 @@ def get_user_info_from_content_recommendations(user, content_list):
     articles = [c for c in content_list if type(c) is Article]
     videos = [c for c in content_list if type(c) is not Article]
 
-    # Build a map of source_id -> matched_searches before any deduplication
-    # (since article_infos may swap articles for different CEFR versions)
-    matched_searches_by_source = {}
+    # Build a map of title -> matched_searches before article_infos
+    # (title is stable across article version swaps, unlike source_id)
+    matched_searches_by_title = {}
     for article in articles:
-        if hasattr(article, '_matched_searches'):
-            matched_searches_by_source[article.source_id] = article._matched_searches
-    print(f"DEBUG get_user_info: matched_searches_by_source = {matched_searches_by_source}")
+        if hasattr(article, '_matched_searches') and article.title:
+            matched_searches_by_title[article.title.lower()] = article._matched_searches
+    print(f"DEBUG get_user_info: matched_searches_by_title keys = {list(matched_searches_by_title.keys())}")
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
 
-    # Add matched_searches to results based on source_id
+    # Add matched_searches to results based on title
     matched_count = 0
     for result in results:
-        source_id = result.get('source_id')
-        if source_id and source_id in matched_searches_by_source:
-            result['matched_searches'] = matched_searches_by_source[source_id]
+        title = result.get('title', '').lower()
+        if title and title in matched_searches_by_title:
+            result['matched_searches'] = matched_searches_by_title[title]
             matched_count += 1
     print(f"DEBUG get_user_info: added matched_searches to {matched_count} results")
 
