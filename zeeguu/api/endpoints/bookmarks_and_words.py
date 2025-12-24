@@ -276,10 +276,17 @@ def set_user_word_exercise_preference(bookmark_id):
 @cross_domain
 @requires_session
 def set_user_word_exercise_dislike(bookmark_id):
+    from datetime import datetime
+
     bookmark = Bookmark.find(bookmark_id)
     user_word = bookmark.user_word
     user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
     user_word.update_fit_for_study(db_session)
+
+    # Check if reason is "learned_already" - if so, mark as learned
+    reason = request.form.get("reason", "")
+    if reason == "learned_already":
+        user_word.learned_time = datetime.now()
 
     BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
     db_session.commit()
