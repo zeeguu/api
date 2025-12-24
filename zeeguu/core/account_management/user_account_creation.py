@@ -6,6 +6,10 @@ from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
 
 
 def valid_invite_code(invite_code):
+    # Allow empty invite codes (for App Store / open signups)
+    if not invite_code or invite_code.strip() == "":
+        return True
+
     if zeeguu.core.app.config["TESTING"]:
         return True
 
