@@ -22,6 +22,7 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+from zeeguu.core.model.user_listening_session import UserListeningSession
 from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
 
 
@@ -300,32 +301,27 @@ def session_history():
                 }
             )
 
-    # Process audio lessons
-    audio_lessons = (
-        DailyAudioLesson.query
-        .filter(DailyAudioLesson.user_id == user.id)
-        .filter(DailyAudioLesson.language_id == learned_language.id)
-        .filter(DailyAudioLesson.recommended_at >= from_date)
-        .filter(DailyAudioLesson.recommended_at <= to_date)
-        .filter(DailyAudioLesson.listened_count > 0)  # Only include lessons that were actually played
-        .all()
+    # Process listening sessions
+    listening_sessions = UserListeningSession.find_by_user_and_language(
+        user.id, learned_language.id, from_date=from_date.isoformat()
     )
 
-    for al in audio_lessons:
-        words = _words_for_audio_lesson(al, learned_language.id)
-        # Convert duration from seconds to milliseconds for consistency
-        duration_ms = (al.duration_seconds or 0) * 1000
+    for ls in listening_sessions:
+        # Skip sessions with no duration
+        if not ls.duration:
+            continue
+        audio_lesson = ls.daily_audio_lesson
+        words = _words_for_audio_lesson(audio_lesson, learned_language.id)
 
         sessions.append(
             {
                 "session_type": "audio",
-                "start_time": al.recommended_at.isoformat(),
-                "duration": duration_ms,
-                "duration_readable": format_duration(duration_ms),
+                "start_time": ls.start_time.isoformat(),
+                "duration": ls.duration,  # Already in milliseconds
+                "duration_readable": format_duration(ls.duration),
                 "words": words,
                 "word_count": len(words),
-                "completed": al.is_completed,
-                "listened_count": al.listened_count,
+                "completed": audio_lesson.is_completed if audio_lesson else False,
             }
         )
 

@@ -36,6 +36,7 @@ from .student import *
 from .nlp import *
 from .reading_sessions import *
 from .browsing_sessions import *
+from .listening_sessions import *
 from . import user_video
 from . import user_watching_session
 from . import audio_lessons
