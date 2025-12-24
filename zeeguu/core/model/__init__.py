@@ -94,6 +94,7 @@ from .audio_lesson_meaning import AudioLessonMeaning
 from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment
+from .user_listening_session import UserListeningSession
 
 # grammar correction tracking
 from .grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType
