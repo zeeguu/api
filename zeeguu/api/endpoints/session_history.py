@@ -311,7 +311,13 @@ def session_history():
         if not ls.duration:
             continue
         audio_lesson = ls.daily_audio_lesson
-        words = _words_for_audio_lesson(audio_lesson, learned_language.id)
+        is_completed = audio_lesson.is_completed if audio_lesson else False
+
+        # Only show words for completed lessons (incomplete = unknown coverage)
+        if is_completed:
+            words = _words_for_audio_lesson(audio_lesson, learned_language.id)
+        else:
+            words = []
 
         sessions.append(
             {
@@ -321,7 +327,7 @@ def session_history():
                 "duration_readable": format_duration(ls.duration),
                 "words": words,
                 "word_count": len(words),
-                "completed": audio_lesson.is_completed if audio_lesson else False,
+                "completed": is_completed,
             }
         )
 
