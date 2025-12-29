@@ -86,11 +86,13 @@ def main():
     print(f"Connected to ES: {ES_CONN_STRING}")
 
     # Get all original articles (not simplified versions)
+    # Order by most recent first so today's articles get updated immediately
     print("\nQuerying original articles from database...")
     original_articles = (
         Article.query
         .filter(Article.parent_article_id == None)
         .filter(Article.broken != 1)
+        .order_by(Article.published_time.desc())
         .all()
     )
 
