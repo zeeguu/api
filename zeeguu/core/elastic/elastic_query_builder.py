@@ -157,9 +157,10 @@ def build_elastic_recommender_query(
         must_not.append({"match": {"is_disturbing": True}})
 
     # Filter by CEFR level - only show articles available at user's level
+    # Use .keyword sub-field for exact matching (field is mapped as text)
     if user_cefr_level:
         levels_to_match = get_cefr_levels_to_match(user_cefr_level)
-        must.append(terms("available_cefr_levels", levels_to_match))
+        must.append(terms("available_cefr_levels.keyword", levels_to_match))
 
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations
@@ -251,9 +252,10 @@ def build_elastic_search_query_for_videos(
         )
 
     # Filter by CEFR level - only show videos available at user's level
+    # Use .keyword sub-field for exact matching (field is mapped as text)
     if user_cefr_level:
         levels_to_match = get_cefr_levels_to_match(user_cefr_level)
-        must.append(terms("available_cefr_levels", levels_to_match))
+        must.append(terms("available_cefr_levels.keyword", levels_to_match))
 
     must.append(exists("published_time"))
     must.append(exists("video_id"))
@@ -321,10 +323,10 @@ def build_elastic_search_query(
         .exclude("match", description="pg15")
     )
 
-    # Add CEFR level filter
+    # Add CEFR level filter (use .keyword sub-field for exact matching)
     if user_cefr_level:
         levels_to_match = get_cefr_levels_to_match(user_cefr_level)
-        s = s.filter("terms", available_cefr_levels=levels_to_match)
+        s = s.filter("terms", **{"available_cefr_levels.keyword": levels_to_match})
 
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
