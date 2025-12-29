@@ -31,8 +31,9 @@ from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.elastic.indexing import get_article_hit_in_es
 
 # Configuration
-BATCH_SIZE = 100
-DRY_RUN = False  # Set to True to preview without updating
+DB_BATCH_SIZE = 10000  # How many articles to fetch from DB at once
+ES_BATCH_SIZE = 100    # How many ES updates to batch together
+DRY_RUN = False        # Set to True to preview without updating
 
 
 def compute_available_cefr_levels(article):
@@ -56,7 +57,6 @@ def generate_update_actions(articles, es):
             # Get the ES document ID
             hit = get_article_hit_in_es(article.id)
             if not hit:
-                print(f"  [SKIP] Article {article.id} not found in ES")
                 continue
 
             es_id = hit.meta.id
@@ -74,6 +74,16 @@ def generate_update_actions(articles, es):
             print(f"  [ERROR] Article {article.id}: {e}")
 
 
+def get_base_query():
+    """Base query for original articles, ordered by most recent first."""
+    return (
+        Article.query
+        .filter(Article.parent_article_id == None)
+        .filter(Article.broken != 1)
+        .order_by(Article.published_time.desc())
+    )
+
+
 def main():
     print("=" * 60)
     print("Backfilling available_cefr_levels in Elasticsearch")
@@ -85,55 +95,54 @@ def main():
     es = Elasticsearch(ES_CONN_STRING)
     print(f"Connected to ES: {ES_CONN_STRING}")
 
-    # Get all original articles (not simplified versions)
-    # Order by most recent first so today's articles get updated immediately
-    print("\nQuerying original articles from database...")
-    original_articles = (
-        Article.query
-        .filter(Article.parent_article_id == None)
-        .filter(Article.broken != 1)
-        .order_by(Article.published_time.desc())
-        .all()
-    )
-
-    total_count = len(original_articles)
+    # Get total count first (fast query)
+    print("\nCounting articles...")
+    total_count = get_base_query().count()
     print(f"Found {total_count} original articles to update")
 
-    # Count articles with/without CEFR levels
-    with_levels = sum(1 for a in original_articles if a.cefr_level or any(s.cefr_level for s in a.simplified_versions))
-    without_levels = total_count - with_levels
-    print(f"  - With CEFR levels: {with_levels}")
-    print(f"  - Without CEFR levels: {without_levels}")
-
     if DRY_RUN:
-        print("\n[DRY RUN] Would update these articles:")
-        for article in original_articles[:10]:
+        print("\n[DRY RUN] Would update first 10 articles:")
+        for article in get_base_query().limit(10).all():
             levels = compute_available_cefr_levels(article)
             print(f"  Article {article.id}: {levels}")
         if total_count > 10:
             print(f"  ... and {total_count - 10} more")
         return
 
-    # Process in batches
-    print(f"\nUpdating ES documents in batches of {BATCH_SIZE}...")
+    # Process in batches - fetch from DB in chunks
+    print(f"\nProcessing in batches of {DB_BATCH_SIZE} from DB, {ES_BATCH_SIZE} to ES...")
     success_count = 0
     error_count = 0
+    offset = 0
 
-    for i in tqdm(range(0, total_count, BATCH_SIZE)):
-        batch = original_articles[i:i + BATCH_SIZE]
-        actions = list(generate_update_actions(batch, es))
+    with tqdm(total=total_count) as pbar:
+        while offset < total_count:
+            # Fetch batch from database
+            db_batch = get_base_query().offset(offset).limit(DB_BATCH_SIZE).all()
 
-        if actions:
-            try:
-                success, errors = bulk(es, actions, raise_on_error=False)
-                success_count += success
-                if errors:
-                    error_count += len(errors)
-                    for error in errors[:3]:  # Show first 3 errors
-                        print(f"  [ERROR] {error}")
-            except Exception as e:
-                print(f"  [BATCH ERROR] {e}")
-                error_count += len(actions)
+            if not db_batch:
+                break
+
+            # Process this DB batch in smaller ES batches
+            for i in range(0, len(db_batch), ES_BATCH_SIZE):
+                es_batch = db_batch[i:i + ES_BATCH_SIZE]
+                actions = list(generate_update_actions(es_batch, es))
+
+                if actions:
+                    try:
+                        success, errors = bulk(es, actions, raise_on_error=False)
+                        success_count += success
+                        if errors:
+                            error_count += len(errors)
+                    except Exception as e:
+                        print(f"  [BATCH ERROR] {e}")
+                        error_count += len(actions)
+
+                pbar.update(len(es_batch))
+
+            # Clear session to free memory
+            db.session.expire_all()
+            offset += DB_BATCH_SIZE
 
     print("\n" + "=" * 60)
     print("SUMMARY")
@@ -141,10 +150,6 @@ def main():
     print(f"Total articles processed: {total_count}")
     print(f"Successfully updated: {success_count}")
     print(f"Errors: {error_count}")
-
-    if without_levels > 0:
-        print(f"\nWARNING: {without_levels} articles have no CEFR levels assigned.")
-        print("These articles will have empty available_cefr_levels and won't appear in filtered results.")
 
 
 if __name__ == "__main__":
