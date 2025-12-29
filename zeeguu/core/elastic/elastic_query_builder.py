@@ -2,6 +2,7 @@ from elasticsearch_dsl import Search, Q, SF
 from elasticsearch_dsl.query import MoreLikeThis
 from datetime import timedelta, datetime
 from zeeguu.core.model import Language
+
 # pprint import removed for cleaner output
 from zeeguu.core.model.article import Article
 
@@ -46,13 +47,29 @@ def more_like_this_query(count, article_text, language, page=0):
     return {"from": page * count, "size": count, "query": s.query.to_dict()}
 
 
+CEFR_LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
+
+
+def get_cefr_levels_to_match(user_cefr_level):
+    """
+    Returns the list of CEFR levels that match the user's level.
+    Includes exact match and compound levels where user is the upper half.
+    E.g., A2 user matches: ["A2", "A1/A2"]
+    """
+    levels = [user_cefr_level]
+    idx = CEFR_LEVEL_ORDER.index(user_cefr_level)
+    if idx > 0:
+        prev_level = CEFR_LEVEL_ORDER[idx - 1]
+        levels.append(f"{prev_level}/{user_cefr_level}")
+    return levels
+
+
 def build_elastic_recommender_query(
     count,
     user_topics,
     unwanted_user_topics,
     language,
-    upper_bounds,
-    lower_bounds,
+    user_cefr_level,
     es_scale,
     es_offset,
     es_decay,
@@ -64,37 +81,20 @@ def build_elastic_recommender_query(
     page=0,
 ):
     """
+    Builds an elastic search query for article recommendations.
 
-    Builds an elastic search query.
-    Does this by building a big JSON object.
+    Filters articles by:
+    - Language
+    - User's CEFR level (via available_cefr_levels field)
+    - Topic preferences
+    - Disturbing content (if enabled)
 
-    Example of a final query body:
-    {'size': 20.0, 'query':
-        {'bool':
-            {
-            'filter':
-                {
-                'range':
-                    {
-                    'fk_difficulty':
-                        {
-                        'gt': 0,
-                         'lt': 100
-                         }
-                    }
-                },
-            'must': [
-                {'match': {'language': 'English'}}
-            ],
-            'must_not': [
-                {'match': {'topics': 'Health'}},
-                {'match': {'content': 'messi'}},
-                {'match': {'title': 'messi'}}
-                ]
-            }
-        }
-    }
+    Scores/ranks by recency (preferring recent articles).
 
+    Args:
+        user_cefr_level: User's CEFR level string (e.g., "A1", "B2")
+                        Articles must have this level in available_cefr_levels.
+                        Also matches compound levels (e.g., A2 matches "A1/A2").
     """
 
     # must = mandatory, has to occur
@@ -156,6 +156,11 @@ def build_elastic_recommender_query(
     if filter_disturbing:
         must_not.append({"match": {"is_disturbing": True}})
 
+    # Filter by CEFR level - only show articles available at user's level
+    if user_cefr_level:
+        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+        must.append(terms("available_cefr_levels", levels_to_match))
+
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations
     must.append({"bool": {"should": [exists("article_id"), exists("video_id")]}})
@@ -187,25 +192,10 @@ def build_elastic_recommender_query(
                 "decay": es_decay,
             }
         },
-        # I am unsure if we should keep he weight for this one.
-        # Right now, I guess it means we weigh both the difficulty
-        # and recency equaly which I think it's the behaviour we would ike.
-        # "weight": es_weight,
-        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
     }
 
-    difficulty_prefference = {
-        "exp": {
-            "fk_difficulty": {
-                "origin": ((upper_bounds + lower_bounds) / 2),
-                "scale": 21,
-            }
-        },
-    }
-
-    full_query["query"]["function_score"].update(
-        {"functions": [recency_preference, difficulty_prefference]}
-    )
+    # Note: difficulty scoring removed - we now filter by CEFR level instead
+    full_query["query"]["function_score"].update({"functions": [recency_preference]})
     full_query["query"]["function_score"].update(bool_query_body)
 
     # Query logging removed for cleaner output
@@ -217,18 +207,15 @@ def build_elastic_search_query_for_videos(
     user_topics,
     unwanted_user_topics,
     language,
-    upper_bounds,
-    lower_bounds,
+    user_cefr_level,
     topics_to_include,
     topics_to_exclude,
     user_ignored_sources,
     page,
 ):
     """
-    At the moment this query is very similar to the articles query 'build_elastic_recommender_query'
-    The difference here is that we don't enforce the recency as much as in the articles.
-
-    We expect videos to come at a much lower pace when compared to the articles.
+    Builds video search query with CEFR level filtering.
+    Similar to article recommender but with less emphasis on recency.
     """
 
     must = []
@@ -263,6 +250,11 @@ def build_elastic_search_query_for_videos(
             )
         )
 
+    # Filter by CEFR level - only show videos available at user's level
+    if user_cefr_level:
+        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+        must.append(terms("available_cefr_levels", levels_to_match))
+
     must.append(exists("published_time"))
     must.append(exists("video_id"))
 
@@ -276,7 +268,6 @@ def build_elastic_search_query_for_videos(
 
     bool_query_body["query"]["bool"].update({"must": must})
     bool_query_body["query"]["bool"].update({"must_not": must_not})
-    # bool_query_body["query"]["bool"].update({"should": should})
 
     full_query = {
         "from": page * count,
@@ -292,28 +283,12 @@ def build_elastic_search_query_for_videos(
                 "decay": 0.95,
             }
         },
-        # I am unsure if we should keep he weight for this one.
-        # Right now, I guess it means we weigh both the difficulty
-        # and recency equaly which I think it's the behaviour we would ike.
-        # "weight": es_weight,
-        # "gauss": {"published_time": {"origin": "now", "scale": es_scale, "decay": es_decay}},
     }
 
-    difficulty_prefference = {
-        "exp": {
-            "fk_difficulty": {
-                "origin": ((upper_bounds + lower_bounds) / 2),
-                "scale": 21,
-            }
-        },
-    }
-
-    full_query["query"]["function_score"].update(
-        {"functions": [recency_preference, difficulty_prefference]}
-    )
+    # Note: difficulty scoring removed - we now filter by CEFR level instead
+    full_query["query"]["function_score"].update({"functions": [recency_preference]})
     full_query["query"]["function_score"].update(bool_query_body)
     print("Video query...")
-    # Query logging removed for cleaner output
     return full_query
 
 
@@ -321,19 +296,17 @@ def build_elastic_search_query(
     count,
     search_terms,
     language,
-    upper_bounds,
-    lower_bounds,
+    user_cefr_level=None,
     es_time_scale="1d",
     es_time_offset="1d",
     es_time_decay=0.65,
     page=0,
     use_published_priority=True,
-    use_readability_priority=True,
 ):
     """
     Builds an elastic search query for search terms.
 
-    Uses the recency and the difficulty of articles to prioritize documents.
+    Filters by CEFR level and ranks by recency.
     """
 
     s = (
@@ -347,6 +320,12 @@ def build_elastic_search_query(
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
+
+    # Add CEFR level filter
+    if user_cefr_level:
+        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+        s = s.filter("terms", available_cefr_levels=levels_to_match)
+
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608
     preferences = []
@@ -361,22 +340,11 @@ def build_elastic_search_query(
                 },
             ),
         )
-    if use_readability_priority:
-        preferences.append(
-            SF(
-                "exp",
-                fk_difficulty={
-                    "origin": ((upper_bounds + lower_bounds) / 2),
-                    "scale": 21,
-                    "decay": 0.5,
-                },
-            ),
-        )
+    # Note: difficulty scoring removed - we now filter by CEFR level instead
     weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
     print("## Search: ")
-    # Query logging removed for cleaner output
     return query
 
 

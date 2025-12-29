@@ -148,6 +148,21 @@ def document_from_article(article, session, current_doc=None):
         article, ClassificationType.DISTURBING
     )
 
+    # Compute available CEFR levels (original + simplified versions)
+    # Only original articles should be indexed; simplified versions share semantics
+    available_cefr_levels = []
+    if article.parent_article_id is None:
+        # This is an original article - collect its level + all simplified versions
+        if article.cefr_level:
+            available_cefr_levels.append(article.cefr_level)
+        for simplified in article.simplified_versions:
+            if simplified.cefr_level:
+                available_cefr_levels.append(simplified.cefr_level)
+    else:
+        # This is a simplified article - shouldn't be indexed, but handle gracefully
+        if article.cefr_level:
+            available_cefr_levels.append(article.cefr_level)
+
     doc = {
         "article_id": article.id,
         "source_id": article.source_id,
@@ -167,6 +182,7 @@ def document_from_article(article, session, current_doc=None):
         "url": article.url.as_string(),
         "video": article.video,
         "is_disturbing": is_disturbing,
+        "available_cefr_levels": available_cefr_levels,
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = list(current_doc["sem_vec"])
