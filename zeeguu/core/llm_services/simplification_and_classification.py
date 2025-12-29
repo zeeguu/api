@@ -682,6 +682,17 @@ def simplify_and_classify(
         session.commit()
         log(f"  URL updates committed")
 
+        # Update parent article's ES document with new available_cefr_levels
+        log(f"  Updating parent article in Elasticsearch...")
+        try:
+            from zeeguu.core.elastic.indexing import create_or_update_article
+
+            create_or_update_article(original_article, session)
+            log(f"  Elasticsearch update completed")
+        except Exception as e:
+            log(f"  WARNING: Failed to update parent article in ES: {e}")
+            # Don't fail the whole operation just because ES update failed
+
         # Log grammar corrections if any were made
         if uncorrected_versions:
             log(f"  Logging grammar corrections...")

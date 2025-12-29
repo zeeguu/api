@@ -41,10 +41,8 @@ def filter_hits_on_score(hits, score_threshold):
 def _prepare_user_constraints(user):
     language = user.learned_language
 
-    # 0. Ensure appropriate difficulty
-    declared_level_min, declared_level_max = user.levels_for(language)
-    lower_bounds = declared_level_min * 10
-    upper_bounds = declared_level_max * 10
+    # Get user's CEFR level for filtering (e.g., "A1", "B2")
+    user_cefr_level = user.cefr_level_for_learned_language()
 
     # 1. Unwanted user topics
     # ==============================
@@ -84,12 +82,10 @@ def _prepare_user_constraints(user):
     # 7. User ignored sources
     # =========================================
     user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
-    # Debug logging removed for cleaner output
 
     return (
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         _topics_to_string(topics_to_include),
         _topics_to_string(topics_to_exclude),
         _list_to_string(wanted_user_searches),
@@ -131,8 +127,7 @@ def article_recommendations_for_user(
     final_article_mix = []
     (
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -151,8 +146,7 @@ def article_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         es_scale,
         es_offset,
         es_decay,
@@ -188,7 +182,6 @@ def article_recommendations_for_user(
             page,
             score_threshold=score_threshold_for_search,
             use_published_priority=True,
-            use_readability_priority=True,
         )
         for article in search_results:
             if article.source_id not in search_matches_by_source:
@@ -262,8 +255,7 @@ def video_recommendations_for_user(
 ):
     (
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -277,8 +269,7 @@ def video_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
@@ -301,14 +292,12 @@ def article_and_video_search_for_user(
     es_time_offset="1d",
     es_time_decay=0.65,
     use_published_priority=False,
-    use_readability_priority=True,
     score_threshold=0,
 ):
 
     (
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -321,14 +310,12 @@ def article_and_video_search_for_user(
         count,
         search_terms,
         language,
-        upper_bounds,
-        lower_bounds,
+        user_cefr_level,
         es_time_scale,
         es_time_offset,
         es_time_decay,
         page,
         use_published_priority,
-        use_readability_priority,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -364,6 +351,8 @@ def topic_filter_for_user(
     difficulty_level,
     topic,
 ):
+    from zeeguu.core.elastic.elastic_query_builder import get_cefr_levels_to_match
+
     es = Elasticsearch(ES_CONN_STRING)
 
     s = Search().query(Q("term", language=user.learned_language.code()))
@@ -392,9 +381,10 @@ def topic_filter_for_user(
     if topic != None and topic != "all":
         s = s.filter("match", topics=topic.lower())
 
-    if difficulty_level:
-        lower_bounds, upper_bounds = _difficuty_level_bounds()
-        s = s.filter("range", fk_difficulty={"gte": lower_bounds, "lte": upper_bounds})
+    # Filter by user's CEFR level
+    user_cefr_level = user.cefr_level_for_learned_language()
+    levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+    s = s.filter("terms", available_cefr_levels=levels_to_match)
 
     query = s.query
 
@@ -452,20 +442,6 @@ def _to_videos_from_ES_hits(hits, with_score=False):
         else:
             videos.append(video)
     return videos
-
-
-def _difficuty_level_bounds(level):
-    lower_bounds = 1
-    upper_bounds = 10
-
-    if level == "easy":
-        upper_bounds = 5
-    elif level == "challenging":
-        lower_bounds = 5
-    else:
-        lower_bounds = 4
-        upper_bounds = 8
-    return lower_bounds, upper_bounds
 
 
 def __find_articles_like(
