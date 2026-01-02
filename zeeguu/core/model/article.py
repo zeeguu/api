@@ -523,7 +523,7 @@ class Article(db.Model):
                     mwe_results = batch_strategy.detect_batch(sentences_only)
 
                     # Apply results back to tokens
-                    from zeeguu.core.mwe.detector import MWEDetector
+                    from zeeguu.core.mwe.enricher import MWEDetector
                     detector = MWEDetector(self.language.code, "hybrid")
                     for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(all_fragment_sentences):
                         if idx < len(mwe_results):

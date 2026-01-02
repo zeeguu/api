@@ -6,7 +6,7 @@ For frontend token enrichment, use zeeguu.core.mwe instead, which adds MWE
 metadata directly to tokens during article serialization.
 
 See also:
-    - zeeguu.core.mwe.detector - Enriches tokens with mwe_group_id, mwe_role, etc.
+    - zeeguu.core.mwe.enricher - Enriches tokens with mwe_group_id, mwe_role, etc.
     - zeeguu.core.mwe.strategies - Language-specific detection strategies
 
 This module provides utilities for detecting multi-word expressions in tokenized text,

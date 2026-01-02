@@ -1,5 +1,5 @@
 """
-MWE Detector - Identifies multi-word expressions and enriches tokens with MWE metadata.
+MWE Enricher - Adds MWE metadata to tokens for frontend consumption.
 
 This enables the frontend to:
 1. Highlight all MWE words when one is clicked

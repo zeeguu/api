@@ -14,7 +14,7 @@
 #     from zeeguu.core.mwe import tokenize_for_reading
 #     tokens = tokenize_for_reading(text, language)
 
-from .detector import MWEDetector, enrich_tokens_with_mwe
+from .enricher import MWEDetector, enrich_tokens_with_mwe
 from .strategies import get_strategy_for_language
 
 
