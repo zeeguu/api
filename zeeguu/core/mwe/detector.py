@@ -1,19 +1,11 @@
 """
-Multi-Word Expression (MWE) Detector - Backend Utilities
+MWE Detector - Low-level detection utilities.
 
-NOTE: This module is for backend analysis (e.g., finding MWEs at a position).
-For frontend token enrichment, use zeeguu.core.mwe instead, which adds MWE
-metadata directly to tokens during article serialization.
-
-See also:
-    - zeeguu.core.mwe.enricher - Enriches tokens with mwe_group_id, mwe_role, etc.
-    - zeeguu.core.mwe.strategies - Language-specific detection strategies
-
-This module provides utilities for detecting multi-word expressions in tokenized text,
-specifically focusing on particle verbs using dependency parsing.
+Provides functions for detecting MWEs in tokenized text using dependency parsing.
+For frontend token enrichment, use enricher.py which adds mwe_* fields to tokens.
 
 Usage:
-    from zeeguu.core.language.mwe_detector import detect_particle_verbs
+    from zeeguu.core.mwe.detector import detect_particle_verbs
 
     # tokens is a list of Token objects with dep, head, and lemma fields
     particle_verbs = detect_particle_verbs(tokens)

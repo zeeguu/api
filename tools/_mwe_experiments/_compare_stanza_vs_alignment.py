@@ -70,7 +70,7 @@ def get_stanza_pipeline(lang):
 
 def detect_with_stanza(sentence, verb, particle, lang):
     """Detect particle verb using Stanza dependency parsing"""
-    from zeeguu.core.language.mwe_detector import detect_particle_verbs
+    from zeeguu.core.mwe.detector import detect_particle_verbs
 
     nlp = get_stanza_pipeline(lang)
 
