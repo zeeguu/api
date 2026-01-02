@@ -477,7 +477,6 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            import time
             from zeeguu.core.model.context_identifier import ContextIdentifier
             from zeeguu.core.model.context_type import ContextType
 
@@ -485,26 +484,19 @@ class Article(db.Model):
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
             from zeeguu.core.mwe import enrich_tokens_with_mwe
 
-            t0 = time.time()
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             content = self.get_content()
             result_dict["content"] = content
             result_dict["htmlContent"] = self.htmlContent
             result_dict["paragraphs"] = tokenizer.split_into_paragraphs(content)
-            print(f"[TIMING] Tokenizer init + paragraphs: {time.time()-t0:.2f}s")
 
             # Tokenize and enrich with MWE detection
             # Main content uses hybrid mode (LLM validation) for better precision
             # Fragments and title use stanza-only mode to minimize LLM calls
-            t1 = time.time()
             tokenized = tokenizer.tokenize_text(content, flatten=False)
-            print(f"[TIMING] Stanza tokenization: {time.time()-t1:.2f}s")
-
-            t2 = time.time()
             result_dict["tokenized_paragraphs"] = enrich_tokens_with_mwe(
                 tokenized, self.language.code
             )
-            print(f"[TIMING] MWE enrichment: {time.time()-t2:.2f}s")
             result_dict["tokenized_fragments"] = []
 
             # Collect all fragment sentences for batch MWE processing
@@ -525,7 +517,6 @@ class Article(db.Model):
                 use_hybrid = self.language.code in HYBRID_LANGUAGES
 
                 if use_hybrid:
-                    print(f"[ARTICLE DEBUG] Processing {len(all_fragment_sentences)} sentences from {len(fragments_list)} fragments with HYBRID mode")
                     from zeeguu.core.mwe.llm_strategy import BatchHybridMWEStrategy
                     batch_strategy = BatchHybridMWEStrategy(self.language.code)
                     sentences_only = [s[3] for s in all_fragment_sentences]
@@ -539,7 +530,6 @@ class Article(db.Model):
                             detector._apply_mwe_groups(tokens, mwe_results[idx], para_idx, sent_idx)
                 else:
                     # Use stanza for non-hybrid languages
-                    print(f"[ARTICLE DEBUG] Processing {len(fragments_list)} fragments with STANZA mode")
                     for frag_tokens in fragment_tokens_list:
                         enrich_tokens_with_mwe(frag_tokens, self.language.code, mode="stanza")
 
