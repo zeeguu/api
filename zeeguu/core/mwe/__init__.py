@@ -15,7 +15,7 @@
 #     tokens = tokenize_for_reading(text, language)
 
 from .enricher import MWEDetector, enrich_tokens_with_mwe
-from .strategies import get_strategy_for_language
+from .stanza_mwe_detector import get_strategy_for_language
 
 
 def tokenize_for_reading(text, language, flatten=False, mode=None, **kwargs):

@@ -18,8 +18,8 @@ import sys
 # Add the api directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from zeeguu.core.mwe.llm_strategy import LLMMWEStrategy
-from zeeguu.core.mwe.strategies import GermanicStrategy
+from zeeguu.core.mwe.llm_mwe_detector import LLMMWEStrategy
+from zeeguu.core.mwe.stanza_mwe_detector import GermanicStrategy
 
 
 def test_danish_example():

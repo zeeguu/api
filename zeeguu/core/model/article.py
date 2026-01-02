@@ -517,7 +517,7 @@ class Article(db.Model):
                 use_hybrid = self.language.code in HYBRID_LANGUAGES
 
                 if use_hybrid:
-                    from zeeguu.core.mwe.llm_strategy import BatchHybridMWEStrategy
+                    from zeeguu.core.mwe.llm_mwe_detector import BatchHybridMWEStrategy
                     batch_strategy = BatchHybridMWEStrategy(self.language.code)
                     sentences_only = [s[3] for s in all_fragment_sentences]
                     mwe_results = batch_strategy.detect_batch(sentences_only)

@@ -23,7 +23,7 @@ Each token gets enriched with:
 
 import logging
 from typing import List, Dict
-from .strategies import get_strategy_for_language
+from .stanza_mwe_detector import get_strategy_for_language
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class MWEDetector:
 
         This is much more efficient than per-sentence processing.
         """
-        from .llm_strategy import BatchHybridMWEStrategy
+        from .llm_mwe_detector import BatchHybridMWEStrategy
 
         # Flatten all sentences with their coordinates
         all_sentences = []  # [(para_i, sent_i, tokens)]

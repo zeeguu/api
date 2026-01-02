@@ -411,10 +411,10 @@ def get_strategy_for_language(language_code: str, mode: str = "stanza") -> MWESt
         MWEStrategy instance
     """
     if mode == "llm":
-        from .llm_strategy import LLMMWEStrategy
+        from .llm_mwe_detector import LLMMWEStrategy
         return LLMMWEStrategy(language_code)
     elif mode == "hybrid":
-        from .llm_strategy import HybridMWEStrategy
+        from .llm_mwe_detector import HybridMWEStrategy
         return HybridMWEStrategy(language_code)
     else:  # "stanza" (default)
         strategy_class = LANGUAGE_STRATEGIES.get(language_code, NoOpStrategy)

@@ -1,13 +1,13 @@
 """
-LLM-based MWE detection strategy using Claude.
+LLM-based MWE detector using Claude.
 
-This strategy prioritizes PRECISION over recall:
+Prioritizes PRECISION over recall:
 - Only detects MWEs when semantically necessary for understanding
 - Avoids over-grouping (e.g., won't group adverbs like "herunder" with "kan se")
 - Better for particle verbs, phrasal verbs, and true idiomatic expressions
 
 Usage:
-    from zeeguu.core.mwe.llm_strategy import LLMMWEStrategy
+    from zeeguu.core.mwe.llm_mwe_detector import LLMMWEStrategy
 
     strategy = LLMMWEStrategy("da")
     mwe_groups = strategy.detect(tokens)
@@ -304,7 +304,7 @@ class HybridMWEStrategy:
     """
 
     def __init__(self, language_code: str):
-        from .strategies import get_strategy_for_language
+        from .stanza_mwe_detector import get_strategy_for_language
 
         self.language_code = language_code
         self.stanza_strategy = get_strategy_for_language(language_code)
@@ -389,7 +389,7 @@ Use [] for sentences with no MWEs.
 JSON:"""
 
     def __init__(self, language_code: str):
-        from .strategies import get_strategy_for_language
+        from .stanza_mwe_detector import get_strategy_for_language
 
         self.language_code = language_code
         self.language_name = LANG_NAMES.get(language_code, language_code)
