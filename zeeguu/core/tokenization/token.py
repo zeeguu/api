@@ -77,12 +77,18 @@ class Token:
         self.dep = dep
         self.head = head
         self.lemma = lemma
+        # MWE (Multi-Word Expression) fields - set by MWE detector after tokenization
+        self.mwe_group_id = None
+        self.mwe_role = None  # "head" | "dependent" | None
+        self.mwe_type = None  # "particle_verb" | "grammatical" | "negation" | None
+        self.mwe_partner_indices = []  # indices of partner tokens in the MWE
+        self.mwe_is_separated = False  # True if MWE parts are not adjacent
 
     def __repr__(self):
         return self.text
 
     def as_serializable_dictionary(self):
-        return {
+        result = {
             "text": self.text,
             "is_sent_start": self.is_sent_start,
             "is_punct": self.is_punct,
@@ -101,3 +107,11 @@ class Token:
             "head": self.head,
             "lemma": self.lemma,
         }
+        # Only include MWE fields if token is part of an MWE (to minimize payload)
+        if self.mwe_group_id:
+            result["mwe_group_id"] = self.mwe_group_id
+            result["mwe_role"] = self.mwe_role
+            result["mwe_type"] = self.mwe_type
+            result["mwe_partner_indices"] = self.mwe_partner_indices
+            result["mwe_is_separated"] = self.mwe_is_separated
+        return result
