@@ -14,7 +14,6 @@ from zeeguu.api.utils.translator import (
     contribute_trans,
     google_contextual_translate,
     microsoft_contextual_translate,
-    azure_alignment_contextual_translate,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -67,24 +66,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     # The front end send the data in the following format:
     # ('context_identifier[context_type]', 'ArticleFragment')
 
-    # Check if this is a separated MWE expression (words not contiguous in context)
-    is_mwe_expression = request.json.get("is_mwe_expression", False)
-    is_separated_mwe = request.json.get("is_separated_mwe", False)
-    mwe_sentence = request.json.get("mwe_sentence", None)  # Full sentence for context
-    mwe_partner_token_i = request.json.get("mwe_partner_token_i", None)  # Partner token for MWE
-
-    if is_mwe_expression:
-        # For separated MWE expressions, the words aren't contiguous in context
-        # so we can't use for_word_occurrence. Create query directly without context positioning.
-        query = TranslationQuery(word_str, "", "", 1)
-        log(f"[TRANSLATION-MWE] Translating MWE expression: '{word_str}', separated={is_separated_mwe}")
-    else:
-        try:
-            query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
-        except AttributeError:
-            # Fallback: word not found in context (shouldn't happen normally)
-            query = TranslationQuery(word_str, "", "", 1)
-            log(f"[TRANSLATION-FALLBACK] Word not found in context: '{word_str}'")
+    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
     # if we have an own translation that is our first "best guess"
     # ML: TODO:
@@ -126,40 +108,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             likelihood = None
             source = "DEV_SKIP"
             t1 = {"translation": translation, "likelihood": likelihood, "source": source}
-        elif is_separated_mwe and mwe_sentence:
-            # For separated MWEs (e.g., "rufe...an"), use LLM translation with sentence context
-            # This provides better translations for words that aren't contiguous
-            log(f"[TRANSLATION-LLM] Using LLM for separated MWE: '{word_str}' in '{mwe_sentence[:50]}...'")
-            start_time = time.time()
-
-            from zeeguu.core.llm_services.mwe_translation_service import translate_separated_mwe
-            llm_translation = translate_separated_mwe(
-                mwe_text=word_str,
-                sentence=mwe_sentence,
-                source_lang=from_lang_code,
-                target_lang=to_lang_code
-            )
-
-            if llm_translation:
-                elapsed = time.time() - start_time
-                log(f"[TRANSLATION-LLM] LLM translation completed in {elapsed:.3f}s: '{llm_translation}'")
-                t1 = {"translation": llm_translation, "likelihood": 0.9, "source": "Claude LLM"}
-            else:
-                # Fall back to regular translation if LLM fails
-                log(f"[TRANSLATION-LLM] LLM translation failed, falling back to Azure alignment")
-                data = {
-                    "source_language": from_lang_code,
-                    "target_language": to_lang_code,
-                    "word": word_str,
-                    "query": query,
-                    "context": context,
-                }
-                # Azure alignment is most reliable, then Microsoft, then Google
-                t1 = azure_alignment_contextual_translate(data)
-                if not t1:
-                    t1 = microsoft_contextual_translate(data)
-                if not t1:
-                    t1 = google_contextual_translate(data)
         else:
             log(
                 f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}"
@@ -173,18 +121,12 @@ def get_one_translation(from_lang_code, to_lang_code):
                 "query": query,
                 "context": context,
             }
-            # Azure alignment is the most reliable for contextual translation.
-            # It uses explicit word-to-word mappings rather than relying on
-            # tag preservation (which Google often gets wrong).
-            # Fallback chain: alignment -> span-tag Microsoft -> span-tag Google
+            # The API Mux is misbehaving and will only serve the non-contextual translators after a while
+            # For now hardcoding google on the first place and msft as a backup
 
-            t1 = azure_alignment_contextual_translate(data)
+            t1 = google_contextual_translate(data)
             if not t1:
-                log(f"[TRANSLATION] Alignment failed, falling back to Microsoft span-tag")
                 t1 = microsoft_contextual_translate(data)
-            if not t1:
-                log(f"[TRANSLATION] Microsoft failed, falling back to Google span-tag")
-                t1 = google_contextual_translate(data)
 
             elapsed = time.time() - start_time
             log(
@@ -224,8 +166,6 @@ def get_one_translation(from_lang_code, to_lang_code):
             translation_source=translation_source,
             browsing_session_id=browsing_session_id,
             reading_session_id=reading_session_id,
-            is_mwe=is_mwe_expression,
-            mwe_partner_token_i=mwe_partner_token_i,
         )
 
         bookmark_elapsed = time.time() - bookmark_start
@@ -282,14 +222,10 @@ def get_multiple_translations(from_lang_code, to_lang_code):
         "query": query,
         "context": context,
     }
-    # Azure alignment is best, then Microsoft span-tag, then Google span-tag
-    t0 = azure_alignment_contextual_translate(data)
-    t1 = microsoft_contextual_translate(data)
-    t2 = google_contextual_translate(data)
+    t1 = google_contextual_translate(data)
+    t2 = microsoft_contextual_translate(data)
 
-    # Filter out None results
-    translations = [t for t in [t0, t1, t2] if t]
-    return json_result(dict(translations=translations))
+    return json_result(dict(translations=[t1, t2]))
 
 
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])

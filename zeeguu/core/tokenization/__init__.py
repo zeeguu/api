@@ -7,12 +7,9 @@ from .zeeguu_tokenizer import TokenizerModel
 """
 - NLTK is the fastest model.
 - STANZA_TOKEN_ONLY has better accuracy, but is slightly slower
-- STANZA_TOKEN_POS uses the same as TOKEN, but also does POS, slower.
-- STANZA_TOKEN_POS_DEP includes dependency parsing for MWE detection.
+- STANZA_TOKEN_POS uses the same a TOKEN, but also does POS, much slower.
 """
-# Using POS_DEP to enable MWE (Multi-Word Expression) detection
-# This adds dep, head, lemma fields needed for particle verb detection
-TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_POS_DEP
+TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
 
 
 def get_tokenizer(language, model):

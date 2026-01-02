@@ -253,22 +253,3 @@ def microsoft_contextual_translate(data):
     t["source"] = t["service_name"]
 
     return t
-
-
-@cache_on_data_keys("source_language", "target_language", "word", "context")
-def azure_alignment_contextual_translate(data):
-    """
-    Translate using Azure's word alignment feature.
-
-    This is more reliable than the span-tag approach because it uses
-    explicit word-to-word mappings rather than hoping the translation
-    API preserves tag positions.
-    """
-    from zeeguu.api.utils.azure_alignment_translator import azure_alignment_translate
-
-    result = azure_alignment_translate(data)
-    if result:
-        # Ensure consistent key naming
-        result["likelihood"] = result.get("likelihood", 90)
-        result["source"] = result.get("source", "Microsoft - alignment")
-    return result
