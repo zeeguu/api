@@ -60,7 +60,8 @@ class StanzaMWEStrategy(MWEStrategy):
     Our token indices are 0-based, so we subtract 1.
     """
 
-    # Relations that indicate MWE
+    # Primary relations that indicate MWE (additional patterns like negation
+    # are handled via custom logic in detect() method)
     MWE_RELATIONS = {
         "compound:prt": "particle_verb",  # German/Dutch/Swedish particle verbs
         "compound": "phrasal_verb",        # Spanish/Romance phrasal verbs
