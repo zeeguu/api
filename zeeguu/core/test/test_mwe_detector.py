@@ -7,7 +7,7 @@ Tests particle verb detection using dependency parsing.
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.tokenization import get_tokenizer, TokenizerModel
 from zeeguu.core.test.rules.language_rule import LanguageRule
-from zeeguu.core.mwe.detector import (
+from tools._mwe_experiments.detector import (
     detect_particle_verbs,
     find_mwe_at_position,
     get_mwe_text

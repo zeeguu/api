@@ -83,7 +83,7 @@ def stanza_mwe_detection(text, lang):
     """Detect MWEs using Stanza dependency parsing"""
     try:
         import stanza
-        from zeeguu.core.mwe.detector import detect_particle_verbs
+        from tools._mwe_experiments.detector import detect_particle_verbs
     except ImportError as e:
         return None, 0, f"Import error: {e}"
 
@@ -168,7 +168,7 @@ def run_benchmark():
 
     # Check MWE detector
     try:
-        from zeeguu.core.mwe.detector import detect_particle_verbs
+        from tools._mwe_experiments.detector import detect_particle_verbs
         print("MWE Detector: Available")
     except ImportError:
         print("MWE Detector: NOT AVAILABLE")

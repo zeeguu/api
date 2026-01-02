@@ -165,7 +165,7 @@ def detect_with_stanza(sentence, mwe_words, lang):
     if lang not in ["de", "da", "nl", "sv", "fr", "es", "el"]:
         return {"detected": False, "mwes": [], "reason": "language not supported"}
 
-    from zeeguu.core.mwe.detector import detect_particle_verbs
+    from tools._mwe_experiments.detector import detect_particle_verbs
 
     try:
         nlp = get_stanza_pipeline(lang)

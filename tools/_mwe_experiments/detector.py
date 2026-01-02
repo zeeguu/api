@@ -1,11 +1,10 @@
 """
-MWE Detector - Low-level detection utilities.
+MWE Detector - Low-level detection utilities for testing/analysis.
 
-Provides functions for detecting MWEs in tokenized text using dependency parsing.
-For frontend token enrichment, use enricher.py which adds mwe_* fields to tokens.
+NOT used in production. For production MWE detection, use zeeguu.core.mwe.
 
 Usage:
-    from zeeguu.core.mwe.detector import detect_particle_verbs
+    from tools._mwe_experiments.detector import detect_particle_verbs
 
     # tokens is a list of Token objects with dep, head, and lemma fields
     particle_verbs = detect_particle_verbs(tokens)
