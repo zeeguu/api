@@ -11,19 +11,19 @@
 # - "hybrid": Stanza + LLM validation (best accuracy)
 #
 # Usage:
-#     from zeeguu.core.mwe import enrich_article_with_mwe
+#     from zeeguu.core.mwe import enrich_tokens_with_mwe
 #     tokenized = tokenizer.tokenize_text(content, flatten=False)
 #
 #     # Default (Stanza-based, fast)
-#     enriched = enrich_article_with_mwe(tokenized, "de")
+#     enriched = enrich_tokens_with_mwe(tokenized, "de")
 #
 #     # LLM-based (high precision)
-#     enriched = enrich_article_with_mwe(tokenized, "de", mode="llm")
+#     enriched = enrich_tokens_with_mwe(tokenized, "de", mode="llm")
 #
 #     # Hybrid (best accuracy)
-#     enriched = enrich_article_with_mwe(tokenized, "de", mode="hybrid")
+#     enriched = enrich_tokens_with_mwe(tokenized, "de", mode="hybrid")
 
-from .detector import MWEDetector, enrich_article_with_mwe
+from .detector import MWEDetector, enrich_tokens_with_mwe
 from .strategies import get_strategy_for_language
 
-__all__ = ["MWEDetector", "enrich_article_with_mwe", "get_strategy_for_language"]
+__all__ = ["MWEDetector", "enrich_tokens_with_mwe", "get_strategy_for_language"]

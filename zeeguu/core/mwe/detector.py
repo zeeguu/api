@@ -7,11 +7,11 @@ This module adds MWE metadata to tokens, enabling the frontend to:
 3. Create bookmarks that span multiple tokens
 
 Usage:
-    from zeeguu.core.mwe import enrich_article_with_mwe
+    from zeeguu.core.mwe import enrich_tokens_with_mwe
 
     # After tokenization, enrich with MWE detection:
     tokenized = tokenizer.tokenize_text(content, flatten=False)
-    enriched = enrich_article_with_mwe(tokenized, "de")
+    enriched = enrich_tokens_with_mwe(tokenized, "de")
 
 Each token gets enriched with:
     - mwe_group_id: str or None - unique ID linking MWE partners
@@ -158,7 +158,7 @@ class MWEDetector:
         return False  # All adjacent
 
 
-def enrich_article_with_mwe(
+def enrich_tokens_with_mwe(
     tokenized_text: List,
     language_code: str,
     mode: str = None

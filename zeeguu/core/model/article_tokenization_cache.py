@@ -73,7 +73,7 @@ class ArticleTokenizationCache(db.Model):
         (using cached data), allowing callers to batch all writes before reads.
         """
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-        from zeeguu.core.mwe import enrich_article_with_mwe
+        from zeeguu.core.mwe import enrich_tokens_with_mwe
 
         cache = cls.find_or_create(session, article)
         modified = False
@@ -83,7 +83,7 @@ class ArticleTokenizationCache(db.Model):
             tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
             tokenized = tokenizer.tokenize_text(article.summary, flatten=False)
             # Enrich with MWE detection so previews show MWE grouping
-            tokenized = enrich_article_with_mwe(tokenized, article.language.code, mode="stanza")
+            tokenized = enrich_tokens_with_mwe(tokenized, article.language.code, mode="stanza")
             cache.tokenized_summary = json.dumps(tokenized)
             modified = True
             log.info(f"[CACHE] Article {article.id} - Tokenized and cached summary with MWE")
@@ -93,7 +93,7 @@ class ArticleTokenizationCache(db.Model):
             tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
             tokenized = tokenizer.tokenize_text(article.title, flatten=False)
             # Enrich with MWE detection so previews show MWE grouping
-            tokenized = enrich_article_with_mwe(tokenized, article.language.code, mode="stanza")
+            tokenized = enrich_tokens_with_mwe(tokenized, article.language.code, mode="stanza")
             cache.tokenized_title = json.dumps(tokenized)
             modified = True
             log.info(f"[CACHE] Article {article.id} - Tokenized and cached title with MWE")

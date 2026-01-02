@@ -483,7 +483,7 @@ class Article(db.Model):
 
             from zeeguu.core.model.article_fragment import ArticleFragment
             from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-            from zeeguu.core.mwe import enrich_article_with_mwe
+            from zeeguu.core.mwe import enrich_tokens_with_mwe
 
             t0 = time.time()
             tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
@@ -501,7 +501,7 @@ class Article(db.Model):
             print(f"[TIMING] Stanza tokenization: {time.time()-t1:.2f}s")
 
             t2 = time.time()
-            result_dict["tokenized_paragraphs"] = enrich_article_with_mwe(
+            result_dict["tokenized_paragraphs"] = enrich_tokens_with_mwe(
                 tokenized, self.language.code
             )
             print(f"[TIMING] MWE enrichment: {time.time()-t2:.2f}s")
@@ -541,7 +541,7 @@ class Article(db.Model):
                     # Use stanza for non-hybrid languages
                     print(f"[ARTICLE DEBUG] Processing {len(fragments_list)} fragments with STANZA mode")
                     for frag_tokens in fragment_tokens_list:
-                        enrich_article_with_mwe(frag_tokens, self.language.code, mode="stanza")
+                        enrich_tokens_with_mwe(frag_tokens, self.language.code, mode="stanza")
 
             # Build tokenized_fragments result
             for frag_idx, fragment in enumerate(fragments_list):
@@ -556,7 +556,7 @@ class Article(db.Model):
 
             ## TO-DO : Update once migration is complete.
             title_tokens = tokenizer.tokenize_text(self.title, flatten=False)
-            enriched_title = enrich_article_with_mwe(title_tokens, self.language.code, mode="stanza")
+            enriched_title = enrich_tokens_with_mwe(title_tokens, self.language.code, mode="stanza")
             result_dict["tokenized_title_new"] = {
                 "context_identifier": ContextIdentifier(
                     ContextType.ARTICLE_TITLE,
