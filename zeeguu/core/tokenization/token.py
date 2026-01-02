@@ -81,7 +81,6 @@ class Token:
         self.mwe_group_id = None
         self.mwe_role = None  # "head" | "dependent" | None
         self.mwe_type = None  # "particle_verb" | "grammatical" | "negation" | None
-        self.mwe_partner_indices = []  # indices of partner tokens in the MWE
         self.mwe_is_separated = False  # True if MWE parts are not adjacent
 
     def __repr__(self):
@@ -112,6 +111,5 @@ class Token:
             result["mwe_group_id"] = self.mwe_group_id
             result["mwe_role"] = self.mwe_role
             result["mwe_type"] = self.mwe_type
-            result["mwe_partner_indices"] = self.mwe_partner_indices
             result["mwe_is_separated"] = self.mwe_is_separated
         return result

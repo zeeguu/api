@@ -17,7 +17,6 @@ Each token gets enriched with:
     - mwe_group_id: str or None - unique ID linking MWE partners
     - mwe_role: "head" | "dependent" | None
     - mwe_type: "particle_verb" | "grammatical" | "negation" | None
-    - mwe_partner_indices: list of partner token indices in same sentence
     - mwe_is_separated: bool - True if MWE has non-MWE words between partners
       (e.g., "rufe dich an" where "dich" separates "rufe" and "an")
 """
@@ -124,20 +123,19 @@ class MWEDetector:
 
             # Mark head token
             if 0 <= head_idx < len(tokens):
-                self._mark_token(tokens[head_idx], group_id, "head", mwe_type, dependent_indices, is_separated)
+                self._mark_token(tokens[head_idx], group_id, "head", mwe_type, is_separated)
 
             # Mark dependent tokens
             for dep_idx in dependent_indices:
                 if 0 <= dep_idx < len(tokens):
-                    self._mark_token(tokens[dep_idx], group_id, "dependent", mwe_type, [head_idx], is_separated)
+                    self._mark_token(tokens[dep_idx], group_id, "dependent", mwe_type, is_separated)
 
     def _mark_token(self, token: Dict, group_id: str, role: str, mwe_type: str,
-                    partner_indices: List[int], is_separated: bool) -> None:
+                    is_separated: bool) -> None:
         """Mark a single token with MWE metadata."""
         token["mwe_group_id"] = group_id
         token["mwe_role"] = role
         token["mwe_type"] = mwe_type
-        token["mwe_partner_indices"] = partner_indices
         token["mwe_is_separated"] = is_separated
 
     def _check_if_separated(self, indices: List[int]) -> bool:
