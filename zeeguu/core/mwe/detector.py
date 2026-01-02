@@ -49,34 +49,33 @@ class MWEDetector:
         self.mode = mode
         self.strategy = get_strategy_for_language(language_code, mode)
 
-    def detect_in_paragraphs(self, tokenized_paragraphs: List[List[List[Dict]]]) -> List[List[List[Dict]]]:
+    def enrich(self, tokenized_text: List[List[List[Dict]]]) -> List[List[List[Dict]]]:
         """
-        Detect MWEs in all paragraphs.
+        Enrich tokens with MWE metadata.
 
         Args:
-            tokenized_paragraphs: List of paragraphs, each containing sentences,
-                                  each containing token dicts
+            tokenized_text: List[List[List[token]]] (paragraphs -> sentences -> tokens)
 
         Returns:
             Same structure with MWE metadata added to tokens
         """
-        logger.debug(f"MWE detection: mode={self.mode}, paragraphs={len(tokenized_paragraphs)}")
+        logger.debug(f"MWE enrichment: mode={self.mode}, paragraphs={len(tokenized_text)}")
 
         # For hybrid mode, use batch processing (single LLM call for all sentences)
         if self.mode == "hybrid":
-            return self._detect_batch(tokenized_paragraphs)
+            return self._enrich_batch(tokenized_text)
 
         # For other modes, process sentence by sentence
-        for para_i, paragraph in enumerate(tokenized_paragraphs):
+        for para_i, paragraph in enumerate(tokenized_text):
             for sent_i, sentence in enumerate(paragraph):
                 mwe_groups = self.strategy.detect(sentence)
                 self._apply_mwe_groups(sentence, mwe_groups, para_i, sent_i)
 
-        return tokenized_paragraphs
+        return tokenized_text
 
-    def _detect_batch(self, tokenized_paragraphs: List[List[List[Dict]]]) -> List[List[List[Dict]]]:
+    def _enrich_batch(self, tokenized_text: List[List[List[Dict]]]) -> List[List[List[Dict]]]:
         """
-        Batch detect MWEs using a single LLM call for all sentences.
+        Batch enrich tokens using a single LLM call for all sentences.
 
         This is much more efficient than per-sentence processing.
         """
@@ -84,12 +83,12 @@ class MWEDetector:
 
         # Flatten all sentences with their coordinates
         all_sentences = []  # [(para_i, sent_i, tokens)]
-        for para_i, paragraph in enumerate(tokenized_paragraphs):
+        for para_i, paragraph in enumerate(tokenized_text):
             for sent_i, sentence in enumerate(paragraph):
                 all_sentences.append((para_i, sent_i, sentence))
 
         if not all_sentences:
-            return tokenized_paragraphs
+            return tokenized_text
 
         # Run batch detection
         batch_strategy = BatchHybridMWEStrategy(self.language_code)
@@ -101,7 +100,7 @@ class MWEDetector:
             mwe_groups = mwe_results[idx] if idx < len(mwe_results) else []
             self._apply_mwe_groups(tokens, mwe_groups, para_i, sent_i)
 
-        return tokenized_paragraphs
+        return tokenized_text
 
     def _apply_mwe_groups(self, tokens: List[Dict], mwe_groups: List[Dict], para_i: int, sent_i: int) -> None:
         """Apply MWE group metadata to tokens."""
@@ -190,4 +189,4 @@ def enrich_tokens_with_mwe(
     logger.info(f"MWE enrichment: lang={language_code}, mode={mode}")
 
     detector = MWEDetector(language_code, mode)
-    return detector.detect_in_paragraphs(tokenized_text)
+    return detector.enrich(tokenized_text)
