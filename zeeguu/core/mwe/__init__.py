@@ -1,9 +1,9 @@
 # MWE (Multi-Word Expression) Detection Module
 #
 # This module detects multi-word expressions like:
-# - Particle verbs: "steht...auf" (gets up), "gives...up"
-# - Grammatical: "wird kommen" (will come), "has eaten"
-# - Negation: "geht nicht" (doesn't go)
+# - Particle verbs: "ruft...an" (calls), "steht...auf" (gets up)
+# - Grammatical: "il y a" (there is), "wird kommen" (will come)
+# - Phrasal verbs: "llevó a cabo" (carried out)
 #
 # Detection modes:
 # - "stanza": Fast dependency-based (default, high recall)
