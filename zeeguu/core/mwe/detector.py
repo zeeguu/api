@@ -1,7 +1,7 @@
 """
-MWE Detector - Identifies multi-word expressions in tokenized text.
+MWE Detector - Identifies multi-word expressions and enriches tokens with MWE metadata.
 
-This module adds MWE metadata to tokens, enabling the frontend to:
+This enables the frontend to:
 1. Highlight all MWE words when one is clicked
 2. Translate the MWE as a unit
 3. Create bookmarks that span multiple tokens
