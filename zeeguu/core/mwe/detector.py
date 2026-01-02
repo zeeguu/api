@@ -159,17 +159,19 @@ class MWEDetector:
 
 
 def enrich_article_with_mwe(
-    tokenized_paragraphs: List,
+    tokenized_text: List,
     language_code: str,
     mode: str = None
 ) -> List:
     """
-    Convenience function to enrich an entire article with MWE detection.
+    Enrich tokenized text with MWE detection.
 
     Call this after tokenizer.tokenize_text() to add MWE metadata.
+    Works for full articles, summaries, or titles.
 
     Args:
-        tokenized_paragraphs: Output from tokenizer.tokenize_text(flatten=False)
+        tokenized_text: Output from tokenizer.tokenize_text(flatten=False)
+            Structure: List[List[List[token]]] (paragraphs -> sentences -> tokens)
         language_code: e.g., "de", "en", "es"
         mode: Detection mode (auto-selected based on language if not specified):
             - "stanza": Fast dependency-based (high recall)
@@ -188,4 +190,4 @@ def enrich_article_with_mwe(
     logger.info(f"MWE enrichment: lang={language_code}, mode={mode}")
 
     detector = MWEDetector(language_code, mode)
-    return detector.detect_in_paragraphs(tokenized_paragraphs)
+    return detector.detect_in_paragraphs(tokenized_text)
