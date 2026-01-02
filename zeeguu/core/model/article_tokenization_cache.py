@@ -72,28 +72,21 @@ class ArticleTokenizationCache(db.Model):
         This separates the write concern (populating cache) from the read concern
         (using cached data), allowing callers to batch all writes before reads.
         """
-        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-        from zeeguu.core.mwe import enrich_tokens_with_mwe
+        from zeeguu.core.mwe import tokenize_for_reading
 
         cache = cls.find_or_create(session, article)
         modified = False
 
         # Populate summary if needed
         if article.summary and not cache.tokenized_summary:
-            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-            tokenized = tokenizer.tokenize_text(article.summary, flatten=False)
-            # Enrich with MWE detection so previews show MWE grouping
-            tokenized = enrich_tokens_with_mwe(tokenized, article.language.code, mode="stanza")
+            tokenized = tokenize_for_reading(article.summary, article.language, mode="stanza")
             cache.tokenized_summary = json.dumps(tokenized)
             modified = True
             log.info(f"[CACHE] Article {article.id} - Tokenized and cached summary with MWE")
 
         # Populate title if needed
         if not cache.tokenized_title:
-            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-            tokenized = tokenizer.tokenize_text(article.title, flatten=False)
-            # Enrich with MWE detection so previews show MWE grouping
-            tokenized = enrich_tokens_with_mwe(tokenized, article.language.code, mode="stanza")
+            tokenized = tokenize_for_reading(article.title, article.language, mode="stanza")
             cache.tokenized_title = json.dumps(tokenized)
             modified = True
             log.info(f"[CACHE] Article {article.id} - Tokenized and cached title with MWE")

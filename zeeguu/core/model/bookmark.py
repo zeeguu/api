@@ -222,17 +222,15 @@ class Bookmark(db.Model):
             result["title"] = bookmark_title
 
         if with_context_tokenized:
-            from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
+            from zeeguu.core.mwe import tokenize_for_reading
 
-            tokenizer = get_tokenizer(
-                self.user_word.meaning.origin.language, TOKENIZER_MODEL
-            )
             # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
             # Even though most contexts have only 1 paragraph, the structure must be preserved
             # for compatibility with InteractiveText._updateTokensWithBookmarks()
-            result["context_tokenized"] = tokenizer.tokenize_text(
+            result["context_tokenized"] = tokenize_for_reading(
                 self.context.get_content(),
-                flatten=False,
+                self.user_word.meaning.origin.language,
+                mode="stanza",
                 start_token_i=self.context.token_i,
                 start_sentence_i=self.context.sentence_i,
             )

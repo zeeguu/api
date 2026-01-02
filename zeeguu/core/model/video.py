@@ -267,16 +267,15 @@ class Video(db.Model):
             result_dict["published_time"] = datetime_to_json(self.published_time)
 
         if with_content:
-            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+            from zeeguu.core.mwe import tokenize_for_reading
 
-            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
             result_dict["captions"] = [
                 {
                     "time_start": caption.time_start / 1000,  # convert to seconds
                     "time_end": caption.time_end / 1000,
                     "text": caption.get_content(),
-                    "tokenized_text": tokenizer.tokenize_text(
-                        caption.get_content(), flatten=False
+                    "tokenized_text": tokenize_for_reading(
+                        caption.get_content(), self.language, mode="stanza"
                     ),
                     "context_identifier": ContextIdentifier(
                         ContextType.VIDEO_CAPTION, video_caption_id=caption.id
@@ -286,7 +285,7 @@ class Video(db.Model):
             ]
 
             result_dict["tokenized_title"] = {
-                "tokens": tokenizer.tokenize_text(self.title, flatten=False),
+                "tokens": tokenize_for_reading(self.title, self.language, mode="stanza"),
                 "context_identifier": ContextIdentifier(
                     ContextType.VIDEO_TITLE, video_id=self.id
                 ).as_dictionary(),
