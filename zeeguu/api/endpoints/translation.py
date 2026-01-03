@@ -190,12 +190,123 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     return json_result(dict(translations=translations))
 
 
+@api.route(
+    "/get_translations_stream/<from_lang_code>/<to_lang_code>", methods=["POST"]
+)
+@cross_domain
+@requires_session
+def get_translations_stream(from_lang_code, to_lang_code):
+    """
+    Stream translations as they arrive using Server-Sent Events (SSE).
+
+    Each translation is sent as a separate SSE event, allowing the frontend
+    to display results progressively rather than waiting for all services.
+
+    :return: SSE stream with translation events
+    """
+    import json
+    from flask import Response
+    from zeeguu.core.translation_services.translator import get_translations_streaming
+
+    word_str = request.form["word"].strip(punctuation_extended)
+    context = request.form.get("context", "").strip()
+    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    full_sentence_context = request.form.get("full_sentence_context", "")
+
+    def generate():
+        for translation in get_translations_streaming(
+            word_str, context, from_lang_code, to_lang_code,
+            is_separated_mwe, full_sentence_context
+        ):
+            yield f"data: {json.dumps(translation)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering
+        }
+    )
+
+
+@api.route("/update_bookmark_translation/<bookmark_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def update_bookmark_translation_only(bookmark_id):
+    """
+    Simple endpoint to update ONLY the translation of a bookmark.
+
+    Used from the reader when user selects an alternative translation.
+    Preserves all position data (sentence_i, token_i, context, etc.)
+
+    :param bookmark_id: ID of bookmark to update
+    :return: Updated bookmark as JSON
+    """
+    from zeeguu.api.utils.json_result import json_result
+
+    bookmark = Bookmark.find(bookmark_id)
+    if not bookmark:
+        return json_result({"error": "Bookmark not found"}, status=404)
+
+    new_translation = request.json.get("translation")
+    if not new_translation:
+        return json_result({"error": "Translation required"}, status=400)
+
+    # Find or create new Meaning with the new translation
+    old_meaning = bookmark.user_word.meaning
+    new_meaning = Meaning.find_or_create(
+        db_session,
+        old_meaning.origin.content,  # Keep same origin word
+        old_meaning.origin.language.code,
+        new_translation,
+        old_meaning.translation.language.code,
+    )
+
+    # Find or create UserWord for the new meaning
+    old_user_word = bookmark.user_word
+    new_user_word = UserWord.find_or_create(
+        db_session, old_user_word.user, new_meaning
+    )
+
+    # If UserWord changed, transfer learning progress
+    if new_user_word.id != old_user_word.id:
+        from zeeguu.core.bookmark_operations.update_bookmark import (
+            transfer_learning_progress,
+            cleanup_old_user_word,
+        )
+        transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
+
+        # Reassign bookmark to new UserWord
+        bookmark.user_word_id = new_user_word.id
+        db_session.add(bookmark)
+        db_session.flush()
+
+        # Set preferred_bookmark if needed
+        if not new_user_word.preferred_bookmark:
+            new_user_word.preferred_bookmark_id = bookmark.id
+            db_session.add(new_user_word)
+
+        cleanup_old_user_word(db_session, old_user_word, bookmark)
+
+    db_session.commit()
+
+    # Return updated bookmark
+    updated = bookmark.as_dictionary(with_context=True)
+    print(f"[UPDATE_TRANSLATION] Updated bookmark {bookmark_id}: '{old_meaning.origin.content}' -> '{new_translation}'")
+    return json_result(updated)
+
+
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @requires_session
-def update_translation(bookmark_id):
+def update_bookmark_full(bookmark_id):
     """
-    User updates a bookmark - updates word, translation, and/or context.
+    Full bookmark update - can change word, translation, and/or context.
+
+    Used from WordEditForm where user can edit everything.
 
     This endpoint handles complex logic including:
     - Switching to new UserWord if meaning changed
@@ -214,7 +325,6 @@ def update_translation(bookmark_id):
         find_or_create_context,
         transfer_learning_progress,
         cleanup_old_user_word,
-        context_or_word_changed,
         validate_and_update_position,
         format_response,
     )
@@ -238,11 +348,21 @@ def update_translation(bookmark_id):
         db_session, word_str, origin_lang_code, translation_str, translation_lang_code
     )
 
-    # Step 3: Find or create new text and context
-    text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
+    # Step 3: Check if only translation changed (word unchanged)
+    # If so, we skip context recreation to preserve position data
+    old_user_word = bookmark.user_word
+    word_unchanged = old_user_word.meaning.origin.content == word_str
+
+    if word_unchanged:
+        # Translation-only update: keep existing text and context
+        print(f"[UPDATE_BOOKMARK] Word unchanged, keeping existing text/context to preserve position")
+        text = bookmark.text
+        context = bookmark.context
+    else:
+        # Word changed: need to find/create new text and context
+        text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
 
     # Step 4: Find or create UserWord for new meaning
-    old_user_word = bookmark.user_word
     # Save original context/text info BEFORE reassigning (needed for change detection later)
     old_context_id = bookmark.context_id
     old_text_id = bookmark.text_id
@@ -265,6 +385,10 @@ def update_translation(bookmark_id):
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
+    db_session.add(bookmark)
+    # Flush bookmark reassignment BEFORE setting preferred_bookmark_id
+    # This ensures the validation sees the updated user_word_id
+    db_session.flush()
     print(f"[UPDATE_BOOKMARK] Reassigned bookmark to UserWord {new_user_word.id}")
 
     # Set preferred_bookmark_id AFTER reassignment (if UserWord changed and doesn't have one)
@@ -281,11 +405,18 @@ def update_translation(bookmark_id):
             f"[UPDATE_BOOKMARK] Same UserWord (ID: {new_user_word.id}), no cleanup needed"
         )
 
-    # Step 8: Validate word position if context or word changed
-    if context_or_word_changed(word_str, context_str, bookmark, old_user_word, old_context_id, old_text_id):
+    # Step 8: Validate word position ONLY if the WORD changed
+    # We skip validation for translation-only changes because:
+    # 1. The bookmark already has valid position data (sentence_i, token_i, total_tokens)
+    # 2. Re-tokenization is fragile (e.g., "l-a" vs "l-" + "a" tokenization differences)
+    # 3. Context string reconstruction from tokens may differ from stored context
+    if not word_unchanged:
+        print(f"[UPDATE_BOOKMARK] Word changed, validating position...")
         error_response = validate_and_update_position(bookmark, word_str, context_str)
         if error_response:
             return error_response  # Validation failed, return error
+    else:
+        print(f"[UPDATE_BOOKMARK] Word unchanged, skipping position validation (keeping existing position data)")
 
     # Step 9: Commit changes and return response
     db_session.add(bookmark)

@@ -235,6 +235,8 @@ def google_contextual_translate(data):
     gtx = GoogleTranslateWithContext()
 
     response = gtx.get_result(data)
+    if response is None or not response.translations:
+        return None
     t = response.translations[0]
 
     t["likelihood"] = t.pop("quality")
@@ -248,6 +250,8 @@ def microsoft_contextual_translate(data):
     gtx = MicrosoftTranslateWithContext()
 
     response = gtx.get_result(data)
+    if response is None or not response.translations:
+        return None
     t = response.translations[0]
 
     t["likelihood"] = t.pop("quality")
@@ -276,6 +280,54 @@ def azure_alignment_contextual_translate(data):
 
 
 @lru_cache(maxsize=1000)
+def translate_mwe_phrase(word, from_lang, to_lang):
+    """
+    Translate a Multi-Word Expression (MWE) as a standalone phrase.
+
+    For MWEs like "vil have fjernet" (Danish future perfect), contextual translation
+    can fail because the full sentence context leads to grammar misinterpretation.
+    E.g., "Vi vil have fjernet momsen" → "We want to remove VAT" (wrong!)
+    But "vil have fjernet" alone → "will have removed" (correct!)
+
+    Google contextless handles grammatical MWEs better than contextual approaches.
+
+    Args:
+        word: The MWE phrase (e.g., "vil have fjernet", "kom op")
+        from_lang: Source language code
+        to_lang: Target language code
+
+    Returns:
+        dict with 'translation', 'source', 'likelihood' keys, or None
+    """
+    from python_translators.translation_query import TranslationQuery
+    from python_translators.factories.google_translator_factory import GoogleTranslatorFactory
+
+    try:
+        # Use contextless translation for the phrase
+        query = TranslationQuery(word, "", "", 1)
+
+        translator = GoogleTranslatorFactory.build_contextless(
+            source_language=from_lang,
+            target_language=to_lang
+        )
+        translator.quality = 85  # Good quality for MWE phrases
+
+        response = translator.translate(query)
+        if response and response.translations:
+            t = response.translations[0]
+            return {
+                "translation": t["translation"],
+                "source": "Google - MWE phrase",
+                "likelihood": t.get("quality", 85),
+                "service_name": "Google - MWE phrase"
+            }
+    except Exception as e:
+        log(f"MWE phrase translation failed: {e}")
+
+    return None
+
+
+@lru_cache(maxsize=1000)
 def translate_in_context(word, context, from_lang, to_lang):
     """
     Translate a word or adjacent MWE using context.
@@ -290,6 +342,14 @@ def translate_in_context(word, context, from_lang, to_lang):
         dict with 'translation', 'source', 'likelihood' keys, or None
     """
     from python_translators.translation_query import TranslationQuery
+
+    # For multi-word expressions, try phrase-only translation first
+    # This handles grammatical MWEs better (e.g., Danish "vil have fjernet" = "will have removed")
+    # Contextual translation can misinterpret grammar when full sentence is provided
+    if " " in word:
+        result = translate_mwe_phrase(word, from_lang, to_lang)
+        if result:
+            return result
 
     try:
         query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
@@ -405,6 +465,131 @@ def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=Fal
         return translate_in_context(word, context, from_lang, to_lang)
 
 
+def get_translations_streaming(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None):
+    """
+    Generator that yields translations as they arrive (for SSE streaming).
+
+    Yields translation dicts one at a time, allowing frontend to display progressively.
+    """
+    from python_translators.translation_query import TranslationQuery
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    seen_translations = set()
+
+    def yield_if_new(t):
+        """Yield translation if not a duplicate."""
+        if t is None:
+            return None
+        text = t.get("translation", "").lower().strip()
+        if text and text not in seen_translations:
+            seen_translations.add(text)
+            return t
+        return None
+
+    # For contiguous MWEs (words with spaces)
+    if " " in word and not is_separated_mwe:
+        # First yield the phrase translation (fast and reliable)
+        t_mwe = translate_mwe_phrase(word, from_lang, to_lang)
+        if t_mwe:
+            result = yield_if_new(t_mwe)
+            if result:
+                yield result
+
+        # Then try other services in parallel - they might give different results
+        # Also include LLM for contextual alternatives
+        funcs = [
+            lambda: azure_alignment_contextual_translate({
+                "source_language": from_lang,
+                "target_language": to_lang,
+                "word": word,
+                "query": TranslationQuery(word, "", "", 1),
+                "context": context,
+            }),
+            lambda: microsoft_contextual_translate({
+                "source_language": from_lang,
+                "target_language": to_lang,
+                "word": word,
+                "query": TranslationQuery(word, "", "", 1),
+                "context": context,
+            }),
+            lambda: google_contextual_translate({
+                "source_language": from_lang,
+                "target_language": to_lang,
+                "word": word,
+                "query": TranslationQuery(word, "", "", 1),
+                "context": context,
+            }),
+            lambda: translate_with_llm(word, context, from_lang, to_lang),
+        ]
+
+        with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
+            futures = {executor.submit(f): i for i, f in enumerate(funcs)}
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    t = yield_if_new(result)
+                    if t:
+                        yield t
+                except Exception:
+                    pass
+        return
+
+    # For separated MWEs
+    if is_separated_mwe and full_sentence_context:
+        funcs = [
+            lambda: translate_separated_mwe(word, full_sentence_context, from_lang, to_lang),
+            lambda: translate_with_llm(word, full_sentence_context, from_lang, to_lang),
+        ]
+    else:
+        # Single words: use all contextual services
+        try:
+            query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
+        except (AttributeError, Exception):
+            query = TranslationQuery(word, "", "", 1)
+
+        data = {
+            "source_language": from_lang,
+            "target_language": to_lang,
+            "word": word,
+            "query": query,
+            "context": context,
+        }
+        funcs = [
+            lambda d=data: azure_alignment_contextual_translate(d),
+            lambda d=data: microsoft_contextual_translate(d),
+            lambda d=data: google_contextual_translate(d),
+        ]
+
+    # Run in parallel and yield as they complete
+    with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
+        futures = {executor.submit(f): i for i, f in enumerate(funcs)}
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                t = yield_if_new(result)
+                if t:
+                    yield t
+            except Exception:
+                pass
+
+
+def _remove_duplicate_translations(translations):
+    """
+    Remove duplicate translations, keeping the first occurrence.
+    Duplicates are determined by lowercase translation text.
+    """
+    seen = set()
+    unique = []
+    for t in translations:
+        if t is None:
+            continue
+        text = t.get("translation", "").lower().strip()
+        if text and text not in seen:
+            seen.add(text)
+            unique.append(t)
+    return unique
+
+
 def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None):
     """
     Get translations from all available services.
@@ -418,7 +603,7 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         full_sentence_context: Full untruncated sentence for separated MWEs
 
     Returns:
-        List of translation dicts
+        List of translation dicts (duplicates removed)
     """
     from python_translators.translation_query import TranslationQuery
 
@@ -438,9 +623,43 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         }
         t2 = microsoft_contextual_translate(data)
         t3 = google_contextual_translate(data)
-        return [t for t in [t0, t1, t2, t3] if t]
+        return _remove_duplicate_translations([t0, t1, t2, t3])
     else:
-        # All services with context
+        # For contiguous MWEs: use phrase translation plus other services and LLM
+        if " " in word:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            query = TranslationQuery(word, "", "", 1)
+            data = {
+                "source_language": from_lang,
+                "target_language": to_lang,
+                "word": word,
+                "query": query,
+                "context": context,
+            }
+
+            funcs = [
+                lambda: translate_mwe_phrase(word, from_lang, to_lang),
+                lambda d=data: azure_alignment_contextual_translate(d),
+                lambda d=data: microsoft_contextual_translate(d),
+                lambda d=data: google_contextual_translate(d),
+                lambda: translate_with_llm(word, context, from_lang, to_lang),
+            ]
+
+            results = []
+            with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
+                futures = [executor.submit(f) for f in funcs]
+                for future in as_completed(futures):
+                    try:
+                        result = future.result()
+                        if result:
+                            results.append(result)
+                    except Exception:
+                        pass
+
+            return _remove_duplicate_translations(results)
+
+        # Single words: use all contextual services (in parallel)
         try:
             query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
         except (AttributeError, Exception):
@@ -454,14 +673,35 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
             "query": query,
             "context": context,
         }
-        t_azure = azure_alignment_contextual_translate(data)
-        t_msft = microsoft_contextual_translate(data)
-        t_google = google_contextual_translate(data)
 
-        # Language-specific ordering
+        # Run translation services in parallel
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def get_azure():
+            return azure_alignment_contextual_translate(data)
+
+        def get_msft():
+            return microsoft_contextual_translate(data)
+
+        def get_google():
+            return google_contextual_translate(data)
+
+        results = {"azure": None, "msft": None, "google": None}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(get_azure): "azure",
+                executor.submit(get_msft): "msft",
+                executor.submit(get_google): "google",
+            }
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    results[key] = future.result()
+                except Exception:
+                    pass
+
         # Romanian: Azure alignment confuses "a" (perfect tense auxiliary) with "the"
-        # TODO: May need to generalize this for other languages with similar issues
         if from_lang == "ro":
-            return [t for t in [t_google, t_msft, t_azure] if t]
+            return _remove_duplicate_translations([results["google"], results["msft"], results["azure"]])
         else:
-            return [t for t in [t_azure, t_msft, t_google] if t]
+            return _remove_duplicate_translations([results["azure"], results["msft"], results["google"]])

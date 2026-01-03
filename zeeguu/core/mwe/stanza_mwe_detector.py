@@ -227,6 +227,41 @@ class GermanicStrategy(StanzaMWEStrategy):
 
                 processed_indices.add(i)
 
+        # Post-processing: For separated MWEs (particle verbs), include intermediate words
+        # BUT only if the gap is small (max 2 intermediate words for Germanic)
+        # German can have very long gaps: "Er steht jeden Morgen um sechs Uhr auf"
+        # We don't want to include all of "jeden Morgen um sechs Uhr"
+        MAX_INTERMEDIATE_WORDS = 2
+
+        for group in mwe_groups:
+            head_idx = group["head_idx"]
+            dep_indices = group["dependent_indices"]
+
+            if not dep_indices:
+                continue
+
+            # Find the span of the MWE
+            all_indices = [head_idx] + dep_indices
+            min_idx = min(all_indices)
+            max_idx = max(all_indices)
+
+            # Count intermediate words (excluding punctuation)
+            intermediate_count = 0
+            for idx in range(min_idx + 1, max_idx):
+                if idx not in all_indices:
+                    token = tokens[idx]
+                    if token.get("pos") != "PUNCT":
+                        intermediate_count += 1
+
+            # Only include intermediates if within limit
+            if intermediate_count > 0 and intermediate_count <= MAX_INTERMEDIATE_WORDS:
+                for idx in range(min_idx, max_idx + 1):
+                    if idx != head_idx and idx not in dep_indices:
+                        token = tokens[idx]
+                        if token.get("pos") == "PUNCT":
+                            continue
+                        dep_indices.append(idx)
+
         return mwe_groups
 
 
@@ -337,23 +372,38 @@ class RomanianStrategy(AuxOnlyStrategy):
 
     Extends AuxOnlyStrategy to also group:
     - "să" (subjunctive marker) with its verb: "să scadă" (to decrease)
+    - "o" (future clitic) with its verb: "o să depun" (I will submit)
 
     Romanian grammatical particles:
     - "a" (perfect aux): "a scăzut" (has decreased) - handled by base class
     - "să" (subjunctive): "să scadă" (to decrease) - added here
+    - "o" (future clitic): "o să depun" (I will submit) - added here
     - "va/voi/vor" (future aux): "va merge" (will go) - handled by base class
     - Reflexive clitics: "se/s-/m-" - handled by base class
 
     In Stanza, "să" has dep="mark" and points to the verb.
     We only group "mark" when it's the particle "să" to avoid
     false positives with other subordinators like "dacă", "că".
+
+    The "o" future marker is a clitic form and may be parsed with dep="aux"
+    or dep="nsubj" (incorrectly as subject pronoun). We explicitly check for it.
     """
 
     # Romanian subjunctive particles
     SUBJUNCTIVE_PARTICLES = {"să", "s-"}
 
+    # Romanian future clitic "o" (from "a vrea" - to want)
+    # Used in constructions like "o să depun" (I will submit)
+    # NOTE: "o" is ONLY a future marker when immediately followed by "să"
+    # Otherwise it's an object pronoun (her/it): "nu o mai poți controla"
+    FUTURE_CLITICS = {"o"}
+
+    # Romanian negation and verbal adverbs that should stay with the verb
+    # "nu mai aveau" = "they no longer had"
+    VERBAL_ADVERBS = {"nu", "n-", "mai"}
+
     def detect(self, tokens: List[Dict]) -> List[Dict]:
-        """Detect aux+verb, clitic+verb, and să+verb groups."""
+        """Detect aux+verb, clitic+verb, să+verb, and o+să+verb groups."""
         # Get base aux groups
         mwe_groups = super().detect(tokens)
         processed_indices = {
@@ -396,6 +446,114 @@ class RomanianStrategy(AuxOnlyStrategy):
                         })
 
                     processed_indices.add(i)
+
+        # Handle "o" future clitic: "o să depun" (I will submit)
+        # IMPORTANT: "o" is ONLY a future marker when immediately followed by "să"
+        # Otherwise it's an object pronoun: "nu o mai poți controla" (you can't control it)
+        for i, token in enumerate(tokens):
+            if i in processed_indices:
+                continue
+
+            text = token.get("text", "").lower()
+
+            # Check if this is future clitic "o" - MUST be followed by "să"
+            if text in self.FUTURE_CLITICS:
+                # Only consider "o" as future marker if next token is "să"
+                if i + 1 < len(tokens):
+                    next_token = tokens[i + 1]
+                    next_text = next_token.get("text", "").lower()
+                    if next_text in self.SUBJUNCTIVE_PARTICLES:
+                        # This is "o să" - find the verb that "să" points to
+                        sa_head = next_token.get("head")
+                        sa_head_idx = self._convert_head_to_index(sa_head)
+                        if sa_head_idx is not None and 0 <= sa_head_idx < len(tokens):
+                            if tokens[sa_head_idx].get("pos", "") in ("VERB", "AUX"):
+                                verb_idx = sa_head_idx
+                                existing_group = self._find_group_by_head(mwe_groups, verb_idx)
+
+                                if existing_group:
+                                    if i not in existing_group["dependent_indices"]:
+                                        existing_group["dependent_indices"].append(i)
+                                else:
+                                    mwe_groups.append({
+                                        "head_idx": verb_idx,
+                                        "dependent_indices": [i],
+                                        "type": "future"
+                                    })
+
+                                processed_indices.add(i)
+
+        # Handle Romanian verbal adverbs: "nu", "mai"
+        # "să nu zic" (to not say), "nu mai aveau" (they no longer had)
+        for i, token in enumerate(tokens):
+            if i in processed_indices:
+                continue
+
+            text = token.get("text", "").lower()
+            dep = token.get("dep") or ""
+            head = token.get("head")
+
+            # Check if this is a verbal adverb (nu, mai) with advmod relation
+            if text in self.VERBAL_ADVERBS and dep == "advmod":
+                head_idx = self._convert_head_to_index(head)
+
+                if head_idx is not None and head_idx != i:
+                    if not (0 <= head_idx < len(tokens)):
+                        continue
+
+                    # Check if head is a verb
+                    head_pos = tokens[head_idx].get("pos", "")
+                    if head_pos not in ("VERB", "AUX"):
+                        continue
+
+                    existing_group = self._find_group_by_head(mwe_groups, head_idx)
+
+                    if existing_group:
+                        if i not in existing_group["dependent_indices"]:
+                            existing_group["dependent_indices"].append(i)
+                    else:
+                        mwe_groups.append({
+                            "head_idx": head_idx,
+                            "dependent_indices": [i],
+                            "type": "verbal_adverb"
+                        })
+
+                    processed_indices.add(i)
+
+        # Post-processing: For separated MWEs, include intermediate words
+        # E.g., "nu o mai poți controla" - the "o" should be included even though
+        # it's just an object pronoun, because it's semantically part of the phrase
+        # Romanian allows more intermediate words than Germanic (clitics cluster around verb)
+        MAX_INTERMEDIATE_WORDS = 4
+
+        for group in mwe_groups:
+            head_idx = group["head_idx"]
+            dep_indices = group["dependent_indices"]
+
+            if not dep_indices:
+                continue
+
+            # Find the span of the MWE (min to max index)
+            all_indices = [head_idx] + dep_indices
+            min_idx = min(all_indices)
+            max_idx = max(all_indices)
+
+            # Count intermediate words (excluding punctuation)
+            intermediate_count = 0
+            for idx in range(min_idx + 1, max_idx):
+                if idx not in all_indices:
+                    token = tokens[idx]
+                    if token.get("pos") != "PUNCT":
+                        intermediate_count += 1
+
+            # Only include intermediates if within limit
+            if intermediate_count > 0 and intermediate_count <= MAX_INTERMEDIATE_WORDS:
+                for idx in range(min_idx, max_idx + 1):
+                    if idx != head_idx and idx not in dep_indices:
+                        token = tokens[idx]
+                        if token.get("pos") == "PUNCT":
+                            continue
+                        dep_indices.append(idx)
 
         return mwe_groups
 
