@@ -147,12 +147,14 @@ def get_one_translation(from_lang_code, to_lang_code):
             else:
                 # Fall back to regular translation if LLM fails
                 log(f"[TRANSLATION-LLM] LLM translation failed, falling back to Azure alignment")
+                # Use mwe_sentence as context - it contains the full sentence with the MWE
+                fallback_context = mwe_sentence or context
                 data = {
                     "source_language": from_lang_code,
                     "target_language": to_lang_code,
                     "word": word_str,
                     "query": query,
-                    "context": context,
+                    "context": fallback_context,
                 }
                 # Azure alignment is most reliable, then Microsoft, then Google
                 t1 = azure_alignment_contextual_translate(data)
