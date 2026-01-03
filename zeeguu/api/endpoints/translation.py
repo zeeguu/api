@@ -14,6 +14,9 @@ from zeeguu.api.utils.translator import (
     contribute_trans,
     translate_in_context,
     translate_separated_mwe,
+    azure_alignment_contextual_translate,
+    microsoft_contextual_translate,
+    google_contextual_translate,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -183,39 +186,33 @@ def get_one_translation(from_lang_code, to_lang_code):
 @requires_session
 def get_multiple_translations(from_lang_code, to_lang_code):
     """
-    Returns a list of possible translations in :param to_lang_code
-    for :param word in :param from_lang_code except a translation
-    from :service
+    Returns a list of possible translations from multiple services.
 
-    You must also specify the :param context, :param url, and :param title
-     of the page where the word was found.
-
-    The context is the sentence.
-
-    :return: json array with translations
+    :return: json array with translations from Azure, Microsoft, and Google
     """
 
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
-    number_of_results = int(request.form.get("numberOfResults", -1))
-    translation_to_exclude = request.form.get("translationToExclude", "")
-    service_to_exclude = request.form.get("serviceToExclude", "")
+    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    mwe_sentence = request.form.get("mwe_sentence", "")
 
-    exclude_services = [] if service_to_exclude == "" else [service_to_exclude]
-    exclude_results = (
-        [] if translation_to_exclude == "" else [translation_to_exclude.lower()]
-    )
-
-    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
+    # For separated MWEs, use the sentence as context and skip word positioning
+    if is_separated_mwe and mwe_sentence:
+        query = TranslationQuery(word_str, "", "", 1)
+        effective_context = mwe_sentence
+    else:
+        query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
+        effective_context = context
 
     data = {
         "source_language": from_lang_code,
         "target_language": to_lang_code,
         "word": word_str,
         "query": query,
-        "context": context,
+        "context": effective_context,
     }
-    # Azure alignment is best, then Microsoft span-tag, then Google span-tag
+
+    # Get translations from all services
     t0 = azure_alignment_contextual_translate(data)
     t1 = microsoft_contextual_translate(data)
     t2 = google_contextual_translate(data)
