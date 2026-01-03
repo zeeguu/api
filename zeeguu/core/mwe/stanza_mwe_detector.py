@@ -327,6 +327,75 @@ class AuxOnlyStrategy(MWEStrategy):
         return None
 
 
+class RomanianStrategy(AuxOnlyStrategy):
+    """
+    Strategy for Romanian: ro
+
+    Extends AuxOnlyStrategy to also group:
+    - "să" (subjunctive marker) with its verb: "să scadă" (to decrease)
+
+    Romanian grammatical particles:
+    - "a" (perfect aux): "a scăzut" (has decreased) - handled by base class
+    - "să" (subjunctive): "să scadă" (to decrease) - added here
+    - "va/voi/vor" (future aux): "va merge" (will go) - handled by base class
+    - Reflexive clitics: "se/s-/m-" - handled by base class
+
+    In Stanza, "să" has dep="mark" and points to the verb.
+    We only group "mark" when it's the particle "să" to avoid
+    false positives with other subordinators like "dacă", "că".
+    """
+
+    # Romanian subjunctive particles
+    SUBJUNCTIVE_PARTICLES = {"să", "s-"}
+
+    def detect(self, tokens: List[Dict]) -> List[Dict]:
+        """Detect aux+verb, clitic+verb, and să+verb groups."""
+        # Get base aux groups
+        mwe_groups = super().detect(tokens)
+        processed_indices = {
+            idx for group in mwe_groups for idx in group["dependent_indices"]
+        }
+
+        # Also group "să" with its verb
+        for i, token in enumerate(tokens):
+            if i in processed_indices:
+                continue
+
+            text = token.get("text", "").lower()
+            dep = token.get("dep") or ""
+            head = token.get("head")
+
+            # Check if this is "să" with mark relation
+            if text in self.SUBJUNCTIVE_PARTICLES and dep == "mark":
+                head_idx = self._convert_head_to_index(head)
+
+                if head_idx is not None and head_idx != i:
+                    if not (0 <= head_idx < len(tokens)):
+                        continue
+
+                    # Check if head is a verb
+                    head_pos = tokens[head_idx].get("pos", "")
+                    if head_pos not in ("VERB", "AUX"):
+                        continue
+
+                    # Check if we already have a group for this head
+                    existing_group = self._find_group_by_head(mwe_groups, head_idx)
+
+                    if existing_group:
+                        if i not in existing_group["dependent_indices"]:
+                            existing_group["dependent_indices"].append(i)
+                    else:
+                        mwe_groups.append({
+                            "head_idx": head_idx,
+                            "dependent_indices": [i],
+                            "type": "subjunctive"
+                        })
+
+                    processed_indices.add(i)
+
+        return mwe_groups
+
+
 class GreekStrategy(StanzaMWEStrategy):
     """
     Strategy for Greek: el
@@ -378,10 +447,13 @@ LANGUAGE_STRATEGIES = {
     "en": GermanicStrategy,
     "el": GreekStrategy,
 
-    # ENABLED: Romance + Romanian (aux-only)
+    # ENABLED: Romanian (aux + subjunctive)
+    # Groups: "a vrut" (perfect), "să scadă" (subjunctive), reflexives
+    "ro": RomanianStrategy,
+
+    # ENABLED: Romance (aux-only)
     # Only aux+verb grouping - no compound detection
-    # Groups compound tenses: "a mangé", "ha comido", "ha mangiato", "a vrut"
-    "ro": AuxOnlyStrategy,
+    # Groups compound tenses: "a mangé", "ha comido", "ha mangiato"
     "fr": AuxOnlyStrategy,
     "es": AuxOnlyStrategy,
     "it": AuxOnlyStrategy,
