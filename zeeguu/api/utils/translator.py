@@ -382,3 +382,74 @@ def translate_with_llm(word, sentence, from_lang, to_lang):
         log(f"LLM translation failed: {e}")
 
     return None
+
+
+def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=False, mwe_sentence=None):
+    """
+    Get the best translation for a word or MWE.
+
+    Args:
+        word: Word to translate
+        context: Sentence context
+        from_lang: Source language code
+        to_lang: Target language code
+        is_separated_mwe: True if word is a separated MWE like "rufe ... an"
+        mwe_sentence: Full sentence for separated MWEs
+
+    Returns:
+        dict with 'translation', 'source', 'likelihood' keys, or None
+    """
+    if is_separated_mwe and mwe_sentence:
+        return translate_separated_mwe(word, mwe_sentence, from_lang, to_lang)
+    else:
+        return translate_in_context(word, context, from_lang, to_lang)
+
+
+def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False, mwe_sentence=None):
+    """
+    Get translations from all available services.
+
+    Args:
+        word: Word to translate
+        context: Sentence context
+        from_lang: Source language code
+        to_lang: Target language code
+        is_separated_mwe: True if word is a separated MWE like "rufe ... an"
+        mwe_sentence: Full sentence for separated MWEs
+
+    Returns:
+        List of translation dicts
+    """
+    from python_translators.translation_query import TranslationQuery
+
+    if is_separated_mwe and mwe_sentence:
+        # Azure alignment finds each part separately
+        t0 = translate_separated_mwe(word, mwe_sentence, from_lang, to_lang)
+        # LLM understands grammar well
+        t1 = translate_with_llm(word, mwe_sentence, from_lang, to_lang)
+        # Context-free fallbacks
+        query = TranslationQuery(word, "", "", 1)
+        data = {
+            "source_language": from_lang,
+            "target_language": to_lang,
+            "word": word,
+            "query": query,
+            "context": "",
+        }
+        t2 = microsoft_contextual_translate(data)
+        t3 = google_contextual_translate(data)
+        return [t for t in [t0, t1, t2, t3] if t]
+    else:
+        # All services with context
+        query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
+        data = {
+            "source_language": from_lang,
+            "target_language": to_lang,
+            "word": word,
+            "query": query,
+            "context": context,
+        }
+        t0 = azure_alignment_contextual_translate(data)
+        t1 = microsoft_contextual_translate(data)
+        t2 = google_contextual_translate(data)
+        return [t for t in [t0, t1, t2] if t]

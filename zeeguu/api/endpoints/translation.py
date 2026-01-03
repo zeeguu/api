@@ -12,12 +12,8 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.translator import (
     get_next_results,
     contribute_trans,
-    translate_in_context,
-    translate_separated_mwe,
-    translate_with_llm,
-    azure_alignment_contextual_translate,
-    microsoft_contextual_translate,
-    google_contextual_translate,
+    get_best_translation,
+    get_all_translations,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -113,18 +109,10 @@ def get_one_translation(from_lang_code, to_lang_code):
         if IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
             t1 = {"translation": f"T-({to_lang_code})-'{word_str}'", "likelihood": None, "source": "DEV_SKIP"}
-        elif is_separated_mwe and mwe_sentence:
-            # Separated MWEs like "rufe ... an" - parts aren't adjacent
-            log(f"[TRANSLATION] Separated MWE: '{word_str}'")
-            start_time = time.time()
-            t1 = translate_separated_mwe(word_str, mwe_sentence, from_lang_code, to_lang_code)
-            elapsed = time.time() - start_time
-            log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
         else:
-            # Single words and adjacent MWEs like "kom op"
-            log(f"[TRANSLATION] Word: '{word_str}'")
+            log(f"[TRANSLATION] Word: '{word_str}', separated_mwe={is_separated_mwe}")
             start_time = time.time()
-            t1 = translate_in_context(word_str, context, from_lang_code, to_lang_code)
+            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, mwe_sentence)
             elapsed = time.time() - start_time
             log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
@@ -197,37 +185,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     mwe_sentence = request.form.get("mwe_sentence", "")
 
-    if is_separated_mwe and mwe_sentence:
-        # For separated MWEs, Azure alignment finds each part separately
-        t0 = translate_separated_mwe(word_str, mwe_sentence, from_lang_code, to_lang_code)
-        # LLM understands grammar well - good for particle verbs
-        t1 = translate_with_llm(word_str, mwe_sentence, from_lang_code, to_lang_code)
-        # Also try context-free translations as alternatives
-        query = TranslationQuery(word_str, "", "", 1)
-        data = {
-            "source_language": from_lang_code,
-            "target_language": to_lang_code,
-            "word": word_str,
-            "query": query,
-            "context": "",
-        }
-        t2 = microsoft_contextual_translate(data)
-        t3 = google_contextual_translate(data)
-        translations = [t for t in [t0, t1, t2, t3] if t]
-    else:
-        # Regular words and adjacent MWEs - get from all services with context
-        query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
-        data = {
-            "source_language": from_lang_code,
-            "target_language": to_lang_code,
-            "word": word_str,
-            "query": query,
-            "context": context,
-        }
-        t0 = azure_alignment_contextual_translate(data)
-        t1 = microsoft_contextual_translate(data)
-        t2 = google_contextual_translate(data)
-        translations = [t for t in [t0, t1, t2] if t]
+    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, mwe_sentence)
 
     return json_result(dict(translations=translations))
 
