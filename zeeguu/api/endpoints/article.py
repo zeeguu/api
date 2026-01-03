@@ -627,11 +627,16 @@ def clear_article_cache(article_id):
     )
 
     bookmark_count = len(bookmarks)
+
+    # First pass: clear all preferred_bookmark_id references
     for bookmark in bookmarks:
-        # Clear preferred_bookmark_id references before deleting
         user_word = bookmark.user_word
         if user_word and user_word.preferred_bookmark_id == bookmark.id:
             user_word.preferred_bookmark_id = None
+    db_session.flush()  # Commit the nullifications before deleting
+
+    # Second pass: delete bookmarks
+    for bookmark in bookmarks:
         db_session.delete(bookmark)
     db_session.commit()
 
