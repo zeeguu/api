@@ -197,12 +197,22 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     mwe_sentence = request.form.get("mwe_sentence", "")
 
     if is_separated_mwe and mwe_sentence:
-        # For separated MWEs, only Azure alignment works (finds each part separately)
-        # Span-tag translators can't handle "rufe ... an" as it's not contiguous
+        # For separated MWEs, Azure alignment finds each part separately
         t0 = translate_separated_mwe(word_str, mwe_sentence, from_lang_code, to_lang_code)
-        translations = [t0] if t0 else []
+        # Also try context-free translations as alternatives
+        query = TranslationQuery(word_str, "", "", 1)
+        data = {
+            "source_language": from_lang_code,
+            "target_language": to_lang_code,
+            "word": word_str,
+            "query": query,
+            "context": "",
+        }
+        t1 = microsoft_contextual_translate(data)
+        t2 = google_contextual_translate(data)
+        translations = [t for t in [t0, t1, t2] if t]
     else:
-        # Regular words and adjacent MWEs - get from all services
+        # Regular words and adjacent MWEs - get from all services with context
         query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
         data = {
             "source_language": from_lang_code,
