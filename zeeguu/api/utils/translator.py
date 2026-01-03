@@ -1,5 +1,6 @@
 import json
 import os
+from functools import lru_cache
 
 from zeeguu.api.utils.caching_decorator import cache_on_data_keys
 from zeeguu.logging import log
@@ -274,6 +275,7 @@ def azure_alignment_contextual_translate(data):
     return result
 
 
+@lru_cache(maxsize=1000)
 def translate_in_context(word, context, from_lang, to_lang):
     """
     Translate a word or adjacent MWE using context.
@@ -311,6 +313,7 @@ def translate_in_context(word, context, from_lang, to_lang):
     return result
 
 
+@lru_cache(maxsize=1000)
 def translate_separated_mwe(word, sentence, from_lang, to_lang):
     """
     Translate a separated MWE like "rufe ... an".
@@ -348,6 +351,7 @@ def translate_separated_mwe(word, sentence, from_lang, to_lang):
     return result
 
 
+@lru_cache(maxsize=1000)
 def translate_with_llm(word, sentence, from_lang, to_lang):
     """
     Translate a word or MWE using an LLM.
