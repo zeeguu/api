@@ -449,7 +449,14 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
             "query": query,
             "context": context,
         }
-        t0 = azure_alignment_contextual_translate(data)
-        t1 = microsoft_contextual_translate(data)
-        t2 = google_contextual_translate(data)
-        return [t for t in [t0, t1, t2] if t]
+        t_azure = azure_alignment_contextual_translate(data)
+        t_msft = microsoft_contextual_translate(data)
+        t_google = google_contextual_translate(data)
+
+        # Language-specific ordering
+        # Romanian: Azure alignment confuses "a" (perfect tense auxiliary) with "the"
+        # TODO: May need to generalize this for other languages with similar issues
+        if from_lang == "ro":
+            return [t for t in [t_google, t_msft, t_azure] if t]
+        else:
+            return [t for t in [t_azure, t_msft, t_google] if t]

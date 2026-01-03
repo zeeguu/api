@@ -301,7 +301,9 @@ class Article(db.Model):
 
     def update(self, db_session, language, content, htmlContent, title):
         from zeeguu.core.model.article_fragment import ArticleFragment
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
 
         self.language = language
         self.update_content(db_session, content, commit=False)
@@ -415,10 +417,11 @@ class Article(db.Model):
         """
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
-        from zeeguu.core.model.article_fragment import ArticleFragment
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-        from zeeguu.core.mwe import tokenize_for_reading, enrich_tokens_with_mwe
+        from zeeguu.core.mwe import tokenize_for_reading
         from zeeguu.core.model.db import db
         import json
 
@@ -482,7 +485,9 @@ class Article(db.Model):
         HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
         use_hybrid = self.language.code in HYBRID_LANGUAGES
 
-        fragments_list = list(ArticleFragment.get_all_article_fragments_in_order(self.id))
+        fragments_list = list(
+            ArticleFragment.get_all_article_fragments_in_order(self.id)
+        )
         fragment_tokens_list = []
         all_fragment_sentences = []
 
@@ -494,7 +499,9 @@ class Article(db.Model):
             # Collect sentences for batch processing
             for para_idx, para in enumerate(frag_tokens):
                 for sent_idx, sentence in enumerate(para):
-                    all_fragment_sentences.append((frag_idx, para_idx, sent_idx, sentence))
+                    all_fragment_sentences.append(
+                        (frag_idx, para_idx, sent_idx, sentence)
+                    )
 
         # Batch MWE detection
         if all_fragment_sentences:
@@ -507,41 +514,57 @@ class Article(db.Model):
                 mwe_results = batch_strategy.detect_batch(sentences_only)
 
                 detector = MWEDetector(self.language.code, "hybrid")
-                for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(all_fragment_sentences):
+                for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(
+                    all_fragment_sentences
+                ):
                     if idx < len(mwe_results):
-                        detector._apply_mwe_groups(tokens, mwe_results[idx], para_idx, sent_idx)
+                        detector._apply_mwe_groups(
+                            tokens, mwe_results[idx], para_idx, sent_idx
+                        )
             else:
                 # Use stanza for non-hybrid languages
                 for frag_tokens in fragment_tokens_list:
-                    enrich_tokens_with_mwe(frag_tokens, self.language.code, mode="stanza")
+                    enrich_tokens_with_mwe(
+                        frag_tokens, self.language.code, mode="stanza"
+                    )
 
         # Build result
         tokenized_fragments = []
         for frag_idx, fragment in enumerate(fragments_list):
-            tokenized_fragments.append({
-                "context_identifier": ContextIdentifier(
-                    ContextType.ARTICLE_FRAGMENT,
-                    article_fragment_id=fragment.id,
-                ).as_dictionary(),
-                "formatting": fragment.formatting,
-                "tokens": fragment_tokens_list[frag_idx] if frag_idx < len(fragment_tokens_list) else [],
-            })
+            tokenized_fragments.append(
+                {
+                    "context_identifier": ContextIdentifier(
+                        ContextType.ARTICLE_FRAGMENT,
+                        article_fragment_id=fragment.id,
+                    ).as_dictionary(),
+                    "formatting": fragment.formatting,
+                    "tokens": (
+                        fragment_tokens_list[frag_idx]
+                        if frag_idx < len(fragment_tokens_list)
+                        else []
+                    ),
+                }
+            )
 
         return tokenized_fragments
 
     def _cache_tokenized_content(self, session, tokenized_data):
         """Cache tokenized content for future requests."""
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
         import json
 
         try:
             cache = ArticleTokenizationCache.find_or_create(session, self)
-            cache.tokenized_content = json.dumps({
-                "tokenized_paragraphs": tokenized_data["tokenized_paragraphs"],
-                "tokenized_fragments": tokenized_data["tokenized_fragments"],
-                "tokenized_title_new": tokenized_data["tokenized_title_new"],
-                "tokenized_title": tokenized_data["tokenized_title"],
-            })
+            cache.tokenized_content = json.dumps(
+                {
+                    "tokenized_paragraphs": tokenized_data["tokenized_paragraphs"],
+                    "tokenized_fragments": tokenized_data["tokenized_fragments"],
+                    "tokenized_title_new": tokenized_data["tokenized_title_new"],
+                    "tokenized_title": tokenized_data["tokenized_title"],
+                }
+            )
             session.commit()
             log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content")
         except Exception as e:
@@ -647,17 +670,29 @@ class Article(db.Model):
                 "llm": {
                     "level": self.cefr_assessment.llm_cefr_level,
                     "method": self.cefr_assessment.llm_method,
-                    "assessed_at": self.cefr_assessment.llm_assessed_at.isoformat() if self.cefr_assessment.llm_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.llm_assessed_at.isoformat()
+                        if self.cefr_assessment.llm_assessed_at
+                        else None
+                    ),
                 },
                 "ml": {
                     "level": self.cefr_assessment.ml_cefr_level,
                     "method": self.cefr_assessment.ml_method,
-                    "assessed_at": self.cefr_assessment.ml_assessed_at.isoformat() if self.cefr_assessment.ml_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.ml_assessed_at.isoformat()
+                        if self.cefr_assessment.ml_assessed_at
+                        else None
+                    ),
                 },
                 "teacher": {
                     "level": self.cefr_assessment.teacher_cefr_level,
                     "method": self.cefr_assessment.teacher_method,
-                    "assessed_at": self.cefr_assessment.teacher_assessed_at.isoformat() if self.cefr_assessment.teacher_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.teacher_assessed_at.isoformat()
+                        if self.cefr_assessment.teacher_assessed_at
+                        else None
+                    ),
                 },
                 "effective_cefr_level": self.cefr_assessment.effective_cefr_level,
                 # Keep display_cefr for backward compatibility
@@ -884,9 +919,13 @@ class Article(db.Model):
                 )
                 if ml_level:
                     simplified_assessment.set_ml_assessment(ml_level, "ml")
-                    log(f"Simplified article {simplified_article.id}: Target={cefr_level}, ML measured={ml_level}")
+                    log(
+                        f"Simplified article {simplified_article.id}: Target={cefr_level}, ML measured={ml_level}"
+                    )
             except Exception as e:
-                log(f"Failed to run ML assessment on simplified article {simplified_article.id}: {e}")
+                log(
+                    f"Failed to run ML assessment on simplified article {simplified_article.id}: {e}"
+                )
 
             session.add(simplified_assessment)
             session.commit()
@@ -1079,7 +1118,7 @@ class Article(db.Model):
             from zeeguu.core.model.url import Url
 
             # Validate that img_url is actually a URL, not HTML content
-            if img_url.startswith(('http://', 'https://')):
+            if img_url.startswith(("http://", "https://")):
                 new_article.img_url = Url.find_or_create(session, img_url)
             else:
                 log(f"Invalid img_url format (not a URL): {img_url[:100]}...")
@@ -1268,6 +1307,7 @@ class Article(db.Model):
             authors = author if author else ""
             # Detect language from text content
             from langdetect import detect
+
             try:
                 lang = detect(text_content)
             except:
@@ -1276,7 +1316,10 @@ class Article(db.Model):
             # Use readability server for parsing (crawler or legacy path)
             print("-- using readability server for extraction")
             from zeeguu.core.content_retriever import readability_download_and_parse
-            np_article = readability_download_and_parse(canonical_url, html_content=html_content)
+
+            np_article = readability_download_and_parse(
+                canonical_url, html_content=html_content
+            )
 
             # newspaper Article objects use .html, not .htmlContent
             html_content = np_article.html
