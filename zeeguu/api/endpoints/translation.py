@@ -196,10 +196,12 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     mwe_sentence = request.form.get("mwe_sentence", "")
 
-    # For separated MWEs, use the sentence as context and skip word positioning
+    # For separated MWEs, Azure alignment uses mwe_sentence to find word parts.
+    # Span-tag translators (Google/Microsoft) won't work well for separated MWEs
+    # since "rufe ... an" can't be found as a contiguous string.
     if is_separated_mwe and mwe_sentence:
         query = TranslationQuery(word_str, "", "", 1)
-        effective_context = mwe_sentence
+        effective_context = mwe_sentence  # Used by Azure alignment
     else:
         query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
         effective_context = context
