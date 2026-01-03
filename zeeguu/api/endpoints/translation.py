@@ -14,6 +14,7 @@ from zeeguu.api.utils.translator import (
     contribute_trans,
     translate_in_context,
     translate_separated_mwe,
+    translate_with_llm,
     azure_alignment_contextual_translate,
     microsoft_contextual_translate,
     google_contextual_translate,
@@ -199,6 +200,8 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     if is_separated_mwe and mwe_sentence:
         # For separated MWEs, Azure alignment finds each part separately
         t0 = translate_separated_mwe(word_str, mwe_sentence, from_lang_code, to_lang_code)
+        # LLM understands grammar well - good for particle verbs
+        t1 = translate_with_llm(word_str, mwe_sentence, from_lang_code, to_lang_code)
         # Also try context-free translations as alternatives
         query = TranslationQuery(word_str, "", "", 1)
         data = {
@@ -208,9 +211,9 @@ def get_multiple_translations(from_lang_code, to_lang_code):
             "query": query,
             "context": "",
         }
-        t1 = microsoft_contextual_translate(data)
-        t2 = google_contextual_translate(data)
-        translations = [t for t in [t0, t1, t2] if t]
+        t2 = microsoft_contextual_translate(data)
+        t3 = google_contextual_translate(data)
+        translations = [t for t in [t0, t1, t2, t3] if t]
     else:
         # Regular words and adjacent MWEs - get from all services with context
         query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)

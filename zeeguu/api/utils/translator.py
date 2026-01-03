@@ -346,3 +346,43 @@ def translate_separated_mwe(word, sentence, from_lang, to_lang):
         result = google_contextual_translate(data)
 
     return result
+
+
+def translate_with_llm(word, sentence, from_lang, to_lang):
+    """
+    Translate a word or MWE using an LLM.
+
+    Useful for separated MWEs where the LLM understands grammar better.
+
+    Args:
+        word: The word/MWE to translate (e.g., "rufe ... an")
+        sentence: The sentence containing the word
+        from_lang: Source language code
+        to_lang: Target language code
+
+    Returns:
+        dict with 'translation', 'source', 'likelihood' keys, or None
+    """
+    try:
+        from zeeguu.core.llm_services.llm_service import get_llm_service
+
+        llm = get_llm_service("unified")
+
+        prompt = f"""Translate the expression "{word}" from {from_lang} to {to_lang}.
+Context sentence: "{sentence}"
+
+Reply with ONLY the translation, nothing else."""
+
+        translation = llm.generate_text(prompt, max_tokens=50, temperature=0.3)
+        translation = translation.strip().strip('"').strip("'")
+
+        if translation:
+            return {
+                "translation": translation,
+                "source": "LLM",
+                "likelihood": 85,
+            }
+    except Exception as e:
+        log(f"LLM translation failed: {e}")
+
+    return None
