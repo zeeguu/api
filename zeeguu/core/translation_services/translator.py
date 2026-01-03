@@ -441,7 +441,12 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         return [t for t in [t0, t1, t2, t3] if t]
     else:
         # All services with context
-        query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
+        try:
+            query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
+        except (AttributeError, Exception):
+            # Word not found in context or regex failed (special chars like "-")
+            # Fall back to simple query
+            query = TranslationQuery(word, "", "", 1)
         data = {
             "source_language": from_lang,
             "target_language": to_lang,
