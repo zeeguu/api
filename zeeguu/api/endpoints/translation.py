@@ -69,7 +69,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     # Check if this is an MWE expression
     is_mwe_expression = request.json.get("is_mwe_expression", False)
     is_separated_mwe = request.json.get("is_separated_mwe", False)
-    mwe_sentence = request.json.get("mwe_sentence", None)  # Full sentence for context
+    full_sentence_context = request.json.get("full_sentence_context", None)  # Full sentence for context
     mwe_partner_token_i = request.json.get("mwe_partner_token_i", None)  # Partner token for MWE
 
     # if we have an own translation that is our first "best guess"
@@ -112,7 +112,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         else:
             log(f"[TRANSLATION] Word: '{word_str}', separated_mwe={is_separated_mwe}")
             start_time = time.time()
-            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, mwe_sentence)
+            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
             elapsed = time.time() - start_time
             log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
@@ -183,9 +183,9 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
-    mwe_sentence = request.form.get("mwe_sentence", "")
+    full_sentence_context = request.form.get("full_sentence_context", "")
 
-    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, mwe_sentence)
+    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
     return json_result(dict(translations=translations))
 
