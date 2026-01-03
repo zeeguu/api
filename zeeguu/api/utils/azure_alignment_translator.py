@@ -84,6 +84,28 @@ def _find_word_position(sentence: str, word: str) -> Optional[Tuple[int, int]]:
     return None
 
 
+def _find_word_positions(sentence: str, word: str) -> List[Tuple[int, int]]:
+    """
+    Find positions for a word that may be separated (e.g., "rufe ... an").
+
+    For separated MWEs, splits on " ... " and finds each part.
+    Returns list of (start, end) positions for each part.
+    """
+    # Check if this is a separated MWE (contains " ... ")
+    if " ... " in word:
+        parts = [p.strip() for p in word.split(" ... ") if p.strip()]
+        positions = []
+        for part in parts:
+            pos = _find_word_position(sentence, part)
+            if pos:
+                positions.append(pos)
+        return positions
+    else:
+        # Regular word - return single position
+        pos = _find_word_position(sentence, word)
+        return [pos] if pos else []
+
+
 def translate_word_with_alignment(
     sentence: str,
     word: str,
@@ -95,29 +117,33 @@ def translate_word_with_alignment(
 
     Args:
         sentence: The full sentence containing the word
-        word: The word to translate (can be multi-word)
+        word: The word to translate. Can be:
+              - Single word: "altså"
+              - Adjacent multi-word: "kom op"
+              - Separated MWE: "rufe ... an" (parts joined by " ... ")
         source_lang: Source language code (e.g., "da", "de")
         target_lang: Target language code (e.g., "en")
 
     Returns:
         dict with 'translation', 'source', 'likelihood' keys, or None if failed
 
-    Example:
+    Examples:
+        # Single word
         translate_word_with_alignment(
-            "Meningen med dette tiltag har altså været at få vaccineret",
-            "altså",
-            "da", "en"
-        )
-        -> {'translation': 'thus', 'source': 'Microsoft - alignment', 'likelihood': 90}
+            "Meningen har altså været at få vaccineret", "altså", "da", "en"
+        ) -> {'translation': 'thus', ...}
+
+        # Separated particle verb
+        translate_word_with_alignment(
+            "Ich rufe dich morgen an", "rufe ... an", "de", "en"
+        ) -> {'translation': 'call up', ...}
     """
     try:
-        # Find word position in source sentence
-        word_pos = _find_word_position(sentence, word)
-        if not word_pos:
+        # Find word positions in source sentence (handles separated MWEs like "rufe ... an")
+        word_positions = _find_word_positions(sentence, word)
+        if not word_positions:
             logger.debug(f"Word '{word}' not found in sentence")
             return None
-
-        src_start, src_end = word_pos
 
         # Translate with alignment
         client = _get_azure_client()
@@ -143,15 +169,16 @@ def translate_word_with_alignment(
         # Parse alignment mappings
         mappings = _parse_alignment(alignment.proj)
 
-        # Find all mappings that overlap with our word
+        # Find all mappings that overlap with any of our word positions
         word_translations = []
-        for (s_start, s_end), (t_start, t_end) in mappings:
-            if s_start <= src_end and s_end >= src_start:
-                target_word = translated_sentence[t_start:t_end + 1]
-                word_translations.append((t_start, target_word))
+        for src_start, src_end in word_positions:
+            for (s_start, s_end), (t_start, t_end) in mappings:
+                if s_start <= src_end and s_end >= src_start:
+                    target_word = translated_sentence[t_start:t_end + 1]
+                    word_translations.append((t_start, target_word))
 
         if not word_translations:
-            logger.debug(f"No alignment found for word position {src_start}-{src_end}")
+            logger.debug(f"No alignment found for word positions {word_positions}")
             return None
 
         # Sort by position and join (in case of multi-word translation)
