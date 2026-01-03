@@ -272,3 +272,77 @@ def azure_alignment_contextual_translate(data):
         result["likelihood"] = result.get("likelihood", 90)
         result["source"] = result.get("source", "Microsoft - alignment")
     return result
+
+
+def translate_in_context(word, context, from_lang, to_lang):
+    """
+    Translate a word or adjacent MWE using context.
+
+    This is the standard translation path for:
+    - Single words: "altså"
+    - Adjacent MWEs: "kom op", "il y a"
+
+    Uses Azure alignment (most reliable), falls back to Microsoft/Google span-tag.
+
+    Returns:
+        dict with 'translation', 'source', 'likelihood' keys, or None
+    """
+    from python_translators.translation_query import TranslationQuery
+
+    try:
+        query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
+    except AttributeError:
+        query = TranslationQuery(word, "", "", 1)
+
+    data = {
+        "source_language": from_lang,
+        "target_language": to_lang,
+        "word": word,
+        "query": query,
+        "context": context,
+    }
+
+    result = azure_alignment_contextual_translate(data)
+    if not result:
+        result = microsoft_contextual_translate(data)
+    if not result:
+        result = google_contextual_translate(data)
+
+    return result
+
+
+def translate_separated_mwe(word, sentence, from_lang, to_lang):
+    """
+    Translate a separated MWE like "rufe ... an".
+
+    For particle verbs where the parts aren't adjacent in the sentence,
+    uses Azure alignment to find and translate each part separately.
+
+    Args:
+        word: The MWE with parts joined by " ... " (e.g., "rufe ... an")
+        sentence: The full sentence containing the MWE
+        from_lang: Source language code
+        to_lang: Target language code
+
+    Returns:
+        dict with 'translation', 'source', 'likelihood' keys, or None
+    """
+    from python_translators.translation_query import TranslationQuery
+
+    query = TranslationQuery(word, "", "", 1)
+
+    data = {
+        "source_language": from_lang,
+        "target_language": to_lang,
+        "word": word,
+        "query": query,
+        "context": sentence,
+    }
+
+    result = azure_alignment_contextual_translate(data)
+    if not result:
+        result = microsoft_contextual_translate(data)
+    if not result:
+        result = google_contextual_translate(data)
+
+    return result

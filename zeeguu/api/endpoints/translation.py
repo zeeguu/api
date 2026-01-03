@@ -12,9 +12,8 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.translator import (
     get_next_results,
     contribute_trans,
-    google_contextual_translate,
-    microsoft_contextual_translate,
-    azure_alignment_contextual_translate,
+    translate_in_context,
+    translate_separated_mwe,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -73,19 +72,6 @@ def get_one_translation(from_lang_code, to_lang_code):
     mwe_sentence = request.json.get("mwe_sentence", None)  # Full sentence for context
     mwe_partner_token_i = request.json.get("mwe_partner_token_i", None)  # Partner token for MWE
 
-    if is_separated_mwe:
-        # For separated MWEs (e.g., "rufe...an"), the words aren't contiguous in context
-        # so we can't use for_word_occurrence
-        query = TranslationQuery(word_str, "", "", 1)
-        log(f"[TRANSLATION-MWE] Translating separated MWE: '{word_str}'")
-    else:
-        try:
-            query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
-        except AttributeError:
-            # Fallback: word not found in context (shouldn't happen normally)
-            query = TranslationQuery(word_str, "", "", 1)
-            log(f"[TRANSLATION-FALLBACK] Word not found in context: '{word_str}'")
-
     # if we have an own translation that is our first "best guess"
     # ML: TODO:
     # - word translated in the same text / articleID / url should still be considered
@@ -122,64 +108,21 @@ def get_one_translation(from_lang_code, to_lang_code):
 
         if IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
-            translation = f"T-({to_lang_code})-'{word_str}'"
-            likelihood = None
-            source = "DEV_SKIP"
-            t1 = {"translation": translation, "likelihood": likelihood, "source": source}
+            t1 = {"translation": f"T-({to_lang_code})-'{word_str}'", "likelihood": None, "source": "DEV_SKIP"}
         elif is_separated_mwe and mwe_sentence:
-            # For separated MWEs (e.g., "rufe...an"), try Azure alignment first
-            # It now supports separated MWEs by finding each part in the sentence
-            log(f"[TRANSLATION-MWE] Translating separated MWE: '{word_str}'")
+            # Separated MWEs like "rufe ... an" - parts aren't adjacent
+            log(f"[TRANSLATION] Separated MWE: '{word_str}'")
             start_time = time.time()
-
-            data = {
-                "source_language": from_lang_code,
-                "target_language": to_lang_code,
-                "word": word_str,
-                "query": query,
-                "context": mwe_sentence,
-            }
-            t1 = azure_alignment_contextual_translate(data)
-
-            if t1:
-                elapsed = time.time() - start_time
-                log(f"[TRANSLATION-MWE] Alignment translation completed in {elapsed:.3f}s: '{t1.get('translation')}'")
-            else:
-                # Fall back to translation without context
-                log(f"[TRANSLATION-MWE] Alignment failed, falling back to context-less translation")
-                t1 = microsoft_contextual_translate(data)
-                if not t1:
-                    t1 = google_contextual_translate(data)
-        else:
-            log(
-                f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}"
-            )
-            start_time = time.time()
-
-            data = {
-                "source_language": from_lang_code,
-                "target_language": to_lang_code,
-                "word": word_str,
-                "query": query,
-                "context": context,
-            }
-            # Azure alignment is the most reliable for contextual translation.
-            # It uses explicit word-to-word mappings rather than relying on
-            # tag preservation (which Google often gets wrong).
-            # Fallback chain: alignment -> span-tag Microsoft -> span-tag Google
-
-            t1 = azure_alignment_contextual_translate(data)
-            if not t1:
-                log(f"[TRANSLATION] Alignment failed, falling back to Microsoft span-tag")
-                t1 = microsoft_contextual_translate(data)
-            if not t1:
-                log(f"[TRANSLATION] Microsoft failed, falling back to Google span-tag")
-                t1 = google_contextual_translate(data)
-
+            t1 = translate_separated_mwe(word_str, mwe_sentence, from_lang_code, to_lang_code)
             elapsed = time.time() - start_time
-            log(
-                f"[TRANSLATION-TIMING] Translation API call completed in {elapsed:.3f}s, result='{t1.get('translation', 'N/A')}'"
-            )
+            log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
+        else:
+            # Single words and adjacent MWEs like "kom op"
+            log(f"[TRANSLATION] Word: '{word_str}'")
+            start_time = time.time()
+            t1 = translate_in_context(word_str, context, from_lang_code, to_lang_code)
+            elapsed = time.time() - start_time
+            log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
         log(
             f"[TRANSLATION-TIMING] About to call Bookmark.find_or_create for word='{word_str}'"
