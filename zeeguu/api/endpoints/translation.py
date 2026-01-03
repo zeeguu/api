@@ -9,7 +9,7 @@ from python_translators.translation_query import TranslationQuery
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.api.utils.translator import (
+from zeeguu.core.translation_services.translator import (
     get_next_results,
     contribute_trans,
     get_best_translation,

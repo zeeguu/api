@@ -265,7 +265,7 @@ def azure_alignment_contextual_translate(data):
     explicit word-to-word mappings rather than hoping the translation
     API preserves tag positions.
     """
-    from zeeguu.api.utils.azure_alignment_translator import azure_alignment_translate
+    from zeeguu.core.translation_services.azure_alignment import azure_alignment_translate
 
     result = azure_alignment_translate(data)
     if result:

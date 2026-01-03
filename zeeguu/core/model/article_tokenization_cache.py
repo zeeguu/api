@@ -12,8 +12,8 @@ log = logging.getLogger(__name__)
 
 class ArticleTokenizationCache(db.Model):
     """
-    Caches tokenized summary and title for articles to avoid expensive CPU-bound
-    Stanza tokenization on every request.
+    Caches tokenized content, summary and title for articles to avoid expensive
+    CPU-bound Stanza tokenization and MWE detection on every request.
 
     1-to-1 relationship with Article - keeps article table lean while providing
     fast lookups for cached tokenization.
@@ -21,6 +21,7 @@ class ArticleTokenizationCache(db.Model):
     __tablename__ = "article_tokenization_cache"
 
     article_id = Column(Integer, ForeignKey("article.id", ondelete="CASCADE"), primary_key=True)
+    tokenized_content = Column(UnicodeText)  # Full article content with MWE detection
     tokenized_summary = Column(UnicodeText)
     tokenized_title = Column(UnicodeText)
     created_at = Column(DateTime, default=datetime.now)

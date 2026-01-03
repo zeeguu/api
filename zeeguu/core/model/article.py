@@ -400,6 +400,153 @@ class Article(db.Model):
         else:
             return self.source.word_count
 
+    def get_tokenized_content(self):
+        """
+        Get tokenized content with MWE detection, using cache when available.
+
+        This method handles:
+        - Tokenization of main content, fragments, and title
+        - MWE detection (batch processing for hybrid languages)
+        - Caching of results
+
+        Returns:
+            dict with: content, htmlContent, paragraphs, tokenized_paragraphs,
+                      tokenized_fragments, tokenized_title_new, tokenized_title
+        """
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.article_fragment import ArticleFragment
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        from zeeguu.core.mwe import tokenize_for_reading, enrich_tokens_with_mwe
+        from zeeguu.core.model.db import db
+        import json
+
+        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
+        content = self.get_content()
+
+        result = {
+            "content": content,
+            "htmlContent": self.htmlContent,
+            "paragraphs": tokenizer.split_into_paragraphs(content),
+        }
+
+        # Check cache first
+        cache = ArticleTokenizationCache.get_for_article(db.session, self.id)
+        if cache and cache.tokenized_content:
+            log(f"[CACHE-HIT] Article {self.id} - Using cached tokenized content")
+            cached_data = json.loads(cache.tokenized_content)
+            result["tokenized_paragraphs"] = cached_data.get("tokenized_paragraphs", [])
+            result["tokenized_fragments"] = cached_data.get("tokenized_fragments", [])
+            result["tokenized_title_new"] = cached_data.get("tokenized_title_new", {})
+            result["tokenized_title"] = cached_data.get("tokenized_title", [])
+            return result
+
+        # Cache miss - tokenize everything
+        log(f"[CACHE-MISS] Article {self.id} - Tokenizing content with MWE detection")
+
+        # Tokenize main content
+        result["tokenized_paragraphs"] = tokenize_for_reading(content, self.language)
+
+        # Tokenize fragments with batch MWE processing
+        result["tokenized_fragments"] = self._tokenize_fragments(tokenizer)
+
+        # Tokenize title (simpler, just use stanza mode)
+        enriched_title = tokenize_for_reading(self.title, self.language, mode="stanza")
+        result["tokenized_title_new"] = {
+            "context_identifier": ContextIdentifier(
+                ContextType.ARTICLE_TITLE,
+                article_id=self.id,
+            ).as_dictionary(),
+            "tokens": enriched_title,
+        }
+        result["tokenized_title"] = enriched_title
+
+        # Cache for future requests
+        self._cache_tokenized_content(db.session, result)
+
+        return result
+
+    def _tokenize_fragments(self, tokenizer):
+        """
+        Tokenize article fragments with batch MWE processing for efficiency.
+
+        For hybrid languages (de, nl, sv, da, no, en, el), uses a single LLM call
+        to process all sentences in all fragments.
+        """
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.article_fragment import ArticleFragment
+        from zeeguu.core.mwe import enrich_tokens_with_mwe
+
+        HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
+        use_hybrid = self.language.code in HYBRID_LANGUAGES
+
+        fragments_list = list(ArticleFragment.get_all_article_fragments_in_order(self.id))
+        fragment_tokens_list = []
+        all_fragment_sentences = []
+
+        # First pass: tokenize all fragments
+        for frag_idx, fragment in enumerate(fragments_list):
+            frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
+            fragment_tokens_list.append(frag_tokens)
+
+            # Collect sentences for batch processing
+            for para_idx, para in enumerate(frag_tokens):
+                for sent_idx, sentence in enumerate(para):
+                    all_fragment_sentences.append((frag_idx, para_idx, sent_idx, sentence))
+
+        # Batch MWE detection
+        if all_fragment_sentences:
+            if use_hybrid:
+                from zeeguu.core.mwe.llm_mwe_detector import BatchHybridMWEStrategy
+                from zeeguu.core.mwe.enricher import MWEDetector
+
+                batch_strategy = BatchHybridMWEStrategy(self.language.code)
+                sentences_only = [s[3] for s in all_fragment_sentences]
+                mwe_results = batch_strategy.detect_batch(sentences_only)
+
+                detector = MWEDetector(self.language.code, "hybrid")
+                for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(all_fragment_sentences):
+                    if idx < len(mwe_results):
+                        detector._apply_mwe_groups(tokens, mwe_results[idx], para_idx, sent_idx)
+            else:
+                # Use stanza for non-hybrid languages
+                for frag_tokens in fragment_tokens_list:
+                    enrich_tokens_with_mwe(frag_tokens, self.language.code, mode="stanza")
+
+        # Build result
+        tokenized_fragments = []
+        for frag_idx, fragment in enumerate(fragments_list):
+            tokenized_fragments.append({
+                "context_identifier": ContextIdentifier(
+                    ContextType.ARTICLE_FRAGMENT,
+                    article_fragment_id=fragment.id,
+                ).as_dictionary(),
+                "formatting": fragment.formatting,
+                "tokens": fragment_tokens_list[frag_idx] if frag_idx < len(fragment_tokens_list) else [],
+            })
+
+        return tokenized_fragments
+
+    def _cache_tokenized_content(self, session, tokenized_data):
+        """Cache tokenized content for future requests."""
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        import json
+
+        try:
+            cache = ArticleTokenizationCache.find_or_create(session, self)
+            cache.tokenized_content = json.dumps({
+                "tokenized_paragraphs": tokenized_data["tokenized_paragraphs"],
+                "tokenized_fragments": tokenized_data["tokenized_fragments"],
+                "tokenized_title_new": tokenized_data["tokenized_title_new"],
+                "tokenized_title": tokenized_data["tokenized_title"],
+            })
+            session.commit()
+            log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content")
+        except Exception as e:
+            log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
+
     def article_info(self, with_content=False):
         """
 
@@ -477,84 +624,8 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.model.context_identifier import ContextIdentifier
-            from zeeguu.core.model.context_type import ContextType
-
-            from zeeguu.core.model.article_fragment import ArticleFragment
-            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-            from zeeguu.core.mwe import enrich_tokens_with_mwe
-
-            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-            content = self.get_content()
-            result_dict["content"] = content
-            result_dict["htmlContent"] = self.htmlContent
-            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(content)
-
-            # Tokenize and enrich with MWE detection
-            # Main content uses hybrid mode (LLM validation) for better precision
-            # Fragments and title use stanza-only mode to minimize LLM calls
-            tokenized = tokenizer.tokenize_text(content, flatten=False)
-            result_dict["tokenized_paragraphs"] = enrich_tokens_with_mwe(
-                tokenized, self.language.code
-            )
-            result_dict["tokenized_fragments"] = []
-
-            # Collect all fragment sentences for batch MWE processing
-            fragments_list = list(ArticleFragment.get_all_article_fragments_in_order(self.id))
-            all_fragment_sentences = []  # List of (fragment_idx, para_idx, sent_idx, tokens)
-            fragment_tokens_list = []
-
-            for frag_idx, fragment in enumerate(fragments_list):
-                frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
-                fragment_tokens_list.append(frag_tokens)
-                for para_idx, para in enumerate(frag_tokens):
-                    for sent_idx, sentence in enumerate(para):
-                        all_fragment_sentences.append((frag_idx, para_idx, sent_idx, sentence))
-
-            # Batch process all sentences with hybrid mode (single LLM call)
-            if all_fragment_sentences:
-                HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
-                use_hybrid = self.language.code in HYBRID_LANGUAGES
-
-                if use_hybrid:
-                    from zeeguu.core.mwe.llm_mwe_detector import BatchHybridMWEStrategy
-                    batch_strategy = BatchHybridMWEStrategy(self.language.code)
-                    sentences_only = [s[3] for s in all_fragment_sentences]
-                    mwe_results = batch_strategy.detect_batch(sentences_only)
-
-                    # Apply results back to tokens
-                    from zeeguu.core.mwe.enricher import MWEDetector
-                    detector = MWEDetector(self.language.code, "hybrid")
-                    for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(all_fragment_sentences):
-                        if idx < len(mwe_results):
-                            detector._apply_mwe_groups(tokens, mwe_results[idx], para_idx, sent_idx)
-                else:
-                    # Use stanza for non-hybrid languages
-                    for frag_tokens in fragment_tokens_list:
-                        enrich_tokens_with_mwe(frag_tokens, self.language.code, mode="stanza")
-
-            # Build tokenized_fragments result
-            for frag_idx, fragment in enumerate(fragments_list):
-                result_dict["tokenized_fragments"].append({
-                    "context_identifier": ContextIdentifier(
-                        ContextType.ARTICLE_FRAGMENT,
-                        article_fragment_id=fragment.id,
-                    ).as_dictionary(),
-                    "formatting": fragment.formatting,
-                    "tokens": fragment_tokens_list[frag_idx] if frag_idx < len(fragment_tokens_list) else [],
-                })
-
-            ## TO-DO : Update once migration is complete.
-            title_tokens = tokenizer.tokenize_text(self.title, flatten=False)
-            enriched_title = enrich_tokens_with_mwe(title_tokens, self.language.code, mode="stanza")
-            result_dict["tokenized_title_new"] = {
-                "context_identifier": ContextIdentifier(
-                    ContextType.ARTICLE_TITLE,
-                    article_id=self.id,
-                ).as_dictionary(),
-                "tokens": enriched_title,
-            }
-            result_dict["tokenized_title"] = enriched_title
+            tokenized_content = self.get_tokenized_content()
+            result_dict.update(tokenized_content)
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 
