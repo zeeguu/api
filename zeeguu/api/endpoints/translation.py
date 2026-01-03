@@ -127,39 +127,27 @@ def get_one_translation(from_lang_code, to_lang_code):
             source = "DEV_SKIP"
             t1 = {"translation": translation, "likelihood": likelihood, "source": source}
         elif is_separated_mwe and mwe_sentence:
-            # For separated MWEs (e.g., "rufe...an"), use LLM translation with sentence context
-            # This provides better translations for words that aren't contiguous
-            log(f"[TRANSLATION-LLM] Using LLM for separated MWE: '{word_str}' in '{mwe_sentence[:50]}...'")
+            # For separated MWEs (e.g., "rufe...an"), try Azure alignment first
+            # It now supports separated MWEs by finding each part in the sentence
+            log(f"[TRANSLATION-MWE] Translating separated MWE: '{word_str}'")
             start_time = time.time()
 
-            from zeeguu.core.llm_services.mwe_translation_service import translate_separated_mwe
-            llm_translation = translate_separated_mwe(
-                mwe_text=word_str,
-                sentence=mwe_sentence,
-                source_lang=from_lang_code,
-                target_lang=to_lang_code
-            )
+            data = {
+                "source_language": from_lang_code,
+                "target_language": to_lang_code,
+                "word": word_str,
+                "query": query,
+                "context": mwe_sentence,
+            }
+            t1 = azure_alignment_contextual_translate(data)
 
-            if llm_translation:
+            if t1:
                 elapsed = time.time() - start_time
-                log(f"[TRANSLATION-LLM] LLM translation completed in {elapsed:.3f}s: '{llm_translation}'")
-                t1 = {"translation": llm_translation, "likelihood": 0.9, "source": "Claude LLM"}
+                log(f"[TRANSLATION-MWE] Alignment translation completed in {elapsed:.3f}s: '{t1.get('translation')}'")
             else:
-                # Fall back to regular translation if LLM fails
-                log(f"[TRANSLATION-LLM] LLM translation failed, falling back to Azure alignment")
-                # Use mwe_sentence as context - it contains the full sentence with the MWE
-                fallback_context = mwe_sentence or context
-                data = {
-                    "source_language": from_lang_code,
-                    "target_language": to_lang_code,
-                    "word": word_str,
-                    "query": query,
-                    "context": fallback_context,
-                }
-                # Azure alignment is most reliable, then Microsoft, then Google
-                t1 = azure_alignment_contextual_translate(data)
-                if not t1:
-                    t1 = microsoft_contextual_translate(data)
+                # Fall back to translation without context
+                log(f"[TRANSLATION-MWE] Alignment failed, falling back to context-less translation")
+                t1 = microsoft_contextual_translate(data)
                 if not t1:
                     t1 = google_contextual_translate(data)
         else:
