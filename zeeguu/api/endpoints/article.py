@@ -587,3 +587,54 @@ def get_article_broken_reports(article_id):
             for r in reports
         ]
     })
+
+
+@api.route("/clear_article_cache/<article_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def clear_article_cache(article_id):
+    """
+    [DEV ONLY] Clear tokenization cache and bookmarks for an article.
+
+    Used for testing MWE detection changes without stale cached data.
+    Deletes:
+    - Tokenization cache (forces re-tokenization on next load)
+    - All user bookmarks for this article (token indices would be stale)
+
+    Returns:
+        JSON with deletion counts
+    """
+    from zeeguu.core.model import Bookmark, UserWord
+    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+
+    user = User.find_by_id(flask.g.user_id)
+    article = Article.find_by_id(article_id)
+
+    if not article:
+        flask.abort(404, "Article not found")
+
+    # Delete tokenization cache
+    cache_deleted = ArticleTokenizationCache.delete_for_article(db_session, article_id)
+
+    # Delete user's bookmarks for this article
+    bookmarks = (
+        db_session.query(Bookmark)
+        .join(Article, Bookmark.source_id == Article.source_id)
+        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        .filter(Article.id == article_id)
+        .filter(UserWord.user_id == user.id)
+        .all()
+    )
+
+    bookmark_count = len(bookmarks)
+    for bookmark in bookmarks:
+        db_session.delete(bookmark)
+    db_session.commit()
+
+    log(f"[DEV] Cleared cache and {bookmark_count} bookmarks for article {article_id}")
+
+    return json_result({
+        "article_id": article_id,
+        "cache_deleted": cache_deleted,
+        "bookmarks_deleted": bookmark_count,
+    })

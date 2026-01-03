@@ -95,6 +95,14 @@ class ArticleTokenizationCache(db.Model):
         return cache, modified
 
     @classmethod
+    def delete_for_article(cls, session, article_id):
+        """Delete cache for a specific article. Returns True if deleted."""
+        deleted = session.query(cls).filter_by(article_id=article_id).delete()
+        session.commit()
+        log.info(f"[CACHE] Deleted cache for article {article_id}")
+        return deleted > 0
+
+    @classmethod
     def delete_older_than(cls, session, days=7):
         """Delete cache entries older than N days. Returns count of deleted rows."""
         cutoff = datetime.now() - timedelta(days=days)
