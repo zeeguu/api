@@ -53,6 +53,11 @@ class Bookmark(db.Model):
     # Link to reading session if translation was made while reading an article
     reading_session_id = db.Column(db.Integer, db.ForeignKey("user_reading_session.id"), nullable=True)
 
+    # Track if this bookmark is a multi-word expression (MWE)
+    is_mwe = db.Column(db.Boolean, default=False)
+    # For separated MWEs, store the partner's token index for proper restoration
+    mwe_partner_token_i = db.Column(db.Integer, default=None)
+
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
@@ -69,6 +74,8 @@ class Bookmark(db.Model):
         translation_source: str = 'reading',
         browsing_session_id: int = None,
         reading_session_id: int = None,
+        is_mwe: bool = False,
+        mwe_partner_token_i: int = None,
     ):
         self.user_word = user_word
         self.source = source
@@ -77,6 +84,8 @@ class Bookmark(db.Model):
         self.translation_source = translation_source
         self.browsing_session_id = browsing_session_id
         self.reading_session_id = reading_session_id
+        self.is_mwe = is_mwe
+        self.mwe_partner_token_i = mwe_partner_token_i
         self.sentence_i = sentence_i
         self.token_i = token_i
         self.total_tokens = total_tokens
@@ -176,6 +185,8 @@ class Bookmark(db.Model):
             t_total_token=self.total_tokens,
             user_word_id=self.user_word_id,
             translation_source=self.translation_source,
+            is_mwe=self.is_mwe or False,
+            mwe_partner_token_i=self.mwe_partner_token_i,
         )
 
         result["from"] = self.user_word.meaning.origin.content
@@ -211,17 +222,15 @@ class Bookmark(db.Model):
             result["title"] = bookmark_title
 
         if with_context_tokenized:
-            from zeeguu.core.tokenization import TOKENIZER_MODEL, get_tokenizer
+            from zeeguu.core.mwe import tokenize_for_reading
 
-            tokenizer = get_tokenizer(
-                self.user_word.meaning.origin.language, TOKENIZER_MODEL
-            )
             # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
             # Even though most contexts have only 1 paragraph, the structure must be preserved
             # for compatibility with InteractiveText._updateTokensWithBookmarks()
-            result["context_tokenized"] = tokenizer.tokenize_text(
+            result["context_tokenized"] = tokenize_for_reading(
                 self.context.get_content(),
-                flatten=False,
+                self.user_word.meaning.origin.language,
+                mode="stanza",
                 start_token_i=self.context.token_i,
                 start_sentence_i=self.context.sentence_i,
             )
@@ -330,6 +339,8 @@ class Bookmark(db.Model):
         translation_source: str = 'reading',
         browsing_session_id: int = None,
         reading_session_id: int = None,
+        is_mwe: bool = False,
+        mwe_partner_token_i: int = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -417,6 +428,8 @@ class Bookmark(db.Model):
                 translation_source=translation_source,
                 browsing_session_id=browsing_session_id,
                 reading_session_id=reading_session_id,
+                is_mwe=is_mwe,
+                mwe_partner_token_i=mwe_partner_token_i,
             )
         except Exception as e:
             raise e
@@ -424,7 +437,9 @@ class Bookmark(db.Model):
         log(f"[BOOKMARK-TIMING] Adding bookmark to session and committing")
         commit_start = time.time()
         session.add(bookmark)
+
         bookmark.create_context_mapping(session, context_identifier, commit=False)
+
         session.add(bookmark)
         session.commit()
         log(f"[BOOKMARK-TIMING] First commit took {time.time() - commit_start:.3f}s")

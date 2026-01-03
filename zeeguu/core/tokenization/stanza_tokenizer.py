@@ -11,7 +11,7 @@ import threading
 STANZA_PARAGRAPH_DELIMITER = re.compile(r"((\s?)+\\n+)")
 APOSTROPHE_BEFORE_WORD = re.compile(r" (')([\w]+)")
 # This is used to capture the l' from l'autheur
-PARTICLE_WITH_APOSTROPHE = re.compile(r"(\w+('|’))")
+PARTICLE_WITH_APOSTROPHE = re.compile(r"(\w+('|'))")
 
 
 URL_PLACEHOLDER = "#URL#"
@@ -116,6 +116,8 @@ class StanzaTokenizer(ZeeguuTokenizer):
                     t_details["text"]
                 )
                 has_space = not ("SpaceAfter=No" in t_details.get("misc", ""))
+
+                # French/Italian: l'auteur -> l'auteur (fuse particle with apostrophe)
                 if (
                     particle_with_apostrophe
                     and particle_with_apostrophe.group(0) == text

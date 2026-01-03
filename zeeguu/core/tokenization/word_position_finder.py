@@ -15,20 +15,20 @@ from zeeguu.logging import log
 def find_word_positions_in_text(target_word, context_text, from_lang, strict_matching=False, use_legacy_api=False):
     """
     Find all positions of a target word/phrase in context text.
-    
+
     Args:
         target_word (str): The word or phrase to find
         context_text (str): The text to search in
         from_lang (Language): The language object for tokenization
         strict_matching (bool): If True, use exact matching. If False, use fuzzy matching.
         use_legacy_api (bool): If True, use the legacy tokenizer API (for generated examples)
-        
+
     Returns:
         dict: {
             'found_positions': List of position dicts with sentence_i, token_i, tokens_matched
             'tokens_list': List of all tokens (for debugging)
         }
-        
+
     Raises:
         Exception: If tokenization fails
     """
@@ -37,9 +37,9 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
         from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
         from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
         from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
-        
+
         TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
-        
+
         # Tokenize the context using appropriate API
         if use_legacy_api:
             # Legacy API used in generated examples
@@ -56,19 +56,22 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
             else:
                 tokenizer = NLTKTokenizer(from_lang)
             tokenized_sentence = tokenizer.tokenize_text(context_text, as_serializable_dictionary=False)
-        
+
         tokens_list = list(tokenized_sentence)
-        
+
         # Handle multi-word bookmarks by splitting the target
+        # For hyphenated words like "l-a", we need to handle both:
+        # 1. The case where it's tokenized as one token
+        # 2. The case where Stanza splits it (e.g., "l-" + "a")
         target_words = target_word.lower().split()
         found_positions = []
-        
+
         for i, token in enumerate(tokens_list):
             token_text = token.text.lower()
-            # Clean the token for comparison (remove punctuation)
+            # Clean the token for comparison (remove punctuation except hyphen for initial check)
             clean_token = "".join(c for c in token_text if c.isalnum())
             clean_target_word = "".join(c for c in target_words[0] if c.isalnum())
-            
+
             # Check if this token matches the first word of our target
             first_word_matches = False
             if strict_matching:
@@ -76,24 +79,42 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
             else:
                 # Fuzzy matching for generated examples (more lenient)
                 first_word_matches = (
-                    clean_token == clean_target_word or 
-                    clean_target_word in clean_token or 
+                    clean_token == clean_target_word or
+                    clean_target_word in clean_token or
                     clean_token in clean_target_word
                 )
-            
+
+            # Special handling: if first target word has hyphen and this token ends with hyphen,
+            # try combining with next token (handles "l-" + "a" -> "l-a")
+            if not first_word_matches and "-" in target_words[0] and token_text.endswith("-"):
+                # Check if combining this token with next matches the hyphenated word
+                if i + 1 < len(tokens_list):
+                    combined = token_text + tokens_list[i + 1].text.lower()
+                    clean_combined = "".join(c for c in combined if c.isalnum())
+                    if strict_matching:
+                        first_word_matches = (clean_combined == clean_target_word)
+                    else:
+                        first_word_matches = (
+                            clean_combined == clean_target_word or
+                            clean_target_word in clean_combined or
+                            clean_combined in clean_target_word
+                        )
+
             if first_word_matches:
                 # Check if we can match the complete phrase starting from this position
                 tokens_matched = 0
                 matches_all = True
-                
+                token_offset = 0  # Extra offset for hyphen-split words
+
                 # Check consecutive tokens for multi-word phrases
                 for j, target_word_part in enumerate(target_words):
-                    if i + j < len(tokens_list):
-                        check_token = tokens_list[i + j]
+                    current_idx = i + j + token_offset
+                    if current_idx < len(tokens_list):
+                        check_token = tokens_list[current_idx]
                         check_token_text = check_token.text.lower()
                         clean_check_token = "".join(c for c in check_token_text if c.isalnum())
                         clean_target_part = "".join(c for c in target_word_part if c.isalnum())
-                        
+
                         # Apply matching strategy
                         word_matches = False
                         if strict_matching:
@@ -105,7 +126,25 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
                                 clean_target_part in clean_check_token or
                                 clean_check_token in clean_target_part
                             )
-                        
+
+                        # Handle hyphen-split tokens: "l-" + "a" should match "l-a"
+                        if not word_matches and "-" in target_word_part and check_token_text.endswith("-"):
+                            next_idx = current_idx + 1
+                            if next_idx < len(tokens_list):
+                                combined = check_token_text + tokens_list[next_idx].text.lower()
+                                clean_combined = "".join(c for c in combined if c.isalnum())
+                                if strict_matching:
+                                    word_matches = (clean_combined == clean_target_part)
+                                else:
+                                    word_matches = (
+                                        clean_combined == clean_target_part or
+                                        clean_target_part in clean_combined or
+                                        clean_combined in clean_target_part
+                                    )
+                                if word_matches:
+                                    token_offset += 1  # Consumed extra token for hyphen-split
+                                    tokens_matched += 1  # Count the extra token
+
                         if word_matches:
                             tokens_matched += 1
                         else:
@@ -114,20 +153,20 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
                     else:
                         matches_all = False
                         break
-                
-                if matches_all and tokens_matched == len(target_words):
+
+                if matches_all and tokens_matched >= len(target_words):
                     # Found a complete target phrase occurrence
                     found_positions.append({
                         'sentence_i': token.sent_i,
                         'token_i': token.token_i,
                         'tokens_matched': tokens_matched
                     })
-        
+
         return {
             'found_positions': found_positions,
             'tokens_list': tokens_list
         }
-        
+
     except Exception as e:
         log(f"ERROR: Tokenization failed for word '{target_word}' in context '{context_text}': {str(e)}")
         raise

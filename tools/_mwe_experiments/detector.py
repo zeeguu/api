@@ -1,11 +1,10 @@
 """
-Multi-Word Expression (MWE) Detector
+MWE Detector - Low-level detection utilities for testing/analysis.
 
-This module provides utilities for detecting multi-word expressions in tokenized text,
-specifically focusing on particle verbs using dependency parsing.
+NOT used in production. For production MWE detection, use zeeguu.core.mwe.
 
 Usage:
-    from zeeguu.core.language.mwe_detector import detect_particle_verbs
+    from tools._mwe_experiments.detector import detect_particle_verbs
 
     # tokens is a list of Token objects with dep, head, and lemma fields
     particle_verbs = detect_particle_verbs(tokens)

@@ -18,7 +18,7 @@ class DateTimeEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def json_result(dictionary):
+def json_result(dictionary, status=200):
     stringified = json.dumps(dictionary, cls=DateTimeEncoder)
-    resp = flask.Response(stringified, status=200, mimetype="application/json")
+    resp = flask.Response(stringified, status=status, mimetype="application/json")
     return resp
