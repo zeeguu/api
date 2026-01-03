@@ -263,7 +263,11 @@ class AuxOnlyStrategy(MWEStrategy):
     """
 
     # Dependency relations to group with verb
-    VERB_DEPS = {"aux", "expl:pv", "expl:pass"}
+    # - aux: auxiliary verbs (a, va, etc.)
+    # - expl: expletive/clitic pronouns (l-, m-, s-, etc.)
+    # - expl:pv: pronominal voice clitics
+    # - expl:pass: passive reflexive
+    VERB_DEPS = {"aux", "expl", "expl:pv", "expl:pass"}
 
     def detect(self, tokens: List[Dict]) -> List[Dict]:
         """Detect aux+verb and clitic+verb groups."""
