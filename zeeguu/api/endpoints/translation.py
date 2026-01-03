@@ -67,17 +67,17 @@ def get_one_translation(from_lang_code, to_lang_code):
     # The front end send the data in the following format:
     # ('context_identifier[context_type]', 'ArticleFragment')
 
-    # Check if this is a separated MWE expression (words not contiguous in context)
+    # Check if this is an MWE expression
     is_mwe_expression = request.json.get("is_mwe_expression", False)
     is_separated_mwe = request.json.get("is_separated_mwe", False)
     mwe_sentence = request.json.get("mwe_sentence", None)  # Full sentence for context
     mwe_partner_token_i = request.json.get("mwe_partner_token_i", None)  # Partner token for MWE
 
-    if is_mwe_expression:
-        # For separated MWE expressions, the words aren't contiguous in context
-        # so we can't use for_word_occurrence. Create query directly without context positioning.
+    if is_separated_mwe:
+        # For separated MWEs (e.g., "rufe...an"), the words aren't contiguous in context
+        # so we can't use for_word_occurrence
         query = TranslationQuery(word_str, "", "", 1)
-        log(f"[TRANSLATION-MWE] Translating MWE expression: '{word_str}', separated={is_separated_mwe}")
+        log(f"[TRANSLATION-MWE] Translating separated MWE: '{word_str}'")
     else:
         try:
             query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
