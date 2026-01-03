@@ -384,47 +384,49 @@ def translate_with_llm(word, sentence, from_lang, to_lang):
     return None
 
 
-def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=False):
+def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=False, mwe_sentence=None):
     """
     Get the best translation for a word or MWE.
 
     Args:
         word: Word to translate
-        context: Sentence context (used for both regular words and separated MWEs)
+        context: Sentence context
         from_lang: Source language code
         to_lang: Target language code
         is_separated_mwe: True if word is a separated MWE like "rufe ... an"
+        mwe_sentence: Full sentence for separated MWEs
 
     Returns:
         dict with 'translation', 'source', 'likelihood' keys, or None
     """
-    if is_separated_mwe:
-        return translate_separated_mwe(word, context, from_lang, to_lang)
+    if is_separated_mwe and mwe_sentence:
+        return translate_separated_mwe(word, mwe_sentence, from_lang, to_lang)
     else:
         return translate_in_context(word, context, from_lang, to_lang)
 
 
-def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False):
+def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False, mwe_sentence=None):
     """
     Get translations from all available services.
 
     Args:
         word: Word to translate
-        context: Sentence context (used for both regular words and separated MWEs)
+        context: Sentence context
         from_lang: Source language code
         to_lang: Target language code
         is_separated_mwe: True if word is a separated MWE like "rufe ... an"
+        mwe_sentence: Full sentence for separated MWEs
 
     Returns:
         List of translation dicts
     """
     from python_translators.translation_query import TranslationQuery
 
-    if is_separated_mwe:
+    if is_separated_mwe and mwe_sentence:
         # Azure alignment finds each part separately
-        t0 = translate_separated_mwe(word, context, from_lang, to_lang)
+        t0 = translate_separated_mwe(word, mwe_sentence, from_lang, to_lang)
         # LLM understands grammar well
-        t1 = translate_with_llm(word, context, from_lang, to_lang)
+        t1 = translate_with_llm(word, mwe_sentence, from_lang, to_lang)
         # Context-free fallbacks
         query = TranslationQuery(word, "", "", 1)
         data = {
