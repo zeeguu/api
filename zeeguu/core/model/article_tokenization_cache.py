@@ -22,6 +22,8 @@ class ArticleTokenizationCache(db.Model):
 
     article_id = Column(Integer, ForeignKey("article.id", ondelete="CASCADE"), primary_key=True)
     tokenized_content = Column(UnicodeText)  # Full article content with MWE detection
+    # TODO: tokenized_summary and tokenized_title are now redundant since tokenized_content
+    # includes everything. Consider removing these columns in a future cleanup.
     tokenized_summary = Column(UnicodeText)
     tokenized_title = Column(UnicodeText)
     created_at = Column(DateTime, default=datetime.now)

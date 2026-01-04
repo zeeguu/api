@@ -2,7 +2,7 @@
 #
 # This module detects multi-word expressions like:
 # - Particle verbs: "ruft...an" (calls), "steht...auf" (gets up)
-# - Grammatical: "il y a" (there is), "wird kommen" (will come)
+# - Grammatical: "Θα φύγει" (will go), "Δεν ξέρει" (doesn't know)
 # - Phrasal verbs: "llevó a cabo" (carried out)
 #
 # Detection modes:
@@ -13,6 +13,9 @@
 # Usage:
 #     from zeeguu.core.mwe import tokenize_for_reading
 #     tokens = tokenize_for_reading(text, language)
+#
+# Future work: "Break apart" option to dismiss MWE grouping
+# See: zeeguu-docs/future-work/mwe-user-override.md
 
 from .enricher import MWEDetector, enrich_tokens_with_mwe
 from .stanza_mwe_detector import get_strategy_for_language
