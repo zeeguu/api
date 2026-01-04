@@ -266,24 +266,11 @@ def cleanup_old_user_word(db_session, old_user_word, moved_bookmark):
         moved_bookmark: Bookmark that was moved away
     """
     # Clear preferred_bookmark if it pointed to the moved bookmark
-    # Also clear if it's invalid (points to bookmark from different UserWord)
-    should_clear = False
     if old_user_word.preferred_bookmark_id == moved_bookmark.id:
-        should_clear = True
-    elif old_user_word.preferred_bookmark_id is not None:
-        # Validate the preferred_bookmark belongs to this UserWord
-        # Use no_autoflush to avoid triggering the validation during this check
-        with db_session.no_autoflush:
-            pref_bookmark = Bookmark.query.get(old_user_word.preferred_bookmark_id)
-            if pref_bookmark and pref_bookmark.user_word_id != old_user_word.id:
-                log(f"[UPDATE_BOOKMARK] Clearing invalid preferred_bookmark_id (belongs to different UserWord)")
-                should_clear = True
-
-    if should_clear:
         log(f"[UPDATE_BOOKMARK] Clearing old UserWord's preferred_bookmark_id...")
         old_user_word.preferred_bookmark_id = None
         db_session.add(old_user_word)
-        db_session.flush()  # Flush before count query to avoid autoflush issues
+        db_session.flush()
 
     # Check how many bookmarks remain
     log(f"[UPDATE_BOOKMARK] Checking remaining bookmarks for old UserWord {old_user_word.id}...")
