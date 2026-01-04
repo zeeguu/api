@@ -549,10 +549,11 @@ class Article(db.Model):
         return tokenized_fragments
 
     def _cache_tokenized_content(self, session, tokenized_data):
-        """Cache tokenized content for future requests."""
+        """Cache tokenized content, summary, and title for future requests."""
         from zeeguu.core.model.article_tokenization_cache import (
             ArticleTokenizationCache,
         )
+        from zeeguu.core.mwe import tokenize_for_reading
         import json
 
         try:
@@ -565,8 +566,18 @@ class Article(db.Model):
                     "tokenized_title": tokenized_data["tokenized_title"],
                 }
             )
+            # Also populate summary and title to keep everything in sync
+            if self.summary:
+                tokenized_summary = tokenize_for_reading(
+                    self.summary, self.language, mode="stanza"
+                )
+                cache.tokenized_summary = json.dumps(tokenized_summary)
+            tokenized_title = tokenize_for_reading(
+                self.title, self.language, mode="stanza"
+            )
+            cache.tokenized_title = json.dumps(tokenized_title)
             session.commit()
-            log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content")
+            log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content, summary, and title")
         except Exception as e:
             log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
 
