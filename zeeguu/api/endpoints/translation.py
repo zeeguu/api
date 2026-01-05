@@ -348,18 +348,19 @@ def update_bookmark_full(bookmark_id):
         db_session, word_str, origin_lang_code, translation_str, translation_lang_code
     )
 
-    # Step 3: Check if only translation changed (word unchanged)
-    # If so, we skip context recreation to preserve position data
+    # Step 3: Check if word or context changed
+    # If both unchanged, we skip context recreation to preserve position data
     old_user_word = bookmark.user_word
     word_unchanged = old_user_word.meaning.origin.content == word_str
+    context_unchanged = bookmark.context and bookmark.context.text.content == context_str
 
-    if word_unchanged:
+    if word_unchanged and context_unchanged:
         # Translation-only update: keep existing text and context
-        print(f"[UPDATE_BOOKMARK] Word unchanged, keeping existing text/context to preserve position")
+        print(f"[UPDATE_BOOKMARK] Word and context unchanged, keeping existing to preserve position")
         text = bookmark.text
         context = bookmark.context
     else:
-        # Word changed: need to find/create new text and context
+        # Word or context changed: need to find/create new text and context
         text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
 
     # Step 4: Find or create UserWord for new meaning
@@ -405,18 +406,18 @@ def update_bookmark_full(bookmark_id):
             f"[UPDATE_BOOKMARK] Same UserWord (ID: {new_user_word.id}), no cleanup needed"
         )
 
-    # Step 8: Validate word position ONLY if the WORD changed
-    # We skip validation for translation-only changes because:
+    # Step 8: Validate word position if word OR context changed
+    # We skip validation only for pure translation-only changes because:
     # 1. The bookmark already has valid position data (sentence_i, token_i, total_tokens)
     # 2. Re-tokenization is fragile (e.g., "l-a" vs "l-" + "a" tokenization differences)
     # 3. Context string reconstruction from tokens may differ from stored context
-    if not word_unchanged:
-        print(f"[UPDATE_BOOKMARK] Word changed, validating position...")
+    if not (word_unchanged and context_unchanged):
+        print(f"[UPDATE_BOOKMARK] Word or context changed, validating position...")
         error_response = validate_and_update_position(bookmark, word_str, context_str)
         if error_response:
             return error_response  # Validation failed, return error
     else:
-        print(f"[UPDATE_BOOKMARK] Word unchanged, skipping position validation (keeping existing position data)")
+        print(f"[UPDATE_BOOKMARK] Word and context unchanged, skipping position validation")
 
     # Step 9: Commit changes and return response
     db_session.add(bookmark)
