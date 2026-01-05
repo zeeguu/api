@@ -1,133 +1,79 @@
 """
 Word Position Finding for Tokenized Text
 
-This module provides utilities for locating words or phrases within tokenized text
-and computing position anchoring data for bookmark creation. It supports both
-strict matching (for user-uploaded words) and fuzzy matching (for generated examples).
-
-The functions handle multi-word phrases, punctuation normalization, and both
-legacy and modern tokenizer APIs transparently.
+Locates words/phrases in tokenized text for bookmark position anchoring.
+Tokenizes both target and context, then compares token sequences.
 """
 
 from zeeguu.logging import log
 
 
+def _get_tokenizer(from_lang):
+    """Get the appropriate tokenizer for a language."""
+    from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
+    from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
+    from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
+
+    TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
+    if TOKENIZER_MODEL in StanzaTokenizer.STANZA_MODELS:
+        return StanzaTokenizer(from_lang, TOKENIZER_MODEL)
+    return NLTKTokenizer(from_lang)
+
+
+def _normalize_token(text):
+    """Normalize token text for comparison (lowercase, alphanumeric only)."""
+    return "".join(c for c in text.lower() if c.isalnum())
+
+
 def find_word_positions_in_text(target_word, context_text, from_lang, strict_matching=False, use_legacy_api=False):
     """
     Find all positions of a target word/phrase in context text.
-    
-    Args:
-        target_word (str): The word or phrase to find
-        context_text (str): The text to search in
-        from_lang (Language): The language object for tokenization
-        strict_matching (bool): If True, use exact matching. If False, use fuzzy matching.
-        use_legacy_api (bool): If True, use the legacy tokenizer API (for generated examples)
-        
+
+    Tokenizes both target and context using the same tokenizer, then finds
+    where the target token sequence appears in the context tokens.
+
     Returns:
-        dict: {
-            'found_positions': List of position dicts with sentence_i, token_i, tokens_matched
-            'tokens_list': List of all tokens (for debugging)
-        }
-        
-    Raises:
-        Exception: If tokenization fails
+        dict with 'found_positions' list and 'tokens_list'
     """
     try:
-        # Import tokenizer components locally to avoid circular imports
-        from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
-        from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
-        from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
-        
-        TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
-        
-        # Tokenize the context using appropriate API
-        if use_legacy_api:
-            # Legacy API used in generated examples
-            if TOKENIZER_MODEL in StanzaTokenizer.STANZA_MODELS:
-                tokenizer = StanzaTokenizer(from_lang, TOKENIZER_MODEL)
-            else:
-                tokenizer = NLTKTokenizer(from_lang)
-            tokenized_sentence = tokenizer.tokenize_text(context_text, as_serializable_dictionary=False)
-        else:
-            # New API used in add_custom_word - this would require the newer get_tokenizer function
-            # For now, fallback to legacy API for both until we can resolve the API differences
-            if TOKENIZER_MODEL in StanzaTokenizer.STANZA_MODELS:
-                tokenizer = StanzaTokenizer(from_lang, TOKENIZER_MODEL)
-            else:
-                tokenizer = NLTKTokenizer(from_lang)
-            tokenized_sentence = tokenizer.tokenize_text(context_text, as_serializable_dictionary=False)
-        
-        tokens_list = list(tokenized_sentence)
-        
-        # Handle multi-word bookmarks by splitting the target
-        target_words = target_word.lower().split()
+        tokenizer = _get_tokenizer(from_lang)
+
+        # Tokenize both target and context with same tokenizer
+        target_tokens = list(tokenizer.tokenize_text(target_word, as_serializable_dictionary=False))
+        context_tokens = list(tokenizer.tokenize_text(context_text, as_serializable_dictionary=False))
+
+        # Normalize target tokens for comparison
+        target_normalized = [_normalize_token(t.text) for t in target_tokens]
+        target_len = len(target_normalized)
+
+        if target_len == 0:
+            return {'found_positions': [], 'tokens_list': context_tokens}
+
         found_positions = []
-        
-        for i, token in enumerate(tokens_list):
-            token_text = token.text.lower()
-            # Clean the token for comparison (remove punctuation)
-            clean_token = "".join(c for c in token_text if c.isalnum())
-            clean_target_word = "".join(c for c in target_words[0] if c.isalnum())
-            
-            # Check if this token matches the first word of our target
-            first_word_matches = False
+
+        # Slide through context looking for target sequence
+        for i in range(len(context_tokens) - target_len + 1):
+            context_slice = [_normalize_token(context_tokens[i + j].text) for j in range(target_len)]
+
             if strict_matching:
-                first_word_matches = (clean_token == clean_target_word)
+                matches = (context_slice == target_normalized)
             else:
-                # Fuzzy matching for generated examples (more lenient)
-                first_word_matches = (
-                    clean_token == clean_target_word or 
-                    clean_target_word in clean_token or 
-                    clean_token in clean_target_word
+                # Fuzzy: each token must match (equal or substring)
+                matches = all(
+                    t == c or t in c or c in t
+                    for t, c in zip(target_normalized, context_slice)
                 )
-            
-            if first_word_matches:
-                # Check if we can match the complete phrase starting from this position
-                tokens_matched = 0
-                matches_all = True
-                
-                # Check consecutive tokens for multi-word phrases
-                for j, target_word_part in enumerate(target_words):
-                    if i + j < len(tokens_list):
-                        check_token = tokens_list[i + j]
-                        check_token_text = check_token.text.lower()
-                        clean_check_token = "".join(c for c in check_token_text if c.isalnum())
-                        clean_target_part = "".join(c for c in target_word_part if c.isalnum())
-                        
-                        # Apply matching strategy
-                        word_matches = False
-                        if strict_matching:
-                            word_matches = (clean_check_token == clean_target_part)
-                        else:
-                            # Fuzzy matching for generated examples
-                            word_matches = (
-                                clean_check_token == clean_target_part or
-                                clean_target_part in clean_check_token or
-                                clean_check_token in clean_target_part
-                            )
-                        
-                        if word_matches:
-                            tokens_matched += 1
-                        else:
-                            matches_all = False
-                            break
-                    else:
-                        matches_all = False
-                        break
-                
-                if matches_all and tokens_matched == len(target_words):
-                    # Found a complete target phrase occurrence
-                    found_positions.append({
-                        'sentence_i': token.sent_i,
-                        'token_i': token.token_i,
-                        'tokens_matched': tokens_matched
-                    })
-        
-        return {
-            'found_positions': found_positions,
-            'tokens_list': tokens_list
-        }
-        
+
+            if matches:
+                token = context_tokens[i]
+                found_positions.append({
+                    'sentence_i': token.sent_i,
+                    'token_i': token.token_i,
+                    'tokens_matched': target_len
+                })
+
+        return {'found_positions': found_positions, 'tokens_list': context_tokens}
+
     except Exception as e:
         log(f"ERROR: Tokenization failed for word '{target_word}' in context '{context_text}': {str(e)}")
         raise

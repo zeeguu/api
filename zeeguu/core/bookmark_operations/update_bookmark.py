@@ -270,6 +270,7 @@ def cleanup_old_user_word(db_session, old_user_word, moved_bookmark):
         log(f"[UPDATE_BOOKMARK] Clearing old UserWord's preferred_bookmark_id...")
         old_user_word.preferred_bookmark_id = None
         db_session.add(old_user_word)
+        db_session.flush()
 
     # Check how many bookmarks remain
     log(f"[UPDATE_BOOKMARK] Checking remaining bookmarks for old UserWord {old_user_word.id}...")

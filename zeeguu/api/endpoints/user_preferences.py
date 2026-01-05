@@ -84,6 +84,16 @@ def save_user_preferences():
         filter_disturbing_content.value = filter_disturbing_content_value
         db_session.add(filter_disturbing_content)
 
+    show_mwe_hints_value = data.get(UserPreference.SHOW_MWE_HINTS, None)
+    if show_mwe_hints_value:
+        show_mwe_hints = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.SHOW_MWE_HINTS,
+        )
+        show_mwe_hints.value = show_mwe_hints_value
+        db_session.add(show_mwe_hints)
+
     db_session.add(user)
     db_session.commit()
     return "OK"

@@ -9,11 +9,11 @@ from python_translators.translation_query import TranslationQuery
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.api.utils.translator import (
+from zeeguu.core.translation_services.translator import (
     get_next_results,
     contribute_trans,
-    google_contextual_translate,
-    microsoft_contextual_translate,
+    get_best_translation,
+    get_all_translations,
 )
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
@@ -66,7 +66,11 @@ def get_one_translation(from_lang_code, to_lang_code):
     # The front end send the data in the following format:
     # ('context_identifier[context_type]', 'ArticleFragment')
 
-    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
+    # Check if this is an MWE expression
+    is_mwe_expression = request.json.get("is_mwe_expression", False)
+    is_separated_mwe = request.json.get("is_separated_mwe", False)
+    full_sentence_context = request.json.get("full_sentence_context", None)  # Full sentence for context
+    mwe_partner_token_i = request.json.get("mwe_partner_token_i", None)  # Partner token for MWE
 
     # if we have an own translation that is our first "best guess"
     # ML: TODO:
@@ -104,34 +108,13 @@ def get_one_translation(from_lang_code, to_lang_code):
 
         if IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
-            translation = f"T-({to_lang_code})-'{word_str}'"
-            likelihood = None
-            source = "DEV_SKIP"
-            t1 = {"translation": translation, "likelihood": likelihood, "source": source}
+            t1 = {"translation": f"T-({to_lang_code})-'{word_str}'", "likelihood": None, "source": "DEV_SKIP"}
         else:
-            log(
-                f"[TRANSLATION-TIMING] Starting translation for word='{word_str}', from={from_lang_code}, to={to_lang_code}"
-            )
+            log(f"[TRANSLATION] Word: '{word_str}', separated_mwe={is_separated_mwe}")
             start_time = time.time()
-
-            data = {
-                "source_language": from_lang_code,
-                "target_language": to_lang_code,
-                "word": word_str,
-                "query": query,
-                "context": context,
-            }
-            # The API Mux is misbehaving and will only serve the non-contextual translators after a while
-            # For now hardcoding google on the first place and msft as a backup
-
-            t1 = google_contextual_translate(data)
-            if not t1:
-                t1 = microsoft_contextual_translate(data)
-
+            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
             elapsed = time.time() - start_time
-            log(
-                f"[TRANSLATION-TIMING] Translation API call completed in {elapsed:.3f}s, result='{t1.get('translation', 'N/A')}'"
-            )
+            log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
         log(
             f"[TRANSLATION-TIMING] About to call Bookmark.find_or_create for word='{word_str}'"
@@ -166,6 +149,8 @@ def get_one_translation(from_lang_code, to_lang_code):
             translation_source=translation_source,
             browsing_session_id=browsing_session_id,
             reading_session_id=reading_session_id,
+            is_mwe=is_mwe_expression,
+            mwe_partner_token_i=mwe_partner_token_i,
         )
 
         bookmark_elapsed = time.time() - bookmark_start
@@ -190,50 +175,138 @@ def get_one_translation(from_lang_code, to_lang_code):
 @requires_session
 def get_multiple_translations(from_lang_code, to_lang_code):
     """
-    Returns a list of possible translations in :param to_lang_code
-    for :param word in :param from_lang_code except a translation
-    from :service
+    Returns a list of possible translations from multiple services.
 
-    You must also specify the :param context, :param url, and :param title
-     of the page where the word was found.
-
-    The context is the sentence.
-
-    :return: json array with translations
+    :return: json array with translations from Azure, Microsoft, and Google
     """
 
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
-    number_of_results = int(request.form.get("numberOfResults", -1))
-    translation_to_exclude = request.form.get("translationToExclude", "")
-    service_to_exclude = request.form.get("serviceToExclude", "")
+    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    full_sentence_context = request.form.get("full_sentence_context", "")
 
-    exclude_services = [] if service_to_exclude == "" else [service_to_exclude]
-    exclude_results = (
-        [] if translation_to_exclude == "" else [translation_to_exclude.lower()]
+    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
+
+    return json_result(dict(translations=translations))
+
+
+@api.route(
+    "/get_translations_stream/<from_lang_code>/<to_lang_code>", methods=["POST"]
+)
+@cross_domain
+@requires_session
+def get_translations_stream(from_lang_code, to_lang_code):
+    """
+    Stream translations as they arrive using Server-Sent Events (SSE).
+
+    Each translation is sent as a separate SSE event, allowing the frontend
+    to display results progressively rather than waiting for all services.
+
+    :return: SSE stream with translation events
+    """
+    import json
+    from flask import Response
+    from zeeguu.core.translation_services.translator import get_translations_streaming
+
+    word_str = request.form["word"].strip(punctuation_extended)
+    context = request.form.get("context", "").strip()
+    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    full_sentence_context = request.form.get("full_sentence_context", "")
+
+    def generate():
+        for translation in get_translations_streaming(
+            word_str, context, from_lang_code, to_lang_code,
+            is_separated_mwe, full_sentence_context
+        ):
+            yield f"data: {json.dumps(translation)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering
+        }
     )
 
-    query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
 
-    data = {
-        "source_language": from_lang_code,
-        "target_language": to_lang_code,
-        "word": word_str,
-        "query": query,
-        "context": context,
-    }
-    t1 = google_contextual_translate(data)
-    t2 = microsoft_contextual_translate(data)
+@api.route("/update_bookmark_translation/<bookmark_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def update_bookmark_translation_only(bookmark_id):
+    """
+    Simple endpoint to update ONLY the translation of a bookmark.
 
-    return json_result(dict(translations=[t1, t2]))
+    Used from the reader when user selects an alternative translation.
+    Preserves all position data (sentence_i, token_i, context, etc.)
+
+    :param bookmark_id: ID of bookmark to update
+    :return: Updated bookmark as JSON
+    """
+    from zeeguu.api.utils.json_result import json_result
+
+    bookmark = Bookmark.find(bookmark_id)
+    if not bookmark:
+        return json_result({"error": "Bookmark not found"}, status=404)
+
+    new_translation = request.json.get("translation")
+    if not new_translation:
+        return json_result({"error": "Translation required"}, status=400)
+
+    # Find or create new Meaning with the new translation
+    old_meaning = bookmark.user_word.meaning
+    new_meaning = Meaning.find_or_create(
+        db_session,
+        old_meaning.origin.content,  # Keep same origin word
+        old_meaning.origin.language.code,
+        new_translation,
+        old_meaning.translation.language.code,
+    )
+
+    # Find or create UserWord for the new meaning
+    old_user_word = bookmark.user_word
+    new_user_word = UserWord.find_or_create(
+        db_session, old_user_word.user, new_meaning
+    )
+
+    # If UserWord changed, transfer learning progress
+    if new_user_word.id != old_user_word.id:
+        from zeeguu.core.bookmark_operations.update_bookmark import (
+            transfer_learning_progress,
+            cleanup_old_user_word,
+        )
+        transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
+
+        # Reassign bookmark to new UserWord
+        bookmark.user_word_id = new_user_word.id
+        db_session.add(bookmark)
+        db_session.flush()
+
+        # Set preferred_bookmark if needed
+        if not new_user_word.preferred_bookmark:
+            new_user_word.preferred_bookmark_id = bookmark.id
+            db_session.add(new_user_word)
+
+        cleanup_old_user_word(db_session, old_user_word, bookmark)
+
+    db_session.commit()
+
+    # Return updated bookmark
+    updated = bookmark.as_dictionary(with_context=True)
+    print(f"[UPDATE_TRANSLATION] Updated bookmark {bookmark_id}: '{old_meaning.origin.content}' -> '{new_translation}'")
+    return json_result(updated)
 
 
 @api.route("/update_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @requires_session
-def update_translation(bookmark_id):
+def update_bookmark_full(bookmark_id):
     """
-    User updates a bookmark - updates word, translation, and/or context.
+    Full bookmark update - can change word, translation, and/or context.
+
+    Used from WordEditForm where user can edit everything.
 
     This endpoint handles complex logic including:
     - Switching to new UserWord if meaning changed
@@ -252,7 +325,6 @@ def update_translation(bookmark_id):
         find_or_create_context,
         transfer_learning_progress,
         cleanup_old_user_word,
-        context_or_word_changed,
         validate_and_update_position,
         format_response,
     )
@@ -276,11 +348,22 @@ def update_translation(bookmark_id):
         db_session, word_str, origin_lang_code, translation_str, translation_lang_code
     )
 
-    # Step 3: Find or create new text and context
-    text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
+    # Step 3: Check if word or context changed
+    # If both unchanged, we skip context recreation to preserve position data
+    old_user_word = bookmark.user_word
+    word_unchanged = old_user_word.meaning.origin.content == word_str
+    context_unchanged = bookmark.context and bookmark.context.text.content == context_str
+
+    if word_unchanged and context_unchanged:
+        # Translation-only update: keep existing text and context
+        print(f"[UPDATE_BOOKMARK] Word and context unchanged, keeping existing to preserve position")
+        text = bookmark.text
+        context = bookmark.context
+    else:
+        # Word or context changed: need to find/create new text and context
+        text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
 
     # Step 4: Find or create UserWord for new meaning
-    old_user_word = bookmark.user_word
     # Save original context/text info BEFORE reassigning (needed for change detection later)
     old_context_id = bookmark.context_id
     old_text_id = bookmark.text_id
@@ -303,6 +386,10 @@ def update_translation(bookmark_id):
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
+    db_session.add(bookmark)
+    # Flush bookmark reassignment BEFORE setting preferred_bookmark_id
+    # This ensures the validation sees the updated user_word_id
+    db_session.flush()
     print(f"[UPDATE_BOOKMARK] Reassigned bookmark to UserWord {new_user_word.id}")
 
     # Set preferred_bookmark_id AFTER reassignment (if UserWord changed and doesn't have one)
@@ -319,11 +406,18 @@ def update_translation(bookmark_id):
             f"[UPDATE_BOOKMARK] Same UserWord (ID: {new_user_word.id}), no cleanup needed"
         )
 
-    # Step 8: Validate word position if context or word changed
-    if context_or_word_changed(word_str, context_str, bookmark, old_user_word, old_context_id, old_text_id):
+    # Step 8: Validate word position if word OR context changed
+    # We skip validation only for pure translation-only changes because:
+    # 1. The bookmark already has valid position data (sentence_i, token_i, total_tokens)
+    # 2. Re-tokenization is fragile (e.g., "l-a" vs "l-" + "a" tokenization differences)
+    # 3. Context string reconstruction from tokens may differ from stored context
+    if not (word_unchanged and context_unchanged):
+        print(f"[UPDATE_BOOKMARK] Word or context changed, validating position...")
         error_response = validate_and_update_position(bookmark, word_str, context_str)
         if error_response:
             return error_response  # Validation failed, return error
+    else:
+        print(f"[UPDATE_BOOKMARK] Word and context unchanged, skipping position validation")
 
     # Step 9: Commit changes and return response
     db_session.add(bookmark)

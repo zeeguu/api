@@ -1,5 +1,5 @@
 import flask
-from flask import request
+from flask import request, Response
 from zeeguu.core.model import Article, UserArticle, User
 from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedback
 
@@ -8,6 +8,7 @@ from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 
 from datetime import datetime
+import json
 
 import newspaper
 
@@ -47,6 +48,83 @@ def user_article():
     article = Article.query.filter_by(id=article_id).one()
     user = User.find_by_id(flask.g.user_id)
     return json_result(UserArticle.user_article_info(user, article, with_content=True))
+
+
+# ---------------------------------------------------------------------------
+@api.route("/user_article_stream", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def user_article_stream():
+    """
+    Stream article loading progress via Server-Sent Events.
+
+    Returns SSE stream with events:
+    - progress: {"message": "Loading...", "step": 1, "total": 4}
+    - complete: Full article JSON data
+    - error: {"error": "message"}
+
+    Usage:
+        const evtSource = new EventSource('/user_article_stream?article_id=123&session=...');
+        evtSource.addEventListener('progress', (e) => console.log(JSON.parse(e.data).message));
+        evtSource.addEventListener('complete', (e) => { /* use article data */ evtSource.close(); });
+    """
+    from flask import stream_with_context, current_app
+
+    article_id = request.args.get("article_id", "")
+    if not article_id:
+        return Response(
+            f"event: error\ndata: {json.dumps({'error': 'Missing article_id'})}\n\n",
+            mimetype='text/event-stream'
+        )
+
+    article_id = int(article_id)
+    user_id = flask.g.user_id  # Capture before generator
+    app = current_app._get_current_object()  # Capture app for generator
+
+    def generate():
+        with app.app_context():  # Push app context inside generator
+            try:
+                # Step 1: Load article from database
+                yield f"event: progress\ndata: {json.dumps({'message': 'Loading article...', 'step': 1, 'total': 5})}\n\n"
+
+                article = Article.query.filter_by(id=article_id).one()
+                user = User.find_by_id(user_id)
+
+                # Step 2: Get basic article info (without full content processing)
+                yield f"event: progress\ndata: {json.dumps({'message': 'Preparing content...', 'step': 2, 'total': 5})}\n\n"
+
+                # Step 3: Tokenizing text
+                word_count = article.word_count or len((article.get_content() or "").split())
+                yield f"event: progress\ndata: {json.dumps({'message': f'Tokenizing text ({word_count} words)...', 'step': 3, 'total': 5})}\n\n"
+
+                # Step 4: MWE detection (the slow part for hybrid mode)
+                lang_name = article.language.name if article.language else "text"
+                yield f"event: progress\ndata: {json.dumps({'message': f'Detecting {lang_name} expressions...', 'step': 4, 'total': 5})}\n\n"
+
+                # This is where the actual work happens
+                article_info = UserArticle.user_article_info(user, article, with_content=True)
+
+                # Step 5: Complete
+                yield f"event: progress\ndata: {json.dumps({'message': 'Finalizing...', 'step': 5, 'total': 5})}\n\n"
+
+                # Send complete event with full data
+                yield f"event: complete\ndata: {json.dumps(article_info)}\n\n"
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'  # Disable nginx buffering
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

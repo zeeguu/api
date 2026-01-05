@@ -12,8 +12,8 @@ log = logging.getLogger(__name__)
 
 class ArticleTokenizationCache(db.Model):
     """
-    Caches tokenized summary and title for articles to avoid expensive CPU-bound
-    Stanza tokenization on every request.
+    Caches tokenized content, summary and title for articles to avoid expensive
+    CPU-bound Stanza tokenization and MWE detection on every request.
 
     1-to-1 relationship with Article - keeps article table lean while providing
     fast lookups for cached tokenization.
@@ -21,6 +21,9 @@ class ArticleTokenizationCache(db.Model):
     __tablename__ = "article_tokenization_cache"
 
     article_id = Column(Integer, ForeignKey("article.id", ondelete="CASCADE"), primary_key=True)
+    tokenized_content = Column(UnicodeText)  # Full article content with MWE detection
+    # TODO: tokenized_summary and tokenized_title are now redundant since tokenized_content
+    # includes everything. Consider removing these columns in a future cleanup.
     tokenized_summary = Column(UnicodeText)
     tokenized_title = Column(UnicodeText)
     created_at = Column(DateTime, default=datetime.now)
@@ -72,28 +75,34 @@ class ArticleTokenizationCache(db.Model):
         This separates the write concern (populating cache) from the read concern
         (using cached data), allowing callers to batch all writes before reads.
         """
-        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        from zeeguu.core.mwe import tokenize_for_reading
 
         cache = cls.find_or_create(session, article)
         modified = False
 
         # Populate summary if needed
         if article.summary and not cache.tokenized_summary:
-            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-            tokenized = tokenizer.tokenize_text(article.summary, flatten=False)
+            tokenized = tokenize_for_reading(article.summary, article.language, mode="stanza")
             cache.tokenized_summary = json.dumps(tokenized)
             modified = True
-            log.info(f"[CACHE] Article {article.id} - Tokenized and cached summary")
+            log.info(f"[CACHE] Article {article.id} - Tokenized and cached summary with MWE")
 
         # Populate title if needed
         if not cache.tokenized_title:
-            tokenizer = get_tokenizer(article.language, TOKENIZER_MODEL)
-            tokenized = tokenizer.tokenize_text(article.title, flatten=False)
+            tokenized = tokenize_for_reading(article.title, article.language, mode="stanza")
             cache.tokenized_title = json.dumps(tokenized)
             modified = True
-            log.info(f"[CACHE] Article {article.id} - Tokenized and cached title")
+            log.info(f"[CACHE] Article {article.id} - Tokenized and cached title with MWE")
 
         return cache, modified
+
+    @classmethod
+    def delete_for_article(cls, session, article_id):
+        """Delete cache for a specific article. Returns True if deleted."""
+        deleted = session.query(cls).filter_by(article_id=article_id).delete()
+        session.commit()
+        log.info(f"[CACHE] Deleted cache for article {article_id}")
+        return deleted > 0
 
     @classmethod
     def delete_older_than(cls, session, days=7):

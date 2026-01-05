@@ -301,7 +301,9 @@ class Article(db.Model):
 
     def update(self, db_session, language, content, htmlContent, title):
         from zeeguu.core.model.article_fragment import ArticleFragment
-        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
 
         self.language = language
         self.update_content(db_session, content, commit=False)
@@ -400,6 +402,185 @@ class Article(db.Model):
         else:
             return self.source.word_count
 
+    def get_tokenized_content(self):
+        """
+        Get tokenized content with MWE detection, using cache when available.
+
+        This method handles:
+        - Tokenization of main content, fragments, and title
+        - MWE detection (batch processing for hybrid languages)
+        - Caching of results
+
+        Returns:
+            dict with: content, htmlContent, paragraphs, tokenized_paragraphs,
+                      tokenized_fragments, tokenized_title_new, tokenized_title
+        """
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        from zeeguu.core.mwe import tokenize_for_reading
+        from zeeguu.core.model.db import db
+        import json
+
+        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
+        content = self.get_content()
+
+        result = {
+            "content": content,
+            "htmlContent": self.htmlContent,
+            "paragraphs": tokenizer.split_into_paragraphs(content),
+        }
+
+        # Check cache first
+        cache = ArticleTokenizationCache.get_for_article(db.session, self.id)
+        if cache and cache.tokenized_content:
+            log(f"[CACHE-HIT] Article {self.id} - Using cached tokenized content")
+            cached_data = json.loads(cache.tokenized_content)
+            result["tokenized_paragraphs"] = cached_data.get("tokenized_paragraphs", [])
+            result["tokenized_fragments"] = cached_data.get("tokenized_fragments", [])
+            result["tokenized_title_new"] = cached_data.get("tokenized_title_new", {})
+            result["tokenized_title"] = cached_data.get("tokenized_title", [])
+            return result
+
+        # Cache miss - tokenize everything
+        log(f"[CACHE-MISS] Article {self.id} - Tokenizing content with MWE detection")
+
+        # Tokenize main content
+        result["tokenized_paragraphs"] = tokenize_for_reading(content, self.language)
+
+        # Tokenize fragments with batch MWE processing
+        result["tokenized_fragments"] = self._tokenize_fragments(tokenizer)
+
+        # Tokenize title (simpler, just use stanza mode)
+        enriched_title = tokenize_for_reading(self.title, self.language, mode="stanza")
+        result["tokenized_title_new"] = {
+            "context_identifier": ContextIdentifier(
+                ContextType.ARTICLE_TITLE,
+                article_id=self.id,
+            ).as_dictionary(),
+            "tokens": enriched_title,
+        }
+        result["tokenized_title"] = enriched_title
+
+        # Cache for future requests
+        self._cache_tokenized_content(db.session, result)
+
+        return result
+
+    def _tokenize_fragments(self, tokenizer):
+        """
+        Tokenize article fragments with batch MWE processing for efficiency.
+
+        For hybrid languages (de, nl, sv, da, no, en, el), uses a single LLM call
+        to process all sentences in all fragments.
+        """
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.article_fragment import ArticleFragment
+        from zeeguu.core.mwe import enrich_tokens_with_mwe
+
+        HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
+        use_hybrid = self.language.code in HYBRID_LANGUAGES
+
+        fragments_list = list(
+            ArticleFragment.get_all_article_fragments_in_order(self.id)
+        )
+        fragment_tokens_list = []
+        all_fragment_sentences = []
+
+        # First pass: tokenize all fragments
+        for frag_idx, fragment in enumerate(fragments_list):
+            frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
+            fragment_tokens_list.append(frag_tokens)
+
+            # Collect sentences for batch processing
+            for para_idx, para in enumerate(frag_tokens):
+                for sent_idx, sentence in enumerate(para):
+                    all_fragment_sentences.append(
+                        (frag_idx, para_idx, sent_idx, sentence)
+                    )
+
+        # Batch MWE detection
+        if all_fragment_sentences:
+            if use_hybrid:
+                from zeeguu.core.mwe.llm_mwe_detector import BatchHybridMWEStrategy
+                from zeeguu.core.mwe.enricher import MWEDetector
+
+                batch_strategy = BatchHybridMWEStrategy(self.language.code)
+                sentences_only = [s[3] for s in all_fragment_sentences]
+                mwe_results = batch_strategy.detect_batch(sentences_only)
+
+                detector = MWEDetector(self.language.code, "hybrid")
+                for idx, (frag_idx, para_idx, sent_idx, tokens) in enumerate(
+                    all_fragment_sentences
+                ):
+                    if idx < len(mwe_results):
+                        detector._apply_mwe_groups(
+                            tokens, mwe_results[idx], para_idx, sent_idx
+                        )
+            else:
+                # Use stanza for non-hybrid languages
+                for frag_tokens in fragment_tokens_list:
+                    enrich_tokens_with_mwe(
+                        frag_tokens, self.language.code, mode="stanza"
+                    )
+
+        # Build result
+        tokenized_fragments = []
+        for frag_idx, fragment in enumerate(fragments_list):
+            tokenized_fragments.append(
+                {
+                    "context_identifier": ContextIdentifier(
+                        ContextType.ARTICLE_FRAGMENT,
+                        article_fragment_id=fragment.id,
+                    ).as_dictionary(),
+                    "formatting": fragment.formatting,
+                    "tokens": (
+                        fragment_tokens_list[frag_idx]
+                        if frag_idx < len(fragment_tokens_list)
+                        else []
+                    ),
+                }
+            )
+
+        return tokenized_fragments
+
+    def _cache_tokenized_content(self, session, tokenized_data):
+        """Cache tokenized content, summary, and title for future requests."""
+        from zeeguu.core.model.article_tokenization_cache import (
+            ArticleTokenizationCache,
+        )
+        from zeeguu.core.mwe import tokenize_for_reading
+        import json
+
+        try:
+            cache = ArticleTokenizationCache.find_or_create(session, self)
+            cache.tokenized_content = json.dumps(
+                {
+                    "tokenized_paragraphs": tokenized_data["tokenized_paragraphs"],
+                    "tokenized_fragments": tokenized_data["tokenized_fragments"],
+                    "tokenized_title_new": tokenized_data["tokenized_title_new"],
+                    "tokenized_title": tokenized_data["tokenized_title"],
+                }
+            )
+            # Also populate summary and title to keep everything in sync
+            if self.summary:
+                tokenized_summary = tokenize_for_reading(
+                    self.summary, self.language, mode="stanza"
+                )
+                cache.tokenized_summary = json.dumps(tokenized_summary)
+            tokenized_title = tokenize_for_reading(
+                self.title, self.language, mode="stanza"
+            )
+            cache.tokenized_title = json.dumps(tokenized_title)
+            session.commit()
+            log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content, summary, and title")
+        except Exception as e:
+            log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
+
     def article_info(self, with_content=False):
         """
 
@@ -477,47 +658,8 @@ class Article(db.Model):
                 result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
-            from zeeguu.core.model.context_identifier import ContextIdentifier
-            from zeeguu.core.model.context_type import ContextType
-
-            from zeeguu.core.model.article_fragment import ArticleFragment
-            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-
-            tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
-            content = self.get_content()
-            result_dict["content"] = content
-            result_dict["htmlContent"] = self.htmlContent
-            result_dict["paragraphs"] = tokenizer.split_into_paragraphs(content)
-            result_dict["tokenized_paragraphs"] = tokenizer.tokenize_text(
-                content, flatten=False
-            )
-            result_dict["tokenized_fragments"] = []
-
-            for fragment in ArticleFragment.get_all_article_fragments_in_order(self.id):
-                result_dict["tokenized_fragments"].append(
-                    {
-                        "context_identifier": ContextIdentifier(
-                            ContextType.ARTICLE_FRAGMENT,
-                            article_fragment_id=fragment.id,
-                        ).as_dictionary(),
-                        "formatting": fragment.formatting,
-                        "tokens": tokenizer.tokenize_text(
-                            fragment.text.content, flatten=False
-                        ),
-                    }
-                )
-
-            ## TO-DO : Update once migration is complete.
-            result_dict["tokenized_title_new"] = {
-                "context_identifier": ContextIdentifier(
-                    ContextType.ARTICLE_TITLE,
-                    article_id=self.id,
-                ).as_dictionary(),
-                "tokens": tokenizer.tokenize_text(self.title, flatten=False),
-            }
-            result_dict["tokenized_title"] = tokenizer.tokenize_text(
-                self.title, flatten=False
-            )
+            tokenized_content = self.get_tokenized_content()
+            result_dict.update(tokenized_content)
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 
@@ -539,17 +681,29 @@ class Article(db.Model):
                 "llm": {
                     "level": self.cefr_assessment.llm_cefr_level,
                     "method": self.cefr_assessment.llm_method,
-                    "assessed_at": self.cefr_assessment.llm_assessed_at.isoformat() if self.cefr_assessment.llm_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.llm_assessed_at.isoformat()
+                        if self.cefr_assessment.llm_assessed_at
+                        else None
+                    ),
                 },
                 "ml": {
                     "level": self.cefr_assessment.ml_cefr_level,
                     "method": self.cefr_assessment.ml_method,
-                    "assessed_at": self.cefr_assessment.ml_assessed_at.isoformat() if self.cefr_assessment.ml_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.ml_assessed_at.isoformat()
+                        if self.cefr_assessment.ml_assessed_at
+                        else None
+                    ),
                 },
                 "teacher": {
                     "level": self.cefr_assessment.teacher_cefr_level,
                     "method": self.cefr_assessment.teacher_method,
-                    "assessed_at": self.cefr_assessment.teacher_assessed_at.isoformat() if self.cefr_assessment.teacher_assessed_at else None,
+                    "assessed_at": (
+                        self.cefr_assessment.teacher_assessed_at.isoformat()
+                        if self.cefr_assessment.teacher_assessed_at
+                        else None
+                    ),
                 },
                 "effective_cefr_level": self.cefr_assessment.effective_cefr_level,
                 # Keep display_cefr for backward compatibility
@@ -776,9 +930,13 @@ class Article(db.Model):
                 )
                 if ml_level:
                     simplified_assessment.set_ml_assessment(ml_level, "ml")
-                    log(f"Simplified article {simplified_article.id}: Target={cefr_level}, ML measured={ml_level}")
+                    log(
+                        f"Simplified article {simplified_article.id}: Target={cefr_level}, ML measured={ml_level}"
+                    )
             except Exception as e:
-                log(f"Failed to run ML assessment on simplified article {simplified_article.id}: {e}")
+                log(
+                    f"Failed to run ML assessment on simplified article {simplified_article.id}: {e}"
+                )
 
             session.add(simplified_assessment)
             session.commit()
@@ -971,7 +1129,7 @@ class Article(db.Model):
             from zeeguu.core.model.url import Url
 
             # Validate that img_url is actually a URL, not HTML content
-            if img_url.startswith(('http://', 'https://')):
+            if img_url.startswith(("http://", "https://")):
                 new_article.img_url = Url.find_or_create(session, img_url)
             else:
                 log(f"Invalid img_url format (not a URL): {img_url[:100]}...")
@@ -1160,6 +1318,7 @@ class Article(db.Model):
             authors = author if author else ""
             # Detect language from text content
             from langdetect import detect
+
             try:
                 lang = detect(text_content)
             except:
@@ -1168,7 +1327,10 @@ class Article(db.Model):
             # Use readability server for parsing (crawler or legacy path)
             print("-- using readability server for extraction")
             from zeeguu.core.content_retriever import readability_download_and_parse
-            np_article = readability_download_and_parse(canonical_url, html_content=html_content)
+
+            np_article = readability_download_and_parse(
+                canonical_url, html_content=html_content
+            )
 
             # newspaper Article objects use .html, not .htmlContent
             html_content = np_article.html

@@ -268,17 +268,17 @@ class TokenizationTest(ModelTestMixIn):
         # assert tokens[12].is_right_punct
 
     def test_italian_tokenization_1(self):
-        text = """La scelta di affidare l’interpretazione del cantautore all’idolo della..."""
+        text = """La scelta di affidare l'interpretazione del cantautore all'idolo della..."""
         tokens = self.it_tokenizer.tokenize_text(text, False)
         assert [
             "La",
             "scelta",
             "di",
             "affidare",
-            "l’interpretazione",
+            "l'interpretazione",
             "del",
             "cantautore",
-            "all’idolo",
+            "all'idolo",
             "della",
             "...",
         ] == [t.text for t in tokens]
