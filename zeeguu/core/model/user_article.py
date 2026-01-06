@@ -18,6 +18,7 @@ from zeeguu.core.model.article_difficulty_feedback import ArticleDifficultyFeedb
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.core.model.db import db
 from zeeguu.core.model.personal_copy import PersonalCopy
+from zeeguu.core.model.user_mwe_override import UserMweOverride
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.logging import log
 
@@ -483,6 +484,31 @@ class UserArticle(db.Model):
             returned_info["has_personal_copy"] = True
         else:
             returned_info["has_personal_copy"] = False
+
+        # Include disabled MWE expressions for this user/article (when loading full content)
+        # Stored by (sentence_hash, mwe_expression) for robustness
+        # Returned as {sent_i: [mwe_expressions]} for frontend convenience
+        if with_content:
+            overrides_by_hash = UserMweOverride.get_disabled_mwes_for_user_article(user.id, article.id)
+            if overrides_by_hash and "tokenized_fragments" in returned_info:
+                # Build sentence_hash -> sent_i mapping from current article content
+                # Structure is: fragments -> tokens (paragraphs) -> sentences -> tokens
+                disabled_by_sent_i = {}
+                for fragment in returned_info["tokenized_fragments"]:
+                    for paragraph in fragment.get("tokens", []):
+                        for sentence in paragraph:
+                            if sentence:
+                                # Get sent_i from first token in sentence
+                                sent_i = sentence[0].get("sent_i") if sentence else None
+                                if sent_i is not None:
+                                    # Reconstruct sentence text and compute hash
+                                    sentence_text = " ".join(t.get("text", "") for t in sentence)
+                                    sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
+                                    if sentence_hash in overrides_by_hash:
+                                        disabled_by_sent_i[sent_i] = overrides_by_hash[sentence_hash]
+                returned_info["disabled_mwe_groups"] = disabled_by_sent_i
+            else:
+                returned_info["disabled_mwe_groups"] = {}
 
         # Include tokenized summary if requested (enabled by default for homepage performance)
         if with_summary and not with_content:

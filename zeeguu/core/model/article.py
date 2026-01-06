@@ -536,6 +536,7 @@ class Article(db.Model):
                     "context_identifier": ContextIdentifier(
                         ContextType.ARTICLE_FRAGMENT,
                         article_fragment_id=fragment.id,
+                        article_id=self.id,
                     ).as_dictionary(),
                     "formatting": fragment.formatting,
                     "tokens": (
