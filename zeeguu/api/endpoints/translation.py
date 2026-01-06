@@ -18,7 +18,7 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -564,3 +564,60 @@ def basic_translate(from_lang_code, to_lang_code):
             "likelihood": likelihood,
         }
     )
+
+
+@api.route("/disable_mwe_grouping", methods=["POST"])
+@cross_domain
+@requires_session
+def disable_mwe_grouping():
+    """
+    Store a user's override for an incorrect MWE grouping.
+
+    When user clicks "Ungroup words" in the translation menu, we:
+    1. Delete the MWE bookmark
+    2. Store an override so future article loads skip this MWE expression
+
+    Required POST params:
+    - article_id: The article containing the MWE
+    - mwe_expression: The MWE text (e.g., "har lavet") - robust to re-tokenization
+    - sentence_text: The sentence text (used to compute hash for robust matching)
+    - bookmark_id: The bookmark to delete
+
+    :return: Success status
+    """
+    article_id = request.json.get("article_id")
+    mwe_expression = request.json.get("mwe_expression")
+    sentence_text = request.json.get("sentence_text")
+    bookmark_id = request.json.get("bookmark_id")
+
+    if not all([article_id, mwe_expression, sentence_text, bookmark_id]):
+        return json_result({"error": "Missing required parameters"}, status=400)
+
+    user = User.find_by_id(flask.g.user_id)
+
+    # Delete the MWE bookmark (same logic as delete_bookmark endpoint)
+    bookmark = Bookmark.find(bookmark_id)
+    if bookmark and bookmark.user_word.user.id == user.id:
+        user_word = bookmark.user_word
+
+        # Clear the preferred bookmark reference if it's pointing to the bookmark we're deleting
+        if user_word.preferred_bookmark_id == bookmark.id:
+            user_word.preferred_bookmark = None
+            db_session.add(user_word)
+            db_session.flush()  # Ensure the foreign key is cleared before deletion
+
+        db_session.delete(bookmark)
+
+    # Compute sentence hash and store the override
+    sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
+    UserMweOverride.find_or_create(
+        db_session,
+        user.id,
+        article_id,
+        sentence_hash,
+        mwe_expression
+    )
+
+    db_session.commit()
+
+    return json_result({"success": True})

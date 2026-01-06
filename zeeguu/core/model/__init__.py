@@ -69,6 +69,7 @@ from .topic_filter import TopicFilter
 from .user_reading_session import UserReadingSession
 from .user_exercise_session import UserExerciseSession
 from .user_browsing_session import UserBrowsingSession
+from .user_mwe_override import UserMweOverride
 
 
 # bookmark scheduling
