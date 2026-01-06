@@ -51,6 +51,7 @@ class User(db.Model):
 
     is_dev = Column(Boolean)
     is_admin = Column(Boolean, default=False)
+    email_verified = Column(Boolean, default=True)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
 
@@ -114,11 +115,16 @@ class User(db.Model):
             learned_language=learned_language,
             native_language=native_language,
         )
+        new_user.email_verified = False
 
         return new_user
 
     def __repr__(self):
         return "<User %r>" % (self.email)
+
+    def is_anonymous(self):
+        """Check if this is an anonymous user based on email domain."""
+        return self.email.endswith(self.ANONYMOUS_EMAIL_DOMAIN)
 
     def is_member_of_cohort(self, cohort_id):
         cohort_id = int(cohort_id)
@@ -136,6 +142,16 @@ class User(db.Model):
 
     def details_as_dictionary(self):
         from zeeguu.core.model import UserLanguage
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.user_word import UserWord
+
+        # Efficient count query - Bookmark links to UserWord which has user_id
+        bookmark_count = (
+            zeeguu.core.model.db.session.query(func.count(Bookmark.id))
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == self.id)
+            .scalar()
+        )
 
         result = dict(
             email=self.email,
@@ -145,6 +161,8 @@ class User(db.Model):
             is_teacher=self.isTeacher(),
             is_student=len(self.cohorts) > 0
             and not any([c.cohort_id in [93, 459] for c in self.cohorts]),
+            is_anonymous=self.is_anonymous(),
+            bookmark_count=bookmark_count,
         )
 
         for each in UserLanguage.query.filter_by(user=self):
@@ -434,6 +452,40 @@ class User(db.Model):
         log(
             f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated"
         )
+
+    def upgrade_to_full_account(self, email, username, password=None):
+        """
+        Upgrade an anonymous account to a full account with real email/username.
+
+        :param email: Real email address
+        :param username: Display name
+        :param password: Optional new password (keeps existing if not provided)
+        :raises ValueError: If user is not anonymous or email is invalid/taken
+        """
+        from zeeguu.logging import log
+
+        if not self.is_anonymous():
+            raise ValueError("Only anonymous accounts can be upgraded")
+
+        email = email.lower().strip()
+
+        # Validate email format
+        if not re.match(self.EMAIL_VALIDATION_REGEX, email):
+            raise ValueError("Invalid email format")
+
+        # Check email not already taken
+        if User.email_exists(email):
+            raise ValueError("Email already in use")
+
+        log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
+
+        self.email = email
+        self.name = username
+
+        if password:
+            self.update_password(password)
+
+        log(f"UPGRADE_ACCOUNT SUCCESS: user_id={self.id} - Now {email}")
 
     def all_reading_sessions(
         self,
