@@ -485,30 +485,23 @@ class UserArticle(db.Model):
         else:
             returned_info["has_personal_copy"] = False
 
-        # Include disabled MWE expressions for this user/article (when loading full content)
-        # Stored by (sentence_hash, mwe_expression) for robustness
-        # Returned as {sent_i: [mwe_expressions]} for frontend convenience
+        # Clear MWE metadata from tokens that user has disabled
+        # This is done on backend to keep frontend simple (ADR 009)
         if with_content:
             overrides_by_hash = UserMweOverride.get_disabled_mwes_for_user_article(user.id, article.id)
             if overrides_by_hash and "tokenized_fragments" in returned_info:
-                # Build sentence_hash -> sent_i mapping from current article content
                 # Structure is: fragments -> tokens (paragraphs) -> sentences -> tokens
-                disabled_by_sent_i = {}
                 for fragment in returned_info["tokenized_fragments"]:
                     for paragraph in fragment.get("tokens", []):
                         for sentence in paragraph:
                             if sentence:
-                                # Get sent_i from first token in sentence
-                                sent_i = sentence[0].get("sent_i") if sentence else None
-                                if sent_i is not None:
-                                    # Reconstruct sentence text and compute hash
-                                    sentence_text = " ".join(t.get("text", "") for t in sentence)
-                                    sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
-                                    if sentence_hash in overrides_by_hash:
-                                        disabled_by_sent_i[sent_i] = overrides_by_hash[sentence_hash]
-                returned_info["disabled_mwe_groups"] = disabled_by_sent_i
-            else:
-                returned_info["disabled_mwe_groups"] = {}
+                                # Compute sentence hash to check for overrides
+                                sentence_text = " ".join(t.get("text", "") for t in sentence)
+                                sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
+                                if sentence_hash in overrides_by_hash:
+                                    disabled_expressions = overrides_by_hash[sentence_hash]
+                                    # Clear MWE metadata from tokens matching disabled expressions
+                                    cls._clear_mwe_metadata_for_expressions(sentence, disabled_expressions)
 
         # Include tokenized summary if requested (enabled by default for homepage performance)
         if with_summary and not with_content:
@@ -523,6 +516,41 @@ class UserArticle(db.Model):
                 returned_info["interactiveTitle"] = summary_info["tokenized_title"]
 
         return returned_info
+
+    @staticmethod
+    def _clear_mwe_metadata_for_expressions(sentence_tokens, disabled_expressions):
+        """
+        Clear MWE metadata from tokens that belong to disabled MWE expressions.
+
+        Args:
+            sentence_tokens: List of token dicts in a sentence
+            disabled_expressions: List of MWE expressions (lowercase) that user has disabled
+        """
+        # Build a map of mwe_group_id -> expression for this sentence
+        mwe_groups = {}
+        for token in sentence_tokens:
+            group_id = token.get("mwe_group_id")
+            if group_id and group_id not in mwe_groups:
+                # Find all tokens with this group_id and build the expression
+                group_tokens = [t for t in sentence_tokens if t.get("mwe_group_id") == group_id]
+                group_tokens.sort(key=lambda t: t.get("token_i", 0))
+                expression = " ".join(t.get("text", "").strip() for t in group_tokens).lower()
+                mwe_groups[group_id] = expression
+
+        # Find which group_ids should be cleared
+        groups_to_clear = set()
+        for group_id, expression in mwe_groups.items():
+            if expression in disabled_expressions:
+                groups_to_clear.add(group_id)
+
+        # Clear MWE metadata from tokens in disabled groups
+        if groups_to_clear:
+            for token in sentence_tokens:
+                if token.get("mwe_group_id") in groups_to_clear:
+                    token.pop("mwe_group_id", None)
+                    token.pop("mwe_role", None)
+                    token.pop("mwe_is_separated", None)
+                    token.pop("mwe_partner_indices", None)
 
     @classmethod
     def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None):
