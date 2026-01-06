@@ -230,15 +230,47 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
 def _user_words_as_json_result(user_words):
     from zeeguu.logging import log
     from zeeguu.core.model import db
-    
+    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
+
+    if not user_words:
+        return json_result([])
+
+    # Batch-load all schedules in ONE query to avoid N+1 problem
+    # Use FourLevelsPerWord (the actual subclass) to get proper polymorphic behavior
+    user_word_ids = [uw.id for uw in user_words]
+    schedules = FourLevelsPerWord.query.filter(
+        FourLevelsPerWord.user_word_id.in_(user_word_ids)
+    ).all()
+
+    # Create a lookup map: user_word_id -> schedule
+    schedule_map = {s.user_word_id: s for s in schedules}
+
+    # Get tokenized contexts - use cache when available
+    context_map = {}  # user_word_id -> tokenized_context
+
+    for uw in user_words:
+        try:
+            bm = uw.preferred_bookmark
+            if bm and bm.context:
+                # Use cached tokenization if available, otherwise tokenize and cache
+                tokenized = bm.context.get_tokenized(session=db.session)
+                if tokenized:
+                    context_map[uw.id] = tokenized
+        except Exception as e:
+            log(f"Failed to get tokenized context for user_word {uw.id}: {e}")
+
     dicts = []
     words_to_delete = []
-    
+
     for user_word in user_words:
         try:
-            # The as_dictionary() method already calls validate_data_integrity()
-            # which will auto-repair if possible or raise ValueError if not
-            dicts.append(user_word.as_dictionary())
+            # Pass pre-loaded schedule and pre-tokenized context
+            schedule = schedule_map.get(user_word.id)
+            tokenized_context = context_map.get(user_word.id)
+            dicts.append(user_word.as_dictionary(
+                schedule=schedule,
+                pre_tokenized_context=tokenized_context
+            ))
         except ValueError as e:
             # This means validate_data_integrity() couldn't repair the issue
             # (i.e., UserWord has no bookmarks at all)
@@ -248,7 +280,7 @@ def _user_words_as_json_result(user_words):
             # Log any other unexpected errors and skip
             log(f"Unexpected error processing UserWord {user_word.id}: {str(e)}")
             continue
-    
+
     # Delete UserWords that couldn't be repaired
     if words_to_delete:
         for word in words_to_delete:
@@ -262,5 +294,5 @@ def _user_words_as_json_result(user_words):
         except:
             db.session.rollback()
             log("Failed to commit UserWord deletions")
-    
+
     return json_result(dicts)
