@@ -151,6 +151,85 @@ class UserTest(ModelTestMixIn):
 
         assert result is not None and result == anonymous_user
 
+    def test_is_anonymous(self):
+        # Regular user should not be anonymous
+        assert not self.user.is_anonymous()
+
+        # Anonymous user should be anonymous
+        random_uuid = str(uuid.uuid4())
+        anonymous_user = User.create_anonymous(random_uuid, self.faker.password())
+        db.session.add(anonymous_user)
+        db.session.commit()
+
+        assert anonymous_user.is_anonymous()
+
+    def test_upgrade_to_full_account(self):
+        random_uuid = str(uuid.uuid4())
+        original_password = self.faker.password()
+        anonymous_user = User.create_anonymous(random_uuid, original_password)
+        db.session.add(anonymous_user)
+        db.session.commit()
+
+        # Verify it's anonymous before upgrade
+        assert anonymous_user.is_anonymous()
+
+        # Upgrade to full account
+        new_email = self.faker.email().lower()
+        new_username = self.faker.name()
+        anonymous_user.upgrade_to_full_account(new_email, new_username)
+        db.session.commit()
+
+        # Verify it's no longer anonymous
+        assert not anonymous_user.is_anonymous()
+        assert anonymous_user.email == new_email
+        assert anonymous_user.name == new_username
+
+        # Verify can login with original password (since we didn't change it)
+        result = User.authorize(new_email, original_password)
+        assert result is not None and result == anonymous_user
+
+    def test_upgrade_with_new_password(self):
+        random_uuid = str(uuid.uuid4())
+        original_password = self.faker.password()
+        anonymous_user = User.create_anonymous(random_uuid, original_password)
+        db.session.add(anonymous_user)
+        db.session.commit()
+
+        new_email = self.faker.email().lower()
+        new_username = self.faker.name()
+        new_password = self.faker.password()
+        anonymous_user.upgrade_to_full_account(new_email, new_username, new_password)
+        db.session.commit()
+
+        # Original password should no longer work
+        result = User.authorize(new_email, original_password)
+        assert result is None
+
+        # New password should work
+        result = User.authorize(new_email, new_password)
+        assert result is not None and result == anonymous_user
+
+    def test_upgrade_non_anonymous_fails(self):
+        # Regular user should not be able to upgrade
+        import pytest
+
+        with pytest.raises(ValueError, match="Only anonymous accounts can be upgraded"):
+            self.user.upgrade_to_full_account(
+                self.faker.email().lower(), self.faker.name()
+            )
+
+    def test_upgrade_with_existing_email_fails(self):
+        import pytest
+
+        random_uuid = str(uuid.uuid4())
+        anonymous_user = User.create_anonymous(random_uuid, self.faker.password())
+        db.session.add(anonymous_user)
+        db.session.commit()
+
+        # Try to upgrade with an email that already exists
+        with pytest.raises(ValueError, match="Email already in use"):
+            anonymous_user.upgrade_to_full_account(self.user.email, self.faker.name())
+
     def __truncate_time_from_date(self, date_with_time):
         return datetime(
             date_with_time.year, date_with_time.month, date_with_time.day, 0, 0, 0

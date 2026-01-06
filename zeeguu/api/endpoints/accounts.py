@@ -118,19 +118,96 @@ def add_anon_user():
     uuid = request.form.get("uuid", None)
     password = request.form.get("password", None)
 
-    # These two are optional
+    # These are optional
     language_code = request.form.get("learned_language_code", None)
     native_code = request.form.get("native_language_code", None)
+    cefr_level = request.form.get("learned_cefr_level", None)
 
     try:
         new_user = User.create_anonymous(uuid, password, language_code, native_code)
         db_session.add(new_user)
         db_session.commit()
+
+        # Create UserLanguage record with CEFR level if provided
+        if language_code and cefr_level:
+            new_user.set_learned_language(language_code, int(cefr_level), db_session)
+            db_session.commit()
     except ValueError as e:
         return bad_request("Could not create anon user.")
     except sqlalchemy.exc.IntegrityError as e:
         return bad_request("Could not create anon user. Maybe uuid already exists?")
     return get_anon_session(uuid)
+
+
+@api.route("/upgrade_anon_user", methods=["POST"])
+@cross_domain
+@requires_session
+def upgrade_anon_user():
+    """
+    Upgrade an anonymous account to a full account with email/username.
+    Requires an active session from an anonymous user.
+    Sends a confirmation email with a code.
+    """
+    from zeeguu.core.emailer.email_confirmation import send_email_confirmation
+
+    email = request.form.get("email", None)
+    username = request.form.get("username", None)
+    password = request.form.get("password", None)  # Optional - keeps existing if not provided
+
+    if not email or not username:
+        return bad_request("Email and username are required")
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        user.upgrade_to_full_account(email, username, password)
+        user.email_verified = False  # Requires confirmation
+        db_session.commit()
+
+        # Send confirmation email
+        code = UniqueCode(email)
+        db_session.add(code)
+        db_session.commit()
+        send_email_confirmation(email, code)
+
+        return "OK"
+
+    except ValueError as e:
+        return bad_request(str(e))
+    except Exception as e:
+        log(f"Failed to upgrade anonymous user: {e}")
+        return bad_request("Could not upgrade account")
+
+
+@api.route("/confirm_email", methods=["POST"])
+@cross_domain
+@requires_session
+def confirm_email():
+    """
+    Confirm email address using the code sent via email.
+    """
+    code = request.form.get("code", None)
+
+    if not code:
+        return bad_request("Code is required")
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        last_code = UniqueCode.last_code(user.email)
+
+        if str(last_code) != str(code):
+            return bad_request("Invalid code")
+
+        user.email_verified = True
+        # Clean up codes
+        for c in UniqueCode.all_codes_for(user.email):
+            db_session.delete(c)
+        db_session.commit()
+
+        return "OK"
+
+    except Exception as e:
+        log(f"Failed to confirm email: {e}")
+        return bad_request("Could not confirm email")
 
 
 @api.route("/send_code/<email>", methods=["POST"])

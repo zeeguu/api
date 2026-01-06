@@ -80,7 +80,7 @@ def get_anon_session(uuid):
     session = Session.create_for_user(user)
     db_session.add(session)
     db_session.commit()
-    return str(session.id)
+    return session.uuid
 
 
 @api.route("/validate")
