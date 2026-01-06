@@ -6,7 +6,7 @@ import re
 
 import sqlalchemy.orm
 from sqlalchemy import Column, Boolean, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
@@ -775,12 +775,32 @@ class User(db.Model):
         good_for_study=False,
         json=True,
     ):
-        from zeeguu.core.model import Bookmark, Article, UserWord
+        from zeeguu.core.model import Bookmark, Article, UserWord, Meaning, Phrase
+        from zeeguu.core.model.text import Text
+        from zeeguu.core.model.bookmark_context import BookmarkContext
 
         # Get UserWords for this article through bookmarks
+        # Use eager loading to avoid N+1 queries when converting to JSON
         query = zeeguu.core.model.db.session.query(UserWord)
         user_words = (
-            query.join(Bookmark, UserWord.id == Bookmark.user_word_id)
+            query
+            .options(
+                # Eager load meaning and its relations
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin)
+                .joinedload(Phrase.language),
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation)
+                .joinedload(Phrase.language),
+                # Eager load preferred_bookmark and its relations
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.text),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.context),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.source),
+            )
+            .join(Bookmark, UserWord.id == Bookmark.user_word_id)
             .join(Article, Bookmark.source_id == Article.source_id)
             .filter(Article.id == article_id)
             .filter(UserWord.user_id == self.id)
@@ -795,10 +815,40 @@ class User(db.Model):
         if not json:
             return user_words
 
-        # Convert to JSON format
+        # Batch-load all schedules in ONE query to avoid N+1 problem
+        # Use FourLevelsPerWord (the actual subclass) to get proper polymorphic behavior
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
+
+        user_word_ids = [uw.id for uw in user_words]
+        if user_word_ids:
+            schedules = FourLevelsPerWord.query.filter(
+                FourLevelsPerWord.user_word_id.in_(user_word_ids)
+            ).all()
+            schedule_map = {s.user_word_id: s for s in schedules}
+        else:
+            schedule_map = {}
+
+        # Get cached tokenized contexts
+        context_map = {}
+        for word in user_words:
+            try:
+                bm = word.preferred_bookmark
+                if bm and bm.context:
+                    tokenized = bm.context.get_tokenized(session=zeeguu.core.model.db.session)
+                    if tokenized:
+                        context_map[word.id] = tokenized
+            except Exception:
+                pass
+
+        # Convert to JSON format with pre-loaded schedules and tokenized contexts
         json_words = []
         for word in user_words:
-            json_words.append(word.as_dictionary())
+            schedule = schedule_map.get(word.id)
+            tokenized = context_map.get(word.id)
+            json_words.append(word.as_dictionary(
+                schedule=schedule,
+                pre_tokenized_context=tokenized
+            ))
 
         return json_words
 

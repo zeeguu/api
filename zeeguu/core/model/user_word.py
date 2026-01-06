@@ -194,7 +194,16 @@ class UserWord(db.Model):
                 # Don't commit this change - it will be fixed on next write
                 self.preferred_bookmark = bookmarks[0]
 
-    def as_dictionary(self):
+    def as_dictionary(self, schedule=None, pre_tokenized_context=None):
+        """
+        Convert UserWord to dictionary for JSON serialization.
+
+        Args:
+            schedule: Optional pre-loaded BasicSRSchedule instance to avoid N+1 queries.
+                     If not provided, will query the database (slower for batch operations).
+            pre_tokenized_context: Optional pre-tokenized context from batch tokenization.
+                     If not provided, will tokenize on demand (slower for batch operations).
+        """
         # Note: Data integrity validation removed from hot path for performance
         # Run periodic checks with: python -m tools._check_and_fix_data_integrity
         # Write-time validation happens via SQLAlchemy event listeners
@@ -216,22 +225,26 @@ class UserWord(db.Model):
         # Always use the database rank (unified approach for single and multi-word phrases)
         word_rank = self.meaning.origin.rank or self.meaning.origin.IMPOSSIBLE_RANK
 
-        # Fetch the BasicSRSchedule instance associated with the current bookmark
+        # Use pre-loaded schedule if provided, otherwise query (N+1 fallback)
         from zeeguu.core.word_scheduling import ONE_DAY
         from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
 
-        try:
-            scheduler = self.get_scheduler()
-            schedule = scheduler.query.filter(scheduler.user_word_id == self.id).one()
+        if schedule is None:
+            # Fallback: query schedule individually (slower for batch operations)
+            try:
+                scheduler = self.get_scheduler()
+                schedule = scheduler.query.filter(scheduler.user_word_id == self.id).one()
+            except sqlalchemy.exc.NoResultFound:
+                schedule = None
+
+        if schedule is not None:
             cooling_interval_in_days = schedule.cooling_interval // ONE_DAY
             next_practice_time = schedule.next_practice_time
             can_update_schedule = next_practice_time <= _get_end_of_today()
             consecutive_correct_answers = schedule.consecutive_correct_answers
             is_last_in_cycle = schedule.get_max_interval() == schedule.cooling_interval
-
             is_about_to_be_learned = schedule.is_about_to_be_learned()
-
-        except sqlalchemy.exc.NoResultFound:
+        else:
             cooling_interval_in_days = None
             can_update_schedule = None
             consecutive_correct_answers = None
@@ -295,7 +308,10 @@ class UserWord(db.Model):
                 days_until_practice = days_diff
 
         result = {
-            **self.preferred_bookmark.as_dictionary(with_context_tokenized=True),
+            **self.preferred_bookmark.as_dictionary(
+                with_context_tokenized=True,
+                pre_tokenized_context=pre_tokenized_context
+            ),
             **exercise_info_dict,
             "user_word_id": self.id,
             "meaning_id": self.meaning_id,

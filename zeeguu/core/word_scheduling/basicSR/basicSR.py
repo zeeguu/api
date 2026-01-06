@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from sqlalchemy.orm import joinedload
 from wordstats import Word
 
 from zeeguu.core.model import Phrase, ExerciseOutcome, UserPreference
@@ -138,8 +139,27 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def user_words_not_scheduled(cls, user, limit):
+        # Import here to avoid circular imports
+        from zeeguu.core.model.bookmark import Bookmark
+
         unscheduled_meanings = (
             UserWord.query
+            .options(
+                # Eager load meaning and its relations
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin)
+                .joinedload(Phrase.language),
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation)
+                .joinedload(Phrase.language),
+                # Eager load preferred_bookmark and its relations
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.text),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.context),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.source),
+            )
             .filter(UserWord.user_id == user.id)
             .outerjoin(BasicSRSchedule)
             .filter(UserWord.learned_time == None)
@@ -186,8 +206,19 @@ class BasicSRSchedule(db.Model):
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
 
+        # Batch load all schedules to avoid N+1 queries during sorting
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
+        user_word_ids = [uw.id for uw in scheduled_candidates]
+        if user_word_ids:
+            schedules = FourLevelsPerWord.query.filter(
+                FourLevelsPerWord.user_word_id.in_(user_word_ids)
+            ).all()
+            schedule_map = {s.user_word_id: s for s in schedules}
+        else:
+            schedule_map = {}
+
         sorted_candidates = sorted(
-            scheduled_candidates, key=lambda x: priority_by_rank(x)
+            scheduled_candidates, key=lambda x: priority_by_rank(x, schedule_map)
         )
         return sorted_candidates
 
@@ -195,8 +226,29 @@ class BasicSRSchedule(db.Model):
     def _scheduled_user_words_query(cls, user, language=None):
         _lang_to_look_at = language.id if language else user.learned_language_id
 
+        # Import here to avoid circular imports
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.text import Text
+        from zeeguu.core.model.bookmark_context import BookmarkContext
+
         query = (
             UserWord.query.join(cls)
+            .options(
+                # Eager load meaning and its relations
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin)
+                .joinedload(Phrase.language),
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation)
+                .joinedload(Phrase.language),
+                # Eager load preferred_bookmark and its relations
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.text),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.context),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.source),
+            )
             .filter(UserWord.user_id == user.id)
             .filter(UserWord.fit_for_study == 1)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
@@ -261,23 +313,28 @@ class BasicSRSchedule(db.Model):
             )
 
 
-def priority_by_rank(user_word):
-    # If this is updated remember to update the order_by in
-    # get_scheduled_bookmarks_for_user and get_unscheduled_bookmarks_for_user
+def priority_by_rank(user_word, schedule_map=None):
+    """
+    Calculate priority for sorting user words.
 
-    word_info = Word.stats(
-        user_word.meaning.origin.content,
-        user_word.meaning.origin.language.code,
-    )
+    Args:
+        user_word: The UserWord to calculate priority for
+        schedule_map: Optional dict mapping user_word_id to schedule (avoids N+1 queries)
+    """
+    # Use database rank directly instead of Word.stats() lookup (faster)
+    word_rank = user_word.meaning.origin.rank or Phrase.IMPOSSIBLE_RANK
 
-    basic_sr_schedule = BasicSRSchedule.find_by_user_word(user_word)
+    # Use pre-loaded schedule if available, otherwise query
+    if schedule_map is not None:
+        basic_sr_schedule = schedule_map.get(user_word.id)
+    else:
+        basic_sr_schedule = BasicSRSchedule.find_by_user_word(user_word)
 
     cooling_interval = (
         basic_sr_schedule.cooling_interval
         if basic_sr_schedule and basic_sr_schedule.cooling_interval is not None
         else -1
     )
-    word_rank = word_info.rank if word_info.rank else Phrase.IMPOSSIBLE_RANK
     return word_rank, -cooling_interval
 
 

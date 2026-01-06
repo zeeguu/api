@@ -174,6 +174,7 @@ class Bookmark(db.Model):
         with_title=False,
         with_context=True,
         with_context_tokenized=False,
+        pre_tokenized_context=None,
     ):
         result = dict(
             id=self.id,
@@ -222,18 +223,23 @@ class Bookmark(db.Model):
             result["title"] = bookmark_title
 
         if with_context_tokenized:
-            from zeeguu.core.mwe import tokenize_for_reading
+            # Check if pre-tokenized context was passed in (from batch tokenization)
+            if pre_tokenized_context is not None:
+                result["context_tokenized"] = pre_tokenized_context
+            else:
+                # Fall back to individual tokenization (slower)
+                from zeeguu.core.mwe import tokenize_for_reading
 
-            # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
-            # Even though most contexts have only 1 paragraph, the structure must be preserved
-            # for compatibility with InteractiveText._updateTokensWithBookmarks()
-            result["context_tokenized"] = tokenize_for_reading(
-                self.context.get_content(),
-                self.user_word.meaning.origin.language,
-                mode="stanza",
-                start_token_i=self.context.token_i,
-                start_sentence_i=self.context.sentence_i,
-            )
+                # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
+                # Even though most contexts have only 1 paragraph, the structure must be preserved
+                # for compatibility with InteractiveText._updateTokensWithBookmarks()
+                result["context_tokenized"] = tokenize_for_reading(
+                    self.context.get_content(),
+                    self.user_word.meaning.origin.language,
+                    mode="stanza",
+                    start_token_i=self.context.token_i,
+                    start_sentence_i=self.context.sentence_i,
+                )
 
         return result
 

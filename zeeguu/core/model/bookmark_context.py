@@ -33,6 +33,7 @@ class BookmarkContext(db.Model):
     left_ellipsis = db.Column(db.Boolean)
     sentence_i = db.Column(db.Integer)
     token_i = db.Column(db.Integer)
+    cached_tokenized = db.Column(db.JSON, default=None)
 
     def __init__(
         self,
@@ -59,6 +60,44 @@ class BookmarkContext(db.Model):
         if not self.text:
             return "[Context deleted]"
         return self.text.content
+
+    def get_tokenized(self, session=None):
+        """
+        Get tokenized content, using cache if available.
+        Tokenizes and caches on first access.
+        """
+        if self.cached_tokenized is not None:
+            return self.cached_tokenized
+
+        # Tokenize and cache
+        from zeeguu.core.mwe import tokenize_for_reading
+
+        try:
+            tokenized = tokenize_for_reading(
+                self.get_content(),
+                self.language,
+                mode="stanza",
+                start_token_i=self.token_i,
+                start_sentence_i=self.sentence_i,
+            )
+            self.cached_tokenized = tokenized
+            if session:
+                session.add(self)
+                session.commit()
+            return tokenized
+        except Exception as e:
+            # Return None if tokenization fails
+            return None
+
+    def clear_tokenization_cache(self, session=None):
+        """
+        Clear the cached tokenization.
+        Call this when the context content changes.
+        """
+        self.cached_tokenized = None
+        if session:
+            session.add(self)
+            session.commit()
 
     def all_bookmarks(self, user):
         from zeeguu.core.model.bookmark import Bookmark
