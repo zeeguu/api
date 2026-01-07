@@ -27,14 +27,17 @@ def requires_session(view):
         import sys
         import threading
         import time as time_module
+
         request_start = time_module.time()
         thread_id = threading.current_thread().ident
-        print(f"--> /{view.__name__} [thread={thread_id}] [time={time_module.time()}]")
+        # print(f"--> /{view.__name__} [thread={thread_id}] [time={time_module.time()}]")
         sys.stdout.flush()
 
         try:
             # Check query param first, then fall back to cookie
-            session_uuid = flask.request.args.get("session") or flask.request.cookies.get("chocolatechip")
+            session_uuid = flask.request.args.get(
+                "session"
+            ) or flask.request.cookies.get("chocolatechip")
             if not session_uuid:
                 raise KeyError("No session found")
 
@@ -94,8 +97,8 @@ def requires_session(view):
             print("-- Some other exception. Aborting")
             flask.abort(401)
 
-        elapsed = time_module.time() - request_start
-        print(f"<-- /{view.__name__} [thread={thread_id}] [elapsed={elapsed:.3f}s]")
+        # elapsed = time_module.time() - request_start
+        # print(f"<-- /{view.__name__} [thread={thread_id}] [elapsed={elapsed:.3f}s]")
         sys.stdout.flush()
         return view(*args, **kwargs)
 
