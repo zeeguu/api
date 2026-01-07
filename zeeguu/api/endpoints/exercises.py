@@ -61,10 +61,16 @@ def get_user_words_recommended_for_practice():
 @cross_domain
 @requires_session
 def get_count_of_user_words_recommended_for_practice():
-
+    """
+    Returns the count of user words recommended for practice.
+    Uses the same validation logic as user_words_recommended_for_practice
+    to ensure the count matches the actual exercises shown.
+    """
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
-    return json_result(len(to_study))
+    # Count only valid user words (same filtering as the actual exercises endpoint)
+    valid_count = _count_valid_user_words(to_study)
+    return json_result(valid_count)
 
 
 @api.route(
@@ -225,6 +231,28 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
         for b in bookmarks
     ]
     return json_result(bookmark_dicts)
+
+
+def _count_valid_user_words(user_words):
+    """
+    Count user words that pass validation.
+    Uses the same validation logic as _user_words_as_json_result to ensure
+    the badge count matches the actual exercises shown.
+    """
+    if not user_words:
+        return 0
+
+    valid_count = 0
+    for user_word in user_words:
+        try:
+            # Validate that the user_word can be serialized (same check as _user_words_as_json_result)
+            user_word.as_dictionary()
+            valid_count += 1
+        except (ValueError, Exception):
+            # Skip invalid user words (same as _user_words_as_json_result)
+            continue
+
+    return valid_count
 
 
 def _user_words_as_json_result(user_words):

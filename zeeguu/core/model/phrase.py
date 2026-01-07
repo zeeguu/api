@@ -16,6 +16,10 @@ class Phrase(db.Model):
 
     content = db.Column(db.String(255), nullable=False)
 
+    # Generated column for fast case-insensitive lookups (indexed)
+    # This is a MySQL GENERATED ALWAYS AS column - don't write to it directly
+    content_lower = db.Column(db.String(255), nullable=True)
+
     rank = db.Column(db.Integer)
 
     db.UniqueConstraint(content, language_id)

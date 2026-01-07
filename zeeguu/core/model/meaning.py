@@ -155,23 +155,33 @@ class Meaning(db.Model):
         canonical_translation = cls._canonicalize(_translation)
 
         # First, try to find existing meaning by semantic equivalence
-        # Optimized: Use SQL to find potential matches more efficiently
+        # Optimized: Use content_lower column (indexed) for fast case-insensitive lookup
         try:
-            from sqlalchemy import func
             from sqlalchemy.orm import aliased
+            from zeeguu.core.model.db import db
+
             OriginPhrase = aliased(Phrase)
             TranslationPhrase = aliased(Phrase)
-            
+
+            # MySQL: use indexed content_lower column for fast lookups
+            # SQLite (tests): fall back to func.lower() since no generated columns
+            if db.engine.dialect.name == 'sqlite':
+                from sqlalchemy import func
+                origin_filter = func.lower(OriginPhrase.content) == canonical_origin
+                translation_filter = func.lower(TranslationPhrase.content) == canonical_translation
+            else:
+                origin_filter = OriginPhrase.content_lower == canonical_origin
+                translation_filter = TranslationPhrase.content_lower == canonical_translation
+
             # Get meanings where BOTH phrases match case-insensitively at the DB level
-            # This drastically reduces the number of records fetched from DB
             potential_meanings = (
                 cls.query
                 .join(OriginPhrase, cls.origin_id == OriginPhrase.id)
                 .filter(OriginPhrase.language_id == origin_lang.id)
-                .filter(func.lower(OriginPhrase.content) == canonical_origin)
-                .join(TranslationPhrase, cls.translation_id == TranslationPhrase.id)  
+                .filter(origin_filter)
+                .join(TranslationPhrase, cls.translation_id == TranslationPhrase.id)
                 .filter(TranslationPhrase.language_id == translation_lang.id)
-                .filter(func.lower(TranslationPhrase.content) == canonical_translation)
+                .filter(translation_filter)
                 .all()
             )
             
