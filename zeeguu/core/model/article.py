@@ -484,11 +484,8 @@ class Article(db.Model):
         from zeeguu.core.model.context_type import ContextType
         from zeeguu.core.model.article_fragment import ArticleFragment
         from zeeguu.core.mwe import enrich_tokens_with_mwe
+        from zeeguu.core.mwe.enricher import HYBRID_LANGUAGES
 
-        # DISABLED: LLM-based MWE validation is too slow (~10s per article)
-        # Using fast Stanza-only mode instead (sub-second)
-        # To re-enable: HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
-        HYBRID_LANGUAGES = set()
         use_hybrid = self.language.code in HYBRID_LANGUAGES
 
         fragments_list = list(
