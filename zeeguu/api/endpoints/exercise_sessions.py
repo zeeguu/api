@@ -41,7 +41,18 @@ def exercise_session_update():
 )
 @requires_session
 def exercise_session_end():
+    from zeeguu.core.sql.learner.exercises_history import exercises_in_session
+
     session = update_activity_session(UserExerciseSession, request, db_session)
+
+    # Check if any exercises were done in this session
+    exercises = exercises_in_session(session.id)
+    if not exercises:
+        # Delete empty sessions - no point in keeping them
+        db_session.delete(session)
+        db_session.commit()
+        return "OK"
+
     send_user_finished_exercise_session(session)
     return "OK"
 
