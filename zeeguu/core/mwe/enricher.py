@@ -28,7 +28,9 @@ from .stanza_mwe_detector import get_strategy_for_language
 logger = logging.getLogger(__name__)
 
 # Languages that benefit from LLM validation (separable verbs, complex grammar)
-HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
+# DISABLED: LLM MWE is expensive (~5-15s per article) and we're testing Stanza-only quality
+# To re-enable: HYBRID_LANGUAGES = {"de", "nl", "sv", "da", "no", "en", "el"}
+HYBRID_LANGUAGES = set()  # Empty = use fast Stanza-only for all languages
 
 
 class MWEDetector:
