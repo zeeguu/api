@@ -1,5 +1,6 @@
 import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import Computed
 from wordstats import Word
 
 from zeeguu.core.model.db import db
@@ -17,8 +18,8 @@ class Phrase(db.Model):
     content = db.Column(db.String(255), nullable=False)
 
     # Generated column for fast case-insensitive lookups (indexed)
-    # This is a MySQL GENERATED ALWAYS AS column - don't write to it directly
-    content_lower = db.Column(db.String(255), nullable=True)
+    # SQLAlchemy's Computed() tells it not to include this in INSERT/UPDATE statements
+    content_lower = db.Column(db.String(255), Computed("LOWER(content)"))
 
     rank = db.Column(db.Integer)
 
