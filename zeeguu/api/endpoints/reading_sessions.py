@@ -14,7 +14,10 @@ from datetime import datetime
 )
 @requires_session
 def reading_session_start():
-    article_id = int(request.form.get("article_id", ""))
+    article_id_str = request.form.get("article_id", "")
+    if not article_id_str:
+        return "article_id is required", 400
+    article_id = int(article_id_str)
     # reading_source: 'extension' or 'web' (optional for backwards compatibility)
     reading_source = request.form.get("reading_source", None)
     session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source)
