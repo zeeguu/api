@@ -33,6 +33,7 @@ REQUEST_TIMEOUT = 30  # seconds
 def _get_local_tokenizer(language, model):
     """Get local StanzaTokenizer as fallback."""
     from .stanza_tokenizer import StanzaTokenizer
+
     return StanzaTokenizer(language, model)
 
 
@@ -101,12 +102,17 @@ class StanzaServiceClient(ZeeguuTokenizer):
             )
             response.raise_for_status()
             data = response.json()
+            print("---->>> Stanza Service returned successfully!")
         except requests.RequestException as e:
             logger.warning(f"Stanza service failed, falling back to local: {e}")
             local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
             return local_tokenizer.tokenize_text(
-                text, as_serializable_dictionary, flatten,
-                start_token_i, start_sentence_i, start_paragraph_i
+                text,
+                as_serializable_dictionary,
+                flatten,
+                start_token_i,
+                start_sentence_i,
+                start_paragraph_i,
             )
 
         tokens_data = data.get("tokens", [])
@@ -146,7 +152,9 @@ class StanzaServiceClient(ZeeguuTokenizer):
             data = response.json()
             return data.get("sentences", [])
         except requests.RequestException as e:
-            logger.warning(f"Stanza service failed for get_sentences, falling back to local: {e}")
+            logger.warning(
+                f"Stanza service failed for get_sentences, falling back to local: {e}"
+            )
             local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
             return local_tokenizer.get_sentences(text)
 
