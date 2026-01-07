@@ -41,9 +41,9 @@ logging.getLogger("elasticsearch").setLevel(logging.CRITICAL)
 logging.getLogger("zeeguu.core").setLevel(logging.INFO)
 logging.getLogger("zeeguu.logging").setLevel(logging.INFO)
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

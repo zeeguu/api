@@ -18,9 +18,9 @@ start = datetime.now()
 log(f"started at: {datetime.now()}")
 print("LAST VERSION!!!")
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 if len(sys.argv) > 1:

@@ -217,8 +217,15 @@ def create_app(testing=False):
     # Preload Stanza tokenizers to avoid blocking during requests
     # This must run inside app context since it needs the database
     # Skip preloading during tests to avoid 8+ second overhead per test file
+    # Environment variable takes precedence over config file (for run_task/crawler containers)
     with app.app_context():
-        if app.config.get("PRELOAD_STANZA", True) and not testing:  # Default to True, disabled for tests
+        preload_stanza_env = os.environ.get("PRELOAD_STANZA", "").lower()
+        if preload_stanza_env:
+            preload_stanza = preload_stanza_env not in ("false", "0", "no")
+        else:
+            preload_stanza = app.config.get("PRELOAD_STANZA", True)
+
+        if preload_stanza and not testing:
             warning("*** Preloading Stanza tokenizers...")
             start_time = time.time()
             from zeeguu.core.model import Language
@@ -243,5 +250,57 @@ def create_app(testing=False):
             warning(f"*** Stanza tokenizers preloaded for {len(language_codes)} languages in {elapsed:.2f}s")
         else:
             warning("*** Stanza tokenizers will use lazy loading (PRELOAD_STANZA=False)")
+
+    return app
+
+
+def create_app_for_scripts():
+    """
+    Create a minimal Flask app for scripts (crawlers, tools, etc.)
+
+    This is a lightweight version of create_app() that:
+    - Initializes the database connection
+    - Loads configuration
+    - Skips: API endpoints, Flask Monitoring Dashboard, Stanza preloading,
+      wordstats preloading, request logging, SQL query listeners
+
+    Use this for scripts that only need database access, not the full API.
+    """
+    app = Flask("Zeeguu-Script")
+
+    load_configuration_or_abort(
+        app,
+        "ZEEGUU_CONFIG",
+        [  # Only core requirements for DB access
+            "MAX_SESSION",
+            "SQLALCHEMY_DATABASE_URI",
+            "SQLALCHEMY_TRACK_MODIFICATIONS",
+        ],
+    )
+
+    # if we don't specify the charset in the connection string
+    # we are not able to store emojis
+    app.config["SQLALCHEMY_DATABASE_URI"] += "?charset=utf8mb4"
+
+    # Configure connection pool - smaller for scripts
+    if "mysql" in app.config["SQLALCHEMY_DATABASE_URI"].lower():
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_recycle": 3600,
+            "pool_pre_ping": True,
+        }
+
+    from zeeguu.core.model.db import db
+
+    db.init_app(app)
+
+    with app.app_context():
+        db.create_all()
+
+    # Set zeeguu.core.app for config access from deep in the code
+    zeeguu.core.app = app
+
+    warning("*** Created lightweight app for scripts (no preloading)")
 
     return app

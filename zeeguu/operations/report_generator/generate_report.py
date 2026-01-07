@@ -720,9 +720,9 @@ if __name__ == "__main__":
     print(
         "################################################################################"
     )
-    from zeeguu.api.app import create_app
+    from zeeguu.api.app import create_app_for_scripts
 
-    app = create_app()
+    app = create_app_for_scripts()
     sns.set_theme("paper", "whitegrid")
     cur_time = datetime.datetime.now()
     CURRENT_WEEK_N = max(cur_time.isocalendar()[1] - 1, 1)
