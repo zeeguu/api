@@ -19,6 +19,9 @@ from apimux.log import logger
 logging.getLogger("elastic_transport.transport").setLevel(logging.ERROR)
 logging.getLogger("elastic_transport.node_pool").setLevel(logging.ERROR)
 
+# Suppress verbose Azure SDK HTTP logging (shows response headers, etc.)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
+
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
