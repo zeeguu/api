@@ -13,13 +13,13 @@ import os
 # Server socket
 bind = os.environ.get("GUNICORN_BIND", "0.0.0.0:5001")
 
-# Worker processes
-workers = int(os.environ.get("GUNICORN_WORKERS", "2"))
+# Worker processes - keep low since each worker loads all models (~8GB per worker)
+workers = int(os.environ.get("GUNICORN_WORKERS", "1"))
 threads = 1  # Single-threaded since Stanza isn't thread-safe
 
-# Preload application before forking workers
-# This loads all Stanza models ONCE in the master process
-preload_app = True
+# DISABLED: preload_app causes PyTorch/Stanza to hang after fork
+# Each worker loads models independently (more memory but works reliably)
+preload_app = False
 
 # Timeouts
 timeout = 120  # Tokenization of long texts can take time

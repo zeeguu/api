@@ -107,8 +107,8 @@ services:
       retries: 3
       start_period: 300s  # Models take time to load
     restart: unless-stopped
-    # Stanza is CPU-intensive, limit memory to avoid OOM
-    mem_limit: 4g
+    # Each worker loads all 15 language models (~8GB)
+    mem_limit: 10g
 
   # yaml-anchors:
   # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
