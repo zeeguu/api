@@ -299,12 +299,13 @@ def sentences_endpoint():
         return jsonify({"error": str(e)}), 500
 
 
-# Preload models when this module is loaded
-# With gunicorn's preload_app=True, this happens in master before fork
-# Workers then share models via copy-on-write memory
-preload_all_models()
+# NOTE: Models are loaded lazily on first request per language
+# preload_all_models() is NOT called at import time because:
+# - With preload_app=True: PyTorch hangs after fork
+# - With preload_app=False: Each worker loads on demand (more reliable)
 
 
 if __name__ == "__main__":
-    # For development only - production uses gunicorn
+    # For development only - preload then run
+    preload_all_models()
     app.run(host="0.0.0.0", port=5001, debug=True)
