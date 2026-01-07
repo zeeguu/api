@@ -1,5 +1,4 @@
 from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
-from zeeguu.logging import log
 
 
 def bad_quality_bookmark(bookmark):
@@ -24,23 +23,13 @@ def uncommon_word_for_beginner_user(user_word):
                 MeaningFrequency.UNCOMMON,
                 MeaningFrequency.RARE,
             ]:
-                log(
-                    f">>>> Found an uncommon word for beginner user {user_word.meaning.origin.content}. Marking it as not fit for study"
-                )
                 return True
     return False
 
 
 def bad_quality_meaning(user_word):
-    import time
-    log(f"[QUALITY-TIMING] bad_quality_meaning START for word='{user_word.meaning.origin.content}'")
-    start_time = time.time()
-
     bookmarks = user_word.bookmarks()
-    log(f"[QUALITY-TIMING] Got {len(bookmarks)} bookmarks in {time.time() - start_time:.3f}s")
-
-    check_start = time.time()
-    result = (
+    return (
         uncommon_word_for_beginner_user(user_word)
         or arbitrary_multi_word_translation(user_word)
         or origin_same_as_translation(user_word)
@@ -48,10 +37,6 @@ def bad_quality_meaning(user_word):
         or origin_is_a_very_short_word(user_word)
         or (bookmarks and all([bad_quality_bookmark(b) for b in bookmarks]))
     )
-    log(f"[QUALITY-TIMING] Quality checks took {time.time() - check_start:.3f}s, result={result}")
-    log(f"[QUALITY-TIMING] bad_quality_meaning TOTAL: {time.time() - start_time:.3f}s")
-
-    return result
 
 
 def arbitrary_multi_word_translation(user_word):
@@ -78,19 +63,10 @@ def origin_is_subsumed_in_other_bookmark(bookmark):
     if the user translates a superset of this sentence
     """
     from zeeguu.core.model.bookmark import Bookmark
-    import time
 
-    context_preview = bookmark.get_context()[:100] if bookmark.get_context() else "None"
-    log(f"[QUALITY-TIMING] origin_is_subsumed_in_other_bookmark START for bookmark_id={bookmark.id}, context_id={bookmark.context_id}, word='{bookmark.user_word.meaning.origin.content}', context='{context_preview}'")
-    start_time = time.time()
-
-    query_start = time.time()
     all_bookmarks_in_text = Bookmark.find_all_for_context_and_user(
         bookmark.context, bookmark.user_word.user
     )
-    query_time = time.time() - query_start
-
-    log(f"[QUALITY-TIMING] find_all_for_context_and_user returned {len(all_bookmarks_in_text)} bookmarks in {query_time:.3f}s")
 
     for each in all_bookmarks_in_text:
         if each != bookmark:
@@ -98,9 +74,7 @@ def origin_is_subsumed_in_other_bookmark(bookmark):
                 bookmark.user_word.meaning.origin.content
                 in each.user_word.meaning.origin.content
             ):
-                log(f"[QUALITY-TIMING] origin_is_subsumed check TOTAL: {time.time() - start_time:.3f}s, result=True")
                 return True
-        log(f"[QUALITY-TIMING] origin_is_subsumed check TOTAL: {time.time() - start_time:.3f}s, result=False")
         return False
 
 

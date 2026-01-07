@@ -263,9 +263,6 @@ class MeaningFrequencyClassifier:
             # Update fit_for_study for all user words that reference this meaning
             self._update_user_words_fit_for_study(meaning, session)
 
-            log(
-                f"Updated meaning {meaning.id}: frequency={frequency.value}, phrase_type={phrase_type.value}"
-            )
             return True
         elif frequency:
             # Update only frequency if phrase type failed
@@ -278,9 +275,6 @@ class MeaningFrequencyClassifier:
             # Update fit_for_study for all user words that reference this meaning
             self._update_user_words_fit_for_study(meaning, session)
 
-            log(
-                f"Updated meaning {meaning.id} frequency to {frequency.value} (phrase_type failed)"
-            )
             return True
 
         return False
@@ -305,9 +299,6 @@ class MeaningFrequencyClassifier:
 
         if user_words:
             session.commit()
-            log(
-                f"Updated fit_for_study for {len(user_words)} user words referencing meaning {meaning.id}"
-            )
 
     def mark_as_validated(self, meaning, session):
         """

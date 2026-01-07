@@ -180,13 +180,10 @@ class Meaning(db.Model):
             if potential_meanings:
                 if len(potential_meanings) > 1:
                     # This shouldn't happen after migration, but handle it gracefully
-                    print(f"⚠️ Found {len(potential_meanings)} semantic duplicates for '{canonical_origin}' -> '{canonical_translation}'")
-                    print(f"   This indicates the consolidation migration needs to run")
-                
+                    log(f"Found {len(potential_meanings)} semantic duplicates for '{canonical_origin}' -> '{canonical_translation}'")
+                    log(f"This indicates the consolidation migration needs to run")
+
                 meaning = potential_meanings[0]
-                print(f"🔍 Found existing semantic meaning {meaning.id} for '{_origin}' -> '{_translation}'")
-                print(f"    Canonical: '{canonical_origin}' -> '{canonical_translation}'")
-                print(f"    Existing: '{meaning.origin.content}' -> '{meaning.translation.content}'")
                 
                 # Update metadata if provided
                 updated = False
@@ -204,10 +201,9 @@ class Meaning(db.Model):
                     
         except Exception as e:
             # If semantic lookup fails, continue with creating new meaning
-            print(f"⚠️ Semantic lookup failed: {e}")
+            log(f"Semantic lookup failed: {e}")
 
         # No existing semantic meaning found - create new one
-        print(f"✨ Creating new semantic meaning for '{_origin}' -> '{_translation}'")
         
         # Create or find the exact surface form phrases (for display)
         origin = Phrase.find_or_create(session, _origin, origin_lang)
@@ -220,8 +216,6 @@ class Meaning(db.Model):
         meaning = cls(origin, translation, frequency, phrase_type)
         session.add(meaning)
         session.commit()
-        
-        print(f"    Created meaning {meaning.id} with canonical: '{canonical_origin}' -> '{canonical_translation}'")
 
         # Classify meaning asynchronously if not already classified
         word_count = len(meaning.origin.content.split())
@@ -261,9 +255,6 @@ class Meaning(db.Model):
                         try:
                             classifier = MeaningFrequencyClassifier()
                             classifier.classify_and_update_meaning(meaning, db.session)
-                            log(
-                                f">>> Successfully classified meaning {meaning.origin.content} as {meaning.frequency},{meaning.phrase_type} in background"
-                            )
                         except ValueError as ve:
                             log(
                                 f"Classification disabled for meaning {meaning_id}: {str(ve)}"
@@ -273,9 +264,7 @@ class Meaning(db.Model):
                                 f"Classification failed for meaning {meaning_id}: {str(ce)}"
                             )
                     else:
-                        print(
-                            f">>>> Meaning {meaning_id} already classified or not found"
-                        )
+                        pass  # Meaning already classified or not found
 
             except Exception as e:
                 log(f"Error classifying meaning {meaning_id} in background: {str(e)}")
@@ -284,7 +273,6 @@ class Meaning(db.Model):
         thread = threading.Thread(target=classify_in_background)
         thread.daemon = True  # Thread will die when main program exits
         thread.start()
-        print(f">>>> Classification thread started for meaning {meaning_id}")
 
     @classmethod
     def exists(cls, origin, translation):

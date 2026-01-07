@@ -111,21 +111,6 @@ def create_app(testing=False):
 
     app.register_blueprint(api)
 
-    # Add request logging to catch ALL requests before they hit endpoints
-    @app.before_request
-    def log_request_start():
-        # Skip logging for noisy endpoints
-        if flask.request.path == "/upload_user_activity_data":
-            return
-
-        import sys
-        import time
-        import threading
-        thread_id = threading.current_thread().ident
-        timestamp = time.time()
-        print(f"[FLASK-REQUEST-START] {flask.request.method} {flask.request.path} [thread={thread_id}] [time={timestamp}]", file=sys.stderr)
-        sys.stderr.flush()
-
     # Clean up database session after each request to return connections to pool
     @app.teardown_request
     def shutdown_session_request(exception=None):

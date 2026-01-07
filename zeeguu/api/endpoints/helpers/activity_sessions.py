@@ -8,7 +8,6 @@ from datetime import datetime
 
 def update_activity_session(session_class, request, db_session):
     form = request.form
-    print(form)
     session_id = int(form.get("id", ""))
     duration = int(form.get("duration", 0))
 
