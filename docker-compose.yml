@@ -92,6 +92,24 @@ services:
     # taking too much memory from the host.
     restart: unless-stopped
 
+  stanza:
+    build: ./stanza_service
+    volumes:
+      - ${ZEEGUU_DATA_FOLDER}/stanza_resources:/stanza_resources
+    environment:
+      STANZA_RESOURCE_DIR: /stanza_resources
+    networks:
+      - zeeguu_backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 300s  # Models take time to load
+    restart: unless-stopped
+    # Stanza is CPU-intensive, limit memory to avoid OOM
+    mem_limit: 4g
+
   # yaml-anchors:
   # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
   zapi: &zapi_default
@@ -101,6 +119,7 @@ services:
       - elasticsearch_v8
       - readability_server
       - embedding_api
+      - stanza
     image: zeeguu/api:latest
     build: .
     ports:
@@ -119,6 +138,7 @@ services:
       ZEEGUU_CONFIG: /Zeeguu-API/api.cfg
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       ZEEGUU_RESOURCES_FOLDER: /zeeguu-data/
+      STANZA_SERVICE_URL: http://stanza:5001
       SENTRY_DSN: ${SENTRY_DSN}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg

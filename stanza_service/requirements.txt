@@ -1,0 +1,7 @@
+# Stanza service dependencies
+flask>=2.0.0
+gunicorn>=21.0.0
+stanza>=1.5.0
+
+# Stanza dependencies (PyTorch)
+torch>=2.0.0
