@@ -232,14 +232,10 @@ def search_for_search_terms(search_terms, page: int = 0):
     """
     # Default params
     use_published_priority = False
-    use_readability_priority = True
 
     if request.method == "POST":
         use_published_priority = (
             request.form.get("use_publish_priority", "false") == "true"
-        )
-        use_readability_priority = (
-            request.form.get("use_readability_priority", "true") == "true"
         )
 
     user = User.find_by_id(flask.g.user_id)
@@ -249,7 +245,6 @@ def search_for_search_terms(search_terms, page: int = 0):
         search_terms,
         page=page,
         use_published_priority=use_published_priority,
-        use_readability_priority=use_readability_priority,
     )
     
     # Filter out hidden articles
