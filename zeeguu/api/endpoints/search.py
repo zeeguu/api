@@ -284,7 +284,6 @@ def search_for_latest_search_terms(search_terms):
         search_terms,
         page=0,
         use_published_priority=True,
-        use_readability_priority=True,
         score_threshold=2,
     )
     
