@@ -258,6 +258,63 @@ def tokenize_endpoint():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/tokenize_batch", methods=["POST"])
+def tokenize_batch_endpoint():
+    """
+    Tokenize multiple texts in a single request.
+
+    This is much more efficient than calling /tokenize multiple times
+    because all texts are processed in sequence without HTTP overhead.
+
+    Request JSON:
+        {
+            "texts": ["Text 1", "Text 2", ...],
+            "language": "da",
+            "model": "token_pos_dep",  // optional
+            "flatten": false           // optional, default: false for batch
+        }
+
+    Response JSON:
+        {
+            "results": [
+                {"tokens": [...]},
+                {"tokens": [...]},
+                ...
+            ]
+        }
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
+
+    texts = data.get("texts", [])
+    language = data.get("language")
+    model = data.get("model", MODEL_TOKEN_POS_DEP)
+    flatten = data.get("flatten", False)
+
+    if not language:
+        return jsonify({"error": "language is required"}), 400
+
+    if language not in SUPPORTED_LANGUAGES:
+        return jsonify({"error": f"Unsupported language: {language}"}), 400
+
+    if not texts:
+        return jsonify({"results": []})
+
+    try:
+        results = []
+        for text in texts:
+            if not text:
+                results.append({"tokens": []})
+            else:
+                tokens = tokenize_text(text, language, model, flatten)
+                results.append({"tokens": tokens})
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/sentences", methods=["POST"])
 def sentences_endpoint():
     """

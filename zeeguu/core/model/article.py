@@ -474,6 +474,9 @@ class Article(db.Model):
         """
         Tokenize article fragments with batch MWE processing for efficiency.
 
+        Uses batch tokenization when available (StanzaServiceClient) to process
+        all fragments in a single HTTP request instead of N sequential requests.
+
         For hybrid languages (de, nl, sv, da, no, en, el), uses a single LLM call
         to process all sentences in all fragments.
         """
@@ -491,12 +494,18 @@ class Article(db.Model):
         fragment_tokens_list = []
         all_fragment_sentences = []
 
-        # First pass: tokenize all fragments
-        for frag_idx, fragment in enumerate(fragments_list):
-            frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
-            fragment_tokens_list.append(frag_tokens)
+        # Batch tokenization: process all fragments in a single call if supported
+        if hasattr(tokenizer, 'tokenize_batch'):
+            texts = [f.text.content for f in fragments_list]
+            fragment_tokens_list = tokenizer.tokenize_batch(texts, flatten=False)
+        else:
+            # Fallback: tokenize each fragment individually
+            for frag_idx, fragment in enumerate(fragments_list):
+                frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
+                fragment_tokens_list.append(frag_tokens)
 
-            # Collect sentences for batch processing
+        # Collect sentences for batch MWE processing
+        for frag_idx, frag_tokens in enumerate(fragment_tokens_list):
             for para_idx, para in enumerate(frag_tokens):
                 for sent_idx, sentence in enumerate(para):
                     all_fragment_sentences.append(

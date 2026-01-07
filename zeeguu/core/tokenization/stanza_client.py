@@ -158,6 +158,48 @@ class StanzaServiceClient(ZeeguuTokenizer):
             local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
             return local_tokenizer.get_sentences(text)
 
+    def tokenize_batch(self, texts: list, flatten: bool = False):
+        """
+        Tokenize multiple texts in a single HTTP request.
+
+        This is much more efficient than calling tokenize_text() multiple times
+        because it avoids HTTP overhead and request queuing.
+
+        Args:
+            texts: List of text strings to tokenize
+            flatten: If True, return flat token lists; if False, paragraph structure
+
+        Returns:
+            List of tokenized results (same order as input texts)
+        """
+        if not texts:
+            return []
+
+        try:
+            response = requests.post(
+                f"{self.service_url}/tokenize_batch",
+                json={
+                    "texts": texts,
+                    "language": self.language.code,
+                    "model": self.model_string,
+                    "flatten": flatten,
+                },
+                timeout=REQUEST_TIMEOUT * 2,  # Longer timeout for batch
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [r.get("tokens", []) for r in data.get("results", [])]
+
+        except requests.RequestException as e:
+            logger.warning(f"Stanza batch service failed, falling back to sequential: {e}")
+            # Fall back to sequential tokenization
+            results = []
+            local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
+            for text in texts:
+                tokens = local_tokenizer.tokenize_text(text, flatten=flatten)
+                results.append(tokens)
+            return results
+
     def _dict_to_token(self, token_dict):
         """Convert token dictionary from service to Token object."""
         return Token(
