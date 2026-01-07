@@ -102,7 +102,7 @@ class StanzaServiceClient(ZeeguuTokenizer):
             )
             response.raise_for_status()
             data = response.json()
-            print("---->>> Stanza Service returned successfully!")
+
         except requests.RequestException as e:
             logger.warning(f"Stanza service failed, falling back to local: {e}")
             local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
