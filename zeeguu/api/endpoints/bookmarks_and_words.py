@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.logging import log
@@ -223,6 +224,11 @@ def delete_bookmark(bookmark_id):
             else:
                 # No other bookmarks exist - ALWAYS keep the user_word for historical data
                 user_word.set_unfit_for_study(db_session)
+
+        # Delete any ExampleSentenceContext records that reference this bookmark
+        ExampleSentenceContext.query.filter(
+            ExampleSentenceContext.bookmark_id == bookmark.id
+        ).delete()
 
         db_session.delete(bookmark)
         db_session.commit()
