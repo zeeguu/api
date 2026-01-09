@@ -61,7 +61,6 @@ def send_subscription_emails():
             subscription.search.keywords,
             page=0,
             use_published_priority=True,
-            use_readability_priority=True,
             score_threshold=2,
         )
         new_articles_found = [
