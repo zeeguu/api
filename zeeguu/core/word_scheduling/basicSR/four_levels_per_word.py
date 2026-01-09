@@ -3,6 +3,11 @@ from datetime import datetime, timedelta
 
 MAX_LEVEL = 4
 
+# Minimum delay before a word reappears in exercises.
+# This gives users a clean "session complete" feeling instead of
+# words immediately reappearing after wrong answers or level-ups.
+MINIMUM_COOLING_INTERVAL = 30  # 30 minutes
+
 
 # Levels can be 1,2,3,4
 # When an old bookmark is migrated to the Levels scheduler the level is set to 0
@@ -71,9 +76,12 @@ class FourLevelsPerWord(BasicSRSchedule):
             ]
             self.consecutive_correct_answers = 0
 
-        # update next practice time for
+        # update next practice time
         self.cooling_interval = new_cooling_interval
-        next_practice_date = exercise_time + timedelta(minutes=new_cooling_interval)
+        # Apply minimum delay so words don't reappear immediately
+        # (but keep cooling_interval unchanged for progression logic)
+        delay_minutes = max(new_cooling_interval, MINIMUM_COOLING_INTERVAL)
+        next_practice_date = exercise_time + timedelta(minutes=delay_minutes)
         self.next_practice_time = next_practice_date
 
         db_session.add(self)

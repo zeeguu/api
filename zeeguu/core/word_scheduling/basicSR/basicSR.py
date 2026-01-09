@@ -312,6 +312,29 @@ class BasicSRSchedule(db.Model):
                 + " \n"
             )
 
+    @classmethod
+    def next_practice_time_for_user(cls, user):
+        """
+        Returns the datetime of the next scheduled word for practice.
+        Returns None if no words are scheduled.
+        """
+        from zeeguu.core.model.bookmark import Bookmark
+
+        result = (
+            cls.query.join(UserWord)
+            .filter(UserWord.user_id == user.id)
+            .filter(UserWord.fit_for_study == 1)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(Phrase.language_id == user.learned_language_id)
+            .order_by(cls.next_practice_time.asc())
+            .first()
+        )
+
+        if result:
+            return result.next_practice_time
+        return None
+
 
 def priority_by_rank(user_word, schedule_map=None):
     """
