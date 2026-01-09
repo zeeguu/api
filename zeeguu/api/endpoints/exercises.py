@@ -73,6 +73,27 @@ def get_count_of_user_words_recommended_for_practice():
     return json_result(valid_count)
 
 
+@api.route("/next_word_due_time", methods=["GET"])
+@cross_domain
+@requires_session
+def get_next_word_due_time():
+    """
+    Returns when the next word is due for practice.
+    Used by frontend to show "Next word available in X minutes" messages.
+
+    Returns:
+        - null if no words are scheduled
+        - ISO timestamp string if a word is scheduled
+    """
+    user = User.find_by_id(flask.g.user_id)
+    next_time = BasicSRSchedule.next_practice_time_for_user(user)
+
+    if next_time is None:
+        return json_result(None)
+
+    return json_result(next_time.isoformat())
+
+
 @api.route(
     "/user_words_due_today",
     methods=["GET"],
