@@ -10,13 +10,28 @@ Endpoints:
 - POST /sentences - Extract sentences from text
 - GET /health - Health check
 - GET /languages - List supported languages
+- GET /stats - Request statistics (for monitoring)
 """
 
 import os
 import re
+import time
 import threading
+import psutil
 from flask import Flask, request, jsonify
 import stanza
+
+# Monitoring - track request stats
+_stats_lock = threading.Lock()
+_request_stats = {
+    "total_requests": 0,
+    "slow_requests": 0,  # > 5s
+    "errors": 0,
+    "total_chars_processed": 0,
+    "by_language": {},
+}
+
+SLOW_REQUEST_THRESHOLD = 5.0  # seconds
 
 # Configuration
 STANZA_RESOURCE_DIR = os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources")
@@ -190,10 +205,53 @@ def get_sentences(text, lang_code, model_type=MODEL_TOKEN_POS_DEP):
 app = Flask(__name__)
 
 
+def log_request(endpoint, language, chars, elapsed, is_error=False):
+    """Track request statistics for monitoring."""
+    with _stats_lock:
+        _request_stats["total_requests"] += 1
+        _request_stats["total_chars_processed"] += chars
+
+        if is_error:
+            _request_stats["errors"] += 1
+        elif elapsed > SLOW_REQUEST_THRESHOLD:
+            _request_stats["slow_requests"] += 1
+            print(f"STANZA-SLOW: {endpoint} took {elapsed:.1f}s for {chars} chars ({language})")
+
+        # Track by language
+        if language not in _request_stats["by_language"]:
+            _request_stats["by_language"][language] = {"requests": 0, "chars": 0, "slow": 0}
+        _request_stats["by_language"][language]["requests"] += 1
+        _request_stats["by_language"][language]["chars"] += chars
+        if elapsed > SLOW_REQUEST_THRESHOLD:
+            _request_stats["by_language"][language]["slow"] += 1
+
+
 @app.route("/health", methods=["GET"])
 def health():
-    """Health check endpoint."""
-    return jsonify({"status": "ok", "pipelines_loaded": len(CACHED_PIPELINES)})
+    """Health check endpoint with memory info."""
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    return jsonify({
+        "status": "ok",
+        "pipelines_loaded": len(CACHED_PIPELINES),
+        "memory_mb": round(mem_info.rss / 1024 / 1024, 1),
+        "memory_percent": round(process.memory_percent(), 1),
+    })
+
+
+@app.route("/stats", methods=["GET"])
+def stats():
+    """Request statistics for monitoring Stanza health."""
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    with _stats_lock:
+        return jsonify({
+            "requests": _request_stats.copy(),
+            "memory_mb": round(mem_info.rss / 1024 / 1024, 1),
+            "memory_percent": round(process.memory_percent(), 1),
+            "pipelines_loaded": len(CACHED_PIPELINES),
+            "languages_loaded": list(set(k[0] for k in CACHED_PIPELINES.keys())),
+        })
 
 
 @app.route("/languages", methods=["GET"])
@@ -226,6 +284,7 @@ def tokenize_endpoint():
             "tokens": [...]
         }
     """
+    start_time = time.time()
     data = request.get_json()
 
     if not data:
@@ -253,8 +312,13 @@ def tokenize_endpoint():
             text, language, model, flatten,
             start_token_i, start_sentence_i, start_paragraph_i
         )
+        elapsed = time.time() - start_time
+        log_request("tokenize", language, len(text), elapsed)
         return jsonify({"tokens": tokens})
     except Exception as e:
+        elapsed = time.time() - start_time
+        log_request("tokenize", language, len(text), elapsed, is_error=True)
+        print(f"STANZA-ERROR: tokenize failed for {language} ({len(text)} chars): {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -283,6 +347,7 @@ def tokenize_batch_endpoint():
             ]
         }
     """
+    start_time = time.time()
     data = request.get_json()
 
     if not data:
@@ -302,6 +367,8 @@ def tokenize_batch_endpoint():
     if not texts:
         return jsonify({"results": []})
 
+    total_chars = sum(len(t) for t in texts if t)
+
     try:
         results = []
         for text in texts:
@@ -310,8 +377,15 @@ def tokenize_batch_endpoint():
             else:
                 tokens = tokenize_text(text, language, model, flatten)
                 results.append({"tokens": tokens})
+        elapsed = time.time() - start_time
+        log_request("tokenize_batch", language, total_chars, elapsed)
+        if elapsed > SLOW_REQUEST_THRESHOLD:
+            print(f"STANZA-SLOW: tokenize_batch took {elapsed:.1f}s for {len(texts)} texts, {total_chars} chars ({language})")
         return jsonify({"results": results})
     except Exception as e:
+        elapsed = time.time() - start_time
+        log_request("tokenize_batch", language, total_chars, elapsed, is_error=True)
+        print(f"STANZA-ERROR: tokenize_batch failed for {language} ({len(texts)} texts): {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -331,6 +405,7 @@ def sentences_endpoint():
             "sentences": ["Text with multiple sentences."]
         }
     """
+    start_time = time.time()
     data = request.get_json()
 
     if not data:
@@ -351,8 +426,13 @@ def sentences_endpoint():
 
     try:
         sentences = get_sentences(text, language, model)
+        elapsed = time.time() - start_time
+        log_request("sentences", language, len(text), elapsed)
         return jsonify({"sentences": sentences})
     except Exception as e:
+        elapsed = time.time() - start_time
+        log_request("sentences", language, len(text), elapsed, is_error=True)
+        print(f"STANZA-ERROR: sentences failed for {language} ({len(text)} chars): {e}")
         return jsonify({"error": str(e)}), 500
 
 
