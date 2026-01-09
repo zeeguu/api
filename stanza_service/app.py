@@ -389,6 +389,60 @@ def tokenize_batch_endpoint():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/metrics", methods=["GET"])
+def prometheus_metrics():
+    """Prometheus-format metrics for scraping."""
+    process = psutil.Process()
+    mem_info = process.memory_info()
+
+    lines = [
+        "# HELP stanza_requests_total Total number of tokenization requests",
+        "# TYPE stanza_requests_total counter",
+        f"stanza_requests_total {_request_stats['total_requests']}",
+        "",
+        "# HELP stanza_slow_requests_total Requests taking longer than 5 seconds",
+        "# TYPE stanza_slow_requests_total counter",
+        f"stanza_slow_requests_total {_request_stats['slow_requests']}",
+        "",
+        "# HELP stanza_errors_total Total number of failed requests",
+        "# TYPE stanza_errors_total counter",
+        f"stanza_errors_total {_request_stats['errors']}",
+        "",
+        "# HELP stanza_chars_processed_total Total characters processed",
+        "# TYPE stanza_chars_processed_total counter",
+        f"stanza_chars_processed_total {_request_stats['total_chars_processed']}",
+        "",
+        "# HELP stanza_memory_bytes Memory usage in bytes",
+        "# TYPE stanza_memory_bytes gauge",
+        f"stanza_memory_bytes {mem_info.rss}",
+        "",
+        "# HELP stanza_pipelines_loaded Number of loaded language pipelines",
+        "# TYPE stanza_pipelines_loaded gauge",
+        f"stanza_pipelines_loaded {len(CACHED_PIPELINES)}",
+    ]
+
+    # Per-language metrics
+    with _stats_lock:
+        if _request_stats["by_language"]:
+            lines.extend([
+                "",
+                "# HELP stanza_requests_by_language Requests per language",
+                "# TYPE stanza_requests_by_language counter",
+            ])
+            for lang, stats in _request_stats["by_language"].items():
+                lines.append(f'stanza_requests_by_language{{language="{lang}"}} {stats["requests"]}')
+
+            lines.extend([
+                "",
+                "# HELP stanza_slow_by_language Slow requests per language",
+                "# TYPE stanza_slow_by_language counter",
+            ])
+            for lang, stats in _request_stats["by_language"].items():
+                lines.append(f'stanza_slow_by_language{{language="{lang}"}} {stats["slow"]}')
+
+    return "\n".join(lines) + "\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
 @app.route("/sentences", methods=["POST"])
 def sentences_endpoint():
     """
