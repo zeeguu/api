@@ -54,6 +54,7 @@ class User(db.Model):
     email_verified = Column(Boolean, default=True)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
+    creation_platform = db.Column(db.SmallInteger, nullable=True)
 
     def __init__(
         self,
@@ -64,6 +65,7 @@ class User(db.Model):
         native_language=None,
         invitation_code=None,
         is_dev=0,
+        creation_platform=None,
     ):
         from datetime import datetime
 
@@ -75,10 +77,16 @@ class User(db.Model):
         self.invitation_code = invitation_code
         self.is_dev = is_dev
         self.created_at = datetime.now()
+        self.creation_platform = creation_platform
 
     @classmethod
     def create_anonymous(
-        cls, uuid, password, learned_language_code=None, native_language_code=None
+        cls,
+        uuid,
+        password,
+        learned_language_code=None,
+        native_language_code=None,
+        creation_platform=None,
     ):
         """
 
@@ -86,6 +94,7 @@ class User(db.Model):
         :param password:
         :param learned_language_code:
         :param native_language_code:
+        :param creation_platform:
         :return:
         """
 
@@ -114,6 +123,7 @@ class User(db.Model):
             password,
             learned_language=learned_language,
             native_language=native_language,
+            creation_platform=creation_platform,
         )
         new_user.email_verified = False
 

@@ -34,6 +34,7 @@ def create_account(
     learned_language_code,
     native_language_code,
     learned_cefr_level,
+    creation_platform=None,
 ):
     cohort_name = ""
     if password is None or len(password) < 4:
@@ -63,6 +64,7 @@ def create_account(
             invitation_code=invite_code,
             learned_language=learned_language,
             native_language=native_language,
+            creation_platform=creation_platform,
         )
         db_session.add(new_user)
         if cohort_name != "":
@@ -98,7 +100,7 @@ def create_account(
         raise Exception("Could not create the account")
 
 
-def create_basic_account(db_session, username, password, invite_code, email):
+def create_basic_account(db_session, username, password, invite_code, email, creation_platform=None):
     cohort_name = ""
     if password is None or len(password) < 4:
         raise Exception("Password should be at least 4 characters long")
@@ -117,7 +119,7 @@ def create_basic_account(db_session, username, password, invite_code, email):
 
     try:
         new_user = User(
-            email, username, password, invitation_code=invite_code, cohort=cohort
+            email, username, password, invitation_code=invite_code, creation_platform=creation_platform
         )
 
         db_session.add(new_user)
