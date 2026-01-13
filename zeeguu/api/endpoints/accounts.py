@@ -51,6 +51,7 @@ def add_user(email):
     )  # default language; it's changed by the ui later
     learned_cefr_level = request.form.get("learned_cefr_level", 0)
     invite_code = request.form.get("invite_code")
+    platform = request.form.get("platform")
 
     from zeeguu.core.account_management.user_account_creation import create_account
 
@@ -64,6 +65,7 @@ def add_user(email):
             learned_language_code,
             native_language_code,
             learned_cefr_level,
+            creation_platform=platform,
         )
         new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
@@ -88,10 +90,11 @@ def add_basic_user(email):
     password = request.form.get("password")
     username = request.form.get("username")
     invite_code = request.form.get("invite_code")
+    platform = request.form.get("platform")
 
     try:
         new_user = create_basic_account(
-            db_session, username, password, invite_code, email
+            db_session, username, password, invite_code, email, creation_platform=platform
         )
         new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
@@ -122,9 +125,10 @@ def add_anon_user():
     language_code = request.form.get("learned_language_code", None)
     native_code = request.form.get("native_language_code", None)
     cefr_level = request.form.get("learned_cefr_level", None)
+    platform = request.form.get("platform", None)
 
     try:
-        new_user = User.create_anonymous(uuid, password, language_code, native_code)
+        new_user = User.create_anonymous(uuid, password, language_code, native_code, creation_platform=platform)
         db_session.add(new_user)
         db_session.commit()
 

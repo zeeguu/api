@@ -90,3 +90,21 @@ WIH_WRONG_EX_MATCH = 10
 
 # time delta in which consecutive bookmarks are merged together
 TIMEDELTA = 120
+
+# Platform identifiers for tracking where accounts were created and activity happens
+# Keep in sync with frontend: js/web/src/utils/misc/browserDetection.js
+PLATFORM_UNKNOWN = 0
+PLATFORM_WEB_DESKTOP = 1
+PLATFORM_WEB_MOBILE = 2
+PLATFORM_IOS_APP = 3
+PLATFORM_ANDROID_APP = 4
+PLATFORM_EXTENSION = 5
+
+PLATFORM_NAMES = {
+    PLATFORM_UNKNOWN: "unknown",
+    PLATFORM_WEB_DESKTOP: "web_desktop",
+    PLATFORM_WEB_MOBILE: "web_mobile",
+    PLATFORM_IOS_APP: "ios_app",
+    PLATFORM_ANDROID_APP: "android_app",
+    PLATFORM_EXTENSION: "extension",
+}

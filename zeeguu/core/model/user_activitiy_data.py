@@ -47,6 +47,8 @@ class UserActivityData(db.Model):
     source_id = Column(Integer, ForeignKey(Source.id))
     source = relationship(Source)
 
+    platform = Column(db.SmallInteger)
+
     def __init__(
         self,
         user,
@@ -55,6 +57,7 @@ class UserActivityData(db.Model):
         value,
         extra_data,
         source_id: int = None,
+        platform: int = None,
     ):
         self.user = user
         self.time = time
@@ -62,6 +65,7 @@ class UserActivityData(db.Model):
         self.value = value
         self.extra_data = extra_data
         self.source_id = source_id
+        self.platform = platform
 
     def data_as_dictionary(self):
         data = dict(
@@ -122,7 +126,7 @@ class UserActivityData(db.Model):
         return filtered_results
 
     @classmethod
-    def find_or_create(cls, session, user, time, event, value, extra_data, source_id):
+    def find_or_create(cls, session, user, time, event, value, extra_data, source_id, platform=None):
         try:
             existing = (
                 cls.query.filter_by(user=user)
@@ -144,7 +148,7 @@ class UserActivityData(db.Model):
             )
         except sqlalchemy.orm.exc.NoResultFound:
             try:
-                new = cls(user, time, event, value, extra_data, source_id)
+                new = cls(user, time, event, value, extra_data, source_id, platform)
                 session.add(new)
                 session.commit()
                 log(f"created new event: {event}")
@@ -473,6 +477,7 @@ class UserActivityData(db.Model):
         value = data.get("value", "")
         extra_data = data.get("extra_data", "")
         source_id = data.get("source_id", "")
+        platform = data.get("platform", None)
 
         article_id = None
         if data.get("article_id", None):
@@ -492,7 +497,7 @@ class UserActivityData(db.Model):
         )
 
         new_entry = UserActivityData.find_or_create(
-            session, user, time, event, value, extra_data, source_id
+            session, user, time, event, value, extra_data, source_id, platform
         )
 
         if new_entry:
