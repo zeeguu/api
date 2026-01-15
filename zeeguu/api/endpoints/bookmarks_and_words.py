@@ -63,8 +63,21 @@ def learned_user_words(count):
     this endpoint returns unique learned user words.
     """
     user = User.find_by_id(flask.g.user_id)
-    learned_words = user.learned_user_words(count)
-    json_words = [word.as_dictionary() for word in learned_words]
+    learned_words = list(user.learned_user_words(count))
+
+    # Batch load schedules to avoid N+1 queries
+    user_word_ids = [uw.id for uw in learned_words]
+    schedule_map = {}
+    if user_word_ids:
+        schedules = BasicSRSchedule.query.filter(
+            BasicSRSchedule.user_word_id.in_(user_word_ids)
+        ).all()
+        schedule_map = {s.user_word_id: s for s in schedules}
+
+    json_words = [
+        word.as_dictionary(schedule=schedule_map.get(word.id))
+        for word in learned_words
+    ]
     return json_result(json_words)
 
 
