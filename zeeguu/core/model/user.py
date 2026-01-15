@@ -611,19 +611,17 @@ class User(db.Model):
         return learned
 
     def total_learned_bookmarks(self):
-        from zeeguu.core.model import Bookmark, Phrase, Meaning, UserWord
+        from zeeguu.core.model import Phrase, Meaning, UserWord
 
-        query = zeeguu.core.model.db.session.query(UserWord)
-        learned = (
-            query.join(Meaning, UserWord.meaning_id == Meaning.id)
+        return (
+            zeeguu.core.model.db.session.query(UserWord)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserWord.user_id == self.id)
             .filter(UserWord.learned_time != None)
-            .all()
+            .count()
         )
-
-        return len(learned)
 
     def learned_user_words(self, count=50):
         """
@@ -651,16 +649,15 @@ class User(db.Model):
         """
         from zeeguu.core.model import Phrase, Meaning, UserWord
 
-        query = zeeguu.core.model.db.session.query(UserWord)
-        learned = (
-            query.join(Meaning, UserWord.meaning_id == Meaning.id)
+        return (
+            zeeguu.core.model.db.session.query(UserWord)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserWord.user_id == self.id)
             .filter(UserWord.learned_time != None)
-            .all()
+            .count()
         )
-        return len(learned)
 
     def _datetime_to_date(self, date_time):
         """
