@@ -629,12 +629,28 @@ class User(db.Model):
         Unlike learned_bookmarks which can have duplicates for the same word from different contexts,
         this returns unique user words that have been learned.
         """
+        from sqlalchemy.orm import joinedload
         from zeeguu.core.model import Phrase, Meaning, UserWord
+        from zeeguu.core.model.bookmark import Bookmark
 
         query = zeeguu.core.model.db.session.query(UserWord)
         learned = (
             query.join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
+            .options(
+                # Eager load meaning and its relations
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin)
+                .joinedload(Phrase.language),
+                joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation)
+                .joinedload(Phrase.language),
+                # Eager load preferred_bookmark and its relations
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.text),
+                joinedload(UserWord.preferred_bookmark)
+                .joinedload(Bookmark.context),
+            )
             .filter(Phrase.language_id == self.learned_language_id)
             .filter(UserWord.user_id == self.id)
             .filter(UserWord.learned_time != None)

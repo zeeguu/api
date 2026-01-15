@@ -74,8 +74,12 @@ def learned_user_words(count):
         ).all()
         schedule_map = {s.user_word_id: s for s in schedules}
 
+    # Skip tokenization for list view - saves ~150ms per word (Stanza ML processing)
     json_words = [
-        word.as_dictionary(schedule=schedule_map.get(word.id))
+        word.as_dictionary(
+            schedule=schedule_map.get(word.id),
+            with_context_tokenized=False
+        )
         for word in learned_words
     ]
     return json_result(json_words)

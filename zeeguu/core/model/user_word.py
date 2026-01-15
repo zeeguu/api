@@ -180,7 +180,7 @@ class UserWord(db.Model):
                 # Don't commit this change - it will be fixed on next write
                 self.preferred_bookmark = bookmarks[0]
 
-    def as_dictionary(self, schedule=None, pre_tokenized_context=None):
+    def as_dictionary(self, schedule=None, pre_tokenized_context=None, with_context_tokenized=True):
         """
         Convert UserWord to dictionary for JSON serialization.
 
@@ -189,6 +189,8 @@ class UserWord(db.Model):
                      If not provided, will query the database (slower for batch operations).
             pre_tokenized_context: Optional pre-tokenized context from batch tokenization.
                      If not provided, will tokenize on demand (slower for batch operations).
+            with_context_tokenized: Whether to include tokenized context (default True).
+                     Set to False for list views where tokenization isn't needed - saves ~150ms per word.
         """
         # Note: Data integrity validation removed from hot path for performance
         # Run periodic checks with: python -m tools._check_and_fix_data_integrity
@@ -295,7 +297,7 @@ class UserWord(db.Model):
 
         result = {
             **self.preferred_bookmark.as_dictionary(
-                with_context_tokenized=True,
+                with_context_tokenized=with_context_tokenized,
                 pre_tokenized_context=pre_tokenized_context
             ),
             **exercise_info_dict,
