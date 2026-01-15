@@ -15,6 +15,7 @@ from zeeguu.logging import log
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
+from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
 
 @api.route("/user_words", methods=["GET"])
@@ -66,11 +67,12 @@ def learned_user_words(count):
     learned_words = list(user.learned_user_words(count))
 
     # Batch load schedules to avoid N+1 queries
+    # Use FourLevelsPerWord (concrete class) not BasicSRSchedule (abstract) for get_max_interval()
     user_word_ids = [uw.id for uw in learned_words]
     schedule_map = {}
     if user_word_ids:
-        schedules = BasicSRSchedule.query.filter(
-            BasicSRSchedule.user_word_id.in_(user_word_ids)
+        schedules = FourLevelsPerWord.query.filter(
+            FourLevelsPerWord.user_word_id.in_(user_word_ids)
         ).all()
         schedule_map = {s.user_word_id: s for s in schedules}
 
