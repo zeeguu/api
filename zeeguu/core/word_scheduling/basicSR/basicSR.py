@@ -191,11 +191,15 @@ class BasicSRSchedule(db.Model):
          1. Words that are most common in the language (utilizing the word rank in the db
          2. Words that are closest to being learned (indicated by `cooling_interval`,
         the highest the closest it is)
+
+        Note: Uses scheduled_words_due_now (not due_today) so that words
+        rescheduled into the future (e.g., after wrong answers) don't appear
+        until their scheduled time. This gives a clean "session complete" feeling.
         """
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
-        scheduled_candidates = cls.scheduled_words_due_today(
+        scheduled_candidates = cls.scheduled_words_due_now(
             user, max_words_to_schedule
         )
 
@@ -270,6 +274,28 @@ class BasicSRSchedule(db.Model):
         query.order_by(
             -Phrase.rank.desc(), cls.cooling_interval.desc()
         )  # By using the negative for rank, we ensure NULL is last.
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        return query.all()
+
+    @classmethod
+    def scheduled_words_due_now(cls, user, limit=None):
+        """
+        Returns words that are due for practice RIGHT NOW (next_practice_time <= now).
+        Unlike scheduled_words_due_today which returns all words due before midnight,
+        this method only returns words that can be practiced immediately.
+
+        This ensures a clean "session complete" experience - words rescheduled
+        30 minutes into the future (after wrong answers) won't appear until then.
+        """
+        query = cls._scheduled_user_words_query(user)
+        query = query.filter(cls.next_practice_time <= datetime.now())
+
+        query.order_by(
+            -Phrase.rank.desc(), cls.cooling_interval.desc()
+        )
 
         if limit is not None:
             query = query.limit(limit)
