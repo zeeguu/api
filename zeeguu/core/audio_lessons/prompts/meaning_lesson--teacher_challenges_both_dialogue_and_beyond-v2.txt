@@ -10,8 +10,8 @@ Use this exact format:
     <brief scenario, also describe the relation between the man and woman>.
     Throughout the dialogue, you will hear the word [0.2 seconds]
     Man: {origin_word} [0.5 seconds]
-    Teacher: with the meaning [0.2 seconds] 
-    Teacher: {translation_word}.
+    Teacher: with the meaning [0.2 seconds]
+    Teacher: {translation_word}. [1 seconds]
 
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
     In between lines add one second break annotations with: [1 seconds]
