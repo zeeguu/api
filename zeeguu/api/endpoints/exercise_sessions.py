@@ -19,7 +19,10 @@ from zeeguu.core.emailer.user_activity import (
 )
 @requires_session
 def exercise_session_start():
-    session = UserExerciseSession(flask.g.user_id, datetime.now())
+    platform = request.form.get("platform", None)
+    if platform is not None:
+        platform = int(platform)
+    session = UserExerciseSession(flask.g.user_id, datetime.now(), platform=platform)
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))

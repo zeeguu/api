@@ -20,6 +20,8 @@ from zeeguu.core.model.user_cohort_map import UserCohortMap
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.constants import PLATFORM_NAMES
 from . import api, db_session
 
 
@@ -46,6 +48,34 @@ def get_period_range(period: str):
         label = "Yesterday"
 
     return start, end, label
+
+
+def get_platform_stats(start, end):
+    """Get platform usage statistics from user_activity_data for the given period."""
+    from sqlalchemy import func
+
+    # Query activity counts grouped by platform
+    platform_counts = (
+        db_session.query(
+            UserActivityData.platform,
+            func.count(func.distinct(UserActivityData.user_id)).label('user_count'),
+            func.count(UserActivityData.id).label('event_count')
+        )
+        .filter(UserActivityData.time >= start)
+        .filter(UserActivityData.time < end)
+        .group_by(UserActivityData.platform)
+        .all()
+    )
+
+    stats = {}
+    for platform_id, user_count, event_count in platform_counts:
+        platform_name = PLATFORM_NAMES.get(platform_id, f"unknown ({platform_id})")
+        stats[platform_name] = {
+            'users': user_count,
+            'events': event_count
+        }
+
+    return stats
 
 
 def get_user_cohort_info(user):
@@ -557,6 +587,7 @@ def user_stats_dashboard():
     start, end, period_label = get_period_range(period)
 
     users_by_language = collect_user_activity(start, end)
+    platform_stats = get_platform_stats(start, end)
 
     # Calculate totals
     total_users = set()
@@ -703,6 +734,38 @@ def user_stats_dashboard():
                 <div class="number">{len(users_by_language)}</div>
                 <div class="label">Languages</div>
             </div>
+        </div>
+
+        <div class="section">
+            <h2>Platform Usage</h2>
+            <table>
+                <tr>
+                    <th>Platform</th>
+                    <th>Active Users</th>
+                    <th>Events</th>
+                </tr>
+"""
+
+    # Sort platforms by user count
+    sorted_platforms = sorted(platform_stats.items(), key=lambda x: x[1]['users'], reverse=True)
+    for platform_name, stats in sorted_platforms:
+        html += f"""
+                <tr>
+                    <td>{platform_name}</td>
+                    <td>{stats['users']}</td>
+                    <td>{stats['events']}</td>
+                </tr>
+"""
+
+    if not platform_stats:
+        html += """
+                <tr>
+                    <td colspan="3" style="text-align:center; color:#7f8c8d;">No platform data available</td>
+                </tr>
+"""
+
+    html += """
+            </table>
         </div>
 """
 

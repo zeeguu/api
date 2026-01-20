@@ -30,10 +30,12 @@ class UserWatchingSession(db.Model):
     start_time = db.Column(db.DateTime)
     duration = db.Column(db.Integer)  # Duration time in milliseconds
     last_action_time = db.Column(db.DateTime)
+    platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user_id, video_id, current_time=None):
+    def __init__(self, user_id, video_id, current_time=None, platform=None):
         self.user_id = user_id
         self.video_id = video_id
+        self.platform = platform
 
         if current_time is None:
             current_time = datetime.now()
