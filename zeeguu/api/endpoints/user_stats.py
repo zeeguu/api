@@ -54,26 +54,48 @@ def get_platform_stats(start, end):
     """Get platform usage statistics from user_activity_data for the given period."""
     from sqlalchemy import func
 
-    # Query activity counts grouped by platform
-    platform_counts = (
+    # Query user IDs grouped by platform (for clickable links)
+    platform_users = (
         db_session.query(
             UserActivityData.platform,
-            func.count(func.distinct(UserActivityData.user_id)).label('user_count'),
+            UserActivityData.user_id,
+        )
+        .filter(UserActivityData.time >= start)
+        .filter(UserActivityData.time < end)
+        .filter(UserActivityData.platform.isnot(None))
+        .distinct()
+        .all()
+    )
+
+    # Group by platform
+    stats = {}
+    for platform_id, user_id in platform_users:
+        platform_name = PLATFORM_NAMES.get(platform_id, f"unknown ({platform_id})")
+        if platform_name not in stats:
+            stats[platform_name] = {
+                'platform_id': platform_id,
+                'user_ids': set(),
+                'events': 0
+            }
+        stats[platform_name]['user_ids'].add(user_id)
+
+    # Get event counts
+    event_counts = (
+        db_session.query(
+            UserActivityData.platform,
             func.count(UserActivityData.id).label('event_count')
         )
         .filter(UserActivityData.time >= start)
         .filter(UserActivityData.time < end)
+        .filter(UserActivityData.platform.isnot(None))
         .group_by(UserActivityData.platform)
         .all()
     )
 
-    stats = {}
-    for platform_id, user_count, event_count in platform_counts:
+    for platform_id, event_count in event_counts:
         platform_name = PLATFORM_NAMES.get(platform_id, f"unknown ({platform_id})")
-        stats[platform_name] = {
-            'users': user_count,
-            'events': event_count
-        }
+        if platform_name in stats:
+            stats[platform_name]['events'] = event_count
 
     return stats
 
@@ -747,12 +769,18 @@ def user_stats_dashboard():
 """
 
     # Sort platforms by user count
-    sorted_platforms = sorted(platform_stats.items(), key=lambda x: x[1]['users'], reverse=True)
+    sorted_platforms = sorted(platform_stats.items(), key=lambda x: len(x[1]['user_ids']), reverse=True)
     for platform_name, stats in sorted_platforms:
+        user_count = len(stats['user_ids'])
+        # Create links to individual user dashboards
+        user_links = ', '.join([
+            f'<a href="/user_stats/user/{uid}/dashboard?period={period}" class="user-link">{uid}</a>'
+            for uid in sorted(stats['user_ids'])
+        ])
         html += f"""
                 <tr>
                     <td>{platform_name}</td>
-                    <td>{stats['users']}</td>
+                    <td>{user_count} <small style="color:#7f8c8d;">({user_links})</small></td>
                     <td>{stats['events']}</td>
                 </tr>
 """
