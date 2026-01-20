@@ -13,7 +13,10 @@ from ...core.model import UserBrowsingSession
 )
 @requires_session
 def browsing_session_start():
-    session = UserBrowsingSession._create_new_session(db_session, flask.g.user_id)
+    platform = request.form.get("platform", None)
+    if platform is not None:
+        platform = int(platform)
+    session = UserBrowsingSession._create_new_session(db_session, flask.g.user_id, platform=platform)
     return json_result(dict(id=session.id))
 
 

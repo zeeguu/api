@@ -15,7 +15,10 @@ from . import api, db_session
 @requires_session
 def watching_session_start():
     video_id = int(request.form.get("video_id", ""))
-    session = UserWatchingSession(flask.g.user_id, video_id, datetime.now())
+    platform = request.form.get("platform", None)
+    if platform is not None:
+        platform = int(platform)
+    session = UserWatchingSession(flask.g.user_id, video_id, datetime.now(), platform)
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))

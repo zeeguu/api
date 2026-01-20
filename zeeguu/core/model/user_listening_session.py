@@ -33,11 +33,13 @@ class UserListeningSession(db.Model):
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
+    platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user_id, daily_audio_lesson_id, current_time=None):
+    def __init__(self, user_id, daily_audio_lesson_id, current_time=None, platform=None):
         self.user_id = user_id
         self.daily_audio_lesson_id = daily_audio_lesson_id
         self.is_active = True
+        self.platform = platform
 
         if current_time is None:
             current_time = datetime.now()
@@ -57,7 +59,7 @@ class UserListeningSession(db.Model):
         return cls.query.filter(cls.id == session_id).one()
 
     @staticmethod
-    def _create_new_session(db_session, user_id, daily_audio_lesson_id, current_time=None):
+    def _create_new_session(db_session, user_id, daily_audio_lesson_id, current_time=None, platform=None):
         """
         Creates a new listening session
 
@@ -65,11 +67,12 @@ class UserListeningSession(db.Model):
         user_id = user identifier
         daily_audio_lesson_id = audio lesson identifier
         current_time = optional override for the current time
+        platform = platform identifier (see constants.py PLATFORM_*)
         """
         if current_time is None:
             current_time = datetime.now()
 
-        listening_session = UserListeningSession(user_id, daily_audio_lesson_id, current_time)
+        listening_session = UserListeningSession(user_id, daily_audio_lesson_id, current_time, platform)
         db_session.add(listening_session)
         db_session.commit()
         return listening_session

@@ -14,8 +14,11 @@ from ...core.model import UserListeningSession
 @requires_session
 def listening_session_start():
     daily_audio_lesson_id = int(request.form.get("lesson_id", ""))
+    platform = request.form.get("platform", None)
+    if platform is not None:
+        platform = int(platform)
     session = UserListeningSession._create_new_session(
-        db_session, flask.g.user_id, daily_audio_lesson_id
+        db_session, flask.g.user_id, daily_audio_lesson_id, platform=platform
     )
     return json_result(dict(id=session.id))
 

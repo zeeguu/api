@@ -20,7 +20,10 @@ def reading_session_start():
     article_id = int(article_id_str)
     # reading_source: 'extension' or 'web' (optional for backwards compatibility)
     reading_source = request.form.get("reading_source", None)
-    session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source)
+    platform = request.form.get("platform", None)
+    if platform is not None:
+        platform = int(platform)
+    session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source, platform)
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))

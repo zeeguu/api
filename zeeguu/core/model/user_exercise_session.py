@@ -30,10 +30,12 @@ class UserExerciseSession(db.Model):
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
+    platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user_id, start_time, current_time=None):
+    def __init__(self, user_id, start_time, current_time=None, platform=None):
         self.user_id = user_id
         self.is_active = False
+        self.platform = platform
 
         # When we want to emulate an event happening in a particular moment in the past or in the future,
         #   we can provide the current_time variable to override the datetime.now()
