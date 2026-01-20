@@ -772,15 +772,11 @@ def user_stats_dashboard():
     sorted_platforms = sorted(platform_stats.items(), key=lambda x: len(x[1]['user_ids']), reverse=True)
     for platform_name, stats in sorted_platforms:
         user_count = len(stats['user_ids'])
-        # Create links to individual user dashboards
-        user_links = ', '.join([
-            f'<a href="/user_stats/user/{uid}/dashboard?period={period}" class="user-link">{uid}</a>'
-            for uid in sorted(stats['user_ids'])
-        ])
+        platform_id = stats['platform_id']
         html += f"""
                 <tr>
                     <td>{platform_name}</td>
-                    <td>{user_count} <small style="color:#7f8c8d;">({user_links})</small></td>
+                    <td><a href="/user_stats/platform/{platform_id}/dashboard?period={period}" class="user-link">{user_count}</a></td>
                     <td>{stats['events']}</td>
                 </tr>
 """
@@ -1271,6 +1267,156 @@ def user_stats_individual_dashboard(user_id):
         <p style="color:#7f8c8d; font-size:0.9em; margin-top:30px;">
             Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} |
             <a href="/user_stats/user/{user_id}?period={period}">JSON API</a>
+        </p>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, mimetype="text/html")
+
+
+@api.route("/user_stats/platform/<int:platform_id>/dashboard", methods=["GET"])
+@cross_domain
+@requires_session
+@only_admins
+def user_stats_platform_dashboard(platform_id):
+    """HTML dashboard showing users who used a specific platform."""
+    period = request.args.get("period", "yesterday")
+    start, end, period_label = get_period_range(period)
+
+    platform_name = PLATFORM_NAMES.get(platform_id, f"Unknown ({platform_id})")
+
+    # Get users who used this platform in the period
+    user_ids = (
+        db_session.query(UserActivityData.user_id)
+        .filter(UserActivityData.time >= start)
+        .filter(UserActivityData.time < end)
+        .filter(UserActivityData.platform == platform_id)
+        .distinct()
+        .all()
+    )
+    user_ids = [uid[0] for uid in user_ids]
+
+    # Get user details
+    users = []
+    for user_id in user_ids:
+        user = User.find_by_id(user_id)
+        if user:
+            cohort_name, cohort_id = get_user_cohort_info(user)
+            users.append({
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'cohort_name': cohort_name,
+                'cohort_id': cohort_id,
+            })
+
+    # Sort by name
+    users.sort(key=lambda u: u['name'].lower() if u['name'] else '')
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Platform Users - {platform_name}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }}
+        .container {{ max-width: 1200px; margin: 0 auto; }}
+        h1 {{ color: #2c3e50; margin-bottom: 5px; }}
+        .subtitle {{ color: #7f8c8d; margin-bottom: 20px; }}
+        .section {{
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }}
+        .section h2 {{ margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }}
+        th {{ background: #f8f9fa; font-weight: 600; }}
+        tr:hover {{ background: #f8f9fa; }}
+        .nav {{ margin-bottom: 20px; }}
+        .nav a {{
+            display: inline-block; padding: 8px 16px; margin-right: 10px;
+            background: #3498db; color: white; text-decoration: none;
+            border-radius: 4px;
+        }}
+        .nav a:hover {{ background: #2980b9; }}
+        .user-link {{ color: #3498db; text-decoration: none; }}
+        .user-link:hover {{ text-decoration: underline; }}
+        .cohort-link {{
+            display: inline-block; padding: 2px 6px;
+            background: #3498db; color: white; border-radius: 4px;
+            font-size: 0.85em; text-decoration: none;
+        }}
+        .cohort-link:hover {{ background: #2980b9; }}
+        .platform-badge {{
+            display: inline-block; padding: 4px 12px;
+            background: #9b59b6; color: white; border-radius: 4px;
+            font-weight: bold;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="platform-badge">{platform_name}</span> Platform Users</h1>
+        <p class="subtitle">
+            {period_label} ({start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}) |
+            {len(users)} users
+        </p>
+
+        <div class="nav">
+            <a href="/user_stats/dashboard?period={period}">&larr; Back to Dashboard</a>
+        </div>
+
+        <div class="section">
+            <h2>Users ({len(users)})</h2>
+            <table>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Cohort</th>
+                </tr>
+"""
+
+    for user in users:
+        cohort_html = ""
+        if user['cohort_id']:
+            cohort_html = f'<a href="/user_stats/cohort/{user["cohort_id"]}/dashboard?period={period}" class="cohort-link">{user["cohort_name"]}</a>'
+        elif user['cohort_name']:
+            cohort_html = user['cohort_name']
+        else:
+            cohort_html = "—"
+
+        html += f"""
+                <tr>
+                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{user['name']}</a></td>
+                    <td>{user['email']}</td>
+                    <td>{cohort_html}</td>
+                </tr>
+"""
+
+    if not users:
+        html += """
+                <tr>
+                    <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">
+                        No users found for this platform in this period.
+                    </td>
+                </tr>
+"""
+
+    html += f"""
+            </table>
+        </div>
+
+        <p style="color:#7f8c8d; font-size:0.9em; margin-top:30px;">
+            Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         </p>
     </div>
 </body>
