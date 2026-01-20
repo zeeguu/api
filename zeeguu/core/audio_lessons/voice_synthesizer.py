@@ -55,6 +55,39 @@ class VoiceSynthesizer:
             self.azure_client = AzureVoiceSynthesizer()
         return self.azure_client
 
+    def _join_continuation_lines(self, script: str) -> str:
+        """
+        Join continuation lines back to their parent voice line.
+
+        Sometimes the LLM breaks a single voice instruction across multiple lines,
+        e.g.:
+            Teacher: In the following conversation...
+            Throughout the dialogue, you will hear the word [0.2 seconds]
+
+        This method joins such continuation lines back to the previous voice line.
+        """
+        lines = script.split("\n")
+        joined_lines = []
+        voice_pattern = re.compile(r"^(Teacher|Man|Woman|Armin|Aldo):\s*", re.IGNORECASE)
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Check if this line starts with a voice label
+            if voice_pattern.match(stripped):
+                joined_lines.append(stripped)
+            elif stripped.startswith("[") and "silence" in stripped.lower():
+                # Standalone silence marker
+                joined_lines.append(stripped)
+            elif joined_lines:
+                # Continuation line - append to previous line
+                joined_lines[-1] = joined_lines[-1] + " " + stripped
+            # else: orphan line before any voice line - skip it
+
+        return "\n".join(joined_lines)
+
     def parse_script(self, script: str) -> List[Tuple[str, str, float]]:
         """
         Parse the script into individual voice segments.
@@ -62,6 +95,9 @@ class VoiceSynthesizer:
         Returns:
             List of tuples: (voice_type, text, silence_after)
         """
+        # First, join any continuation lines back to their parent
+        script = self._join_continuation_lines(script)
+
         segments = []
         lines = script.split("\n")
 
