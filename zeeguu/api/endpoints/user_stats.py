@@ -67,12 +67,26 @@ def get_platform_stats(start, end):
         .all()
     )
 
+    # Get distinct user IDs for each platform
+    platform_users = {}
+    for platform_id, _, _ in platform_counts:
+        user_ids = (
+            db_session.query(func.distinct(UserActivityData.user_id))
+            .filter(UserActivityData.time >= start)
+            .filter(UserActivityData.time < end)
+            .filter(UserActivityData.platform == platform_id)
+            .all()
+        )
+        platform_users[platform_id] = [uid[0] for uid in user_ids]
+
     stats = {}
     for platform_id, user_count, event_count in platform_counts:
         platform_name = PLATFORM_NAMES.get(platform_id, f"unknown ({platform_id})")
         stats[platform_name] = {
             'users': user_count,
-            'events': event_count
+            'events': event_count,
+            'platform_id': platform_id,
+            'user_ids': platform_users.get(platform_id, [])
         }
 
     return stats
@@ -749,10 +763,12 @@ def user_stats_dashboard():
     # Sort platforms by user count
     sorted_platforms = sorted(platform_stats.items(), key=lambda x: x[1]['users'], reverse=True)
     for platform_name, stats in sorted_platforms:
+        platform_id = stats['platform_id']
+        user_link = f'<a href="/user_stats/platform/{platform_id}/dashboard?period={period}">{stats["users"]}</a>'
         html += f"""
                 <tr>
                     <td>{platform_name}</td>
-                    <td>{stats['users']}</td>
+                    <td>{user_link}</td>
                     <td>{stats['events']}</td>
                 </tr>
 """
@@ -1697,3 +1713,81 @@ def admin_login_submit():
     response = make_response(redirect("/user_stats/dashboard"))
     response.set_cookie("chocolatechip", str(session.uuid))
     return response
+
+
+@api.route("/user_stats/platform/<int:platform_id>/dashboard", methods=["GET"])
+@cross_domain
+@requires_session
+@only_admins
+def user_stats_platform_dashboard(platform_id):
+    """HTML dashboard showing users who used a specific platform."""
+    period = request.args.get("period", "week")
+    start, end, label = get_period_range(period)
+
+    platform_name = PLATFORM_NAMES.get(platform_id, f"Platform {platform_id}")
+
+    # Get users for this platform
+    from sqlalchemy import func
+    user_ids = (
+        db_session.query(func.distinct(UserActivityData.user_id))
+        .filter(UserActivityData.time >= start)
+        .filter(UserActivityData.time < end)
+        .filter(UserActivityData.platform == platform_id)
+        .all()
+    )
+    user_ids = [uid[0] for uid in user_ids]
+
+    users = User.query.filter(User.id.in_(user_ids)).all() if user_ids else []
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{platform_name} Users - {label}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }}
+        .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        h1 {{ color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }}
+        .back-link {{ margin-bottom: 20px; }}
+        .back-link a {{ color: #3498db; text-decoration: none; }}
+        .back-link a:hover {{ text-decoration: underline; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ecf0f1; }}
+        th {{ background: #f8f9fa; font-weight: 600; color: #2c3e50; }}
+        tr:hover {{ background: #f8f9fa; }}
+        a {{ color: #3498db; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+        .count {{ color: #7f8c8d; font-size: 14px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back-link"><a href="/user_stats/dashboard?period={period}">&larr; Back to Dashboard</a></div>
+        <h1>{platform_name} Users</h1>
+        <p class="count">{len(users)} users active on {platform_name} during {label}</p>
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Cohort</th>
+            </tr>
+"""
+
+    for user in sorted(users, key=lambda u: u.name.lower() if u.name else ""):
+        cohort_name, cohort_id = get_user_cohort_info(user)
+        cohort_link = f'<a href="/user_stats/cohort/{cohort_id}/dashboard?period={period}">{cohort_name}</a>' if cohort_id else cohort_name
+
+        html += f"""
+            <tr>
+                <td><a href="/user_stats/user/{user.id}/dashboard?period={period}">{user.name or 'N/A'}</a></td>
+                <td>{user.email}</td>
+                <td>{cohort_link}</td>
+            </tr>
+"""
+
+    html += """
+        </table>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, content_type="text/html")
