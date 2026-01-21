@@ -106,6 +106,13 @@ class Meaning(db.Model):
         default=False,
         comment="Whether the phrase type has been manually validated by a human",
     )
+
+    exercise_validated = db.Column(
+        db.SmallInteger,
+        nullable=False,
+        default=0,
+        comment="LLM validation status: 0=unknown, 1=valid, 2=invalid/fixed",
+    )
     
 
     def __init__(
@@ -227,10 +234,10 @@ class Meaning(db.Model):
         session.add(meaning)
         session.commit()
 
-        # Classify meaning asynchronously if not already classified
-        word_count = len(meaning.origin.content.split())
-        if (not meaning.frequency or not meaning.phrase_type) and word_count <= 3:
-            cls._classify_meaning_async(meaning.id)
+        # NOTE: Classification is now done together with validation at a later point
+        # (when context is available - during example generation or scheduling).
+        # This avoids classifying translations that might be wrong.
+        # See TranslationValidator.validate_and_classify()
 
         return meaning
 
