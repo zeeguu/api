@@ -20,11 +20,11 @@ def alternative_sentences(user_word_id):
     """
     Returns alternative example sentences for a user_word.
 
-    First validates the translation (if not already validated) to avoid
-    generating examples for incorrect translations.
-
-    Then tries to serve pre-generated examples from the database.
+    Tries to serve pre-generated examples from the database.
     Falls back to real-time LLM generation if no pre-generated examples exist.
+
+    Note: Validation happens at scheduling time (find_or_create) and via batch
+    migration for legacy data - not here, to avoid changing words mid-request.
 
     :param user_word_id: ID of the UserWord to get examples for
     :return: JSON array with example sentences
@@ -35,18 +35,6 @@ def alternative_sentences(user_word_id):
     if not user_word or user_word.user_id != user.id:
         return json_result({"error": "UserWord not found or unauthorized"}, status=404)
 
-    # Validate translation before generating examples (if not already validated)
-    # This avoids wasting API calls on incorrect translations
-    if user_word.meaning.validated == 0:
-        from zeeguu.core.llm_services.validation_service import UserWordValidationService
-        user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
-        if user_word is None:
-            return json_result(
-                {"error": "Translation validation failed", "examples": []},
-                status=400
-            )
-
-    # Get the word and translation (may have been fixed by validation)
     origin_word = user_word.meaning.origin.content
     translation = user_word.meaning.translation.content
     origin_lang = user_word.meaning.origin.language.code
