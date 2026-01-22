@@ -5,13 +5,17 @@ Batch Validation Script for Existing Scheduled Meanings
 Validates translations for user_words that are already scheduled but have
 validated=0 (legacy data from before the validation feature).
 
+Only processes words for users active in the last N days (default 30).
+Inactive users' words are left unvalidated to save API calls.
+
 This is a one-time migration script to bring existing data up to date.
 New words are validated at scheduling time via FourLevelsPerWord.find_or_create().
 
 Usage:
-    python -m tools.validate_scheduled_meanings --dry-run
+    python -m tools.validate_scheduled_meanings --dry-run --all
     python -m tools.validate_scheduled_meanings --max-words 100
     python -m tools.validate_scheduled_meanings --all
+    python -m tools.validate_scheduled_meanings --all --days-active 60
 """
 
 import argparse
@@ -29,12 +33,16 @@ from zeeguu.logging import log
 def get_scheduled_words_needing_validation(
     max_words: Optional[int] = None,
     user_id: Optional[int] = None,
+    days_active: int = 30,
 ) -> List[UserWord]:
     """
     Get user_words that are scheduled but not yet validated.
 
+    Only includes words for users active in the last N days.
     These are legacy words from before the validation feature was deployed.
     """
+    from datetime import timedelta
+
     query = (
         UserWord.query
         .join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
@@ -45,6 +53,11 @@ def get_scheduled_words_needing_validation(
 
     if user_id:
         query = query.filter(UserWord.user_id == user_id)
+    else:
+        # Only validate for active users (saves API calls on abandoned accounts)
+        cutoff_date = datetime.now() - timedelta(days=days_active)
+        query = query.filter(UserWord.user.has(User.last_seen > cutoff_date))
+        log(f"Filtering to users active since {cutoff_date}")
 
     # Order by user to batch context switches
     query = query.order_by(UserWord.user_id)
@@ -107,16 +120,18 @@ def validate_user_word(user_word: UserWord) -> dict:
 def batch_validate(
     max_words: Optional[int] = None,
     user_id: Optional[int] = None,
+    days_active: int = 30,
     dry_run: bool = False,
 ) -> dict:
     """
     Validate all scheduled words that haven't been validated yet.
 
+    Only processes words for users active in the last days_active days.
     Returns statistics dict.
     """
     start_time = datetime.now()
 
-    user_words = get_scheduled_words_needing_validation(max_words, user_id)
+    user_words = get_scheduled_words_needing_validation(max_words, user_id, days_active)
     total = len(user_words)
 
     log(f"Found {total} scheduled user_words needing validation")
@@ -184,6 +199,10 @@ def main():
         "--dry-run", action="store_true",
         help="Show what would be validated without making changes"
     )
+    parser.add_argument(
+        "--days-active", type=int, default=30,
+        help="Only validate for users active in the last N days (default: 30)"
+    )
 
     args = parser.parse_args()
 
@@ -195,6 +214,7 @@ def main():
     stats = batch_validate(
         max_words=args.max_words,
         user_id=args.user_id,
+        days_active=args.days_active,
         dry_run=args.dry_run,
     )
 
