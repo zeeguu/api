@@ -24,6 +24,7 @@ STEP 1 - VALIDATION:
 IMPORTANT: Only mark as FIX if the translation is WRONG. Do NOT "improve" correct translations.
 - Keep translations SHORT and SIMPLE - learners must type them in exercises
 - NO parenthetical explanations like "by (doing something)" - just "by"
+- NO alternatives with "/" like "as/in the capacity of" - pick ONE: "as"
 - NO articles unless essential: "eyes" not "the eyes"
 
 STEP 2 - CLASSIFICATION (for the valid/corrected word):
