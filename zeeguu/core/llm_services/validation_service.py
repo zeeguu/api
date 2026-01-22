@@ -210,9 +210,13 @@ class UserWordValidationService:
             transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
 
             # Update bookmark to point to new user_word
-            bookmark.user_word = new_user_word
-            new_user_word.preferred_bookmark = bookmark
-            db_session.add_all([bookmark, new_user_word])
+            # Use ID to avoid circular dependency (Bookmark.user_word <-> UserWord.preferred_bookmark)
+            bookmark.user_word_id = new_user_word.id
+            db_session.add(bookmark)
+            db_session.flush()  # Flush bookmark first
+
+            new_user_word.preferred_bookmark_id = bookmark.id
+            db_session.add(new_user_word)
 
             # Cleanup old user_word if orphaned
             cleanup_old_user_word(db_session, old_user_word, bookmark)
