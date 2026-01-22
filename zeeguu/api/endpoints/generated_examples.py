@@ -23,9 +23,6 @@ def alternative_sentences(user_word_id):
     Tries to serve pre-generated examples from the database.
     Falls back to real-time LLM generation if no pre-generated examples exist.
 
-    Note: Validation happens at scheduling time (find_or_create) and via batch
-    migration for legacy data - not here, to avoid changing words mid-request.
-
     :param user_word_id: ID of the UserWord to get examples for
     :return: JSON array with example sentences
     """
@@ -42,38 +39,54 @@ def alternative_sentences(user_word_id):
 
     # Determine CEFR level
     cefr_level = request.args.get("cefr_level", "B1")
-    
+
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
-    db_examples = ExampleSentence.query.filter(
-        ExampleSentence.meaning_id == user_word.meaning_id,
-        ExampleSentence.cefr_level == cefr_level
-    ).limit(5).all()
-    
+    db_examples = (
+        ExampleSentence.query.filter(
+            ExampleSentence.meaning_id == user_word.meaning_id,
+            ExampleSentence.cefr_level == cefr_level,
+        )
+        .limit(5)
+        .all()
+    )
+
     # If no exact match, try any CEFR level for this meaning
     if not db_examples:
-        db_examples = ExampleSentence.query.filter(
-            ExampleSentence.meaning_id == user_word.meaning_id
-        ).limit(5).all()
-    
+        db_examples = (
+            ExampleSentence.query.filter(
+                ExampleSentence.meaning_id == user_word.meaning_id
+            )
+            .limit(5)
+            .all()
+        )
+
     if db_examples:
         # Format database examples
         examples = []
         ai_generator_id = None
         llm_model = "database"
         prompt_version = "pregenerated"
-        
+
         for db_example in db_examples:
             example_dict = {
                 "id": db_example.id,  # Include the sentence ID
                 "sentence": db_example.sentence,
                 "translation": db_example.translation,
                 "cefr_level": db_example.cefr_level,
-                "llm_model": db_example.ai_generator.model_name if db_example.ai_generator else "unknown",
-                "prompt_version": db_example.ai_generator.prompt_version if db_example.ai_generator else "unknown"
+                "llm_model": (
+                    db_example.ai_generator.model_name
+                    if db_example.ai_generator
+                    else "unknown"
+                ),
+                "prompt_version": (
+                    db_example.ai_generator.prompt_version
+                    if db_example.ai_generator
+                    else "unknown"
+                ),
             }
             examples.append(example_dict)
-            
+
             # Use the first example's ai_generator_id for consistency
             if not ai_generator_id and db_example.ai_generator:
                 ai_generator_id = db_example.ai_generator.id
@@ -89,13 +102,15 @@ def alternative_sentences(user_word_id):
                 "ai_generator_id": ai_generator_id,
                 "llm_model": llm_model,
                 "prompt_version": prompt_version,
-                "source": "database"
+                "source": "database",
             }
         )
 
     # Fallback to real-time generation if no pre-generated examples
-    log(f"No pre-generated examples found for user_word {user_word_id}, falling back to real-time generation")
-    
+    log(
+        f"No pre-generated examples found for user_word {user_word_id}, falling back to real-time generation"
+    )
+
     try:
         # Get the LLM service
         llm_service = get_llm_service()
@@ -121,7 +136,7 @@ def alternative_sentences(user_word_id):
             prompt_version,
             description="Real-time example generation for language learning",
         )
-        
+
         # Save the generated examples to database for future use
         saved_examples = []
         for example in examples:
@@ -136,11 +151,13 @@ def alternative_sentences(user_word_id):
                 commit=False,
             )
             saved_examples.append(example_sentence)
-        
+
         # Commit all the new examples
         db_session.commit()
-        log(f"Saved {len(examples)} real-time generated examples to database for user_word {user_word_id}")
-        
+        log(
+            f"Saved {len(examples)} real-time generated examples to database for user_word {user_word_id}"
+        )
+
         # Add IDs to the examples we're returning
         for i, example in enumerate(examples):
             example["id"] = saved_examples[i].id
@@ -154,20 +171,20 @@ def alternative_sentences(user_word_id):
                 "ai_generator_id": ai_generator.id,
                 "llm_model": llm_model,
                 "prompt_version": prompt_version,
-                "source": "realtime_saved"
+                "source": "realtime_saved",
             }
         )
 
     except Exception as e:
         log(f"Error generating examples for user_word {user_word_id}: {e}")
-        
+
         resp = json_result(
             {
                 "error": "Failed to generate examples. Please try again later.",
                 "user_word_id": user_word_id,
                 "word": origin_word,
                 "translation": translation,
-                "examples": []
+                "examples": [],
             }
         )
         resp.status_code = 500
@@ -180,7 +197,7 @@ def alternative_sentences(user_word_id):
 def set_preferred_example(user_word_id):
     """
     Endpoint: POST /set_preferred_example/<user_word_id>
-    
+
     Set the user's preferred example/context for a word by creating a bookmark
     from the selected ExampleSentence.
 
@@ -230,49 +247,55 @@ def set_preferred_example(user_word_id):
         return json_result({"error": "sentence_id is required"}, status=400)
 
     sentence_id = data["sentence_id"]
-    
+
     # Find the ExampleSentence - must belong to this user's meaning
     example_sentence_obj = ExampleSentence.query.filter(
         ExampleSentence.id == sentence_id,
-        ExampleSentence.meaning_id == user_word.meaning_id
+        ExampleSentence.meaning_id == user_word.meaning_id,
     ).first()
-    
+
     if not example_sentence_obj:
         return json_result(
-            {"error": f"Sentence with ID {sentence_id} not found for this word"}, 
-            status=404
+            {"error": f"Sentence with ID {sentence_id} not found for this word"},
+            status=404,
         )
-    
+
     selected_sentence = example_sentence_obj.sentence
 
     # Find word position using shared utility (fuzzy matching for generated examples)
     from zeeguu.core.tokenization.word_position_finder import find_first_occurrence
-    
+
     target_word = user_word.meaning.origin.content
-    result = find_first_occurrence(target_word, selected_sentence, user_word.meaning.origin.language)
-    
-    if not result['found']:
-        log(f"ERROR: Could not find word '{target_word}' in example sentence '{selected_sentence}'")
+    result = find_first_occurrence(
+        target_word, selected_sentence, user_word.meaning.origin.language
+    )
+
+    if not result["found"]:
+        log(
+            f"ERROR: Could not find word '{target_word}' in example sentence '{selected_sentence}'"
+        )
         log(f"Error: {result['error_message']}")
         return json_result(
             {
                 "error": "Unable to save this example",
                 "detail": "The selected example sentence does not contain the word you're learning. Please choose a different example or report this issue.",
-                "technical_detail": result['error_message'],
-                "user_word_id": user_word_id
+                "technical_detail": result["error_message"],
+                "user_word_id": user_word_id,
             },
-            status=400  # Bad Request as it's a data issue, not server error
+            status=400,  # Bad Request as it's a data issue, not server error
         )
-    
+
     # Extract position data
-    position_data = result['position_data']
-    sentence_i = position_data['sentence_i']
-    token_i = position_data['token_i']
-    c_sentence_i = position_data['c_sentence_i']
-    c_token_i = position_data['c_token_i']
-    total_tokens_found = position_data['total_tokens']
-    
-    log(f"Successfully found '{target_word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}")
+    position_data = result["position_data"]
+    sentence_i = position_data["sentence_i"]
+    token_i = position_data["token_i"]
+    c_sentence_i = position_data["c_sentence_i"]
+    c_token_i = position_data["c_token_i"]
+    total_tokens_found = position_data["total_tokens"]
+
+    log(
+        f"Successfully found '{target_word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}"
+    )
 
     # Create the context identifier with the example sentence ID
     context_identifier = ContextIdentifier(
@@ -312,7 +335,9 @@ def set_preferred_example(user_word_id):
             "bookmark_id": bookmark.id,
             "user_word_id": user_word_id,
             "message": "Generated example saved successfully",
-            "updated_bookmark": bookmark.as_dictionary(with_context=True, with_context_tokenized=True),
+            "updated_bookmark": bookmark.as_dictionary(
+                with_context=True, with_context_tokenized=True
+            ),
             "bookmark_context_id": bookmark.context.id,
         }
     )
@@ -325,26 +350,26 @@ def generate_examples_for_word(word, from_lang, to_lang):
     """
     Generate example sentences for any word without requiring it to be saved first.
     Useful for the "Add Custom Word" modal to show examples before adding the word.
-    
+
     :param word: The word to generate examples for
     :param from_lang: Source language code (e.g., 'da')
     :param to_lang: Target language code (e.g., 'en')
     :return: JSON array with example sentences
     """
     user = User.find_by_id(flask.g.user_id)
-    
+
     # Get language objects
     origin_lang = Language.find(from_lang)
     translation_lang = Language.find(to_lang)
-    
+
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
-    
+
     try:
         # Get LLM service and generate examples directly
         llm_service = get_llm_service()
         cefr_level = request.args.get("cefr_level", "B1")
-        
+
         # Generate examples using the LLM service
         examples = llm_service.generate_examples(
             word=word,
@@ -353,15 +378,18 @@ def generate_examples_for_word(word, from_lang, to_lang):
             target_lang=translation_lang,
             cefr_level=cefr_level,
             prompt_version="v3",
-            count=5
+            count=5,
         )
-        
+
         return json_result({"examples": examples, "word": word})
-        
+
     except Exception as e:
         log(f"Error generating examples for word '{word}': {e}")
         # json_result doesn't accept status parameter, use flask.Response for error responses
         from flask import Response
         import json
-        error_response = json.dumps({"error": "Failed to generate examples", "examples": []})
+
+        error_response = json.dumps(
+            {"error": "Failed to generate examples", "examples": []}
+        )
         return Response(error_response, status=500, mimetype="application/json")
