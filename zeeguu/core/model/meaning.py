@@ -53,6 +53,17 @@ class MeaningFrequency(Enum):
     UNCOMMON = "uncommon"  # Infrequent usage, not essential for basic communication
     RARE = "rare"  # Specialized, archaic, or context-specific
 
+    @classmethod
+    def from_string(cls, value: str):
+        """Convert string to enum, returns None if invalid."""
+        if not value:
+            return None
+        value = value.strip().lower()
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
+
 
 class PhraseType(Enum):
     """
@@ -65,6 +76,17 @@ class PhraseType(Enum):
     IDIOM = "idiom"  # Idiomatic expressions: "break the ice", "piece of cake"
     EXPRESSION = "expression"  # Common phrases: "how are you?", "thank you"
     ARBITRARY_MULTI_WORD = "multi_word"  # Arbitrary multi-word selection: "the cat on the", "walked slowly towards"
+
+    @classmethod
+    def from_string(cls, value: str):
+        """Convert string to enum, returns None if invalid."""
+        if not value:
+            return None
+        value = value.strip().lower()
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
 
 
 class Meaning(db.Model):

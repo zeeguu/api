@@ -20,28 +20,6 @@ from zeeguu.logging import log
 class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
 
-    # Enum string -> enum value mappings (defined once)
-    @staticmethod
-    def _get_frequency_map():
-        from zeeguu.core.model.meaning import MeaningFrequency
-        return {
-            "unique": MeaningFrequency.UNIQUE,
-            "common": MeaningFrequency.COMMON,
-            "uncommon": MeaningFrequency.UNCOMMON,
-            "rare": MeaningFrequency.RARE,
-        }
-
-    @staticmethod
-    def _get_phrase_type_map():
-        from zeeguu.core.model.meaning import PhraseType
-        return {
-            "single_word": PhraseType.SINGLE_WORD,
-            "collocation": PhraseType.COLLOCATION,
-            "idiom": PhraseType.IDIOM,
-            "expression": PhraseType.EXPRESSION,
-            "arbitrary_multi_word": PhraseType.ARBITRARY_MULTI_WORD,
-        }
-
     @classmethod
     def validate_and_fix(cls, db_session, user_word) -> Optional["UserWord"]:
         """
@@ -104,17 +82,17 @@ class UserWordValidationService:
         """Apply validation result to a valid meaning."""
         from zeeguu.core.model.validation_log import ValidationLog
 
+        from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+
         log(f"[VALIDATION] Translation is valid")
         meaning.validated = 1
 
         # Set frequency and phrase_type from combined validation
         if result.frequency:
-            freq_map = cls._get_frequency_map()
-            meaning.frequency = freq_map.get(result.frequency)
+            meaning.frequency = MeaningFrequency.from_string(result.frequency)
 
         if result.phrase_type:
-            type_map = cls._get_phrase_type_map()
-            meaning.phrase_type = type_map.get(result.phrase_type)
+            meaning.phrase_type = PhraseType.from_string(result.phrase_type)
 
         db_session.add(meaning)
 
@@ -140,6 +118,7 @@ class UserWordValidationService:
         Returns the new user_word to use, or None if unfixable.
         """
         from zeeguu.core.model import Meaning, UserWord
+        from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
         from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
@@ -186,12 +165,10 @@ class UserWordValidationService:
 
         # Set frequency and phrase_type from validation result
         if validation_result.frequency:
-            freq_map = cls._get_frequency_map()
-            new_meaning.frequency = freq_map.get(validation_result.frequency)
+            new_meaning.frequency = MeaningFrequency.from_string(validation_result.frequency)
 
         if validation_result.phrase_type:
-            type_map = cls._get_phrase_type_map()
-            new_meaning.phrase_type = type_map.get(validation_result.phrase_type)
+            new_meaning.phrase_type = PhraseType.from_string(validation_result.phrase_type)
 
         db_session.add(new_meaning)
 

@@ -38,12 +38,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ValidationResult:
     """Result of combined translation validation and classification."""
+
     is_valid: bool
-    corrected_word: Optional[str] = None         # If word should change
+    corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
-    frequency: Optional[str] = None              # unique/common/uncommon/rare
-    phrase_type: Optional[str] = None            # single_word/collocation/idiom/expression/arbitrary_multi_word
-    reason: Optional[str] = None                 # Why it was fixed
+    frequency: Optional[str] = None  # unique/common/uncommon/rare
+    phrase_type: Optional[str] = (
+        None  # single_word/collocation/idiom/expression/arbitrary_multi_word
+    )
+    reason: Optional[str] = None  # Why it was fixed
 
 
 class TranslationValidator:
@@ -54,6 +57,7 @@ class TranslationValidator:
     def __init__(self):
         """Initialize with Anthropic client."""
         import anthropic
+
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY not set")
@@ -65,7 +69,7 @@ class TranslationValidator:
         translation: str,
         context: str,
         source_lang: str,
-        target_lang: str
+        target_lang: str,
     ) -> ValidationResult:
         """
         Validate a translation and classify its frequency/phrase_type in one call.
@@ -91,7 +95,7 @@ class TranslationValidator:
             translation=translation,
             context=context,
             source_lang=source_name,
-            target_lang=target_name
+            target_lang=target_name,
         )
 
         try:
@@ -99,7 +103,7 @@ class TranslationValidator:
                 model=self.MODEL_NAME,
                 max_tokens=200,
                 temperature=0,  # Deterministic for validation
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
             response_text = response.content[0].text.strip()
             return self._parse_response(response_text)
@@ -110,10 +114,7 @@ class TranslationValidator:
             # On error, assume valid with no classification (fail open)
             return ValidationResult(is_valid=True)
 
-    def validate_and_classify_batch(
-        self,
-        items: List[dict]
-    ) -> List[ValidationResult]:
+    def validate_and_classify_batch(self, items: List[dict]) -> List[ValidationResult]:
         """
         Validate and classify multiple translations in one API call.
 
@@ -131,13 +132,19 @@ class TranslationValidator:
         # Convert language codes to names in items
         converted_items = []
         for item in items:
-            converted_items.append({
-                "word": item["word"],
-                "translation": item["translation"],
-                "context": item["context"],
-                "source_lang": Language.LANGUAGE_NAMES.get(item["source_lang"], item["source_lang"]),
-                "target_lang": Language.LANGUAGE_NAMES.get(item["target_lang"], item["target_lang"]),
-            })
+            converted_items.append(
+                {
+                    "word": item["word"],
+                    "translation": item["translation"],
+                    "context": item["context"],
+                    "source_lang": Language.LANGUAGE_NAMES.get(
+                        item["source_lang"], item["source_lang"]
+                    ),
+                    "target_lang": Language.LANGUAGE_NAMES.get(
+                        item["target_lang"], item["target_lang"]
+                    ),
+                }
+            )
 
         prompt = create_batch_validation_prompt(converted_items)
 
@@ -149,7 +156,7 @@ class TranslationValidator:
                 model=self.MODEL_NAME,
                 max_tokens=max_tokens,
                 temperature=0,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
             response_text = response.content[0].text.strip()
             return self._parse_batch_response(response_text, len(items))
@@ -176,7 +183,7 @@ class TranslationValidator:
                 return ValidationResult(
                     is_valid=True,
                     frequency=parts[1].strip().lower() if len(parts) > 1 else None,
-                    phrase_type=parts[2].strip().lower() if len(parts) > 2 else None
+                    phrase_type=parts[2].strip().lower() if len(parts) > 2 else None,
                 )
             return ValidationResult(is_valid=True)
 
@@ -185,17 +192,21 @@ class TranslationValidator:
                 return ValidationResult(
                     is_valid=False,
                     corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=parts[2].strip() if parts[2].strip() else None,
+                    corrected_translation=(
+                        parts[2].strip() if parts[2].strip() else None
+                    ),
                     frequency=parts[3].strip().lower() if len(parts) > 3 else None,
                     phrase_type=parts[4].strip().lower() if len(parts) > 4 else None,
-                    reason=parts[5].strip() if len(parts) > 5 else None
+                    reason=parts[5].strip() if len(parts) > 5 else None,
                 )
             elif len(parts) >= 3:
                 # Partial response - at least word and translation
                 return ValidationResult(
                     is_valid=False,
                     corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=parts[2].strip() if parts[2].strip() else None
+                    corrected_translation=(
+                        parts[2].strip() if parts[2].strip() else None
+                    ),
                 )
 
         # Unexpected format - log and assume valid
@@ -203,7 +214,9 @@ class TranslationValidator:
         logger.warning(f"Unexpected validation response format: {response_text}")
         return ValidationResult(is_valid=True)
 
-    def _parse_batch_response(self, response_text: str, expected_count: int) -> List[ValidationResult]:
+    def _parse_batch_response(
+        self, response_text: str, expected_count: int
+    ) -> List[ValidationResult]:
         """Parse batch response into list of ValidationResults."""
         lines = [line.strip() for line in response_text.split("\n") if line.strip()]
 
@@ -222,6 +235,10 @@ class TranslationValidator:
         return results
 
     # Backward compatibility - alias for old method name
-    def validate_translation(self, word, translation, context, source_lang, target_lang):
+    def validate_translation(
+        self, word, translation, context, source_lang, target_lang
+    ):
         """Alias for validate_and_classify for backward compatibility."""
-        return self.validate_and_classify(word, translation, context, source_lang, target_lang)
+        return self.validate_and_classify(
+            word, translation, context, source_lang, target_lang
+        )
