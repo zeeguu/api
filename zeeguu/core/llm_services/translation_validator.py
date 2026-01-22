@@ -30,15 +30,9 @@ from dataclasses import dataclass
 from typing import Optional, List
 
 from zeeguu.logging import log
+from zeeguu.core.model.language import Language
 
 logger = logging.getLogger(__name__)
-
-# Language code to name mapping
-LANG_NAMES = {
-    "de": "German", "da": "Danish", "nl": "Dutch", "sv": "Swedish", "no": "Norwegian",
-    "el": "Greek", "it": "Italian", "es": "Spanish", "fr": "French", "ro": "Romanian",
-    "pt": "Portuguese", "pl": "Polish", "ru": "Russian", "tr": "Turkish", "en": "English",
-}
 
 
 @dataclass
@@ -89,8 +83,8 @@ class TranslationValidator:
         from .prompts.translation_validator import create_combined_validation_prompt
 
         # Convert language codes to names
-        source_name = LANG_NAMES.get(source_lang, source_lang)
-        target_name = LANG_NAMES.get(target_lang, target_lang)
+        source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
+        target_name = Language.LANGUAGE_NAMES.get(target_lang, target_lang)
 
         prompt = create_combined_validation_prompt(
             word=word,
@@ -141,8 +135,8 @@ class TranslationValidator:
                 "word": item["word"],
                 "translation": item["translation"],
                 "context": item["context"],
-                "source_lang": LANG_NAMES.get(item["source_lang"], item["source_lang"]),
-                "target_lang": LANG_NAMES.get(item["target_lang"], item["target_lang"]),
+                "source_lang": Language.LANGUAGE_NAMES.get(item["source_lang"], item["source_lang"]),
+                "target_lang": Language.LANGUAGE_NAMES.get(item["target_lang"], item["target_lang"]),
             })
 
         prompt = create_batch_validation_prompt(converted_items)
