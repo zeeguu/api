@@ -105,6 +105,18 @@ class FourLevelsPerWord(BasicSRSchedule):
         schedule = super(FourLevelsPerWord, cls).find(user_word)
 
         if not schedule:
+            # Validate translation before first schedule (if not already validated as correct)
+            from zeeguu.core.model.meaning import Meaning
+            if user_word.meaning.validated != Meaning.VALIDATION_VALID:
+                from zeeguu.core.llm_services.validation_service import UserWordValidationService
+                user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
+                if user_word is None:
+                    return None  # Validation failed, word is not fit for study
+
+            # After validation, check if still fit for study
+            if not user_word.fit_for_study:
+                return None  # Don't create schedule for unfit words
+
             schedule = cls(user_word)
             user_word.level = 1
             db_session.add_all([schedule, user_word])

@@ -53,6 +53,17 @@ class MeaningFrequency(Enum):
     UNCOMMON = "uncommon"  # Infrequent usage, not essential for basic communication
     RARE = "rare"  # Specialized, archaic, or context-specific
 
+    @classmethod
+    def from_string(cls, value: str):
+        """Convert string to enum, returns None if invalid."""
+        if not value:
+            return None
+        value = value.strip().lower()
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
+
 
 class PhraseType(Enum):
     """
@@ -66,10 +77,26 @@ class PhraseType(Enum):
     EXPRESSION = "expression"  # Common phrases: "how are you?", "thank you"
     ARBITRARY_MULTI_WORD = "multi_word"  # Arbitrary multi-word selection: "the cat on the", "walked slowly towards"
 
+    @classmethod
+    def from_string(cls, value: str):
+        """Convert string to enum, returns None if invalid."""
+        if not value:
+            return None
+        value = value.strip().lower()
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
+
 
 class Meaning(db.Model):
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
+
+    # Validation status constants
+    VALIDATION_UNKNOWN = 0   # Not yet validated
+    VALIDATION_VALID = 1     # Known good translation
+    VALIDATION_INVALID = 2   # Known bad translation (needs fixing per user context)
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -105,6 +132,13 @@ class Meaning(db.Model):
         nullable=True,
         default=False,
         comment="Whether the phrase type has been manually validated by a human",
+    )
+
+    validated = db.Column(
+        db.SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Validation status: 0=unknown, 1=valid, 2=invalid/fixed",
     )
     
 
@@ -227,10 +261,10 @@ class Meaning(db.Model):
         session.add(meaning)
         session.commit()
 
-        # Classify meaning asynchronously if not already classified
-        word_count = len(meaning.origin.content.split())
-        if (not meaning.frequency or not meaning.phrase_type) and word_count <= 3:
-            cls._classify_meaning_async(meaning.id)
+        # NOTE: Classification is now done together with validation at a later point
+        # (when context is available - during example generation or scheduling).
+        # This avoids classifying translations that might be wrong.
+        # See TranslationValidator.validate_and_classify()
 
         return meaning
 

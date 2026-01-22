@@ -117,6 +117,16 @@ def generate_examples_for_user_word(
     Returns:
         List of created ExampleSentence objects
     """
+    # Validate translation first (may fix it)
+    from zeeguu.core.llm_services.validation_service import UserWordValidationService
+    validated_user_word = UserWordValidationService.validate_and_fix(db.session, user_word)
+    if validated_user_word is None:
+        log(f"User word {user_word.id} failed validation, skipping example generation")
+        return []
+
+    # Use the validated (possibly fixed) user_word
+    user_word = validated_user_word
+
     # Check how many examples already exist
     existing_count = ExampleSentence.query.filter(
         ExampleSentence.meaning_id == user_word.meaning_id

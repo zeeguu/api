@@ -43,22 +43,6 @@ class MeaningFrequencyClassifier:
         if not meanings:
             return []
 
-        # Map frequency and phrase type strings to enums
-        frequency_map = {
-            "unique": MeaningFrequency.UNIQUE,
-            "common": MeaningFrequency.COMMON,
-            "uncommon": MeaningFrequency.UNCOMMON,
-            "rare": MeaningFrequency.RARE,
-        }
-
-        phrase_type_map = {
-            "single_word": PhraseType.SINGLE_WORD,
-            "collocation": PhraseType.COLLOCATION,
-            "idiom": PhraseType.IDIOM,
-            "expression": PhraseType.EXPRESSION,
-            "arbitrary_multi_word": PhraseType.ARBITRARY_MULTI_WORD,
-        }
-
         try:
             prompt = create_batch_meaning_frequency_and_type_prompt(meanings)
 
@@ -96,11 +80,9 @@ class MeaningFrequencyClassifier:
                     continue
 
                 frequency_str, phrase_type_str = line.split(",", 1)
-                frequency_str = frequency_str.strip().lower()
-                phrase_type_str = phrase_type_str.strip().lower()
 
-                frequency = frequency_map.get(frequency_str)
-                phrase_type = phrase_type_map.get(phrase_type_str)
+                frequency = MeaningFrequency.from_string(frequency_str)
+                phrase_type = PhraseType.from_string(phrase_type_str)
 
                 if frequency is None:
                     log(
@@ -130,22 +112,6 @@ class MeaningFrequencyClassifier:
         Returns:
             tuple: (MeaningFrequency, PhraseType) or (None, None) if classification fails
         """
-        # Map frequency and phrase type strings to enums
-        frequency_map = {
-            "unique": MeaningFrequency.UNIQUE,
-            "common": MeaningFrequency.COMMON,
-            "uncommon": MeaningFrequency.UNCOMMON,
-            "rare": MeaningFrequency.RARE,
-        }
-
-        phrase_type_map = {
-            "single_word": PhraseType.SINGLE_WORD,
-            "collocation": PhraseType.COLLOCATION,
-            "idiom": PhraseType.IDIOM,
-            "expression": PhraseType.EXPRESSION,
-            "arbitrary_multi_word": PhraseType.ARBITRARY_MULTI_WORD,
-        }
-
         try:
             prompt = create_meaning_frequency_and_type_prompt(meaning)
 
@@ -165,11 +131,9 @@ class MeaningFrequencyClassifier:
                 return None, None
 
             frequency_str, phrase_type_str = result.split(",", 1)
-            frequency_str = frequency_str.strip()
-            phrase_type_str = phrase_type_str.strip()
 
-            frequency = frequency_map.get(frequency_str)
-            phrase_type = phrase_type_map.get(phrase_type_str)
+            frequency = MeaningFrequency.from_string(frequency_str)
+            phrase_type = PhraseType.from_string(phrase_type_str)
 
             if frequency is None:
                 log(f"Invalid frequency response: {frequency_str}")
