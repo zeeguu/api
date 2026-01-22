@@ -83,8 +83,7 @@ class UserWordValidationService:
     def _apply_valid_result(cls, db_session, user_word, meaning, result, context=None):
         """Apply validation result to a valid meaning."""
         from zeeguu.core.model.validation_log import ValidationLog
-
-        from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+        from zeeguu.core.model.meaning import Meaning, MeaningFrequency, PhraseType
 
         log(f"[VALIDATION] Translation is valid")
         meaning.validated = Meaning.VALIDATION_VALID
