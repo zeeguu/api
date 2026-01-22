@@ -48,7 +48,8 @@ FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanatio
 
 Fields:
 - explanation: OPTIONAL usage notes, register (formal/informal). Leave empty if not needed.
-- literal_meaning: ONLY for idioms - the word-by-word translation. Leave empty for single words.
+- literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").
+  Leave EMPTY for single words, collocations, and non-idioms. NOT for explanations!
 
 Examples:
 - Simple word: VALID|common|single_word||

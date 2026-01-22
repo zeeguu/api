@@ -149,7 +149,7 @@ class Meaning(db.Model):
     )
 
     literal_meaning = db.Column(
-        db.String(255),
+        db.Text,
         nullable=True,
         default=None,
         comment="Word-by-word literal translation for idioms",
