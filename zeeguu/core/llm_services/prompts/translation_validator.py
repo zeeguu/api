@@ -22,7 +22,6 @@ STEP 1 - VALIDATION:
 3. If the word is part of an idiom, decide: should the learner study the single word or the full idiom?
 
 IMPORTANT: Only mark as FIX if the translation is WRONG. Do NOT "improve" correct translations.
-- "by" for "ved at" is VALID (even if "by doing" is more complete)
 - Keep translations SHORT and SIMPLE - learners must type them in exercises
 - NO parenthetical explanations like "by (doing something)" - just "by"
 - NO articles unless essential: "eyes" not "the eyes"
