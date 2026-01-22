@@ -94,14 +94,16 @@ class UserWordValidationService:
         )
 
         if result.is_valid:
-            return cls._apply_valid_result(db_session, user_word, meaning, result)
+            return cls._apply_valid_result(db_session, user_word, meaning, result, context)
         else:
             log(f"[VALIDATION] Translation needs fixing: {result.reason}")
-            return cls._fix_bookmark(db_session, user_word, bookmark, result)
+            return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
 
     @classmethod
-    def _apply_valid_result(cls, db_session, user_word, meaning, result):
+    def _apply_valid_result(cls, db_session, user_word, meaning, result, context=None):
         """Apply validation result to a valid meaning."""
+        from zeeguu.core.model.validation_log import ValidationLog
+
         log(f"[VALIDATION] Translation is valid")
         meaning.validated = 1
 
@@ -115,6 +117,15 @@ class UserWordValidationService:
             meaning.phrase_type = type_map.get(result.phrase_type)
 
         db_session.add(meaning)
+
+        # Log the validation result
+        ValidationLog.log_valid(
+            db_session,
+            meaning=meaning,
+            user_word_id=user_word.id,
+            context=context
+        )
+
         db_session.commit()
 
         # Update fit_for_study in case phrase_type changed to arbitrary_multi_word
@@ -122,13 +133,14 @@ class UserWordValidationService:
         return user_word
 
     @classmethod
-    def _fix_bookmark(cls, db_session, user_word, bookmark, validation_result):
+    def _fix_bookmark(cls, db_session, user_word, bookmark, validation_result, context=None):
         """
         Fix bookmark with corrected word/translation.
 
         Returns the new user_word to use, or None if unfixable.
         """
         from zeeguu.core.model import Meaning, UserWord
+        from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
             cleanup_old_user_word
@@ -146,6 +158,16 @@ class UserWordValidationService:
             old_meaning.validated = 2  # Invalid
             user_word.fit_for_study = False
             db_session.add_all([old_meaning, user_word])
+
+            # Log the invalid result
+            ValidationLog.log_invalid(
+                db_session,
+                meaning=old_meaning,
+                user_word_id=user_word.id,
+                reason=validation_result.reason,
+                context=context
+            )
+
             db_session.commit()
             return None
 
@@ -176,6 +198,16 @@ class UserWordValidationService:
         # Mark old meaning as invalid
         old_meaning.validated = 2  # Invalid/fixed
         db_session.add(old_meaning)
+
+        # Log the fix
+        ValidationLog.log_fixed(
+            db_session,
+            old_meaning=old_meaning,
+            new_meaning=new_meaning,
+            user_word_id=user_word.id,
+            reason=validation_result.reason,
+            context=context
+        )
 
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
