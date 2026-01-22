@@ -37,7 +37,7 @@ def alternative_sentences(user_word_id):
 
     # Validate translation before generating examples (if not already validated)
     # This avoids wasting API calls on incorrect translations
-    if user_word.meaning.exercise_validated == 0:
+    if user_word.meaning.validated == 0:
         from zeeguu.core.llm_services.validation_service import UserWordValidationService
         user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
         if user_word is None:

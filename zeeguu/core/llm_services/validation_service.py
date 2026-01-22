@@ -59,7 +59,7 @@ class UserWordValidationService:
             UserWord to use (may be different if fixed), or None if unfixable/should skip
         """
         # Skip if already validated
-        if user_word.meaning.exercise_validated != 0:
+        if user_word.meaning.validated != 0:
             return user_word
 
         # Get validator (fail gracefully if not available)
@@ -103,7 +103,7 @@ class UserWordValidationService:
     def _apply_valid_result(cls, db_session, user_word, meaning, result):
         """Apply validation result to a valid meaning."""
         log(f"[VALIDATION] Translation is valid")
-        meaning.exercise_validated = 1
+        meaning.validated = 1
 
         # Set frequency and phrase_type from combined validation
         if result.frequency:
@@ -143,7 +143,7 @@ class UserWordValidationService:
         # If no actual correction was provided, mark as invalid but don't fix
         if new_word == old_meaning.origin.content and new_translation == old_meaning.translation.content:
             log(f"[VALIDATION] No correction provided, marking as invalid")
-            old_meaning.exercise_validated = 2  # Invalid
+            old_meaning.validated = 2  # Invalid
             user_word.fit_for_study = False
             db_session.add_all([old_meaning, user_word])
             db_session.commit()
@@ -160,7 +160,7 @@ class UserWordValidationService:
             new_translation,
             old_meaning.translation.language.code
         )
-        new_meaning.exercise_validated = 1  # Mark as validated
+        new_meaning.validated = 1  # Mark as validated
 
         # Set frequency and phrase_type from validation result
         if validation_result.frequency:
@@ -174,7 +174,7 @@ class UserWordValidationService:
         db_session.add(new_meaning)
 
         # Mark old meaning as invalid
-        old_meaning.exercise_validated = 2  # Invalid/fixed
+        old_meaning.validated = 2  # Invalid/fixed
         db_session.add(old_meaning)
 
         # If meaning actually changed, update user's data

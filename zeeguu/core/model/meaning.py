@@ -107,11 +107,11 @@ class Meaning(db.Model):
         comment="Whether the phrase type has been manually validated by a human",
     )
 
-    exercise_validated = db.Column(
+    validated = db.Column(
         db.SmallInteger,
         nullable=False,
         default=0,
-        comment="LLM validation status: 0=unknown, 1=valid, 2=invalid/fixed",
+        comment="Validation status: 0=unknown, 1=valid, 2=invalid/fixed",
     )
     
 
