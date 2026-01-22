@@ -46,8 +46,9 @@ VALID|frequency|phrase_type|explanation
 or
 FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation
 
-The explanation field is OPTIONAL extra context for the learner (leave empty if not needed).
-Use it for: grammar notes, usage patterns, or nuances that help understanding.
+The explanation field is OPTIONAL - leave empty unless truly helpful.
+ONLY use for: usage nuances, register (formal/informal), or non-obvious context.
+Do NOT include: grammar parsing, conjugation info, or obvious facts.
 
 Examples:
 - Simple word: VALID|common|single_word|
