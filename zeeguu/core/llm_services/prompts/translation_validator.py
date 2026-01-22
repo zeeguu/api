@@ -42,20 +42,21 @@ Phrase type:
 - arbitrary_multi_word: random fragment, NOT worth studying ("doctor for", "the cat on", "bruger den")
 
 Reply in this EXACT format (one line):
-VALID|frequency|phrase_type|explanation
+VALID|frequency|phrase_type|explanation|literal_meaning
 or
-FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation
+FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation|literal_meaning
 
-The explanation field is OPTIONAL - leave empty unless truly helpful.
-ONLY use for: usage nuances, register (formal/informal), or non-obvious context.
-Do NOT include: grammar parsing, conjugation info, or obvious facts.
+Fields:
+- explanation: OPTIONAL usage notes, register (formal/informal). Leave empty if not needed.
+- literal_meaning: ONLY for idioms - the word-by-word translation. Leave empty for single words.
 
 Examples:
-- Simple word: VALID|common|single_word|
-- Word with usage note: VALID|common|single_word|used with verbs to indicate manner
-- Wrong translation "øjnene" -> "in the face": FIX|øjnene|the eyes|common|single_word|literal meaning is 'the eyes'|
-- Idiom worth learning: FIX|se virkeligheden i øjnene|face reality|common|idiom|idiom meaning 'face reality'|literally 'see reality in the eyes'
-- Arbitrary fragment: FIX|bruger|use|common|single_word|'bruger den' is arbitrary fragment|
+- Simple word: VALID|common|single_word||
+- Word with usage note: VALID|common|single_word|formal register|
+- Idiom: VALID|common|idiom||kick into touch
+- Wrong translation: FIX|øjnene|the eyes|common|single_word|literal meaning is 'the eyes'||
+- Idiom fix: FIX|se virkeligheden i øjnene|face reality|common|idiom|idiom meaning 'face reality'||see reality in the eyes
+- Arbitrary fragment: FIX|bruger|use|common|single_word|'bruger den' is arbitrary fragment||
 """
 
 

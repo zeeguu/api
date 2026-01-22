@@ -107,6 +107,9 @@ class UserWordValidationService:
         if result.explanation:
             meaning.translation_explanation = result.explanation
 
+        if result.literal_meaning:
+            meaning.literal_meaning = result.literal_meaning
+
         db_session.add(meaning)
 
         # Log the validation result
@@ -185,6 +188,9 @@ class UserWordValidationService:
 
         if validation_result.explanation:
             new_meaning.translation_explanation = validation_result.explanation
+
+        if validation_result.literal_meaning:
+            new_meaning.literal_meaning = validation_result.literal_meaning
 
         db_session.add(new_meaning)
 

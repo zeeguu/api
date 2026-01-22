@@ -148,6 +148,13 @@ class Meaning(db.Model):
         comment="Optional explanation of translation usage, nuances, or context",
     )
 
+    literal_meaning = db.Column(
+        db.String(255),
+        nullable=True,
+        default=None,
+        comment="Word-by-word literal translation for idioms",
+    )
+
     def __init__(
         self, origin: Phrase, translation: Phrase, frequency=None, phrase_type=None
     ):

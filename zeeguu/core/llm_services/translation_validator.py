@@ -48,6 +48,7 @@ class ValidationResult:
     )
     reason: Optional[str] = None  # Why it was fixed
     explanation: Optional[str] = None  # Extra context for learner (usage notes, nuances)
+    literal_meaning: Optional[str] = None  # Word-by-word translation for idioms
 
 
 class TranslationValidator:
@@ -186,6 +187,7 @@ class TranslationValidator:
                     frequency=parts[1].strip().lower() if len(parts) > 1 else None,
                     phrase_type=parts[2].strip().lower() if len(parts) > 2 else None,
                     explanation=parts[3].strip() if len(parts) > 3 and parts[3].strip() else None,
+                    literal_meaning=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
                 )
             return ValidationResult(is_valid=True)
 
@@ -201,6 +203,7 @@ class TranslationValidator:
                     phrase_type=parts[4].strip().lower() if len(parts) > 4 else None,
                     reason=parts[5].strip() if len(parts) > 5 else None,
                     explanation=parts[6].strip() if len(parts) > 6 and parts[6].strip() else None,
+                    literal_meaning=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
                 )
             elif len(parts) >= 3:
                 # Partial response - at least word and translation

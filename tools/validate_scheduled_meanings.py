@@ -35,6 +35,7 @@ def get_scheduled_words_needing_validation(
     user_id: Optional[int] = None,
     days_active: int = 30,
     fix_slash_translations: bool = False,
+    fix_idiom_literals: bool = False,
 ) -> List[UserWord]:
     """
     Get user_words that are scheduled but not yet validated.
@@ -44,10 +45,13 @@ def get_scheduled_words_needing_validation(
 
     If fix_slash_translations is True, also includes already-validated meanings
     that have "/" in the translation (need re-validation to pick one).
+
+    If fix_idiom_literals is True, also includes idioms missing literal_meaning.
     """
     from datetime import timedelta
-    from sqlalchemy import or_
+    from sqlalchemy import or_, and_
     from zeeguu.core.model import Phrase
+    from zeeguu.core.model.meaning import PhraseType
 
     query = (
         UserWord.query
@@ -57,16 +61,21 @@ def get_scheduled_words_needing_validation(
         .filter(UserWord.fit_for_study == True)
     )
 
+    conditions = [Meaning.validated != Meaning.VALID]
+
     if fix_slash_translations:
-        # Include: not validated OR has "/" in translation
-        query = query.filter(
-            or_(
-                Meaning.validated != Meaning.VALID,
-                Phrase.content.like('%/%')
+        conditions.append(Phrase.content.like('%/%'))
+
+    if fix_idiom_literals:
+        # Idioms without literal_meaning
+        conditions.append(
+            and_(
+                Meaning.phrase_type == PhraseType.IDIOM,
+                Meaning.literal_meaning.is_(None)
             )
         )
-    else:
-        query = query.filter(Meaning.validated != Meaning.VALID)
+
+    query = query.filter(or_(*conditions))
 
     if user_id:
         query = query.filter(UserWord.user_id == user_id)
@@ -140,6 +149,7 @@ def batch_validate(
     days_active: int = 30,
     dry_run: bool = False,
     fix_slash_translations: bool = False,
+    fix_idiom_literals: bool = False,
 ) -> dict:
     """
     Validate all scheduled words that haven't been validated yet.
@@ -149,7 +159,9 @@ def batch_validate(
     """
     start_time = datetime.now()
 
-    user_words = get_scheduled_words_needing_validation(max_words, user_id, days_active, fix_slash_translations)
+    user_words = get_scheduled_words_needing_validation(
+        max_words, user_id, days_active, fix_slash_translations, fix_idiom_literals
+    )
     total = len(user_words)
 
     log(f"Found {total} scheduled user_words needing validation")
@@ -225,6 +237,10 @@ def main():
         "--fix-slash", action="store_true",
         help="Also re-validate translations containing '/' to pick one option"
     )
+    parser.add_argument(
+        "--fix-idiom-literals", action="store_true",
+        help="Also re-validate idioms missing literal_meaning"
+    )
 
     args = parser.parse_args()
 
@@ -239,6 +255,7 @@ def main():
         days_active=args.days_active,
         dry_run=args.dry_run,
         fix_slash_translations=args.fix_slash,
+        fix_idiom_literals=args.fix_idiom_literals,
     )
 
     if not args.dry_run:
