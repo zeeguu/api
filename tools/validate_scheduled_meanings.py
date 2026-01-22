@@ -3,7 +3,7 @@
 Batch Validation Script for Existing Scheduled Meanings
 
 Validates translations for user_words that are already scheduled but have
-validated=0 (legacy data from before the validation feature).
+not been validated yet (validated != VALID).
 
 Only processes words for users active in the last N days (default 30).
 Inactive users' words are left unvalidated to save API calls.
@@ -47,7 +47,7 @@ def get_scheduled_words_needing_validation(
         UserWord.query
         .join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
         .join(Meaning, UserWord.meaning_id == Meaning.id)
-        .filter(Meaning.validated == 0)
+        .filter(Meaning.validated != Meaning.VALIDATION_VALID)
         .filter(UserWord.fit_for_study == True)
     )
 
@@ -96,7 +96,7 @@ def validate_user_word(user_word: UserWord) -> dict:
                 "action": "fixed",
                 "details": f"'{original_word}' -> '{original_translation}' fixed to '{new_meaning.origin.content}' -> '{new_meaning.translation.content}'"
             }
-        elif meaning.validated == 1:
+        elif meaning.validated == Meaning.VALIDATION_VALID:
             return {
                 "success": True,
                 "action": "valid",

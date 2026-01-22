@@ -93,6 +93,11 @@ class Meaning(db.Model):
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
+    # Validation status constants
+    VALIDATION_UNKNOWN = 0   # Not yet validated
+    VALIDATION_VALID = 1     # Known good translation
+    VALIDATION_INVALID = 2   # Known bad translation (needs fixing per user context)
+
     id = db.Column(db.Integer, primary_key=True)
 
     origin_id = db.Column(db.Integer, db.ForeignKey(Phrase.id), nullable=False)
