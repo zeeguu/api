@@ -47,6 +47,7 @@ class ValidationResult:
         None  # single_word/collocation/idiom/expression/arbitrary_multi_word
     )
     reason: Optional[str] = None  # Why it was fixed
+    explanation: Optional[str] = None  # Extra context for learner (usage notes, nuances)
 
 
 class TranslationValidator:
@@ -172,8 +173,8 @@ class TranslationValidator:
         Parse LLM response into ValidationResult.
 
         Expected formats:
-        - "VALID|frequency|phrase_type"
-        - "FIX|corrected_word|corrected_translation|frequency|phrase_type|reason"
+        - "VALID|frequency|phrase_type|explanation"
+        - "FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation"
         """
         response_text = response_text.strip()
         parts = response_text.split("|")
@@ -184,6 +185,7 @@ class TranslationValidator:
                     is_valid=True,
                     frequency=parts[1].strip().lower() if len(parts) > 1 else None,
                     phrase_type=parts[2].strip().lower() if len(parts) > 2 else None,
+                    explanation=parts[3].strip() if len(parts) > 3 and parts[3].strip() else None,
                 )
             return ValidationResult(is_valid=True)
 
@@ -198,6 +200,7 @@ class TranslationValidator:
                     frequency=parts[3].strip().lower() if len(parts) > 3 else None,
                     phrase_type=parts[4].strip().lower() if len(parts) > 4 else None,
                     reason=parts[5].strip() if len(parts) > 5 else None,
+                    explanation=parts[6].strip() if len(parts) > 6 and parts[6].strip() else None,
                 )
             elif len(parts) >= 3:
                 # Partial response - at least word and translation

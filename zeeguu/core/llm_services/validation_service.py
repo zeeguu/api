@@ -97,12 +97,15 @@ class UserWordValidationService:
         log(f"[VALIDATION] Translation is valid")
         meaning.validated = Meaning.VALID
 
-        # Set frequency and phrase_type from combined validation
+        # Set frequency, phrase_type, and explanation from combined validation
         if result.frequency:
             meaning.frequency = MeaningFrequency.from_string(result.frequency)
 
         if result.phrase_type:
             meaning.phrase_type = PhraseType.from_string(result.phrase_type)
+
+        if result.explanation:
+            meaning.translation_explanation = result.explanation
 
         db_session.add(meaning)
 
@@ -173,12 +176,15 @@ class UserWordValidationService:
         )
         new_meaning.validated = Meaning.VALID
 
-        # Set frequency and phrase_type from validation result
+        # Set frequency, phrase_type, and explanation from validation result
         if validation_result.frequency:
             new_meaning.frequency = MeaningFrequency.from_string(validation_result.frequency)
 
         if validation_result.phrase_type:
             new_meaning.phrase_type = PhraseType.from_string(validation_result.phrase_type)
+
+        if validation_result.explanation:
+            new_meaning.translation_explanation = validation_result.explanation
 
         db_session.add(new_meaning)
 

@@ -140,7 +140,13 @@ class Meaning(db.Model):
         default=0,
         comment="Validation status: 0=unknown, 1=valid, 2=invalid/fixed",
     )
-    
+
+    translation_explanation = db.Column(
+        db.Text,
+        nullable=True,
+        default=None,
+        comment="Optional explanation of translation usage, nuances, or context",
+    )
 
     def __init__(
         self, origin: Phrase, translation: Phrase, frequency=None, phrase_type=None

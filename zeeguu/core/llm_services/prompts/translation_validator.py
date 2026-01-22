@@ -17,6 +17,12 @@ STEP 1 - VALIDATION:
 2. Is "{translation}" a correct translation for the WORD itself (not the surrounding phrase)?
 3. If the word is part of an idiom, decide: should the learner study the single word or the full idiom?
 
+IMPORTANT: Only mark as FIX if the translation is WRONG. Do NOT "improve" correct translations.
+- "by" for "ved at" is VALID (even if "by doing" is more complete)
+- Keep translations SHORT and SIMPLE - learners must type them in exercises
+- NO parenthetical explanations like "by (doing something)" - just "by"
+- NO articles unless essential: "eyes" not "the eyes"
+
 STEP 2 - CLASSIFICATION (for the valid/corrected word):
 Frequency:
 - unique: only meaning of the word
@@ -32,15 +38,19 @@ Phrase type:
 - arbitrary_multi_word: random fragment, NOT worth studying ("doctor for", "the cat on", "bruger den")
 
 Reply in this EXACT format (one line):
-VALID|frequency|phrase_type
+VALID|frequency|phrase_type|explanation
 or
-FIX|corrected_word|corrected_translation|frequency|phrase_type|reason
+FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation
+
+The explanation field is OPTIONAL extra context for the learner (leave empty if not needed).
+Use it for: grammar notes, usage patterns, or nuances that help understanding.
 
 Examples:
-- Good translation: VALID|common|single_word
-- Word "øjnene" translated as "in the face" but means "the eyes": FIX|øjnene|the eyes|common|single_word|literal meaning is 'the eyes'
-- Should learn idiom instead: FIX|se virkeligheden i øjnene|face reality|common|idiom|important idiom meaning 'face reality'
-- Arbitrary fragment "bruger den" -> "are using it": FIX|bruger|use|common|single_word|'bruger den' is arbitrary fragment, learn 'bruger' instead
+- Simple word: VALID|common|single_word|
+- Word with usage note: VALID|common|single_word|used with verbs to indicate manner
+- Wrong translation "øjnene" -> "in the face": FIX|øjnene|the eyes|common|single_word|literal meaning is 'the eyes'|
+- Idiom worth learning: FIX|se virkeligheden i øjnene|face reality|common|idiom|idiom meaning 'face reality'|literally 'see reality in the eyes'
+- Arbitrary fragment: FIX|bruger|use|common|single_word|'bruger den' is arbitrary fragment|
 """
 
 
