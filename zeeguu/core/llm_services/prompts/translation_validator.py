@@ -10,7 +10,11 @@ COMBINED_VALIDATION_PROMPT = """You are validating and classifying a language le
 A learner highlighted "{word}" in this {source_lang} sentence:
 "{context}"
 
-The translation system gave: "{translation}" ({target_lang})
+The translation is in {target_lang}: "{translation}"
+
+CRITICAL: The translation "{translation}" is in {target_lang}, NOT English!
+If {target_lang} is Dutch, German, etc., interpret the translation IN THAT LANGUAGE.
+Example: "offer" in Dutch means "victim/sacrifice" - this is VALID for "víctima" (Spanish).
 
 STEP 1 - VALIDATION:
 1. Is "{word}" a meaningful learning unit? (Not an arbitrary fragment like "bruger den" = "are using it")
