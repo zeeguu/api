@@ -6,6 +6,15 @@ This service consolidates the validation logic that was previously duplicated in
 - generated_examples.py (API endpoint)
 - prefetch_example_sentences_for_users.py (batch tool)
 
+Validation outcomes:
+
+| Scenario                                    | Outcome                                         |
+|---------------------------------------------|-------------------------------------------------|
+| Translation is valid                        | Mark VALID, return user_word                    |
+| Invalid, no correction available            | Mark INVALID, fit_for_study=False, return None  |
+| Invalid with correction -> different meaning| old=INVALID, new=VALID, transfer to new_user_word|
+| Invalid with correction -> same meaning     | Mark VALID (semantic match), return user_word   |
+
 Usage:
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
 
@@ -39,7 +48,7 @@ class UserWordValidationService:
         from zeeguu.core.model.meaning import Meaning
 
         # Skip if already validated as correct
-        if user_word.meaning.validated == Meaning.VALIDATION_VALID:
+        if user_word.meaning.validated == Meaning.VALID:
             return user_word
 
         # Get validator (fail gracefully if not available)
@@ -86,7 +95,7 @@ class UserWordValidationService:
         from zeeguu.core.model.meaning import Meaning, MeaningFrequency, PhraseType
 
         log(f"[VALIDATION] Translation is valid")
-        meaning.validated = Meaning.VALIDATION_VALID
+        meaning.validated = Meaning.VALID
 
         # Set frequency and phrase_type from combined validation
         if result.frequency:
@@ -135,7 +144,7 @@ class UserWordValidationService:
         # If no actual correction was provided, mark as invalid but don't fix
         if new_word == old_meaning.origin.content and new_translation == old_meaning.translation.content:
             log(f"[VALIDATION] No correction provided, marking as invalid")
-            old_meaning.validated = Meaning.VALIDATION_INVALID
+            old_meaning.validated = Meaning.INVALID
             user_word.fit_for_study = False
             db_session.add_all([old_meaning, user_word])
 
@@ -162,7 +171,7 @@ class UserWordValidationService:
             new_translation,
             old_meaning.translation.language.code
         )
-        new_meaning.validated = Meaning.VALIDATION_VALID
+        new_meaning.validated = Meaning.VALID
 
         # Set frequency and phrase_type from validation result
         if validation_result.frequency:
@@ -173,22 +182,22 @@ class UserWordValidationService:
 
         db_session.add(new_meaning)
 
-        # Mark old meaning as invalid
-        old_meaning.validated = Meaning.VALIDATION_INVALID
-        db_session.add(old_meaning)
-
-        # Log the fix
-        ValidationLog.log_fixed(
-            db_session,
-            old_meaning=old_meaning,
-            new_meaning=new_meaning,
-            user_word_id=user_word.id,
-            reason=validation_result.reason,
-            context=context
-        )
-
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
+            # Mark old meaning as invalid (only if it's a different meaning!)
+            old_meaning.validated = Meaning.INVALID
+            db_session.add(old_meaning)
+
+            # Log the fix
+            ValidationLog.log_fixed(
+                db_session,
+                old_meaning=old_meaning,
+                new_meaning=new_meaning,
+                user_word_id=user_word.id,
+                reason=validation_result.reason,
+                context=context
+            )
+
             # Find or create UserWord for new meaning
             new_user_word = UserWord.find_or_create(
                 db_session,
@@ -212,7 +221,17 @@ class UserWordValidationService:
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")
             return new_user_word
         else:
-            # Same meaning (shouldn't happen often), just commit
+            # Same meaning after case-insensitive lookup - LLM suggested case change
+            # that resolved to same semantic meaning. Mark as valid (already done above).
+            log(f"[VALIDATION] LLM suggested case change that resolved to same meaning - marking as valid")
+
+            # Log as valid (not fixed, since meaning didn't actually change)
+            ValidationLog.log_valid(
+                db_session,
+                meaning=new_meaning,
+                user_word_id=user_word.id,
+                context=context
+            )
+
             db_session.commit()
-            log(f"[VALIDATION] Fixed translation, same meaning")
             return user_word
