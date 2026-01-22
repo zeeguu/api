@@ -34,22 +34,39 @@ def get_scheduled_words_needing_validation(
     max_words: Optional[int] = None,
     user_id: Optional[int] = None,
     days_active: int = 30,
+    fix_slash_translations: bool = False,
 ) -> List[UserWord]:
     """
     Get user_words that are scheduled but not yet validated.
 
     Only includes words for users active in the last N days.
     These are legacy words from before the validation feature was deployed.
+
+    If fix_slash_translations is True, also includes already-validated meanings
+    that have "/" in the translation (need re-validation to pick one).
     """
     from datetime import timedelta
+    from sqlalchemy import or_
+    from zeeguu.core.model import Phrase
 
     query = (
         UserWord.query
         .join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
         .join(Meaning, UserWord.meaning_id == Meaning.id)
-        .filter(Meaning.validated != Meaning.VALID)
+        .join(Phrase, Meaning.translation_id == Phrase.id)
         .filter(UserWord.fit_for_study == True)
     )
+
+    if fix_slash_translations:
+        # Include: not validated OR has "/" in translation
+        query = query.filter(
+            or_(
+                Meaning.validated != Meaning.VALID,
+                Phrase.content.like('%/%')
+            )
+        )
+    else:
+        query = query.filter(Meaning.validated != Meaning.VALID)
 
     if user_id:
         query = query.filter(UserWord.user_id == user_id)
@@ -122,6 +139,7 @@ def batch_validate(
     user_id: Optional[int] = None,
     days_active: int = 30,
     dry_run: bool = False,
+    fix_slash_translations: bool = False,
 ) -> dict:
     """
     Validate all scheduled words that haven't been validated yet.
@@ -131,7 +149,7 @@ def batch_validate(
     """
     start_time = datetime.now()
 
-    user_words = get_scheduled_words_needing_validation(max_words, user_id, days_active)
+    user_words = get_scheduled_words_needing_validation(max_words, user_id, days_active, fix_slash_translations)
     total = len(user_words)
 
     log(f"Found {total} scheduled user_words needing validation")
@@ -203,6 +221,10 @@ def main():
         "--days-active", type=int, default=30,
         help="Only validate for users active in the last N days (default: 30)"
     )
+    parser.add_argument(
+        "--fix-slash", action="store_true",
+        help="Also re-validate translations containing '/' to pick one option"
+    )
 
     args = parser.parse_args()
 
@@ -216,6 +238,7 @@ def main():
         user_id=args.user_id,
         days_active=args.days_active,
         dry_run=args.dry_run,
+        fix_slash_translations=args.fix_slash,
     )
 
     if not args.dry_run:
