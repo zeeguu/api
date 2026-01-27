@@ -73,6 +73,7 @@ PROOFREADING (CRITICAL):
 - Check noun forms (singular/plural, gender where applicable)
 - Verify article-noun agreement
 - Simple vocabulary does NOT mean incorrect spelling - A1 text must still be grammatically perfect
+- COMPOUND WORDS: In German, Dutch, Danish, Swedish, and Norwegian, compound words must be written as ONE WORD without hyphens. Never split compound words with hyphens to make them "easier" - this is grammatically incorrect. Example: "Krebsbehandlung" NOT "Krebs-Behandlung", "Mutterkonzern" NOT "Mutter-Konzern"
 
 MARKDOWN FORMATTING RULES:
 - Use proper Markdown syntax for all content
