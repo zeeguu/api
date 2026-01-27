@@ -301,18 +301,28 @@ def set_user_word_exercise_preference(bookmark_id):
 @cross_domain
 @requires_session
 def set_user_word_exercise_dislike(bookmark_id):
-    from datetime import datetime
+    from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
     bookmark = Bookmark.find(bookmark_id)
     user_word = bookmark.user_word
-    user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
-    user_word.update_fit_for_study(db_session)
-
-    # Check if reason is "learned_already" - if so, mark as learned
     reason = request.form.get("reason", "")
-    if reason == "learned_already":
-        user_word.learned_time = datetime.now()
 
+    if reason == "declared_known":
+        user_word.user_preference = UserWordExPreference.DECLARED_KNOWN
+        UserWordInteractionHistory.log(
+            db_session, user_word,
+            UserWordInteractionHistory.DECLARED_KNOWN,
+        )
+    elif reason == "bad_translation":
+        user_word.user_preference = UserWordExPreference.BAD_TRANSLATION
+        UserWordInteractionHistory.log(
+            db_session, user_word,
+            UserWordInteractionHistory.BAD_TRANSLATION,
+        )
+    else:
+        user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+
+    user_word.update_fit_for_study(db_session)
     BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
     db_session.commit()
     return "OK"
@@ -793,6 +803,17 @@ def add_custom_word():
         user_word = UserWord.find_or_create(
             db_session, user, meaning, is_user_added=True  # Mark as user-added
         )
+
+        # User explicitly added this word — override quality checks
+        from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
+
+        UserWordInteractionHistory.log(
+            db_session, user_word,
+            UserWordInteractionHistory.MANUAL_ADDITION,
+        )
+
+        user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
+        user_word.update_fit_for_study(db_session)
 
         # If no context provided, use the word itself as context
         if not context:
