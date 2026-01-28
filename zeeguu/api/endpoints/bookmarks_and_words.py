@@ -384,6 +384,18 @@ def practiced_user_word_count_this_week():
     return json_result(count)
 
 
+@api.route("/exercises_completed_this_week", methods=["GET"])
+@cross_domain
+@requires_session
+def exercises_completed_this_week():
+    """
+    Returns the total number of exercises the user has completed this week.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    count = user.exercises_completed_this_week()
+    return json_result(count)
+
+
 @api.route("/past_contexts/<int:user_word_id>", methods=["GET"])
 @cross_domain
 @requires_session

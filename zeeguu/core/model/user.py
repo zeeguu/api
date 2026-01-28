@@ -55,6 +55,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
     creation_platform = db.Column(db.SmallInteger, nullable=True)
+    daily_streak = db.Column(db.Integer, default=0)
 
     def __init__(
         self,
@@ -335,6 +336,31 @@ class User(db.Model):
 
         return result
 
+    def exercises_completed_this_week(self):
+        """
+        Returns the total number of exercises completed this week.
+        """
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
+
+        today = datetime.date.today()
+        start_of_week = today - datetime.timedelta(days=today.weekday())
+
+        result = (
+            db.session.query(Exercise)
+            .join(UserWord, Exercise.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(UserWord.user_id == self.id)
+            .filter(Exercise.time >= start_of_week)
+            .filter(Phrase.language_id == self.learned_language_id)
+            .count()
+        )
+
+        return result
+
     def liked_articles(self):
         from zeeguu.core.model.user_article import UserArticle
 
@@ -353,11 +379,19 @@ class User(db.Model):
     def update_last_seen_if_needed(self, session=None):
         """
         Update last_seen timestamp, but only once per day to minimize database writes.
+        Also maintains the daily_streak counter.
         """
         now = datetime.datetime.now()
 
         # Only update if last_seen is None or it's a different day
         if not self.last_seen or self.last_seen.date() < now.date():
+            if not self.last_seen:
+                self.daily_streak = 1
+            elif self.last_seen.date() == now.date() - datetime.timedelta(days=1):
+                self.daily_streak = (self.daily_streak or 0) + 1
+            else:
+                self.daily_streak = 1
+
             self.last_seen = now
             if session:
                 session.add(self)

@@ -47,3 +47,4 @@ from . import article_cefr_recompute
 from . import crawl_stats
 from . import user_stats
 from . import session_history
+from . import daily_streak
