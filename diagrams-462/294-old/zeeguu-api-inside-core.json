@@ -1,0 +1,423 @@
+{
+    "title": "zeeguu-api-inside-core",
+    "packages": [
+        {
+            "name": "core.elastic",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.nlp_pipeline",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.word_scheduling",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.word_stats",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.crowd_translations",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.sql",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.semantic_vector_api",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.semantic_search",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.user_statistics",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_recommender",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.word_filter",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.ml_models",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_retriever",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.bookmark_quality",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.behavioral_modeling",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.user_activity_hooks",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.emailer",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.language",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.exercises",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.account_management",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.feed_handler",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.tokenization",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_cleaning",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_quality",
+            "state": "NEUTRAL"
+        }
+    ],
+    "edges": [
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.elastic",
+            "toPackage": "core.semantic_vector_api",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "indexing.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/indexing.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_vector_api/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.semantic_search",
+            "toPackage": "core.content_recommender",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "elastic_recommender.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_recommender/elastic_recommender.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.semantic_search",
+            "toPackage": "core.elastic",
+            "label": "2",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "elastic_query_builder.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/elastic_query_builder.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "settings.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/settings.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.semantic_search",
+            "toPackage": "core.semantic_vector_api",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_vector_api/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_recommender",
+            "toPackage": "core.elastic",
+            "label": "3",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "elastic_recommender.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_recommender/elastic_recommender.py"
+                    },
+                    "to_file": {
+                        "name": "basic_ops.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/basic_ops.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "elastic_recommender.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_recommender/elastic_recommender.py"
+                    },
+                    "to_file": {
+                        "name": "elastic_query_builder.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/elastic_query_builder.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "elastic_recommender.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_recommender/elastic_recommender.py"
+                    },
+                    "to_file": {
+                        "name": "settings.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/settings.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.content_cleaning",
+            "label": "2",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/__init__.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_cleaning/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_cleaning/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.content_quality",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "quality_filter.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_quality/quality_filter.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.semantic_search",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.elastic",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "indexing.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/indexing.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.user_activity_hooks",
+            "toPackage": "core.emailer",
+            "label": "2",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_interaction_hooks.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/user_activity_hooks/article_interaction_hooks.py"
+                    },
+                    "to_file": {
+                        "name": "user_activity.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/emailer/user_activity.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article_interaction_hooks.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/user_activity_hooks/article_interaction_hooks.py"
+                    },
+                    "to_file": {
+                        "name": "user_activity.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/emailer/user_activity.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.exercises",
+            "toPackage": "core.word_stats",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "similar_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/exercises/similar_words.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/word_stats/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.exercises",
+            "toPackage": "core.word_filter",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "similar_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/exercises/similar_words.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/word_filter/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.exercises",
+            "toPackage": "core.word_scheduling",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "similar_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/exercises/similar_words.py"
+                    },
+                    "to_file": {
+                        "name": "basicSR.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/word_scheduling/basicSR/basicSR.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.account_management",
+            "toPackage": "core.emailer",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "user_account_creation.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/account_management/user_account_creation.py"
+                    },
+                    "to_file": {
+                        "name": "user_activity.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/emailer/user_activity.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_quality",
+            "toPackage": "core.ml_models",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "quality_filter.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_quality/quality_filter.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/ml_models/__init__.py"
+                    }
+                }
+            ]
+        }
+    ]
+}
