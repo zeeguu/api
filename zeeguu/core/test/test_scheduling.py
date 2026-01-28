@@ -5,6 +5,7 @@ from zeeguu.core.test.rules.exercise_session_rule import ExerciseSessionRule
 from zeeguu.core.test.rules.outcome_rule import OutcomeRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.test.rules.scheduler_rule import SchedulerRule
+from zeeguu.core.model.user import User
 
 from zeeguu.core.model.db import db
 from datetime import datetime, timedelta
@@ -26,15 +27,48 @@ EIGHT_DAYS_COOLING = 8 * ONE_DAY
 
 
 class SchedulerTest(ModelTestMixIn):
+    """
+    Scheduler tests using class-level setup to share user.
+    Each test creates its own bookmarks as needed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        """Create shared user once for all tests."""
+        from zeeguu.core.test.conftest import get_shared_app, get_mock, init_fixtures_once
+
+        cls.app = get_shared_app()
+        get_mock()
+
+        with cls.app.app_context():
+            init_fixtures_once()
+
+            cls.user_rule = UserRule()
+            cls._user_id = cls.user_rule.user.id
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up after all tests in this class."""
+        from zeeguu.core.test.conftest import cleanup_tables
+
+        with cls.app.app_context():
+            db_session.close()
+            cleanup_tables()
+
     def setUp(self):
-        super().setUp()
+        """Per-test setup - get fresh user reference."""
+        from faker import Faker
+        self.faker = Faker()
+        self.four_levels_user = User.find_by_id(self._user_id)
 
-        # A user with the four levels
-        self.user_rule_levels = UserRule()
-        self.four_levels_user = self.user_rule_levels.user
+    def tearDown(self):
+        """Per-test teardown - don't clean tables, done in tearDownClass."""
+        pass
 
-        db_session.add(self.four_levels_user)
-        db_session.commit()
+    def run(self, result=None):
+        """Run test within app context."""
+        with self.app.app_context():
+            super(ModelTestMixIn, self).run(result)
 
     # ================================================================================================================
     # Note: Helper functions are at the bottom of the class definition
