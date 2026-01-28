@@ -14,6 +14,14 @@ from zeeguu.core.test.mocking_the_web import mock_requests_get
 
 _app = None
 _mock = None
+_fixtures_initialized = False
+
+# Tables whose data persists across tests (expensive to recreate)
+_KEEP_TABLES = frozenset({
+    "language",
+    "context_type",
+    "source_type",
+})
 
 
 class _FakeWordInfo:
@@ -75,9 +83,22 @@ def get_mock():
     return _mock
 
 
+def init_fixtures_once():
+    """Initialize context_type and source_type once per session."""
+    global _fixtures_initialized
+    if _fixtures_initialized:
+        return
+
+    from zeeguu.core.test.fixtures import add_context_types, add_source_types
+    add_context_types()
+    add_source_types()
+    _fixtures_initialized = True
+
+
 def cleanup_tables():
-    """Delete all rows from all tables."""
+    """Delete per-test data while keeping fixture tables."""
     _db.session.remove()
     for table in reversed(_db.metadata.sorted_tables):
-        _db.session.execute(table.delete())
+        if table.name not in _KEEP_TABLES:
+            _db.session.execute(table.delete())
     _db.session.commit()

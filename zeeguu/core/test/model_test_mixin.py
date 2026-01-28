@@ -5,15 +5,13 @@ from faker import Faker
 
 from unittest import TestCase
 
-from zeeguu.core.test.conftest import get_shared_app, get_mock, cleanup_tables
-from zeeguu.core.test.fixtures import add_context_types, add_source_types
+from zeeguu.core.test.conftest import get_shared_app, get_mock, cleanup_tables, init_fixtures_once
 
 
 class ModelTestMixIn(TestCase):
     def setUp(self):
         self.faker = Faker()
-        add_context_types()
-        add_source_types()
+        init_fixtures_once()
 
     def tearDown(self):
         super(ModelTestMixIn, self).tearDown()
