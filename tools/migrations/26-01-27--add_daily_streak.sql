@@ -1,0 +1,1 @@
+ALTER TABLE user ADD COLUMN daily_streak INT NOT NULL DEFAULT 0;
