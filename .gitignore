@@ -22,7 +22,6 @@ build*
 dash.cfg
 env_var_defs.py
 .pytest_cache*
-.testmondata
 zeeguu_api/machine_specific.py
 *.db-journal
 
@@ -53,5 +52,3 @@ diagrams/*.json
 # Keep internal technical design documents private
 experiments/
 docs/particle_verb_detection.md
-/.testmondata-wal
-/.testmondata-shm
