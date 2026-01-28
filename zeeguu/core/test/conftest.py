@@ -7,7 +7,7 @@ Mocks wordstats to avoid loading 400k WordInfo objects (~12s).
 
 import requests_mock
 
-from zeeguu.api.app import create_app
+from zeeguu.core.test.test_app import create_test_app
 from zeeguu.core.model.db import db as _db
 from zeeguu.core.test.mocking_the_web import mock_requests_get
 
@@ -61,9 +61,7 @@ def get_shared_app():
     global _app
     if _app is None:
         _install_wordstats_mock()
-        _app = create_app(testing=True)
-        with _app.app_context():
-            _db.create_all()
+        _app = create_test_app()
     return _app
 
 

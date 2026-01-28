@@ -9,6 +9,9 @@ from zeeguu.core.test.mocking_the_web import mock_requests_get
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 from zeeguu.core.model.db import db
 
+# Import shared fixtures from core
+from zeeguu.core.test.fixtures import add_context_types, add_source_types
+
 db_session = db.session
 
 
@@ -131,17 +134,16 @@ def add_one_bookmark(logged_in_client):
     return bookmark_id
 
 
-def add_context_types():
-    from zeeguu.core.model.context_type import ContextType
-
-    for type in ContextType.ALL_TYPES:
-        ContextType.find_or_create(db_session, type, commit=False)
-    db_session.commit()
-
-
-def add_source_types():
-    from zeeguu.core.model.source_type import SourceType
-
-    for type in SourceType.ALL_TYPES:
-        SourceType.find_or_create(db_session, type, commit=False)
-    db_session.commit()
+# Re-export for backward compatibility (actual implementations are in zeeguu.core.test.fixtures)
+__all__ = [
+    "client",
+    "test_app",
+    "logged_in_client",
+    "logged_in_teacher",
+    "LoggedInClient",
+    "LoggedInTeacher",
+    "create_and_get_article",
+    "add_one_bookmark",
+    "add_context_types",
+    "add_source_types",
+]

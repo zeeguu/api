@@ -6,7 +6,7 @@ from faker import Faker
 from unittest import TestCase
 
 from zeeguu.core.test.conftest import get_shared_app, get_mock, cleanup_tables
-from zeeguu.api.test.fixtures import add_context_types, add_source_types
+from zeeguu.core.test.fixtures import add_context_types, add_source_types
 
 
 class ModelTestMixIn(TestCase):

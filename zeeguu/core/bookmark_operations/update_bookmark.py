@@ -10,6 +10,26 @@ See docs/BOOKMARK_UPDATE_LOGIC.md for detailed documentation.
 """
 from zeeguu.logging import log
 from zeeguu.core.model import Meaning, Text, BookmarkContext, UserWord, Bookmark, Exercise
+
+
+class BookmarkValidationError(Exception):
+    """Raised when bookmark validation fails (e.g., word not found in context)."""
+
+    def __init__(self, error, detail, word, context, error_type=None):
+        self.error = error
+        self.detail = detail
+        self.word = word
+        self.context = context
+        self.error_type = error_type
+        super().__init__(detail)
+
+    def as_dict(self):
+        return {
+            "error": self.error,
+            "detail": self.detail,
+            "word": self.word,
+            "context": self.context,
+        }
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
@@ -305,11 +325,10 @@ def validate_and_update_position(bookmark, word_str, context_str):
         word_str: Origin word to validate
         context_str: Context sentence
 
-    Returns:
-        dict: Error response if validation fails, None if success
+    Raises:
+        BookmarkValidationError: If validation fails
     """
     from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
-    from zeeguu.api.utils.json_result import json_result
 
     language = bookmark.user_word.meaning.origin.language
 
@@ -319,30 +338,26 @@ def validate_and_update_position(bookmark, word_str, context_str):
     if not validation_result["valid"]:
         log(f"ERROR: Word validation failed for '{word_str}' in context: {validation_result['error_type']}")
 
-        # Return appropriate error response
-        if validation_result["error_type"] == "multiple_occurrences":
-            return json_result(
-                {
-                    "error": "Ambiguous word placement",
-                    "detail": validation_result["error_message"],
-                    "word": word_str,
-                    "context": context_str,
-                },
-                status=400,
+        error_type = validation_result["error_type"]
+        if error_type == "multiple_occurrences":
+            raise BookmarkValidationError(
+                error="Ambiguous word placement",
+                detail=validation_result["error_message"],
+                word=word_str,
+                context=context_str,
+                error_type=error_type,
             )
         else:
-            return json_result(
-                {
-                    "error": (
-                        "Word not found in context"
-                        if validation_result["error_type"] == "not_found"
-                        else "Processing failed"
-                    ),
-                    "detail": validation_result["error_message"],
-                    "word": word_str,
-                    "context": context_str,
-                },
-                status=400,
+            raise BookmarkValidationError(
+                error=(
+                    "Word not found in context"
+                    if error_type == "not_found"
+                    else "Processing failed"
+                ),
+                detail=validation_result["error_message"],
+                word=word_str,
+                context=context_str,
+                error_type=error_type,
             )
 
     # Update position anchors
@@ -358,8 +373,6 @@ def validate_and_update_position(bookmark, word_str, context_str):
         from zeeguu.core.model.context_type import ContextType
         bookmark.context.context_type = ContextType.find_by_type(ContextType.USER_EDITED_TEXT)
         print(f"[UPDATE_BOOKMARK] ✓ Updated context type to USER_EDITED_TEXT")
-
-    return None  # Success
 
 
 def context_or_word_changed(word_str, context_str, bookmark, original_user_word, old_context_id=None, old_text_id=None):
@@ -400,17 +413,15 @@ def context_or_word_changed(word_str, context_str, bookmark, original_user_word,
 
 def format_response(bookmark, new_user_word):
     """
-    Format updated bookmark as JSON response.
+    Format updated bookmark as dictionary for response.
 
     Args:
         bookmark: Updated bookmark
         new_user_word: UserWord bookmark now belongs to
 
     Returns:
-        Flask response with JSON
+        dict: Bookmark data ready for JSON serialization
     """
-    from zeeguu.api.utils.json_result import json_result
-
     updated_bookmark = bookmark.as_dictionary(
         with_exercise_info=True,
         with_context_tokenized=True,
@@ -428,4 +439,4 @@ def format_response(bookmark, new_user_word):
     print(f"[UPDATE_BOOKMARK] ✓ Update completed successfully for bookmark {bookmark.id}")
     print(f"[UPDATE_BOOKMARK] Returning: word='{updated_bookmark.get('from')}', translation='{updated_bookmark.get('to')}'")
 
-    return json_result(updated_bookmark)
+    return updated_bookmark

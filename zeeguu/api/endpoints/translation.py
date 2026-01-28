@@ -327,6 +327,7 @@ def update_bookmark_full(bookmark_id):
         cleanup_old_user_word,
         validate_and_update_position,
         format_response,
+        BookmarkValidationError,
     )
 
     print(f"[UPDATE_BOOKMARK] ========== START: bookmark_id={bookmark_id} ==========")
@@ -413,9 +414,10 @@ def update_bookmark_full(bookmark_id):
     # 3. Context string reconstruction from tokens may differ from stored context
     if not (word_unchanged and context_unchanged):
         print(f"[UPDATE_BOOKMARK] Word or context changed, validating position...")
-        error_response = validate_and_update_position(bookmark, word_str, context_str)
-        if error_response:
-            return error_response  # Validation failed, return error
+        try:
+            validate_and_update_position(bookmark, word_str, context_str)
+        except BookmarkValidationError as e:
+            return json_result(e.as_dict(), status=400)
     else:
         print(f"[UPDATE_BOOKMARK] Word and context unchanged, skipping position validation")
 
@@ -426,7 +428,7 @@ def update_bookmark_full(bookmark_id):
     # Refresh to get latest fit_for_study status
     db_session.refresh(new_user_word)
 
-    return format_response(bookmark, new_user_word)
+    return json_result(format_response(bookmark, new_user_word))
 
 
 # ================================================

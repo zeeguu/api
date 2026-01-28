@@ -301,9 +301,12 @@ def subscribe_to_email_search(search_terms):
     user = User.find_by_id(flask.g.user_id)
     search = Search.find(search_terms, user.learned_language_id)
     receive_email = True
-    subscription = SearchSubscription.update_receive_email(
-        db_session, user, search, receive_email
-    )
+    try:
+        subscription = SearchSubscription.update_receive_email(
+            db_session, user, search, receive_email
+        )
+    except ValueError as e:
+        return make_error(401, str(e))
 
     return json_result(subscription.as_dictionary())
 
@@ -320,8 +323,11 @@ def unsubscribe_from_email_search(search_terms):
     search = Search.find(search_terms, user.learned_language_id)
 
     receive_email = False
-    subscription = SearchSubscription.update_receive_email(
-        db_session, user, search, receive_email
-    )
+    try:
+        subscription = SearchSubscription.update_receive_email(
+            db_session, user, search, receive_email
+        )
+    except ValueError as e:
+        return make_error(401, str(e))
 
     return json_result(subscription.as_dictionary())
