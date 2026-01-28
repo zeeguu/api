@@ -88,8 +88,6 @@ JUNK_PREFIXES = [
 :return:
 """
 
-print("-------->>>>> at the beginning of content_cleaner.py")
-
 
 def normalize_sent(text: str):
     return text.lower().strip()
