@@ -5,19 +5,14 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.url_rule import UrlRule
-from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.model.domain_name import DomainName
 from zeeguu.core.model.url import Url
-
-from zeeguu.core.model.db import db
 
 
 class DomainTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
-        self.user_rule = UserRule()
-        self.user_rule.add_bookmarks(random.randint(1, 5))
-        self.user = self.user_rule.user
+        # Note: No bookmarks needed - these tests only work with URLs and domains
 
     def test_url_domain(self):
         """Tests the correct retrieval of a domain from a random url

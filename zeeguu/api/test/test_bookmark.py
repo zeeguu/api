@@ -6,14 +6,26 @@ from fixtures import (
 )
 
 
-def test_delete(client):
+def test_delete_bookmark(client):
     add_context_types()
     add_source_types()
     bookmark_id = add_one_bookmark(client)
-    client.post(f"delete_bookmark/{bookmark_id}")
 
-    bookmarks = _get_bookmarks_by_day(client)
-    assert bookmarks is not []
+    # Verify bookmark exists
+    bookmarks_before = _get_bookmarks_by_day(client)
+    bookmark_ids_before = [b["id"] for b in bookmarks_before[0]["bookmarks"]]
+    assert bookmark_id in bookmark_ids_before
+
+    # Delete and verify response
+    response = client.post(f"delete_bookmark/{bookmark_id}")
+    assert response == b"OK"
+
+    # Verify bookmark is gone
+    bookmarks_after = _get_bookmarks_by_day(client)
+    if bookmarks_after:
+        bookmark_ids_after = [b["id"] for b in bookmarks_after[0]["bookmarks"]]
+        assert bookmark_id not in bookmark_ids_after
+    # If bookmarks_after is empty, that's also correct (bookmark was deleted)
 
 
 def test_last_bookmark_added_is_first_in_bookmarks_by_day(client):
