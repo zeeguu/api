@@ -421,20 +421,20 @@ class Article(db.Model):
             ArticleTokenizationCache,
         )
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+        from zeeguu.core.tokenization.zeeguu_tokenizer import ZeeguuTokenizer
         from zeeguu.core.mwe import tokenize_for_reading
         from zeeguu.core.model.db import db
         import json
 
-        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
         content = self.get_content()
 
         result = {
             "content": content,
             "htmlContent": self.htmlContent,
-            "paragraphs": tokenizer.split_into_paragraphs(content),
+            "paragraphs": ZeeguuTokenizer.split_into_paragraphs(content),
         }
 
-        # Check cache first
+        # Check cache first — before loading the tokenizer (which loads Stanza/torch)
         cache = ArticleTokenizationCache.get_for_article(db.session, self.id)
         if cache and cache.tokenized_content:
             log(f"[CACHE-HIT] Article {self.id} - Using cached tokenized content")
@@ -445,8 +445,9 @@ class Article(db.Model):
             result["tokenized_title"] = cached_data.get("tokenized_title", [])
             return result
 
-        # Cache miss - tokenize everything
+        # Cache miss - load tokenizer and tokenize everything
         log(f"[CACHE-MISS] Article {self.id} - Tokenizing content with MWE detection")
+        tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
 
         # Tokenize main content
         result["tokenized_paragraphs"] = tokenize_for_reading(content, self.language)

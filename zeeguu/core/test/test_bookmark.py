@@ -26,164 +26,137 @@ class BookmarkTest(ModelTestMixIn):
         self.user_rule.add_bookmarks(random.randint(3, 5))
         self.user = self.user_rule.user
 
-    def test_user_has_bookmarks(self):
+    def test_bookmark_queries(self):
+        """Consolidated: has_bookmarks, count, serializable, find, find_all,
+        find_by_user, find_by_context, find_by_meaning_and_context."""
+
+        # user has bookmarks
         assert self.user.has_bookmarks()
 
-    def _helper_create_exercise(self, random_bookmark):
+        # user bookmark count
+        all_bookmarks = self.user.all_bookmarks()
+        assert len(all_bookmarks) > 0
 
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
-        random_exercise = ExerciseRule(exercise_session).exercise
-        random_bookmark.user_word.add_new_exercise(random_exercise)
-
-    def test_add_new_exercise(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-
-        length_original_exercise_log = len(random_bookmark.user_word.exercise_log)
-        self._helper_create_exercise(random_bookmark)
-
-        length_new_exercise_log = len(random_bookmark.user_word.exercise_log)
-        assert length_original_exercise_log < length_new_exercise_log
-
-    def test_bookmarks_to_study_is_not_empty(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        self._helper_create_exercise(random_bookmark)
-
-        bookmarks = BasicSRSchedule.scheduled_words_due_today(self.user)
-
-        assert bookmarks is not None
-
-    def test_translation(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        assert random_bookmark.user_word.meaning.translation is not None
-
-    def test_bookmarks_in_article(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        article = random_bookmark.text.article
-        # each bookmark belongs to a random text / article so the
-        # combo of user/article will always result in one bookmark
-        assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
-
-    def test_add_exercise_outcome(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
-        random_exercise = ExerciseRule(exercise_session).exercise
-        random_bookmark.add_new_exercise_result(
-            db_session,
-            random_exercise.source,
-            random_exercise.outcome,
-            random_exercise.solving_speed,
-            exercise_session.id,
-        )
-        latest_exercise = random_bookmark.user_word.exercise_log[-1]
-
-        assert latest_exercise.source == random_exercise.source
-        assert latest_exercise.outcome == random_exercise.outcome
-        assert latest_exercise.solving_speed == random_exercise.solving_speed
-
-    def test_user_bookmark_count(self):
-        assert len(self.user.all_bookmarks()) > 0
-
-    def test_bookmark_is_serializable(self):
-        b = self.user.all_bookmarks()[0]
+        # bookmark is serializable
+        b = all_bookmarks[0]
         assert b.as_dictionary()
 
-    def test_bad_quality_bookmark(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 3)]
-
-        random_bookmarks[0].user_word.meaning.origin = random_bookmarks[
-            0
-        ].user_word.meaning.translation
-        random_bookmarks[1].user_word.meaning.origin.content = self.faker.sentence(
-            nb_words=10
-        )
-        random_bookmarks[2].user_word.meaning.origin.content = self.faker.word()[:2]
-
-        for b in random_bookmarks:
-            assert bad_quality_meaning(b.user_word)
-
-    def test_fit_for_study(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 2)]
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
-        random_exercise = ExerciseRule(exercise_session).exercise
-
-        random_exercise.outcome = OutcomeRule().wrong
-
-        random_bookmarks[0].starred = True
-        random_bookmarks[1].starred = True
-        random_bookmarks[1].user_word.add_new_exercise(random_exercise)
-
-    def test_add_new_exercise_result(self):
-        random_bookmark = BookmarkRule(self.user).bookmark
-        exercise_count_before = len(random_bookmark.user_word.exercise_log)
-
-        exercise_session = ExerciseSessionRule(self.user).exerciseSession
-
-        random_bookmark.add_new_exercise_result(
-            db_session,
-            ExerciseSourceRule().random,
-            OutcomeRule().random,
-            random.randint(100, 1000),
-            exercise_session.id,
-        )
-
-        exercise_count_after = len(random_bookmark.user_word.exercise_log)
-
-        assert exercise_count_after > exercise_count_before
-
-    def test_find_by_specific_user(self):
-        list_should_be = self.user.all_bookmarks()
+        # find by specific user
         list_to_check = Bookmark.find_by_specific_user(self.user)
+        for bm in all_bookmarks:
+            assert bm in list_to_check
 
-        for b in list_should_be:
-            assert b in list_to_check
+        # find all
+        all_list = Bookmark.find_all()
+        for bm in all_bookmarks:
+            assert bm in all_list
 
-    def test_find_all(self):
-        list_should_be = self.user.all_bookmarks()
-        list_to_check = Bookmark.find_all()
-
-        for b in list_should_be:
-            assert b in list_to_check
-
-    def test_find_all_for_user_and_context(self):
-        bookmark_should_be = self.user.all_bookmarks()[0]
+        # find all for user and context
+        bookmark_should_be = all_bookmarks[0]
         bookmark_to_check = Bookmark.find_all_for_context_and_user(
             bookmark_should_be.context, self.user
         )
-
         assert bookmark_should_be in bookmark_to_check
 
-    def test_find(self):
-        bookmark_should_be = self.user.all_bookmarks()[0]
+        # find by id
         bookmark_to_check = Bookmark.find(bookmark_should_be.id)
-
         assert bookmark_to_check == bookmark_should_be
 
-    def test_find_by_meaning_and_context(self):
-        bookmark_should_be = self.user.all_bookmarks()[0]
+        # find by meaning and context
         bookmark_to_check = Bookmark.find_by_usermeaning_and_context(
             bookmark_should_be.user_word,
             bookmark_should_be.context,
         )
-
         assert bookmark_to_check == bookmark_should_be
 
-    def test_latest_exercise_outcome(self):
-        random_bookmark = self.user.all_bookmarks()[0]
-        exercise_log = SortedExerciseLog(random_bookmark.user_word)
+    def test_exercises(self):
+        """Consolidated: add_new_exercise, add_exercise_outcome,
+        add_new_exercise_result, bookmarks_to_study, latest_exercise_outcome.
+        Reuses setUp bookmarks to avoid creating extra objects."""
+
+        all_bookmarks = self.user.all_bookmarks()
+        bm0, bm1, bm2 = all_bookmarks[0], all_bookmarks[1], all_bookmarks[2]
+
+        # latest exercise outcome — check before adding any exercises
+        exercise_log = SortedExerciseLog(bm0.user_word)
         assert exercise_log.latest_exercise_outcome() is None
 
+        # add new exercise — log grows
+        length_before = len(bm0.user_word.exercise_log)
         exercise_session = ExerciseSessionRule(self.user).exerciseSession
         random_exercise = ExerciseRule(exercise_session).exercise
+        bm0.user_word.add_new_exercise(random_exercise)
+        assert len(bm0.user_word.exercise_log) > length_before
 
-        random_bookmark.add_new_exercise(random_exercise)
-
+        # latest exercise outcome — now has one
         assert (
             random_exercise.outcome
-            == SortedExerciseLog(random_bookmark.user_word).latest_exercise_outcome()
+            == SortedExerciseLog(bm0.user_word).latest_exercise_outcome()
         )
 
-    def test_empty_exercises_is_not_learned(self):
-        random_bookmarks = [BookmarkRule(self.user).bookmark for _ in range(0, 4)]
+        # add exercise outcome — fields match
+        exercise_session2 = ExerciseSessionRule(self.user).exerciseSession
+        exercise2 = ExerciseRule(exercise_session2).exercise
+        bm1.add_new_exercise_result(
+            db_session,
+            exercise2.source,
+            exercise2.outcome,
+            exercise2.solving_speed,
+            exercise_session2.id,
+        )
+        latest = bm1.user_word.exercise_log[-1]
+        assert latest.source == exercise2.source
+        assert latest.outcome == exercise2.outcome
+        assert latest.solving_speed == exercise2.solving_speed
 
-        # Empty exercise_log should lead to a False return
-        assert not random_bookmarks[0].user_word.learned_time
+        # add new exercise result — count increases
+        count_before = len(bm2.user_word.exercise_log)
+        exercise_session3 = ExerciseSessionRule(self.user).exerciseSession
+        bm2.add_new_exercise_result(
+            db_session,
+            ExerciseSourceRule().random,
+            OutcomeRule().random,
+            random.randint(100, 1000),
+            exercise_session3.id,
+        )
+        assert len(bm2.user_word.exercise_log) > count_before
+
+        # bookmarks to study is not empty
+        bookmarks_to_study = BasicSRSchedule.scheduled_words_due_today(self.user)
+        assert bookmarks_to_study is not None
+
+    def test_bookmark_quality_and_study(self):
+        """Consolidated: translation, bookmarks_in_article, bad_quality,
+        fit_for_study, empty_exercises_not_learned.
+        Reuses setUp bookmarks to avoid creating extra objects."""
+
+        all_bookmarks = self.user.all_bookmarks()
+
+        # translation exists
+        assert all_bookmarks[0].user_word.meaning.translation is not None
+
+        # bookmarks in article
+        article = all_bookmarks[0].text.article
+        assert 1 == len(Bookmark.find_all_for_user_and_article(self.user, article))
+
+        # empty exercises is not learned (check before modifying bookmarks)
+        assert not all_bookmarks[0].user_word.learned_time
+
+        # fit for study (uses first 2 setUp bookmarks)
+        exercise_session = ExerciseSessionRule(self.user).exerciseSession
+        exercise = ExerciseRule(exercise_session).exercise
+        exercise.outcome = OutcomeRule().wrong
+        all_bookmarks[0].starred = True
+        all_bookmarks[1].starred = True
+        all_bookmarks[1].user_word.add_new_exercise(exercise)
+
+        # bad quality bookmarks (mutate 3 setUp bookmarks — last checks, ok to modify)
+        all_bookmarks[0].user_word.meaning.origin = (
+            all_bookmarks[0].user_word.meaning.translation
+        )
+        all_bookmarks[1].user_word.meaning.origin.content = self.faker.sentence(
+            nb_words=10
+        )
+        all_bookmarks[2].user_word.meaning.origin.content = self.faker.word()[:2]
+        for b in all_bookmarks[:3]:
+            assert bad_quality_meaning(b.user_word)

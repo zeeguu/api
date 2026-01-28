@@ -13,88 +13,28 @@ db_session = db.session
 
 
 @pytest.fixture
-def client():
-    app = create_app(testing=True)
-
+def client(app):
     with app.test_client() as client:
-        with app.app_context():
-            from zeeguu.core.model.db import db
-
-            db.create_all()
-
-            yield client
-
-    with app.app_context():
-        db_session.remove()
-        from zeeguu.core.model.db import db
-
-        db.drop_all()
+        yield client
 
 
 @pytest.fixture
-def test_app():
-    app = create_app(testing=True)
-
-    with app.app_context():
-        from zeeguu.core.model.db import db
-
-        db.create_all()
-
-        yield app
-
-    with app.app_context():
-        db_session.remove()
-        from zeeguu.core.model.db import db
-
-        db.drop_all()
+def test_app(app):
+    yield app
 
 
 @pytest.fixture
-def logged_in_client():
-    app = create_app(testing=True)
-
-    with requests_mock.Mocker() as m:
-        mock_requests_get(m)
-
-        with app.test_client() as client:
-            with app.app_context():
-                from zeeguu.core.model.db import db
-
-                db.create_all()
-
-                logged_in_client = LoggedInClient(client)
-
-                yield logged_in_client
-
-    with app.app_context():
-        db_session.remove()
-        from zeeguu.core.model.db import db
-
-        db.drop_all()
+def logged_in_client(app, _mock_web):
+    with app.test_client() as client:
+        logged_in_client = LoggedInClient(client)
+        yield logged_in_client
 
 
 @pytest.fixture
-def logged_in_teacher():
-    app = create_app(testing=True)
-
-    with requests_mock.Mocker() as m:
-        mock_requests_get(m)
-
-        with app.test_client() as client:
-            with app.app_context():
-                from zeeguu.core.model.db import db
-
-                db.create_all()
-
-                logged_in_client = LoggedInTeacher(client)
-
-                yield logged_in_client
-
-    with app.app_context():
-        db_session.remove()
-        from zeeguu.core.model.db import db
-
-        db.drop_all()
+def logged_in_teacher(app, _mock_web):
+    with app.test_client() as client:
+        logged_in_client = LoggedInTeacher(client)
+        yield logged_in_client
 
 
 class LoggedInClient:
@@ -126,7 +66,7 @@ class LoggedInClient:
             return result
 
     """
-    This is a bit strange: the return type is data in case of 200 
+    This is a bit strange: the return type is data in case of 200
     and a response otherwise; so one can never test the status
     code for a successful response
     """
