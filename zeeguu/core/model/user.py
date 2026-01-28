@@ -336,6 +336,31 @@ class User(db.Model):
 
         return result
 
+    def exercises_completed_this_week(self):
+        """
+        Returns the total number of exercises completed this week.
+        """
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.phrase import Phrase
+        from zeeguu.core.model.meaning import Meaning
+
+        today = datetime.date.today()
+        start_of_week = today - datetime.timedelta(days=today.weekday())
+
+        result = (
+            db.session.query(Exercise)
+            .join(UserWord, Exercise.user_word_id == UserWord.id)
+            .join(Meaning, UserWord.meaning_id == Meaning.id)
+            .join(Phrase, Meaning.origin_id == Phrase.id)
+            .filter(UserWord.user_id == self.id)
+            .filter(Exercise.time >= start_of_week)
+            .filter(Phrase.language_id == self.learned_language_id)
+            .count()
+        )
+
+        return result
+
     def liked_articles(self):
         from zeeguu.core.model.user_article import UserArticle
 
