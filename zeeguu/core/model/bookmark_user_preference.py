@@ -9,9 +9,11 @@ class UserWordExPreference(object):
     @classmethod
     def is_declared_known(cls, preference):
         """Declared known uses even negative values: -6, -4, -2"""
-        return (
-            preference is not None
-            and preference <= -2
-            and preference >= -6
-            and preference % 2 == 0
-        )
+        if preference is None:
+            return False
+        # Handle string values from database (legacy data)
+        try:
+            pref = int(preference)
+        except (ValueError, TypeError):
+            return False
+        return pref <= -2 and pref >= -6 and pref % 2 == 0
