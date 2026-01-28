@@ -142,17 +142,88 @@ def validate_single_occurrence(target_word, context_text, from_lang):
         }
 
 
+def word_appears_standalone(target_word, context_text, from_lang):
+    """
+    Check if a word appears as a standalone token (not embedded in compounds).
+
+    Args:
+        target_word (str): The word to check
+        context_text (str): The context text to search
+        from_lang (Language): The language object
+
+    Returns:
+        dict: {
+            'standalone': bool - True if word appears as standalone token,
+            'only_in_compounds': bool - True if word only appears inside compounds,
+            'compound_examples': list - Examples of compounds containing the word,
+            'error_message': str or None
+        }
+    """
+    try:
+        # Check strict matching (standalone tokens)
+        strict_result = find_word_positions_in_text(target_word, context_text, from_lang, strict_matching=True)
+        strict_positions = strict_result['found_positions']
+
+        # Check fuzzy matching (includes compounds)
+        fuzzy_result = find_word_positions_in_text(target_word, context_text, from_lang, strict_matching=False)
+        fuzzy_positions = fuzzy_result['found_positions']
+
+        # If strict finds it, word appears standalone
+        if len(strict_positions) > 0:
+            return {
+                'standalone': True,
+                'only_in_compounds': False,
+                'compound_examples': [],
+                'error_message': None
+            }
+
+        # If fuzzy finds it but strict doesn't, word only appears in compounds
+        if len(fuzzy_positions) > 0:
+            # Extract the compound words
+            tokens_list = fuzzy_result['tokens_list']
+            compound_examples = []
+            for pos in fuzzy_positions:
+                # Find the token at this position
+                for token in tokens_list:
+                    if token.sent_i == pos['sentence_i'] and token.token_i == pos['token_i']:
+                        compound_examples.append(token.text)
+                        break
+
+            return {
+                'standalone': False,
+                'only_in_compounds': True,
+                'compound_examples': compound_examples,
+                'error_message': f"Word '{target_word}' only appears inside compound words: {compound_examples}"
+            }
+
+        # Word not found at all
+        return {
+            'standalone': False,
+            'only_in_compounds': False,
+            'compound_examples': [],
+            'error_message': f"Word '{target_word}' not found in text"
+        }
+
+    except Exception as e:
+        return {
+            'standalone': False,
+            'only_in_compounds': False,
+            'compound_examples': [],
+            'error_message': f"Error checking word: {str(e)}"
+        }
+
+
 def find_first_occurrence(target_word, context_text, from_lang):
     """
     Find the first occurrence of a word in context text (fuzzy matching).
-    
+
     Used for generated examples where we're more lenient about matching.
-    
+
     Args:
         target_word (str): The word or phrase to find
         context_text (str): The context text to search
         from_lang (Language): The language object
-        
+
     Returns:
         dict: {
             'found': bool,

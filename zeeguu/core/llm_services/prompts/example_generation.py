@@ -98,6 +98,7 @@ CRITICAL REQUIREMENTS:
 6. Include specific details, actions, or situations that uniquely point to this word with this specific meaning
 7. Each sentence should be appropriate for {cefr_level} level learners
 8. Sentences should be practical and relatable to everyday situations
+9. WORD PLACEMENT: The target word "{word}" MUST appear as a standalone, clearly identifiable word in the sentence - NOT embedded inside compound words. For example, if the word is "forhold", use it standalone like "et godt forhold" (a good relationship), NOT inside compounds like "Boligforhold" where it's hard to recognize
 
 EXAMPLE OF VIOLATION TO AVOID:
 If word="virker" and translation="seem", do NOT create sentences where "virker" means "work/function" like:
