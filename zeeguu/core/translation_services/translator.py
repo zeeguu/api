@@ -2,7 +2,7 @@ import json
 import os
 from functools import lru_cache
 
-from zeeguu.api.utils.caching_decorator import cache_on_data_keys
+from zeeguu.core.utils.caching import cache_on_data_keys
 from zeeguu.logging import log
 
 from apimux.api_base import BaseThirdPartyAPIService

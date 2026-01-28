@@ -1,15 +1,12 @@
 # import warnings
 # warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-import requests_mock
-
 from faker import Faker
 
 from unittest import TestCase
 
-from zeeguu.api.app import create_app
-from zeeguu.core.test.mocking_the_web import mock_requests_get
-from zeeguu.api.test.fixtures import add_context_types, add_source_types
+from zeeguu.core.test.conftest import get_shared_app, get_mock, cleanup_tables
+from zeeguu.core.test.fixtures import add_context_types, add_source_types
 
 
 class ModelTestMixIn(TestCase):
@@ -22,23 +19,14 @@ class ModelTestMixIn(TestCase):
         super(ModelTestMixIn, self).tearDown()
         self.faker = None
 
-        # sometimes the tearDown freezes on drop_all
-        # and it seems that it's because there's still
-        # a session open somewhere. Better call first:
         from zeeguu.core.model.db import db
 
         db.session.close()
-
-        db.drop_all()
+        cleanup_tables()
 
     def run(self, result=None):
-        # For the unit tests we use several HTML documents
-        # that are stored locally so we don't have to download
-        # them for every test
-        # To do this we mock requests.get
-        self.app = create_app(testing=True)
+        self.app = get_shared_app()
+        get_mock()
 
-        with requests_mock.Mocker() as m:
-            mock_requests_get(m)
-            with self.app.app_context():
-                super(ModelTestMixIn, self).run(result)
+        with self.app.app_context():
+            super(ModelTestMixIn, self).run(result)

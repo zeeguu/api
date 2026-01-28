@@ -1,6 +1,5 @@
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
-from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.core.model.user import User
 import sqlalchemy
 import zeeguu.core
@@ -92,4 +91,4 @@ class SearchSubscription(db.Model):
             session.commit()
             return subscription
         else:
-            return make_error(401, "There is no search subcription")
+            raise ValueError("There is no search subscription")

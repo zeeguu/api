@@ -1097,7 +1097,7 @@ class User(db.Model):
         return max(declared_level_min, 0), min(declared_level_max, 10)
 
     def has_feature(self, feature_name):
-        from zeeguu.api.endpoints.feature_toggles import is_feature_enabled_for_user
+        from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
 
         return is_feature_enabled_for_user(feature_name, self)
 

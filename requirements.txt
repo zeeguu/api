@@ -95,7 +95,6 @@ sentry-sdk[flask]
 
 # Testing
 pytest
-pytest-testmon
 
 # Version constraints
 pydantic>=1.10.8
