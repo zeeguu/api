@@ -7,12 +7,9 @@ def fit_for_study(user_word):
     preference = int(user_word.user_preference or 0)
 
     return (
-        (
-            quality_meaning(user_word)
-            or preference == UserWordExPreference.USE_IN_EXERCISES
-        )
-        and not preference == UserWordExPreference.DONT_USE_IN_EXERCISES
-    )
+        quality_meaning(user_word)
+        or preference == UserWordExPreference.USE_IN_EXERCISES
+    ) and preference >= UserWordExPreference.NO_PREFERENCE
 
 
 def feedback_prevents_further_study(exercise_log):

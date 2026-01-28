@@ -53,6 +53,7 @@ from .exercise_source import ExerciseSource
 
 # user logging
 from .user_activitiy_data import UserActivityData
+from .user_word_interaction_history import UserWordInteractionHistory
 
 # teachers and cohorts
 
@@ -99,3 +100,6 @@ from .user_listening_session import UserListeningSession
 
 # grammar correction tracking
 from .grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType
+
+# translation validation
+from .validation_log import ValidationLog
