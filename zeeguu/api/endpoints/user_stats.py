@@ -1592,6 +1592,24 @@ def user_stats_cohort_dashboard(cohort_id):
     return Response(html, mimetype="text/html")
 
 
+@api.route("/admin", methods=["GET"])
+@cross_domain
+def admin_index():
+    """
+    Main admin entry point.
+    Redirects to dashboard if logged in as admin, otherwise to login page.
+    """
+    session_uuid = request.cookies.get("chocolatechip")
+    if session_uuid:
+        session_object = Session.find(session_uuid)
+        if session_object:
+            user = User.find_by_id(session_object.user_id)
+            if user and user.is_admin:
+                return redirect("/user_stats/dashboard")
+
+    return redirect("/admin/login")
+
+
 @api.route("/admin/login", methods=["GET"])
 @cross_domain
 def admin_login_form():
