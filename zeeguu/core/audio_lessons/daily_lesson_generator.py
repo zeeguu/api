@@ -165,8 +165,8 @@ class DailyLessonGenerator:
         """
         meaning = user_word.meaning
 
-        # Check if audio lesson already exists for this meaning
-        existing_lesson = AudioLessonMeaning.find_by_meaning(meaning)
+        # Check if audio lesson already exists for this meaning and teacher language
+        existing_lesson = AudioLessonMeaning.find_by_meaning(meaning, teacher_language=translation_language)
         if existing_lesson:
             return existing_lesson
 
@@ -185,6 +185,7 @@ class DailyLessonGenerator:
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
+            teacher_language=translation_language,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID

@@ -23,6 +23,7 @@ class AudioLessonMeaning(db.Model):
 
     script = Column(Text, nullable=False)
     voice_config = Column(JSON)
+    teacher_language = Column(String(10), nullable=True)  # e.g. 'en', 'uk', 'da'
 
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
@@ -40,6 +41,7 @@ class AudioLessonMeaning(db.Model):
         lesson_type="contextual_examples",
         voice_config=None,
         duration_seconds=None,
+        teacher_language=None,
     ):
         self.meaning = meaning
         self.script = script
@@ -48,6 +50,7 @@ class AudioLessonMeaning(db.Model):
         self.lesson_type = lesson_type
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
+        self.teacher_language = teacher_language
 
     def __repr__(self):
         return f"<AudioLessonMeaning {self.id} for meaning {self.meaning_id}>"
@@ -58,6 +61,9 @@ class AudioLessonMeaning(db.Model):
         return f"/audio/lessons/{self.id}.mp3"
 
     @classmethod
-    def find_by_meaning(cls, meaning):
-        """Find audio lesson for a specific meaning"""
-        return cls.query.filter_by(meaning=meaning).first()
+    def find_by_meaning(cls, meaning, teacher_language=None):
+        """Find audio lesson for a specific meaning and teacher language"""
+        query = cls.query.filter_by(meaning=meaning)
+        if teacher_language:
+            query = query.filter_by(teacher_language=teacher_language)
+        return query.first()
