@@ -5,32 +5,53 @@ Maps voice names and languages to Google Cloud Text-to-Speech voice IDs.
 
 # Voice mappings for different languages
 VOICE_CONFIG = {
-    "da-DK": {"woman": "da-DK-Wavenet-A", "man": "da-DK-Wavenet-G"},  # Danish
+    "da-DK": {  # Danish
+        "woman": "da-DK-Wavenet-A",
+        "man": "da-DK-Wavenet-G",
+        "teacher": "da-DK-Wavenet-A",
+    },
     "es-ES": {  # Spanish
         "woman": "es-ES-Chirp3-HD-Aoede",
         "man": "es-ES-Chirp3-HD-Algenib",
+        "teacher": "es-ES-Chirp3-HD-Aoede",
     },
-    "it-IT": {"woman": "it-IT-Wavenet-A", "man": "it-IT-Wavenet-D"},  # Italian
+    "it-IT": {  # Italian
+        "woman": "it-IT-Wavenet-A",
+        "man": "it-IT-Wavenet-D",
+        "teacher": "it-IT-Wavenet-A",
+    },
     "pt-PT": {  # Portuguese (European)
         "woman": "pt-PT-Wavenet-E",
         "man": "pt-PT-Wavenet-F",
+        "teacher": "pt-PT-Wavenet-E",
     },
     "fr-FR": {  # French (France)
         "woman": "fr-FR-Chirp3-HD-Sulafat",
         "man": "fr-FR-Chirp3-HD-Algenib",
+        "teacher": "fr-FR-Chirp3-HD-Sulafat",
     },
     "de-DE": {  # German (Germany)
         "woman": "de-DE-Chirp3-HD-Aoede",
         "man": "de-DE-Chirp3-HD-Enceladus",
+        "teacher": "de-DE-Chirp3-HD-Aoede",
         # others good women: de-DE-Chirp3-HD-Gacrux, de-DE-Chirp3-HD-Sulafat
         # others good men: de-DE-Chirp3-HD-Algenib, de-DE-Chirp3-HD-Sadachbia
     },
     "nl-NL": {  # Dutch (Netherlands)
         "woman": "nl-NL-Chirp3-HD-Aoede",
         "man": "nl-NL-Chirp3-HD-Enceladus",  # nl-NL-Chirp3-HD-Algieba
+        "teacher": "nl-NL-Chirp3-HD-Aoede",
     },
-    "sv-SE": {"woman": "sv-SE-Standard-F", "man": "sv-SE-Standard-G"},  # Swedish
-    "pl-PL": {"woman": "pl-PL-Wavenet-F", "man": "pl-PL-Wavenet-G"},  # Polish
+    "sv-SE": {  # Swedish
+        "woman": "sv-SE-Standard-F",
+        "man": "sv-SE-Standard-G",
+        "teacher": "sv-SE-Standard-F",
+    },
+    "pl-PL": {  # Polish
+        "woman": "pl-PL-Wavenet-F",
+        "man": "pl-PL-Wavenet-G",
+        "teacher": "pl-PL-Wavenet-F",
+    },
     "en-US": {  # English
         "teacher": "en-US-Wavenet-J",
         "man": "en-US-Wavenet-D",
@@ -39,14 +60,19 @@ VOICE_CONFIG = {
     "ro-RO": {  # Romanian - using Azure (Google has no Romanian support)
         "woman": "ro-RO-AlinaNeural",
         "man": "ro-RO-EmilNeural",
-        "teacher": "ro-RO-AlinaNeural",  # Teacher voice in Romanian
-        "provider": "azure",  # Mark as Azure provider
+        "teacher": "ro-RO-AlinaNeural",
+        "provider": "azure",
     },
     "el-GR": {  # Greek - using Azure (Google only has female voices)
         "woman": "el-GR-AthinaNeural",
         "man": "el-GR-NestorasNeural",
-        "teacher": "el-GR-AthinaNeural",  # Teacher voice in Greek
-        "provider": "azure",  # Mark as Azure provider
+        "teacher": "el-GR-AthinaNeural",
+        "provider": "azure",
+    },
+    "uk-UA": {  # Ukrainian
+        "woman": "uk-UA-Chirp3-HD-Aoede",
+        "man": "uk-UA-Chirp3-HD-Enceladus",
+        "teacher": "uk-UA-Chirp3-HD-Aoede",
     },
 }
 

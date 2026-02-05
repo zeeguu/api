@@ -46,7 +46,7 @@ Use this exact format:
 RULES:
 - Use only "Teacher:", "Man:", "Woman:" labels
 - Include [X seconds] timing for pauses
-- Teacher always and only speaks English, Man/Woman speak {target_language}
+- Teacher always and only speaks {source_language}, Man/Woman speak {target_language}
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script

@@ -101,6 +101,16 @@ class DailyLessonGenerator:
                 "status_code": 400,
             }
 
+        # Check if native language is supported for teacher voice
+        if not is_language_supported_for_audio(translation_language):
+            log(
+                f"[generate_daily_lesson_for_user] Native language {translation_language} not supported for teacher voice"
+            )
+            return {
+                "error": f"Audio lessons are not yet available for speakers of {user.native_language.name}",
+                "status_code": 400,
+            }
+
         # Generate the lesson
         return self.generate_daily_lesson(
             user=user,
@@ -185,6 +195,7 @@ class DailyLessonGenerator:
             script=script,
             language_code=origin_language,
             cefr_level=cefr_level,
+            teacher_language=translation_language,
         )
 
         # Calculate duration
