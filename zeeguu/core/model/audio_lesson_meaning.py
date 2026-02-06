@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.language import Language
 
 
 class AudioLessonMeaning(db.Model):
@@ -23,7 +24,9 @@ class AudioLessonMeaning(db.Model):
 
     script = Column(Text, nullable=False)
     voice_config = Column(JSON)
-    teacher_language = Column(String(10), nullable=True)  # e.g. 'en', 'uk', 'da'
+
+    teacher_language_id = Column(Integer, ForeignKey(Language.id), nullable=True)
+    teacher_language = relationship(Language)
 
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
@@ -50,7 +53,8 @@ class AudioLessonMeaning(db.Model):
         self.lesson_type = lesson_type
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
-        self.teacher_language = teacher_language
+        if teacher_language:
+            self.teacher_language_id = teacher_language.id
 
     def __repr__(self):
         return f"<AudioLessonMeaning {self.id} for meaning {self.meaning_id}>"
@@ -61,9 +65,9 @@ class AudioLessonMeaning(db.Model):
         return f"/audio/lessons/{self.id}.mp3"
 
     @classmethod
-    def find_by_meaning(cls, meaning, teacher_language=None):
+    def find(cls, meaning, teacher_language=None):
         """Find audio lesson for a specific meaning and teacher language"""
         query = cls.query.filter_by(meaning=meaning)
         if teacher_language:
-            query = query.filter_by(teacher_language=teacher_language)
+            query = query.filter_by(teacher_language_id=teacher_language.id)
         return query.first()

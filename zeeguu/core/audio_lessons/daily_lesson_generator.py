@@ -14,6 +14,7 @@ from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesso
 from zeeguu.core.model import (
     db,
     User,
+    Language,
     AudioLessonMeaning,
     DailyAudioLesson,
 )
@@ -164,9 +165,10 @@ class DailyLessonGenerator:
             Exception if generation fails
         """
         meaning = user_word.meaning
+        teacher_lang = Language.find_or_create(translation_language)
 
         # Check if audio lesson already exists for this meaning and teacher language
-        existing_lesson = AudioLessonMeaning.find_by_meaning(meaning, teacher_language=translation_language)
+        existing_lesson = AudioLessonMeaning.find(meaning=meaning, teacher_language=teacher_lang)
         if existing_lesson:
             return existing_lesson
 
@@ -185,7 +187,7 @@ class DailyLessonGenerator:
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
-            teacher_language=translation_language,
+            teacher_language=teacher_lang,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID

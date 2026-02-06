@@ -102,7 +102,7 @@ def get_precomputed_meanings_count(user, language):
     # Check how many of these next words already have precomputed audio lessons
     precomputed_count = 0
     for user_word in next_words:
-        existing_lesson = AudioLessonMeaning.find_by_meaning(user_word.meaning)
+        existing_lesson = AudioLessonMeaning.find(user_word.meaning)
         if existing_lesson:
             precomputed_count += 1
 
@@ -160,7 +160,7 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
         return rank, status
 
     # Check if audio lesson already exists
-    existing_lesson = AudioLessonMeaning.find_by_meaning(meaning)
+    existing_lesson = AudioLessonMeaning.find(meaning)
     if existing_lesson:
         if SHOW_DETAILS:
             rank, status = get_word_display_info()
@@ -296,7 +296,7 @@ for user, last_activity in user_activity_map:
                         for user_word in next_words[
                             :3
                         ]:  # Show first 3 (the ones for next lesson)
-                            existing_lesson = AudioLessonMeaning.find_by_meaning(
+                            existing_lesson = AudioLessonMeaning.find(
                                 user_word.meaning
                             )
                             if existing_lesson:
@@ -356,7 +356,7 @@ for user, last_activity in user_activity_map:
                 # Only process the words that don't have audio lessons yet
                 words_to_process = []
                 for user_word in next_words:
-                    existing_lesson = AudioLessonMeaning.find_by_meaning(user_word.meaning)
+                    existing_lesson = AudioLessonMeaning.find(user_word.meaning)
                     if not existing_lesson:
                         words_to_process.append(user_word)
 
