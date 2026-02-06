@@ -1138,7 +1138,7 @@ class User(db.Model):
 
         if lesson.is_completed:
             return "completed"
-        elif lesson.is_paused or lesson.pause_position_seconds > 0:
+        elif lesson.is_paused or (lesson.pause_position_seconds or 0) > 0:
             return "in_progress"
         else:
             return "ready"
