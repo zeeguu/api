@@ -46,16 +46,6 @@ class DailyLessonGenerator:
             f"[generate_daily_lesson_for_user] Starting for user {user.id} ({user.name}), timezone_offset={timezone_offset}"
         )
 
-        # Check if user has access to daily audio lessons
-        if not user.has_feature("daily_audio"):
-            log(
-                f"[generate_daily_lesson_for_user] User {user.id} does not have daily_audio feature"
-            )
-            return {
-                "error": "Daily audio lessons are not available for your account",
-                "status_code": 403,
-            }
-
         # Check if a lesson already exists for today
         log(f"[generate_daily_lesson_for_user] Checking for existing lesson today")
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
@@ -384,16 +374,6 @@ class DailyLessonGenerator:
             log(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}
 
-    def _check_user_access(self, user):
-        """Check if user has access to daily audio lessons."""
-        if not user.has_feature("daily_audio"):
-
-            return {
-                "error": "Daily audio lessons are not available for your account",
-                "status_code": 403,
-            }
-        return None
-
     def _get_user_day_range_utc(self, timezone_offset=0):
         """
         Get the start and end of today in the user's timezone, converted to UTC.
@@ -489,11 +469,6 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with lesson details or error information
         """
-        # Check user access
-        access_error = self._check_user_access(user)
-        if access_error:
-            return access_error
-
         if lesson_id:
             # Get specific lesson by ID
             try:
@@ -529,11 +504,6 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with lesson details or message if no lesson today
         """
-        # Check user access
-        access_error = self._check_user_access(user)
-        if access_error:
-            return access_error
-
         # Get today's date range in UTC
         start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
             timezone_offset
@@ -566,11 +536,6 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with success message or error information
         """
-        # Check user access
-        access_error = self._check_user_access(user)
-        if access_error:
-            return access_error
-
         # Get today's date range in UTC
         start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
             timezone_offset
@@ -632,11 +597,6 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with lessons list and pagination info or error information
         """
-        # Check user access
-        access_error = self._check_user_access(user)
-        if access_error:
-            return access_error
-
         try:
             # Get today's start time in UTC to exclude today's lessons
             start_of_today_utc, _ = self._get_user_day_range_utc(timezone_offset)
@@ -744,11 +704,6 @@ class DailyLessonGenerator:
         Returns:
             Dictionary with success message or error information
         """
-        # Check user access
-        access_error = self._check_user_access(user)
-        if access_error:
-            return access_error
-
         try:
             # Find the lesson
             lesson = DailyAudioLesson.query.filter_by(
