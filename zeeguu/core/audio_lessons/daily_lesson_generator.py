@@ -194,11 +194,11 @@ class DailyLessonGenerator:
 
         # Generate MP3 from script
         mp3_path = self.voice_synthesizer.generate_lesson_audio(
-            audio_lesson_meaning_id=audio_lesson_meaning.id,
+            meaning_id=meaning.id,
+            teacher_language_code=translation_language,
             script=script,
             language_code=origin_language,
             cefr_level=cefr_level,
-            teacher_language=translation_language,
         )
 
         # Calculate duration

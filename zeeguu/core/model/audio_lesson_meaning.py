@@ -9,7 +9,7 @@ from zeeguu.core.model.language import Language
 class AudioLessonMeaning(db.Model):
     """
     Individual audio lesson for a specific meaning (word/phrase translation pair).
-    MP3 files are stored on disk with filename pattern: {id}.mp3
+    MP3 files are stored on disk with filename pattern: {meaning_id}-{language_code}.mp3
     """
 
     __tablename__ = "audio_lesson_meaning"
@@ -61,8 +61,9 @@ class AudioLessonMeaning(db.Model):
 
     @property
     def audio_file_path(self):
-        """Returns the expected path for the audio file based on lesson ID"""
-        return f"/audio/lessons/{self.id}.mp3"
+        """Returns the expected path for the audio file based on meaning ID and teacher language"""
+        lang_code = self.teacher_language.code if self.teacher_language else "en"
+        return f"/audio/lessons/{self.meaning_id}-{lang_code}.mp3"
 
     @classmethod
     def find(cls, meaning, teacher_language=None):

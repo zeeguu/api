@@ -243,14 +243,22 @@ class VoiceSynthesizer:
 
     def generate_lesson_audio(
         self,
-        audio_lesson_meaning_id: int,
+        meaning_id: int,
+        teacher_language_code: str,
         script: str,
         language_code: str,
         cefr_level: str = None,
-        teacher_language: str = None,
     ) -> str:
         """
         Generate the complete audio lesson from script.
+
+        Args:
+            meaning_id: The meaning ID for the filename
+            teacher_language_code: The teacher's language code (e.g., 'en', 'uk') - used for
+                                   both filename and voice selection
+            script: The script to synthesize
+            language_code: The target language code for man/woman voices
+            cefr_level: CEFR level for speaking rate adjustment
 
         Returns:
             Path to the generated MP3 file
@@ -278,7 +286,7 @@ class VoiceSynthesizer:
                 # Apply speaking rate slowdown only to man and woman voices, not teacher
                 rate = speaking_rate if voice_type in ["man", "woman"] else 1.0
                 audio_path = self.synthesize_segment(
-                    text, voice_type, language_code, rate, teacher_language
+                    text, voice_type, language_code, rate, teacher_language_code
                 )
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
@@ -298,7 +306,7 @@ class VoiceSynthesizer:
             combined_audio = AudioSegment.silent(duration=1000)  # 1 second silence
 
         # Save the final lesson audio
-        output_path = os.path.join(self.lessons_dir, f"{audio_lesson_meaning_id}.mp3")
+        output_path = os.path.join(self.lessons_dir, f"{meaning_id}-{teacher_language_code}.mp3")
         combined_audio.export(output_path, format="mp3")
 
         log(f"Generated lesson audio: {output_path}")

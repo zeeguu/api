@@ -23,7 +23,6 @@ from zeeguu.api.app import create_app
 from zeeguu.core.model import db
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
-from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
 from zeeguu.core.model.language import Language
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
@@ -84,22 +83,37 @@ for daily_lesson in recent_daily_lessons:
 
 print(f"Found {len(recent_meaning_ids)} meanings used in recent (buggy) daily lessons")
 
-# Old lessons = without teacher_language AND not in recent
-old_lessons = [m for m in all_without_teacher if m.id not in recent_meaning_ids]
-print(f"Old lessons to update: {len(old_lessons)}")
+# Old = without teacher_language AND not in recent
+old_audio_meanings = [m for m in all_without_teacher if m.id not in recent_meaning_ids]
+print(f"Old AudioLessonMeaning records to update: {len(old_audio_meanings)}")
 
 updated_count = 0
-for lesson in old_lessons:
+renamed_files = 0
+for audio_meaning in old_audio_meanings:
+    # Set teacher_language to English
     if DRY_RUN:
-        print(f"  Would set teacher_language_id={english.id} for AudioLessonMeaning {lesson.id}")
+        print(f"  Would set teacher_language_id={english.id} for AudioLessonMeaning {audio_meaning.id}")
     else:
-        lesson.teacher_language_id = english.id
+        audio_meaning.teacher_language_id = english.id
     updated_count += 1
+
+    # Rename MP3 file from {id}.mp3 to {meaning_id}-en.mp3
+    old_path = os.path.join(lessons_dir, f"{audio_meaning.id}.mp3")
+    new_path = os.path.join(lessons_dir, f"{audio_meaning.meaning_id}-en.mp3")
+
+    if os.path.exists(old_path):
+        if DRY_RUN:
+            print(f"  Would rename: {old_path} -> {new_path}")
+        else:
+            os.rename(old_path, new_path)
+            print(f"  Renamed: {audio_meaning.id}.mp3 -> {audio_meaning.meaning_id}-en.mp3")
+        renamed_files += 1
 
 if not DRY_RUN and updated_count > 0:
     db.session.flush()
 
 print(f"{'Would update' if DRY_RUN else 'Updated'} {updated_count} old lessons to English")
+print(f"{'Would rename' if DRY_RUN else 'Renamed'} {renamed_files} MP3 files")
 print()
 
 # ============================================================
@@ -111,31 +125,15 @@ print("=" * 60)
 
 # Recent meanings to delete
 recent_meanings = [m for m in all_without_teacher if m.id in recent_meaning_ids]
-print(f"Recent buggy AudioLessonMeaning records to delete: {len(recent_meanings)}")
 print(f"Recent buggy DailyAudioLesson records to delete: {len(recent_daily_lessons)}")
+print(f"Recent buggy AudioLessonMeaning records to delete: {len(recent_meanings)}")
 
 deleted_meaning_files = 0
 deleted_daily_files = 0
 deleted_meanings = 0
 deleted_daily_lessons = 0
 
-# Delete AudioLessonMeaning MP3s and records
-for meaning in recent_meanings:
-    mp3_path = os.path.join(lessons_dir, f"{meaning.id}.mp3")
-
-    if os.path.exists(mp3_path):
-        if DRY_RUN:
-            print(f"  Would delete file: {mp3_path}")
-        else:
-            os.remove(mp3_path)
-            print(f"  Deleted file: {mp3_path}")
-        deleted_meaning_files += 1
-
-    if not DRY_RUN:
-        db.session.delete(meaning)
-    deleted_meanings += 1
-
-# Delete DailyAudioLesson MP3s and records
+# Delete DailyAudioLesson first (segments have FK to AudioLessonMeaning)
 for daily_lesson in recent_daily_lessons:
     mp3_path = os.path.join(daily_lessons_dir, f"{daily_lesson.id}.mp3")
 
@@ -151,6 +149,22 @@ for daily_lesson in recent_daily_lessons:
         db.session.delete(daily_lesson)
     deleted_daily_lessons += 1
 
+# Now safe to delete AudioLessonMeaning records (no more FK references)
+for audio_meaning in recent_meanings:
+    mp3_path = os.path.join(lessons_dir, f"{audio_meaning.id}.mp3")
+
+    if os.path.exists(mp3_path):
+        if DRY_RUN:
+            print(f"  Would delete file: {mp3_path}")
+        else:
+            os.remove(mp3_path)
+            print(f"  Deleted file: {mp3_path}")
+        deleted_meaning_files += 1
+
+    if not DRY_RUN:
+        db.session.delete(audio_meaning)
+    deleted_meanings += 1
+
 if not DRY_RUN:
     db.session.commit()
     print()
@@ -161,6 +175,7 @@ print("=" * 60)
 print("SUMMARY")
 print("=" * 60)
 print(f"Old lessons {'would be ' if DRY_RUN else ''}set to English: {updated_count}")
+print(f"Old MP3 files {'would be ' if DRY_RUN else ''}renamed to new format: {renamed_files}")
 print(f"Recent AudioLessonMeaning records {'would be ' if DRY_RUN else ''}deleted: {deleted_meanings}")
 print(f"Recent DailyAudioLesson records {'would be ' if DRY_RUN else ''}deleted: {deleted_daily_lessons}")
 print(f"MP3 files (meanings) {'would be ' if DRY_RUN else ''}deleted: {deleted_meaning_files}")
