@@ -102,7 +102,9 @@ def get_precomputed_meanings_count(user, language):
     # Check how many of these next words already have precomputed audio lessons
     precomputed_count = 0
     for user_word in next_words:
-        existing_lesson = AudioLessonMeaning.find(user_word.meaning)
+        existing_lesson = AudioLessonMeaning.find(
+            meaning=user_word.meaning, teacher_language=user.native_language
+        )
         if existing_lesson:
             precomputed_count += 1
 
@@ -159,8 +161,10 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                 status = "scheduled" if scheduled else "unscheduled"
         return rank, status
 
-    # Check if audio lesson already exists
-    existing_lesson = AudioLessonMeaning.find(meaning)
+    # Check if audio lesson already exists for this meaning and native language
+    existing_lesson = AudioLessonMeaning.find(
+        meaning=meaning, teacher_language=user.native_language
+    )
     if existing_lesson:
         if SHOW_DETAILS:
             rank, status = get_word_display_info()
@@ -297,7 +301,8 @@ for user, last_activity in user_activity_map:
                             :3
                         ]:  # Show first 3 (the ones for next lesson)
                             existing_lesson = AudioLessonMeaning.find(
-                                user_word.meaning
+                                meaning=user_word.meaning,
+                                teacher_language=user.native_language,
                             )
                             if existing_lesson:
                                 meaning = user_word.meaning
@@ -356,7 +361,9 @@ for user, last_activity in user_activity_map:
                 # Only process the words that don't have audio lessons yet
                 words_to_process = []
                 for user_word in next_words:
-                    existing_lesson = AudioLessonMeaning.find(user_word.meaning)
+                    existing_lesson = AudioLessonMeaning.find(
+                        meaning=user_word.meaning, teacher_language=user.native_language
+                    )
                     if not existing_lesson:
                         words_to_process.append(user_word)
 
