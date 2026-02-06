@@ -174,6 +174,7 @@ class User(db.Model):
             and not any([c.cohort_id in [93, 459] for c in self.cohorts]),
             is_anonymous=self.is_anonymous(),
             bookmark_count=bookmark_count,
+            daily_audio_status=self.get_daily_audio_status(),
         )
 
         for each in UserLanguage.query.filter_by(user=self):
@@ -1100,6 +1101,47 @@ class User(db.Model):
         from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
 
         return is_feature_enabled_for_user(feature_name, self)
+
+    def get_daily_audio_status(self):
+        """
+        Get the status of daily audio lesson for this user.
+        Returns: None (no access), "generating", "ready", "in_progress", "completed"
+        """
+        if not self.has_feature("daily_audio"):
+            return None
+
+        from zeeguu.core.model import AudioLessonGenerationProgress, DailyAudioLesson
+        from datetime import datetime, timezone, timedelta
+
+        # Check if generation is in progress
+        active_progress = AudioLessonGenerationProgress.find_active_for_user(self)
+        if active_progress:
+            return "generating"
+
+        # Check for today's lesson (using UTC for simplicity)
+        today_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).replace(tzinfo=None)
+        today_end = today_start + timedelta(days=1)
+
+        lesson = (
+            DailyAudioLesson.query.filter_by(
+                user_id=self.id, language_id=self.learned_language_id
+            )
+            .filter(DailyAudioLesson.created_at >= today_start)
+            .filter(DailyAudioLesson.created_at < today_end)
+            .first()
+        )
+
+        if not lesson:
+            return None  # No lesson for today
+
+        if lesson.is_completed:
+            return "completed"
+        elif lesson.is_paused or lesson.pause_position_seconds > 0:
+            return "in_progress"
+        else:
+            return "ready"
 
     @classmethod
     def find_all(cls):
