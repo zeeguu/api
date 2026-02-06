@@ -52,6 +52,12 @@ def generate_lesson_script(
         "fr": "French",
         "ro": "Romanian",
         "el": "Greek",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "nl": "Dutch",
+        "sv": "Swedish",
+        "pl": "Polish",
+        "uk": "Ukrainian",
     }
 
     origin_lang_name = language_names.get(origin_language, origin_language)

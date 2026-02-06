@@ -14,6 +14,7 @@ from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesso
 from zeeguu.core.model import (
     db,
     User,
+    Language,
     AudioLessonMeaning,
     DailyAudioLesson,
 )
@@ -101,6 +102,16 @@ class DailyLessonGenerator:
                 "status_code": 400,
             }
 
+        # Check if native language is supported for teacher voice
+        if not is_language_supported_for_audio(translation_language):
+            log(
+                f"[generate_daily_lesson_for_user] Native language {translation_language} not supported for teacher voice"
+            )
+            return {
+                "error": f"Audio lessons are not yet available for speakers of {user.native_language.name}",
+                "status_code": 400,
+            }
+
         # Generate the lesson
         return self.generate_daily_lesson(
             user=user,
@@ -154,9 +165,10 @@ class DailyLessonGenerator:
             Exception if generation fails
         """
         meaning = user_word.meaning
+        teacher_lang = Language.find_or_create(translation_language)
 
-        # Check if audio lesson already exists for this meaning
-        existing_lesson = AudioLessonMeaning.find_by_meaning(meaning)
+        # Check if audio lesson already exists for this meaning and teacher language
+        existing_lesson = AudioLessonMeaning.find(meaning=meaning, teacher_language=teacher_lang)
         if existing_lesson:
             return existing_lesson
 
@@ -175,13 +187,15 @@ class DailyLessonGenerator:
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
+            teacher_language=teacher_lang,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
 
         # Generate MP3 from script
         mp3_path = self.voice_synthesizer.generate_lesson_audio(
-            audio_lesson_meaning_id=audio_lesson_meaning.id,
+            meaning_id=meaning.id,
+            teacher_language_code=translation_language,
             script=script,
             language_code=origin_language,
             cefr_level=cefr_level,

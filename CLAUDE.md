@@ -119,6 +119,20 @@ This is the Zeeguu API project which requires the z_env virtual environment to r
   - `feed_type=1`: NewspaperFeed (uses `newspaper.build()` which auto-discovers feeds)
 - **Deactivating broken feeds**: `UPDATE feed SET deactivated = 1 WHERE id = <ID>;`
 
+## Language References
+- **Always use foreign keys**: When storing a language reference, use `language_id` with a foreign key to the `language` table
+- **Never store language codes as strings**: Don't use `VARCHAR` columns like `language_code = 'en'`
+- **Why**: Foreign keys provide referential integrity, smaller storage (4 bytes vs 10), faster JOINs, and prevent typos
+- **Example**:
+  ```python
+  # ✓ Correct - foreign key reference
+  teacher_language_id = Column(Integer, ForeignKey(Language.id), nullable=True)
+  teacher_language = relationship(Language)
+
+  # ✗ Wrong - string storage
+  teacher_language = Column(String(10))  # Don't do this
+  ```
+
 ## Source and Article Architecture
 - **Source Model**: An abstraction layer that unifies all content types (Article, Video, etc.) in the system
 - **source_id in Articles/Videos**: Each Article and Video has a `source_id` that links to its corresponding Source record
