@@ -113,6 +113,18 @@ class DailyLessonGenerator:
                 "status_code": 400,
             }
 
+        # Check if a generation is already in progress for this user
+        active_progress = AudioLessonGenerationProgress.find_active_for_user(user)
+        if active_progress:
+            log(
+                f"[generate_daily_lesson_for_user] Generation already in progress for user {user.id}"
+            )
+            return {
+                "error": "A lesson is already being generated. Please wait for it to complete.",
+                "in_progress": True,
+                "status_code": 409,
+            }
+
         # Create progress tracking record
         progress = AudioLessonGenerationProgress.create_for_user(
             user=user, total_words=len(selected_words)

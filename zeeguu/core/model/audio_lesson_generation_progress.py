@@ -10,6 +10,7 @@ class AudioLessonGenerationProgress(db.Model):
     """
     Tracks the progress of audio lesson generation for real-time UI updates.
     Records are temporary and should be cleaned up after completion.
+    Only one generation per user at a time is allowed.
     """
 
     __tablename__ = "audio_lesson_generation_progress"
@@ -114,6 +115,15 @@ class AudioLessonGenerationProgress(db.Model):
         return (
             cls.query.filter_by(user_id=user.id)
             .order_by(cls.started_at.desc())
+            .first()
+        )
+
+    @classmethod
+    def find_active_for_user(cls, user):
+        """Find an active (in-progress) generation for a user."""
+        return (
+            cls.query.filter_by(user_id=user.id)
+            .filter(cls.status.notin_(["done", "error"]))
             .first()
         )
 

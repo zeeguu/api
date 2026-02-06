@@ -1,5 +1,6 @@
 -- Add table for tracking audio lesson generation progress
 -- Enables real-time UI updates during lesson generation
+-- Only one generation per user at a time is allowed
 
 CREATE TABLE audio_lesson_generation_progress (
     id INT AUTO_INCREMENT PRIMARY KEY,
