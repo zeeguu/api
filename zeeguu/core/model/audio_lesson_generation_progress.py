@@ -65,6 +65,12 @@ class AudioLessonGenerationProgress(db.Model):
         self.message = f"Generating script for word {word_number} of {self.total_words}..."
         db.session.flush()
 
+    def update_generating_script(self):
+        """Called when starting to generate the script for current word."""
+        self.status = "generating_script"
+        self.message = f"Word {self.current_word}/{self.total_words}: Generating script..."
+        db.session.flush()
+
     def update_script_done(self):
         """Called when script generation is complete."""
         self.status = "synthesizing_audio"

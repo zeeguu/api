@@ -196,8 +196,7 @@ class DailyLessonGenerator:
 
         # Update progress: generating script
         if progress:
-            progress.status = "generating_script"
-            progress.message = f"Word {progress.current_word}/{progress.total_words}: Generating script..."
+            progress.update_generating_script()
             db.session.commit()
 
         # Generate script using Claude
