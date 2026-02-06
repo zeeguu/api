@@ -1105,11 +1105,8 @@ class User(db.Model):
     def get_daily_audio_status(self):
         """
         Get the status of daily audio lesson for this user.
-        Returns: None (no access), "generating", "ready", "in_progress", "completed"
+        Returns: None (no lesson), "generating", "ready", "in_progress", "completed"
         """
-        if not self.has_feature("daily_audio"):
-            return None
-
         from zeeguu.core.model import AudioLessonGenerationProgress, DailyAudioLesson
         from datetime import datetime, timezone, timedelta
 
