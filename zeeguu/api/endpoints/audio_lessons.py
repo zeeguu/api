@@ -152,24 +152,11 @@ def check_daily_lesson_feasibility():
         "feasible": true/false,
         "available_words": 5,
         "required_words": 2,
-        "has_feature_access": true,
         "learned_language": "de",
-        "message": "Ready to generate lesson" | "Not enough words available" | "Feature not available"
+        "message": "Ready to generate lesson" | "Not enough words available"
     }
     """
     user = User.find_by_id(flask.g.user_id)
-    
-    # Check if user has access to daily audio lessons
-    has_feature_access = user.has_feature("daily_audio")
-    if not has_feature_access:
-        return json_result({
-            "feasible": False,
-            "available_words": 0,
-            "required_words": 2,
-            "has_feature_access": False,
-            "learned_language": user.learned_language.code if user.learned_language else None,
-            "message": "Daily audio lessons feature not available for this user"
-        })
 
     # Import the word selector to check available words
     from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
@@ -192,7 +179,6 @@ def check_daily_lesson_feasibility():
         "feasible": feasible,
         "available_words": available_words,
         "required_words": required_words,
-        "has_feature_access": has_feature_access,
         "learned_language": user.learned_language.code if user.learned_language else None,
         "message": message
     })

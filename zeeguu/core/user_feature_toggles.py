@@ -13,7 +13,6 @@ def _feature_map():
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
-        "daily_audio": _daily_audio,
     }
 
 
@@ -55,7 +54,3 @@ def _extension_experiment_1(user):
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )
-
-
-def _daily_audio(user):
-    return True
