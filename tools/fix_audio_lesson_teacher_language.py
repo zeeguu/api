@@ -102,12 +102,17 @@ for audio_meaning in old_audio_meanings:
     new_path = os.path.join(lessons_dir, f"{audio_meaning.meaning_id}-en.mp3")
 
     if os.path.exists(old_path):
-        if DRY_RUN:
+        if os.path.exists(new_path):
+            # Skip if target already exists (duplicate meaning_id edge case)
+            print(f"  Warning: {new_path} already exists, skipping rename of {audio_meaning.id}.mp3")
+        elif DRY_RUN:
             print(f"  Would rename: {old_path} -> {new_path}")
+            renamed_files += 1
         else:
             os.rename(old_path, new_path)
             print(f"  Renamed: {audio_meaning.id}.mp3 -> {audio_meaning.meaning_id}-en.mp3")
-        renamed_files += 1
+            renamed_files += 1
+
 
 if not DRY_RUN and updated_count > 0:
     db.session.flush()
