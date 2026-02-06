@@ -17,6 +17,7 @@ from zeeguu.core.model import (
     Language,
     AudioLessonMeaning,
     DailyAudioLesson,
+    AudioLessonGenerationProgress,
 )
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
@@ -112,6 +113,24 @@ class DailyLessonGenerator:
                 "status_code": 400,
             }
 
+        # Check if a generation is already in progress for this user
+        active_progress = AudioLessonGenerationProgress.find_active_for_user(user)
+        if active_progress:
+            log(
+                f"[generate_daily_lesson_for_user] Generation already in progress for user {user.id}"
+            )
+            return {
+                "error": "A lesson is already being generated. Please wait for it to complete.",
+                "in_progress": True,
+                "status_code": 409,
+            }
+
+        # Create progress tracking record
+        progress = AudioLessonGenerationProgress.create_for_user(
+            user=user, total_words=len(selected_words)
+        )
+        db.session.commit()  # Commit so frontend can see it immediately
+
         # Generate the lesson
         return self.generate_daily_lesson(
             user=user,
@@ -120,6 +139,7 @@ class DailyLessonGenerator:
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
+            progress=progress,
         )
 
     def select_words_for_lesson(
@@ -147,6 +167,7 @@ class DailyLessonGenerator:
         translation_language,
         cefr_level,
         created_by="claude-v1",
+        progress=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
@@ -157,6 +178,7 @@ class DailyLessonGenerator:
             translation_language: Language code for the translation language
             cefr_level: CEFR level for the lesson
             created_by: String identifying who created this lesson
+            progress: Optional AudioLessonGenerationProgress for tracking
 
         Returns:
             AudioLessonMeaning object
@@ -172,6 +194,11 @@ class DailyLessonGenerator:
         if existing_lesson:
             return existing_lesson
 
+        # Update progress: generating script
+        if progress:
+            progress.update_generating_script()
+            db.session.commit()
+
         # Generate script using Claude
         script = generate_lesson_script(
             origin_word=meaning.origin.content,
@@ -180,6 +207,11 @@ class DailyLessonGenerator:
             translation_language=translation_language,
             cefr_level=cefr_level,
         )
+
+        # Update progress: script done
+        if progress:
+            progress.update_script_done()
+            db.session.commit()
 
         # Create audio lesson meaning
         audio_lesson_meaning = AudioLessonMeaning(
@@ -192,6 +224,12 @@ class DailyLessonGenerator:
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
 
+        # Create progress callback for voice synthesizer
+        def on_audio_progress(current, total, voice_type):
+            if progress:
+                progress.update_segment(current, total, voice_type)
+                db.session.commit()
+
         # Generate MP3 from script
         mp3_path = self.voice_synthesizer.generate_lesson_audio(
             meaning_id=meaning.id,
@@ -199,7 +237,13 @@ class DailyLessonGenerator:
             script=script,
             language_code=origin_language,
             cefr_level=cefr_level,
+            on_progress=on_audio_progress if progress else None,
         )
+
+        # Update progress: combining
+        if progress:
+            progress.update_combining()
+            db.session.commit()
 
         # Calculate duration
         duration_seconds = self.voice_synthesizer.get_audio_duration(mp3_path)
@@ -215,6 +259,7 @@ class DailyLessonGenerator:
         origin_language: str,
         translation_language: str,
         cefr_level: str,
+        progress: AudioLessonGenerationProgress = None,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -264,15 +309,24 @@ class DailyLessonGenerator:
                     f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
                 )
 
+                # Update progress for this word
+                if progress:
+                    progress.start_word(idx + 1, total_segments=0)  # Segments counted later
+                    db.session.commit()
+
                 # Generate individual audio lesson meaning
                 try:
                     audio_lesson_meaning = self.generate_audio_lesson_meaning(
-                        user_word, origin_language, translation_language, cefr_level
+                        user_word, origin_language, translation_language, cefr_level,
+                        progress=progress,
                     )
                 except Exception as e:
                     log(
                         f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
                     )
+                    if progress:
+                        progress.mark_error(f"Failed on word '{meaning.origin.content}': {str(e)}")
+                        db.session.commit()
                     db.session.rollback()
                     return {
                         "error": f"Failed to generate audio lesson meaning: {str(e)}",
@@ -299,6 +353,10 @@ class DailyLessonGenerator:
                 db.session.rollback()
                 return {"error": f"Failed to build daily lesson: {str(e)}"}
 
+            # Mark progress as done
+            if progress:
+                progress.mark_done()
+
             db.session.commit()
 
             end_time = time.time()
@@ -314,6 +372,9 @@ class DailyLessonGenerator:
             }
 
         except Exception as e:
+            if progress:
+                progress.mark_error(str(e))
+                db.session.commit()
             db.session.rollback()
             log(
                 f"[generate_daily_lesson] Unexpected error in daily lesson generation: {str(e)}"

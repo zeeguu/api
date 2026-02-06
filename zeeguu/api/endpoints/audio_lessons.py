@@ -3,7 +3,7 @@ import flask
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-from zeeguu.core.model import User
+from zeeguu.core.model import User, AudioLessonGenerationProgress
 from . import api
 
 
@@ -233,3 +233,34 @@ def update_lesson_state(lesson_id):
     status_code = result.pop("status_code", 200)
 
     return json_result(result), status_code
+
+
+@api.route("/audio_lesson_generation_progress", methods=["GET"])
+@cross_domain
+@requires_session
+def get_audio_lesson_generation_progress():
+    """
+    Get the current progress of audio lesson generation for the current user.
+    Used for displaying real-time progress in the UI during lesson generation.
+
+    Returns:
+    {
+        "status": "pending|generating_script|synthesizing_audio|combining_audio|done|error",
+        "current_step": 5,
+        "total_steps": 20,
+        "current_word": 2,
+        "total_words": 3,
+        "message": "Word 2/3: Synthesizing teacher (5/20)",
+        "started_at": "2024-01-15T10:30:00"
+    }
+
+    Returns null if no generation is in progress.
+    """
+    user = User.find_by_id(flask.g.user_id)
+
+    progress = AudioLessonGenerationProgress.find_for_user(user)
+
+    if not progress:
+        return json_result({"progress": None})
+
+    return json_result({"progress": progress.to_dict()})
