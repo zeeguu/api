@@ -6,73 +6,69 @@ Maps voice names and languages to Google Cloud Text-to-Speech voice IDs.
 # Voice mappings for different languages
 VOICE_CONFIG = {
     "da-DK": {  # Danish
-        "woman": "da-DK-Wavenet-A",
-        "man": "da-DK-Wavenet-G",
-        "teacher": "da-DK-Wavenet-A",
+        "woman": "da-DK-Chirp3-HD-Aoede",
+        "man": "da-DK-Chirp3-HD-Enceladus",
+        "teacher": "da-DK-Chirp3-HD-Sulafat",
     },
     "es-ES": {  # Spanish
         "woman": "es-ES-Chirp3-HD-Aoede",
         "man": "es-ES-Chirp3-HD-Algenib",
-        "teacher": "es-ES-Chirp3-HD-Aoede",
+        "teacher": "es-ES-Chirp3-HD-Sulafat",
     },
     "it-IT": {  # Italian
-        "woman": "it-IT-Wavenet-A",
-        "man": "it-IT-Wavenet-D",
-        "teacher": "it-IT-Wavenet-A",
+        "woman": "it-IT-Chirp3-HD-Aoede",
+        "man": "it-IT-Chirp3-HD-Enceladus",
+        "teacher": "it-IT-Chirp3-HD-Sulafat",
     },
-    "pt-PT": {  # Portuguese (European)
+    "pt-PT": {  # Portuguese (European) - no Chirp3-HD available
         "woman": "pt-PT-Wavenet-E",
         "man": "pt-PT-Wavenet-F",
-        "teacher": "pt-PT-Wavenet-E",
+        "teacher": "pt-PT-Standard-E",  # Different voice type for distinction
     },
     "fr-FR": {  # French (France)
-        "woman": "fr-FR-Chirp3-HD-Sulafat",
+        "woman": "fr-FR-Chirp3-HD-Aoede",
         "man": "fr-FR-Chirp3-HD-Algenib",
         "teacher": "fr-FR-Chirp3-HD-Sulafat",
     },
     "de-DE": {  # German (Germany)
         "woman": "de-DE-Chirp3-HD-Aoede",
         "man": "de-DE-Chirp3-HD-Enceladus",
-        "teacher": "de-DE-Chirp3-HD-Aoede",
-        # others good women: de-DE-Chirp3-HD-Gacrux, de-DE-Chirp3-HD-Sulafat
-        # others good men: de-DE-Chirp3-HD-Algenib, de-DE-Chirp3-HD-Sadachbia
+        "teacher": "de-DE-Chirp3-HD-Sulafat",
     },
     "nl-NL": {  # Dutch (Netherlands)
         "woman": "nl-NL-Chirp3-HD-Aoede",
-        "man": "nl-NL-Chirp3-HD-Enceladus",  # nl-NL-Chirp3-HD-Algieba
-        "teacher": "nl-NL-Chirp3-HD-Aoede",
+        "man": "nl-NL-Chirp3-HD-Enceladus",
+        "teacher": "nl-NL-Chirp3-HD-Sulafat",
     },
     "sv-SE": {  # Swedish
-        "woman": "sv-SE-Standard-F",
-        "man": "sv-SE-Standard-G",
-        "teacher": "sv-SE-Standard-F",
+        "woman": "sv-SE-Chirp3-HD-Aoede",
+        "man": "sv-SE-Chirp3-HD-Enceladus",
+        "teacher": "sv-SE-Chirp3-HD-Sulafat",
     },
     "pl-PL": {  # Polish
-        "woman": "pl-PL-Wavenet-F",
-        "man": "pl-PL-Wavenet-G",
-        "teacher": "pl-PL-Wavenet-F",
+        "woman": "pl-PL-Chirp3-HD-Aoede",
+        "man": "pl-PL-Chirp3-HD-Enceladus",
+        "teacher": "pl-PL-Chirp3-HD-Sulafat",
     },
     "en-US": {  # English
         "teacher": "en-US-Wavenet-J",
         "man": "en-US-Wavenet-D",
         "woman": "en-US-Wavenet-F",
     },
-    "ro-RO": {  # Romanian - using Azure (Google has no Romanian support)
-        "woman": "ro-RO-AlinaNeural",
-        "man": "ro-RO-EmilNeural",
-        "teacher": "ro-RO-AlinaNeural",
-        "provider": "azure",
+    "ro-RO": {  # Romanian
+        "woman": "ro-RO-Chirp3-HD-Aoede",
+        "man": "ro-RO-Chirp3-HD-Enceladus",
+        "teacher": "ro-RO-Chirp3-HD-Sulafat",
     },
-    "el-GR": {  # Greek - using Azure (Google only has female voices)
-        "woman": "el-GR-AthinaNeural",
-        "man": "el-GR-NestorasNeural",
-        "teacher": "el-GR-AthinaNeural",
-        "provider": "azure",
+    "el-GR": {  # Greek
+        "woman": "el-GR-Chirp3-HD-Aoede",
+        "man": "el-GR-Chirp3-HD-Enceladus",
+        "teacher": "el-GR-Chirp3-HD-Sulafat",
     },
     "uk-UA": {  # Ukrainian
         "woman": "uk-UA-Chirp3-HD-Aoede",
         "man": "uk-UA-Chirp3-HD-Enceladus",
-        "teacher": "uk-UA-Chirp3-HD-Aoede",
+        "teacher": "uk-UA-Chirp3-HD-Sulafat",
     },
 }
 
