@@ -248,6 +248,7 @@ class VoiceSynthesizer:
         script: str,
         language_code: str,
         cefr_level: str = None,
+        on_progress: callable = None,
     ) -> str:
         """
         Generate the complete audio lesson from script.
@@ -259,12 +260,18 @@ class VoiceSynthesizer:
             script: The script to synthesize
             language_code: The target language code for man/woman voices
             cefr_level: CEFR level for speaking rate adjustment
+            on_progress: Optional callback function(current, total, voice_type) for progress updates
 
         Returns:
             Path to the generated MP3 file
         """
         segments = self.parse_script(script)
         audio_segments = []
+
+        # Count speech segments (not silence) for progress tracking
+        speech_segments = [(v, t, s) for v, t, s in segments if v != "silence"]
+        total_speech_segments = len(speech_segments)
+        current_speech_segment = 0
 
         # Determine speaking rate based on CEFR level
         speaking_rate = 1.0
@@ -282,6 +289,11 @@ class VoiceSynthesizer:
                 )  # Convert to milliseconds
                 audio_segments.append(silence)
             else:
+                # Update progress before synthesizing
+                current_speech_segment += 1
+                if on_progress:
+                    on_progress(current_speech_segment, total_speech_segments, voice_type)
+
                 # Generate speech
                 # Apply speaking rate slowdown only to man and woman voices, not teacher
                 rate = speaking_rate if voice_type in ["man", "woman"] else 1.0
