@@ -1105,7 +1105,7 @@ class User(db.Model):
     def get_daily_audio_status(self):
         """
         Get the status of daily audio lesson for this user.
-        Returns: "available", "generating", "ready", "in_progress", "completed"
+        Returns: None (unfeasible), "available", "generating", "ready", "in_progress", "completed"
         """
         from zeeguu.core.model import AudioLessonGenerationProgress, DailyAudioLesson
         from datetime import datetime, timezone, timedelta
@@ -1131,6 +1131,9 @@ class User(db.Model):
         )
 
         if not lesson:
+            # Check if generation is feasible before showing "available"
+            if not self._is_audio_lesson_feasible():
+                return None  # Unfeasible - don't show any dot
             return "available"  # No lesson yet, user can generate one
 
         if lesson.is_completed:
@@ -1139,6 +1142,30 @@ class User(db.Model):
             return "in_progress"
         else:
             return "ready"
+
+    def _is_audio_lesson_feasible(self):
+        """Check if audio lesson generation is feasible for this user."""
+        from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
+        from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
+
+        # Check language support
+        if not self.learned_language or not self.native_language:
+            return False
+
+        if not is_language_supported_for_audio(self.learned_language.code):
+            return False
+
+        if not is_language_supported_for_audio(self.native_language.code):
+            return False
+
+        # Check if enough words available
+        try:
+            selected_words, _ = select_words_for_audio_lesson(
+                self, 3, return_unscheduled_info=True
+            )
+            return len(selected_words) >= 2
+        except Exception:
+            return False
 
     @classmethod
     def find_all(cls):
