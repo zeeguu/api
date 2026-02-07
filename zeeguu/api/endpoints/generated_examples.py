@@ -520,7 +520,7 @@ def add_word_to_learning():
     from zeeguu.core.llm_services.llm_service import prepare_learning_card
     from zeeguu.core.model import Meaning
     from zeeguu.core.model.user_word import UserWord
-    from zeeguu.core.model.user_word_ex_preference import UserWordExPreference
+    from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
     from zeeguu.core.model.context_type import ContextType
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
