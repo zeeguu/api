@@ -244,7 +244,7 @@ def get_audio_lesson_generation_progress():
     """
     user = User.find_by_id(flask.g.user_id)
 
-    progress = AudioLessonGenerationProgress.find_for_user(user)
+    progress = AudioLessonGenerationProgress.find_active_for_user(user)
 
     if not progress:
         return json_result({"progress": None})

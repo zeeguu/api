@@ -81,7 +81,7 @@ class AudioLessonGenerationProgress(db.Model):
         """Called when synthesizing each audio segment."""
         self.current_step = segment_number
         self.total_steps = total_segments
-        self.message = f"Word {self.current_word}/{self.total_words}: Synthesizing {voice_type} ({segment_number}/{total_segments})"
+        self.message = f"Word {self.current_word}/{self.total_words}: Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
         db.session.flush()
 
     def update_combining(self):
