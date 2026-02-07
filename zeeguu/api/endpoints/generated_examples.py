@@ -1,16 +1,31 @@
+import json
+import traceback
+
 import flask
-from flask import request
+from flask import request, Response
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.llm_services import get_llm_service
-from zeeguu.core.model import UserWord, User, Bookmark, Language
+from zeeguu.core.llm_services.llm_service import prepare_learning_card
+from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning
 from zeeguu.core.model.ai_generator import AIGenerator
+from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
+from zeeguu.core.tokenization.word_position_finder import (
+    find_first_occurrence,
+    validate_single_occurrence,
+)
+from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 from . import api, db_session
+
+# Constants
+MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
+MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
+DEFAULT_CEFR_LEVEL = "B1"
 
 
 @api.route("/alternative_sentences/<user_word_id>", methods=["GET"])
@@ -38,7 +53,7 @@ def alternative_sentences(user_word_id):
     translation_lang = user_word.meaning.translation.language.code
 
     # Determine CEFR level
-    cefr_level = request.args.get("cefr_level", "B1")
+    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
 
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
@@ -47,7 +62,7 @@ def alternative_sentences(user_word_id):
             ExampleSentence.meaning_id == user_word.meaning_id,
             ExampleSentence.cefr_level == cefr_level,
         )
-        .limit(5)
+        .limit(MAX_EXAMPLES_ALTERNATIVE)
         .all()
     )
 
@@ -57,7 +72,7 @@ def alternative_sentences(user_word_id):
             ExampleSentence.query.filter(
                 ExampleSentence.meaning_id == user_word.meaning_id
             )
-            .limit(5)
+            .limit(MAX_EXAMPLES_ALTERNATIVE)
             .all()
         )
 
@@ -263,8 +278,6 @@ def set_preferred_example(user_word_id):
     selected_sentence = example_sentence_obj.sentence
 
     # Find word position using shared utility (fuzzy matching for generated examples)
-    from zeeguu.core.tokenization.word_position_finder import find_first_occurrence
-
     target_word = user_word.meaning.origin.content
     result = find_first_occurrence(
         target_word, selected_sentence, user_word.meaning.origin.language
@@ -363,8 +376,6 @@ def generate_examples_for_word(word, from_lang, to_lang):
     :query cefr_level: User's CEFR level for appropriate difficulty (default: B1)
     :return: JSON array with example sentences
     """
-    from zeeguu.core.model import Meaning
-
     user = User.find_by_id(flask.g.user_id)
 
     # Get language objects
@@ -374,7 +385,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = request.args.get("cefr_level", "B1")
+    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
     translation = request.args.get("translation", "")
 
     try:
@@ -394,7 +405,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
                 ExampleSentence.query.filter(
                     ExampleSentence.meaning_id == meaning.id,
                 )
-                .limit(3)
+                .limit(MAX_EXAMPLES_GENERATE)
                 .all()
             )
 
@@ -427,7 +438,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
             target_lang=translation_lang,
             cefr_level=cefr_level,
             prompt_version="v3",
-            count=3,
+            count=MAX_EXAMPLES_GENERATE,
         )
 
         # If we have a meaning, save the generated examples
@@ -472,11 +483,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
 
     except Exception as e:
         log(f"Error generating examples for word '{word}': {e}")
-        import traceback
         traceback.print_exc()
-
-        from flask import Response
-        import json
 
         error_response = json.dumps(
             {"error": "Failed to generate examples", "examples": []}
@@ -517,15 +524,6 @@ def add_word_to_learning():
         }
     }
     """
-    from zeeguu.core.llm_services.llm_service import prepare_learning_card
-    from zeeguu.core.model import Meaning
-    from zeeguu.core.model.user_word import UserWord
-    from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-    from zeeguu.core.model.context_type import ContextType
-    from zeeguu.core.model.context_identifier import ContextIdentifier
-    from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
-    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
-
     user = User.find_by_id(flask.g.user_id)
     data = request.get_json()
 
@@ -542,7 +540,7 @@ def add_word_to_learning():
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
 
     # Get user's CEFR level
-    cefr_level = data.get("cefr_level", "B1")
+    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
 
     # Get language objects
     origin_lang = Language.find(from_lang)
@@ -624,9 +622,8 @@ def add_word_to_learning():
 
         # Set as preferred bookmark and schedule for learning
         user_word.preferred_bookmark = bookmark
-        schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
-        user_word.fit_for_study = True
-        user_word.level = 1
+        # Note: find_or_create has side effect of creating schedule and setting level=1
+        FourLevelsPerWord.find_or_create(db_session, user_word)
 
         db_session.add(user_word)
         db_session.commit()
@@ -641,7 +638,6 @@ def add_word_to_learning():
     except Exception as e:
         db_session.rollback()
         log(f"Error adding word to learning: {e}")
-        import traceback
         traceback.print_exc()
 
         return json_result({
