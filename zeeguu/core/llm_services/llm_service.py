@@ -103,3 +103,45 @@ def generate_audio_lesson_script(prompt: str) -> str:
     """
     llm_service = get_llm_service("unified")
     return llm_service.generate_text(prompt, max_tokens=1500, temperature=0.7)
+
+
+def prepare_learning_card(
+    searched_word: str,
+    translation: str,
+    source_lang: str,
+    target_lang: str,
+    cefr_level: str,
+    examples: List[str]
+) -> Dict:
+    """
+    Prepare an optimal learning card using LLM.
+
+    Takes a searched word and examples, returns the best word form,
+    translation, and example for learning.
+
+    Returns dict with keys: word, translation, example, example_translation
+    Raises Exception if LLM call fails or response can't be parsed.
+    """
+    from .prompts.learning_card_generator import (
+        create_learning_card_prompt,
+        parse_learning_card_response
+    )
+
+    prompt = create_learning_card_prompt(
+        searched_word=searched_word,
+        translation=translation,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        cefr_level=cefr_level,
+        examples=examples
+    )
+
+    llm_service = get_llm_service("unified")
+    response = llm_service.generate_text(prompt, max_tokens=500, temperature=0.3)
+
+    result = parse_learning_card_response(response)
+    if not result:
+        log(f"Failed to parse learning card response: {response}")
+        raise Exception("Could not parse LLM response for learning card")
+
+    return result
