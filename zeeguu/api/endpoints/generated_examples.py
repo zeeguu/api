@@ -28,6 +28,14 @@ MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
 DEFAULT_CEFR_LEVEL = "B1"
 
 
+def get_user_cefr_level(user):
+    """Get user's CEFR level for their learned language, with fallback."""
+    try:
+        return user.cefr_level_for_learned_language()
+    except (IndexError, AttributeError, TypeError):
+        return DEFAULT_CEFR_LEVEL
+
+
 @api.route("/alternative_sentences/<user_word_id>", methods=["GET"])
 @cross_domain
 @requires_session
@@ -52,8 +60,8 @@ def alternative_sentences(user_word_id):
     origin_lang = user_word.meaning.origin.language.code
     translation_lang = user_word.meaning.translation.language.code
 
-    # Determine CEFR level
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    # Get user's CEFR level
+    cefr_level = get_user_cefr_level(user)
 
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
@@ -385,7 +393,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    cefr_level = get_user_cefr_level(user)
     translation = request.args.get("translation", "")
 
     try:
@@ -539,8 +547,8 @@ def add_word_to_learning():
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
 
-    # Get user's CEFR level
-    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    # Get user's CEFR level from their profile
+    cefr_level = get_user_cefr_level(user)
 
     # Get language objects
     origin_lang = Language.find(from_lang)
