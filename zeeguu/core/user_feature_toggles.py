@@ -9,6 +9,7 @@ are enabled for a user based on their cohort membership, invitation code, etc.
 def _feature_map():
     return {
         "audio_exercises": _audio_exercises,
+        "daily_audio": _daily_audio,
         "extension_experiment_1": _extension_experiment_1,
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
@@ -28,6 +29,11 @@ def features_for_user(user):
 def is_feature_enabled_for_user(feature_name, user):
     """Check if a specific feature is enabled for the given user."""
     return feature_name in features_for_user(user)
+
+
+def _daily_audio(user):
+    # Enabled for everyone - kept for backward compatibility with deployed apps
+    return True
 
 
 def _new_topics(user):
