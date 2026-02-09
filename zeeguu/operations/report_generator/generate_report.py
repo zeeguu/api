@@ -95,6 +95,39 @@ def get_rejected_sentences_table(total_deleted_sents):
     return generate_html_table(pd_deleted_sents.sort_values("Count", ascending=False))
 
 
+def get_feed_errors_table(feed_errors, feed_df):
+    """Generate HTML table for feed errors."""
+    if not feed_errors:
+        return "<p>No feed errors during this period.</p>"
+
+    # Build a lookup for feed names
+    feed_name_lookup = {}
+    if feed_df is not None and len(feed_df) > 0:
+        for _, row in feed_df.iterrows():
+            feed_name_lookup[str(row.get("id", ""))] = row.get("Feed Name", "Unknown")
+
+    rows = []
+    for entry in feed_errors:
+        feed_id = entry["feed_id"]
+        feed_name = feed_name_lookup.get(str(feed_id), f"Feed {feed_id}")
+        for error in entry["errors"]:
+            rows.append({
+                "Language": entry["lang"],
+                "Feed": feed_name,
+                "Error": error[:200] + "..." if len(error) > 200 else error,
+            })
+
+    if not rows:
+        return "<p>No feed errors during this period.</p>"
+
+    df = pd.DataFrame(rows)
+    # Group by feed and count errors
+    error_summary = df.groupby(["Language", "Feed"]).size().reset_index(name="Error Count")
+    error_summary = error_summary.sort_values("Error Count", ascending=False)
+
+    return generate_html_table(error_summary)
+
+
 def get_total_reject_article_reason_table(total_rejected_article_reasons):
     total_rejected_article_reasons["Total"] = sum(
         total_rejected_article_reasons.values()
@@ -663,6 +696,7 @@ def generate_html_page():
         """
     result += f"""
             <p><a href="#removed-articles">Removed Sents Table</a><p>
+            <p><a href="#feed-errors">Feed Errors</a><p>
             <p><a href="#new-url-keywords">New keywords without topics</a><p>
             <h1>Per Language Report:</h1>
             {lang_links}
@@ -678,7 +712,13 @@ def generate_html_page():
         </body>
     """
 
+    feed_errors = crawl_report.get_all_feed_errors()
     result += f"""
+            <h1 id="feed-errors">Feed Errors:</h1>
+            <p>Connection timeouts, HTTP errors, and other issues encountered while fetching feeds.</p>
+            <p>{warning_crawl_range}</p>
+            {get_feed_errors_table(feed_errors, feed_df)}
+            <br />
             <h1 id="new-url-keywords">Newly url keywords without topics:</h1>
             <p>URL Keywords that occur more than 100 times in articles and are not mapped to a topic. They are language unique.<p>
             {get_url_keywords_table(pd_url_keywords) if DAYS_FOR_REPORT <= 7 else "<p>Skipped due to long period.</p>"}
