@@ -246,10 +246,19 @@ def update_bookmark_translation_only(bookmark_id):
     :return: Updated bookmark as JSON
     """
     from zeeguu.api.utils.json_result import json_result
+    from sqlalchemy.orm.exc import NoResultFound
 
-    bookmark = Bookmark.find(bookmark_id)
-    if not bookmark:
+    # Find bookmark with proper error handling
+    # Fixes ZEEGUU-WEB-B2: Bookmark.find() throws NoResultFound, not returns None
+    try:
+        bookmark = Bookmark.find(bookmark_id)
+    except NoResultFound:
         return json_result({"error": "Bookmark not found"}, status=404)
+
+    # Authorization check - ensure user owns this bookmark
+    user = User.find_by_id(flask.g.user_id)
+    if bookmark.user_word.user_id != user.id:
+        return json_result({"error": "Bookmark not found or access denied"}, status=404)
 
     new_translation = request.json.get("translation")
     if not new_translation:
