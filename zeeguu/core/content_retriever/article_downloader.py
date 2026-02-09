@@ -627,6 +627,13 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     log(f"   ✓ Topics assigned: {topics}")
     session.add(new_article)
 
+    # IMPORTANT: Capture topic data NOW before any potential session rollback.
+    # _cache_article_tokenization can rollback on failure, which would delete
+    # the ArticleTopicMap entries from the session. Store the data we need.
+    # Fixes ZEEGUU-API-X1: ObjectDeletedError when accessing topics after rollback.
+    article_topic_ids = [t.topic_id for t in new_article.topics]
+    article_topic_names = [t.topic.title for t in new_article.topics]
+
     # Pre-tokenize and cache summary/title to avoid expensive CPU work during user requests
     log(f"   Caching tokenization...")
     _cache_article_tokenization(new_article, session)
@@ -654,8 +661,8 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
 
     # Check topic simplification cap - skip simplification if all topics are "full" for this language today
     # topic_simplification_counts is keyed by (language_id, topic_id) tuple
+    # Note: article_topic_ids and article_topic_names were captured earlier before potential rollback
     skip_simplification_due_to_cap = False
-    article_topic_ids = [t.topic_id for t in new_article.topics]
     language_id = feed.language_id
     lang_code = feed.language.code
     max_for_lang = get_max_simplified_for_language(lang_code)
@@ -672,8 +679,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
 
         if not needs_simplification:
             skip_simplification_due_to_cap = True
-            topic_names = [t.topic.title for t in new_article.topics]
-            log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {topic_names}")
+            log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
             return new_article
 
     # Auto-create simplified versions and classify content
