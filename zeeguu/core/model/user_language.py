@@ -1,6 +1,8 @@
+import datetime
+
 from MySQLdb import IntegrityError
 import sqlalchemy
-from sqlalchemy import Column, Integer, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
@@ -43,6 +45,9 @@ class UserLanguage(db.Model):
     doing_exercises = Column(Boolean)
 
     cefr_level = Column(Integer)
+
+    last_practiced = Column(DateTime, nullable=True)
+    daily_streak = Column(Integer, default=0)
 
     def __init__(
         self,
@@ -114,3 +119,22 @@ class UserLanguage(db.Model):
             user_languages.append(user_main_learned_language)
 
         return user_languages
+
+    def update_streak_if_needed(self, session=None):
+        """
+        Update last_practiced timestamp and daily_streak counter for this language.
+        Only updates once per day to minimize database writes.
+        """
+        now = datetime.datetime.now()
+
+        if not self.last_practiced or self.last_practiced.date() < now.date():
+            if not self.last_practiced:
+                self.daily_streak = 1
+            elif self.last_practiced.date() == now.date() - datetime.timedelta(days=1):
+                self.daily_streak = (self.daily_streak or 0) + 1
+            else:
+                self.daily_streak = 1
+
+            self.last_practiced = now
+            if session:
+                session.add(self)

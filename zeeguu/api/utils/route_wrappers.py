@@ -73,12 +73,19 @@ def requires_session(view):
 
             # Update user's last_seen timestamp (once per day maximum)
             from zeeguu.core.model import User
+            from zeeguu.core.model.user_language import UserLanguage
             from zeeguu.core.model.db import db
 
             user = User.find_by_id(user_id)
 
             if user:
                 user.update_last_seen_if_needed(db.session)
+                # Update per-language streak for the user's current learned language
+                if user.learned_language:
+                    user_language = UserLanguage.find_or_create(
+                        db.session, user, user.learned_language
+                    )
+                    user_language.update_streak_if_needed(db.session)
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
         except BadRequestKeyError as e:
