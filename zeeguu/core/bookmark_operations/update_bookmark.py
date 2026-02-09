@@ -298,7 +298,14 @@ def cleanup_old_user_word(db_session, old_user_word, moved_bookmark):
     log(f"[UPDATE_BOOKMARK] Remaining bookmarks: {remaining_bookmarks}")
 
     if remaining_bookmarks == 0:
-        # Delete orphaned UserWord
+        # Delete orphaned UserWord and its dependent records
+        # Must delete interaction history first due to foreign key constraint
+        # Fixes ZEEGUU-WEB-B2: IntegrityError when deleting UserWord with interaction history
+        from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
+
+        log(f"[UPDATE_BOOKMARK] Deleting interaction history for orphaned UserWord {old_user_word.id}...")
+        UserWordInteractionHistory.query.filter_by(user_word_id=old_user_word.id).delete()
+
         log(f"[UPDATE_BOOKMARK] Deleting orphaned UserWord {old_user_word.id}...")
         db_session.delete(old_user_word)
         log(f"[UPDATE_BOOKMARK] ✓ Deleted orphaned UserWord {old_user_word.id}")
