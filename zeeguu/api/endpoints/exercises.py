@@ -309,7 +309,6 @@ def _user_words_as_json_result(user_words):
             log(f"Failed to get tokenized context for user_word {uw.id}: {e}")
 
     dicts = []
-    words_to_delete = []
 
     for user_word in user_words:
         try:
@@ -320,28 +319,9 @@ def _user_words_as_json_result(user_words):
                 schedule=schedule,
                 pre_tokenized_context=tokenized_context
             ))
-        except ValueError as e:
-            # This means validate_data_integrity() couldn't repair the issue
-            # (i.e., UserWord has no bookmarks at all)
-            log(f"UserWord {user_word.id} failed validation and cannot be repaired: {str(e)}")
-            words_to_delete.append(user_word)
         except Exception as e:
-            # Log any other unexpected errors and skip
+            # Log unexpected errors and skip (orphaned UserWords are handled gracefully)
             log(f"Unexpected error processing UserWord {user_word.id}: {str(e)}")
             continue
-
-    # Delete UserWords that couldn't be repaired
-    if words_to_delete:
-        for word in words_to_delete:
-            try:
-                db.session.delete(word)
-                log(f"Deleted UserWord {word.id} due to unrepairable data integrity issues")
-            except:
-                log(f"Failed to delete UserWord {word.id}")
-        try:
-            db.session.commit()
-        except:
-            db.session.rollback()
-            log("Failed to commit UserWord deletions")
 
     return json_result(dicts)

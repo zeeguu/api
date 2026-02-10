@@ -191,10 +191,19 @@ class UserWord(db.Model):
                      If not provided, will tokenize on demand (slower for batch operations).
             with_context_tokenized: Whether to include tokenized context (default True).
                      Set to False for list views where tokenization isn't needed - saves ~150ms per word.
+
         """
-        # Note: Data integrity validation removed from hot path for performance
-        # Run periodic checks with: python -m tools._check_and_fix_data_integrity
-        # Write-time validation happens via SQLAlchemy event listeners
+        # Auto-repair: if no preferred_bookmark but bookmarks exist, set one
+        is_orphaned = False
+        if self.preferred_bookmark is None:
+            bookmarks = self.bookmarks()
+            if bookmarks:
+                # Auto-repair: use first bookmark as preferred
+                self.preferred_bookmark = bookmarks[0]
+                log(f"Auto-repaired UserWord {self.id}: set preferred_bookmark to {bookmarks[0].id}")
+            else:
+                # Orphaned - no bookmarks, return minimal data (word/translation only)
+                is_orphaned = True
 
         try:
             translation_word = self.meaning.translation.content
@@ -240,31 +249,56 @@ class UserWord(db.Model):
             is_about_to_be_learned = None
             next_practice_time = None
 
-        exercise_info_dict = dict(
-            to=translation_word,
-            from_lang=self.meaning.origin.language.code,
-            to_lang=translation_language,
-            url=self.preferred_bookmark.text.url(),
-            origin_rank=word_rank if word_rank != 100000 else "",
-            article_id=(
-                self.preferred_bookmark.text.article_id
-                if self.preferred_bookmark.text.article_id
-                else ""
-            ),
-            source_id=self.preferred_bookmark.source_id,
-            fit_for_study=self.fit_for_study == 1,
-            level=self.level,
-            cooling_interval=cooling_interval_in_days,
-            is_last_in_cycle=is_last_in_cycle,
-            is_about_to_be_learned=is_about_to_be_learned,
-            can_update_schedule=can_update_schedule,
-            user_preference=self.user_preference,
-            consecutive_correct_answers=consecutive_correct_answers,
-            context_in_content=self.preferred_bookmark.text.in_content,
-            left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
-            right_ellipsis=self.preferred_bookmark.context.right_ellipsis,
-            next_practice_time=next_practice_time,
-        )
+        # Build exercise info - some fields require bookmark
+        if is_orphaned:
+            # Minimal data for orphaned words (no bookmark context available)
+            exercise_info_dict = dict(
+                to=translation_word,
+                from_lang=self.meaning.origin.language.code,
+                to_lang=translation_language,
+                url="",
+                origin_rank=word_rank if word_rank != 100000 else "",
+                article_id="",
+                source_id=None,
+                fit_for_study=False,  # Orphaned words are not fit for study
+                level=self.level,
+                cooling_interval=cooling_interval_in_days,
+                is_last_in_cycle=is_last_in_cycle,
+                is_about_to_be_learned=is_about_to_be_learned,
+                can_update_schedule=can_update_schedule,
+                user_preference=self.user_preference,
+                consecutive_correct_answers=consecutive_correct_answers,
+                context_in_content=False,
+                left_ellipsis=False,
+                right_ellipsis=False,
+                next_practice_time=next_practice_time,
+            )
+        else:
+            exercise_info_dict = dict(
+                to=translation_word,
+                from_lang=self.meaning.origin.language.code,
+                to_lang=translation_language,
+                url=self.preferred_bookmark.text.url(),
+                origin_rank=word_rank if word_rank != 100000 else "",
+                article_id=(
+                    self.preferred_bookmark.text.article_id
+                    if self.preferred_bookmark.text.article_id
+                    else ""
+                ),
+                source_id=self.preferred_bookmark.source_id,
+                fit_for_study=self.fit_for_study == 1,
+                level=self.level,
+                cooling_interval=cooling_interval_in_days,
+                is_last_in_cycle=is_last_in_cycle,
+                is_about_to_be_learned=is_about_to_be_learned,
+                can_update_schedule=can_update_schedule,
+                user_preference=self.user_preference,
+                consecutive_correct_answers=consecutive_correct_answers,
+                context_in_content=self.preferred_bookmark.text.in_content,
+                left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
+                right_ellipsis=self.preferred_bookmark.context.right_ellipsis,
+                next_practice_time=next_practice_time,
+            )
 
         exercise_info_dict["from"] = self.meaning.origin.content
 
@@ -295,14 +329,25 @@ class UserWord(db.Model):
                 scheduling_reason = "early_practice"
                 days_until_practice = days_diff
 
-        result = {
-            **self.preferred_bookmark.as_dictionary(
+        # Build bookmark dictionary - orphaned words get minimal placeholder
+        if is_orphaned:
+            bookmark_dict = {
+                "id": self.id,  # Use user_word id as fallback
+                "context": "",
+                "context_tokenized": None,
+            }
+        else:
+            bookmark_dict = self.preferred_bookmark.as_dictionary(
                 with_context_tokenized=with_context_tokenized,
                 pre_tokenized_context=pre_tokenized_context
-            ),
+            )
+
+        result = {
+            **bookmark_dict,
             **exercise_info_dict,
             "user_word_id": self.id,
             "meaning_id": self.meaning_id,
+            "is_orphaned": is_orphaned,  # True if no bookmark context available
             "is_user_added": (
                 self.is_user_added if self.is_user_added is not None else False
             ),
