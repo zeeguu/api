@@ -2087,13 +2087,23 @@ def monthly_active_users_page():
             color: #3498db;
             text-decoration: none;
         }}
+        .breadcrumb {{
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }}
+        .breadcrumb:hover {{
+            text-decoration: underline;
+        }}
 
         /* Embed mode - minimal styling */
         body.embed {{
             background: transparent;
             padding: 10px;
         }}
-        body.embed h1, body.embed .subtitle, body.embed .footer {{
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
             display: none;
         }}
         body.embed .chart-section, body.embed .table-section {{
@@ -2104,6 +2114,7 @@ def monthly_active_users_page():
 </head>
 <body{"class='embed'" if request.args.get('embed') else ''}>
     <div class="container">
+        <a href="/stats" class="breadcrumb">&larr; All Stats</a>
         <h1>Monthly Active Users</h1>
         <p class="subtitle">Users with any learning activity (exercises, reading, browsing, audio lessons, or translations)</p>
 
@@ -2570,11 +2581,21 @@ def monthly_activity_page():
             color: #3498db;
             text-decoration: none;
         }}
+        .breadcrumb {{
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }}
+        .breadcrumb:hover {{
+            text-decoration: underline;
+        }}
         body.embed {{
             background: transparent;
             padding: 10px;
         }}
-        body.embed h1, body.embed .subtitle, body.embed .footer {{
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
             display: none;
         }}
         body.embed .chart-section, body.embed .table-section {{
@@ -2585,6 +2606,7 @@ def monthly_activity_page():
 </head>
 <body{"class='embed'" if request.args.get('embed') else ''}>
     <div class="container">
+        <a href="/stats" class="breadcrumb">&larr; All Stats</a>
         <h1>Monthly Activity Breakdown</h1>
         <p class="subtitle">Total minutes spent on different learning activities</p>
 
