@@ -2137,3 +2137,86 @@ def monthly_active_users_page():
 </html>"""
 
     return Response(html, mimetype="text/html")
+
+
+@api.route("/stats", methods=["GET"])
+@cross_domain
+def stats_index():
+    """Public stats index page."""
+    html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Zeeguu Stats</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        .stats-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .stats-list li {
+            margin-bottom: 15px;
+        }
+        .stats-list a {
+            display: block;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            text-decoration: none;
+            color: #2c3e50;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .stats-list a:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        .stats-list .title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #3498db;
+        }
+        .stats-list .desc {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Zeeguu Stats</h1>
+        <p class="subtitle">Public statistics about the Zeeguu platform</p>
+
+        <ul class="stats-list">
+            <li>
+                <a href="/stats/monthly_active_users">
+                    <div class="title">Monthly Active Users</div>
+                    <div class="desc">Chart and table showing active users per month</div>
+                </a>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
