@@ -104,3 +104,6 @@ from .grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType
 
 # translation validation
 from .validation_log import ValidationLog
+
+# stats caching
+from .monthly_active_users_cache import MonthlyActiveUsersCache

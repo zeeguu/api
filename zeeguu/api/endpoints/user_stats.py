@@ -1818,81 +1818,113 @@ def user_stats_platform_dashboard(platform_id):
     return Response(html, content_type="text/html")
 
 
-def get_monthly_active_users(months=12):
-    """Get active user counts per month for the last N months."""
+def _compute_active_users_for_month(month_start, month_end):
+    """Compute active user count for a specific month range."""
     from sqlalchemy import func, distinct, union_all
 
+    exercise_users = (
+        db_session.query(distinct(UserExerciseSession.user_id))
+        .filter(UserExerciseSession.start_time >= month_start)
+        .filter(UserExerciseSession.start_time < month_end)
+    )
+
+    reading_users = (
+        db_session.query(distinct(UserReadingSession.user_id))
+        .filter(UserReadingSession.start_time >= month_start)
+        .filter(UserReadingSession.start_time < month_end)
+    )
+
+    browsing_users = (
+        db_session.query(distinct(UserBrowsingSession.user_id))
+        .filter(UserBrowsingSession.start_time >= month_start)
+        .filter(UserBrowsingSession.start_time < month_end)
+    )
+
+    audio_users = (
+        db_session.query(distinct(DailyAudioLesson.user_id))
+        .filter(DailyAudioLesson.completed_at >= month_start)
+        .filter(DailyAudioLesson.completed_at < month_end)
+    )
+
+    bookmark_users = (
+        db_session.query(distinct(UserWord.user_id))
+        .join(Bookmark, Bookmark.user_word_id == UserWord.id)
+        .filter(Bookmark.time >= month_start)
+        .filter(Bookmark.time < month_end)
+    )
+
+    all_users = union_all(
+        exercise_users, reading_users, browsing_users, audio_users, bookmark_users
+    ).subquery()
+
+    from sqlalchemy import func, distinct
+    return db_session.query(func.count(distinct(all_users.c[0]))).scalar() or 0
+
+
+def get_monthly_active_users(months=12):
+    """
+    Get active user counts per month for the last N months.
+    Uses caching: historical months are cached permanently,
+    current month is refreshed every 6 hours.
+    """
+    from zeeguu.core.model import MonthlyActiveUsersCache
+
     now = datetime.now()
+    current_year_month = now.strftime("%Y-%m")
     monthly_data = []
+
+    # Get all cached data in one query
+    cache = MonthlyActiveUsersCache.get_all_cached()
 
     for i in range(months):
         # Calculate month boundaries
         if i == 0:
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             month_end = now
         else:
-            # First day of (months - i) months ago
-            month_end = now.replace(day=1) - timedelta(days=1)
-            for _ in range(i - 1):
-                month_end = month_end.replace(day=1) - timedelta(days=1)
-            # Move to end of that month
-            month_end = month_end.replace(day=1) - timedelta(days=1)
-            month_end = month_end.replace(
-                day=1, hour=23, minute=59, second=59
-            ) + timedelta(days=31)
-            month_end = month_end.replace(day=1) - timedelta(seconds=1)
+            # Go back i months
+            year = now.year
+            month = now.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
+            month_start = datetime(year, month, 1)
+            # End is start of next month
+            next_month = month + 1
+            next_year = year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            month_end = datetime(next_year, next_month, 1)
 
-        # Start of that month
-        month_start = month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        year_month = month_start.strftime("%Y-%m")
+        is_current_month = (year_month == current_year_month)
 
-        # For current month, end is now
-        if i == 0:
-            month_end = now
+        # Check cache
+        cached = cache.get(year_month)
+        use_cache = False
 
-        # Count unique active users from all activity sources
-        exercise_users = (
-            db_session.query(distinct(UserExerciseSession.user_id))
-            .filter(UserExerciseSession.start_time >= month_start)
-            .filter(UserExerciseSession.start_time < month_end)
-        )
+        if cached:
+            if is_current_month:
+                # For current month, use cache if less than 6 hours old
+                cache_age = now - cached.computed_at
+                if cache_age.total_seconds() < 6 * 3600:
+                    use_cache = True
+            else:
+                # Historical months: always use cache
+                use_cache = True
 
-        reading_users = (
-            db_session.query(distinct(UserReadingSession.user_id))
-            .filter(UserReadingSession.start_time >= month_start)
-            .filter(UserReadingSession.start_time < month_end)
-        )
-
-        browsing_users = (
-            db_session.query(distinct(UserBrowsingSession.user_id))
-            .filter(UserBrowsingSession.start_time >= month_start)
-            .filter(UserBrowsingSession.start_time < month_end)
-        )
-
-        audio_users = (
-            db_session.query(distinct(DailyAudioLesson.user_id))
-            .filter(DailyAudioLesson.completed_at >= month_start)
-            .filter(DailyAudioLesson.completed_at < month_end)
-        )
-
-        bookmark_users = (
-            db_session.query(distinct(UserWord.user_id))
-            .join(Bookmark, Bookmark.user_word_id == UserWord.id)
-            .filter(Bookmark.time >= month_start)
-            .filter(Bookmark.time < month_end)
-        )
-
-        # Combine all user IDs and count unique
-        all_users = union_all(
-            exercise_users, reading_users, browsing_users, audio_users, bookmark_users
-        ).subquery()
-
-        unique_count = db_session.query(
-            func.count(distinct(all_users.c[0]))
-        ).scalar()
+        if use_cache:
+            active_users = cached.active_users
+        else:
+            # Compute and cache
+            active_users = _compute_active_users_for_month(month_start, month_end)
+            MonthlyActiveUsersCache.set_cached(db_session, year_month, active_users)
 
         monthly_data.append({
-            "month": month_start.strftime("%Y-%m"),
+            "month": year_month,
             "month_label": month_start.strftime("%b %Y"),
-            "active_users": unique_count or 0,
+            "active_users": active_users,
         })
 
     # Reverse to show oldest first
