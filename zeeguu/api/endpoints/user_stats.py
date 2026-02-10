@@ -1816,3 +1816,291 @@ def user_stats_platform_dashboard(platform_id):
 </html>"""
 
     return Response(html, content_type="text/html")
+
+
+def get_monthly_active_users(months=12):
+    """Get active user counts per month for the last N months."""
+    from sqlalchemy import func, distinct, union_all
+
+    now = datetime.now()
+    monthly_data = []
+
+    for i in range(months):
+        # Calculate month boundaries
+        if i == 0:
+            month_end = now
+        else:
+            # First day of (months - i) months ago
+            month_end = now.replace(day=1) - timedelta(days=1)
+            for _ in range(i - 1):
+                month_end = month_end.replace(day=1) - timedelta(days=1)
+            # Move to end of that month
+            month_end = month_end.replace(day=1) - timedelta(days=1)
+            month_end = month_end.replace(
+                day=1, hour=23, minute=59, second=59
+            ) + timedelta(days=31)
+            month_end = month_end.replace(day=1) - timedelta(seconds=1)
+
+        # Start of that month
+        month_start = month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # For current month, end is now
+        if i == 0:
+            month_end = now
+
+        # Count unique active users from all activity sources
+        exercise_users = (
+            db_session.query(distinct(UserExerciseSession.user_id))
+            .filter(UserExerciseSession.start_time >= month_start)
+            .filter(UserExerciseSession.start_time < month_end)
+        )
+
+        reading_users = (
+            db_session.query(distinct(UserReadingSession.user_id))
+            .filter(UserReadingSession.start_time >= month_start)
+            .filter(UserReadingSession.start_time < month_end)
+        )
+
+        browsing_users = (
+            db_session.query(distinct(UserBrowsingSession.user_id))
+            .filter(UserBrowsingSession.start_time >= month_start)
+            .filter(UserBrowsingSession.start_time < month_end)
+        )
+
+        audio_users = (
+            db_session.query(distinct(DailyAudioLesson.user_id))
+            .filter(DailyAudioLesson.completed_at >= month_start)
+            .filter(DailyAudioLesson.completed_at < month_end)
+        )
+
+        bookmark_users = (
+            db_session.query(distinct(UserWord.user_id))
+            .join(Bookmark, Bookmark.user_word_id == UserWord.id)
+            .filter(Bookmark.time >= month_start)
+            .filter(Bookmark.time < month_end)
+        )
+
+        # Combine all user IDs and count unique
+        all_users = union_all(
+            exercise_users, reading_users, browsing_users, audio_users, bookmark_users
+        ).subquery()
+
+        unique_count = db_session.query(
+            func.count(distinct(all_users.c[0]))
+        ).scalar()
+
+        monthly_data.append({
+            "month": month_start.strftime("%Y-%m"),
+            "month_label": month_start.strftime("%b %Y"),
+            "active_users": unique_count or 0,
+        })
+
+    # Reverse to show oldest first
+    return list(reversed(monthly_data))
+
+
+@api.route("/stats/monthly_active_users", methods=["GET"])
+@cross_domain
+def monthly_active_users_page():
+    """
+    Public page showing monthly active users.
+    Embeddable on the homepage.
+    """
+    months = min(int(request.args.get("months", 12)), 24)
+    monthly_data = get_monthly_active_users(months)
+
+    # Calculate max for chart scaling
+    max_users = max((m["active_users"] for m in monthly_data), default=1)
+
+    # Generate chart bars
+    chart_bars = ""
+    for m in monthly_data:
+        height_pct = (m["active_users"] / max_users * 100) if max_users > 0 else 0
+        chart_bars += f"""
+            <div class="bar-container">
+                <div class="bar" style="height: {height_pct}%;">
+                    <span class="bar-value">{m['active_users']}</span>
+                </div>
+                <span class="bar-label">{m['month_label'][:3]}</span>
+            </div>
+"""
+
+    # Generate table rows
+    table_rows = ""
+    for m in reversed(monthly_data):  # Most recent first in table
+        table_rows += f"""
+            <tr>
+                <td>{m['month_label']}</td>
+                <td class="count">{m['active_users']}</td>
+            </tr>
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Active Users - Zeeguu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #333;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+        }}
+        .subtitle {{
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+        }}
+        .chart-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }}
+        .chart {{
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 200px;
+            padding: 10px 0;
+            border-bottom: 2px solid #ecf0f1;
+        }}
+        .bar-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            height: 100%;
+        }}
+        .bar {{
+            width: 70%;
+            max-width: 40px;
+            background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            min-height: 2px;
+            display: flex;
+            justify-content: center;
+            transition: height 0.3s ease;
+        }}
+        .bar:hover {{
+            background: linear-gradient(180deg, #5dade2 0%, #3498db 100%);
+        }}
+        .bar-value {{
+            position: absolute;
+            top: -22px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #2c3e50;
+        }}
+        .bar-label {{
+            margin-top: 8px;
+            font-size: 11px;
+            color: #7f8c8d;
+        }}
+        .table-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }}
+        .table-section h2 {{
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            color: #2c3e50;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }}
+        th {{
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }}
+        td.count {{
+            font-weight: 600;
+            color: #3498db;
+        }}
+        tr:hover {{
+            background: #f8f9fa;
+        }}
+        .footer {{
+            margin-top: 20px;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85em;
+        }}
+        .footer a {{
+            color: #3498db;
+            text-decoration: none;
+        }}
+
+        /* Embed mode - minimal styling */
+        body.embed {{
+            background: transparent;
+            padding: 10px;
+        }}
+        body.embed h1, body.embed .subtitle, body.embed .footer {{
+            display: none;
+        }}
+        body.embed .chart-section, body.embed .table-section {{
+            box-shadow: none;
+            border: 1px solid #ecf0f1;
+        }}
+    </style>
+</head>
+<body{"class='embed'" if request.args.get('embed') else ''}>
+    <div class="container">
+        <h1>Monthly Active Users</h1>
+        <p class="subtitle">Users with any learning activity (exercises, reading, browsing, audio lessons, or translations)</p>
+
+        <div class="chart-section">
+            <div class="chart">
+{chart_bars}
+            </div>
+        </div>
+
+        <div class="table-section">
+            <h2>Details</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Active Users</th>
+                    </tr>
+                </thead>
+                <tbody>
+{table_rows}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="footer">
+            Data from <a href="https://zeeguu.org">Zeeguu</a> |
+            Updated {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        </p>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, mimetype="text/html")
