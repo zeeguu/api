@@ -107,3 +107,4 @@ from .validation_log import ValidationLog
 
 # stats caching
 from .monthly_active_users_cache import MonthlyActiveUsersCache
+from .monthly_activity_stats_cache import MonthlyActivityStatsCache

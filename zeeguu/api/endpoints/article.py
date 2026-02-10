@@ -627,18 +627,49 @@ def clear_article_cache(article_id):
     )
 
     bookmark_count = len(bookmarks)
+    bookmark_ids_to_delete = {b.id for b in bookmarks}
 
-    # First pass: clear all preferred_bookmark_id references
+    # Track UserWords that need cleanup
+    user_words_to_check = {}
     for bookmark in bookmarks:
         user_word = bookmark.user_word
-        if user_word and user_word.preferred_bookmark_id == bookmark.id:
-            user_word.preferred_bookmark_id = None
+        if user_word:
+            user_words_to_check[user_word.id] = user_word
+            # Clear preferred_bookmark if it's one we're deleting
+            if user_word.preferred_bookmark_id == bookmark.id:
+                user_word.preferred_bookmark_id = None
+
     db_session.flush()  # Commit the nullifications before deleting
 
-    # Second pass: delete bookmarks
+    # Delete bookmarks
     for bookmark in bookmarks:
         db_session.delete(bookmark)
+    db_session.flush()
+
+    # Handle UserWords that are now orphaned or need new preferred_bookmark
+    user_words_marked_unfit = 0
+    for user_word in user_words_to_check.values():
+        # Check for remaining bookmarks not in our delete set
+        remaining_bookmarks = (
+            Bookmark.query
+            .filter(Bookmark.user_word_id == user_word.id)
+            .filter(Bookmark.id.notin_(bookmark_ids_to_delete))
+            .all()
+        )
+
+        if remaining_bookmarks:
+            # Set a new preferred bookmark if needed
+            if user_word.preferred_bookmark is None:
+                user_word.preferred_bookmark = remaining_bookmarks[0]
+        else:
+            # No bookmarks left - keep UserWord for history but mark unfit for study
+            user_word.set_unfit_for_study(db_session)
+            user_words_marked_unfit += 1
+
     db_session.commit()
+
+    if user_words_marked_unfit > 0:
+        log(f"[DEV] Marked {user_words_marked_unfit} UserWords as unfit for study (no bookmarks)")
 
     log(f"[DEV] Cleared cache and {bookmark_count} bookmarks for article {article_id}")
 

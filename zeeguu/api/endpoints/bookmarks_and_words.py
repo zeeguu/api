@@ -241,7 +241,8 @@ def delete_bookmark(bookmark_id):
                     # in the future we can generate an example for this user word with the help of the robots!
                     user_word.set_unfit_for_study(db_session)
             else:
-                # No other bookmarks exist - ALWAYS keep the user_word for historical data
+                # No other bookmarks exist - keep UserWord for historical data
+                # but mark as unfit for study (won't appear in exercises)
                 user_word.set_unfit_for_study(db_session)
 
         # Delete any ExampleSentenceContext records that reference this bookmark
