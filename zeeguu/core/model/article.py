@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 from sqlalchemy import (
@@ -17,7 +18,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.types import TypeDecorator
 
-from zeeguu.core.content_cleaning.unicode_normalization import flatten_composed_unicode_characters
 from zeeguu.core.language.ml_cefr_classifier import predict_cefr_level
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
@@ -822,9 +822,9 @@ class Article(db.Model):
 
         # Normalize Unicode to NFC (precomposed form) - LLMs may return NFD (decomposed)
         # which causes visual rendering issues with diacritics (e.g., Romanian ă, â)
-        simplified_title = flatten_composed_unicode_characters(simplified_title)
-        simplified_content = flatten_composed_unicode_characters(simplified_content)
-        simplified_summary = flatten_composed_unicode_characters(simplified_summary)
+        simplified_title = unicodedata.normalize('NFC', simplified_title) if simplified_title else simplified_title
+        simplified_content = unicodedata.normalize('NFC', simplified_content) if simplified_content else simplified_content
+        simplified_summary = unicodedata.normalize('NFC', simplified_summary) if simplified_summary else simplified_summary
 
         # Create a Source object for the simplified content
         source_type = SourceType.find_by_type(SourceType.ARTICLE)
