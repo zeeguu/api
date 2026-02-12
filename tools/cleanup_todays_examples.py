@@ -22,7 +22,7 @@ from zeeguu.core.model.example_sentence import ExampleSentence
 today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 examples_today = ExampleSentence.query.filter(
-    ExampleSentence.time >= today_start
+    ExampleSentence.created_at >= today_start
 ).all()
 
 print(f"Found {len(examples_today)} examples created today")

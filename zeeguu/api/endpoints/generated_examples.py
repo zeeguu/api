@@ -8,7 +8,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
-from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning
+from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -721,3 +721,68 @@ def preview_learning_card():
             "error": "Failed to generate preview",
             "detail": str(e)
         }, status=500)
+
+
+@api.route("/report_meaning", methods=["POST"])
+@cross_domain
+@requires_session
+def report_meaning():
+    """
+    Report a problem with AI-generated content for a meaning.
+
+    Request body (JSON):
+    {
+        "word": "bekræfte",
+        "translation": "confirm",
+        "from_lang": "da",
+        "to_lang": "en",
+        "reason": "bad_examples",  // bad_examples, wrong_meaning, wrong_level, other
+        "comment": "Optional details"  // optional
+    }
+
+    Response (200):
+    {
+        "success": true,
+        "message": "Report submitted"
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = request.get_json()
+
+    if not data:
+        return json_result({"error": "JSON body required"}, status=400)
+
+    word = data.get("word", "").strip()
+    translation = data.get("translation", "").strip()
+    from_lang = data.get("from_lang", "")
+    to_lang = data.get("to_lang", "")
+    reason = data.get("reason", "")
+    comment = data.get("comment", "").strip() or None
+
+    if not word or not translation or not from_lang or not to_lang:
+        return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+
+    valid_reasons = ["bad_examples", "wrong_meaning", "wrong_level", "other"]
+    if reason not in valid_reasons:
+        return json_result({"error": f"reason must be one of: {valid_reasons}"}, status=400)
+
+    # Find the meaning
+    meaning = Meaning.find(word, from_lang, translation, to_lang)
+    if not meaning:
+        # Create meaning if it doesn't exist (so we can track the report)
+        meaning = Meaning.find_or_create(db_session, word, from_lang, translation, to_lang)
+        db_session.commit()
+
+    try:
+        report = MeaningReport.create(db_session, meaning, user, reason, comment)
+        log(f"User {user.id} reported meaning {meaning.id} for: {reason}")
+
+        return json_result({
+            "success": True,
+            "message": "Report submitted. Thank you for helping improve Zeeguu!",
+            "report_id": report.id
+        })
+
+    except Exception as e:
+        log(f"Error creating meaning report: {e}")
+        return json_result({"error": "Failed to submit report"}, status=500)
