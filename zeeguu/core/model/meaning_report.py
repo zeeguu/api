@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from zeeguu.core.model import db
+from zeeguu.core.model.db import db
 
 
 class MeaningReport(db.Model):
