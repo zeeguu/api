@@ -653,8 +653,8 @@ def preview_learning_card():
     """
     Preview a learning card without saving it.
 
-    Generates the LLM-optimized word form, translation, and explanation
-    so the user can see what they'll be learning before committing.
+    Returns cached explanation/level_note from Meaning if available,
+    otherwise generates via LLM and caches for future use.
 
     Request body (JSON):
     {
@@ -699,7 +699,26 @@ def preview_learning_card():
     if not origin_lang or not target_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
+    # Check if we have cached explanation/level_note in Meaning
+    meaning = Meaning.find_or_create(
+        db_session, word, from_lang, translation, to_lang
+    )
+
+    if meaning.translation_explanation and meaning.level_note:
+        # Return cached data - no LLM call needed
+        return json_result({
+            "word": word,
+            "translation": translation,
+            "explanation": meaning.translation_explanation,
+            "level_note": meaning.level_note,
+            "example": examples[0] if examples else "",
+            "example_translation": "",
+            "recommendation": "recommended",
+            "cached": True
+        })
+
     try:
+        # Generate via LLM
         learning_card = prepare_learning_card(
             searched_word=word,
             translation=translation,
@@ -708,6 +727,14 @@ def preview_learning_card():
             cefr_level=cefr_level,
             examples=examples
         )
+
+        # Cache in Meaning for future use
+        if learning_card.get("explanation"):
+            meaning.translation_explanation = learning_card["explanation"]
+        if learning_card.get("level_note"):
+            meaning.level_note = learning_card["level_note"]
+        db_session.add(meaning)
+        db_session.commit()
 
         return json_result(learning_card)
 
