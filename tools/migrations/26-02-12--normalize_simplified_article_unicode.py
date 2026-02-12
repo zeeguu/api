@@ -57,6 +57,8 @@ def migrate(language_code=None, today_only=False, dry_run=False):
         query = query.filter(Article.published_time >= today_start)
         print(f"Filtering by date: {today_start.date()}")
 
+    # Sort by ID descending (newest first)
+    query = query.order_by(Article.id.desc())
     simplified_articles = query.all()
     print(f"Found {len(simplified_articles)} simplified articles to check")
 
