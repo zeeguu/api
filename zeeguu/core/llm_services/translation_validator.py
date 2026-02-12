@@ -43,6 +43,7 @@ class ValidationResult:
     corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
     frequency: Optional[str] = None  # unique/common/uncommon/rare
+    cefr_level: Optional[str] = None  # A1/A2/B1/B2/C1/C2
     phrase_type: Optional[str] = (
         None  # single_word/collocation/idiom/expression/arbitrary_multi_word
     )
@@ -181,18 +182,19 @@ class TranslationValidator:
         parts = response_text.split("|")
 
         if parts[0].upper() == "VALID":
-            if len(parts) >= 3:
+            if len(parts) >= 4:
                 return ValidationResult(
                     is_valid=True,
                     frequency=parts[1].strip().lower() if len(parts) > 1 else None,
-                    phrase_type=parts[2].strip().lower() if len(parts) > 2 else None,
-                    explanation=parts[3].strip() if len(parts) > 3 and parts[3].strip() else None,
-                    literal_meaning=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
+                    cefr_level=parts[2].strip().upper() if len(parts) > 2 and parts[2].strip() else None,
+                    phrase_type=parts[3].strip().lower() if len(parts) > 3 else None,
+                    explanation=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
+                    literal_meaning=parts[5].strip() if len(parts) > 5 and parts[5].strip() else None,
                 )
             return ValidationResult(is_valid=True)
 
         if parts[0].upper() == "FIX":
-            if len(parts) >= 5:
+            if len(parts) >= 6:
                 return ValidationResult(
                     is_valid=False,
                     corrected_word=parts[1].strip() if parts[1].strip() else None,
@@ -200,10 +202,11 @@ class TranslationValidator:
                         parts[2].strip() if parts[2].strip() else None
                     ),
                     frequency=parts[3].strip().lower() if len(parts) > 3 else None,
-                    phrase_type=parts[4].strip().lower() if len(parts) > 4 else None,
-                    reason=parts[5].strip() if len(parts) > 5 else None,
-                    explanation=parts[6].strip() if len(parts) > 6 and parts[6].strip() else None,
-                    literal_meaning=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
+                    cefr_level=parts[4].strip().upper() if len(parts) > 4 and parts[4].strip() else None,
+                    phrase_type=parts[5].strip().lower() if len(parts) > 5 else None,
+                    reason=parts[6].strip() if len(parts) > 6 else None,
+                    explanation=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
+                    literal_meaning=parts[8].strip() if len(parts) > 8 and parts[8].strip() else None,
                 )
             elif len(parts) >= 3:
                 # Partial response - at least word and translation
