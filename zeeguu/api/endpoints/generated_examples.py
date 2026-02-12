@@ -766,12 +766,9 @@ def report_meaning():
     if reason not in valid_reasons:
         return json_result({"error": f"reason must be one of: {valid_reasons}"}, status=400)
 
-    # Find the meaning
-    meaning = Meaning.find(word, from_lang, translation, to_lang)
-    if not meaning:
-        # Create meaning if it doesn't exist (so we can track the report)
-        meaning = Meaning.find_or_create(db_session, word, from_lang, translation, to_lang)
-        db_session.commit()
+    # Find or create the meaning (so we can track the report)
+    meaning = Meaning.find_or_create(db_session, word, from_lang, translation, to_lang)
+    db_session.commit()
 
     try:
         report = MeaningReport.create(db_session, meaning, user, reason, comment)
