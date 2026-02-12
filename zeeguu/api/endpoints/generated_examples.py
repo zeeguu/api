@@ -757,7 +757,7 @@ def report_meaning():
     from_lang = data.get("from_lang", "")
     to_lang = data.get("to_lang", "")
     reason = data.get("reason", "")
-    comment = data.get("comment", "").strip() or None
+    comment = (data.get("comment") or "").strip() or None
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
