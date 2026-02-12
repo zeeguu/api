@@ -17,7 +17,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.types import TypeDecorator
 
-from zeeguu.core.content_cleaning import flatten_composed_unicode_characters
+from zeeguu.core.content_cleaning.unicode_normalization import flatten_composed_unicode_characters
 from zeeguu.core.language.ml_cefr_classifier import predict_cefr_level
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
