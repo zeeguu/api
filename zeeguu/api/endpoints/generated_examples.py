@@ -427,10 +427,12 @@ def generate_examples_for_word(word, from_lang, to_lang):
                     "source": "database",
                 })
 
-            # No existing examples - generate and save them
-            log(f"No examples found for meaning {meaning.id}, generating new ones")
+            # No existing examples - generate new ones (don't cache on browse)
+            log(f"No cached examples for meaning {meaning.id}, generating fresh")
 
         # Get LLM service and generate examples
+        # NOTE: We don't cache here - caching happens only when user saves to learning
+        # This avoids filling DB with unvalidated AI content for words users just browse
         llm_service = get_llm_service()
         examples = llm_service.generate_examples(
             word=word,
@@ -441,39 +443,6 @@ def generate_examples_for_word(word, from_lang, to_lang):
             prompt_version="v3",
             count=MAX_EXAMPLES_GENERATE,
         )
-
-        # If we have a meaning, save the generated examples
-        if translation and meaning:
-            llm_model = examples[0]["llm_model"] if examples else "unknown"
-            prompt_version = examples[0]["prompt_version"] if examples else "v3"
-
-            ai_generator = AIGenerator.find_or_create(
-                db_session,
-                llm_model,
-                prompt_version,
-                description="Example generation for Translate tab",
-            )
-
-            saved_examples = []
-            for example in examples:
-                example_sentence = ExampleSentence.create_ai_generated(
-                    db_session,
-                    sentence=example["sentence"],
-                    language=origin_lang,
-                    meaning=meaning,
-                    ai_generator=ai_generator,
-                    translation=example.get("translation"),
-                    cefr_level=example.get("cefr_level", cefr_level),
-                    commit=False,
-                )
-                saved_examples.append(example_sentence)
-
-            db_session.commit()
-            log(f"Saved {len(saved_examples)} examples for meaning {meaning.id}")
-
-            # Add IDs to returned examples
-            for i, example in enumerate(examples):
-                example["id"] = saved_examples[i].id
 
         return json_result({
             "examples": examples,
