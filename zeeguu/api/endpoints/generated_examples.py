@@ -400,10 +400,11 @@ def generate_examples_for_word(word, from_lang, to_lang):
             )
             db_session.commit()
 
-            # Check for existing examples in DB for this meaning
+            # Check for existing examples in DB for this meaning at user's CEFR level
             db_examples = (
                 ExampleSentence.query.filter(
                     ExampleSentence.meaning_id == meaning.id,
+                    ExampleSentence.cefr_level == cefr_level,
                 )
                 .limit(MAX_EXAMPLES_GENERATE)
                 .all()
