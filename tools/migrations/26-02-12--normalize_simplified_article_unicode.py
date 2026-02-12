@@ -81,13 +81,13 @@ def migrate(language_code=None, today_only=False, dry_run=False):
                 article.summary = normalize_nfc(article.summary)
             needs_fix = True
 
-        # Check and fix source content
+        # Check and fix source content (via source_text)
         if article.source_id:
             source = session.query(Source).get(article.source_id)
-            if source and has_decomposed_chars(source.content):
+            if source and source.source_text and has_decomposed_chars(source.source_text.content):
                 print(f"  Article {article.id}: Fixing source content")
                 if not dry_run:
-                    source.content = normalize_nfc(source.content)
+                    source.source_text.content = normalize_nfc(source.source_text.content)
                 needs_fix = True
 
         # Check and fix HTML content
