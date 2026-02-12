@@ -91,14 +91,19 @@ CEFR Level: {cefr_level}
 
 CRITICAL REQUIREMENTS:
 1. MOST IMPORTANT: The word MUST be used with the EXACT meaning given in the translation "{translation}"
-2. If the word has multiple meanings, you MUST ONLY use the meaning that corresponds to "{translation}"
-3. Each sentence MUST provide enough context to make the target word the ONLY logical choice in a fill-in-the-blank exercise
-4. The surrounding words should strongly indicate that "{word}" with the meaning "{translation}" is the specific word needed
-5. DO NOT use alternative meanings of "{word}" that don't match "{translation}"
-6. Include specific details, actions, or situations that uniquely point to this word with this specific meaning
-7. Each sentence should be appropriate for {cefr_level} level learners
-8. Sentences should be practical and relatable to everyday situations
-9. WORD PLACEMENT: The target word "{word}" MUST appear as a standalone, clearly identifiable word in the sentence - NOT embedded inside compound words. For example, if the word is "forhold", use it standalone like "et godt forhold" (a good relationship), NOT inside compounds like "Boligforhold" where it's hard to recognize
+2. EXACT FORM: Use "{word}" EXACTLY as written - do NOT conjugate, inflect, or change the form!
+   - If given "Bekræft" (imperative), use "Bekræft" NOT "bekræfte" (infinitive)
+   - If given "bekræfte" (infinitive), use "bekræfte" NOT "bekræfter" (present tense)
+   - If given "houses" (plural), use "houses" NOT "house" (singular)
+   - Build the sentence around the exact form provided
+3. If the word has multiple meanings, you MUST ONLY use the meaning that corresponds to "{translation}"
+4. Each sentence MUST provide enough context to make the target word the ONLY logical choice in a fill-in-the-blank exercise
+5. The surrounding words should strongly indicate that "{word}" with the meaning "{translation}" is the specific word needed
+6. DO NOT use alternative meanings of "{word}" that don't match "{translation}"
+7. Include specific details, actions, or situations that uniquely point to this word with this specific meaning
+8. Each sentence should be appropriate for {cefr_level} level learners
+9. Sentences should be practical and relatable to everyday situations
+10. WORD PLACEMENT: The target word "{word}" MUST appear as a standalone, clearly identifiable word in the sentence - NOT embedded inside compound words. For example, if the word is "forhold", use it standalone like "et godt forhold" (a good relationship), NOT inside compounds like "Boligforhold" where it's hard to recognize
 
 EXAMPLE OF VIOLATION TO AVOID:
 If word="virker" and translation="seem", do NOT create sentences where "virker" means "work/function" like:
