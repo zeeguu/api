@@ -148,11 +148,11 @@ class Meaning(db.Model):
         comment="Optional explanation of translation usage, nuances, or context",
     )
 
-    level_note = db.Column(
-        db.Text,
+    word_cefr_level = db.Column(
+        db.Enum('A1', 'A2', 'B1', 'B2', 'C1', 'C2', name='cefr_level'),
         nullable=True,
         default=None,
-        comment="Cached CEFR level assessment from LLM",
+        comment="CEFR level this word/meaning is appropriate for",
     )
 
     literal_meaning = db.Column(

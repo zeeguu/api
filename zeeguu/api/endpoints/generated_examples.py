@@ -699,18 +699,18 @@ def preview_learning_card():
     if not origin_lang or not target_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    # Check if we have cached explanation/level_note in Meaning
+    # Check if we have cached explanation/cefr_level in Meaning
     meaning = Meaning.find_or_create(
         db_session, word, from_lang, translation, to_lang
     )
 
-    if meaning.translation_explanation and meaning.level_note:
+    if meaning.translation_explanation and meaning.word_cefr_level:
         # Return cached data - no LLM call needed
         return json_result({
             "word": word,
             "translation": translation,
             "explanation": meaning.translation_explanation,
-            "level_note": meaning.level_note,
+            "word_cefr_level": meaning.word_cefr_level,
             "example": examples[0] if examples else "",
             "example_translation": "",
             "recommendation": "recommended",
@@ -731,8 +731,15 @@ def preview_learning_card():
         # Cache in Meaning for future use
         if learning_card.get("explanation"):
             meaning.translation_explanation = learning_card["explanation"]
-        if learning_card.get("level_note"):
-            meaning.level_note = learning_card["level_note"]
+
+        # Parse CEFR level from level_note (e.g., "appropriate for B1 - ..." → "B1")
+        level_note = learning_card.get("level_note", "")
+        import re
+        cefr_match = re.search(r'\b(A1|A2|B1|B2|C1|C2)\b', level_note)
+        if cefr_match:
+            meaning.word_cefr_level = cefr_match.group(1)
+            learning_card["word_cefr_level"] = cefr_match.group(1)
+
         db_session.add(meaning)
         db_session.commit()
 
