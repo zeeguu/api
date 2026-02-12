@@ -644,3 +644,76 @@ def add_word_to_learning():
             "error": "Failed to prepare learning card. Please try again.",
             "detail": str(e)
         }, status=500)
+
+
+@api.route("/preview_learning_card", methods=["POST"])
+@cross_domain
+@requires_session
+def preview_learning_card():
+    """
+    Preview a learning card without saving it.
+
+    Generates the LLM-optimized word form, translation, and explanation
+    so the user can see what they'll be learning before committing.
+
+    Request body (JSON):
+    {
+        "word": "ophæv",
+        "translation": "cancel",
+        "from_lang": "da",
+        "to_lang": "en",
+        "examples": ["Jeg vil gerne ophæve min reservation.", ...]
+    }
+
+    Response (200):
+    {
+        "word": "ophæve",
+        "translation": "to cancel",
+        "example": "Jeg vil gerne ophæve min reservation.",
+        "example_translation": "I would like to cancel my reservation.",
+        "explanation": "Common verb for canceling...",
+        "level_note": "appropriate for B1...",
+        "recommendation": "recommended"
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = request.get_json()
+
+    if not data:
+        return json_result({"error": "JSON body required"}, status=400)
+
+    word = data.get("word", "").strip()
+    translation = data.get("translation", "").strip()
+    from_lang = data.get("from_lang", "")
+    to_lang = data.get("to_lang", "")
+    examples = data.get("examples", [])
+
+    if not word or not translation or not from_lang or not to_lang:
+        return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+
+    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
+
+    origin_lang = Language.find(from_lang)
+    target_lang = Language.find(to_lang)
+
+    if not origin_lang or not target_lang:
+        return json_result({"error": "Invalid language codes"}, status=400)
+
+    try:
+        learning_card = prepare_learning_card(
+            searched_word=word,
+            translation=translation,
+            source_lang=origin_lang.name,
+            target_lang=target_lang.name,
+            cefr_level=cefr_level,
+            examples=examples
+        )
+
+        return json_result(learning_card)
+
+    except Exception as e:
+        log(f"Error previewing learning card: {e}")
+        return json_result({
+            "error": "Failed to generate preview",
+            "detail": str(e)
+        }, status=500)
