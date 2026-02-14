@@ -51,6 +51,7 @@ from .search_subscription import SearchSubscription
 from .exercise import Exercise
 from .exercise_outcome import ExerciseOutcome
 from .exercise_source import ExerciseSource
+from .exercise_report import ExerciseReport
 
 # user logging
 from .user_activitiy_data import UserActivityData

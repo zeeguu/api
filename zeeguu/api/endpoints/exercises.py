@@ -345,3 +345,90 @@ def _user_words_as_json_result(user_words):
             log("Failed to commit UserWord deletions")
 
     return json_result(dicts)
+
+
+# ====================================
+# Report Exercise Issue
+# ====================================
+
+
+@api.route("/report_exercise_issue", methods=["POST"])
+@cross_domain
+@requires_session
+def report_exercise_issue():
+    """
+    Report a problem with an exercise.
+
+    Request body (JSON):
+    {
+        "bookmark_id": 123,
+        "exercise_source": "FindWordInContextCloze",
+        "reason": "word_not_shown",  // word_not_shown, context_confusing, wrong_translation, context_wrong, other
+        "comment": "Optional details",  // optional
+        "context_used": "The context sentence..."  // optional
+    }
+
+    Response (200):
+    {
+        "success": true,
+        "message": "Report submitted",
+        "report_id": 123
+    }
+    """
+    from zeeguu.logging import log
+    from zeeguu.core.model import ExerciseReport, ExerciseSource
+
+    user = User.find_by_id(flask.g.user_id)
+    data = request.get_json()
+
+    if not data:
+        return json_result({"error": "JSON body required"}), 400
+
+    bookmark_id = data.get("bookmark_id")
+    exercise_source_name = data.get("exercise_source", "").strip()
+    reason = data.get("reason", "").strip()
+    comment = (data.get("comment") or "").strip() or None
+    context_used = (data.get("context_used") or "").strip() or None
+
+    if not bookmark_id or not exercise_source_name or not reason:
+        return json_result({"error": "bookmark_id, exercise_source, and reason are required"}), 400
+
+    valid_reasons = ["word_not_shown", "context_confusing", "wrong_translation", "context_wrong", "other"]
+    if reason not in valid_reasons:
+        return json_result({"error": f"reason must be one of: {valid_reasons}"}), 400
+
+    # Find the bookmark
+    bookmark = Bookmark.find(bookmark_id)
+    if not bookmark:
+        return json_result({"error": "Bookmark not found"}), 404
+
+    # Find or create the exercise source
+    exercise_source = ExerciseSource.find_or_create(db_session, exercise_source_name)
+
+    # Check if already reported
+    existing = ExerciseReport.find_by_user_bookmark_source(
+        user.id, bookmark.id, exercise_source.id
+    )
+    if existing:
+        return json_result({
+            "success": True,
+            "message": "You have already reported this exercise",
+            "report_id": existing.id,
+            "already_reported": True
+        })
+
+    try:
+        report = ExerciseReport.create(
+            db_session, user, bookmark, exercise_source, reason, comment, context_used
+        )
+        log(f"User {user.id} reported exercise issue for bookmark {bookmark.id}: {reason}")
+
+        return json_result({
+            "success": True,
+            "message": "Thanks for the feedback!",
+            "report_id": report.id
+        })
+    except Exception as e:
+        log(f"Error creating exercise report: {e}")
+        traceback.print_exc()
+        return json_result({"error": "Failed to submit report"}), 500
