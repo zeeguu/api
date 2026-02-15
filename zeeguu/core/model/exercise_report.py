@@ -22,6 +22,7 @@ class ExerciseReport(db.Model):
     reason = db.Column(
         db.Enum(
             "word_not_shown",
+            "wrong_highlighting",
             "context_confusing",
             "wrong_translation",
             "context_wrong",

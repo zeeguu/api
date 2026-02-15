@@ -393,7 +393,7 @@ def report_exercise_issue():
     if not bookmark_id or not exercise_source_name or not reason:
         return json_result({"error": "bookmark_id, exercise_source, and reason are required"}), 400
 
-    valid_reasons = ["word_not_shown", "context_confusing", "wrong_translation", "context_wrong", "other"]
+    valid_reasons = ["word_not_shown", "wrong_highlighting", "context_confusing", "wrong_translation", "context_wrong", "other"]
     if reason not in valid_reasons:
         return json_result({"error": f"reason must be one of: {valid_reasons}"}), 400
 
