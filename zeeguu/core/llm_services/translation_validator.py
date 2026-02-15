@@ -251,3 +251,61 @@ class TranslationValidator:
         return self.validate_and_classify(
             word, translation, context, source_lang, target_lang
         )
+
+    def are_translations_equivalent(
+        self,
+        word: str,
+        translation1: str,
+        translation2: str,
+        source_lang: str,
+        target_lang: str,
+    ) -> bool:
+        """
+        Check if two translations of the same word are semantically equivalent.
+
+        This is used to prevent duplicate words in exercises when a user has
+        multiple translations that mean the same thing (e.g., "cancel" vs "to cancel").
+
+        Args:
+            word: The source word being translated
+            translation1: First translation
+            translation2: Second translation
+            source_lang: Source language code or name
+            target_lang: Target language code or name
+
+        Returns:
+            True if translations are semantically equivalent, False otherwise
+        """
+        from .prompts.translation_validator import create_semantic_equivalence_prompt
+
+        # Quick check: if translations are identical (case-insensitive), they're equivalent
+        if translation1.lower().strip() == translation2.lower().strip():
+            return True
+
+        # Convert language codes to names
+        source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
+        target_name = Language.LANGUAGE_NAMES.get(target_lang, target_lang)
+
+        prompt = create_semantic_equivalence_prompt(
+            word=word,
+            translation1=translation1,
+            translation2=translation2,
+            source_lang=source_name,
+            target_lang=target_name,
+        )
+
+        try:
+            response = self.client.messages.create(
+                model=self.MODEL_NAME,
+                max_tokens=10,
+                temperature=0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            response_text = response.content[0].text.strip().upper()
+            return response_text == "YES"
+
+        except Exception as e:
+            log(f"Semantic equivalence check failed: {e}")
+            logger.error(f"Semantic equivalence check failed: {e}")
+            # On error, assume NOT equivalent (fail safe - don't skip words)
+            return False

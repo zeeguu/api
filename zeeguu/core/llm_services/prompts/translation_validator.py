@@ -116,3 +116,28 @@ def create_batch_validation_prompt(items):
         entries.append(entry)
 
     return BATCH_VALIDATION_PROMPT.format(entries="\n".join(entries))
+
+
+SEMANTIC_EQUIVALENCE_PROMPT = """Are these two translations of the same word semantically equivalent?
+
+Word: "{word}" ({source_lang})
+Translation 1: "{translation1}" ({target_lang})
+Translation 2: "{translation2}" ({target_lang})
+
+Consider them equivalent if:
+- They mean the same thing (e.g., "to cancel" and "cancel")
+- One is just a grammatical variation of the other (infinitive vs base form)
+- They are synonyms in this context
+
+Reply with ONLY one word: YES or NO"""
+
+
+def create_semantic_equivalence_prompt(word, translation1, translation2, source_lang, target_lang):
+    """Create prompt for checking if two translations are semantically equivalent."""
+    return SEMANTIC_EQUIVALENCE_PROMPT.format(
+        word=word,
+        translation1=translation1,
+        translation2=translation2,
+        source_lang=source_lang,
+        target_lang=target_lang
+    )
