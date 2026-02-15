@@ -33,11 +33,13 @@ class UserWordValidationService:
     @classmethod
     def check_for_duplicate_meaning(cls, db_session, user_word) -> bool:
         """
-        Check if this user_word is a duplicate of another word the user is already learning.
+        Check if this user_word is a duplicate of another word the user is already learning or has learned.
 
         A duplicate means:
         - Same origin word (e.g., "ophæve")
-        - User already has another UserWord for this origin that is scheduled/being learned
+        - User already has another UserWord for this origin that is:
+          - Currently scheduled/being learned, OR
+          - Already learned in the past
         - The translations are semantically equivalent (e.g., "cancel" vs "to cancel")
 
         If a duplicate is found, marks this user_word as fit_for_study=False.
@@ -47,19 +49,25 @@ class UserWordValidationService:
         """
         from zeeguu.core.model.user_word import UserWord
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from sqlalchemy import or_
 
         user = user_word.user
         origin_word = user_word.meaning.origin.content
         this_translation = user_word.meaning.translation.content
 
         # Find other UserWords for the same user with the same origin word
-        # that are being scheduled (have a schedule entry)
+        # that are either being scheduled OR already learned
         other_user_words = (
             UserWord.query
-            .join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+            .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
             .filter(UserWord.user_id == user.id)
             .filter(UserWord.id != user_word.id)
-            .filter(UserWord.fit_for_study == True)
+            .filter(
+                or_(
+                    BasicSRSchedule.id != None,  # Currently scheduled
+                    UserWord.learned_time != None,  # Already learned
+                )
+            )
             .all()
         )
 
