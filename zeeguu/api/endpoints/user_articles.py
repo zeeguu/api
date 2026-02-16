@@ -163,14 +163,22 @@ def hidden_articles(page: int = None):
         .all()
     )
 
-    # Get the actual articles
-    articles = [ua.article for ua in hidden_user_articles if ua.article is not None]
+    # Collect unique parent articles (deduplicate simplified versions)
+    seen_ids = set()
+    unique_articles = []
+    for ua in hidden_user_articles:
+        article = ua.article
+        if article is None:
+            continue
+        # If it's a simplified version, use the parent article instead
+        if article.parent_article_id and article.parent_article:
+            article = article.parent_article
+        # Deduplicate
+        if article.id not in seen_ids:
+            seen_ids.add(article.id)
+            unique_articles.append(article)
 
-    # Filter to only show parent articles (not simplified versions)
-    # to avoid showing duplicates
-    parent_articles = [a for a in articles if a.parent_article_id is None]
-
-    article_infos = UserArticle.article_infos(user, parent_articles, select_appropriate=True)
+    article_infos = UserArticle.article_infos(user, unique_articles, select_appropriate=True)
 
     return json_result(article_infos)
 
