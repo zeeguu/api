@@ -1220,10 +1220,15 @@ class User(db.Model):
             user = cls.find(email)
             log(f"AUTHORIZE: Found user {user.id} for email '{email}'")
 
+            # Get salt bytes - handle both old format (raw string) and new format (hex)
+            try:
+                salt_bytes = bytes.fromhex(user.password_salt)
+            except ValueError:
+                # Old format: salt stored as raw string, encode it
+                salt_bytes = user.password_salt.encode("utf-8")
+
             # Hash the provided password with user's salt
-            provided_password_hash = password_hash(
-                password, bytes.fromhex(user.password_salt)
-            )
+            provided_password_hash = password_hash(password, salt_bytes)
             stored_password_hash = user.password
 
             log(
