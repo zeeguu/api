@@ -222,7 +222,7 @@ def bookmarks_for_article_2(article_id):
 @requires_session
 def delete_bookmark(bookmark_id):
     try:
-        bookmark = Bookmark.find(bookmark_id)
+        bookmark = get_bookmark_if_owned(bookmark_id)
         user_word = bookmark.user_word
 
         # Find all other bookmarks for this user_word
