@@ -51,7 +51,7 @@ class User(db.Model):
 
     is_dev = Column(Boolean)
     is_admin = Column(Boolean, default=False)
-    email_verified = Column(Boolean, default=True)
+    email_verified = Column(Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
     creation_platform = db.Column(db.SmallInteger, nullable=True)
@@ -173,6 +173,7 @@ class User(db.Model):
             is_student=len(self.cohorts) > 0
             and not any([c.cohort_id in [93, 459] for c in self.cohorts]),
             is_anonymous=self.is_anonymous(),
+            email_verified=self.email_verified,
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
         )

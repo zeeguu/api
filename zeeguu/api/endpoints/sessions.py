@@ -4,7 +4,7 @@ from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.session_helpers import is_session_too_old, force_user_to_relog
 
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api, db_session
 
 
@@ -86,6 +86,7 @@ def get_anon_session(uuid):
 @api.route("/validate")
 @cross_domain
 @requires_session
+@allows_unverified
 def validate():
     """
 
@@ -123,6 +124,7 @@ def is_up():
 @api.route("/logout_session", methods=["GET"])
 @cross_domain
 @requires_session
+@allows_unverified
 def logout():
     """
 
