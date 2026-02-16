@@ -10,6 +10,7 @@ import zeeguu
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
 from zeeguu.logging import warning
+from zeeguu.api.utils.rate_limiter import init_limiter, apply_rate_limits_to_endpoints
 
 # apimux is quite noisy; supress it's output
 import logging
@@ -44,6 +45,9 @@ def create_app(testing=False):
     CORS(app)
     if testing:
         app.testing = True
+
+    # Initialize rate limiter for security-sensitive endpoints
+    init_limiter(app)
 
     load_configuration_or_abort(
         app,
@@ -114,6 +118,9 @@ def create_app(testing=False):
 
     app.register_blueprint(api)
 
+    # Apply rate limits to security-sensitive endpoints (login, password reset, account creation)
+    apply_rate_limits_to_endpoints(app)
+
     # Clean up database session after each request to return connections to pool
     @app.teardown_request
     def shutdown_session_request(exception=None):
@@ -180,6 +187,11 @@ def create_app(testing=False):
         ":([a-zA-Z_][a-zA-Z_0-9\-]*)@", ":****@", db_connection_string
     )
     warning("*** ==== ZEEGUU CORE: Linked model with: " + anon_conn_string)
+
+    # Run security configuration checks (skip during testing)
+    if not testing:
+        from zeeguu.api.utils.security_checks import check_security_config
+        check_security_config(app)
 
     # Preload wordstats in production for faster response times
     if app.config.get("PRELOAD_WORDSTATS", False):
