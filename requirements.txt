@@ -100,3 +100,4 @@ pytest
 
 # Version constraints
 pydantic>=1.10.8
+setuptools<82
