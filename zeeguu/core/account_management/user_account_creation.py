@@ -123,8 +123,6 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
         )
 
         db_session.add(new_user)
-        if "merle" in invite_code.lower():
-            new_user.create_default_user_preference()
 
         if cohort:
             if cohort.is_cohort_of_teachers:
