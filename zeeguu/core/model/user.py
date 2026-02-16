@@ -51,7 +51,7 @@ class User(db.Model):
 
     is_dev = Column(Boolean)
     is_admin = Column(Boolean, default=False)
-    email_verified = Column(Boolean, default=True)
+    email_verified = Column(Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
     creation_platform = db.Column(db.SmallInteger, nullable=True)
@@ -152,9 +152,14 @@ class User(db.Model):
         session.commit()
 
     def details_as_dictionary(self):
+        from datetime import datetime
         from zeeguu.core.model import UserLanguage
         from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.user_word import UserWord
+
+        # Only require email verification for users created after this date
+        # Existing users before this date are grandfathered in
+        EMAIL_VERIFICATION_REQUIRED_AFTER = datetime(2026, 2, 17)
 
         # Efficient count query - Bookmark links to UserWord which has user_id
         bookmark_count = (
@@ -162,6 +167,15 @@ class User(db.Model):
             .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(UserWord.user_id == self.id)
             .scalar()
+        )
+
+        # Compute whether this user requires email verification
+        # Skip for: anonymous users, users created before the feature was deployed
+        requires_email_verification = (
+            not self.is_anonymous()
+            and self.created_at
+            and self.created_at >= EMAIL_VERIFICATION_REQUIRED_AFTER
+            and not self.email_verified
         )
 
         result = dict(
@@ -173,6 +187,8 @@ class User(db.Model):
             is_student=len(self.cohorts) > 0
             and not any([c.cohort_id in [93, 459] for c in self.cohorts]),
             is_anonymous=self.is_anonymous(),
+            email_verified=self.email_verified,
+            requires_email_verification=requires_email_verification,
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
         )

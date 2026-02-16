@@ -2,7 +2,10 @@ import sqlalchemy
 
 import zeeguu.core
 from zeeguu.core.emailer.user_activity import send_new_user_account_email
+from zeeguu.core.emailer.email_confirmation import send_email_confirmation
 from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
+from zeeguu.core.model.unique_code import UniqueCode
+from zeeguu.logging import log
 
 
 def valid_invite_code(invite_code):
@@ -66,6 +69,7 @@ def create_account(
             native_language=native_language,
             creation_platform=creation_platform,
         )
+        new_user.email_verified = False  # Require email verification
         db_session.add(new_user)
         if cohort_name != "":
             new_user.add_user_to_cohort(cohort, db_session)
@@ -90,6 +94,13 @@ def create_account(
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
+
+        # Send email verification code
+        code = UniqueCode(email)
+        db_session.add(code)
+        db_session.commit()
+        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
+        send_email_confirmation(email, code)
 
         return new_user
 
@@ -121,6 +132,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
         new_user = User(
             email, username, password, invitation_code=invite_code, creation_platform=creation_platform
         )
+        new_user.email_verified = False  # Require email verification
 
         db_session.add(new_user)
 
@@ -132,6 +144,13 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
+
+        # Send email verification code
+        code = UniqueCode(email)
+        db_session.add(code)
+        db_session.commit()
+        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
+        send_email_confirmation(email, code)
 
         return new_user
 

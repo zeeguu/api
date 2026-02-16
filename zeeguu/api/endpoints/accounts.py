@@ -8,7 +8,7 @@ from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
 
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api, db_session
 
 from zeeguu.logging import log
@@ -185,6 +185,7 @@ def upgrade_anon_user():
 @api.route("/confirm_email", methods=["POST"])
 @cross_domain
 @requires_session
+@allows_unverified
 def confirm_email():
     """
     Confirm email address using the code sent via email.
@@ -196,9 +197,13 @@ def confirm_email():
 
     try:
         user = User.find_by_id(flask.g.user_id)
-        last_code = UniqueCode.last_code(user.email)
+        code_obj = UniqueCode.find_last_code(user.email)
 
-        if str(last_code) != str(code):
+        if code_obj is None:
+            return bad_request("No verification code found. Please request a new one.")
+        if code_obj.is_expired():
+            return bad_request("Code has expired. Please request a new one.")
+        if submitted_code_is_wrong(code_obj.code, code):
             return bad_request("Invalid code")
 
         user.email_verified = True
@@ -212,6 +217,35 @@ def confirm_email():
     except Exception as e:
         log(f"Failed to confirm email: {e}")
         return bad_request("Could not confirm email")
+
+
+@api.route("/resend_verification_code", methods=["POST"])
+@cross_domain
+@requires_session
+@allows_unverified
+def resend_verification_code():
+    """
+    Resend email verification code to the current user.
+    """
+    from zeeguu.core.emailer.email_confirmation import send_email_confirmation
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+
+        if user.email_verified:
+            return bad_request("Email is already verified")
+
+        # Create new code and send
+        code = UniqueCode(user.email)
+        db_session.add(code)
+        db_session.commit()
+        send_email_confirmation(user.email, code)
+
+        return "OK"
+
+    except Exception as e:
+        log(f"Failed to resend verification code: {e}")
+        return bad_request("Could not send verification code")
 
 
 @api.route("/send_code/<email>", methods=["POST"])
