@@ -11,6 +11,10 @@ import zeeguu
 SESSION_CACHE = {}
 SESSION_CACHE_TIMEOUT = 60  # Seconds
 
+# Only require email verification for users created after this date
+# Existing users before this date are grandfathered in
+EMAIL_VERIFICATION_REQUIRED_AFTER = datetime(2026, 2, 17)
+
 
 def requires_session(view):
     """
@@ -95,8 +99,15 @@ def requires_session(view):
                 db.session.commit()
 
                 # Check email verification (unless endpoint is marked as allowing unverified)
-                # Skip for anonymous users - they don't have real emails to verify
-                if not getattr(view, '_allows_unverified', False) and not user.is_anonymous() and not user.email_verified:
+                # Skip for: anonymous users, users created before the feature was deployed
+                requires_verification = (
+                    not getattr(view, '_allows_unverified', False)
+                    and not user.is_anonymous()
+                    and user.created_at
+                    and user.created_at >= EMAIL_VERIFICATION_REQUIRED_AFTER
+                    and not user.email_verified
+                )
+                if requires_verification:
                     log(f"ACCESS DENIED: user_id={user.id} email not verified for {view.__name__}")
                     return make_error(403, "Please verify your email address first")
 
