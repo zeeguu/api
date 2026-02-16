@@ -15,10 +15,11 @@ RATE_LIMITS = {
     "api.send_code": "3 per minute;10 per hour",
     "api.reset_password": "5 per minute;20 per hour",
 
-    # Account creation endpoints - prevent mass registration
-    "api.add_user": "5 per hour",
-    "api.add_basic_user": "5 per hour",
-    "api.add_anon_user": "10 per hour",
+    # Account creation - higher limits to allow classroom signups (shared IP via NAT)
+    # Invite codes provide the primary protection against mass bot registration
+    "api.add_user": "100 per hour",
+    "api.add_basic_user": "100 per hour",
+    "api.add_anon_user": "200 per hour",
 }
 
 
