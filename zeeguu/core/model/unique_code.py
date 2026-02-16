@@ -14,13 +14,17 @@ class UniqueCode(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(64))  # Increased from 4 to 64 for secure tokens
+    code = db.Column(db.String(6))  # 6-char alphanumeric code
     email = db.Column(db.String(255))
     time = db.Column(db.DateTime)
 
+    # Alphanumeric characters excluding confusing ones (0/O, 1/I/L)
+    CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+
     def __init__(self, email):
-        # Generate cryptographically secure 32-byte token (64 hex chars)
-        self.code = secrets.token_hex(32)
+        # Generate 6-char alphanumeric code (30^6 = 729 million possibilities)
+        # With rate limiting and 15-min expiration, practically unbruteforceable
+        self.code = "".join(secrets.choice(self.CODE_CHARS) for _ in range(6))
         self.email = email
         self.time = datetime.now()
 
