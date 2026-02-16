@@ -25,11 +25,12 @@ def get_session(email):
     password = request.form.get("password", None)
     if password == "":
         log(f"LOGIN FAILED: email='{email}' - No password provided")
-        return make_error(401, "Password not given")
+        return make_error(401, "Invalid credentials")
 
+    # Security: Don't reveal whether email exists - use generic error message
     if not User.email_exists(email):
         log(f"LOGIN FAILED: email='{email}' - Email does not exist in database")
-        return make_error(401, "There is no account associated with this email")
+        return make_error(401, "Invalid credentials")
 
     log(f"LOGIN: email='{email}' - Email exists, attempting authorization")
     user = User.authorize(email, password)
@@ -55,7 +56,15 @@ def get_session(email):
     db_session.add(session)
     db_session.commit()
     resp = make_response({"session": session.uuid})
-    resp.set_cookie("chocolatechip", str(session.uuid))
+    # Set secure cookie with proper security flags
+    resp.set_cookie(
+        "chocolatechip",
+        str(session.uuid),
+        httponly=True,  # Prevent JavaScript access (XSS protection)
+        samesite="Lax",  # CSRF protection
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),  # HTTPS only in production
+        max_age=30 * 24 * 60 * 60,  # 30 days
+    )
     return resp
 
 

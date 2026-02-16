@@ -114,12 +114,17 @@ class DataExtractor:
 
     def get_article_df_with_ids(self, feed_df, id_to_fetch: list[int]):
         print("Getting Articles with Ids...")
-        ids_as_str = [str(v) for v in id_to_fetch]
+        if not id_to_fetch:
+            return pd.DataFrame()
+        # Security: Validate all IDs are integers to prevent SQL injection
+        validated_ids = [int(v) for v in id_to_fetch]
+        # Use parameterized placeholders for the IN clause
+        placeholders = ",".join(["%s"] * len(validated_ids))
         query = f"""SELECT a.*, l.name Language
-        FROM article a     
+        FROM article a
         INNER JOIN language l ON l.id = a.language_id
-        WHERE a.id in ({",".join(ids_as_str)})"""
-        df = pd.read_sql(query, con=self.db_connection)
+        WHERE a.id in ({placeholders})"""
+        df = pd.read_sql(query, con=self.db_connection, params=validated_ids)
         self.__add_feed_name(df, feed_df)
         return df
 

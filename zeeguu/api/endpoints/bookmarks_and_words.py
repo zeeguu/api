@@ -18,6 +18,20 @@ from zeeguu.core.word_scheduling import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
 
+def get_bookmark_if_owned(bookmark_id):
+    """
+    Fetch a bookmark and verify the current user owns it.
+    Returns the bookmark if owned, otherwise aborts with 403.
+    """
+    bookmark = Bookmark.find(bookmark_id)
+    if bookmark is None:
+        flask.abort(404)
+    if bookmark.user_word.user_id != flask.g.user_id:
+        log(f"IDOR attempt: user {flask.g.user_id} tried to access bookmark {bookmark_id}")
+        flask.abort(403)
+    return bookmark
+
+
 @api.route("/user_words", methods=["GET"])
 @cross_domain
 @requires_session
@@ -147,6 +161,10 @@ def bookmarks_for_article(article_id, user_id):
      The date format is: %Y-%m-%dT%H:%M:%S. E.g. 2001-01-01T01:55:00
 
     """
+    # Security: Ensure user can only access their own bookmarks
+    if user_id != flask.g.user_id:
+        log(f"IDOR attempt: user {flask.g.user_id} tried to access bookmarks of user {user_id}")
+        flask.abort(403)
 
     user = User.find_by_id(user_id)
     article = Article.query.filter_by(id=article_id).one()
@@ -204,7 +222,7 @@ def bookmarks_for_article_2(article_id):
 @requires_session
 def delete_bookmark(bookmark_id):
     try:
-        bookmark = Bookmark.find(bookmark_id)
+        bookmark = get_bookmark_if_owned(bookmark_id)
         user_word = bookmark.user_word
 
         # Find all other bookmarks for this user_word
@@ -261,7 +279,7 @@ def delete_bookmark(bookmark_id):
 @cross_domain
 @requires_session
 def report_learned_bookmark(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     bookmark.user_word.report_exercise_outcome(
         db_session,
         ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
@@ -281,7 +299,7 @@ def set_user_word_exercise_preference(bookmark_id):
         FourLevelsPerWord,
     )
 
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     user_word = bookmark.user_word
 
     # Fix: set preference on UserWord, not Bookmark
@@ -303,7 +321,7 @@ def set_user_word_exercise_preference(bookmark_id):
 def set_user_word_exercise_dislike(bookmark_id):
     from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     user_word = bookmark.user_word
     reason = request.form.get("reason", "")
 
@@ -332,7 +350,7 @@ def set_user_word_exercise_dislike(bookmark_id):
 @cross_domain
 @requires_session
 def set_is_fit_for_study(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     bookmark.fit_for_study = True
     db_session.commit()
     return "OK"
@@ -342,7 +360,7 @@ def set_is_fit_for_study(bookmark_id):
 @cross_domain
 @requires_session
 def set_not_fit_for_study(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     bookmark.fit_for_study = False
 
     BasicSRSchedule.clear_user_word_schedule(db_session, bookmark)
@@ -354,7 +372,7 @@ def set_not_fit_for_study(bookmark_id):
 @cross_domain
 @requires_session
 def star_bookmark(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     bookmark.starred = True
     bookmark.user_word.update_fit_for_study(db_session)
     db_session.commit()
@@ -365,7 +383,7 @@ def star_bookmark(bookmark_id):
 @cross_domain
 @requires_session
 def unstar_bookmark(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = get_bookmark_if_owned(bookmark_id)
     bookmark.starred = False
     bookmark.user_word.update_fit_for_study(db_session)
     db_session.commit()
