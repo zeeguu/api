@@ -5,6 +5,7 @@ from zeeguu.core.emailer.user_activity import send_new_user_account_email
 from zeeguu.core.emailer.email_confirmation import send_email_confirmation
 from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
 from zeeguu.core.model.unique_code import UniqueCode
+from zeeguu.logging import log
 
 
 def valid_invite_code(invite_code):
@@ -98,6 +99,7 @@ def create_account(
         code = UniqueCode(email)
         db_session.add(code)
         db_session.commit()
+        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
         send_email_confirmation(email, code)
 
         return new_user
@@ -133,8 +135,6 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
         new_user.email_verified = False  # Require email verification
 
         db_session.add(new_user)
-        if invite_code and "merle" in invite_code.lower():
-            new_user.create_default_user_preference()
 
         if cohort:
             if cohort.is_cohort_of_teachers:
@@ -149,6 +149,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
         code = UniqueCode(email)
         db_session.add(code)
         db_session.commit()
+        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
         send_email_confirmation(email, code)
 
         return new_user
