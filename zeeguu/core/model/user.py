@@ -13,7 +13,12 @@ import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
-from zeeguu.core.util import password_hash
+from zeeguu.core.util.hash import (
+    password_hash,
+    password_hash_bcrypt,
+    verify_password_bcrypt,
+    is_bcrypt_hash,
+)
 from zeeguu.logging import log
 from zeeguu.logging import warning
 
@@ -463,6 +468,9 @@ class User(db.Model):
 
     def update_password(self, password: str):
         """
+        Update the user's password using bcrypt (secure, modern algorithm).
+        The bcrypt hash includes the salt, so password_salt field is set to
+        a marker value to indicate bcrypt is being used.
 
         :param password: str
         :return:
@@ -470,32 +478,16 @@ class User(db.Model):
         from zeeguu.logging import log
 
         log(
-            f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating new salt and password hash"
+            f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating bcrypt password hash"
         )
 
-        salt_bytes = "".join(chr(random.randint(0, 255)) for _ in range(32)).encode(
-            "utf-8"
-        )
+        # Use bcrypt for secure password hashing (includes salt in the hash)
+        self.password = password_hash_bcrypt(password)
+        # Set salt to a marker value indicating bcrypt (salt is embedded in hash)
+        self.password_salt = "bcrypt"
 
-        old_password_hash = self.password
-        old_salt = self.password_salt
-
-        self.password = password_hash(password, salt_bytes)
-        self.password_salt = salt_bytes.hex()
-
-        if old_salt:
-            log(
-                f"UPDATE_PASSWORD: user_id={self.id} - Old salt: '{old_salt[:20]}...', New salt: '{self.password_salt[:20]}...'"
-            )
-            log(
-                f"UPDATE_PASSWORD: user_id={self.id} - Old hash: '{old_password_hash[:20]}...', New hash: '{self.password[:20]}...'"
-            )
-        else:
-            log(
-                f"UPDATE_PASSWORD: user_id={self.id} - New salt: '{self.password_salt[:20]}...', New hash: '{self.password[:20]}...'"
-            )
         log(
-            f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated"
+            f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated with bcrypt"
         )
 
     def upgrade_to_full_account(self, email, username, password=None):
@@ -1220,29 +1212,47 @@ class User(db.Model):
             user = cls.find(email)
             log(f"AUTHORIZE: Found user {user.id} for email '{email}'")
 
-            # Hash the provided password with user's salt
-            provided_password_hash = password_hash(
-                password, bytes.fromhex(user.password_salt)
-            )
-            stored_password_hash = user.password
+            stored_hash = user.password
 
-            log(
-                f"AUTHORIZE: user_id={user.id}, provided_hash_length={len(provided_password_hash)}, stored_hash_length={len(stored_password_hash)}"
-            )
-
-            if provided_password_hash == stored_password_hash:
-                log(
-                    f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - Password hash matches"
-                )
-                return user
+            # Check if user has bcrypt hash (modern) or legacy SHA1 hash
+            if is_bcrypt_hash(stored_hash):
+                # Modern bcrypt verification
+                log(f"AUTHORIZE: user_id={user.id} - Using bcrypt verification")
+                if verify_password_bcrypt(password, stored_hash):
+                    log(
+                        f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - bcrypt verification passed"
+                    )
+                    return user
+                else:
+                    log(
+                        f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - bcrypt verification failed"
+                    )
+                    return None
             else:
-                log(
-                    f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - Password hash mismatch"
-                )
-                log(
-                    f"AUTHORIZE DEBUG: provided_hash='{provided_password_hash[:20]}...', stored_hash='{stored_password_hash[:20]}...'"
-                )
-                return None
+                # Legacy SHA1 hash - verify and migrate to bcrypt
+                log(f"AUTHORIZE: user_id={user.id} - Using legacy SHA1 verification (will migrate to bcrypt)")
+                try:
+                    provided_password_hash = password_hash(
+                        password, bytes.fromhex(user.password_salt)
+                    )
+                except (ValueError, TypeError) as e:
+                    log(f"AUTHORIZE ERROR: user_id={user.id} - Invalid salt format: {e}")
+                    return None
+
+                if provided_password_hash == stored_hash:
+                    log(
+                        f"AUTHORIZE SUCCESS: user_id={user.id}, email '{email}' - Legacy hash matches, migrating to bcrypt"
+                    )
+                    # Migrate to bcrypt on successful login
+                    user.update_password(password)
+                    db.session.commit()
+                    log(f"AUTHORIZE: user_id={user.id} - Successfully migrated to bcrypt")
+                    return user
+                else:
+                    log(
+                        f"AUTHORIZE FAILED: user_id={user.id}, email '{email}' - Legacy hash mismatch"
+                    )
+                    return None
 
         except sqlalchemy.orm.exc.NoResultFound:
             log(f"AUTHORIZE FAILED: No user found with email '{email}'")
