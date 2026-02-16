@@ -3,7 +3,7 @@ import flask
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
@@ -167,6 +167,7 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
 @api.route("/get_user_details", methods=("GET",))
 @cross_domain
 @requires_session
+@allows_unverified
 def get_user_details():
     """
     after the login, this information might be useful to be displayed

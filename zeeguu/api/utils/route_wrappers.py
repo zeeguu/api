@@ -11,13 +11,21 @@ import zeeguu
 SESSION_CACHE = {}
 SESSION_CACHE_TIMEOUT = 60  # Seconds
 
+# Only require email verification for users created after this date
+# Existing users before this date are grandfathered in
+EMAIL_VERIFICATION_REQUIRED_AFTER = datetime(2026, 2, 17)
+
 
 def requires_session(view):
     """
-    Decorator checks that user is in a session.
+    Decorator checks that user is in a session AND has verified email.
 
-    Every API endpoint annotated with @with_session
-     expects a session object to be passed as a GET parameter
+    Every API endpoint annotated with @requires_session expects:
+    1. A valid session object passed as a GET parameter or cookie
+    2. The user's email to be verified (returns 403 if not)
+
+    Use @allows_unverified after @requires_session for endpoints that
+    should work without email verification (e.g., confirm_email, resend_code).
 
     Example: API_URL/learned_language?session=123141516
     """
@@ -27,6 +35,7 @@ def requires_session(view):
         import sys
         import threading
         import time as time_module
+        from zeeguu.api.utils.abort_handling import make_error
 
         request_start = time_module.time()
         thread_id = threading.current_thread().ident
@@ -88,6 +97,20 @@ def requires_session(view):
                     user_language.update_streak_if_needed(db.session)
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
+
+                # Check email verification (unless endpoint is marked as allowing unverified)
+                # Skip for: anonymous users, users created before the feature was deployed
+                requires_verification = (
+                    not getattr(view, '_allows_unverified', False)
+                    and not user.is_anonymous()
+                    and user.created_at
+                    and user.created_at >= EMAIL_VERIFICATION_REQUIRED_AFTER
+                    and not user.email_verified
+                )
+                if requires_verification:
+                    log(f"ACCESS DENIED: user_id={user.id} email not verified for {view.__name__}")
+                    return make_error(403, "Please verify your email address first")
+
         except BadRequestKeyError as e:
             # This surely happens for missing session key
             # I'm not sure in which way the request could be bad
@@ -110,6 +133,30 @@ def requires_session(view):
         return view(*args, **kwargs)
 
     return wrapped_view
+
+
+def allows_unverified(view):
+    """
+    Decorator marks an endpoint as accessible without email verification.
+    Must be used AFTER @requires_session decorator.
+
+    Use for endpoints like:
+    - confirm_email (users need to verify their email)
+    - resend_verification_code
+    - user_details (let users see their status)
+    - validate (session validation)
+    - logout
+
+    Example:
+        @api.route("/confirm_email", methods=["POST"])
+        @cross_domain
+        @requires_session
+        @allows_unverified
+        def confirm_email():
+            ...
+    """
+    view._allows_unverified = True
+    return view
 
 
 def cross_domain(view):
@@ -144,3 +191,5 @@ def only_admins(view):
         return view(*args, **kwargs)
 
     return wrapped_view
+
+
