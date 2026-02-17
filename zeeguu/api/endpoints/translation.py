@@ -18,7 +18,7 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -176,6 +176,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 def get_multiple_translations(from_lang_code, to_lang_code):
     """
     Returns a list of possible translations from multiple services.
+    Also saves Meaning records and logs to translation history.
 
     :return: json array with translations from Azure, Microsoft, and Google
     """
@@ -187,7 +188,50 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
+    # Save meanings for each translation
+    first_meaning = None
+    for t in translations:
+        translation_text = t.get("translation", "")
+        if translation_text:
+            meaning = Meaning.find_or_create(
+                db_session,
+                word_str,
+                from_lang_code,
+                translation_text,
+                to_lang_code,
+            )
+            t["meaning_id"] = meaning.id
+            if first_meaning is None:
+                first_meaning = meaning
+
+    # Log search to history only if we found a translation
+    if first_meaning:
+        try:
+            user = User.find_by_id(flask.g.user_id)
+            TranslationSearch.log_search(db_session, user, first_meaning)
+            db_session.commit()
+        except Exception as e:
+            db_session.rollback()
+            zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
+
     return json_result(dict(translations=translations))
+
+
+@api.route("/translation_history", methods=["GET"])
+@cross_domain
+@requires_session
+def get_translation_history():
+    """
+    Returns recent translation searches for the current user.
+    Used by the Translation Tab's history view.
+
+    :return: json array with recent searches
+    """
+    user = User.find_by_id(flask.g.user_id)
+    limit = request.args.get("limit", 50, type=int)
+
+    searches = TranslationSearch.get_history(user, limit=limit)
+    return json_result([s.as_dict() for s in searches])
 
 
 @api.route(

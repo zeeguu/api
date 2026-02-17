@@ -73,8 +73,9 @@ def test_student_does_not_have_access_to_cohort(client):
     student_session = response.data.decode("utf-8")
 
     # Ensure student user can't access /cohorts_info
+    # 403 Forbidden: authenticated but not authorized (not a teacher)
     response = client.client.get(f"/cohorts_info?session={student_session}")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 FRENCH_B1_COHORT = {
