@@ -69,7 +69,12 @@ class TranslationSearch(db.Model):
         target_language: Language,
         meaning: Meaning = None,
     ):
-        """Log a translation search to history."""
+        """
+        Log a translation search to history.
+
+        Note: Does not commit - caller is responsible for committing.
+        This follows the pattern of other log_* methods (ValidationLog, GrammarCorrectionLog).
+        """
         search = cls(
             user=user,
             search_word=search_word,
@@ -78,7 +83,6 @@ class TranslationSearch(db.Model):
             meaning=meaning,
         )
         session.add(search)
-        session.commit()
         return search
 
     @classmethod

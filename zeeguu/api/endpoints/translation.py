@@ -208,15 +208,20 @@ def get_multiple_translations(from_lang_code, to_lang_code):
             if first_meaning is None:
                 first_meaning = meaning
 
-    # Log search to history
-    TranslationSearch.log_search(
-        db_session,
-        user=user,
-        search_word=word_str,
-        search_word_language=from_lang,
-        target_language=to_lang,
-        meaning=first_meaning,
-    )
+    # Log search to history (non-critical - don't fail request if logging fails)
+    try:
+        TranslationSearch.log_search(
+            db_session,
+            user=user,
+            search_word=word_str,
+            search_word_language=from_lang,
+            target_language=to_lang,
+            meaning=first_meaning,
+        )
+        db_session.commit()
+    except Exception as e:
+        db_session.rollback()
+        zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
 
     return json_result(dict(translations=translations))
 
