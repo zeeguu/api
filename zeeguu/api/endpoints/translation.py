@@ -189,7 +189,6 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
     # Save meanings for each translation
-    first_meaning = None
     for t in translations:
         translation_text = t.get("translation", "")
         if translation_text:
@@ -201,18 +200,6 @@ def get_multiple_translations(from_lang_code, to_lang_code):
                 to_lang_code,
             )
             t["meaning_id"] = meaning.id
-            if first_meaning is None:
-                first_meaning = meaning
-
-    # Log search to history only if we found a translation
-    if first_meaning:
-        try:
-            user = User.find_by_id(flask.g.user_id)
-            TranslationSearch.log_search(db_session, user, first_meaning)
-            db_session.commit()
-        except Exception as e:
-            db_session.rollback()
-            zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
 
     return json_result(dict(translations=translations))
 
@@ -222,7 +209,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 @requires_session
 def get_translation_history():
     """
-    Returns recent translation searches for the current user.
+    Returns recent translation searches for the current user's learned language.
     Used by the Translation Tab's history view.
 
     :return: json array with recent searches
@@ -230,8 +217,34 @@ def get_translation_history():
     user = User.find_by_id(flask.g.user_id)
     limit = request.args.get("limit", 50, type=int)
 
-    searches = TranslationSearch.get_history(user, limit=limit)
+    searches = TranslationSearch.get_history(user, user.learned_language, limit=limit)
     return json_result([s.as_dict() for s in searches])
+
+
+@api.route("/log_translation_search", methods=["POST"])
+@cross_domain
+@requires_session
+def log_translation_search():
+    """
+    Log a translation search to history.
+    Called by frontend when user searches for a word.
+
+    :param search_word: The word that was searched
+    :return: success status
+    """
+    search_word = request.form.get("search_word", "").strip()
+    if not search_word:
+        return "search_word required", 400
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        TranslationSearch.log_search(db_session, user, search_word, user.learned_language)
+        db_session.commit()
+        return "OK"
+    except Exception as e:
+        db_session.rollback()
+        zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
+        return "OK"  # Don't fail the request for logging errors
 
 
 @api.route(
