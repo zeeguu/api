@@ -14,6 +14,7 @@ def _feature_map():
         "no_audio_exercises": _no_audio_exercises,
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
+        "daily_feedback": _daily_feedback,
     }
 
 
@@ -24,6 +25,10 @@ def features_for_user(user):
         if detector_function(user):
             features.append(name)
     return features
+
+
+def _daily_feedback(user):
+    return user.invitation_code == "onboarding"
 
 
 def is_feature_enabled_for_user(feature_name, user):
