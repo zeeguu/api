@@ -28,7 +28,7 @@ def features_for_user(user):
 
 
 def _daily_feedback(user):
-    return user.invitation_code == "onboarding"
+    return user.is_member_of_cohort(565)
 
 
 def is_feature_enabled_for_user(feature_name, user):
