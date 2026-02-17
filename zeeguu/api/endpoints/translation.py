@@ -18,7 +18,7 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, Language
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -188,11 +188,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
-    # Save meanings and log search to history
-    user = User.find_by_id(flask.g.user_id)
-    from_lang = Language.find_or_create(from_lang_code)
-    to_lang = Language.find_or_create(to_lang_code)
-
+    # Save meanings for each translation
     first_meaning = None
     for t in translations:
         translation_text = t.get("translation", "")
@@ -208,20 +204,15 @@ def get_multiple_translations(from_lang_code, to_lang_code):
             if first_meaning is None:
                 first_meaning = meaning
 
-    # Log search to history (non-critical - don't fail request if logging fails)
-    try:
-        TranslationSearch.log_search(
-            db_session,
-            user=user,
-            search_word=word_str,
-            search_word_language=from_lang,
-            target_language=to_lang,
-            meaning=first_meaning,
-        )
-        db_session.commit()
-    except Exception as e:
-        db_session.rollback()
-        zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
+    # Log search to history only if we found a translation
+    if first_meaning:
+        try:
+            user = User.find_by_id(flask.g.user_id)
+            TranslationSearch.log_search(db_session, user, first_meaning)
+            db_session.commit()
+        except Exception as e:
+            db_session.rollback()
+            zeeguu_log(f"[TRANSLATION] Failed to log search history: {e}")
 
     return json_result(dict(translations=translations))
 
