@@ -55,6 +55,12 @@ class LoggedInClient:
         print(response.data)
         print(self.session)
 
+        # Mark email as verified for tests
+        from zeeguu.core.model import User
+        user = User.find(self.email)
+        user.email_verified = True
+        db_session.commit()
+
     def append_session(self, url):
         if "?" in url:
             return url + "&session=" + self.session
