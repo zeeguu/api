@@ -1,0 +1,10 @@
+numpy
+pandas
+scipy
+matplotlib
+seaborn
+scikit-learn
+SQLAlchemy
+pymysql  # or mysqlclient if you prefer, but pymysql is easier to install
+tqdm
+python-dotenv
