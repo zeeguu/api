@@ -1943,14 +1943,15 @@ def monthly_active_users_page():
 
     # Calculate max for chart scaling
     max_users = max((m["active_users"] for m in monthly_data), default=1)
+    max_bar_height = 160  # pixels, leaving room for labels
 
     # Generate chart bars
     chart_bars = ""
     for m in monthly_data:
-        height_pct = (m["active_users"] / max_users * 100) if max_users > 0 else 0
+        height_px = int((m["active_users"] / max_users * max_bar_height) if max_users > 0 else 0)
         chart_bars += f"""
             <div class="bar-container">
-                <div class="bar" style="height: {height_pct}%;">
+                <div class="bar" style="height: {height_px}px;">
                     <span class="bar-value">{m['active_users']}</span>
                 </div>
                 <span class="bar-label">{m['month_label'][:3]}</span>
