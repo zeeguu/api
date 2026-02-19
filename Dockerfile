@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.11
 
 # Install system packages (removed Apache)
 # Note: Removed apt-get upgrade to enable Docker layer caching
@@ -24,13 +24,14 @@ COPY ./setup.py /Zeeguu-API/setup.py
 
 WORKDIR /Zeeguu-API
 
+# RUN python -m pip install --upgrade pip setuptools
 # Install Python requirements with BuildKit cache mount
 # Cache persisted via buildkit-cache-dance action to GitHub Actions cache
 RUN --mount=type=cache,target=/root/.cache/pip \
     echo "=== Pip cache before install ===" && \
     ls -lah /root/.cache/pip 2>/dev/null || echo "Cache empty (first build)" && \
-    python -m pip install -r requirements.txt && \
-    python -m pip install gunicorn && \
+    python -m pip install --default-timeout=300 -r requirements.txt && \
+    python -m pip install --default-timeout=300 gunicorn && \
     echo "=== Pip cache after install ===" && \
     du -sh /root/.cache/pip
 
