@@ -2401,12 +2401,12 @@ def monthly_activity_page():
 
         chart_bars += f"""
             <div class="bar-container">
-                <div class="bar-value">{total}</div>
+                <div class="bar-value">{total:,}</div>
                 <div class="stacked-bar" style="height: {total_height_px}px;">
-                    <div class="segment audio" style="height: {audio_pct}%;" title="Audio: {m['audio_minutes']} min"></div>
-                    <div class="segment browsing" style="height: {browsing_pct}%;" title="Browsing: {m['browsing_minutes']} min"></div>
-                    <div class="segment reading" style="height: {reading_pct}%;" title="Reading: {m['reading_minutes']} min"></div>
-                    <div class="segment exercise" style="height: {exercise_pct}%;" title="Exercises: {m['exercise_minutes']} min"></div>
+                    <div class="segment audio" style="height: {audio_pct}%;" title="Audio: {m['audio_minutes']:,} min"></div>
+                    <div class="segment browsing" style="height: {browsing_pct}%;" title="Browsing: {m['browsing_minutes']:,} min"></div>
+                    <div class="segment reading" style="height: {reading_pct}%;" title="Reading: {m['reading_minutes']:,} min"></div>
+                    <div class="segment exercise" style="height: {exercise_pct}%;" title="Exercises: {m['exercise_minutes']:,} min"></div>
                 </div>
                 <span class="bar-label">{m['month_label'][:3]}</span>
             </div>
@@ -2419,11 +2419,11 @@ def monthly_activity_page():
         table_rows += f"""
             <tr>
                 <td>{m['month_label']}</td>
-                <td class="exercise">{m['exercise_minutes']}</td>
-                <td class="reading">{m['reading_minutes']}</td>
-                <td class="browsing">{m['browsing_minutes']}</td>
-                <td class="audio">{m['audio_minutes']}</td>
-                <td class="total">{total}</td>
+                <td class="exercise">{m['exercise_minutes']:,}</td>
+                <td class="reading">{m['reading_minutes']:,}</td>
+                <td class="browsing">{m['browsing_minutes']:,}</td>
+                <td class="audio">{m['audio_minutes']:,}</td>
+                <td class="total">{total:,}</td>
             </tr>
 """
 
