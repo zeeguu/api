@@ -46,3 +46,30 @@ def get_badges_for_user(user_id: int):
         })
     return json_result(result)
 
+
+## Update badge progress endpoint (not implemented yet)
+# ---------------------------------------------------------------------------
+@api.route("/update_badge_progress", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+# @requires_session
+def update_badge_progress():
+    
+    # For badge id 
+    badge_id = request.form.get("badge_id")
+    user_id = request.form.get("user_id")
+
+    # Validation of inputs
+    if not badge_id or not user_id:
+        return json_result({"error": "Missing badge_id or user_id"}, status=400)
+    
+
+    
+    # Get current progress for the badge and user
+    user_badge_level = UserBadgeLevel.query.filter_by(badge_id=badge_id, user_id=user_id).first()
+    if not user_badge_level:
+        return json_result({"error": "User badge level not found"}, status=404)
+
+    
+   
+
