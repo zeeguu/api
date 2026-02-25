@@ -6,6 +6,7 @@ import flask
 from flask import request
 from python_translators.translation_query import TranslationQuery
 
+from zeeguu.core.model.badge import BadgeCode
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -25,6 +26,7 @@ from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.text import Text
 from . import api, db_session
 from zeeguu.logging import log as zeeguu_log
+from zeeguu.api.endpoints.badges import update_badge_levels
 
 punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
@@ -157,6 +159,8 @@ def get_one_translation(from_lang_code, to_lang_code):
         log(
             f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'"
         )
+        current_bookmark_count = len(Bookmark.find_by_specific_user(user))
+        update_badge_levels(badge_code=BadgeCode.MEANING_BUILDER, user_id=user.id, current_value=current_bookmark_count)
 
     return json_result(
         {

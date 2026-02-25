@@ -13,7 +13,7 @@ class UserBadgeLevel(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     badge_level_id = db.Column(db.Integer, db.ForeignKey("badge_level.id"), nullable=False)
     achieved_at = db.Column(db.DateTime, default=None)
-    shown_popup = db.Column(db.Boolean, default=False)  # Maybe a more generic name?
+    is_shown = db.Column(db.Boolean, default=False)
 
     # Constraints
     __table_args__ = (
@@ -29,16 +29,15 @@ class UserBadgeLevel(db.Model):
             user_id,
             badge_level_id,
             achieved_at=None,
-            shown_popup=False
+            is_shown=False
     ):
         self.user_id = user_id
         self.badge_level_id = badge_level_id
-        self.shown_popup = shown_popup
+        self.is_shown = is_shown
         if achieved_at is None:
             self.achieved_at = datetime.now()
         else:
             self.achieved_at = achieved_at
-
 
     def __repr__(self):
         return f"<UserBadgeLevel User:{self.user_id} BadgeLevel:{self.badge_level_id}>"
@@ -52,9 +51,17 @@ class UserBadgeLevel(db.Model):
             return None
 
     @classmethod
-    def find(cls, user_id: int, badge_id: int):
-        """Find user badge level bz user_id and badge id."""
-        return cls.query.filter_by(user_id=user_id, badge_id=badge_id).first()
+    def find_all_not_shown(cls, user_id: int):
+        """Find existing not shown user badge levels by user id."""
+        try:
+            return cls.query.filter_by(user_id=user_id, is_shown=False).all()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
+
+    @classmethod
+    def find(cls, user_id: int, badge_level_ids: list[int]):
+        """Find user badge levels for a specific user_id and badge_level_id."""
+        return cls.query.filter(cls.user_id == user_id, cls.badge_level_id.in_(badge_level_ids)).all()
 
     @classmethod
     def create(
@@ -63,8 +70,9 @@ class UserBadgeLevel(db.Model):
             user_id: int,
             badge_level_id: int,
             achieved_at: datetime = None,
-            shown_popup: bool = False,
+            is_shown: bool = False,
     ):
-        new = cls(user_id, badge_level_id, achieved_at, shown_popup)
+        new = cls(user_id, badge_level_id, achieved_at, is_shown)
         session.add(new)
+        session.commit()
         return new

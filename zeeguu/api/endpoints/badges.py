@@ -1,5 +1,6 @@
-import flask
 from flask import request
+
+from zeeguu.core.model.badge import BadgeCode
 from zeeguu.core.model.badge import Badge
 from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.core.model.user_badge_level import UserBadgeLevel
@@ -30,6 +31,7 @@ def get_badges_for_user(user_id: int):
                 "icon_url": level.icon_url,
                 "achieved": achieved,
                 "achieved_at": achieved_at.isoformat() if achieved_at else None,
+                "is_shown": level.is_shown
             })
         result.append({
             "badge_id": badge.id,
@@ -61,14 +63,36 @@ def update_badge_progress():
         return json_result({"error": "User badge level not found"}, status=404)
 
 
-def check_badge_level(badge_id: int, user_id: int, current_value: int) -> UserBadgeLevel:
-    user_badge_level = UserBadgeLevel.find(user_id=user_id, badge_id=badge_id)
-    if not user_badge_level:
-        next_badge_level = BadgeLevel.find(badge_id=badge_id, level=1)
-    else:
-        next_badge_level = BadgeLevel.find(badge_id=badge_id, level=user_badge_level.badge_level.level + 1)
-    if not next_badge_level:
-        return None
-    if current_value >= next_badge_level.target_value:
-        return UserBadgeLevel.create(user_id=user_id, badge_level_id=next_badge_level.id)
-    return user_badge_level
+def update_badge_levels(badge_code: BadgeCode, user_id: int, current_value: int) -> list[UserBadgeLevel]:
+    """
+    Award all achievable badge levels a user doesn't have yet for a specific badge.
+
+    Returns only newly created UserBadgeLevel objects.
+    """
+    badge = Badge.find(badge_code)
+    if not badge:
+        return []
+
+    badge_level_ids = [
+        level.id
+        for level in BadgeLevel.find_all_achievable(badge_id=badge.id, current_value=current_value)
+    ]
+
+    if not badge_level_ids:
+        return []
+
+    user_badge_levels = UserBadgeLevel.find(user_id=user_id, badge_level_ids=badge_level_ids)
+    owned_ids = {lvl.badge_level_id for lvl in user_badge_levels}
+
+    missing_ids = set(badge_level_ids) - owned_ids
+    created_badges: list[UserBadgeLevel] = []
+
+    for level_id in missing_ids:
+        new_badge = UserBadgeLevel(user_id=user_id, badge_level_id=level_id)
+        db_session.add(new_badge)
+        created_badges.append(new_badge)
+
+    if missing_ids:
+        db_session.commit()
+
+    return created_badges
