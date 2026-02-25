@@ -16,7 +16,7 @@ from . import api, db_session
 def get_badges_for_user(user_id: int):
     # Get all badge levels achieved by the user
     badges = Badge.query.all()
-    user_badge_levels = UserBadgeLevel.find(user_id)
+    user_badge_levels = UserBadgeLevel.find_all(user_id)
     achieved_map = {ubl.badge_level_id: ubl for ubl in user_badge_levels}
     result = []
     for badge in badges:

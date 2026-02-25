@@ -1,11 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import relationship
-import sqlalchemy
 from datetime import datetime
 
-from zeeguu.core.model.badge_level import BadgeLevel
+import sqlalchemy
+from sqlalchemy.orm import relationship
+
 from zeeguu.core.model.db import db
-from zeeguu.core.model.user import User
 
 
 class UserBadgeLevel(db.Model):
@@ -46,7 +44,7 @@ class UserBadgeLevel(db.Model):
         return f"<UserBadgeLevel User:{self.user_id} BadgeLevel:{self.badge_level_id}>"
 
     @classmethod
-    def find(cls, user_id: int):
+    def find_all(cls, user_id: int):
         """Find existing user badge levels by user id."""
         try:
             return cls.query.filter_by(user_id=user_id).all()
