@@ -5,6 +5,7 @@ class BadgeLevel(db.Model):
     __tablename__ = "badge_level"
 
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
     badge_id = db.Column(db.Integer, db.ForeignKey("badge.id"), nullable=False)
     level = db.Column(db.Integer, nullable=False)
     target_value = db.Column(db.Integer, nullable=False)
