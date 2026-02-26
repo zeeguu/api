@@ -21,23 +21,23 @@ def get_badges_for_user(user_id: int):
     achieved_map = {ubl.badge_level_id: ubl for ubl in user_badge_levels}
     result = []
     for badge in badges:
-        levels = []
-        for level in badge.levels:  # Assuming Badge has a .levels relationship
-            achieved = level.id in achieved_map
-            achieved_at = achieved_map[level.id].achieved_at if achieved else None
-            levels.append({
-                "level": level.level,
-                "target_value": level.target_value,
-                "icon_url": level.icon_url,
+        badge_levels = []
+        for badge_level in badge.badge_levels:
+            achieved = badge_level.id in achieved_map
+            achieved_at = achieved_map[badge_level.id].achieved_at if achieved else None
+            badge_levels.append({
+                "badge_level": badge_level.level,
+                "target_value": badge_level.target_value,
+                "icon_url": badge_level.icon_url,
                 "achieved": achieved,
                 "achieved_at": achieved_at.isoformat() if achieved_at else None,
-                "is_shown": level.is_shown
+                "is_shown": badge_level.is_shown
             })
         result.append({
             "badge_id": badge.id,
             "name": badge.name,
             "description": badge.description,
-            "levels": levels,
+            "levels": badge_levels,
         })
     return json_result(result)
 

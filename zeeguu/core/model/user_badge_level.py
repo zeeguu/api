@@ -40,7 +40,7 @@ class UserBadgeLevel(db.Model):
             self.achieved_at = achieved_at
 
     def __repr__(self):
-        return f"<UserBadgeLevel User:{self.user_id} BadgeLevel:{self.badge_level_id}>"
+        return f"<UserBadgeLevel User:{self.user_id} {self.id} BadgeLevel:{self.badge_level_id}>"
 
     @classmethod
     def find_all(cls, user_id: int):
@@ -60,7 +60,7 @@ class UserBadgeLevel(db.Model):
 
     @classmethod
     def find(cls, user_id: int, badge_level_ids: list[int]):
-        """Find user badge levels for a specific user_id and badge_level_id."""
+        """Find user badge levels for a specific user_id and a list of badge_level_ids."""
         return cls.query.filter(cls.user_id == user_id, cls.badge_level_id.in_(badge_level_ids)).all()
 
     @classmethod

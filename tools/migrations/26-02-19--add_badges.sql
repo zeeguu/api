@@ -5,7 +5,7 @@ CREATE TABLE badge (
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT, -- We could store a template string, and would interpolate the target values.
-    is_hidden BOOLEAN DEFAULT FALSE
+    is_hidden BOOLEAN DEFAULT FALSE,
     UNIQUE(code)
 );
 

@@ -17,7 +17,7 @@ class BadgeLevel(db.Model):
     )
 
     # Relationships
-    badge = db.relationship("Badge", back_populates="levels")
+    badge = db.relationship("Badge", back_populates="badge_levels")
     user_badge_levels = db.relationship("UserBadgeLevel", back_populates="badge_level", cascade="all, delete-orphan")
 
     def __repr__(self):

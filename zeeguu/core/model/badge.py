@@ -22,7 +22,7 @@ class Badge(db.Model):
     )
 
     # Relationships
-    levels = db.relationship("BadgeLevel", back_populates="badge", cascade="all, delete-orphan")
+    badge_levels = db.relationship("BadgeLevel", back_populates="badge", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Badge {self.name}>"
