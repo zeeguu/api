@@ -48,6 +48,8 @@ class UserLanguage(db.Model):
 
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
+    max_streak = Column(Integer, default=0)
+    max_streak_date = Column(DateTime, nullable=True)
 
     def __init__(
         self,
@@ -134,9 +136,12 @@ class UserLanguage(db.Model):
             elif self.last_practiced.date() == now.date() - datetime.timedelta(days=1):
                 self.daily_streak = (self.daily_streak or 0) + 1
             else:
+                # Gap in practice - save max before resetting
+                self._update_max_streak_if_needed()
                 self.daily_streak = 1
 
             self.last_practiced = now
+            self._update_max_streak_if_needed()
             if session:
                 session.add(self)
 
@@ -154,6 +159,13 @@ class UserLanguage(db.Model):
 
         # If last practice was before yesterday, streak is broken
         if self.last_practiced.date() < yesterday:
+            self._update_max_streak_if_needed()
             self.daily_streak = 0
             if session:
                 session.add(self)
+
+    def _update_max_streak_if_needed(self):
+        """Update max_streak if current streak exceeds it."""
+        if self.daily_streak > (self.max_streak or 0):
+            self.max_streak = self.daily_streak
+            self.max_streak_date = self.last_practiced
