@@ -72,7 +72,11 @@ def _hide_recommendations(user):
     """Hide recommended articles for students in specific cohorts.
 
     When enabled, students only see the Classroom tab with teacher-uploaded texts.
+    Teachers are excluded from this feature even if they are in the cohort.
     """
+    if user.isTeacher():
+        return False
+
     COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
 
     for user_cohort in user.cohorts:
