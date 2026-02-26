@@ -76,17 +76,15 @@ def send_friend_request():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
 
-   if sender_id is None or receiver_id is None:
-      return "error" 
-   
-   if sender_id == receiver_id:
-      return "error" # TODO: Handle error 
+   status_code, error = _is_friend_request_valid(sender_id, receiver_id)
+   if status_code >= 400:
+      flask.abort(status_code, error)
 
    friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
    return _seralize_friend_request(friend_request)
 
 def _seralize_friend_request(friend_request: FriendRequest):
-   return {
+   result = {
       "id": friend_request.id,
       "sender_id": friend_request.sender_id,
       "receiver_id": friend_request.receiver_id,
@@ -94,24 +92,26 @@ def _seralize_friend_request(friend_request: FriendRequest):
       "reponded_at": friend_request.responded_at,
       "status": friend_request.status,
    }
+   return json_result(result)
 
 def _seralize_friendship(friendship: Friend, status: str = "accepted"):
-   return {
+   result = {
       "id": friendship.id,
       "sender_id": friendship.user_id,
       "receiver_id": friendship.friend_id,
       "created_at": friendship.created_at,
       "status": status,
    }
+   return json_result(result)
 
-def _is_friend_request_valid(sender_id, receiver_id)-> tuple[bool, str]:
+def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
    if sender_id is None or receiver_id is None:
-      return False, "invalid data sender_id or/and receiver_id"
+      return 422, "invalid data sender_id or/and receiver_id"
    
    if sender_id == receiver_id:
-      return False, "cannot send friend request to yourself"
+      return 422, "cannot send friend request to yourself"
 
-   return True, "ok"
+   return 200, "ok"
 
 @api.route("/delete_friend_request", methods=["POST"])
 @cross_domain
@@ -133,13 +133,14 @@ def delete_friend_reuest():
 def accept_friend_request():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
-   is_valid, error = _is_friend_request_valid(sender_id, receiver_id)
-   if not is_valid:
-      return error
+   status_code, error = _is_friend_request_valid(sender_id, receiver_id)
+   if status_code >= 400:
+      return flask.abort(status_code, error)
    
    friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
    if friendship is None:
-      return "None"
+      return flask.abort(404, "No friend request found to accpet")
+   
    return _seralize_friendship(friendship)
 
 @api.route("/reject_friend_request", methods=["POST"])
@@ -147,13 +148,13 @@ def accept_friend_request():
 def reject_friend_request():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
-   is_valid, error = _is_friend_request_valid(sender_id, receiver_id)
-   if not is_valid:
-      return error
+   statis_code, error = _is_friend_request_valid(sender_id, receiver_id)
+   if statis_code >= 400:
+      return flask.abort(statis_code, error)
    
    is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
 
-   return str(is_rejected)
+   return 
 
 
 
