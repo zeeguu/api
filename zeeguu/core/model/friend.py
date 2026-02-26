@@ -9,8 +9,8 @@ class Friend(db.Model):
 	__table_args__ = {"mysql_collate": "utf8_bin"}
 
 	id = Column(Integer, primary_key=True, autoincrement=True)
-	user_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
-	friend_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
+	user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+	friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
 	created_at = Column(DateTime, default=func.now())
 
 	# Explicit relationships with primaryjoin
