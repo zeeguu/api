@@ -133,21 +133,21 @@ def accept_friend_request():
       return "None"
    return _seralize_friend_request(friend_request)
 
-
-@api.route("/cancel_friend_request", methods=["POST"])
+@api.route("/reject_friend_request", methods=["POST"])
 @cross_domain
 def accept_friend_request():
-   """
-   Cancel the send friend request from the point of view of the sender.
-   """
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
    is_valid, error = _is_friend_request_valid(sender_id, receiver_id)
    if not is_valid:
       return error
    
-   is_canceled = FriendRequest.cancel_sent_request(sender_id, receiver_id)
-   return str(is_canceled)
+   friend_request = FriendRequest.accept_friend_request(sender_id, receiver_id)
+   if friend_request is None:
+      return "None"
+   return _seralize_friend_request(friend_request)
+
+
 
 @api.route("/unfriend", methods=["POST"])
 @cross_domain
