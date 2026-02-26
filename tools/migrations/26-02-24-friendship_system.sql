@@ -4,7 +4,8 @@ CREATE TABLE friends (
     user_id INT NOT NULL,
     friend_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, friend_id),
+    CONSTRAINT unique_user_friend UNIQUE (user_id, friend_id),
+    CONSTRAINT unique_friend_user UNIQUE (friend_id, user_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (friend_id) REFERENCES users(id)
 );
