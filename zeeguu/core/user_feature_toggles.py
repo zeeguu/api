@@ -15,6 +15,7 @@ def _feature_map():
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
+        "hide_recommendations": _hide_recommendations,
     }
 
 
@@ -65,3 +66,16 @@ def _extension_experiment_1(user):
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )
+
+
+def _hide_recommendations(user):
+    """Hide recommended articles for students in specific cohorts.
+
+    When enabled, students only see the Classroom tab with teacher-uploaded texts.
+    """
+    COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
+
+    for user_cohort in user.cohorts:
+        if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
+            return True
+    return False
