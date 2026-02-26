@@ -2,7 +2,7 @@ import flask
 from flask import request
 
 from . import api, db_session
-from zeeguu.api.utils import requires_session, json_result
+from zeeguu.api.utils import requires_session, json_result, update_user_streak
 from .helpers.activity_sessions import update_activity_session
 from ...core.model import UserReadingSession
 from datetime import datetime
@@ -26,6 +26,10 @@ def reading_session_start():
     session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source, platform)
     db_session.add(session)
     db_session.commit()
+
+    # Update daily streak when user starts reading
+    update_user_streak()
+
     return json_result(dict(id=session.id))
 
 
