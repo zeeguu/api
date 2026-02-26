@@ -1,5 +1,6 @@
 -- Denormalized friends table
 CREATE TABLE friends (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     friend_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
