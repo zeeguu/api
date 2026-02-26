@@ -95,6 +95,15 @@ def _seralize_friend_request(friend_request: FriendRequest):
       "status": friend_request.status,
    }
 
+def _seralize_friendship(friendship: Friend, status: str = "accepted"):
+   return {
+      "id": friendship.id,
+      "sender_id": friendship.user_id,
+      "receiver_id": friendship.friend_id,
+      "created_at": friendship.created_at,
+      "status": status,
+   }
+
 def _is_friend_request_valid(sender_id, receiver_id)-> tuple[bool, str]:
    if sender_id is None or receiver_id is None:
       return False, "invalid data sender_id or/and receiver_id"
@@ -128,33 +137,29 @@ def accept_friend_request():
    if not is_valid:
       return error
    
-   friend_request = FriendRequest.accept_friend_request(sender_id, receiver_id)
-   if friend_request is None:
+   friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
+   if friendship is None:
       return "None"
-   return _seralize_friend_request(friend_request)
+   return _seralize_friendship(friendship)
 
 @api.route("/reject_friend_request", methods=["POST"])
 @cross_domain
-def accept_friend_request():
+def reject_friend_request():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
    is_valid, error = _is_friend_request_valid(sender_id, receiver_id)
    if not is_valid:
       return error
    
-   friend_request = FriendRequest.accept_friend_request(sender_id, receiver_id)
-   if friend_request is None:
-      return "None"
-   return _seralize_friend_request(friend_request)
+   is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
+
+   return str(is_rejected)
 
 
 
 @api.route("/unfriend", methods=["POST"])
 @cross_domain
-def accept_friend_request():
-   """
-   Cancel the send friend request from the point of view of the sender.
-   """
+def unfriend():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
    is_valid, error = _is_friend_request_valid(sender_id, receiver_id)

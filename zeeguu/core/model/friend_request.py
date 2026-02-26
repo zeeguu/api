@@ -132,20 +132,19 @@ class FriendRequest(db.Model):
    def accept_friend_request(cls, sender_id: int, receiver_id: int):
         try:
             # Find the pending request
-            fr = db.session.query(cls).filter_by(
-                sender_id=sender_id,
-                receiver_id=receiver_id,
-                status="pending"
-            ).one()
-
-            # Update the status
-            fr.status = "accepted"
-            fr.responded_at = func.now()
-            db.session.commit()
-            db.session.refresh(fr) # refesh with the new values
-
+            cls.delete_friend_request(sender_id, receiver_id)
             # Optionally create a friendship in your friends table
-            Friend.add_friendship(sender_id, receiver_id)
-            return fr
+            friendship = Friend.add_friendship(sender_id, receiver_id)
+            return friendship
+        except NoResultFound:
+            return None
+   
+   @classmethod
+   def reject_friend_request(cls, sender_id: int, receiver_id: int):
+        try:
+            
+            # We just delete the friend request from the database 
+            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
+            return is_deleted
         except NoResultFound:
             return None

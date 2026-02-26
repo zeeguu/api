@@ -9,8 +9,8 @@ class Friend(db.Model):
 	__table_args__ = {"mysql_collate": "utf8_bin"}
 
 	id = Column(Integer, primary_key=True, autoincrement=True)
-	user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-	friend_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+	user_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
+	friend_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
 	created_at = Column(DateTime, default=func.now())
 
 	# Explicit relationships with primaryjoin
@@ -56,7 +56,7 @@ class Friend(db.Model):
 		
 		return False
 
-	def add_friendship(user_id: int, friend_id: int)->bool:
+	def add_friendship(user_id: int, friend_id: int):
 		"""
 		Adds a friendship between two users using SQLAlchemy ORM.
 		Stores both directions for easy querying.
@@ -68,11 +68,11 @@ class Friend(db.Model):
 		).first()
 
 		if existing:
-			return False  # friendship already exists
+			return existing  # friendship already exists
 
-		# Add both directions
-		# TODO: Do we want bi directional friendships in the table or just one row?
-		db.session.add(Friend(user_id=user_id, friend_id=friend_id))
-		db.session.add(Friend(user_id=friend_id, friend_id=user_id))
+		# Add friendship
+		friendship = Friend(user_id=user_id, friend_id=friend_id)
+		db.session.add(friendship)
 		db.session.commit()
-		return True
+		db.session.refresh(friendship)
+		return friendship
