@@ -89,12 +89,13 @@ def requires_session(view):
 
             if user:
                 user.update_last_seen_if_needed(db.session)
-                # Update per-language streak for the user's current learned language
+                # Reset streak if user hasn't practiced in 2+ days
+                # (streak is only incremented in actual practice endpoints)
                 if user.learned_language:
                     user_language = UserLanguage.find_or_create(
                         db.session, user, user.learned_language
                     )
-                    user_language.update_streak_if_needed(db.session)
+                    user_language.reset_streak_if_broken(db.session)
                 # Commit immediately since this is a simple timestamp update
                 db.session.commit()
 
@@ -191,5 +192,26 @@ def only_admins(view):
         return view(*args, **kwargs)
 
     return wrapped_view
+
+
+def update_user_streak():
+    """
+    Call this in practice endpoints to update the user's daily streak.
+    Should be called when user performs actual practice activities:
+    - Completing exercises
+    - Reading articles (creating bookmarks/translations)
+    - Listening to audio lessons
+    """
+    from zeeguu.core.model import User
+    from zeeguu.core.model.user_language import UserLanguage
+    from zeeguu.core.model.db import db
+
+    user = User.find_by_id(flask.g.user_id)
+    if user and user.learned_language:
+        user_language = UserLanguage.find_or_create(
+            db.session, user, user.learned_language
+        )
+        user_language.update_streak_if_needed(db.session)
+        db.session.commit()
 
 
