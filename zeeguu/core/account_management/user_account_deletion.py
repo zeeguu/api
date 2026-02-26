@@ -28,12 +28,18 @@ from zeeguu.core.model import (
     UserExerciseSession,
 )
 from zeeguu.core.model import Article
+from zeeguu.core.model.exercise import Exercise
+from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+from zeeguu.core.model.audio_lesson_generation_progress import AudioLessonGenerationProgress
+from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
 tables_to_modify = [
     SearchSubscription,
     Session,
     Teacher,
     TeacherCohortMap,
+    DailyAudioLesson,
+    AudioLessonGenerationProgress,
     UserWord,
     UserActivityData,
     UserArticle,
@@ -62,6 +68,49 @@ def delete_user_account(db_session, user_to_delete):
         db_session.commit()
 
         print(f"Deleting user {user_to_delete.name}...")
+
+        # Delete exercises first (they reference UserWord with NOT NULL constraint)
+        user_exercises = (
+            Exercise.query.join(UserWord)
+            .filter(UserWord.user_id == user_to_delete.id)
+            .all()
+        )
+        print(f"exercise: {len(user_exercises)}")
+        for each in user_exercises:
+            total_rows_affected += 1
+            db_session.delete(each)
+        db_session.commit()
+
+        # Clear preferred_bookmark_id on UserWord records to break circular FK
+        # (UserWord.preferred_bookmark_id -> Bookmark, Bookmark.user_word_id -> UserWord)
+        user_words = UserWord.query.filter_by(user_id=user_to_delete.id).all()
+        print(f"Clearing preferred_bookmark_id on {len(user_words)} user_word records")
+        for uw in user_words:
+            if uw.preferred_bookmark_id is not None:
+                uw.preferred_bookmark_id = None
+                db_session.add(uw)
+        db_session.commit()
+
+        # Delete bookmarks (they reference UserWord with NOT NULL constraint)
+        user_bookmarks = Bookmark.find_by_specific_user(user_to_delete)
+        print(f"bookmark: {len(user_bookmarks)}")
+        for each in user_bookmarks:
+            total_rows_affected += 1
+            db_session.delete(each)
+        db_session.commit()
+
+        # Delete user_word_interaction_history (references UserWord)
+        user_word_history = (
+            UserWordInteractionHistory.query.join(UserWord)
+            .filter(UserWord.user_id == user_to_delete.id)
+            .all()
+        )
+        print(f"user_word_interaction_history: {len(user_word_history)}")
+        for each in user_word_history:
+            total_rows_affected += 1
+            db_session.delete(each)
+        db_session.commit()
+
         for each_table in tables_to_modify:
             subject_related = each_table.query.filter_by(
                 user_id=user_to_delete.id

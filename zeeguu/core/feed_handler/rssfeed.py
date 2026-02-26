@@ -68,10 +68,8 @@ class RSSFeed(FeedHandler):
                 )
                 feed_items.append(new_item_data_dict)
         except requests.exceptions.ConnectTimeout as e:
-            msg = f"Connection timeout when trying to connect to {self.url}"
-            from sentry_sdk import capture_message
-
-            print(msg)
-            capture_message(msg)
+            # Don't send to Sentry - connection timeouts are expected operational issues
+            # The calling code in article_downloader.py logs these appropriately
+            log(f"Connection timeout when trying to connect to {self.url}")
 
         return feed_items

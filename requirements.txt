@@ -31,6 +31,7 @@ flask_sqlalchemy>=3.0
 Flask-Assets
 flask_cors
 flask_monitoringdashboard
+Flask-Limiter>=3.0.0  # Rate limiting for security
 
 # Cloud services
 google-cloud-texttospeech==2.3.0
@@ -88,6 +89,7 @@ youtube_transcript_api
 pydub
 Pillow
 cryptography
+bcrypt>=4.0.0
 protobuf
 
 # Monitoring
@@ -98,3 +100,4 @@ pytest
 
 # Version constraints
 pydantic>=1.10.8
+setuptools<82

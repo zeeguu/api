@@ -1,3 +1,4 @@
+import hmac
 import sqlalchemy
 import flask
 
@@ -8,7 +9,7 @@ from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
 
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api, db_session
 
 from zeeguu.logging import log
@@ -73,7 +74,7 @@ def add_user(email):
         return new_session.uuid
 
     except Exception as e:
-        log(f"Attemt to create user failed: {username} {password} {email}")
+        log(f"Account creation failed for email: {email}")
         log(e)
         return make_error(400, str(e))
 
@@ -102,7 +103,7 @@ def add_basic_user(email):
         return str(new_session.id)
 
     except Exception as e:
-        log(f"Attemt to create user failed: {username} {password} {email}")
+        log(f"Basic account creation failed for email: {email}")
         log(e)
         return make_error(400, str(e))
 
@@ -185,6 +186,7 @@ def upgrade_anon_user():
 @api.route("/confirm_email", methods=["POST"])
 @cross_domain
 @requires_session
+@allows_unverified
 def confirm_email():
     """
     Confirm email address using the code sent via email.
@@ -196,9 +198,13 @@ def confirm_email():
 
     try:
         user = User.find_by_id(flask.g.user_id)
-        last_code = UniqueCode.last_code(user.email)
+        code_obj = UniqueCode.find_last_code(user.email)
 
-        if str(last_code) != str(code):
+        if code_obj is None:
+            return bad_request("No verification code found. Please request a new one.")
+        if code_obj.is_expired():
+            return bad_request("Code has expired. Please request a new one.")
+        if submitted_code_is_wrong(code_obj.code, code):
             return bad_request("Invalid code")
 
         user.email_verified = True
@@ -214,6 +220,35 @@ def confirm_email():
         return bad_request("Could not confirm email")
 
 
+@api.route("/resend_verification_code", methods=["POST"])
+@cross_domain
+@requires_session
+@allows_unverified
+def resend_verification_code():
+    """
+    Resend email verification code to the current user.
+    """
+    from zeeguu.core.emailer.email_confirmation import send_email_confirmation
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+
+        if user.email_verified:
+            return bad_request("Email is already verified")
+
+        # Create new code and send
+        code = UniqueCode(user.email)
+        db_session.add(code)
+        db_session.commit()
+        send_email_confirmation(user.email, code)
+
+        return "OK"
+
+    except Exception as e:
+        log(f"Failed to resend verification code: {e}")
+        return bad_request("Could not send verification code")
+
+
 @api.route("/send_code/<email>", methods=["POST"])
 @cross_domain
 def send_code(email):
@@ -221,20 +256,25 @@ def send_code(email):
     This endpoint generates a unique code that will be used to allow
     the user to change his/her password. The unique code is send to
     the specified email address.
+
+    Security: Always returns OK to prevent user enumeration.
     """
     from zeeguu.core.emailer.password_reset import send_password_reset_email
 
     try:
         User.find(email)
+        # Only send email and create code if user exists
+        code = UniqueCode(email)
+        db_session.add(code)
+        db_session.commit()
+        send_password_reset_email(email, code)
     except sqlalchemy.orm.exc.NoResultFound:
-        return bad_request("Email unknown")
+        # Silently ignore non-existent emails to prevent user enumeration
+        # Don't reveal whether the email exists in our system
+        log(f"PASSWORD RESET: Attempted reset for non-existent email (not revealing to client)")
+        pass
 
-    code = UniqueCode(email)
-    db_session.add(code)
-    db_session.commit()
-
-    send_password_reset_email(email, code)
-
+    # Always return OK to prevent user enumeration
     return "OK"
 
 
@@ -242,31 +282,40 @@ def send_code(email):
 @cross_domain
 def reset_password(email):
     from zeeguu.logging import log
-    
+
     log(f"PASSWORD RESET ATTEMPT: email='{email}'")
-    
+
     code = request.form.get("code", None)
     submitted_pass = request.form.get("password", None)
 
-    user = User.find(email)
-    last_code = UniqueCode.last_code(email)
+    # Security: Use generic error messages to prevent information disclosure
+    code_obj = UniqueCode.find_last_code(email)
 
-    if submitted_code_is_wrong(last_code, code):
+    if code_obj is None:
+        log(f"PASSWORD RESET FAILED: email='{email}' - No reset code found")
+        return bad_request("Invalid or expired code")
+    if code_obj.is_expired():
+        log(f"PASSWORD RESET FAILED: email='{email}' - Code expired")
+        return bad_request("Invalid or expired code")
+    if submitted_code_is_wrong(code_obj.code, code):
         log(f"PASSWORD RESET FAILED: email='{email}' - Invalid code")
-        return bad_request("Invalid code")
+        return bad_request("Invalid or expired code")
     if password_is_too_short(submitted_pass):
         log(f"PASSWORD RESET FAILED: email='{email}' - Password too short")
         return bad_request("Password is too short")
-    if user is None:
+
+    try:
+        user = User.find(email)
+    except sqlalchemy.orm.exc.NoResultFound:
         log(f"PASSWORD RESET FAILED: email='{email}' - Email unknown")
-        return bad_request("Email unknown")
+        return bad_request("Invalid or expired code")
 
     log(f"PASSWORD RESET: email='{email}', user_id={user.id} - Updating password")
     user.update_password(submitted_pass)
     delete_all_codes_for_email(email)
 
     db_session.commit()
-    
+
     log(f"PASSWORD RESET SUCCESS: email='{email}', user_id={user.id} - Password updated successfully")
     return "OK"
 
@@ -276,7 +325,10 @@ def bad_request(msg):
 
 
 def submitted_code_is_wrong(submitted_code, db_code):
-    return submitted_code != db_code
+    # Use constant-time comparison to prevent timing attacks
+    if submitted_code is None or db_code is None:
+        return True
+    return not hmac.compare_digest(str(submitted_code), str(db_code))
 
 
 def password_is_too_short(password):

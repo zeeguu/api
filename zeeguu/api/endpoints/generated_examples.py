@@ -8,7 +8,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
-from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning
+from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -400,10 +400,11 @@ def generate_examples_for_word(word, from_lang, to_lang):
             )
             db_session.commit()
 
-            # Check for existing examples in DB for this meaning
+            # Check for existing examples in DB for this meaning at user's CEFR level
             db_examples = (
                 ExampleSentence.query.filter(
                     ExampleSentence.meaning_id == meaning.id,
+                    ExampleSentence.cefr_level == cefr_level,
                 )
                 .limit(MAX_EXAMPLES_GENERATE)
                 .all()
@@ -426,10 +427,12 @@ def generate_examples_for_word(word, from_lang, to_lang):
                     "source": "database",
                 })
 
-            # No existing examples - generate and save them
-            log(f"No examples found for meaning {meaning.id}, generating new ones")
+            # No existing examples - generate new ones (don't cache on browse)
+            log(f"No cached examples for meaning {meaning.id}, generating fresh")
 
         # Get LLM service and generate examples
+        # NOTE: We don't cache here - caching happens only when user saves to learning
+        # This avoids filling DB with unvalidated AI content for words users just browse
         llm_service = get_llm_service()
         examples = llm_service.generate_examples(
             word=word,
@@ -440,39 +443,6 @@ def generate_examples_for_word(word, from_lang, to_lang):
             prompt_version="v3",
             count=MAX_EXAMPLES_GENERATE,
         )
-
-        # If we have a meaning, save the generated examples
-        if translation and meaning:
-            llm_model = examples[0]["llm_model"] if examples else "unknown"
-            prompt_version = examples[0]["prompt_version"] if examples else "v3"
-
-            ai_generator = AIGenerator.find_or_create(
-                db_session,
-                llm_model,
-                prompt_version,
-                description="Example generation for Translate tab",
-            )
-
-            saved_examples = []
-            for example in examples:
-                example_sentence = ExampleSentence.create_ai_generated(
-                    db_session,
-                    sentence=example["sentence"],
-                    language=origin_lang,
-                    meaning=meaning,
-                    ai_generator=ai_generator,
-                    translation=example.get("translation"),
-                    cefr_level=example.get("cefr_level", cefr_level),
-                    commit=False,
-                )
-                saved_examples.append(example_sentence)
-
-            db_session.commit()
-            log(f"Saved {len(saved_examples)} examples for meaning {meaning.id}")
-
-            # Add IDs to returned examples
-            for i, example in enumerate(examples):
-                example["id"] = saved_examples[i].id
 
         return json_result({
             "examples": examples,
@@ -644,3 +614,172 @@ def add_word_to_learning():
             "error": "Failed to prepare learning card. Please try again.",
             "detail": str(e)
         }, status=500)
+
+
+@api.route("/preview_learning_card", methods=["POST"])
+@cross_domain
+@requires_session
+def preview_learning_card():
+    """
+    Preview a learning card without saving it.
+
+    Returns cached explanation/level_note from Meaning if available,
+    otherwise generates via LLM and caches for future use.
+
+    Request body (JSON):
+    {
+        "word": "ophæv",
+        "translation": "cancel",
+        "from_lang": "da",
+        "to_lang": "en",
+        "examples": ["Jeg vil gerne ophæve min reservation.", ...]
+    }
+
+    Response (200):
+    {
+        "word": "ophæve",
+        "translation": "to cancel",
+        "example": "Jeg vil gerne ophæve min reservation.",
+        "example_translation": "I would like to cancel my reservation.",
+        "explanation": "Common verb for canceling...",
+        "level_note": "appropriate for B1...",
+        "recommendation": "recommended"
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = request.get_json()
+
+    if not data:
+        return json_result({"error": "JSON body required"}, status=400)
+
+    word = data.get("word", "").strip()
+    translation = data.get("translation", "").strip()
+    from_lang = data.get("from_lang", "")
+    to_lang = data.get("to_lang", "")
+    examples = data.get("examples", [])
+
+    if not word or not translation or not from_lang or not to_lang:
+        return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+
+    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
+
+    origin_lang = Language.find(from_lang)
+    target_lang = Language.find(to_lang)
+
+    if not origin_lang or not target_lang:
+        return json_result({"error": "Invalid language codes"}, status=400)
+
+    # Check if we have cached explanation/cefr_level in Meaning
+    meaning = Meaning.find_or_create(
+        db_session, word, from_lang, translation, to_lang
+    )
+
+    if meaning.translation_explanation and meaning.word_cefr_level:
+        # Return cached data - no LLM call needed
+        return json_result({
+            "word": word,
+            "translation": translation,
+            "explanation": meaning.translation_explanation,
+            "word_cefr_level": meaning.word_cefr_level,
+            "example": examples[0] if examples else "",
+            "example_translation": "",
+            "recommendation": "recommended",
+            "cached": True
+        })
+
+    try:
+        # Generate via LLM
+        learning_card = prepare_learning_card(
+            searched_word=word,
+            translation=translation,
+            source_lang=origin_lang.name,
+            target_lang=target_lang.name,
+            cefr_level=cefr_level,
+            examples=examples
+        )
+
+        # Cache in Meaning for future use
+        if learning_card.get("explanation"):
+            meaning.translation_explanation = learning_card["explanation"]
+
+        # Parse CEFR level from level_note (e.g., "appropriate for B1 - ..." → "B1")
+        level_note = learning_card.get("level_note", "")
+        import re
+        cefr_match = re.search(r'\b(A1|A2|B1|B2|C1|C2)\b', level_note)
+        if cefr_match:
+            meaning.word_cefr_level = cefr_match.group(1)
+            learning_card["word_cefr_level"] = cefr_match.group(1)
+
+        db_session.add(meaning)
+        db_session.commit()
+
+        return json_result(learning_card)
+
+    except Exception as e:
+        log(f"Error previewing learning card: {e}")
+        return json_result({
+            "error": "Failed to generate preview",
+            "detail": str(e)
+        }, status=500)
+
+
+@api.route("/report_meaning", methods=["POST"])
+@cross_domain
+@requires_session
+def report_meaning():
+    """
+    Report a problem with AI-generated content for a meaning.
+
+    Request body (JSON):
+    {
+        "word": "bekræfte",
+        "translation": "confirm",
+        "from_lang": "da",
+        "to_lang": "en",
+        "reason": "bad_examples",  // bad_examples, wrong_meaning, wrong_level, other
+        "comment": "Optional details"  // optional
+    }
+
+    Response (200):
+    {
+        "success": true,
+        "message": "Report submitted"
+    }
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = request.get_json()
+
+    if not data:
+        return json_result({"error": "JSON body required"}, status=400)
+
+    word = data.get("word", "").strip()
+    translation = data.get("translation", "").strip()
+    from_lang = data.get("from_lang", "")
+    to_lang = data.get("to_lang", "")
+    reason = data.get("reason", "")
+    comment = (data.get("comment") or "").strip() or None
+
+    if not word or not translation or not from_lang or not to_lang:
+        return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+
+    valid_reasons = ["bad_examples", "wrong_meaning", "wrong_level", "other"]
+    if reason not in valid_reasons:
+        return json_result({"error": f"reason must be one of: {valid_reasons}"}, status=400)
+
+    # Find or create the meaning (so we can track the report)
+    meaning = Meaning.find_or_create(db_session, word, from_lang, translation, to_lang)
+    db_session.commit()
+
+    try:
+        report = MeaningReport.create(db_session, meaning, user, reason, comment)
+        log(f"User {user.id} reported meaning {meaning.id} for: {reason}")
+
+        return json_result({
+            "success": True,
+            "message": "Report submitted. Thank you for helping improve Zeeguu!",
+            "report_id": report.id
+        })
+
+    except Exception as e:
+        log(f"Error creating meaning report: {e}")
+        return json_result({"error": "Failed to submit report"}, status=500)

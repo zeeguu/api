@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 from sqlalchemy import (
@@ -818,6 +819,12 @@ class Article(db.Model):
         """
         from zeeguu.core.model.source import Source
         from zeeguu.core.model.source_type import SourceType
+
+        # Normalize Unicode to NFC (precomposed form) - LLMs may return NFD (decomposed)
+        # which causes visual rendering issues with diacritics (e.g., Romanian ă, â)
+        simplified_title = unicodedata.normalize('NFC', simplified_title) if simplified_title else simplified_title
+        simplified_content = unicodedata.normalize('NFC', simplified_content) if simplified_content else simplified_content
+        simplified_summary = unicodedata.normalize('NFC', simplified_summary) if simplified_summary else simplified_summary
 
         # Create a Source object for the simplified content
         source_type = SourceType.find_by_type(SourceType.ARTICLE)

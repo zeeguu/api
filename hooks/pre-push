@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Quick import check to catch circular imports before pushing
+# This is much faster than running the full test suite
+
+echo "Running import check..."
+
+cd "$(git rev-parse --show-toplevel)"
+source ~/.venvs/z_env/bin/activate
+
+python -c "from zeeguu.api.app import create_app; create_app()" 2>&1
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "Import check failed! Fix the error before pushing."
+    exit 1
+fi
+
+echo "Import check passed."
+exit 0

@@ -38,6 +38,10 @@ def get_period_range(period: str):
         start = today_start - timedelta(days=7)
         end = today_start
         label = "Last 7 days"
+    elif period == "month":
+        start = today_start - timedelta(days=30)
+        end = today_start
+        label = "Last 30 days"
     elif period == "2days":
         start = today_start - timedelta(days=2)
         end = today_start - timedelta(days=1)
@@ -721,6 +725,7 @@ def user_stats_dashboard():
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
+            <a href="?period=month" {"class='active'" if period == "month" else ""}>Last 30 days</a>
         </div>
 
         <div class="summary">
@@ -1032,6 +1037,7 @@ def user_stats_individual_dashboard(user_id):
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
+            <a href="?period=month" {"class='active'" if period == "month" else ""}>Last 30 days</a>
         </div>
 
         <div class="summary">
@@ -1472,6 +1478,7 @@ def user_stats_cohort_dashboard(cohort_id):
             <a href="?period=yesterday" {"class='active'" if period == "yesterday" else ""}>Yesterday</a>
             <a href="?period=2days" {"class='active'" if period == "2days" else ""}>2 days ago</a>
             <a href="?period=week" {"class='active'" if period == "week" else ""}>Last 7 days</a>
+            <a href="?period=month" {"class='active'" if period == "month" else ""}>Last 30 days</a>
         </div>
 
         <div class="summary">
@@ -1809,3 +1816,839 @@ def user_stats_platform_dashboard(platform_id):
 </html>"""
 
     return Response(html, content_type="text/html")
+
+
+def _compute_active_users_for_month(month_start, month_end):
+    """Compute active user count for a specific month range."""
+    from sqlalchemy import func, distinct, union_all
+
+    exercise_users = (
+        db_session.query(distinct(UserExerciseSession.user_id))
+        .filter(UserExerciseSession.start_time >= month_start)
+        .filter(UserExerciseSession.start_time < month_end)
+    )
+
+    reading_users = (
+        db_session.query(distinct(UserReadingSession.user_id))
+        .filter(UserReadingSession.start_time >= month_start)
+        .filter(UserReadingSession.start_time < month_end)
+    )
+
+    browsing_users = (
+        db_session.query(distinct(UserBrowsingSession.user_id))
+        .filter(UserBrowsingSession.start_time >= month_start)
+        .filter(UserBrowsingSession.start_time < month_end)
+    )
+
+    audio_users = (
+        db_session.query(distinct(DailyAudioLesson.user_id))
+        .filter(DailyAudioLesson.completed_at >= month_start)
+        .filter(DailyAudioLesson.completed_at < month_end)
+    )
+
+    bookmark_users = (
+        db_session.query(distinct(UserWord.user_id))
+        .join(Bookmark, Bookmark.user_word_id == UserWord.id)
+        .filter(Bookmark.time >= month_start)
+        .filter(Bookmark.time < month_end)
+    )
+
+    all_users = union_all(
+        exercise_users, reading_users, browsing_users, audio_users, bookmark_users
+    ).subquery()
+
+    from sqlalchemy import func, distinct
+    return db_session.query(func.count(distinct(all_users.c[0]))).scalar() or 0
+
+
+def get_monthly_active_users(months=12):
+    """
+    Get active user counts per month for the last N months.
+    Uses caching: historical months are cached permanently,
+    current month is refreshed every 6 hours.
+    """
+    from zeeguu.core.model import MonthlyActiveUsersCache
+
+    now = datetime.now()
+    current_year_month = now.strftime("%Y-%m")
+    monthly_data = []
+
+    # Get all cached data in one query
+    cache = MonthlyActiveUsersCache.get_all_cached()
+
+    for i in range(months):
+        # Calculate month boundaries
+        if i == 0:
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            month_end = now
+        else:
+            # Go back i months
+            year = now.year
+            month = now.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
+            month_start = datetime(year, month, 1)
+            # End is start of next month
+            next_month = month + 1
+            next_year = year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            month_end = datetime(next_year, next_month, 1)
+
+        year_month = month_start.strftime("%Y-%m")
+        is_current_month = (year_month == current_year_month)
+
+        # Check cache
+        cached = cache.get(year_month)
+        use_cache = False
+
+        if cached:
+            if is_current_month:
+                # For current month, use cache if less than 6 hours old
+                cache_age = now - cached.computed_at
+                if cache_age.total_seconds() < 6 * 3600:
+                    use_cache = True
+            else:
+                # Historical months: always use cache
+                use_cache = True
+
+        if use_cache:
+            active_users = cached.active_users
+        else:
+            # Compute and cache
+            active_users = _compute_active_users_for_month(month_start, month_end)
+            MonthlyActiveUsersCache.set_cached(db_session, year_month, active_users)
+
+        monthly_data.append({
+            "month": year_month,
+            "month_label": month_start.strftime("%b %Y"),
+            "active_users": active_users,
+        })
+
+    # Reverse to show oldest first
+    return list(reversed(monthly_data))
+
+
+@api.route("/stats/monthly_active_users", methods=["GET"])
+@cross_domain
+def monthly_active_users_page():
+    """
+    Public page showing monthly active users.
+    Embeddable on the homepage.
+    """
+    months = min(int(request.args.get("months", 12)), 24)
+    monthly_data = get_monthly_active_users(months)
+
+    # Calculate max for chart scaling
+    max_users = max((m["active_users"] for m in monthly_data), default=1)
+    max_bar_height = 160  # pixels, leaving room for labels
+
+    # Generate chart bars
+    chart_bars = ""
+    for m in monthly_data:
+        height_px = int((m["active_users"] / max_users * max_bar_height) if max_users > 0 else 0)
+        chart_bars += f"""
+            <div class="bar-container">
+                <div class="bar" style="height: {height_px}px;">
+                    <span class="bar-value">{m['active_users']}</span>
+                </div>
+                <span class="bar-label">{m['month_label'][:3]}</span>
+            </div>
+"""
+
+    # Generate table rows
+    table_rows = ""
+    for m in reversed(monthly_data):  # Most recent first in table
+        table_rows += f"""
+            <tr>
+                <td>{m['month_label']}</td>
+                <td class="count">{m['active_users']}</td>
+            </tr>
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Active Users - Zeeguu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #333;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+        }}
+        .subtitle {{
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+        }}
+        .chart-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }}
+        .chart {{
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 200px;
+            padding: 10px 0;
+            border-bottom: 2px solid #ecf0f1;
+        }}
+        .bar-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+            height: 100%;
+        }}
+        .bar {{
+            width: 70%;
+            max-width: 40px;
+            background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            min-height: 2px;
+            display: flex;
+            justify-content: center;
+            transition: height 0.3s ease;
+        }}
+        .bar:hover {{
+            background: linear-gradient(180deg, #5dade2 0%, #3498db 100%);
+        }}
+        .bar-value {{
+            position: absolute;
+            top: -22px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #2c3e50;
+        }}
+        .bar-label {{
+            margin-top: 8px;
+            font-size: 11px;
+            color: #7f8c8d;
+        }}
+        .table-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }}
+        .table-section h2 {{
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            color: #2c3e50;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }}
+        th {{
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }}
+        td.count {{
+            font-weight: 600;
+            color: #3498db;
+        }}
+        tr:hover {{
+            background: #f8f9fa;
+        }}
+        .footer {{
+            margin-top: 20px;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85em;
+        }}
+        .footer a {{
+            color: #3498db;
+            text-decoration: none;
+        }}
+        .breadcrumb {{
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }}
+        .breadcrumb:hover {{
+            text-decoration: underline;
+        }}
+
+        /* Embed mode - minimal styling */
+        body.embed {{
+            background: transparent;
+            padding: 10px;
+        }}
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
+            display: none;
+        }}
+        body.embed .chart-section, body.embed .table-section {{
+            box-shadow: none;
+            border: 1px solid #ecf0f1;
+        }}
+    </style>
+</head>
+<body{"class='embed'" if request.args.get('embed') else ''}>
+    <div class="container">
+        <a href="/stats" class="breadcrumb">&larr; All Stats</a>
+        <h1>Monthly Active Users</h1>
+        <p class="subtitle">Users with any learning activity (exercises, reading, browsing, audio lessons, or translations)</p>
+
+        <div class="chart-section">
+            <div class="chart">
+{chart_bars}
+            </div>
+        </div>
+
+        <div class="table-section">
+            <h2>Details</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Active Users</th>
+                    </tr>
+                </thead>
+                <tbody>
+{table_rows}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="footer">
+            Data from <a href="https://zeeguu.org">Zeeguu</a> |
+            Updated {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        </p>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, mimetype="text/html")
+
+
+@api.route("/stats", methods=["GET"])
+@cross_domain
+def stats_index():
+    """Public stats index page."""
+    html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Zeeguu Stats</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        .stats-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .stats-list li {
+            margin-bottom: 15px;
+        }
+        .stats-list a {
+            display: block;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            text-decoration: none;
+            color: #2c3e50;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .stats-list a:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        .stats-list .title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #3498db;
+        }
+        .stats-list .desc {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Zeeguu Stats</h1>
+        <p class="subtitle">Public statistics about the Zeeguu platform</p>
+
+        <ul class="stats-list">
+            <li>
+                <a href="/stats/monthly_active_users">
+                    <div class="title">Monthly Active Users</div>
+                    <div class="desc">Chart and table showing active users per month</div>
+                </a>
+            </li>
+            <li>
+                <a href="/stats/monthly_activity">
+                    <div class="title">Monthly Activity Breakdown</div>
+                    <div class="desc">Stacked chart showing exercises, reading, browsing, and audio minutes</div>
+                </a>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
+
+
+def _compute_activity_stats_for_month(month_start, month_end):
+    """Compute activity minutes by type for a specific month range."""
+    from sqlalchemy import func
+
+    # Exercise minutes
+    exercise_ms = (
+        db_session.query(func.sum(UserExerciseSession.duration))
+        .filter(UserExerciseSession.start_time >= month_start)
+        .filter(UserExerciseSession.start_time < month_end)
+        .scalar()
+    ) or 0
+
+    # Reading minutes
+    reading_ms = (
+        db_session.query(func.sum(UserReadingSession.duration))
+        .filter(UserReadingSession.start_time >= month_start)
+        .filter(UserReadingSession.start_time < month_end)
+        .scalar()
+    ) or 0
+
+    # Browsing minutes
+    browsing_ms = (
+        db_session.query(func.sum(UserBrowsingSession.duration))
+        .filter(UserBrowsingSession.start_time >= month_start)
+        .filter(UserBrowsingSession.start_time < month_end)
+        .scalar()
+    ) or 0
+
+    # Audio minutes (stored in seconds)
+    audio_sec = (
+        db_session.query(func.sum(DailyAudioLesson.duration_seconds))
+        .filter(DailyAudioLesson.completed_at >= month_start)
+        .filter(DailyAudioLesson.completed_at < month_end)
+        .scalar()
+    ) or 0
+
+    return {
+        "exercise_minutes": round(exercise_ms / 60000),
+        "reading_minutes": round(reading_ms / 60000),
+        "browsing_minutes": round(browsing_ms / 60000),
+        "audio_minutes": round(audio_sec / 60),
+    }
+
+
+def get_monthly_activity_stats(months=12):
+    """
+    Get activity stats per month for the last N months.
+    Uses caching: historical months cached permanently, current month refreshed every 6 hours.
+    """
+    from zeeguu.core.model import MonthlyActivityStatsCache
+
+    now = datetime.now()
+    current_year_month = now.strftime("%Y-%m")
+    monthly_data = []
+
+    # Get all cached data in one query
+    cache = MonthlyActivityStatsCache.get_all_cached()
+
+    for i in range(months):
+        # Calculate month boundaries
+        if i == 0:
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            month_end = now
+        else:
+            year = now.year
+            month = now.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
+            month_start = datetime(year, month, 1)
+            next_month = month + 1
+            next_year = year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            month_end = datetime(next_year, next_month, 1)
+
+        year_month = month_start.strftime("%Y-%m")
+        is_current_month = (year_month == current_year_month)
+
+        # Check cache
+        cached = cache.get(year_month)
+        use_cache = False
+
+        if cached:
+            if is_current_month:
+                cache_age = now - cached.computed_at
+                if cache_age.total_seconds() < 6 * 3600:
+                    use_cache = True
+            else:
+                use_cache = True
+
+        if use_cache:
+            stats = {
+                "exercise_minutes": cached.exercise_minutes,
+                "reading_minutes": cached.reading_minutes,
+                "browsing_minutes": cached.browsing_minutes,
+                "audio_minutes": cached.audio_minutes,
+            }
+        else:
+            stats = _compute_activity_stats_for_month(month_start, month_end)
+            MonthlyActivityStatsCache.set_cached(
+                db_session, year_month,
+                stats["exercise_minutes"],
+                stats["reading_minutes"],
+                stats["browsing_minutes"],
+                stats["audio_minutes"]
+            )
+
+        monthly_data.append({
+            "month": year_month,
+            "month_label": month_start.strftime("%b %Y"),
+            **stats,
+        })
+
+    return list(reversed(monthly_data))
+
+
+@api.route("/stats/monthly_activity", methods=["GET"])
+@cross_domain
+def monthly_activity_page():
+    """
+    Public page showing monthly activity breakdown by type.
+    Stacked bar chart with exercises, reading, browsing, and audio.
+    """
+    months = min(int(request.args.get("months", 12)), 24)
+    monthly_data = get_monthly_activity_stats(months)
+
+    # Calculate max total for chart scaling
+    max_total = max(
+        (m["exercise_minutes"] + m["reading_minutes"] + m["browsing_minutes"] + m["audio_minutes"]
+         for m in monthly_data),
+        default=1
+    )
+    max_bar_height = 160  # pixels, leaving room for labels
+
+    # Colors for each activity type
+    colors = {
+        "exercise": "#e74c3c",  # Red
+        "reading": "#3498db",   # Blue
+        "browsing": "#2ecc71",  # Green
+        "audio": "#9b59b6",     # Purple
+    }
+
+    # Generate stacked bars
+    chart_bars = ""
+    for m in monthly_data:
+        total = m["exercise_minutes"] + m["reading_minutes"] + m["browsing_minutes"] + m["audio_minutes"]
+        total_height_px = int((total / max_total * max_bar_height) if max_total > 0 else 0)
+
+        # Calculate individual heights as percentage of this bar's total
+        if total > 0:
+            exercise_pct = m["exercise_minutes"] / total * 100
+            reading_pct = m["reading_minutes"] / total * 100
+            browsing_pct = m["browsing_minutes"] / total * 100
+            audio_pct = m["audio_minutes"] / total * 100
+        else:
+            exercise_pct = reading_pct = browsing_pct = audio_pct = 0
+
+        chart_bars += f"""
+            <div class="bar-container">
+                <div class="bar-value">{total:,}</div>
+                <div class="stacked-bar" style="height: {total_height_px}px;">
+                    <div class="segment audio" style="height: {audio_pct}%;" title="Audio: {m['audio_minutes']:,} min"></div>
+                    <div class="segment browsing" style="height: {browsing_pct}%;" title="Browsing: {m['browsing_minutes']:,} min"></div>
+                    <div class="segment reading" style="height: {reading_pct}%;" title="Reading: {m['reading_minutes']:,} min"></div>
+                    <div class="segment exercise" style="height: {exercise_pct}%;" title="Exercises: {m['exercise_minutes']:,} min"></div>
+                </div>
+                <span class="bar-label">{m['month_label'][:3]}</span>
+            </div>
+"""
+
+    # Generate table rows
+    table_rows = ""
+    for m in reversed(monthly_data):
+        total = m["exercise_minutes"] + m["reading_minutes"] + m["browsing_minutes"] + m["audio_minutes"]
+        table_rows += f"""
+            <tr>
+                <td>{m['month_label']}</td>
+                <td class="exercise">{m['exercise_minutes']:,}</td>
+                <td class="reading">{m['reading_minutes']:,}</td>
+                <td class="browsing">{m['browsing_minutes']:,}</td>
+                <td class="audio">{m['audio_minutes']:,}</td>
+                <td class="total">{total:,}</td>
+            </tr>
+"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Activity - Zeeguu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #333;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+        }}
+        .subtitle {{
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+        }}
+        .chart-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }}
+        .legend {{
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }}
+        .legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85em;
+        }}
+        .legend-color {{
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }}
+        .legend-color.exercise {{ background: {colors['exercise']}; }}
+        .legend-color.reading {{ background: {colors['reading']}; }}
+        .legend-color.browsing {{ background: {colors['browsing']}; }}
+        .legend-color.audio {{ background: {colors['audio']}; }}
+        .chart {{
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 220px;
+            padding: 25px 0 10px 0;
+            border-bottom: 2px solid #ecf0f1;
+        }}
+        .bar-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }}
+        .bar-value {{
+            font-size: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }}
+        .stacked-bar {{
+            width: 70%;
+            max-width: 35px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 3px 3px 0 0;
+            overflow: hidden;
+            min-height: 2px;
+        }}
+        .segment {{
+            width: 100%;
+            transition: opacity 0.2s;
+        }}
+        .segment:hover {{
+            opacity: 0.8;
+        }}
+        .segment.exercise {{ background: {colors['exercise']}; }}
+        .segment.reading {{ background: {colors['reading']}; }}
+        .segment.browsing {{ background: {colors['browsing']}; }}
+        .segment.audio {{ background: {colors['audio']}; }}
+        .bar-label {{
+            margin-top: 8px;
+            font-size: 11px;
+            color: #7f8c8d;
+        }}
+        .table-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }}
+        .table-section h2 {{
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            color: #2c3e50;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: right;
+            border-bottom: 1px solid #ecf0f1;
+        }}
+        th:first-child, td:first-child {{
+            text-align: left;
+        }}
+        th {{
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }}
+        th.exercise {{ color: {colors['exercise']}; }}
+        th.reading {{ color: {colors['reading']}; }}
+        th.browsing {{ color: {colors['browsing']}; }}
+        th.audio {{ color: {colors['audio']}; }}
+        td.exercise {{ color: {colors['exercise']}; font-weight: 500; }}
+        td.reading {{ color: {colors['reading']}; font-weight: 500; }}
+        td.browsing {{ color: {colors['browsing']}; font-weight: 500; }}
+        td.audio {{ color: {colors['audio']}; font-weight: 500; }}
+        td.total {{ font-weight: 600; color: #2c3e50; }}
+        tr:hover {{
+            background: #f8f9fa;
+        }}
+        .footer {{
+            margin-top: 20px;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85em;
+        }}
+        .footer a {{
+            color: #3498db;
+            text-decoration: none;
+        }}
+        .breadcrumb {{
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }}
+        .breadcrumb:hover {{
+            text-decoration: underline;
+        }}
+        body.embed {{
+            background: transparent;
+            padding: 10px;
+        }}
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
+            display: none;
+        }}
+        body.embed .chart-section, body.embed .table-section {{
+            box-shadow: none;
+            border: 1px solid #ecf0f1;
+        }}
+    </style>
+</head>
+<body{"class='embed'" if request.args.get('embed') else ''}>
+    <div class="container">
+        <a href="/stats" class="breadcrumb">&larr; All Stats</a>
+        <h1>Monthly Activity Breakdown</h1>
+        <p class="subtitle">Total minutes spent on different learning activities</p>
+
+        <div class="chart-section">
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color exercise"></div> Exercises</div>
+                <div class="legend-item"><div class="legend-color reading"></div> Reading</div>
+                <div class="legend-item"><div class="legend-color browsing"></div> Browsing</div>
+                <div class="legend-item"><div class="legend-color audio"></div> Audio</div>
+            </div>
+            <div class="chart">
+{chart_bars}
+            </div>
+        </div>
+
+        <div class="table-section">
+            <h2>Details (minutes)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th class="exercise">Exercises</th>
+                        <th class="reading">Reading</th>
+                        <th class="browsing">Browsing</th>
+                        <th class="audio">Audio</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+{table_rows}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="footer">
+            Data from <a href="https://zeeguu.org">Zeeguu</a> |
+            Updated {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        </p>
+    </div>
+</body>
+</html>"""
+
+    return Response(html, mimetype="text/html")

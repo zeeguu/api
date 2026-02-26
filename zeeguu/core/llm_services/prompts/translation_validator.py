@@ -34,6 +34,14 @@ Frequency:
 - uncommon: infrequently used meaning
 - rare: specialized, archaic, or context-specific
 
+CEFR Level (what level learner should know this word):
+- A1: basic everyday words (hello, cat, eat)
+- A2: common everyday vocabulary (weather, shopping)
+- B1: intermediate topics (opinions, work, travel)
+- B2: abstract concepts, nuanced vocabulary
+- C1: advanced, sophisticated vocabulary
+- C2: rare, literary, highly specialized
+
 Phrase type:
 - single_word: individual word
 - collocation: natural word combination ("strong coffee", "take place")
@@ -42,22 +50,23 @@ Phrase type:
 - arbitrary_multi_word: random fragment, NOT worth studying ("doctor for", "the cat on", "bruger den")
 
 Reply in this EXACT format (one line):
-VALID|frequency|phrase_type|explanation|literal_meaning
+VALID|frequency|cefr|phrase_type|explanation|literal_meaning
 or
-FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation|literal_meaning
+FIX|corrected_word|corrected_translation|frequency|cefr|phrase_type|reason|explanation|literal_meaning
 
 Fields:
+- cefr: A1, A2, B1, B2, C1, or C2
 - explanation: OPTIONAL usage notes, register (formal/informal). Leave empty if not needed.
 - literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").
   Leave EMPTY for single words, collocations, and non-idioms. NOT for explanations!
 
 Examples:
-- Simple word: VALID|common|single_word||
-- Word with usage note: VALID|common|single_word|formal register|
-- Idiom: VALID|common|idiom||kick into touch
-- Wrong translation: FIX|øjnene|the eyes|common|single_word|literal meaning is 'the eyes'||
-- Idiom fix: FIX|se virkeligheden i øjnene|face reality|common|idiom|idiom meaning 'face reality'||see reality in the eyes
-- Arbitrary fragment: FIX|bruger|use|common|single_word|'bruger den' is arbitrary fragment||
+- Simple word: VALID|common|A1|single_word||
+- Word with usage note: VALID|common|B1|single_word|formal register|
+- Idiom: VALID|common|B2|idiom||kick into touch
+- Wrong translation: FIX|øjnene|the eyes|common|A2|single_word|literal meaning is 'the eyes'||
+- Idiom fix: FIX|se virkeligheden i øjnene|face reality|common|B2|idiom|idiom meaning 'face reality'||see reality in the eyes
+- Arbitrary fragment: FIX|bruger|use|common|A2|single_word|'bruger den' is arbitrary fragment||
 """
 
 
@@ -107,3 +116,28 @@ def create_batch_validation_prompt(items):
         entries.append(entry)
 
     return BATCH_VALIDATION_PROMPT.format(entries="\n".join(entries))
+
+
+SEMANTIC_EQUIVALENCE_PROMPT = """Are these two translations of the same word semantically equivalent?
+
+Word: "{word}" ({source_lang})
+Translation 1: "{translation1}" ({target_lang})
+Translation 2: "{translation2}" ({target_lang})
+
+Consider them equivalent if:
+- They mean the same thing (e.g., "to cancel" and "cancel")
+- One is just a grammatical variation of the other (infinitive vs base form)
+- They are synonyms in this context
+
+Reply with ONLY one word: YES or NO"""
+
+
+def create_semantic_equivalence_prompt(word, translation1, translation2, source_lang, target_lang):
+    """Create prompt for checking if two translations are semantically equivalent."""
+    return SEMANTIC_EQUIVALENCE_PROMPT.format(
+        word=word,
+        translation1=translation1,
+        translation2=translation2,
+        source_lang=source_lang,
+        target_lang=target_lang
+    )

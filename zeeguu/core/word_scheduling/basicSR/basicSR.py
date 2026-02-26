@@ -224,7 +224,18 @@ class BasicSRSchedule(db.Model):
         sorted_candidates = sorted(
             scheduled_candidates, key=lambda x: priority_by_rank(x, schedule_map)
         )
-        return sorted_candidates
+
+        # Deduplicate by word text - same word with different meanings should only appear once
+        # Keep the first occurrence (highest priority based on cooling_interval)
+        seen_words = set()
+        deduplicated = []
+        for user_word in sorted_candidates:
+            word_text = user_word.meaning.origin.content.lower()
+            if word_text not in seen_words:
+                seen_words.add(word_text)
+                deduplicated.append(user_word)
+
+        return deduplicated
 
     @classmethod
     def _scheduled_user_words_query(cls, user, language=None):

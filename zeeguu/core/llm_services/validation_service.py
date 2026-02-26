@@ -14,6 +14,7 @@ Validation outcomes:
 | Invalid, no correction available            | Mark INVALID, fit_for_study=False, return None  |
 | Invalid with correction -> different meaning| old=INVALID, new=VALID, transfer to new_user_word|
 | Invalid with correction -> same meaning     | Mark VALID (semantic match), return user_word   |
+| Duplicate meaning (same word, equiv. trans.)| Mark fit_for_study=False, return None           |
 
 Usage:
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
@@ -28,6 +29,89 @@ from zeeguu.logging import log
 
 class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
+
+    @classmethod
+    def check_for_duplicate_meaning(cls, db_session, user_word) -> bool:
+        """
+        Check if this user_word is a duplicate of another word the user is already learning or has learned.
+
+        A duplicate means:
+        - Same origin word (e.g., "ophæve")
+        - User already has another UserWord for this origin that is:
+          - Currently scheduled/being learned, OR
+          - Already learned in the past
+        - The translations are semantically equivalent (e.g., "cancel" vs "to cancel")
+
+        If a duplicate is found, marks this user_word as fit_for_study=False.
+
+        Returns:
+            True if this is a duplicate (should not be scheduled), False otherwise
+        """
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from sqlalchemy import or_
+
+        user = user_word.user
+        origin_word = user_word.meaning.origin.content
+        this_translation = user_word.meaning.translation.content
+
+        # Find other UserWords for the same user with the same origin word
+        # that are either being scheduled OR already learned
+        other_user_words = (
+            UserWord.query
+            .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
+            .filter(UserWord.id != user_word.id)
+            .filter(
+                or_(
+                    BasicSRSchedule.id != None,  # Currently scheduled
+                    UserWord.learned_time != None,  # Already learned
+                )
+            )
+            .all()
+        )
+
+        # Filter to those with the same origin word (case-insensitive)
+        same_origin_words = [
+            uw for uw in other_user_words
+            if uw.meaning.origin.content.lower() == origin_word.lower()
+        ]
+
+        if not same_origin_words:
+            return False
+
+        # Check if any of them have an equivalent translation
+        try:
+            from zeeguu.core.llm_services.translation_validator import TranslationValidator
+            validator = TranslationValidator()
+        except (ImportError, ValueError) as e:
+            log(f"[DUPLICATE CHECK] Skipping: {e}")
+            return False
+
+        source_lang = user_word.meaning.origin.language.code
+        target_lang = user_word.meaning.translation.language.code
+
+        for other_uw in same_origin_words:
+            other_translation = other_uw.meaning.translation.content
+
+            if validator.are_translations_equivalent(
+                word=origin_word,
+                translation1=this_translation,
+                translation2=other_translation,
+                source_lang=source_lang,
+                target_lang=target_lang,
+            ):
+                log(
+                    f"[DUPLICATE CHECK] UserWord {user_word.id} ('{origin_word}' -> '{this_translation}') "
+                    f"is equivalent to UserWord {other_uw.id} (-> '{other_translation}'). "
+                    f"Marking as unfit for study."
+                )
+                user_word.fit_for_study = False
+                db_session.add(user_word)
+                db_session.commit()
+                return True
+
+        return False
 
     @classmethod
     def validate_and_fix(cls, db_session, user_word) -> Optional["UserWord"]:

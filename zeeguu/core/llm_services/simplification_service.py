@@ -530,7 +530,7 @@ Provide the response in this exact JSON format (escape quotes properly):
 IMPORTANT: 
 - Escape any quotes in the content using \\"
 - Use proper HTML paragraph tags for content
-- Summary should be exactly 3 sentences, adapted to {target_level} level
+- Summary should be concise, maximum 25 words, using {target_level} vocabulary
 - Ensure valid JSON format"""
 
         log(f"Prompt length: {len(prompt)} chars")
@@ -641,7 +641,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
   "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
 }}
 
-IMPORTANT: Summary should be exactly 3 sentences, adapted to {target_level} level."""
+IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} vocabulary."""
 
         try:
             response = requests.post(
@@ -858,7 +858,7 @@ Content: {content}
 Please provide IN {language_code.upper()} LANGUAGE using Markdown formatting:
 SIMPLIFIED_TITLE: [simplified title in {language_code}]
 SIMPLIFIED_CONTENT: [simplified article content in {language_code} with Markdown formatting - use ## for headings, **bold**, *italics*, > for quotes, - for lists]
-SIMPLIFIED_SUMMARY: [2-3 sentence summary in {language_code}]
+SIMPLIFIED_SUMMARY: [concise summary in {language_code}, maximum 25 words]
 
 Remember: Keep the same factual information but make it appropriate for {target_level} learners of {language_code}. DO NOT TRANSLATE THE CONTENT."""
 

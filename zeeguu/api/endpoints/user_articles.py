@@ -145,6 +145,44 @@ def saved_articles(page: int = None):
     return json_result(article_infos)
 
 
+@api.route("/user_articles/hidden", methods=["GET"])
+@api.route("/user_articles/hidden/<int:page>", methods=["GET"])
+@cross_domain
+@requires_session
+def hidden_articles(page: int = None):
+    """
+    Get all articles that the user has hidden from their feed.
+    """
+    user = User.find_by_id(flask.g.user_id)
+
+    # Get all hidden user_articles
+    hidden_user_articles = (
+        UserArticle.query.filter_by(user=user)
+        .filter(UserArticle.hidden.isnot(None))
+        .order_by(UserArticle.hidden.desc())  # Most recently hidden first
+        .all()
+    )
+
+    # Collect unique parent articles (deduplicate simplified versions)
+    seen_ids = set()
+    unique_articles = []
+    for ua in hidden_user_articles:
+        article = ua.article
+        if article is None:
+            continue
+        # If it's a simplified version, use the parent article instead
+        if article.parent_article_id and article.parent_article:
+            article = article.parent_article
+        # Deduplicate
+        if article.id not in seen_ids:
+            seen_ids.add(article.id)
+            unique_articles.append(article)
+
+    article_infos = UserArticle.article_infos(user, unique_articles, select_appropriate=True)
+
+    return json_result(article_infos)
+
+
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/topic_filtered", methods=("POST",))
 # ---------------------------------------------------------------------------

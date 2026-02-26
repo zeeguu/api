@@ -43,6 +43,7 @@ class ValidationResult:
     corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
     frequency: Optional[str] = None  # unique/common/uncommon/rare
+    cefr_level: Optional[str] = None  # A1/A2/B1/B2/C1/C2
     phrase_type: Optional[str] = (
         None  # single_word/collocation/idiom/expression/arbitrary_multi_word
     )
@@ -181,18 +182,19 @@ class TranslationValidator:
         parts = response_text.split("|")
 
         if parts[0].upper() == "VALID":
-            if len(parts) >= 3:
+            if len(parts) >= 4:
                 return ValidationResult(
                     is_valid=True,
                     frequency=parts[1].strip().lower() if len(parts) > 1 else None,
-                    phrase_type=parts[2].strip().lower() if len(parts) > 2 else None,
-                    explanation=parts[3].strip() if len(parts) > 3 and parts[3].strip() else None,
-                    literal_meaning=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
+                    cefr_level=parts[2].strip().upper() if len(parts) > 2 and parts[2].strip() else None,
+                    phrase_type=parts[3].strip().lower() if len(parts) > 3 else None,
+                    explanation=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
+                    literal_meaning=parts[5].strip() if len(parts) > 5 and parts[5].strip() else None,
                 )
             return ValidationResult(is_valid=True)
 
         if parts[0].upper() == "FIX":
-            if len(parts) >= 5:
+            if len(parts) >= 6:
                 return ValidationResult(
                     is_valid=False,
                     corrected_word=parts[1].strip() if parts[1].strip() else None,
@@ -200,10 +202,11 @@ class TranslationValidator:
                         parts[2].strip() if parts[2].strip() else None
                     ),
                     frequency=parts[3].strip().lower() if len(parts) > 3 else None,
-                    phrase_type=parts[4].strip().lower() if len(parts) > 4 else None,
-                    reason=parts[5].strip() if len(parts) > 5 else None,
-                    explanation=parts[6].strip() if len(parts) > 6 and parts[6].strip() else None,
-                    literal_meaning=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
+                    cefr_level=parts[4].strip().upper() if len(parts) > 4 and parts[4].strip() else None,
+                    phrase_type=parts[5].strip().lower() if len(parts) > 5 else None,
+                    reason=parts[6].strip() if len(parts) > 6 else None,
+                    explanation=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
+                    literal_meaning=parts[8].strip() if len(parts) > 8 and parts[8].strip() else None,
                 )
             elif len(parts) >= 3:
                 # Partial response - at least word and translation
@@ -248,3 +251,61 @@ class TranslationValidator:
         return self.validate_and_classify(
             word, translation, context, source_lang, target_lang
         )
+
+    def are_translations_equivalent(
+        self,
+        word: str,
+        translation1: str,
+        translation2: str,
+        source_lang: str,
+        target_lang: str,
+    ) -> bool:
+        """
+        Check if two translations of the same word are semantically equivalent.
+
+        This is used to prevent duplicate words in exercises when a user has
+        multiple translations that mean the same thing (e.g., "cancel" vs "to cancel").
+
+        Args:
+            word: The source word being translated
+            translation1: First translation
+            translation2: Second translation
+            source_lang: Source language code or name
+            target_lang: Target language code or name
+
+        Returns:
+            True if translations are semantically equivalent, False otherwise
+        """
+        from .prompts.translation_validator import create_semantic_equivalence_prompt
+
+        # Quick check: if translations are identical (case-insensitive), they're equivalent
+        if translation1.lower().strip() == translation2.lower().strip():
+            return True
+
+        # Convert language codes to names
+        source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
+        target_name = Language.LANGUAGE_NAMES.get(target_lang, target_lang)
+
+        prompt = create_semantic_equivalence_prompt(
+            word=word,
+            translation1=translation1,
+            translation2=translation2,
+            source_lang=source_name,
+            target_lang=target_name,
+        )
+
+        try:
+            response = self.client.messages.create(
+                model=self.MODEL_NAME,
+                max_tokens=10,
+                temperature=0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            response_text = response.content[0].text.strip().upper()
+            return response_text == "YES"
+
+        except Exception as e:
+            log(f"Semantic equivalence check failed: {e}")
+            logger.error(f"Semantic equivalence check failed: {e}")
+            # On error, assume NOT equivalent (fail safe - don't skip words)
+            return False

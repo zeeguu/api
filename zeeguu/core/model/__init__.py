@@ -13,6 +13,7 @@ from .text import Text
 from .phrase import Phrase
 from .user import User
 from .meaning import Meaning
+from .meaning_report import MeaningReport
 from .user_word import UserWord
 from .bookmark import Bookmark
 
@@ -50,6 +51,7 @@ from .search_subscription import SearchSubscription
 from .exercise import Exercise
 from .exercise_outcome import ExerciseOutcome
 from .exercise_source import ExerciseSource
+from .exercise_report import ExerciseReport
 
 # user logging
 from .user_activitiy_data import UserActivityData
@@ -104,3 +106,10 @@ from .grammar_correction_log import GrammarCorrectionLog, CorrectionFieldType
 
 # translation validation
 from .validation_log import ValidationLog
+
+# stats caching
+from .monthly_active_users_cache import MonthlyActiveUsersCache
+from .monthly_activity_stats_cache import MonthlyActivityStatsCache
+
+# translation history
+from .translation_search import TranslationSearch

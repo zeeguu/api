@@ -117,6 +117,11 @@ class FourLevelsPerWord(BasicSRSchedule):
             if not user_word.fit_for_study:
                 return None  # Don't create schedule for unfit words
 
+            # Check for duplicate meanings (same word with equivalent translation already being learned)
+            from zeeguu.core.llm_services.validation_service import UserWordValidationService
+            if UserWordValidationService.check_for_duplicate_meaning(db_session, user_word):
+                return None  # Duplicate meaning, don't schedule
+
             schedule = cls(user_word)
             user_word.level = 1
             db_session.add_all([schedule, user_word])

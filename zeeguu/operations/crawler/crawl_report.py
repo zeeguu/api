@@ -237,3 +237,26 @@ class CrawlReport:
                     print(e, type(e))
                     input("Continue?")
         return total_counts
+
+    def get_all_feed_errors(self, langs_to_load: list[str] = None):
+        """
+        Get all feed errors grouped by feed.
+
+        Returns:
+            list of dicts with keys: lang, feed_id, errors (list of error strings)
+        """
+        langs_to_load = self.__load_languages(langs_to_load)
+
+        all_errors = []
+        for lang in langs_to_load:
+            for feed_id in self.data["lang"][lang]["feeds"]:
+                feed_dict = self.data["lang"][lang]["feeds"][feed_id]
+                errors = feed_dict.get("feed_errors", [])
+                if errors:
+                    all_errors.append({
+                        "lang": lang,
+                        "feed_id": feed_id,
+                        "errors": errors,
+                        "error_count": len(errors),
+                    })
+        return all_errors
