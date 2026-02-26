@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.12
 
 # Install system packages (removed Apache)
 # Note: Removed apt-get upgrade to enable Docker layer caching
