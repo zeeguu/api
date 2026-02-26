@@ -1943,14 +1943,15 @@ def monthly_active_users_page():
 
     # Calculate max for chart scaling
     max_users = max((m["active_users"] for m in monthly_data), default=1)
+    max_bar_height = 160  # pixels, leaving room for labels
 
     # Generate chart bars
     chart_bars = ""
     for m in monthly_data:
-        height_pct = (m["active_users"] / max_users * 100) if max_users > 0 else 0
+        height_px = int((m["active_users"] / max_users * max_bar_height) if max_users > 0 else 0)
         chart_bars += f"""
             <div class="bar-container">
-                <div class="bar" style="height: {height_pct}%;">
+                <div class="bar" style="height: {height_px}px;">
                     <span class="bar-value">{m['active_users']}</span>
                 </div>
                 <span class="bar-label">{m['month_label'][:3]}</span>
@@ -2373,6 +2374,7 @@ def monthly_activity_page():
          for m in monthly_data),
         default=1
     )
+    max_bar_height = 160  # pixels, leaving room for labels
 
     # Colors for each activity type
     colors = {
@@ -2386,25 +2388,25 @@ def monthly_activity_page():
     chart_bars = ""
     for m in monthly_data:
         total = m["exercise_minutes"] + m["reading_minutes"] + m["browsing_minutes"] + m["audio_minutes"]
-        total_height_pct = (total / max_total * 100) if max_total > 0 else 0
+        total_height_px = int((total / max_total * max_bar_height) if max_total > 0 else 0)
 
-        # Calculate individual heights as percentage of total height
+        # Calculate individual heights as percentage of this bar's total
         if total > 0:
-            exercise_h = m["exercise_minutes"] / max_total * 100
-            reading_h = m["reading_minutes"] / max_total * 100
-            browsing_h = m["browsing_minutes"] / max_total * 100
-            audio_h = m["audio_minutes"] / max_total * 100
+            exercise_pct = m["exercise_minutes"] / total * 100
+            reading_pct = m["reading_minutes"] / total * 100
+            browsing_pct = m["browsing_minutes"] / total * 100
+            audio_pct = m["audio_minutes"] / total * 100
         else:
-            exercise_h = reading_h = browsing_h = audio_h = 0
+            exercise_pct = reading_pct = browsing_pct = audio_pct = 0
 
         chart_bars += f"""
             <div class="bar-container">
-                <div class="bar-value">{total}</div>
-                <div class="stacked-bar" style="height: {total_height_pct}%;">
-                    <div class="segment audio" style="height: {audio_h / total_height_pct * 100 if total_height_pct > 0 else 0}%;" title="Audio: {m['audio_minutes']} min"></div>
-                    <div class="segment browsing" style="height: {browsing_h / total_height_pct * 100 if total_height_pct > 0 else 0}%;" title="Browsing: {m['browsing_minutes']} min"></div>
-                    <div class="segment reading" style="height: {reading_h / total_height_pct * 100 if total_height_pct > 0 else 0}%;" title="Reading: {m['reading_minutes']} min"></div>
-                    <div class="segment exercise" style="height: {exercise_h / total_height_pct * 100 if total_height_pct > 0 else 0}%;" title="Exercises: {m['exercise_minutes']} min"></div>
+                <div class="bar-value">{total:,}</div>
+                <div class="stacked-bar" style="height: {total_height_px}px;">
+                    <div class="segment audio" style="height: {audio_pct}%;" title="Audio: {m['audio_minutes']:,} min"></div>
+                    <div class="segment browsing" style="height: {browsing_pct}%;" title="Browsing: {m['browsing_minutes']:,} min"></div>
+                    <div class="segment reading" style="height: {reading_pct}%;" title="Reading: {m['reading_minutes']:,} min"></div>
+                    <div class="segment exercise" style="height: {exercise_pct}%;" title="Exercises: {m['exercise_minutes']:,} min"></div>
                 </div>
                 <span class="bar-label">{m['month_label'][:3]}</span>
             </div>
@@ -2417,11 +2419,11 @@ def monthly_activity_page():
         table_rows += f"""
             <tr>
                 <td>{m['month_label']}</td>
-                <td class="exercise">{m['exercise_minutes']}</td>
-                <td class="reading">{m['reading_minutes']}</td>
-                <td class="browsing">{m['browsing_minutes']}</td>
-                <td class="audio">{m['audio_minutes']}</td>
-                <td class="total">{total}</td>
+                <td class="exercise">{m['exercise_minutes']:,}</td>
+                <td class="reading">{m['reading_minutes']:,}</td>
+                <td class="browsing">{m['browsing_minutes']:,}</td>
+                <td class="audio">{m['audio_minutes']:,}</td>
+                <td class="total">{total:,}</td>
             </tr>
 """
 
