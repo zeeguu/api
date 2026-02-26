@@ -8,6 +8,7 @@ class Friend(db.Model):
 	__tablename__ = "friends"
 	__table_args__ = {"mysql_collate": "utf8_bin"}
 
+	id = Column(Integer, primary_key=True, autoincrement=True)
 	user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
 	friend_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
 	created_at = Column(DateTime, default=func.now())
@@ -39,4 +40,39 @@ class Friend(db.Model):
 			.all()
 		)
 		return friends
-    
+   
+	@classmethod
+	def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
+		# Look for friendship in either direction
+		friendship = cls.query.filter(
+			((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
+			((cls.user_id == user2_id) & (cls.friend_id == user1_id))
+		).first()
+
+		if friendship:
+			db.session.delete(friendship)
+			db.session.commit()
+			return True
+		
+		return False
+
+	def add_friendship(user_id: int, friend_id: int)->bool:
+		"""
+		Adds a friendship between two users using SQLAlchemy ORM.
+		Stores both directions for easy querying.
+		"""
+		# Check if friendship already exists
+		existing = Friend.query.filter(
+			((Friend.user_id == user_id) & (Friend.friend_id == friend_id)) |
+			((Friend.user_id == friend_id) & (Friend.friend_id == user_id))
+		).first()
+
+		if existing:
+			return False  # friendship already exists
+
+		# Add both directions
+		# TODO: Do we want bi directional friendships in the table or just one row?
+		db.session.add(Friend(user_id=user_id, friend_id=friend_id))
+		db.session.add(Friend(user_id=friend_id, friend_id=user_id))
+		db.session.commit()
+		return True

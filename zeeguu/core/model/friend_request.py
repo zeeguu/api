@@ -2,14 +2,16 @@ from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
+from zeeguu.core.model.friend import Friend  # assuming you have a User model
+from sqlalchemy.exc import NoResultFound
 
 class FriendRequest(db.Model):
    __tablename__ = "friend_requests"
    __table_args__ = {"mysql_collate": "utf8_bin"}
 
    id = Column(Integer, primary_key=True, autoincrement=True)
-   sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-   receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+   sender_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+   receiver_id = Column(Integer, ForeignKey("user.id"), nullable=False)
    status = Column(
       Enum("pending", "accepted", "rejected", name="friend_request_status"),
       default="pending",
@@ -44,8 +46,8 @@ class FriendRequest(db.Model):
    def __repr__(self):
         return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "reciever: " + str( self.receiver_id) 
 
-
-   def send_friend_request(sender_id: int, receiver_id: int):
+   @classmethod
+   def send_friend_request(cls, sender_id: int, receiver_id: int):
     """
     Send a friend request from sender to receiver.
 
@@ -68,7 +70,7 @@ class FriendRequest(db.Model):
         raise ValueError("Sender or receiver does not exist.")
 
     # Check for existing friend request
-    existing_request = db.session.query(FriendRequest).filter(
+    existing_request = db.session.query(cls).filter(
         ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == receiver_id)) |
         ((FriendRequest.sender_id == receiver_id) & (FriendRequest.receiver_id == sender_id))
     ).first()
@@ -88,7 +90,9 @@ class FriendRequest(db.Model):
     db.session.refresh(new_request)  # To get the ID and timestamps
 
     return new_request
-   def get_friend_requests_for_user(user_id: int, status: str = "pending"):
+   
+   @classmethod
+   def get_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
          """
          Get friend requests received by a user.
 
@@ -101,10 +105,61 @@ class FriendRequest(db.Model):
             List[FriendRequest]: List of friend request objects
          """
          requests = (
-            db.session.query(FriendRequest)
+            db.session.query(cls)
             .filter(FriendRequest.receiver_id == user_id)
             .filter(FriendRequest.status == status)
             .order_by(FriendRequest.created_at.desc())
             .all()
          )
          return requests
+   @classmethod
+   def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
+        """Delete a friend request between sender and receiver."""
+        try:
+            fr = db.session.query(cls).filter_by(
+                sender_id=sender_id,
+                receiver_id=receiver_id,
+                status="pending"  # usually only pending requests can be deleted
+            ).one()
+            db.session.delete(fr)
+            db.session.commit()
+            return True
+        except NoResultFound:
+            return False
+   
+   @classmethod
+   def cancel_sent_request(cls, sender_id: int, receiver_id: int)->bool:
+      # Look for pending friend request from sender to receiver
+      request = cls.query.filter_by(
+         sender_id=sender_id,
+         receiver_id=receiver_id,
+         status="pending"
+      ).first()
+
+      if request:
+         db.session.delete(request)
+         db.session.commit()
+         return True
+      return False
+        
+   @classmethod
+   def accept_friend_request(cls, sender_id: int, receiver_id: int):
+        try:
+            # Find the pending request
+            fr = db.session.query(cls).filter_by(
+                sender_id=sender_id,
+                receiver_id=receiver_id,
+                status="pending"
+            ).one()
+
+            # Update the status
+            fr.status = "accepted"
+            fr.responded_at = func.now()
+            db.session.commit()
+            db.session.refresh(fr) # refesh with the new values
+
+            # Optionally create a friendship in your friends table
+            Friend.add_friendship(sender_id, receiver_id)
+            return fr
+        except NoResultFound:
+            return None
