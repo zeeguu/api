@@ -392,6 +392,12 @@ class UserWord(db.Model):
         )
         db_session.add(exercise)
 
+        if source.source != "DAILY_AUDIO_LESSON" and outcome.correct:
+            from zeeguu.core.badges.badge_progress import update_badge_levels, BadgeCode
+            correct_exercise_count = self.user.correct_exercises_completed()
+            update_badge_levels(db_session, BadgeCode.CORRECT_EXERCISES, self.user.id, correct_exercise_count)
+
+
         scheduler = self.get_scheduler()
         scheduler.update(db_session, self, exercise_outcome, time)
 

@@ -138,3 +138,6 @@ class UserLanguage(db.Model):
             self.last_practiced = now
             if session:
                 session.add(self)
+
+            from zeeguu.core.badges.badge_progress import BadgeCode, update_badge_levels
+            update_badge_levels(session, BadgeCode.STREAK_COUNT, self.user_id, self.daily_streak)

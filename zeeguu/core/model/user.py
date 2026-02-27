@@ -459,6 +459,24 @@ class User(db.Model):
 
             return False
 
+    def correct_exercises_completed(self):
+        """
+        Returns the total number of correct exercises for a user.
+        """
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model import ExerciseOutcome
+
+        result = (
+            db.session.query(Exercise)
+            .join(UserWord, Exercise.user_word_id == UserWord.id)
+            .join(ExerciseOutcome, Exercise.outcome_id == ExerciseOutcome.id)
+            .filter(UserWord.user_id == self.id)
+            .filter(ExerciseOutcome.outcome.in_(ExerciseOutcome.correct_outcomes))
+        ).count()
+
+        return result
+
     @classmethod
     @sqlalchemy.orm.validates("email")
     def validate_email(cls, col, email):

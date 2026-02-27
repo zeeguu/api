@@ -745,6 +745,15 @@ class DailyLessonGenerator:
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
 
+                from zeeguu.core.badges.badge_progress import BadgeCode, update_badge_levels
+                completed_lessons = (
+                    DailyAudioLesson.query
+                    .filter_by(user_id=user.id)
+                    .filter(DailyAudioLesson.completed_at.isnot(None))
+                    .count()
+                )
+                update_badge_levels(db.session, BadgeCode.COMPLETED_AUDIO_LESSONS, user.id, completed_lessons)
+
             else:
                 return {
                     "error": f"Invalid action: {action}. Must be 'play', 'pause', 'resume', or 'complete'",

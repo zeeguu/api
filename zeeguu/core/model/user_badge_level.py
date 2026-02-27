@@ -40,7 +40,7 @@ class UserBadgeLevel(db.Model):
             self.achieved_at = achieved_at
 
     def __repr__(self):
-        return f"<UserBadgeLevel User:{self.user_id} {self.id} BadgeLevel:{self.badge_level_id}>"
+        return f"<UserBadgeLevel User:{self.user_id} BadgeLevel:{self.badge_level_id}>"
 
     @classmethod
     def find_all(cls, user_id: int):

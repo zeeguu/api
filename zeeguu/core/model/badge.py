@@ -1,10 +1,13 @@
 import enum
 
+from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.core.model.db import db
 
-
 class BadgeCode(enum.Enum):
-    MEANING_BUILDER = 'MEANING_BUILDER'
+    TRANSLATED_WORDS = 'TRANSLATED_WORDS'
+    CORRECT_EXERCISES= 'CORRECT_EXERCISES'
+    COMPLETED_AUDIO_LESSONS = 'COMPLETED_AUDIO_LESSONS'
+    STREAK_COUNT = 'STREAK_COUNT'
 
 
 class Badge(db.Model):
@@ -22,7 +25,7 @@ class Badge(db.Model):
     )
 
     # Relationships
-    badge_levels = db.relationship("BadgeLevel", back_populates="badge", cascade="all, delete-orphan")
+    badge_levels = db.relationship(BadgeLevel, back_populates="badge", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Badge {self.name}>"
