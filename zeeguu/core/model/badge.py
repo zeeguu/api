@@ -9,7 +9,7 @@ class BadgeCode(enum.Enum):
     COMPLETED_AUDIO_LESSONS = 'COMPLETED_AUDIO_LESSONS'
     STREAK_COUNT = 'STREAK_COUNT'
     LEARNED_WORDS = 'LEARNED_WORDS'
-
+    READ_ARTICLES = 'READ_ARTICLES'
 
 class Badge(db.Model):
     __tablename__ = "badge"

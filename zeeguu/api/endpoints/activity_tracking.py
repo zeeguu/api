@@ -1,12 +1,13 @@
 import flask
 from flask import request
+
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.badges.badge_progress import update_badge_levels, BadgeCode
+from zeeguu.core.model import UserActivityData, User
 from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
     distill_article_interactions,
 )
-
 from . import api, db_session
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model import UserActivityData, User
 
 
 @api.route("/upload_user_activity_data", methods=["POST"])
@@ -102,10 +103,10 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
             # Debug: log the scroll data structure
             from zeeguu.logging import log
             log(f"[article_completion] Scroll data received: {scroll_data[:3] if isinstance(scroll_data, list) and len(scroll_data) > 3 else scroll_data}")
-            
+
             # Use a more lenient approach or fallback to max percentage
             completion_percentage = find_last_reading_percentage(scroll_data, max_jump=50, max_total_update=80)
-            
+
             # Fallback: if the algorithm returns 0 but we have scroll data, use max percentage
             if completion_percentage == 0 and scroll_data:
                 max_percentage = max([point[1] for point in scroll_data if len(point) >= 2]) / 100.0
@@ -134,6 +135,10 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
             from datetime import datetime
 
             user_article.completed_at = datetime.now()
+
+            # Update READ_ARTICLES badge progress
+            current_read_article_count = UserArticle.get_completed_article_count_by_user(user.id)
+            update_badge_levels(db_session, BadgeCode.READ_ARTICLES, user.id, current_read_article_count)
 
             # Send notification if enabled
             from flask import current_app
