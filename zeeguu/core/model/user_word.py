@@ -409,6 +409,13 @@ class UserWord(db.Model):
         # self.update_learned_status(db_session)
 
     @classmethod
+    def find_user_learned_words_count(cls, user_id):
+        """
+                Finds the number of learned words for a specific user.
+        """
+        return cls.query.filter_by(user_id=user_id).filter(UserWord.learned_time.isnot(None)).count()
+
+    @classmethod
     def find_or_create(cls, session, user, meaning, is_user_added=False):
         """
         Find or create a UserWord for a user and meaning.
