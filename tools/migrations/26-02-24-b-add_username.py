@@ -7,7 +7,7 @@ For each bookmark without a reading_session_id, finds the reading session where:
 - Same article
 - Bookmark creation time falls within the reading session's time window
 
-Run with: source ~/.venvs/z_env/bin/activate && python tools/migrations/25-12-11--backfill_reading_session_id_on_bookmarks.py
+Run with: source ~/.venvs/z_env/bin/activate && python tools/migrations/26-02-24-b-add_username.py
 """
 import sys
 import os

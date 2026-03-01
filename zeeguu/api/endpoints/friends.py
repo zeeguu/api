@@ -169,7 +169,40 @@ def unfriend():
    return str(is_removed)
 
 
-def search_by_username():
-   pass
+@api.route("/users/search/<username>", methods=["GET"])
+@cross_domain
+def search_by_username(username):
+  pass
 
- 
+@api.route("/users/discover/<user_id>/<username>", methods=["GET"])
+@cross_domain
+def discover_by_username(user_id, username):
+   """
+   Search for new friends with <username> of a user by user_id
+   """
+   user_id = int(user_id)
+   if user_id is None:
+      return flask.abort(400, "missing user_id")
+   
+   new_friends = Friend.search_for_new_friends(user_id, username)
+   return [_serialize_user(user) for user in new_friends]
+
+def _serialize_user(user: User):
+   return {
+      "id": user.id,
+      "name": user.name,
+      "username": user.username,
+      "email": user.email,
+   }
+
+@api.route("/users/search/<user_id>/friends/<username>", methods=["GET"])
+@cross_domain
+def search_friends(user_id, username):
+   """
+   Search for friends with <username> of a user by user_id
+   """
+   user_id = int(user_id)
+   if user_id is None:
+      return flask.abort(400, "missing user_id")
+
+

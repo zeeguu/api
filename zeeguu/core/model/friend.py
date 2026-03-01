@@ -56,6 +56,41 @@ class Friend(db.Model):
 		
 		return False
 
+
+	@staticmethod
+	def search_for_new_friends(current_user_id: int, term: str, limit: int = 20) -> list[User]:
+		term = term.strip().lower()
+
+		# Subquery: users already connected (either direction)
+		# existing_friends = db.session.query(Friend.user_id, Friend.friend_id).filter(
+		# 	or_(
+		# 		Friend.user_id == current_user_id,
+		# 		Friend.friend_id == current_user_id
+		# 	)
+		# )
+
+		# Collect IDs to exclude
+		friend_ids_subquery = db.session.query(
+			func.if_(
+				Friend.user_id == current_user_id,
+				Friend.friend_id,
+				Friend.user_id
+			)
+		).filter(
+			or_(
+				Friend.user_id == current_user_id,
+				Friend.friend_id == current_user_id
+			)
+		)
+
+		query = User.query.filter(
+			func.lower(User.username).like(f"%{term}%"),  # search
+			User.id != current_user_id,                   # exclude self
+			~User.id.in_(friend_ids_subquery)             # exclude existing friends
+		).order_by(User.username).limit(limit)
+
+		return query.all()
+
 	def add_friendship(user_id: int, friend_id: int):
 		"""
 		Adds a friendship between two users using SQLAlchemy ORM.
