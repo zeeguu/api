@@ -24,7 +24,7 @@ class BadgeLevel(db.Model):
         return f"<BadgeLevel Badge:{self.badge_id} Level:{self.level}>"
 
     @classmethod
-    def find_all_achievable(cls, badge_id: int, current_value: int):
+    def find_all_achievable(cls, badge_id: int, current_value: int) -> list["BadgeLevel"]:
         """Find all badge levels for a specific badge id that are achievable"""
         return cls.query.filter(
             cls.badge_id == badge_id,
@@ -32,6 +32,6 @@ class BadgeLevel(db.Model):
         ).all()
 
     @classmethod
-    def find(cls, badge_id: int, level: int):
+    def find(cls, badge_id: int, level: int) -> "BadgeLevel | None":
         """Find badge level for a specific badge id and level"""
         return cls.query.filter_by(badge_id=badge_id, level=level).first()

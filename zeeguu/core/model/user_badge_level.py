@@ -45,22 +45,18 @@ class UserBadgeLevel(db.Model):
     @classmethod
     def find_all(cls, user_id: int):
         """Find existing user badge levels by user id."""
-        try:
-            return cls.query.filter_by(user_id=user_id).all()
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
+        return cls.query.filter_by(user_id=user_id).all()
 
     @classmethod
-    def find_all_not_shown(cls, user_id: int):
+    def count_user_not_shown(cls, user_id: int):
         """Find existing not shown user badge levels by user id."""
-        try:
-            return cls.query.filter_by(user_id=user_id, is_shown=False).all()
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
+        return cls.query.filter_by(user_id=user_id, is_shown=False).count()
 
     @classmethod
     def find(cls, user_id: int, badge_level_ids: list[int]):
         """Find user badge levels for a specific user_id and a list of badge_level_ids."""
+        if not badge_level_ids:
+            return []
         return cls.query.filter(cls.user_id == user_id, cls.badge_level_id.in_(badge_level_ids)).all()
 
     @classmethod
@@ -74,5 +70,4 @@ class UserBadgeLevel(db.Model):
     ):
         new = cls(user_id, badge_level_id, achieved_at, is_shown)
         session.add(new)
-        session.commit()
         return new

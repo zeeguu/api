@@ -15,10 +15,10 @@ class Badge(db.Model):
     __tablename__ = "badge"
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.Enum(BadgeCode), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    is_hidden = db.Column(db.Boolean, default=False)
+    is_hidden = db.Column(db.Boolean, nullable=False, default=False)
 
     # Constraints
     __table_args__ = (
@@ -32,6 +32,6 @@ class Badge(db.Model):
         return f"<Badge {self.name}>"
 
     @classmethod
-    def find(cls, code: BadgeCode):
+    def find(cls, code: BadgeCode) -> "Badge":
         """Find badge for a specific code"""
-        return cls.query.filter_by(code=code.value).first()
+        return cls.query.filter_by(code=code).first()

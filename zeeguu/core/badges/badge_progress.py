@@ -13,18 +13,22 @@ def update_badge_levels(db_session, badge_code: BadgeCode, user_id: int, current
     if not badge:
         return []
 
-    badge_level_ids = [
-        level.id
-        for level in BadgeLevel.find_all_achievable(badge_id=badge.id, current_value=current_value)
-    ]
+    badge_level_ids = db_session.scalars(
+        db_session.query(BadgeLevel.id)
+        .filter(
+            BadgeLevel.badge_id == badge.id,
+            BadgeLevel.target_value <= current_value
+        )
+        .order_by(BadgeLevel.level.asc())
+    ).all()
 
     if not badge_level_ids:
         return []
 
-    user_badge_levels = UserBadgeLevel.find(user_id=user_id, badge_level_ids=badge_level_ids)
-    owned_ids = {lvl.badge_level_id for lvl in user_badge_levels}
+    existing_levels = UserBadgeLevel.find(user_id=user_id, badge_level_ids=badge_level_ids)
+    owned_ids = {lvl.badge_level_id for lvl in existing_levels}
 
-    missing_ids = set(badge_level_ids) - owned_ids
+    missing_ids = [lvl_id for lvl_id in badge_level_ids if lvl_id not in owned_ids]
     created_badges: list[UserBadgeLevel] = []
 
     for level_id in missing_ids:
