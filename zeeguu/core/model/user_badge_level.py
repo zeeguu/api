@@ -60,6 +60,14 @@ class UserBadgeLevel(db.Model):
         return cls.query.filter(cls.user_id == user_id, cls.badge_level_id.in_(badge_level_ids)).all()
 
     @classmethod
+    def update_not_shown_for_user(cls, session, user_id: int):
+        """Updated not shown user badge levels for a specific user_id."""
+        badge_level = cls.query.filter_by(user_id=user_id, is_shown=False).all()
+        for badge_level in badge_level:
+            badge_level.is_shown = True
+            session.add(badge_level)
+
+    @classmethod
     def create(
             cls,
             session,

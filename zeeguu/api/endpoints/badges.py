@@ -1,18 +1,29 @@
-from flask import request
+import flask
 from sqlalchemy.orm import joinedload
 
-from zeeguu.core.model.badge import Badge
-from zeeguu.core.model.user_badge_level import UserBadgeLevel
+from zeeguu.core.model import User
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from . import api
+from zeeguu.core.model.badge import Badge
+from zeeguu.core.model.user_badge_level import UserBadgeLevel
+from . import api, db_session
+
+
+# ---------------------------------------------------------------------------
+@api.route("/badges/count_not_shown_badges", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def get_not_shown_badge_levels_for_user():
+    user = User.find_by_id(flask.g.user_id)
+    return json_result(UserBadgeLevel.count_user_not_shown(user.id))
 
 
 # ---------------------------------------------------------------------------
 @api.route("/badges/<int:user_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-# @requires_session
+@requires_session
 def get_badges_for_user(user_id: int):
     # Get all badge levels achieved by the user
     badges = (
@@ -43,14 +54,7 @@ def get_badges_for_user(user_id: int):
             "description": badge.description,
             "levels": badge_levels,
         })
+
+    UserBadgeLevel.update_not_shown_for_user(db_session, user_id)
+    db_session.commit()
     return json_result(result)
-
-# ---------------------------------------------------------------------------
-@api.route("/badges/<int:user_id>/not_shown", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-# @requires_session
-def get_not_shown_badge_levels_for_user(user_id: int):
-    return json_result(UserBadgeLevel.count_user_not_shown(user_id))
-
-
