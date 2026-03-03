@@ -76,8 +76,9 @@ class User(db.Model):
     ):
         from datetime import datetime
 
-        self.email = email
-        self.name = name
+        self.email = email 
+        self.name = name # The name of the user
+        self.username = self.generate_username() # Username is custom name for display
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -86,7 +87,24 @@ class User(db.Model):
         self.created_at = datetime.now()
         self.creation_platform = creation_platform
 
+    ADJECTIVES = [
+    "brave", "clever", "curious", "silent", "rapid",
+    "happy", "bright", "nordic", "bold", "calm"
+    ]
+
+    NOUNS = [
+            "otter", "falcon", "wolf", "learner",
+            "linguist", "explorer", "reader", "thinker"
+        ]
+
     @classmethod
+    def generate_username(cls):
+        adjective = random.choice(cls.ADJECTIVES)
+        noun = random.choice(cls.NOUNS)
+        number = random.randint(1, 999)
+        return f"{adjective}_{noun}{number}"
+
+    
     def create_anonymous(
         cls,
         uuid,
