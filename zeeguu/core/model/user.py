@@ -44,6 +44,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     name = db.Column(db.String(255))
+    username = db.Column(db.String(50), unique=True, index=True)
     invitation_code = db.Column(db.String(255))
     password = db.Column(db.String(255))
     password_salt = db.Column(db.String(255))
