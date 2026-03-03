@@ -1,46 +1,42 @@
 import flask
 from flask import request
-from zeeguu.core.model import Article, Language, User, Topic, UserArticle, UserArticleBrokenReport
+from zeeguu.core.model import User
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
-from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from . import api, db_session
-from zeeguu.core.model.article import HTML_TAG_CLEANR
+from . import api
 
 # import re
 # from langdetect import detect
 # import json
 # from zeeguu.logging import log
 
-
-
 # ---------------------------------------------------------------------------
-@api.route("/get_friends/<user_id>", methods=["GET"])
+@api.route("/get_friends", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-# @requires_session
-def get_friends(user_id):
+@requires_session
+def get_friends():
    """
    Get all friends of a user
    """
-   friends = Friend.get_friends(user_id)
-   for friend in friends:
-      print(friend.email)
-   return "ok"
-   
+   friends = Friend.get_friends(flask.g.user_id)
+   return json_result(_seralize_users(friends))
 
 
 # ---------------------------------------------------------------------------
-@api.route("/get_friend_requests/<user_id>", methods=["GET"])
+@api.route("/get_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-# @requires_session
-def get_friend_requests(user_id):
-   friendRequest : list[FriendRequest] = FriendRequest.get_friend_requests_for_user(user_id)
+@requires_session
+def get_friend_requests():
+   """
+   Get all friend requests of a user
+   """
+
+   friendRequest : list[FriendRequest] = FriendRequest.get_friend_requests_for_user(flask.g.user_id)
       
    return [_serialize_friend_request(req) for req in friendRequest]
 
@@ -71,7 +67,7 @@ def _serialize_friend_request(fr: FriendRequest):
 @api.route("/send_friend_request", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
-# @requires_session
+@requires_session
 def send_friend_request():
    sender_id = request.form.get("sender_id", type=int)
    receiver_id = request.form.get("receiver_id", type=int)
@@ -115,13 +111,16 @@ def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
 
 @api.route("/delete_friend_request", methods=["POST"])
 @cross_domain
+@requires_session
 def delete_friend_reuest():
-   sender_id = request.form.get("sender_id", type=int)
+   """
+   """
+   sender_id = flask.g.user_id
    receiver_id = request.form.get("receiver_id", type=int)
    
    is_valid, error = _is_friend_request_valid(sender_id, receiver_id)
    if not is_valid:
-      return error
+      return flask.abort(400, error)
    
    is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
    return str(is_deleted)
@@ -170,12 +169,12 @@ def unfriend():
    return str(is_removed)
 
 
-@api.route("/users/search/<username>", methods=["GET"])
+@api.route("/search_users/<username>", methods=["GET"])
 @cross_domain
 def search_by_username(username):
   pass
 
-@api.route("/users/discover/<user_id>/<username>", methods=["GET"])
+@api.route("/discover_friends/<username>", methods=["GET"])
 @cross_domain
 def discover_by_username(user_id, username):
    """
@@ -186,7 +185,7 @@ def discover_by_username(user_id, username):
       return flask.abort(400, "missing user_id")
    
    new_friends = Friend.search_for_new_friends(user_id, username)
-   return [_serialize_user(user) for user in new_friends]
+   return json_result(_seralize_users(new_friends))
 
 def _serialize_user(user: User):
    return {
@@ -195,6 +194,9 @@ def _serialize_user(user: User):
       "username": user.username,
       "email": user.email,
    }
+
+def _seralize_users(users: list[User]):
+   return [_serialize_user(user) for user in users]
 
 @api.route("/users/search/<user_id>/friends/<username>", methods=["GET"])
 @cross_domain
