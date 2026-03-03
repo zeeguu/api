@@ -686,6 +686,9 @@ class UserArticle(db.Model):
 
     @classmethod
     def get_completed_article_count_by_user(cls, user_id):
+        """
+            Returns the number of completed articles for a specific user.
+        """
         return (
             cls.query
             .filter_by(user_id=user_id)

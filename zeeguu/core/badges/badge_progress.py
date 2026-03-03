@@ -5,9 +5,16 @@ from zeeguu.core.model.user_badge_level import UserBadgeLevel
 
 def update_badge_levels(db_session, badge_code: BadgeCode, user_id: int, current_value: int) -> list[UserBadgeLevel]:
     """
-    Award all achievable badge levels a user doesn't have yet for a specific badge.
+    Award all badge levels for a given badge_code that the user qualifies for but has not yet earned.
 
-    Returns only newly created UserBadgeLevel objects.
+    Parameters:
+    - db_session: SQLAlchemy session
+    - badge_code: Enum identifying the badge
+    - user_id: ID of the user
+    - current_value: User's current value for the metric associated with the badge
+
+    Returns:
+    - List of newly created UserBadgeLevel objects (empty if none were awarded)
     """
     badge = Badge.find(badge_code)
     if not badge:
@@ -29,11 +36,10 @@ def update_badge_levels(db_session, badge_code: BadgeCode, user_id: int, current
     owned_ids = {lvl.badge_level_id for lvl in existing_levels}
 
     missing_ids = [lvl_id for lvl_id in badge_level_ids if lvl_id not in owned_ids]
-    created_badges: list[UserBadgeLevel] = []
 
-    for level_id in missing_ids:
-        new_badge = UserBadgeLevel(user_id=user_id, badge_level_id=level_id)
-        db_session.add(new_badge)
-        created_badges.append(new_badge)
+    created_badges = [UserBadgeLevel(user_id=user_id, badge_level_id=level_id)
+                      for level_id in missing_ids]
+
+    db_session.add_all(created_badges)
 
     return created_badges

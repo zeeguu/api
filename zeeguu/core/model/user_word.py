@@ -410,9 +410,7 @@ class UserWord(db.Model):
 
     @classmethod
     def find_user_learned_words_count(cls, user_id):
-        """
-                Finds the number of learned words for a specific user.
-        """
+        """Returns the number of learned words for a specific user."""
         return cls.query.filter_by(user_id=user_id).filter(UserWord.learned_time.isnot(None)).count()
 
     @classmethod

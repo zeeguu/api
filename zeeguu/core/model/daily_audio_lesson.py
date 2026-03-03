@@ -151,3 +151,10 @@ class DailyAudioLesson(db.Model):
         if not include_completed:
             query = query.filter(cls.completed_at.is_(None))
         return query.order_by(cls.recommended_at.desc()).first()
+
+    @classmethod
+    def find_user_completed_lesson_count(cls, user_id):
+        """Returns the number of completed audio lessons for a specific user."""
+        return (cls.query.filter_by(user_id=user_id)
+                .filter(DailyAudioLesson.completed_at.isnot(None)).count())
+

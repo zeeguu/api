@@ -460,9 +460,7 @@ class User(db.Model):
             return False
 
     def correct_exercises_completed(self):
-        """
-        Returns the total number of correct exercises for a user.
-        """
+        """Returns the total number of correct exercises for a user."""
         from zeeguu.core.model.user_word import UserWord
         from zeeguu.core.model.exercise import Exercise
         from zeeguu.core.model import ExerciseOutcome
