@@ -114,6 +114,27 @@ class FriendRequest(db.Model):
          return requests
    
    @classmethod
+   def get_pending_friend_requests_for_user(cls, user_id: int):
+         """
+         Get pending friend requests received by a user.
+
+         Args:
+            cls (FriendRequest): The FriendRequest class
+            user_id (int): ID of the user
+
+         Returns:
+            List[FriendRequest]: List of pending friend request objects
+         """
+         requests = (
+            db.session.query(cls)
+            .filter(FriendRequest.sender_id == user_id)
+            .filter(FriendRequest.status == "pending")
+            .order_by(FriendRequest.created_at.desc())
+            .all()
+         )
+         return requests
+   
+   @classmethod
    def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
         """Delete a friend request between sender and receiver."""
         try:

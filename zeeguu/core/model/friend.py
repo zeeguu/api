@@ -25,7 +25,6 @@ class Friend(db.Model):
 			primaryjoin="Friend.friend_id == User.id"
 		)
 
-
 	@staticmethod
 	def get_friends(user_id):
 		"""Return a list of User objects that are friends with the given user_id."""
@@ -59,6 +58,8 @@ class Friend(db.Model):
 
 	@staticmethod
 	def search_for_new_friends(current_user_id: int, term: str, limit: int = 20) -> list[User]:
+		from zeeguu.core.model.friend_request import FriendRequest
+		
 		term = term.strip().lower()
 
 		# Subquery: users already connected (either direction)
@@ -82,11 +83,24 @@ class Friend(db.Model):
 				Friend.friend_id == current_user_id
 			)
 		)
+		# Query for users that already have a pending friend request with the current user
+		pending_request_ids = db.session.query(
+				FriendRequest.sender_id
+			).filter(
+				FriendRequest.receiver_id == current_user_id,
+				FriendRequest.status == "pending"
+			).union(
+				db.session.query(FriendRequest.receiver_id).filter(
+					FriendRequest.sender_id == current_user_id,
+					FriendRequest.status == "pending"
+				)
+			)
 
 		query = User.query.filter(
 			func.lower(User.username).like(f"%{term}%"),  # search
 			User.id != current_user_id,                   # exclude self
-			~User.id.in_(friend_ids_subquery)             # exclude existing friends
+			~User.id.in_(friend_ids_subquery),            # exclude existing friends
+			~User.id.in_(pending_request_ids)             # exclude users with pending friend requests
 		).order_by(User.username).limit(limit)
 
 		return query.all()
