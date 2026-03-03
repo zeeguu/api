@@ -254,7 +254,7 @@ def _serialize_friendship(friendship: Friend, status: str = "accepted"):
       "created_at": friendship.created_at,
       "status": status,
    }
-   return json_result(result)
+   return result
 
 def _serialize_user(user: User):
    return {
