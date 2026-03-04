@@ -109,7 +109,7 @@ class User(db.Model):
         :summary:
 
         Generate a random username in the format 'adjective_noun1234'  
-        Can currently generate 20 x 15 x 9999 = 2,999,700 unique usernames
+        Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames
         
         :return: A string username
         """
