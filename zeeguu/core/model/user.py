@@ -68,6 +68,7 @@ class User(db.Model):
         email,
         name,
         password,
+        username=None,
         learned_language=None,
         native_language=None,
         invitation_code=None,
@@ -78,7 +79,7 @@ class User(db.Model):
 
         self.email = email 
         self.name = name # The name of the user
-        self.username = self.generate_username() # Username is custom name for display
+        self.username = username or self.generate_username() # Username is custom name to display in UI
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -88,20 +89,33 @@ class User(db.Model):
         self.creation_platform = creation_platform
 
     ADJECTIVES = [
-    "brave", "clever", "curious", "silent", "rapid",
-    "happy", "bright", "nordic", "bold", "calm"
+        "brave", "clever", "curious", "silent", "rapid",
+        "happy", "bright", "playful", "bold", "calm",
+        "gentle", "keen", "witty", "daring", "serene",
+        "lively", "mighty", "patient", "vivid", "wise"
     ]
 
     NOUNS = [
-            "otter", "falcon", "wolf", "learner",
-            "linguist", "explorer", "reader", "thinker"
-        ]
+        "otter", "falcon", "wolf", "fox", "owl", "panther",
+        "lion", "tiger", "bear", "eagle", "rabbit", "deer",
+        "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
+    ]
+
+    MAX_NUMBER_USERNAME = 9999
 
     @classmethod
     def generate_username(cls):
+        """
+        :summary:
+
+        Generate a random username in the format 'adjective_noun1234'
+        Can currently generate 20 x 15 x 9999 = 2,999,700 unique usernames
+        
+        :return: A string username
+        """
         adjective = random.choice(cls.ADJECTIVES)
         noun = random.choice(cls.NOUNS)
-        number = random.randint(1, 999)
+        number = random.randint(1, cls.MAX_NUMBER_USERNAME)
         return f"{adjective}_{noun}{number}"
 
     
