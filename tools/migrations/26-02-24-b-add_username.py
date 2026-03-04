@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """
-Migration script to backfill reading_session_id on existing bookmarks.
+Migration script to automatically populate usernames for existing users.
 
-For each bookmark without a reading_session_id, finds the reading session where:
-- Same user
-- Same article
-- Bookmark creation time falls within the reading session's time window
+The usernames are generated in the format 'adjective_noun1234' (e.g., 'brave_tiger5678')
+and are guaranteed to be unique across the user base. 
+This script should be run after the database schema has been updated to include the new 'username' column in the 'users' table.
+
+26-02-24-a-add_username.sql should have been run first to add the 'username' column to the 'user' table.
 
 Run with: source ~/.venvs/z_env/bin/activate && python tools/migrations/26-02-24-b-add_username.py
 """
@@ -16,36 +17,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from zeeguu.core.model.user import User
 from zeeguu.core.model import db
-import random
-
-ADJECTIVES = [
-    "brave", "clever", "curious", "silent", "rapid",
-    "happy", "bright", "nordic", "bold", "calm"
-]
-
-NOUNS = [
-    "otter", "falcon", "wolf", "learner",
-    "linguist", "explorer", "reader", "thinker"
-]
-
-
-def generate_username():
-    adjective = random.choice(ADJECTIVES)
-    noun = random.choice(NOUNS)
-    number = random.randint(1, 999)
-
-    return f"{adjective}_{noun}{number}"
 
 def generate_unique_username():
 
     while True:
-        username = generate_username()
+        username = User.generate_username()
         exists = User.query.filter_by(username=username).first()
         if not exists:
             return username
 
 def populate_usernames():
-    users = User.query.all()
+    users : list[User] = User.query.all()
     for user in users:
         user.username = generate_unique_username()
     db.session.commit()

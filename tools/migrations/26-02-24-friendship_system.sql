@@ -1,4 +1,4 @@
--- Denormalized friends table
+-- friends table
 CREATE TABLE friends (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
