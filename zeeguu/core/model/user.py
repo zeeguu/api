@@ -118,7 +118,7 @@ class User(db.Model):
         number = random.randint(1, cls.MAX_NUMBER_USERNAME)
         return f"{adjective}_{noun}{number}"
 
-    
+    @classmethod
     def create_anonymous(
         cls,
         uuid,
