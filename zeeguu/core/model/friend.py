@@ -59,7 +59,7 @@ class Friend(db.Model):
 
 
 	@staticmethod
-	def search_users(current_user_id: int, term: str, email: str = None, limit: int = 20):
+	def search_users(current_user_id: int, term: str, limit: int = 20):
 		"""
 		Search users by username (partial match) or exact email.
 		For each user, return:
@@ -68,19 +68,18 @@ class Friend(db.Model):
 			- friendship status (if any)
 		"""
 		from zeeguu.core.model.friend_request import FriendRequest
-		term = term.strip().lower() if term else None
-		email = email.strip().lower() if email else None
-
+		
 		# Build base query
-		query = User.query
 		filters = []
 		if term:
-			filters.append(func.lower(User.username).like(f"%{term}%"))
-		if email:
-			filters.append(func.lower(User.email) == email)
+			filters.append(func.lower(User.username).ilike(f"%{term}%")) # ilike for case-insensitive partial match
+			filters.append(func.lower(User.email) == term) # exact match for email
+			filters.append(func.lower(User.name) == term) # exact match for name
+		
 		if not filters:
 			return []  # nothing to search
 		
+		query = User.query
 		query = query.filter(or_(*filters), User.id != current_user_id).limit(limit)
 
 		results = []
@@ -122,8 +121,6 @@ class Friend(db.Model):
 	def search_for_new_friends(current_user_id: int, term: str, limit: int = 20) -> list[User]:
 		from zeeguu.core.model.friend_request import FriendRequest
 		
-		term = term.strip().lower()
-
 		# Subquery: users already connected (either direction)
 		# existing_friends = db.session.query(Friend.user_id, Friend.friend_id).filter(
 		# 	or_(
@@ -159,7 +156,7 @@ class Friend(db.Model):
 			)
 
 		query = User.query.filter(
-			func.lower(User.username).like(f"%{term}%"),  # search
+			func.lower(User.username).ilike(f"%{term}%"),  # search
 			User.id != current_user_id,                   # exclude self
 			~User.id.in_(friend_ids_subquery),            # exclude existing friends
 			~User.id.in_(pending_request_ids)             # exclude users with pending friend requests

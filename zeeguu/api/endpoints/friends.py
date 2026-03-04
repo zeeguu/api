@@ -23,7 +23,7 @@ def get_friends():
    Get all friends of current user with flask.g.user_id
    """
    friends = Friend.get_friends(flask.g.user_id)
-   return json_result(_seralize_users(friends))
+   return json_result(_serialize_users(friends))
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ def discover_by_username(username):
    """
    user_id = flask.g.user_id
    new_friends = Friend.search_for_new_friends(user_id, username)
-   return json_result(_seralize_users(new_friends))
+   return json_result(_serialize_users(new_friends))
 
 # ---------------------------------------------------------------------------
 @api.route("/search_users/<username>", methods=["GET"])
@@ -269,7 +269,7 @@ def _serialize_user(user: User):
       "email": user.email,
    }
 
-def _seralize_users(users: list[User]):
+def _serialize_users(users: list[User]):
    return [_serialize_user(user) for user in users]
 
 
