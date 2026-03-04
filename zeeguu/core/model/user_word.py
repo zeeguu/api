@@ -393,9 +393,8 @@ class UserWord(db.Model):
         db_session.add(exercise)
 
         if source.source != "DAILY_AUDIO_LESSON" and outcome.correct:
-            from zeeguu.core.badges.badge_progress import update_badge_levels, BadgeCode
-            correct_exercise_count = self.user.correct_exercises_completed()
-            update_badge_levels(db_session, BadgeCode.CORRECT_EXERCISES, self.user.id, correct_exercise_count)
+            from zeeguu.core.badges.badge_progress import increment_badge_progress, BadgeCode
+            increment_badge_progress(db_session, BadgeCode.CORRECT_EXERCISES, self.user.id)
 
 
         scheduler = self.get_scheduler()
@@ -407,11 +406,6 @@ class UserWord(db.Model):
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
-
-    @classmethod
-    def find_user_learned_words_count(cls, user_id):
-        """Returns the number of learned words for a specific user."""
-        return cls.query.filter_by(user_id=user_id).filter(UserWord.learned_time.isnot(None)).count()
 
     @classmethod
     def find_or_create(cls, session, user, meaning, is_user_added=False):

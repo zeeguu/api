@@ -683,15 +683,3 @@ class UserArticle(db.Model):
             cls.user_article_info(user, article, tokenization_cache=existing_caches.get(article.id))
             for article in articles_to_process
         ]
-
-    @classmethod
-    def get_completed_article_count_by_user(cls, user_id):
-        """
-            Returns the number of completed articles for a specific user.
-        """
-        return (
-            cls.query
-            .filter_by(user_id=user_id)
-            .filter(cls.completed_at is not None)
-            .count()
-        )

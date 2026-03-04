@@ -157,9 +157,8 @@ def get_one_translation(from_lang_code, to_lang_code):
         log(
             f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'"
         )
-        from zeeguu.core.badges.badge_progress import update_badge_levels, BadgeCode
-        current_bookmark_count = len(Bookmark.find_by_specific_user(user))
-        update_badge_levels(db_session, BadgeCode.TRANSLATED_WORDS, user.id, current_bookmark_count)
+        from zeeguu.core.badges.badge_progress import increment_badge_progress, BadgeCode
+        increment_badge_progress(db_session, BadgeCode.TRANSLATED_WORDS, user.id)
         db_session.commit()
 
     return json_result(

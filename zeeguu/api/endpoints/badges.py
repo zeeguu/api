@@ -1,6 +1,7 @@
 import flask
 from sqlalchemy.orm import joinedload
 
+from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -14,7 +15,7 @@ from . import api, db_session
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_not_shown_badge_levels_for_user():
+def get_not_shown_user_badge_levels():
     """
     Return the number of user badge levels that the current user has achieved
     but have not yet been shown to them.
@@ -48,6 +49,7 @@ def get_badges_for_user():
                    "is_shown": false,
                    "name": "Beginner"
                }, ...]
+           "current_value": 10
         }, ... ]
     """
     user_id = flask.g.user_id
@@ -55,16 +57,39 @@ def get_badges_for_user():
     badges = Badge.query.options(joinedload(Badge.badge_levels)).all()
     user_badge_levels = UserBadgeLevel.find_all(user_id)
     achieved_map = {ubl.badge_level_id: ubl for ubl in user_badge_levels}
+    user_badge_progress = UserBadgeProgress.find_all(user_id)
+    progress_map = {ubp.badge_id: ubp for ubp in user_badge_progress}
 
-    result = [serialize_badge(badge, achieved_map) for badge in badges]
-
-    UserBadgeLevel.update_not_shown_for_user(db_session, user_id)
-    db_session.commit()
+    result = [serialize_badge(badge, achieved_map, progress_map) for badge in badges]
 
     return json_result(result)
 
+# ---------------------------------------------------------------------------
+@api.route("/update_not_shown_badges", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def update_not_shown_user_badge_levels():
+    """
+    Mark all unseen badge levels for the current user as shown.
 
-def serialize_badge(badge: Badge, achieved_map: dict) -> dict:
+    This updates all UserBadgeLevel records where:
+        - user_id matches the current user
+        - is_shown is False
+
+    Returns:
+    {
+        "updated": true
+    }
+    """
+    UserBadgeLevel.update_not_shown_for_user(db_session, flask.g.user_id)
+    db_session.commit()
+
+    return json_result({"updated": True})
+
+
+def serialize_badge(badge: Badge, achieved_map: dict, progress_map: dict) -> dict:
+    progress = progress_map.get(badge.id)
     levels = [
         serialize_badge_level(level, achieved_map.get(level.id))
         for level in sorted(badge.badge_levels, key=lambda b: b.level)
@@ -75,6 +100,7 @@ def serialize_badge(badge: Badge, achieved_map: dict) -> dict:
         "name": badge.name,
         "description": badge.description,
         "levels": levels,
+        "current_value": progress.current_value if progress else 0,
     }
 
 
