@@ -4,7 +4,7 @@ Migration script to automatically populate usernames for existing users.
 
 The usernames are generated in the format 'adjective_noun1234' (e.g., 'brave_tiger5678')
 and are guaranteed to be unique across the user base. 
-This script should be run after the database schema has been updated to include the new 'username' column in the 'users' table.
+This script should be run after the database schema has been updated to include the new 'username' column in the 'user' table.
 
 26-02-24-a-add_username.sql should have been run first to add the 'username' column to the 'user' table.
 
