@@ -168,7 +168,7 @@ def unfriend():
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------  ------
 @api.route("/discover_friends/<username>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -187,7 +187,12 @@ def discover_by_username(username):
 @cross_domain
 @requires_session
 def search_by_username(username):
-  return flask.abort(501, "Not implemented yet")
+  
+  if not username or username.strip() == "":
+      return flask.abort(400, "Username cannot be empty")
+  
+  result = Friend.search_users(flask.g.user_id, username)
+  return json_result(result)
 
 # ---------------------------------------------------------------------------
 @api.route("/search_friends/<username>", methods=["GET"])
