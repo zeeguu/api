@@ -1,1 +1,0 @@
-curl -X GET "localhost:8080/users/discover/2/happy" 
