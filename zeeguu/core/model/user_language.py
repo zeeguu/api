@@ -110,7 +110,7 @@ class UserLanguage(db.Model):
         return cls.query.filter(cls.user == user).filter(cls.language_id == i).one()
 
     @classmethod
-    def all_for_user(cls, user):
+    def all_languages_for_user(cls, user):
         user_main_learned_language = user.learned_language
         user_languages = [
             language_id.language
@@ -122,7 +122,11 @@ class UserLanguage(db.Model):
 
         return user_languages
 
-    def update_streak_if_needed(self, session=None):
+    @classmethod
+    def all_user_languages_for_user(cls, user):
+        return cls.query.filter(cls.user == user).all()
+
+    def update_streak_if_needed(self, user, session=None):
         """
         Update last_practiced timestamp and daily_streak counter for this language.
         Call this when user performs actual practice (exercises, reading, etc.).
@@ -144,6 +148,12 @@ class UserLanguage(db.Model):
             self._update_max_streak_if_needed()
             if session:
                 session.add(self)
+
+            from zeeguu.core.badges.badge_progress import BadgeCode, update_badge_progress
+            daily_streak_badge_progress = max(
+                [user_language.daily_streak for user_language in self.all_user_languages_for_user(user)]
+            )
+            update_badge_progress(db.session, BadgeCode.STREAK_COUNT, user.id, daily_streak_badge_progress)
 
     def reset_streak_if_broken(self, session=None):
         """
