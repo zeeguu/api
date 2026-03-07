@@ -6,6 +6,10 @@ PYTHON_VERSION="3.12"
 echo "=== Zeeguu API Local Development Setup ==="
 echo ""
 
+# Step 0: Configure git hooks
+echo "[0/6] Configuring git hooks..."
+git config --local core.hooksPath .githooks/
+
 # Step 1: Check/install uv
 if ! command -v uv &> /dev/null; then
     echo "[1/6] Installing uv..."
