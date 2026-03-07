@@ -85,6 +85,8 @@ pydub
 Pillow
 cryptography
 bcrypt>=4.0.0
+deprecated  # transitive dep of limits (Flask-Limiter) not declared in its deps
+protobuf  # transitive dep of google-cloud-texttospeech not declared in its deps
 
 # Monitoring
 sentry-sdk[flask]
