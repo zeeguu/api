@@ -126,10 +126,13 @@ class AudioLessonGenerationProgress(db.Model):
 
     @classmethod
     def find_active_for_user(cls, user):
-        """Find an active (in-progress) generation for a user."""
+        """Find an active (in-progress) generation for a user.
+        Uses FOR UPDATE to prevent race conditions when checking
+        before creating a new progress record."""
         return (
             cls.query.filter_by(user_id=user.id)
             .filter(cls.status.notin_(["done", "error"]))
+            .with_for_update()
             .first()
         )
 

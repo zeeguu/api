@@ -1,8 +1,6 @@
-import threading
-
 import flask
-from flask import current_app
 
+from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
@@ -11,47 +9,44 @@ from zeeguu.logging import log
 from . import api
 
 
-def _generate_lesson_in_background(app, user_id, preparation):
-    """Run lesson generation in a background thread."""
-    with app.app_context():
+def _generate_lesson_in_background(user_id, preparation):
+    """Run lesson generation (called via run_in_background)."""
+    user = User.find_by_id(user_id)
+    progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
+
+    if not user or not progress:
+        log(f"[background_generate] User or progress record not found for user {user_id}")
+        return
+
+    selected_words = UserWord.query.filter(
+        UserWord.id.in_(preparation["selected_word_ids"])
+    ).all()
+    # Preserve the original ordering
+    word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
+    selected_words.sort(key=lambda w: word_order.get(w.id, 0))
+
+    unscheduled_words = UserWord.query.filter(
+        UserWord.id.in_(preparation["unscheduled_word_ids"])
+    ).all() if preparation["unscheduled_word_ids"] else []
+
+    try:
+        generator = DailyLessonGenerator()
+        generator.generate_daily_lesson(
+            user=user,
+            selected_words=selected_words,
+            unscheduled_words=unscheduled_words,
+            origin_language=preparation["origin_language"],
+            translation_language=preparation["translation_language"],
+            cefr_level=preparation["cefr_level"],
+            progress=progress,
+        )
+    except Exception as e:
+        log(f"[background_generate] Error for user {user_id}: {e}")
         try:
-            user = User.find_by_id(user_id)
-            progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
-
-            if not user or not progress:
-                log(f"[background_generate] User or progress record not found for user {user_id}")
-                return
-
-            selected_words = UserWord.query.filter(
-                UserWord.id.in_(preparation["selected_word_ids"])
-            ).all()
-            # Preserve the original ordering
-            word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
-            selected_words.sort(key=lambda w: word_order.get(w.id, 0))
-
-            unscheduled_words = UserWord.query.filter(
-                UserWord.id.in_(preparation["unscheduled_word_ids"])
-            ).all() if preparation["unscheduled_word_ids"] else []
-
-            generator = DailyLessonGenerator()
-            generator.generate_daily_lesson(
-                user=user,
-                selected_words=selected_words,
-                unscheduled_words=unscheduled_words,
-                origin_language=preparation["origin_language"],
-                translation_language=preparation["translation_language"],
-                cefr_level=preparation["cefr_level"],
-                progress=progress,
-            )
-        except Exception as e:
-            log(f"[background_generate] Unexpected error for user {user_id}: {e}")
-            try:
-                progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
-                if progress:
-                    progress.mark_error(str(e))
-                    db.session.commit()
-            except Exception:
-                pass
+            progress.mark_error(str(e))
+            db.session.commit()
+        except Exception:
+            pass
 
 
 @api.route("/generate_daily_lesson", methods=["POST"])
@@ -87,13 +82,7 @@ def generate_daily_lesson():
     if "selected_word_ids" not in result:
         return json_result({"error": "Unexpected preparation result"}), 500
 
-    app = current_app._get_current_object()
-    thread = threading.Thread(
-        target=_generate_lesson_in_background,
-        args=(app, user.id, result),
-        daemon=True,
-    )
-    thread.start()
+    run_in_background(_generate_lesson_in_background, user.id, result)
 
     return json_result({"status": "generating", "message": "Lesson generation started"}), 202
 
