@@ -78,6 +78,7 @@ uv pip install -r requirements.txt
 # Step 6: Install zeeguu package + download NLTK data
 echo "[6/6] Installing zeeguu package and downloading NLTK data..."
 uv pip install -e .
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
 
 echo ""
 echo "=== Setup complete ==="
