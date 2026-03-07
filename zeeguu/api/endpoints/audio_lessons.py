@@ -11,25 +11,26 @@ from . import api
 
 def _generate_lesson_in_background(user_id, preparation):
     """Run lesson generation (called via run_in_background)."""
-    user = User.find_by_id(user_id)
-    progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
-
-    if not user or not progress:
-        log(f"[background_generate] User or progress record not found for user {user_id}")
-        return
-
-    selected_words = UserWord.query.filter(
-        UserWord.id.in_(preparation["selected_word_ids"])
-    ).all()
-    # Preserve the original ordering
-    word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
-    selected_words.sort(key=lambda w: word_order.get(w.id, 0))
-
-    unscheduled_words = UserWord.query.filter(
-        UserWord.id.in_(preparation["unscheduled_word_ids"])
-    ).all() if preparation["unscheduled_word_ids"] else []
-
+    progress = None
     try:
+        user = User.find_by_id(user_id)
+        progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
+
+        if not user or not progress:
+            log(f"[background_generate] User or progress record not found for user {user_id}")
+            return
+
+        selected_words = UserWord.query.filter(
+            UserWord.id.in_(preparation["selected_word_ids"])
+        ).all()
+        # Preserve the original ordering
+        word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
+        selected_words.sort(key=lambda w: word_order.get(w.id, 0))
+
+        unscheduled_words = UserWord.query.filter(
+            UserWord.id.in_(preparation["unscheduled_word_ids"])
+        ).all() if preparation["unscheduled_word_ids"] else []
+
         generator = DailyLessonGenerator()
         generator.generate_daily_lesson(
             user=user,
@@ -43,8 +44,11 @@ def _generate_lesson_in_background(user_id, preparation):
     except Exception as e:
         log(f"[background_generate] Error for user {user_id}: {e}")
         try:
-            progress.mark_error(str(e))
-            db.session.commit()
+            if not progress:
+                progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
+            if progress:
+                progress.mark_error(str(e))
+                db.session.commit()
         except Exception:
             pass
 
