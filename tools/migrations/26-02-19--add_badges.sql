@@ -4,8 +4,7 @@ CREATE TABLE badge (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    description TEXT, -- We could store a template string, and would interpolate the target values.
-    is_hidden BOOLEAN DEFAULT FALSE,
+    description TEXT,
     UNIQUE(code)
 );
 
@@ -15,7 +14,7 @@ CREATE TABLE badge_level (
     name VARCHAR(100),
     level INT NOT NULL,
     target_value INT NOT NULL,
-    icon_url VARCHAR(255),
+    icon_name VARCHAR(255),
     UNIQUE(badge_id, level),
     FOREIGN KEY (badge_id) REFERENCES badge(id)
 );

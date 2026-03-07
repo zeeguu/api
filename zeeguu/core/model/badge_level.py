@@ -13,7 +13,7 @@ class BadgeLevel(db.Model):
     badge_id = db.Column(db.Integer, db.ForeignKey("badge.id"), nullable=False)
     level = db.Column(db.Integer, nullable=False)
     target_value = db.Column(db.Integer, nullable=False)
-    icon_url = db.Column(db.String(255))
+    icon_name = db.Column(db.String(255))
 
     __table_args__ = (
         db.UniqueConstraint("badge_id", "level"),

@@ -12,6 +12,7 @@ class BadgeCode(enum.Enum):
     STREAK_COUNT = 'STREAK_COUNT'
     LEARNED_WORDS = 'LEARNED_WORDS'
     READ_ARTICLES = 'READ_ARTICLES'
+    NUMBER_OF_FRIENDS = 'NUMBER_OF_FRIENDS'
 
 
 class Badge(db.Model):
@@ -25,7 +26,6 @@ class Badge(db.Model):
     code = db.Column(db.Enum(BadgeCode), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    is_hidden = db.Column(db.Boolean, nullable=False, default=False)
 
     __table_args__ = (
         db.UniqueConstraint("code"),

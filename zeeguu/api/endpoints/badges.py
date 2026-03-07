@@ -43,7 +43,7 @@ def get_badges_for_user():
                {
                    "badge_level": 1,
                    "target_value": 50,
-                   "icon_url": "/icons/badge1.png",
+                   "icon_name": "/badge1.svg",
                    "achieved": true,
                    "achieved_at": "2026-03-03T12:34:56",
                    "is_shown": false,
@@ -108,7 +108,7 @@ def serialize_badge_level(level: BadgeLevel, user_level: UserBadgeLevel | None) 
     return {
         "badge_level": level.level,
         "target_value": level.target_value,
-        "icon_url": level.icon_url,
+        "icon_name": level.icon_name,
         "achieved": user_level is not None,
         "achieved_at": (
             user_level.achieved_at.isoformat()
