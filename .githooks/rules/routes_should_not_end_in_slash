@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Flask routes should not end with a forward slash
+
+# Regex for added lines
+ADDED_LINE='^\+'
+
+# Regex for bad routes
+BAD_FLASK_ROUTE='.*@.*route.*".+/"'
+
+COUNT_BAD_LINES=$(git diff --cached   | grep -c -E "$ADDED_LINE$BAD_FLASK_ROUTE")
+
+if [ $COUNT_BAD_LINES -gt 0 ]; then
+	echo " "
+	echo "   Flask routes should not end with a forward slash!"
+	echo " "
+	echo "Error is on the following line: "
+	echo " "
+	echo "   " $(git diff --cached | grep -E "$ADDED_LINE$BAD_FLASK_ROUTE")
+	echo " "
+
+	exit 1
+fi
+
+# a nicer approach would be to iterate over all the files, 
+# like this: https://stackoverflow.com/a/41249693/1200070
