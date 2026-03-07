@@ -85,5 +85,12 @@ echo "=== Setup complete ==="
 echo ""
 echo "To activate the environment:  source .venv/bin/activate"
 echo ""
-echo "Optional: Download Stanza NLP models (large, only needed for some features):"
-echo "  python install_stanza_models.py"
+
+# Optional: Stanza NLP models
+read -p "Download Stanza NLP models? (large, needed for tokenization/exercises) [y/N] " INSTALL_STANZA
+if [[ "$INSTALL_STANZA" =~ ^[Yy]$ ]]; then
+    echo "Downloading Stanza models..."
+    python install_stanza_models.py
+else
+    echo "Skipped. You can install them later with: python install_stanza_models.py"
+fi
