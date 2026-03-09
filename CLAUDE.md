@@ -1,19 +1,19 @@
 # Project Configuration for Claude
 
 ## Python Environment
-- **Always use the virtual environment**: `~/.venvs/z_env`
-- **Python commands should be prefixed with**: `source ~/.venvs/z_env/bin/activate && `
+- **Always use the virtual environment**: `$GH_FOLDER/zeeguu/api/.venv`
+- **Python commands should be prefixed with**: `source $GH_FOLDER/zeeguu/api/.venv/bin/activate && `
 
 ## Examples:
 ```bash
 # Running Python scripts
-source ~/.venvs/z_env/bin/activate && python -m tools._playground
+source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python -m tools._playground
 
 # Running tests
-source ~/.venvs/z_env/bin/activate && python -m pytest
+source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python -m pytest
 
 # Any Python-related command
-source ~/.venvs/z_env/bin/activate && python <command>
+source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python <command>
 ```
 
 ## Tool Scripts Structure
