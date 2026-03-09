@@ -56,6 +56,13 @@ class AudioLessonGenerationProgress(db.Model):
     def __repr__(self):
         return f"<AudioLessonGenerationProgress user={self.user_id} status={self.status}>"
 
+    def _word_label(self):
+        name = getattr(self, '_current_word_name', None)
+        return f"'{name}'" if name else f"word {self.current_word}"
+
+    def _word_prefix(self):
+        return f"Word {self.current_word}/{self.total_words} ({self._word_label()})"
+
     def start_word(self, word_number, total_segments, word_name=None):
         """Called when starting to process a new word."""
         self.current_word = word_number
@@ -63,37 +70,32 @@ class AudioLessonGenerationProgress(db.Model):
         self.current_step = 0
         self.status = "generating_script"
         self._current_word_name = word_name
-        label = f"'{word_name}'" if word_name else f"word {word_number}"
-        self.message = f"Word {word_number}/{self.total_words} ({label}): Generating script..."
+        self.message = f"{self._word_prefix()}: Generating script..."
         db.session.flush()
 
     def update_generating_script(self):
         """Called when starting to generate the script for current word."""
         self.status = "generating_script"
-        label = f"'{self._current_word_name}'" if getattr(self, '_current_word_name', None) else f"word {self.current_word}"
-        self.message = f"Word {self.current_word}/{self.total_words} ({label}): Generating script..."
+        self.message = f"{self._word_prefix()}: Generating script..."
         db.session.flush()
 
     def update_script_done(self):
         """Called when script generation is complete."""
         self.status = "synthesizing_audio"
-        label = f"'{self._current_word_name}'" if getattr(self, '_current_word_name', None) else f"word {self.current_word}"
-        self.message = f"Word {self.current_word}/{self.total_words} ({label}): Synthesizing audio..."
+        self.message = f"{self._word_prefix()}: Synthesizing audio..."
         db.session.flush()
 
     def update_segment(self, segment_number, total_segments, voice_type):
         """Called when synthesizing each audio segment."""
         self.current_step = segment_number
         self.total_steps = total_segments
-        label = f"'{self._current_word_name}'" if getattr(self, '_current_word_name', None) else f"word {self.current_word}"
-        self.message = f"Word {self.current_word}/{self.total_words} ({label}): Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
+        self.message = f"{self._word_prefix()}: Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
         db.session.flush()
 
     def update_combining(self):
         """Called when combining audio segments."""
         self.status = "combining_audio"
-        label = f"'{self._current_word_name}'" if getattr(self, '_current_word_name', None) else f"word {self.current_word}"
-        self.message = f"Word {self.current_word}/{self.total_words} ({label}): Combining audio..."
+        self.message = f"{self._word_prefix()}: Combining audio..."
         db.session.flush()
 
     def mark_done(self):

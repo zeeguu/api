@@ -46,7 +46,7 @@ class AudioLessonMeaning(db.Model):
         duration_seconds=None,
         teacher_language=None,
     ):
-        self.meaning = meaning
+        self.meaning_id = meaning.id
         self.script = script
         self.created_by = created_by
         self.difficulty_level = difficulty_level
