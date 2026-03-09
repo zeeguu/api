@@ -307,4 +307,10 @@ def get_audio_lesson_generation_progress():
     if not progress:
         return json_result({"progress": None})
 
+    # Detect stuck generations (e.g., server restarted mid-generation)
+    from datetime import datetime, timedelta
+    if progress.updated_at and datetime.utcnow() - progress.updated_at > timedelta(minutes=2):
+        progress.mark_error("Generation appears to have stopped. Please try again.")
+        db.session.commit()
+
     return json_result({"progress": progress.to_dict()})

@@ -66,6 +66,12 @@ class DailyLessonGenerator:
                 f"[prepare_lesson_generation] Found existing lesson {existing_lesson.get('lesson_id')} for today"
             )
             return existing_lesson
+        elif existing_lesson.get("error") and existing_lesson.get("status_code") == 404:
+            # Stale lesson record with missing audio file — delete it so we can regenerate
+            log(
+                f"[generate_daily_lesson_for_user] Found stale lesson with missing audio, deleting..."
+            )
+            self.delete_todays_lesson_for_user(user, timezone_offset)
 
         # Select words for the lesson and get info about unscheduled words
         selected_words, unscheduled_words = self.select_words_for_lesson(
@@ -295,7 +301,7 @@ class DailyLessonGenerator:
 
                 # Update progress for this word
                 if progress:
-                    progress.start_word(idx + 1, total_segments=0)  # Segments counted later
+                    progress.start_word(idx + 1, total_segments=0, word_name=meaning.origin.content)
                     db.session.commit()
 
                 # Generate individual audio lesson meaning
@@ -334,6 +340,9 @@ class DailyLessonGenerator:
 
             except Exception as e:
                 log(f"[generate_daily_lesson] Failed to build daily lesson: {str(e)}")
+                if progress:
+                    progress.mark_error(f"Failed to build daily lesson: {str(e)}")
+                    db.session.commit()
                 db.session.rollback()
                 return {"error": f"Failed to build daily lesson: {str(e)}"}
 
