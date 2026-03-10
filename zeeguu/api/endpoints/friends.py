@@ -7,12 +7,8 @@ from zeeguu.api.utils.json_result import json_result
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.logging import log, debug, warning, critical
 from . import api
-
-# import re
-# from langdetect import detect
-# import json
-# from zeeguu.logging import log
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
@@ -24,7 +20,9 @@ def get_friends():
     Get all friends of current user with flask.g.user_id
     """
     friends = Friend.get_friends(flask.g.user_id)
-    return json_result(_serialize_users(friends))
+    result = _serialize_users(friends)
+    log(f"get_friends: user_id={flask.g.user_id} has {len(result)} friends")
+    return json_result(result)
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +67,7 @@ def send_friend_request():
 
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
         return make_error(status_code, error_message)
 
     try: 
@@ -76,8 +75,10 @@ def send_friend_request():
         response = _serialize_friend_request(friend_request)
         return json_result(response)
     except ValueError as e:
+        log(f"send_friend_request: error sending friend request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
         return make_error(400, str(e))
     except NoResultFound:
+        log(f"send_friend_request: user not found for user_id={receiver_id}")
         return make_error(404, "User not found")
 
 
@@ -95,6 +96,7 @@ def delete_friend_request():
 
     status_code, error = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
+        log(f"delete_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
         return make_error(status_code, error)
 
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
@@ -115,12 +117,14 @@ def accept_friend_request():
     print(f"sender_id: {sender_id}")
     status_code, error = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
+        log(f"accept_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
         return make_error(status_code, error)
 
     friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
     if friendship is None:
+        log(f"accept_friend_request: no friend request found from user_id={sender_id} to user_id={receiver_id}")
         return make_error(404, "No friend request found to accept")
-
+    
     response = _serialize_friendship(friendship)
     return json_result(response)
 
@@ -139,6 +143,7 @@ def reject_friend_request():
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
 
     if status_code >= 400:
+        log(f"reject_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
         return make_error(status_code, error_message)
 
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
@@ -158,9 +163,12 @@ def unfriend():
 
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
+        log(f"unfriend: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
         return make_error(status_code, error_message)
-
+    
+    # Remove the friendship record from the database
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
+    log(f"unfriend: user_id={sender_id} unfriended user_id={receiver_id} - success={is_removed}")
     return json_result({"success": is_removed})
 
 
@@ -179,9 +187,11 @@ def search_by_username(username):
     Search for users with <username> for the current user
     """
     if not username or username.strip() == "":
+        log(f"search_users: empty username search from user_id={flask.g.user_id}")
         return make_error(400, "Username cannot be empty")
     
     result = Friend.search_users(flask.g.user_id, username)
+    log(f"search_users: user_id={flask.g.user_id} searched for username='{username}' and found {len(result)} results")
     return json_result(result)
 
 
