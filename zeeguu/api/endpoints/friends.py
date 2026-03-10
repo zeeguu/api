@@ -169,19 +169,6 @@ def unfriend():
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------  ------
-@api.route("/discover_friends/<username>", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-@requires_session
-def discover_by_username(username):
-    """
-    Search for new friends with <username> of a user by user_id
-    """
-    user_id = flask.g.user_id
-    new_friends = Friend.search_for_new_friends(user_id, username)
-    return json_result(_serialize_users(new_friends))
-
 # ---------------------------------------------------------------------------
 @api.route("/search_users/<username>", methods=["GET"])
 # ---------------------------------------------------------------------------
@@ -197,9 +184,10 @@ def search_by_username(username):
     result = Friend.search_users(flask.g.user_id, username)
     return json_result(result)
 
-# ---------------------------
+
+# ---------------------------------------------------------------------------
 # Helper functions below
-# ---------------------------
+# ---------------------------------------------------------------------------
 
 def _serialize_friend_request(fr: FriendRequest):
     """

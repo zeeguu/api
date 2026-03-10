@@ -25,7 +25,6 @@ def test_accept_friend_request_success(client: LoggedInClient):
 	
 	# User other client to accept friend request
 	accept_fr_response = other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
-	print(accept_fr_response)
 	assert accept_fr_response["friend_request_status"] == "accepted"	
 
 
@@ -132,15 +131,6 @@ def test_unfriend_success(client: LoggedInClient):
     
     # Assert
     assert response.get("success") is True
-
-
-def test_discover_friends(client: LoggedInClient):
-	"""
-	Test discover_friends returns a list.
-	"""
-	response = client.get("/discover_friends/test")
-	assert isinstance(response, list)
-
 
 def test_search_users(client: LoggedInClient):
 	"""
