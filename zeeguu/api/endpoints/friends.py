@@ -39,6 +39,7 @@ def get_friend_requests():
     result = [_serialize_friend_request(req) for req in friendRequest]
     return json_result(result)
 
+# ---------------------------------------------------------------------------
 @api.route("/get_pending_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
