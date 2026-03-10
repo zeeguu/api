@@ -158,7 +158,7 @@ class FriendRequest(db.Model):
                 friendship = Friend.add_friendship(sender_id, receiver_id)
                 return friendship
           except NoResultFound:
-                return None
+                return False
     
     @classmethod
     def reject_friend_request(cls, sender_id: int, receiver_id: int):
@@ -168,4 +168,4 @@ class FriendRequest(db.Model):
                 is_deleted = cls.delete_friend_request(sender_id, receiver_id)
                 return is_deleted
           except NoResultFound:
-                return None
+                return False

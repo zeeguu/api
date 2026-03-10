@@ -5,6 +5,7 @@ from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.api.utils.json_result import json_result
 from sqlalchemy.orm.exc import NoResultFound
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 
@@ -68,16 +69,16 @@ def send_friend_request():
 
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
-        flask.abort(status_code, error_message)
+        return make_error(status_code, error_message)
 
     try: 
         friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
         response = _serialize_friend_request(friend_request)
         return json_result(response)
     except ValueError as e:
-        return flask.abort(400, str(e))
+        return make_error(400, str(e))
     except NoResultFound:
-        return flask.abort(404, "User not found")
+        return make_error(404, "User not found")
 
 
 # ---------------------------------------------------------------------------
@@ -94,10 +95,10 @@ def delete_friend_request():
 
     status_code, error = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
-        return flask.abort(status_code, error)
+        return make_error(status_code, error)
 
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
-    return json_result(str(is_deleted))
+    return json_result({"success": is_deleted})
 
 # ---------------------------------------------------------------------------
 @api.route("/accept_friend_request", methods=["POST"])
@@ -114,11 +115,11 @@ def accept_friend_request():
     print(f"sender_id: {sender_id}")
     status_code, error = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
-        return flask.abort(status_code, error)
+        return make_error(status_code, error)
 
     friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
     if friendship is None:
-        return flask.abort(404, "No friend request found to accept")
+        return make_error(404, "No friend request found to accept")
 
     response = _serialize_friendship(friendship)
     return json_result(response)
@@ -138,10 +139,10 @@ def reject_friend_request():
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
 
     if status_code >= 400:
-        return flask.abort(status_code, error_message)
+        return make_error(status_code, error_message)
 
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
-    return json_result(is_rejected)
+    return json_result({"success": is_rejected})
 
 # ---------------------------------------------------------------------------
 @api.route("/unfriend", methods=["POST"])
@@ -157,10 +158,10 @@ def unfriend():
 
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
-        return flask.abort(status_code, error_message)
+        return make_error(status_code, error_message)
 
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
-    return json_result(str(is_removed))
+    return json_result({"success": is_removed})
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +192,7 @@ def search_by_username(username):
     Search for users with <username> for the current user
     """
     if not username or username.strip() == "":
-        return flask.abort(400, "Username cannot be empty")
+        return make_error(400, "Username cannot be empty")
     
     result = Friend.search_users(flask.g.user_id, username)
     return json_result(result)
@@ -225,7 +226,7 @@ def _serialize_friend_request(fr: FriendRequest):
             "username": fr.receiver.username, # This will be updated to username
             "email": fr.receiver.email, # Is this relevant?
         },
-        "status": fr.status,
+        "friend_request_status": fr.status,
         "created_at": fr.created_at.isoformat() if fr.created_at else None,
         "responded_at": fr.responded_at.isoformat() if fr.responded_at else None,
     }
@@ -236,8 +237,8 @@ def _serialize_friendship(friendship: Friend, status: str = "accepted"):
         "sender_id": friendship.user_id,
         "receiver_id": friendship.friend_id,
         "created_at": friendship.created_at,
-        "status": status,
-    }
+        "friend_request_status": status,
+    }   
 
 def _serialize_user(user: User):
     return {
