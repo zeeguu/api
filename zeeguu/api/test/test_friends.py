@@ -95,7 +95,7 @@ def test_send_friend_request_to_self(client: LoggedInClient):
     from zeeguu.core.model import User
     user = User.find(client.email)
     response = client.post("/send_friend_request", json={"receiver_id": user.id})
-    assert b"cannot send friend request to yourself" in response or "cannot send friend request to yourself" in str(response)
+    assert "cannot send friend request to yourself" in str(response)
 
 def test_get_friend_requests(client: LoggedInClient):
     """
