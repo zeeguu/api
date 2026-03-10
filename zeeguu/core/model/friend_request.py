@@ -139,9 +139,9 @@ class FriendRequest(db.Model):
           """Delete a friend request between sender and receiver."""
           try:
                 fr = db.session.query(cls).filter_by(
-                     sender_id=sender_id,
-                     receiver_id=receiver_id,
-                     status="pending"  # usually only pending requests can be deleted
+                    sender_id=sender_id,
+                    receiver_id=receiver_id,
+                    status="pending"  # usually only pending requests can be deleted
                 ).one()
                 db.session.delete(fr)
                 db.session.commit()
@@ -153,8 +153,11 @@ class FriendRequest(db.Model):
     def accept_friend_request(cls, sender_id: int, receiver_id: int):
         try:
             # Find the pending request
-            cls.delete_friend_request(sender_id, receiver_id)
-            # Optionally create a friendship in your friends table
+            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
+            if not is_deleted:
+                raise None # If the request was not found or could not be deleted, we cannot accept it
+
+            # Create the friendship record in the database
             friendship = Friend.add_friendship(sender_id, receiver_id)
             return friendship
         except NoResultFound:
