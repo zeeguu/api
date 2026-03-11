@@ -27,47 +27,60 @@ class DailyLessonGenerator:
     """Generates daily audio lessons for users."""
 
     def __init__(self):
-        self.voice_synthesizer = VoiceSynthesizer()
-        self.lesson_builder = LessonBuilder()
+        self._voice_synthesizer = None
+        self._lesson_builder = None
 
-    def generate_daily_lesson_for_user(self, user, timezone_offset=0):
+    @property
+    def voice_synthesizer(self):
+        if self._voice_synthesizer is None:
+            self._voice_synthesizer = VoiceSynthesizer()
+        return self._voice_synthesizer
+
+    @property
+    def lesson_builder(self):
+        if self._lesson_builder is None:
+            self._lesson_builder = LessonBuilder()
+        return self._lesson_builder
+
+    def prepare_lesson_generation(self, user, timezone_offset=0):
         """
-        Generate a daily audio lesson for a user with automatic word selection.
-        This is the main entry point for generating lessons from the API.
+        Validate and prepare for lesson generation (synchronous, fast).
+        Returns either an error/existing-lesson dict, or a preparation dict
+        with all info needed to generate in the background.
 
         Args:
             user: The User object to generate a lesson for
             timezone_offset: Client's timezone offset in minutes from UTC
 
         Returns:
-            Dictionary with lesson details or error information
+            Dictionary with either error info, existing lesson, or preparation data
         """
         log(
-            f"[generate_daily_lesson_for_user] Starting for user {user.id} ({user.name}), timezone_offset={timezone_offset}"
+            f"[prepare_lesson_generation] Starting for user {user.id} ({user.name}), timezone_offset={timezone_offset}"
         )
 
         # Check if a lesson already exists for today
-        log(f"[generate_daily_lesson_for_user] Checking for existing lesson today")
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
-            # Return existing lesson instead of generating a new one
             log(
-                f"[generate_daily_lesson_for_user] Found existing lesson {existing_lesson.get('lesson_id')} for today"
+                f"[prepare_lesson_generation] Found existing lesson {existing_lesson.get('lesson_id')} for today"
             )
             return existing_lesson
+        elif existing_lesson.get("error") and existing_lesson.get("status_code") == 404:
+            # Stale lesson record with missing audio file — delete it so we can regenerate
+            log(
+                f"[generate_daily_lesson_for_user] Found stale lesson with missing audio, deleting..."
+            )
+            self.delete_todays_lesson_for_user(user, timezone_offset)
 
         # Select words for the lesson and get info about unscheduled words
-        log(f"[generate_daily_lesson_for_user] Selecting words for lesson")
         selected_words, unscheduled_words = self.select_words_for_lesson(
             user, 3, return_unscheduled_info=True
         )
         log(
-            f"[generate_daily_lesson_for_user] Selected {len(selected_words)} words for lesson"
+            f"[prepare_lesson_generation] Selected {len(selected_words)} words for lesson"
         )
         if len(selected_words) < 2:
-            log(
-                f"[generate_daily_lesson_for_user] Not enough words: {len(selected_words)} < 2"
-            )
             return {
                 "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
                 "available_words": len(selected_words),
@@ -78,16 +91,10 @@ class DailyLessonGenerator:
         origin_language = user.learned_language.code
         translation_language = user.native_language.code
         cefr_level = user.cefr_level_for_learned_language()
-        log(
-            f"[generate_daily_lesson_for_user] User languages: {origin_language}->{translation_language}, CEFR: {cefr_level}"
-        )
 
         # Check if language is supported for audio generation
         from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
         if not is_language_supported_for_audio(origin_language):
-            log(
-                f"[generate_daily_lesson_for_user] Language {origin_language} not supported for audio"
-            )
             return {
                 "error": f"Audio lessons are not yet available for {user.learned_language.name}",
                 "status_code": 400,
@@ -95,9 +102,6 @@ class DailyLessonGenerator:
 
         # Check if native language is supported for teacher voice
         if not is_language_supported_for_audio(translation_language):
-            log(
-                f"[generate_daily_lesson_for_user] Native language {translation_language} not supported for teacher voice"
-            )
             return {
                 "error": f"Audio lessons are not yet available for speakers of {user.native_language.name}",
                 "status_code": 400,
@@ -106,9 +110,6 @@ class DailyLessonGenerator:
         # Check if a generation is already in progress for this user
         active_progress = AudioLessonGenerationProgress.find_active_for_user(user)
         if active_progress:
-            log(
-                f"[generate_daily_lesson_for_user] Generation already in progress for user {user.id}"
-            )
             return {
                 "error": "A lesson is already being generated. Please wait for it to complete.",
                 "in_progress": True,
@@ -121,16 +122,15 @@ class DailyLessonGenerator:
         )
         db.session.commit()  # Commit so frontend can see it immediately
 
-        # Generate the lesson
-        return self.generate_daily_lesson(
-            user=user,
-            selected_words=selected_words,
-            unscheduled_words=unscheduled_words,
-            origin_language=origin_language,
-            translation_language=translation_language,
-            cefr_level=cefr_level,
-            progress=progress,
-        )
+        # Return preparation data for background generation
+        return {
+            "selected_word_ids": [w.id for w in selected_words],
+            "unscheduled_word_ids": [w.id for w in unscheduled_words],
+            "origin_language": origin_language,
+            "translation_language": translation_language,
+            "cefr_level": cefr_level,
+            "progress_id": progress.id,
+        }
 
     def select_words_for_lesson(
         self, user: User, num_words: int = 3, return_unscheduled_info: bool = False
@@ -301,7 +301,7 @@ class DailyLessonGenerator:
 
                 # Update progress for this word
                 if progress:
-                    progress.start_word(idx + 1, total_segments=0)  # Segments counted later
+                    progress.start_word(idx + 1, total_segments=0, word_name=meaning.origin.content)
                     db.session.commit()
 
                 # Generate individual audio lesson meaning
@@ -340,6 +340,9 @@ class DailyLessonGenerator:
 
             except Exception as e:
                 log(f"[generate_daily_lesson] Failed to build daily lesson: {str(e)}")
+                if progress:
+                    progress.mark_error(f"Failed to build daily lesson: {str(e)}")
+                    db.session.commit()
                 db.session.rollback()
                 return {"error": f"Failed to build daily lesson: {str(e)}"}
 
@@ -744,6 +747,9 @@ class DailyLessonGenerator:
 
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
+
+                from zeeguu.core.badges.badge_progress import BadgeCode, increment_badge_progress
+                increment_badge_progress(db.session, BadgeCode.COMPLETED_AUDIO_LESSONS, user.id)
 
             else:
                 return {
