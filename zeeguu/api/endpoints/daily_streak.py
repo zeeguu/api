@@ -14,4 +14,8 @@ from ...core.model.db import db
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
-    return json_result({"daily_streak": user_language.daily_streak or 0})
+    return json_result({
+        "daily_streak": user_language.daily_streak or 0,
+        "max_streak": user_language.max_streak or 0,
+        "max_streak_date": user_language.max_streak_date.strftime("%Y-%m-%d") if user_language.max_streak_date else None,
+    })

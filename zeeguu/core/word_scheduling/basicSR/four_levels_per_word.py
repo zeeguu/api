@@ -1,6 +1,8 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
 from datetime import datetime, timedelta
 
+from ...model import UserWord
+
 MAX_LEVEL = 4
 
 # Minimum delay before a word reappears in exercises.
@@ -61,6 +63,10 @@ class FourLevelsPerWord(BasicSRSchedule):
 
                 else:
                     self.set_meaning_as_learned(db_session)
+                    from zeeguu.core.badges.badge_progress import BadgeCode, increment_badge_progress
+                    user_id = self.user_word.user.id
+                    increment_badge_progress(db_session, BadgeCode.LEARNED_WORDS, user_id)
+                    db_session.commit()
                     # we simply return because the self object will have been deleted inside of the above call
                     return
             else:
