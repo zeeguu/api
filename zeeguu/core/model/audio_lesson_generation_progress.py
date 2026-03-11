@@ -56,38 +56,46 @@ class AudioLessonGenerationProgress(db.Model):
     def __repr__(self):
         return f"<AudioLessonGenerationProgress user={self.user_id} status={self.status}>"
 
-    def start_word(self, word_number, total_segments):
+    def _word_label(self):
+        name = getattr(self, '_current_word_name', None)
+        return f"'{name}'" if name else f"word {self.current_word}"
+
+    def _word_prefix(self):
+        return f"Word {self.current_word}/{self.total_words} ({self._word_label()})"
+
+    def start_word(self, word_number, total_segments, word_name=None):
         """Called when starting to process a new word."""
         self.current_word = word_number
         self.total_steps = total_segments
         self.current_step = 0
         self.status = "generating_script"
-        self.message = f"Generating script for word {word_number} of {self.total_words}..."
+        self._current_word_name = word_name
+        self.message = f"{self._word_prefix()}: Generating script..."
         db.session.flush()
 
     def update_generating_script(self):
         """Called when starting to generate the script for current word."""
         self.status = "generating_script"
-        self.message = f"Word {self.current_word}/{self.total_words}: Generating script..."
+        self.message = f"{self._word_prefix()}: Generating script..."
         db.session.flush()
 
     def update_script_done(self):
         """Called when script generation is complete."""
         self.status = "synthesizing_audio"
-        self.message = f"Script ready, synthesizing audio..."
+        self.message = f"{self._word_prefix()}: Synthesizing audio..."
         db.session.flush()
 
     def update_segment(self, segment_number, total_segments, voice_type):
         """Called when synthesizing each audio segment."""
         self.current_step = segment_number
         self.total_steps = total_segments
-        self.message = f"Word {self.current_word}/{self.total_words}: Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
+        self.message = f"{self._word_prefix()}: Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
         db.session.flush()
 
     def update_combining(self):
         """Called when combining audio segments."""
         self.status = "combining_audio"
-        self.message = f"Word {self.current_word}/{self.total_words}: Combining audio..."
+        self.message = f"{self._word_prefix()}: Combining audio..."
         db.session.flush()
 
     def mark_done(self):
