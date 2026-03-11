@@ -11,7 +11,7 @@ from . import api, db_session
 
 
 # ---------------------------------------------------------------------------
-@api.route("/count_not_shown_badges", methods=["GET"])
+@api.route("/badges/count_not_shown", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
@@ -24,7 +24,7 @@ def get_not_shown_user_badge_levels():
 
 
 # ---------------------------------------------------------------------------
-@api.route("/get_user_badges", methods=["GET"])
+@api.route("/badges", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
@@ -65,7 +65,7 @@ def get_badges_for_user():
     return json_result(result)
 
 # ---------------------------------------------------------------------------
-@api.route("/update_not_shown_badges", methods=["POST"])
+@api.route("/badges/update_not_shown", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
