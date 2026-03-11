@@ -1,6 +1,6 @@
 -- tools/migrations/26-02-28--insert_default_badge.sql
 
-INSERT INTO badge (id, code, name, description, is_hidden)
+INSERT INTO badge (id, code, name, description)
 VALUES
         (1, 'TRANSLATED_WORDS', 'Meaning Builder', 'Translate {target_value} unique words while reading.'),
         (2, 'CORRECT_EXERCISES', 'Practice Builder', 'Solve {target_value} exercises correctly.'),
