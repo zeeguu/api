@@ -1,10 +1,73 @@
 import flask
 
+from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-from zeeguu.core.model import User, AudioLessonGenerationProgress
+from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
+from zeeguu.logging import log
 from . import api
+
+
+def _generate_lesson_in_background(user_id, preparation):
+    """
+    Run lesson generation in a background thread (called via run_in_background).
+
+    The `preparation` dict contains everything needed to generate the lesson,
+    passed as IDs rather than ORM objects since this runs in a separate DB session.
+    Example:
+        {
+            "selected_word_ids": [42, 73, 91],
+            "unscheduled_word_ids": [91],
+            "origin_language": "nl",
+            "translation_language": "en",
+            "cefr_level": "B1",
+            "progress_id": 5,
+        }
+    """
+    progress = None
+    try:
+        # Re-fetch ORM objects by ID since we're in a new DB session
+        user = User.find_by_id(user_id)
+        progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
+
+        # Either could be None if deleted between request and background execution
+        # (e.g., user deleted their account, or DB was cleaned up)
+        if not user or not progress:
+            log(f"[background_generate] User or progress record not found for user {user_id}")
+            return
+
+        selected_words = UserWord.query.filter(
+            UserWord.id.in_(preparation["selected_word_ids"])
+        ).all()
+        # .in_() doesn't preserve order, so re-sort to match the original selection
+        word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
+        selected_words.sort(key=lambda w: word_order.get(w.id, 0))
+
+        unscheduled_words = UserWord.query.filter(
+            UserWord.id.in_(preparation["unscheduled_word_ids"])
+        ).all() if preparation["unscheduled_word_ids"] else []
+
+        generator = DailyLessonGenerator()
+        generator.generate_daily_lesson(
+            user=user,
+            selected_words=selected_words,
+            unscheduled_words=unscheduled_words,
+            origin_language=preparation["origin_language"],
+            translation_language=preparation["translation_language"],
+            cefr_level=preparation["cefr_level"],
+            progress=progress,
+        )
+    except Exception as e:
+        log(f"[background_generate] Error for user {user_id}: {e}")
+        try:
+            if not progress:
+                progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
+            if progress:
+                progress.mark_error(str(e))
+                db.session.commit()
+        except Exception:
+            pass
 
 
 @api.route("/generate_daily_lesson", methods=["POST"])
@@ -13,8 +76,8 @@ from . import api
 def generate_daily_lesson():
     """
     Generate a daily audio lesson for the current user.
-    Selects 3 most important words that are currently being learned
-    and haven't been in previous lessons.
+    Validates synchronously, then starts generation in a background thread.
+    Returns 202 immediately; use the progress endpoint to track generation.
 
     Form data:
     - timezone_offset (optional): Client's timezone offset in minutes from UTC
@@ -25,12 +88,24 @@ def generate_daily_lesson():
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
 
-    result = generator.generate_daily_lesson_for_user(user, timezone_offset)
+    result = generator.prepare_lesson_generation(user, timezone_offset)
 
-    # Check if there's a specific status code to return
-    status_code = result.pop("status_code", 200 if "error" not in result else 400)
+    # Existing lesson found — return it directly
+    if result.get("lesson_id"):
+        return json_result(result), 200
 
-    return json_result(result), status_code
+    # Validation error — return it
+    if result.get("error"):
+        status_code = result.pop("status_code", 400)
+        return json_result(result), status_code
+
+    # Validation passed (has selected_word_ids) — kick off generation in background
+    if "selected_word_ids" not in result:
+        return json_result({"error": "Unexpected preparation result"}), 500
+
+    run_in_background(_generate_lesson_in_background, user.id, result)
+
+    return json_result({"status": "generating", "message": "Lesson generation started"}), 202
 
 
 @api.route("/get_daily_lesson", methods=["GET"])
@@ -248,5 +323,11 @@ def get_audio_lesson_generation_progress():
 
     if not progress:
         return json_result({"progress": None})
+
+    # Detect stuck generations (e.g., server restarted mid-generation)
+    from datetime import datetime, timedelta
+    if progress.updated_at and datetime.utcnow() - progress.updated_at > timedelta(minutes=2):
+        progress.mark_error("Generation appears to have stopped. Please try again.")
+        db.session.commit()
 
     return json_result({"progress": progress.to_dict()})
