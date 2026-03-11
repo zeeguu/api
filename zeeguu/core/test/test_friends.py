@@ -24,6 +24,48 @@ class FriendTest(ModelTestMixIn):
       session.add(user_language)
       session.commit()
 
+   def test_update_friend_streak_multiple_friends(self):
+      from zeeguu.core.model.language import Language
+      from zeeguu.core.model.user_language import UserLanguage
+      from zeeguu.core.model.friend import Friend
+
+      # Create a language
+      lang = Language.find_or_create("en")
+
+      # Create three users
+      user1 = self.user
+      user2 = UserRule().user
+      user3 = UserRule().user
+
+      # Set up friendships: user1 ↔ user2, user1 ↔ user3
+      friendship1 = Friend(user_id=user1.id, friend_id=user2.id)
+      friendship2 = Friend(user_id=user1.id, friend_id=user3.id)
+      session.add(friendship1)
+      session.add(friendship2)
+      session.commit()
+
+      # Practice today for user1, user2, user3
+      now = datetime.now()
+      ul1 = UserLanguage.find_or_create(session, user1, lang)
+      ul2 = UserLanguage.find_or_create(session, user2, lang)
+      ul3 = UserLanguage.find_or_create(session, user3, lang)
+      ul1.last_practiced = now
+      ul2.last_practiced = now
+      ul3.last_practiced = now
+      session.add(ul1)
+      session.add(ul2)
+      session.add(ul3)
+      session.commit()
+
+      # Update streak for user1 (should update both friendships)
+      ul1.update_streak_if_needed(user1, session)
+
+      # Refresh friendships from DB
+      session.refresh(friendship1)
+      session.refresh(friendship2)
+
+      assert friendship1.friend_streak == 1
+      assert friendship2.friend_streak == 1
    def test_update_friend_streak_resets_to_one_without_user_languages(self):
       self.friendship.friend_streak = 7
       session.add(self.friendship)

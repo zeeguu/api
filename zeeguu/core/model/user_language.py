@@ -155,13 +155,14 @@ class UserLanguage(db.Model):
             )
             update_badge_progress(db.session, BadgeCode.STREAK_COUNT, user.id, daily_streak_badge_progress)
 
-            # Update friend streaks for all friendships
-            from zeeguu.core.model.friend import Friend
-            friendships : list[Friend] = Friend.query.filter(
-                (Friend.user_id == user.id) | (Friend.friend_id == user.id)
-            ).all()
-            for friendship in friendships:
-                friendship.update_friend_streak()
+        # Update friend streaks for all friendships even if the user's own
+        # daily streak does not change (e.g. repeated practice on same day).
+        from zeeguu.core.model.friend import Friend
+        friendships: list[Friend] = Friend.query.filter(
+            (Friend.user_id == user.id) | (Friend.friend_id == user.id)
+        ).all()
+        for friendship in friendships:
+            friendship.update_friend_streak()
 
     def reset_streak_if_broken(self, session=None):
         """
