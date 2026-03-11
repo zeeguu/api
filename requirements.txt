@@ -28,7 +28,6 @@ SQLAlchemy>=2.0
 Flask>=3.0.0
 Werkzeug>=3.0.6
 flask_sqlalchemy>=3.0
-Flask-Assets
 flask_cors
 flask_monitoringdashboard
 Flask-Limiter>=3.0.0  # Rate limiting for security
@@ -59,7 +58,6 @@ feedparser
 markdown2
 
 # Language processing utilities
-jieba3k
 langdetect
 rapidfuzz
 pyphen
@@ -73,24 +71,22 @@ anthropic>=0.40.0
 # Utilities
 markupsafe
 blinker
-deprecated
 Faker
 human-readable
 jinja2
 tqdm
-sortedcontainers
 simhash
 timeago
 yagmail
 google
-wheel
 emoji
 youtube_transcript_api
 pydub
 Pillow
 cryptography
 bcrypt>=4.0.0
-protobuf
+deprecated  # transitive dep of limits (Flask-Limiter) not declared in its deps
+protobuf  # transitive dep of google-cloud-texttospeech not declared in its deps
 
 # Monitoring
 sentry-sdk[flask]
