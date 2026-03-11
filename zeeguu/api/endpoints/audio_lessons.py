@@ -10,12 +10,29 @@ from . import api
 
 
 def _generate_lesson_in_background(user_id, preparation):
-    """Run lesson generation (called via run_in_background)."""
+    """
+    Run lesson generation in a background thread (called via run_in_background).
+
+    The `preparation` dict contains everything needed to generate the lesson,
+    passed as IDs rather than ORM objects since this runs in a separate DB session.
+    Example:
+        {
+            "selected_word_ids": [42, 73, 91],
+            "unscheduled_word_ids": [91],
+            "origin_language": "nl",
+            "translation_language": "en",
+            "cefr_level": "B1",
+            "progress_id": 5,
+        }
+    """
     progress = None
     try:
+        # Re-fetch ORM objects by ID since we're in a new DB session
         user = User.find_by_id(user_id)
         progress = AudioLessonGenerationProgress.query.get(preparation["progress_id"])
 
+        # Either could be None if deleted between request and background execution
+        # (e.g., user deleted their account, or DB was cleaned up)
         if not user or not progress:
             log(f"[background_generate] User or progress record not found for user {user_id}")
             return
@@ -23,7 +40,7 @@ def _generate_lesson_in_background(user_id, preparation):
         selected_words = UserWord.query.filter(
             UserWord.id.in_(preparation["selected_word_ids"])
         ).all()
-        # Preserve the original ordering
+        # .in_() doesn't preserve order, so re-sort to match the original selection
         word_order = {wid: i for i, wid in enumerate(preparation["selected_word_ids"])}
         selected_words.sort(key=lambda w: word_order.get(w.id, 0))
 
