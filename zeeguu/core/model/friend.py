@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func, or_
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class Friend(db.Model):
         
@@ -22,7 +22,6 @@ class Friend(db.Model):
         Requires UserLanguage.last_practiced for both users.
         """
         from zeeguu.core.model.user_language import UserLanguage
-        now = func.now()
         user_lang = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).first()
         friend_lang = UserLanguage.query.filter(UserLanguage.user_id == self.friend_id).first()
         if not user_lang or not friend_lang:
@@ -38,7 +37,7 @@ class Friend(db.Model):
         # Both practiced today
         if user_date == today and friend_date == today:
             # Check if yesterday was also a streak day
-            yesterday = today - datetime.timedelta(days=1)
+            yesterday = today - timedelta(days=1)
             if user_date == yesterday and friend_date == yesterday:
                 self.friend_streak = (self.friend_streak or 0) + 1
             else:
