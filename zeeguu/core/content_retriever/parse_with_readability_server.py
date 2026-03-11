@@ -6,6 +6,7 @@ import requests
 
 from zeeguu.core.content_retriever.crawler_exceptions import (
     FailedToParseWithReadabilityServer,
+    SkippedForLowQuality,
 )
 
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
@@ -49,7 +50,13 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
             raise
 
     log(f"   Parsing HTML with newspaper...")
-    np_article.parse()
+    try:
+        np_article.parse()
+    except ValueError as e:
+        # lxml raises ValueError for content with invalid control characters
+        # e.g., "All strings must be XML compatible: Unicode or ASCII, no NULL bytes or control characters"
+        log(f"   ✗ Newspaper parse failed (invalid characters): {e}")
+        raise SkippedForLowQuality(f"Article contains invalid characters: {e}")
     log(f"   ✓ Parsed ({len(np_article.text)} chars)")
 
     # Call readability server - always use POST with the HTML we already fetched
