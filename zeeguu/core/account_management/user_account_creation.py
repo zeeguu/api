@@ -59,7 +59,6 @@ def create_account(
 
         learned_language = Language.find_or_create(learned_language_code)
         native_language = Language.find_or_create(native_language_code)
-
         new_user = User(
             email,
             username,
