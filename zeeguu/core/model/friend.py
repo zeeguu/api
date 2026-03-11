@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 class Friend(db.Model):
         
@@ -18,22 +18,36 @@ class Friend(db.Model):
     
     def update_friend_streak(self):
         """
-        Update friend_streak if both users practiced today or on consecutive days.
-        Requires UserLanguage.last_practiced for both users.
+        Update friend_streak based on both users' most recent practice in any language.
+        Uses the latest last_practiced date across all UserLanguage records for each user.
         """
         from zeeguu.core.model.user_language import UserLanguage
-        user_lang = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).first()
-        friend_lang = UserLanguage.query.filter(UserLanguage.user_id == self.friend_id).first()
-        if not user_lang or not friend_lang:
+        from zeeguu.core.model.user import User
+        user = User.query.get(self.user_id)
+        friend = User.query.get(self.friend_id)
+        if not user or not friend:
             self.friend_streak = 0
             if db.session:
                 db.session.add(self)
                 db.session.commit()
             return
-        
-        user_date = user_lang.last_practiced.date() if user_lang.last_practiced else None
-        friend_date = friend_lang.last_practiced.date() if friend_lang.last_practiced else None
-        today = datetime.now().date()
+
+        # Get all UserLanguage records for each user
+        user_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).all()
+        friend_langs = UserLanguage.query.filter(UserLanguage.user_id == self.friend_id).all()
+
+        # Find the most recent last_practiced date for each user
+        user_date = None
+        friend_date = None
+        if user_langs:
+            user_date = max((ul.last_practiced for ul in user_langs if ul.last_practiced), default=None)
+        if friend_langs:
+            friend_date = max((ul.last_practiced for ul in friend_langs if ul.last_practiced), default=None)
+
+        user_date = user_date.date() if user_date else None
+        friend_date = friend_date.date() if friend_date else None
+        today = datetime.now(UTC).date() # TODO: Use utc here?
+
         # Both practiced today
         if user_date == today and friend_date == today:
             # Check if yesterday was also a streak day
@@ -44,6 +58,7 @@ class Friend(db.Model):
                 self.friend_streak = 1
         else:
             self.friend_streak = 1
+
         if db.session:
             db.session.add(self)
             db.session.commit()
