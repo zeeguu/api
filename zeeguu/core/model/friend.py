@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func, or_
 from sqlalchemy.orm import relationship
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
-
+from datetime import datetime
 
 class Friend(db.Model):
         
@@ -13,6 +13,41 @@ class Friend(db.Model):
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
+    friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
+    
+    
+    def update_friend_streak(self):
+        """
+        Update friend_streak if both users practiced today or on consecutive days.
+        Requires UserLanguage.last_practiced for both users.
+        """
+        from zeeguu.core.model.user_language import UserLanguage
+        now = func.now()
+        user_lang = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).first()
+        friend_lang = UserLanguage.query.filter(UserLanguage.user_id == self.friend_id).first()
+        if not user_lang or not friend_lang:
+            self.friend_streak = 0
+            if db.session:
+                db.session.add(self)
+                db.session.commit()
+            return
+        
+        user_date = user_lang.last_practiced.date() if user_lang.last_practiced else None
+        friend_date = friend_lang.last_practiced.date() if friend_lang.last_practiced else None
+        today = datetime.now().date()
+        # Both practiced today
+        if user_date == today and friend_date == today:
+            # Check if yesterday was also a streak day
+            yesterday = today - datetime.timedelta(days=1)
+            if user_date == yesterday and friend_date == yesterday:
+                self.friend_streak = (self.friend_streak or 0) + 1
+            else:
+                self.friend_streak = 1
+        else:
+            self.friend_streak = 1
+        if db.session:
+            db.session.add(self)
+            db.session.commit()
 
     # Explicit relationships with primaryjoin
     user = relationship(
