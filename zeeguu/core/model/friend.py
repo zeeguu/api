@@ -89,7 +89,40 @@ class Friend(db.Model):
             .all()
         )
         return friends
-   
+
+    @staticmethod
+    def get_friends_with_friendship(user_id: int):
+        """Return combined friend user + friendship data for the given user."""
+        friendships : list[Friend] = Friend.query.filter(
+            (Friend.user_id == user_id) | (Friend.friend_id == user_id)
+        ).all()
+
+        if not friendships:
+            return []
+
+        other_user_ids = [
+            friendship.friend_id if friendship.user_id == user_id else friendship.user_id
+            for friendship in friendships
+        ]
+
+        users = User.query.filter(User.id.in_(other_user_ids)).all()
+        users_by_id = {user.id: user for user in users}
+
+        result = []
+        for friendship in friendships:
+
+            if friendship.user_id == user_id: 
+                other_user_id = friendship.friend_id 
+            else:
+                other_user_id = friendship.user_id
+
+            friend_user = users_by_id.get(other_user_id)
+            if not friend_user:
+                continue
+            result.append({"user": friend_user, "friendship": friendship})
+
+        return result
+    
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
         # Look for friendship in either direction

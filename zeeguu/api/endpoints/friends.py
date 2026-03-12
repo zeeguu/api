@@ -19,12 +19,17 @@ def get_friends():
     """
     Get all friends of current user with flask.g.user_id
     """
-    friends = Friend.get_friends(flask.g.user_id)
-    result = _serialize_users(friends)
+    friends_with_friendships = Friend.get_friends_with_friendship(flask.g.user_id)
+    result = [
+        {
+            "user": _serialize_user(entry["user"]),
+            "friendship": _serialize_friendship(entry["friendship"])
+        }
+
+        for entry in friends_with_friendships
+    ]
     log(f"get_friends: user_id={flask.g.user_id} has {len(result)} friends")
     return json_result(result)
-
-
 # ---------------------------------------------------------------------------
 @api.route("/get_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
