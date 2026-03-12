@@ -196,6 +196,7 @@ class User(db.Model):
             requires_email_verification=requires_email_verification,
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
+            created_at=self.created_at,
         )
 
         for each in UserLanguage.query.filter_by(user=self):
