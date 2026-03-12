@@ -47,7 +47,7 @@ class Friend(db.Model):
 
         user_date = user_date.date() if user_date else None
         friend_date = friend_date.date() if friend_date else None
-        today = datetime.now(UTC).date()
+        today = datetime.now().date()
         yesterday = today - timedelta(days=1)
         last_updated_date = (
             self.friend_streak_last_updated.date()
@@ -62,14 +62,14 @@ class Friend(db.Model):
                     self.friend_streak = (self.friend_streak or 0) + 1
                 else:
                     self.friend_streak = 1
-                self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
+                self.friend_streak_last_updated = datetime.now()
         # Do not reset if one side has never practiced yet.
         elif user_date is None or friend_date is None:
             pass
         # Reset only when at least one side has not practiced since before yesterday.
         elif user_date < yesterday or friend_date < yesterday:
             self.friend_streak = 0
-            self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
+            self.friend_streak_last_updated = datetime.now()
 
         if db.session:
             db.session.add(self)
