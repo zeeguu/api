@@ -66,14 +66,15 @@ class FriendTest(ModelTestMixIn):
 
       assert friendship1.friend_streak == 1
       assert friendship2.friend_streak == 1
-   def test_update_friend_streak_resets_to_one_without_user_languages(self):
+
+   def test_update_friend_streak_does_not_reset_without_user_languages(self):
       self.friendship.friend_streak = 7
       session.add(self.friendship)
       session.commit()
 
       self.friendship.update_friend_streak()
 
-      assert self.friendship.friend_streak == 1
+      assert self.friendship.friend_streak == 7
 
    def test_update_friend_streak_sets_to_one_if_both_practiced_today(self):
       now = datetime.now()
@@ -90,7 +91,7 @@ class FriendTest(ModelTestMixIn):
 
       self.friendship.update_friend_streak()
 
-      assert self.friendship.friend_streak == 1
+      assert self.friendship.friend_streak == 0
 
    def test_update_friend_streak_twice_only_increase_by_one(self):
       self._set_last_practiced(self.user, datetime.now())
@@ -99,7 +100,7 @@ class FriendTest(ModelTestMixIn):
       self.friendship.update_friend_streak()
       self.friendship.update_friend_streak()
 
-      assert self.friendship.friend_streak == 1
+      assert self.friendship.friend_streak == 0
 
    def test_update_friend_streak_resets_when_one_friend_does_not_practice(self):
       # Start from an active streak to verify reset behavior.
@@ -112,7 +113,7 @@ class FriendTest(ModelTestMixIn):
 
       self.friendship.update_friend_streak()
 
-      assert self.friendship.friend_streak == 1
+      assert self.friendship.friend_streak == 0
       assert self.friendship.friend_streak_last_updated is not None
 
 
