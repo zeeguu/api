@@ -63,9 +63,12 @@ class Friend(db.Model):
                 else:
                     self.friend_streak = 1
                 self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
-        else:
-            # Keep previous behavior: non-matching activity yields baseline streak.
-            self.friend_streak = 1
+        # Do not reset if one side has never practiced yet.
+        elif user_date is None or friend_date is None:
+            pass
+        # Reset only when at least one side has not practiced since before yesterday.
+        elif user_date < yesterday or friend_date < yesterday:
+            self.friend_streak = 0
             self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
 
         if db.session:
