@@ -293,50 +293,20 @@ class Meaning(db.Model):
         """
         Classify meaning frequency and phrase type asynchronously.
         """
-        import threading
-        from zeeguu.core.model.meaning_frequency_classifier import (
-            MeaningFrequencyClassifier,
-        )
+        from zeeguu.api.utils.background import run_in_background
 
-        def classify_in_background():
-            try:
+        def classify(mid):
+            from zeeguu.core.model import db
+            from zeeguu.core.model.meaning_frequency_classifier import (
+                MeaningFrequencyClassifier,
+            )
 
-                # Import Flask app to create proper application context
-                import zeeguu.core
+            meaning = db.session.query(cls).get(mid)
+            if meaning and (not meaning.frequency or not meaning.phrase_type):
+                classifier = MeaningFrequencyClassifier()
+                classifier.classify_and_update_meaning(meaning, db.session)
 
-                app = zeeguu.core.app
-
-                # Create application context for this thread
-                with app.app_context():
-
-                    # Import db within the app context
-                    from zeeguu.core.model import db
-
-                    # Get meaning using the thread-safe session
-                    meaning = db.session.query(cls).get(meaning_id)
-
-                    if meaning and (not meaning.frequency or not meaning.phrase_type):
-                        try:
-                            classifier = MeaningFrequencyClassifier()
-                            classifier.classify_and_update_meaning(meaning, db.session)
-                        except ValueError as ve:
-                            log(
-                                f"Classification disabled for meaning {meaning_id}: {str(ve)}"
-                            )
-                        except Exception as ce:
-                            log(
-                                f"Classification failed for meaning {meaning_id}: {str(ce)}"
-                            )
-                    else:
-                        pass  # Meaning already classified or not found
-
-            except Exception as e:
-                log(f"Error classifying meaning {meaning_id} in background: {str(e)}")
-
-        # Start background thread
-        thread = threading.Thread(target=classify_in_background)
-        thread.daemon = True  # Thread will die when main program exits
-        thread.start()
+        run_in_background(classify, meaning_id)
 
     @classmethod
     def exists(cls, origin, translation):

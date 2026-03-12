@@ -44,6 +44,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     name = db.Column(db.String(255))
+    username = db.Column(db.String(50), unique=True, index=True)
     invitation_code = db.Column(db.String(255))
     password = db.Column(db.String(255))
     password_salt = db.Column(db.String(255))
@@ -67,6 +68,7 @@ class User(db.Model):
         email,
         name,
         password,
+        username=None,
         learned_language=None,
         native_language=None,
         invitation_code=None,
@@ -75,8 +77,9 @@ class User(db.Model):
     ):
         from datetime import datetime
 
-        self.email = email
-        self.name = name
+        self.email = email 
+        self.name = name # The name of the user
+        self.username = username or self.generate_username() # Username is custom name to display in UI
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -84,6 +87,36 @@ class User(db.Model):
         self.is_dev = is_dev
         self.created_at = datetime.now()
         self.creation_platform = creation_platform
+
+    ADJECTIVES = [
+        "brave", "clever", "curious", "silent", "rapid",
+        "happy", "bright", "playful", "bold", "calm",
+        "gentle", "keen", "witty", "daring", "serene",
+        "lively", "mighty", "patient", "vivid", "wise"
+    ]
+
+    NOUNS = [
+        "otter", "falcon", "wolf", "fox", "owl", "panther",
+        "lion", "tiger", "bear", "eagle", "rabbit", "deer",
+        "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
+    ]
+
+    MAX_NUMBER_USERNAME = 9999
+
+    @classmethod
+    def generate_username(cls):
+        """
+        :summary:
+
+        Generate a random username in the format 'adjective_noun1234'  
+        Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames
+        
+        :return: A string username
+        """
+        adjective = random.choice(cls.ADJECTIVES)
+        noun = random.choice(cls.NOUNS)
+        number = random.randint(1, cls.MAX_NUMBER_USERNAME)
+        return f"{adjective}_{noun}{number}"
 
     @classmethod
     def create_anonymous(
@@ -402,19 +435,12 @@ class User(db.Model):
     def update_last_seen_if_needed(self, session=None):
         """
         Update last_seen timestamp, but only once per day to minimize database writes.
-        Also maintains the daily_streak counter.
+        Note: daily_streak is now tracked per-language in UserLanguage model.
         """
         now = datetime.datetime.now()
 
         # Only update if last_seen is None or it's a different day
         if not self.last_seen or self.last_seen.date() < now.date():
-            if not self.last_seen:
-                self.daily_streak = 1
-            elif self.last_seen.date() == now.date() - datetime.timedelta(days=1):
-                self.daily_streak = (self.daily_streak or 0) + 1
-            else:
-                self.daily_streak = 1
-
             self.last_seen = now
             if session:
                 session.add(self)
