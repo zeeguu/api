@@ -187,28 +187,51 @@ class Friend(db.Model):
                 ((FriendRequest.sender_id == user.id) & (FriendRequest.receiver_id == current_user_id))
             ).order_by(FriendRequest.created_at.desc()).first()
 
+            
+            friendship_or_friend_request = Friend._get_friendship_or_friendrequest(
+                friendship,
+                friend_request)
+            
             results.append({
                 "user": {
                     "id": user.id,
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
+                    "friendship": friendship_or_friend_request,
                 },
-                "friendship": {
-                    "id": friendship.id if friendship else None,
-                    "created_at": friendship.created_at.isoformat() if friendship and friendship.created_at else None,
-                } if friendship else None,
-                "friend_request": {
-                    "id": friend_request.id if friend_request else None,
-                    "sender_id": friend_request.sender_id if friend_request else None,
-                    "receiver_id": friend_request.receiver_id if friend_request else None,
-                    "status": friend_request.status if friend_request else None,
-                    "created_at": friend_request.created_at.isoformat() if friend_request and friend_request.created_at else None,
-                } if friend_request else None
             })
         return results
-
-
+    @staticmethod
+    def _get_friendship_or_friendrequest(friendship, friend_request):
+        
+        if friendship:
+            return {
+                "id": friendship.id,
+                "friend_streak": friendship.friend_streak,
+                "friend_streak_last_updated": (
+                    friendship.friend_streak_last_updated.isoformat()
+                    if friendship.friend_streak_last_updated
+                    else None
+                ),
+                "friend_request_status": "accepted",
+                "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
+            }
+        elif friend_request:
+            return {
+                "id": friend_request.id,
+                "sender_id": friend_request.sender_id, # TODO: Are these nessesary
+                "receiver_id": friend_request.receiver_id, # TODO: are these nesessary
+                "friend_streak": 0,
+                "friend_streak_last_updated": None,
+                "friend_request_status": friend_request.status,
+                "created_at": (
+                    friend_request.created_at.isoformat()
+                    if friend_request.created_at
+                    else None
+                ),
+            }
+        
     def add_friendship(user_id: int, friend_id: int):
         """
         Adds a friendship between two users using SQLAlchemy ORM.

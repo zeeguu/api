@@ -21,15 +21,17 @@ def get_friends():
     """
     friends_with_friendships = Friend.get_friends_with_friendship(flask.g.user_id)
     result = [
-        {
-            "user": _serialize_user(entry["user"]),
-            "friendship": _serialize_friendship(entry["friendship"])
-        }
-
+        _serialize_user_with_friendship(entry["user"], entry["friendship"])
         for entry in friends_with_friendships
     ]
     log(f"get_friends: user_id={flask.g.user_id} has {len(result)} friends")
     return json_result(result)
+
+def _serialize_user_with_friendship(user, friendship):
+    user_data = _serialize_user(user)
+    user_data["friendship"] = _serialize_friendship(friendship)
+    return user_data
+
 # ---------------------------------------------------------------------------
 @api.route("/get_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
