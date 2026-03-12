@@ -101,6 +101,20 @@ class FriendTest(ModelTestMixIn):
 
       assert self.friendship.friend_streak == 1
 
+   def test_update_friend_streak_resets_when_one_friend_does_not_practice(self):
+      # Start from an active streak to verify reset behavior.
+      self.friendship.friend_streak = 4
+      session.add(self.friendship)
+      session.commit()
+
+      self._set_last_practiced(self.user, datetime.now())
+      self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=2))
+
+      self.friendship.update_friend_streak()
+
+      assert self.friendship.friend_streak == 1
+      assert self.friendship.friend_streak_last_updated is not None
+
 
    def test_update_friend_streak_uses_learned_language(self):
       # Setup: user and friend each have two languages, but only learned_language should count

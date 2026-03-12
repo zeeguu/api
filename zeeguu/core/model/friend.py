@@ -14,6 +14,7 @@ class Friend(db.Model):
     friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
+    friend_streak_last_updated = Column(DateTime, nullable=True)
     
     
     def update_friend_streak(self):
@@ -46,18 +47,26 @@ class Friend(db.Model):
 
         user_date = user_date.date() if user_date else None
         friend_date = friend_date.date() if friend_date else None
-        today = datetime.now(UTC).date() # TODO: Use utc here?
+        today = datetime.now(UTC).date()
+        yesterday = today - timedelta(days=1)
+        last_updated_date = (
+            self.friend_streak_last_updated.date()
+            if self.friend_streak_last_updated
+            else None
+        )
 
-        # Both practiced today
+        # If both practiced today, update at most once per day.
         if user_date == today and friend_date == today:
-            # Check if yesterday was also a streak day
-            yesterday = today - timedelta(days=1)
-            if user_date == yesterday and friend_date == yesterday:
-                self.friend_streak = (self.friend_streak or 0) + 1
-            else:
-                self.friend_streak = 1
+            if last_updated_date != today:
+                if last_updated_date == yesterday and (self.friend_streak or 0) > 0:
+                    self.friend_streak = (self.friend_streak or 0) + 1
+                else:
+                    self.friend_streak = 1
+                self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
         else:
+            # Keep previous behavior: non-matching activity yields baseline streak.
             self.friend_streak = 1
+            self.friend_streak_last_updated = datetime.now(UTC).replace(tzinfo=None)
 
         if db.session:
             db.session.add(self)
