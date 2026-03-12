@@ -181,6 +181,20 @@ def get_user_details():
 
     return json_result(details_dict)
 
+@api.route("/get_user_details/<int:friend_user_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_friend_details(friend_user_id):
+    """
+    Return user details for a friend, if the requester is actually friends with them.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    from zeeguu.core.model.friend import Friend
+    friend_details = Friend.find_friend_details(user.id, friend_user_id)
+    if not friend_details:
+        return flask.jsonify({"error": "Not friends with this user or user not found."})
+    return json_result(friend_details)
+
 
 @api.route("/user_settings", methods=["POST"])
 @cross_domain

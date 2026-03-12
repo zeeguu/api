@@ -5,7 +5,6 @@ from zeeguu.core.model.user import User  # assuming you have a User model
 from datetime import datetime, timedelta, UTC
 
 class Friend(db.Model):
-        
     __tablename__ = "friends"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -146,7 +145,26 @@ class Friend(db.Model):
             return True
         
         return False
-
+    
+    @classmethod
+    def find_friend_details(cls, user_id: int, friend_user_id: int):
+        """
+        Return details_as_dictionary for friend_user_id if user_id and friend_user_id are friends.
+        Returns None if not friends or user not found.
+        """
+        friendship = cls.query.filter(
+            ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
+            ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
+        ).first()
+        if not friendship:
+            return None
+        
+        from zeeguu.core.model.user import User
+        friend = User.find_by_id(friend_user_id)
+        if not friend:
+            return None
+            
+        return friend.details_as_dictionary()
 
 
     @staticmethod
