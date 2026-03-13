@@ -278,7 +278,7 @@ class UserArticle(db.Model):
             if each.last_interaction() is not None
         ]
 
-        return cls.article_infos(user, articles, select_appropriate=True)
+        return cls.article_infos(user, articles, select_appropriate=False)
 
     @classmethod
     def exists(cls, obj):
