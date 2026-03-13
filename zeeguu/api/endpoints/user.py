@@ -213,6 +213,10 @@ def user_settings():
     if submitted_email:
         user.email = submitted_email
 
+    submitted_password = data.get("password", None)
+    if submitted_password:
+        user.update_password(submitted_password)
+
     zeeguu.core.model.db.session.add(user)
     zeeguu.core.model.db.session.commit()
     return "OK"
