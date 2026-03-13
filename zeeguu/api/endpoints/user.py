@@ -211,6 +211,10 @@ def user_settings():
     if submitted_name:
         user.name = submitted_name
 
+    submitted_username = data.get("username", None)
+    if submitted_username:
+        user.username = submitted_username
+
     submitted_native_language_code = data.get("native_language", None)
     if submitted_native_language_code:
         user.set_native_language(submitted_native_language_code)
