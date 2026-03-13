@@ -652,6 +652,11 @@ class UserArticle(db.Model):
             if select_appropriate:
                 article = cls.select_appropriate_article_for_user(user, article)
 
+                # Don't show original articles that aren't simplified —
+                # they'd open externally, which defeats the purpose
+                if not article.parent_article_id and not article.uploader_id:
+                    continue
+
             if article.id in seen_ids:
                 continue
             seen_ids.add(article.id)
