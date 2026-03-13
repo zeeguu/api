@@ -1,7 +1,7 @@
 import flask
 
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api
 from ...core.model import User
 from ...core.model.user_language import UserLanguage
@@ -11,6 +11,7 @@ from ...core.model.db import db
 @api.route("/daily_streak", methods=["GET"])
 @cross_domain
 @requires_session
+@allows_unverified
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
