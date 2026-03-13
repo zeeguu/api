@@ -185,7 +185,6 @@ def get_user_details():
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
 @requires_session
-@allows_unverified
 def user_settings():
     """
     :return: OK for success
