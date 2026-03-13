@@ -275,6 +275,10 @@ def user_settings():
 
         zeeguu.core.model.db.session.add(user_avatar)
 
+    submitted_password = data.get("password", None)
+    if submitted_password:
+        user.update_password(submitted_password)
+
     zeeguu.core.model.db.session.add(user)
     zeeguu.core.model.db.session.commit()
     return "OK"
