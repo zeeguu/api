@@ -200,7 +200,6 @@ def get_friend_details(friend_user_id):
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
 @requires_session
-@allows_unverified
 def user_settings():
     """
     :return: OK for success
