@@ -2,7 +2,7 @@ import flask
 
 import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api
 from ...core.model import UserPreference, User
 
@@ -12,6 +12,7 @@ db_session = zeeguu.core.model.db.session
 @api.route("/user_preferences", methods=["GET"])
 @cross_domain
 @requires_session
+@allows_unverified
 def user_preferences():
     user = User.find_by_id(flask.g.user_id)
     return json_result(UserPreference.all_for_user(user))

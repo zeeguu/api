@@ -183,6 +183,82 @@ def upgrade_anon_user():
         return bad_request("Could not upgrade account")
 
 
+@api.route("/request_email_verification", methods=["POST"])
+@cross_domain
+@requires_session
+def request_email_verification():
+    """
+    Send a verification code to an email WITHOUT changing the user account.
+    The user stays anonymous until complete_account_upgrade is called.
+    This avoids the "limbo state" where the user is no longer anonymous
+    but hasn't verified their email yet.
+    """
+    import re
+    from zeeguu.core.emailer.email_confirmation import send_email_confirmation
+
+    email = request.form.get("email", None)
+    if not email:
+        return bad_request("Email is required")
+
+    email = email.lower().strip()
+
+    if not re.match(User.EMAIL_VALIDATION_REGEX, email):
+        return bad_request("Invalid email format")
+
+    if User.email_exists(email):
+        return bad_request("Email already in use")
+
+    code = UniqueCode(email)
+    db_session.add(code)
+    db_session.commit()
+    send_email_confirmation(email, code)
+
+    return "OK"
+
+
+@api.route("/complete_account_upgrade", methods=["POST"])
+@cross_domain
+@requires_session
+def complete_account_upgrade():
+    """
+    Verify the email code and upgrade the anonymous account atomically.
+    The user goes directly from anonymous to fully verified — no limbo state.
+    """
+    email = request.form.get("email", None)
+    code = request.form.get("code", None)
+    password = request.form.get("password", None)
+
+    if not email or not code or not password:
+        return bad_request("Email, code, and password are required")
+
+    # Verify the code
+    code_obj = UniqueCode.find_last_code(email)
+    if code_obj is None:
+        return bad_request("No verification code found. Please request a new one.")
+    if code_obj.is_expired():
+        return bad_request("Code has expired. Please request a new one.")
+    if submitted_code_is_wrong(code_obj.code, code):
+        return bad_request("Invalid code")
+
+    try:
+        user = User.find_by_id(flask.g.user_id)
+        user.upgrade_to_full_account(email, email, password)
+        user.email_verified = True  # Already verified via code
+
+        # Clean up codes
+        for c in UniqueCode.all_codes_for(email):
+            db_session.delete(c)
+        db_session.commit()
+
+        return "OK"
+
+    except ValueError as e:
+        return bad_request(str(e))
+    except Exception as e:
+        log(f"Failed to complete account upgrade: {e}")
+        return bad_request("Could not upgrade account")
+
+
 @api.route("/confirm_email", methods=["POST"])
 @cross_domain
 @requires_session
