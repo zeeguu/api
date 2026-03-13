@@ -147,6 +147,9 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
 
         art = Article.find_by_id(art_id)
         if art:
+            ua = UserArticle.find(user, art)
+            if ua and ua.hidden:
+                continue
             articles_to_fetch.append(art)
             session_data[art_id] = (date_read, last_reading_percentage)
 
