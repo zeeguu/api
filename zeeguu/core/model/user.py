@@ -193,6 +193,7 @@ class User(db.Model):
         from datetime import datetime
         from zeeguu.core.model import UserLanguage
         from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.user_avatar import UserAvatar
         from zeeguu.core.model.user_word import UserWord
 
         # Only require email verification for users created after this date
@@ -216,9 +217,22 @@ class User(db.Model):
             and not self.email_verified
         )
 
+        # Get the corresponding avatar details
+        user_avatar = UserAvatar.find(self.id)
+        user_avatar_dict = (
+            dict(
+                image_name=user_avatar.image_name,
+                character_color=user_avatar.character_color,
+                background_color=user_avatar.background_color,
+            )
+            if user_avatar
+            else None
+        )
+
         result = dict(
             email=self.email,
             name=self.name,
+            username=self.username,
             learned_language=self.learned_language.code,
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
@@ -230,6 +244,7 @@ class User(db.Model):
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
             created_at=self.created_at,
+            user_avatar=user_avatar_dict,
         )
 
         for each in UserLanguage.query.filter_by(user=self):
