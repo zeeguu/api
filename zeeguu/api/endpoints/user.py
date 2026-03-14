@@ -4,6 +4,7 @@ import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
@@ -189,9 +190,9 @@ def user_settings():
     """
     :return: OK for success
     """
-
+    user_id = flask.g.user_id
     data = flask.request.form
-    user = User.find_by_id(flask.g.user_id)
+    user = User.find_by_id(user_id)
 
     submitted_name = data.get("name", None)
     if submitted_name:
@@ -216,6 +217,34 @@ def user_settings():
     submitted_email = data.get("email", None)
     if submitted_email:
         user.email = submitted_email
+
+    submitted_avatar_image_name = data.get("avatar_image_name", None)
+    submitted_avatar_character_color = data.get("avatar_character_color", None)
+    submitted_avatar_background_color = data.get("avatar_background_color", None)
+
+    if any([
+        submitted_avatar_image_name,
+        submitted_avatar_character_color,
+        submitted_avatar_background_color
+    ]):
+        user_avatar = UserAvatar.find(user_id)
+
+        if not user_avatar:
+            user_avatar = UserAvatar(user_id,
+                                     submitted_avatar_image_name,
+                                     submitted_avatar_character_color,
+                                     submitted_avatar_background_color)
+        else:
+            if submitted_avatar_image_name:
+                user_avatar.image_name = submitted_avatar_image_name
+
+            if submitted_avatar_character_color:
+                user_avatar.character_color = submitted_avatar_character_color
+
+            if submitted_avatar_background_color:
+                user_avatar.background_color = submitted_avatar_background_color
+
+        zeeguu.core.model.db.session.add(user_avatar)
 
     zeeguu.core.model.db.session.add(user)
     zeeguu.core.model.db.session.commit()
