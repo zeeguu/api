@@ -14,17 +14,14 @@ class UniqueCode(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(6))  # 6-char alphanumeric code
+    code = db.Column(db.String(6))  # 4-digit numeric code
     email = db.Column(db.String(255))
     time = db.Column(db.DateTime)
 
-    # Alphanumeric characters excluding confusing ones (0/O, 1/I/L)
-    CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
-
     def __init__(self, email):
-        # Generate 6-char alphanumeric code (30^6 = 729 million possibilities)
-        # With rate limiting and 15-min expiration, practically unbruteforceable
-        self.code = "".join(secrets.choice(self.CODE_CHARS) for _ in range(6))
+        # 4-digit numeric code — easy to type on mobile
+        # 10,000 possibilities with 15-min expiry is plenty secure
+        self.code = str(secrets.randbelow(10000)).zfill(4)
         self.email = email
         self.time = datetime.now()
 
