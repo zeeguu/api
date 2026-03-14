@@ -245,12 +245,6 @@ def user_settings():
     submitted_avatar_background_color = data.get("avatar_background_color", None)
     user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
                                 submitted_avatar_background_color)
-
-    zeeguu.core.model.db.session.add(user_avatar)
-    submitted_avatar_image_name = data.get("avatar_image_name", None)
-    submitted_avatar_character_color = data.get("avatar_character_color", None)
-    submitted_avatar_background_color = data.get("avatar_background_color", None)
-
     if any([
         submitted_avatar_image_name,
         submitted_avatar_character_color,
