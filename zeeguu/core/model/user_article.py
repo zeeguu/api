@@ -278,7 +278,7 @@ class UserArticle(db.Model):
             if each.last_interaction() is not None
         ]
 
-        return cls.article_infos(user, articles, select_appropriate=True)
+        return cls.article_infos(user, articles, select_appropriate=False)
 
     @classmethod
     def exists(cls, obj):
@@ -651,6 +651,11 @@ class UserArticle(db.Model):
         for article in articles:
             if select_appropriate:
                 article = cls.select_appropriate_article_for_user(user, article)
+
+                # Don't show original articles that aren't simplified —
+                # they'd open externally, which defeats the purpose
+                if not article.parent_article_id and not article.uploader_id:
+                    continue
 
             if article.id in seen_ids:
                 continue

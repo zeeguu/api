@@ -146,6 +146,9 @@ def get_user_unfinished_reading_sessions(total_sessions: int = 1):
 
         art = Article.find_by_id(art_id)
         if art:
+            ua = UserArticle.find(user, art)
+            if ua and ua.hidden:
+                continue
             articles_to_fetch.append(art)
             session_data[art_id] = (date_read, last_reading_percentage)
 
@@ -212,6 +215,10 @@ def user_settings():
     submitted_email = data.get("email", None)
     if submitted_email:
         user.email = submitted_email
+
+    submitted_password = data.get("password", None)
+    if submitted_password:
+        user.update_password(submitted_password)
 
     zeeguu.core.model.db.session.add(user)
     zeeguu.core.model.db.session.commit()
