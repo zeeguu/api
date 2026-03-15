@@ -2,6 +2,7 @@ from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from zeeguu.core.model.badge import BadgeCode, Badge
 from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.core.model.user_badge_level import UserBadgeLevel
+from zeeguu.logging import log
 
 
 def _award_badge_levels(db_session, badge_id: int, user_id: int, current_value: int) -> list[UserBadgeLevel]:
@@ -44,6 +45,7 @@ def increment_badge_progress(db_session, badge_code: BadgeCode, user_id: int, in
     """
     badge = Badge.find(badge_code)
     if not badge:
+        log(f"[BADGE-ERROR] Cannot find badge entity with code='{badge_code}'")
         return []
 
     progress = UserBadgeProgress.create_or_increment(
@@ -69,6 +71,7 @@ def update_badge_progress(db_session, badge_code: BadgeCode, user_id: int, curre
     """
     badge = Badge.find(badge_code)
     if not badge:
+        log(f"[BADGE-ERROR] Cannot find badge entity with code='{badge_code}'")
         return []
 
     progress = UserBadgeProgress.create_or_update(
