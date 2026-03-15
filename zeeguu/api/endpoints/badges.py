@@ -25,12 +25,13 @@ def get_not_shown_user_badge_levels():
 
 # ---------------------------------------------------------------------------
 @api.route("/badges", methods=["GET"])
+@api.route("/badges/<int:user_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_badges_for_user():
+def get_badges_for_user(user_id: int = None):
     """
-    Retrieve all badges and their levels for the current user.
+    Retrieve all badges and their levels for the specified or current user.
     Each badge level includes achievement status and whether it has been shown.
 
     Returns:
@@ -52,12 +53,12 @@ def get_badges_for_user():
            "current_value": 10
         }, ... ]
     """
-    user_id = flask.g.user_id
+    used_user_id = user_id if user_id else flask.g.user_id
 
     badges = Badge.query.options(joinedload(Badge.badge_levels)).all()
-    user_badge_levels = UserBadgeLevel.find_all(user_id)
+    user_badge_levels = UserBadgeLevel.find_all(used_user_id)
     achieved_map = {ubl.badge_level_id: ubl for ubl in user_badge_levels}
-    user_badge_progress = UserBadgeProgress.find_all(user_id)
+    user_badge_progress = UserBadgeProgress.find_all(used_user_id)
     progress_map = {ubp.badge_id: ubp for ubp in user_badge_progress}
 
     result = [serialize_badge(badge, achieved_map, progress_map) for badge in badges]
