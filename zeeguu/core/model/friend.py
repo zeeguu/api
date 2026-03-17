@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
-from datetime import datetime, timedelta, UTC
+from datetime import datetime
 
 class Friend(db.Model):
         
@@ -17,21 +17,14 @@ class Friend(db.Model):
     friend_streak_last_updated = Column(DateTime, nullable=True)
     
     
-    def update_friend_streak(self):
+    def update_friend_streak(self, session=None, commit=True):
         """
         Update friend_streak based on both users' most recent practice in any language.
         Uses the latest last_practiced date across all UserLanguage records for each user.
         """
         from zeeguu.core.model.user_language import UserLanguage
-        from zeeguu.core.model.user import User
-        user = User.query.get(self.user_id)
-        friend = User.query.get(self.friend_id)
-        if not user or not friend:
-            self.friend_streak = 0
-            if db.session:
-                db.session.add(self)
-                db.session.commit()
-            return
+
+        session = session or object_session(self) or db.session
 
         # Get all UserLanguage records for each user
         user_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).all()
@@ -71,9 +64,10 @@ class Friend(db.Model):
             self.friend_streak = 0
             self.friend_streak_last_updated = datetime.now()
 
-        if db.session:
-            db.session.add(self)
-            db.session.commit()
+        if session:
+            session.add(self)
+            if commit:
+                session.commit()
 
     # Explicit relationships with primaryjoin
     user = relationship(
