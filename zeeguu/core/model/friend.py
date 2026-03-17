@@ -127,6 +127,21 @@ class Friend(db.Model):
             result.append({"user": friend_user, "friendship": friendship})
 
         return result
+
+    @classmethod
+    def are_friends(cls, user1_id: int, user2_id: int) -> bool:
+        """Return True if two users are friends (in either direction)."""
+        if user1_id is None or user2_id is None:
+            return False
+
+        if user1_id == user2_id:
+            return True
+
+        friendship = cls.query.filter(
+            ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
+            ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
+        ).first()
+        return friendship is not None
     
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
@@ -149,11 +164,7 @@ class Friend(db.Model):
         Return details_as_dictionary for friend_user_id if user_id and friend_user_id are friends.
         Returns None if not friends or user not found.
         """
-        friendship = cls.query.filter(
-            ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
-            ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
-        ).first()
-        if not friendship:
+        if not cls.are_friends(user_id, friend_user_id):
             return None
         
         from zeeguu.core.model.user import User

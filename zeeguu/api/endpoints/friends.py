@@ -12,19 +12,26 @@ from . import api
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
+@api.route("/get_friends/<int:user_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_friends():
+def get_friends(user_id: int = None):
     """
-    Get all friends of current user with flask.g.user_id
+    Get all friends for the current user, or for a friend by user id.
     """
-    friends_with_friendships = Friend.get_friends_with_friendship(flask.g.user_id)
+    requester_id = flask.g.user_id
+    used_user_id = user_id if user_id is not None else requester_id
+
+    if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
+        return make_error(403, "You can only view friends for yourself or your friends.")
+
+    friends_with_friendships = Friend.get_friends_with_friendship(used_user_id)
     result = [
         _serialize_user_with_friendship(entry["user"], entry["friendship"])
         for entry in friends_with_friendships
     ]
-    log(f"get_friends: user_id={flask.g.user_id} has {len(result)} friends")
+    log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
     return json_result(result)
 
 def _serialize_user_with_friendship(user, friendship):

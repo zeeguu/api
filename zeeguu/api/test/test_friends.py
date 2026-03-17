@@ -147,6 +147,52 @@ def test_get_friends(client: LoggedInClient):
     assert isinstance(response, list)
 
 
+def test_get_friends_for_friend_user_id(client: LoggedInClient):
+    """
+    Test /get_friends/<user_id> returns the friend's friends when users are friends.
+    """
+    other_email = "friends-list@user.com"
+    other_client = LoggedInClient(
+        client.client,
+        email=other_email,
+        password="test",
+        username="friends-list",
+        learned_language="de",
+    )
+
+    sender_user = User.find(client.email)
+    other_user = User.find(other_email)
+
+    client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+
+    response = client.get(f"/get_friends/{other_user.id}")
+
+    assert isinstance(response, list)
+    friend_ids = [entry["id"] for entry in response]
+    assert sender_user.id in friend_ids
+
+
+def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
+    """
+    Test /get_friends/<user_id> denies access when users are not friends.
+    """
+    stranger_email = "friends-private@user.com"
+    LoggedInClient(
+        client.client,
+        email=stranger_email,
+        password="test",
+        username="friends-private",
+        learned_language="de",
+    )
+    stranger_user = User.find(stranger_email)
+
+    response = client.get(f"/get_friends/{stranger_user.id}")
+
+    assert isinstance(response, dict)
+    assert response.get("message") == "You can only view friends for yourself or your friends."
+
+
 def test_get_user_details_returns_current_user_data(client: LoggedInClient):
     """
     Test /get_user_details returns the logged-in user's details and feature flags.

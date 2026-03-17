@@ -3,9 +3,11 @@ from sqlalchemy.orm import joinedload
 
 from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from zeeguu.core.model.badge_level import BadgeLevel
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model.badge import Badge
+from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.user_badge_level import UserBadgeLevel
 from . import api, db_session
 
@@ -53,7 +55,11 @@ def get_badges_for_user(user_id: int = None):
            "current_value": 10
         }, ... ]
     """
-    used_user_id = user_id if user_id else flask.g.user_id
+    requester_id = flask.g.user_id
+    used_user_id = user_id if user_id is not None else requester_id
+
+    if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
+        return make_error(403, "You can only view badges for yourself or your friends.")
 
     badges = Badge.query.options(joinedload(Badge.badge_levels)).all()
     user_badge_levels = UserBadgeLevel.find_all(used_user_id)
