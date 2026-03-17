@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
 from sqlalchemy.orm import relationship, object_session
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta
 
 class Friend(db.Model):
     __tablename__ = "friends"
