@@ -190,7 +190,8 @@ def get_user_details():
 @requires_session
 def get_friend_details(friend_user_id):
     """
-    Return user details for a friend, if the requester is actually friends with them.
+    Return user details for friend_user_id, including a 'friendship' object
+    with friend_request_status ('accepted', 'pending', or None).
     """
     user = User.find_by_id(flask.g.user_id)
     from zeeguu.core.model.friend import Friend

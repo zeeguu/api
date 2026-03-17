@@ -168,24 +168,36 @@ class Friend(db.Model):
     @classmethod
     def find_friend_details(cls, user_id: int, friend_user_id: int):
         """
-        Return details_as_dictionary for friend_user_id if user_id and friend_user_id are friends.
-        Also includes friends_since and mutual_streak from the friendship record.
-        Returns None if not friends or user not found.
+        Return details_as_dictionary for friend_user_id.
+        Always includes a 'friendship' object with friend_request_status
+        ('accepted', 'pending', 'rejected', or None if no relationship).
+        When friends, also includes friends_since and mutual_streak.
+        Returns None if the target user is not found.
         """
+        from zeeguu.core.model.user import User
+        from zeeguu.core.model.friend_request import FriendRequest
+
+        friend = User.find_by_id(friend_user_id)
+        if not friend:
+            return None
+
         friendship = cls.query.filter(
             ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
             ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
         ).first()
 
-        from zeeguu.core.model.user import User
-        friend = User.find_by_id(friend_user_id)
-        details = friend.details_as_dictionary()
-        if not friendship: 
-            return details  # Not friends, but return basic details without friendship info
+        friend_request = FriendRequest.query.filter(
+            ((FriendRequest.sender_id == user_id) & (FriendRequest.receiver_id == friend_user_id)) |
+            ((FriendRequest.sender_id == friend_user_id) & (FriendRequest.receiver_id == user_id))
+        ).order_by(FriendRequest.created_at.desc()).first()
 
-        # When there is a friendship, enrich details with friendship info
-        details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
-        details["mutual_streak"] = friendship.friend_streak or 0
+        details = friend.details_as_dictionary()
+        details["friendship"] = cls._get_friendship_or_friendrequest(friendship, friend_request)
+
+        if friendship:
+            details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
+            details["mutual_streak"] = friendship.friend_streak or 0
+
         return details
 
 

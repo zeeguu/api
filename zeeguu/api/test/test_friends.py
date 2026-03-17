@@ -251,18 +251,43 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     assert "friends_since" in response
     assert "mutual_streak" in response
     assert isinstance(response["mutual_streak"], int)
+    assert response["friendship"]["friend_request_status"] == "accepted"
 
 
-def test_get_friend_details_denies_non_friends(client: LoggedInClient):
+def test_get_friend_details_pending_request_shows_pending_status(client: LoggedInClient):
     """
-    Test /get_user_details/<friend_user_id> returns an error for non-friends.
+    Test /get_user_details/<friend_user_id> shows friendship.friend_request_status='pending'
+    when a friend request has been sent but not yet accepted.
     """
-    stranger_email = "not-a-friend@user.com"
+    pending_email = "pending-details@user.com"
+    LoggedInClient(
+        client.client,
+        email=pending_email,
+        password="test",
+        username="pending-details",
+        learned_language="de",
+    )
+    pending_user = User.find(pending_email)
+
+    client.post("/send_friend_request", json={"receiver_id": pending_user.id})
+
+    response = client.get(f"/get_user_details/{pending_user.id}")
+
+    assert isinstance(response, dict)
+    assert response["friendship"]["friend_request_status"] == "pending"
+
+
+def test_get_friend_details_no_relationship_returns_none_friendship(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> returns friendship=None when there is
+    no friendship or friend request between the users.
+    """
+    stranger_email = "no-relation@user.com"
     LoggedInClient(
         client.client,
         email=stranger_email,
         password="test",
-        username="not-a-friend",
+        username="no-relation",
         learned_language="de",
     )
     stranger_user = User.find(stranger_email)
@@ -270,5 +295,5 @@ def test_get_friend_details_denies_non_friends(client: LoggedInClient):
     response = client.get(f"/get_user_details/{stranger_user.id}")
 
     assert isinstance(response, dict)
-    assert response.get("error") == "Not friends with this user or user not found."
+    assert response.get("friendship") is None
 
