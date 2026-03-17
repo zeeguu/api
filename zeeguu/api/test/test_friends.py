@@ -146,3 +146,67 @@ def test_get_friends(client: LoggedInClient):
     response = client.get("/get_friends")
     assert isinstance(response, list)
 
+
+def test_get_user_details_returns_current_user_data(client: LoggedInClient):
+    """
+    Test /get_user_details returns the logged-in user's details and feature flags.
+    """
+    user = User.find(client.email)
+
+    response = client.get("/get_user_details")
+
+    assert isinstance(response, dict)
+    assert response["email"] == client.email
+    assert response["name"] == user.name
+    assert "learned_language" in response
+    assert "native_language" in response
+    assert "features" in response
+
+
+def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> returns details when users are friends.
+    """
+    other_email = "friend-details@user.com"
+    other_client = LoggedInClient(
+        client.client,
+        email=other_email,
+        password="test",
+        username="friend-details",
+        learned_language="de",
+    )
+
+    sender_user = User.find(client.email)
+    other_user = User.find(other_email)
+
+    client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+
+    response = client.get(f"/get_user_details/{other_user.id}")
+
+    assert isinstance(response, dict)
+    assert response["email"] == other_email
+    assert response["name"] == other_user.name
+    assert "learned_language" in response
+    assert "native_language" in response
+
+
+def test_get_friend_details_denies_non_friends(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> returns an error for non-friends.
+    """
+    stranger_email = "not-a-friend@user.com"
+    LoggedInClient(
+        client.client,
+        email=stranger_email,
+        password="test",
+        username="not-a-friend",
+        learned_language="de",
+    )
+    stranger_user = User.find(stranger_email)
+
+    response = client.get(f"/get_user_details/{stranger_user.id}")
+
+    assert isinstance(response, dict)
+    assert response.get("error") == "Not friends with this user or user not found."
+
