@@ -96,8 +96,11 @@ class Friend(db.Model):
         return friends
 
     @staticmethod
-    def get_friends_with_friendship(user_id: int):
-        """Return combined friend user + friendship data for the given user."""
+    def get_friends_with_friendship(user_id: int, exclude_user_id: int = None):
+        """Return combined friend user + friendship data for the given user.
+        
+        exclude_user_id: if provided, that user is omitted from the results.
+        """
         friendships : list[Friend] = Friend.query.filter(
             (Friend.user_id == user_id) | (Friend.friend_id == user_id)
         ).all()
@@ -120,6 +123,10 @@ class Friend(db.Model):
                 other_user_id = friendship.friend_id 
             else:
                 other_user_id = friendship.user_id
+
+            # Exclude if matches exclude_user_id (usually exclude_user_id is the current user, to avoid returning self as a friend)
+            if exclude_user_id is not None and other_user_id == exclude_user_id:
+                continue
 
             friend_user = users_by_id.get(other_user_id)
             if not friend_user:

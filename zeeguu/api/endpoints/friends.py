@@ -26,7 +26,8 @@ def get_friends(user_id: int = None):
     if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
         return make_error(403, "You can only view friends for yourself or your friends.")
 
-    friends_with_friendships = Friend.get_friends_with_friendship(used_user_id)
+    exclude_id = requester_id if used_user_id != requester_id else None
+    friends_with_friendships = Friend.get_friends_with_friendship(used_user_id, exclude_user_id=exclude_id)
     result = [
         _serialize_user_with_friendship(entry["user"], entry["friendship"])
         for entry in friends_with_friendships

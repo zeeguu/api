@@ -149,7 +149,7 @@ def test_get_friends(client: LoggedInClient):
 
 def test_get_friends_for_friend_user_id(client: LoggedInClient):
     """
-    Test /get_friends/<user_id> returns the friend's friends when users are friends.
+    Test /get_friends/<user_id> excludes the requester from the friend's friends list.
     """
     other_email = "friends-list@user.com"
     other_client = LoggedInClient(
@@ -159,18 +159,31 @@ def test_get_friends_for_friend_user_id(client: LoggedInClient):
         username="friends-list",
         learned_language="de",
     )
+    third_email = "friends-list-third@user.com"
+    third_client = LoggedInClient(
+        client.client,
+        email=third_email,
+        password="test",
+        username="friends-list-third",
+        learned_language="de",
+    )
 
     sender_user = User.find(client.email)
     other_user = User.find(other_email)
+    third_user = User.find(third_email)
 
     client.post("/send_friend_request", json={"receiver_id": other_user.id})
     other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+
+    third_client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": third_user.id})
 
     response = client.get(f"/get_friends/{other_user.id}")
 
     assert isinstance(response, list)
     friend_ids = [entry["id"] for entry in response]
-    assert sender_user.id in friend_ids
+    assert sender_user.id not in friend_ids
+    assert third_user.id in friend_ids
 
 
 def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
