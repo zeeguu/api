@@ -2,7 +2,7 @@ ALTER TABLE user
 ADD COLUMN username VARCHAR(50);
 
 -- This is maybe needed
--- SET SQL_SAFE_UPDATES = 0;
+SET SQL_SAFE_UPDATES = 0;
 
 -- Option 1 user_<id>
 UPDATE user
