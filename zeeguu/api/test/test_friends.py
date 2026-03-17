@@ -248,6 +248,9 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     assert response["name"] == other_user.name
     assert "learned_language" in response
     assert "native_language" in response
+    assert "friends_since" in response
+    assert "mutual_streak" in response
+    assert isinstance(response["mutual_streak"], int)
 
 
 def test_get_friend_details_denies_non_friends(client: LoggedInClient):

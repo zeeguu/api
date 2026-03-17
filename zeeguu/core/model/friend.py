@@ -169,17 +169,24 @@ class Friend(db.Model):
     def find_friend_details(cls, user_id: int, friend_user_id: int):
         """
         Return details_as_dictionary for friend_user_id if user_id and friend_user_id are friends.
+        Also includes friends_since and mutual_streak from the friendship record.
         Returns None if not friends or user not found.
         """
-        if not cls.are_friends(user_id, friend_user_id):
-            return None
-        
+        friendship = cls.query.filter(
+            ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
+            ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
+        ).first()
+
         from zeeguu.core.model.user import User
         friend = User.find_by_id(friend_user_id)
-        if not friend:
-            return None
-            
-        return friend.details_as_dictionary()
+        details = friend.details_as_dictionary()
+        if not friendship: 
+            return details  # Not friends, but return basic details without friendship info
+
+        # When there is a friendship, enrich details with friendship info
+        details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
+        details["mutual_streak"] = friendship.friend_streak or 0
+        return details
 
 
     @staticmethod
