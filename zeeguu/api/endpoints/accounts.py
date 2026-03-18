@@ -79,6 +79,16 @@ def add_user(email):
         return make_error(400, str(e))
 
 
+@api.route("/validate_invite_code/<invite_code>", methods=["GET"])
+@cross_domain
+def validate_invite_code(invite_code):
+    from zeeguu.core.account_management.user_account_creation import valid_invite_code
+
+    if valid_invite_code(invite_code):
+        return "OK"
+    return make_error(400, "Invalid invite code")
+
+
 @api.route("/add_basic_user/<email>", methods=["POST"])
 @cross_domain
 def add_basic_user(email):
