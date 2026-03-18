@@ -46,7 +46,7 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
+    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first() if invite_code else None
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
@@ -119,7 +119,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
+    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first() if invite_code else None
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
