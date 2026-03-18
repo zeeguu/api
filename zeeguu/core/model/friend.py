@@ -67,10 +67,6 @@ class Friend(db.Model):
             session.add(self)
             if commit:
                 session.commit()
-        if session:
-            session.add(self)
-            if commit:
-                session.commit()
 
     # Explicit relationships with primaryjoin
     user = relationship(
