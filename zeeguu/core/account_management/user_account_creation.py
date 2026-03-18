@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy import func
 
 import zeeguu.core
 from zeeguu.core.emailer.user_activity import send_new_user_account_email
@@ -16,9 +17,8 @@ def valid_invite_code(invite_code):
     if zeeguu.core.app.config["TESTING"]:
         return True
 
-    if zeeguu.core.app.config.get(
-        "INVITATION_CODES"
-    ) and invite_code in zeeguu.core.app.config.get("INVITATION_CODES"):
+    config_codes = zeeguu.core.app.config.get("INVITATION_CODES")
+    if config_codes and invite_code.lower() in [c.lower() for c in config_codes]:
         return True
 
     if Cohort.exists_with_invite_code(invite_code):
@@ -46,7 +46,7 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter_by(inv_code=invite_code).first()
+    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
@@ -119,7 +119,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter_by(inv_code=invite_code).first()
+    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name

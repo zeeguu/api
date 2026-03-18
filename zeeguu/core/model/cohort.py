@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Boolean
+from sqlalchemy import Column, Integer, Boolean, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import exists
 from zeeguu.core.model.language import Language
@@ -87,14 +87,14 @@ class Cohort(db.Model):
 
     @classmethod
     def find_by_code(cls, invite_code):
-        return cls.query.filter_by(inv_code=invite_code).one()
+        return cls.query.filter(func.lower(cls.inv_code) == invite_code.lower()).one()
 
     @classmethod
     def get_id(cls, inv):
-        c = cls.query.filter_by(inv_code=inv).one()
+        c = cls.query.filter(func.lower(cls.inv_code) == inv.lower()).one()
         return c.id
 
     @classmethod
     def exists_with_invite_code(cls, code: str):
-        all_matching = cls.query.filter_by(inv_code=code).all()
+        all_matching = cls.query.filter(func.lower(cls.inv_code) == code.lower()).all()
         return len(all_matching) > 0
