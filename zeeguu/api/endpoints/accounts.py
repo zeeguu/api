@@ -83,10 +83,16 @@ def add_user(email):
 @cross_domain
 def validate_invite_code(invite_code):
     from zeeguu.core.account_management.user_account_creation import valid_invite_code
+    from zeeguu.core.model import Cohort
 
-    if valid_invite_code(invite_code):
-        return "OK"
-    return make_error(400, "Invalid invite code")
+    if not valid_invite_code(invite_code):
+        return make_error(400, "Invalid invite code")
+
+    try:
+        cohort = Cohort.find_by_code(invite_code)
+        return flask.jsonify({"name": cohort.name})
+    except Exception:
+        return flask.jsonify({"name": ""})
 
 
 @api.route("/add_basic_user/<email>", methods=["POST"])
