@@ -243,7 +243,7 @@ class User(db.Model):
             requires_email_verification=requires_email_verification,
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
-            created_at=self.created_at,
+            created_at=self.created_at.isoformat() if self.created_at else None,
             user_avatar=user_avatar_dict,
         )
 

@@ -5,7 +5,6 @@ from zeeguu.core.model.user import User  # assuming you have a User model
 from datetime import datetime, timedelta
 
 class Friend(db.Model):
-        
     __tablename__ = "friends"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -97,8 +96,11 @@ class Friend(db.Model):
         return friends
 
     @staticmethod
-    def get_friends_with_friendship(user_id: int):
-        """Return combined friend user + friendship data for the given user."""
+    def get_friends_with_friendship(user_id: int, exclude_user_id: int = None):
+        """Return combined friend user + friendship data for the given user.
+        
+        exclude_user_id: if provided, that user is omitted from the results.
+        """
         friendships : list[Friend] = Friend.query.filter(
             (Friend.user_id == user_id) | (Friend.friend_id == user_id)
         ).all()
@@ -122,12 +124,31 @@ class Friend(db.Model):
             else:
                 other_user_id = friendship.user_id
 
+            # Exclude if matches exclude_user_id (usually exclude_user_id is the current user, to avoid returning self as a friend)
+            if exclude_user_id is not None and other_user_id == exclude_user_id:
+                continue
+
             friend_user = users_by_id.get(other_user_id)
             if not friend_user:
                 continue
             result.append({"user": friend_user, "friendship": friendship})
 
         return result
+
+    @classmethod
+    def are_friends(cls, user1_id: int, user2_id: int) -> bool:
+        """Return True if two users are friends (in either direction)."""
+        if user1_id is None or user2_id is None:
+            return False
+
+        if user1_id == user2_id:
+            return True
+
+        friendship = cls.query.filter(
+            ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
+            ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
+        ).first()
+        return friendship is not None
     
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
@@ -143,7 +164,41 @@ class Friend(db.Model):
             return True
         
         return False
+    
+    @classmethod
+    def find_friend_details(cls, user_id: int, friend_user_id: int):
+        """
+        Return details_as_dictionary for friend_user_id.
+        Always includes a 'friendship' object with friend_request_status
+        ('accepted', 'pending', 'rejected', or None if no relationship).
+        When friends, also includes friends_since and mutual_streak.
+        Returns None if the target user is not found.
+        """
+        from zeeguu.core.model.user import User
+        from zeeguu.core.model.friend_request import FriendRequest
 
+        friend = User.find_by_id(friend_user_id)
+        if not friend:
+            return None
+
+        friendship = cls.query.filter(
+            ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
+            ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
+        ).first()
+
+        friend_request = FriendRequest.query.filter(
+            ((FriendRequest.sender_id == user_id) & (FriendRequest.receiver_id == friend_user_id)) |
+            ((FriendRequest.sender_id == friend_user_id) & (FriendRequest.receiver_id == user_id))
+        ).order_by(FriendRequest.created_at.desc()).first()
+
+        details = friend.details_as_dictionary()
+        details["friendship"] = cls._get_friendship_or_friendrequest(friendship, friend_request)
+
+        if friendship:
+            details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
+            details["mutual_streak"] = friendship.friend_streak or 0
+
+        return details
 
 
     @staticmethod

@@ -185,6 +185,21 @@ def get_user_details():
 
     return json_result(details_dict)
 
+@api.route("/get_user_details/<int:friend_user_id>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_friend_details(friend_user_id):
+    """
+    Return user details for friend_user_id, including a 'friendship' object
+    with friend_request_status ('accepted', 'pending', or None).
+    """
+    user = User.find_by_id(flask.g.user_id)
+    from zeeguu.core.model.friend import Friend
+    friend_details = Friend.find_friend_details(user.id, friend_user_id)
+    if not friend_details:
+        return flask.jsonify({"error": "Not friends with this user or user not found."})
+    return json_result(friend_details)
+
 
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
@@ -230,8 +245,34 @@ def user_settings():
     submitted_avatar_background_color = data.get("avatar_background_color", None)
     user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
                                 submitted_avatar_background_color)
+    if any([
+        submitted_avatar_image_name,
+        submitted_avatar_character_color,
+        submitted_avatar_background_color
+    ]):
+        user_avatar = UserAvatar.find(user_id)
 
-    zeeguu.core.model.db.session.add(user_avatar)
+        if not user_avatar:
+            user_avatar = UserAvatar(user_id,
+                                     submitted_avatar_image_name,
+                                     submitted_avatar_character_color,
+                                     submitted_avatar_background_color)
+        else:
+            if submitted_avatar_image_name:
+                user_avatar.image_name = submitted_avatar_image_name
+
+            if submitted_avatar_character_color:
+                user_avatar.character_color = submitted_avatar_character_color
+
+            if submitted_avatar_background_color:
+                user_avatar.background_color = submitted_avatar_background_color
+
+        zeeguu.core.model.db.session.add(user_avatar)
+
+    submitted_password = data.get("password", None)
+    if submitted_password:
+        user.update_password(submitted_password)
+
     zeeguu.core.model.db.session.add(user)
     zeeguu.core.model.db.session.commit()
     return "OK"

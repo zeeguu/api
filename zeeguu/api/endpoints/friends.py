@@ -1,6 +1,6 @@
 import flask
 from flask import request
-from zeeguu.core.model import User
+from zeeguu.core.model import User, user
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.api.utils.json_result import json_result
@@ -12,24 +12,38 @@ from . import api
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
+@api.route("/get_friends/<int:user_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_friends():
+def get_friends(user_id: int = None):
     """
-    Get all friends of current user with flask.g.user_id
+    Get all friends for the current user, or for a friend by user id.
     """
-    friends_with_friendships = Friend.get_friends_with_friendship(flask.g.user_id)
+    requester_id = flask.g.user_id
+    used_user_id = user_id if user_id is not None else requester_id
+
+    if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
+        return make_error(403, "You can only view friends for yourself or your friends.")
+
+    exclude_id = requester_id if used_user_id != requester_id else None
+    friends_with_friendships = Friend.get_friends_with_friendship(used_user_id, exclude_user_id=exclude_id)
     result = [
         _serialize_user_with_friendship(entry["user"], entry["friendship"])
         for entry in friends_with_friendships
     ]
-    log(f"get_friends: user_id={flask.g.user_id} has {len(result)} friends")
+    log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
     return json_result(result)
 
 def _serialize_user_with_friendship(user, friendship):
     user_data = _serialize_user(user)
-    user_data["friendship"] = _serialize_friendship(friendship)
+    if not isinstance(user_data, dict):
+        warning(
+            f"_serialize_user_with_friendship: expected dict from _serialize_user, got {type(user_data)}"
+        )
+        user_data = {}
+
+    user_data["friendship"] = _serialize_friendship(friendship) if friendship else None
     return user_data
 
 # ---------------------------------------------------------------------------
@@ -249,12 +263,17 @@ def _serialize_friendship(friendship: Friend, status: str = "accepted"):
     }   
 
 def _serialize_user(user: User):
-    return {
-        "id": user.id,
-        "name": user.name,
-        "username": user.username,
-        "email": user.email,
-    }
+    if user is None:
+        warning("_serialize_user: user is None")
+        return {}
+
+    result = user.details_as_dictionary() or {}
+    if not isinstance(result, dict):
+        warning(f"_serialize_user: details_as_dictionary returned {type(result)} for user_id={user.id}")
+        result = {}
+
+    result["id"] = user.id
+    return result
 
 def _serialize_users(users: list[User]):
     return [_serialize_user(user) for user in users]
