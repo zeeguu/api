@@ -1,4 +1,5 @@
 import flask
+from datetime import datetime
 from flask import request
 from zeeguu.core.model import User
 from zeeguu.core.model.friend import Friend
@@ -37,18 +38,16 @@ def friends_exercise_leaderboard():
     Query params:
         limit: Optional positive integer.
     """
-   #  limit_arg = request.args.get("limit")
-   #  limit = None
-   #  if limit_arg is not None:
-   #      try:
-   #          limit = int(limit_arg)
-   #      except ValueError:
-   #          return make_error(400, "limit must be an integer")
+    params, error_response = _parse_leaderboard_query_params()
+    if error_response:
+        return error_response
 
-   #      if limit <= 0:
-   #          return make_error(400, "limit must be greater than 0")
-
-    leaderboard_rows = Friend.exercise_leaderboard(flask.g.user_id)
+    leaderboard_rows = Friend.exercise_leaderboard(
+        flask.g.user_id,
+        limit=params["limit"],
+        from_date=params["from_date"],
+        to_date=params["to_date"],
+    )
     result = [_serialize_exercise_leaderboard_row(row) for row in leaderboard_rows]
 
     log(
@@ -69,18 +68,16 @@ def friends_read_articles_leaderboard():
     Query params:
         limit: Optional positive integer.
     """
-    limit_arg = request.args.get("limit")
-    limit = 20
-    if limit_arg is not None:
-        try:
-            limit = int(limit_arg)
-        except ValueError:
-            return make_error(400, "limit must be an integer")
+    params, error_response = _parse_leaderboard_query_params()
+    if error_response:
+        return error_response
 
-        if limit <= 0:
-            return make_error(400, "limit must be greater than 0")
-
-    leaderboard_rows = Friend.read_articles_leaderboard(flask.g.user_id, limit=limit)
+    leaderboard_rows = Friend.read_articles_leaderboard(
+        flask.g.user_id,
+        limit=params["limit"],
+        from_date=params["from_date"],
+        to_date=params["to_date"],
+    )
     result = [_serialize_read_articles_leaderboard_row(row) for row in leaderboard_rows]
 
     log(
@@ -101,18 +98,16 @@ def friends_reading_sessions_leaderboard():
     Query params:
         limit: Optional positive integer.
     """
-    limit_arg = request.args.get("limit")
-    limit = 20
-    if limit_arg is not None:
-        try:
-            limit = int(limit_arg)
-        except ValueError:
-            return make_error(400, "limit must be an integer")
+    params, error_response = _parse_leaderboard_query_params()
+    if error_response:
+        return error_response
 
-        if limit <= 0:
-            return make_error(400, "limit must be greater than 0")
-
-    leaderboard_rows = Friend.reading_sessions_leaderboard(flask.g.user_id, limit=limit)
+    leaderboard_rows = Friend.reading_sessions_leaderboard(
+        flask.g.user_id,
+        limit=params["limit"],
+        from_date=params["from_date"],
+        to_date=params["to_date"],
+    )
     result = [_serialize_reading_sessions_leaderboard_row(row) for row in leaderboard_rows]
 
     log(
@@ -447,3 +442,55 @@ def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
         return 422, "cannot send friend request to yourself"
     
     return 200, "ok"
+
+
+def _parse_leaderboard_query_params():
+    """
+    Parse common leaderboard query params:
+        limit: positive integer
+        from_date: ISO datetime string (optional)
+        to_date: ISO datetime string (optional)
+    """
+    limit = 20
+    limit_arg = request.args.get("limit")
+    if limit_arg is not None:
+        try:
+            limit = int(limit_arg)
+        except ValueError:
+            return None, make_error(400, "limit must be an integer")
+
+        if limit <= 0:
+            return None, make_error(400, "limit must be greater than 0")
+
+    from_date_str = request.args.get("from_date")
+    to_date_str = request.args.get("to_date")
+
+    from_date = None
+    to_date = None
+
+    if from_date_str:
+        from_date, error = _parse_iso_datetime(from_date_str, "from_date")
+        if error:
+            return None, error
+
+    if to_date_str:
+        to_date, error = _parse_iso_datetime(to_date_str, "to_date")
+        if error:
+            return None, error
+
+    if from_date and to_date and from_date > to_date:
+        return None, make_error(400, "from_date must be before or equal to to_date")
+
+    return {
+        "limit": limit,
+        "from_date": from_date,
+        "to_date": to_date,
+    }, None
+
+
+def _parse_iso_datetime(value: str, param_name: str):
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+        return parsed, None
+    except ValueError:
+        return None, make_error(400, f"{param_name} must be a valid ISO datetime")

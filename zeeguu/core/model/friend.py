@@ -53,7 +53,12 @@ class Friend(db.Model):
         return friends
 
     @staticmethod
-    def exercise_leaderboard(user_id: int, limit: int = 20):
+    def exercise_leaderboard(
+        user_id: int,
+        limit: int = 20,
+        from_date=None,
+        to_date=None,
+    ):
         """
         Return leaderboard rows for current user and all friends ordered by total
         exercise session duration in descending order.
@@ -87,7 +92,15 @@ class Friend(db.Model):
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserExerciseSession,
-                UserExerciseSession.user_id == related_user_ids.c.user_id,
+                and_(
+                    UserExerciseSession.user_id == related_user_ids.c.user_id,
+                    UserExerciseSession.start_time >= from_date
+                    if from_date is not None
+                    else True,
+                    UserExerciseSession.start_time <= to_date
+                    if to_date is not None
+                    else True,
+                ),
             )
             .group_by(related_user_ids.c.user_id, User.name, User.username)
             .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
@@ -99,10 +112,15 @@ class Friend(db.Model):
         return query.all()
 
     @staticmethod
-    def read_articles_leaderboard(user_id: int, limit: int = 20):
+    def read_articles_leaderboard(
+        user_id: int,
+        limit: int = 20,
+        from_date=None,
+        to_date=None,
+    ):
         """
         Return leaderboard rows for current user and all friends ordered by
-        number of opened articles in descending order.
+        number of completed articles in descending order.
         """
         from zeeguu.core.model.user_article import UserArticle
 
@@ -120,25 +138,31 @@ class Friend(db.Model):
             db.session.query(literal(user_id).label("user_id"))
         ).subquery()
 
-        opened_articles_count = func.count(UserArticle.id)
+        completed_articles_count = func.count(UserArticle.id)
 
         query = (
             db.session.query(
                 related_user_ids.c.user_id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
-                opened_articles_count.label("read_articles_count"),
+                completed_articles_count.label("read_articles_count"),
             )
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserArticle,
                 and_(
                     UserArticle.user_id == related_user_ids.c.user_id,
-                    UserArticle.opened.isnot(None),
+                    UserArticle.completed_at.isnot(None),
+                    UserArticle.completed_at >= from_date
+                    if from_date is not None
+                    else True,
+                    UserArticle.completed_at <= to_date
+                    if to_date is not None
+                    else True,
                 ),
             )
             .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(opened_articles_count.desc(), related_user_ids.c.user_id.asc())
+            .order_by(completed_articles_count.desc(), related_user_ids.c.user_id.asc())
         )
 
         if limit is not None:
@@ -147,7 +171,12 @@ class Friend(db.Model):
         return query.all()
 
     @staticmethod
-    def reading_sessions_leaderboard(user_id: int, limit: int = 20):
+    def reading_sessions_leaderboard(
+        user_id: int,
+        limit: int = 20,
+        from_date=None,
+        to_date=None,
+    ):
         """
         Return leaderboard rows for current user and all friends ordered by total
         reading session duration in descending order.
@@ -180,7 +209,15 @@ class Friend(db.Model):
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserReadingSession,
-                UserReadingSession.user_id == related_user_ids.c.user_id,
+                and_(
+                    UserReadingSession.user_id == related_user_ids.c.user_id,
+                    UserReadingSession.start_time >= from_date
+                    if from_date is not None
+                    else True,
+                    UserReadingSession.start_time <= to_date
+                    if to_date is not None
+                    else True,
+                ),
             )
             .group_by(related_user_ids.c.user_id, User.name, User.username)
             .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
