@@ -20,6 +20,9 @@ from zeeguu.core.model.domain_name import DomainName
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.source_type import SourceType
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.friend import Friend
 import nltk
 
 
@@ -76,11 +79,69 @@ def random_url():
     return f"https://{random.choice(domains)}{random.choice(paths)}/{random.randint(1000,99999)}"
 
 
+def random_datetime_in_last_month():
+    now = datetime.now()
+    start = now - timedelta(days=30)
+    return start + timedelta(
+        seconds=random.randint(0, int((now - start).total_seconds()))
+    )
+
+
+def get_target_users_for_user_article(target_user_id=5, fallback_count=5):
+    target_user = User.query.filter_by(id=target_user_id).first()
+    if not target_user:
+        return User.query.order_by(User.id.desc()).limit(fallback_count).all()
+
+    users = [target_user]
+    users.extend(Friend.get_friends(target_user_id))
+
+    unique_by_id = {}
+    for user in users:
+        unique_by_id[user.id] = user
+
+    return list(unique_by_id.values())
+
+
+def create_fake_user_article_rows(articles, target_user_id=5):
+    users = get_target_users_for_user_article(target_user_id=target_user_id)
+    if not users or not articles:
+        return 0
+
+    created = 0
+    for article in articles:
+        max_users_for_article = min(len(users), random.randint(1, 4))
+        selected_users = random.sample(users, max_users_for_article)
+
+        for user in selected_users:
+            completed_at = random_datetime_in_last_month()
+            opened = completed_at - timedelta(minutes=random.randint(1, 15))
+            liked = random.random() < 0.45
+            reading_completion = round(random.uniform(0.9, 1.0), 2)
+
+            existing = UserArticle.find(user, article)
+            if existing:
+                continue
+
+            ua = UserArticle(
+                user=user,
+                article=article,
+                opened=opened,
+                liked=liked,
+                reading_completion=reading_completion,
+                completed_at=completed_at,
+            )
+            db.session.add(ua)
+            created += 1
+
+    db.session.commit()
+    return created
+
+
 
 def main():
     ensure_nltk_resources()
     num_articles = 100
-    created = 0
+    created_articles = []
     for _ in range(num_articles):
         title = random_title()
         authors = random_authors()
@@ -124,9 +185,13 @@ def main():
             img_url=None
         )
         db.session.add(article)
-        created += 1
+        created_articles.append(article)
     db.session.commit()
-    print(f"Created {created} fake articles.")
+
+    created_user_articles = create_fake_user_article_rows(created_articles)
+
+    print(f"Created {len(created_articles)} fake articles.")
+    print(f"Created {created_user_articles} fake user-article rows.")
 
 if __name__ == "__main__":
     main()
