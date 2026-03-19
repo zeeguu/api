@@ -90,6 +90,38 @@ def friends_read_articles_leaderboard():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/friends_reading_sessions_leaderboard", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def friends_reading_sessions_leaderboard():
+    """
+    Get reading sessions leaderboard for the current user and their friends.
+
+    Query params:
+        limit: Optional positive integer.
+    """
+    limit_arg = request.args.get("limit")
+    limit = 20
+    if limit_arg is not None:
+        try:
+            limit = int(limit_arg)
+        except ValueError:
+            return make_error(400, "limit must be an integer")
+
+        if limit <= 0:
+            return make_error(400, "limit must be greater than 0")
+
+    leaderboard_rows = Friend.reading_sessions_leaderboard(flask.g.user_id, limit=limit)
+    result = [_serialize_reading_sessions_leaderboard_row(row) for row in leaderboard_rows]
+
+    log(
+        f"friends_reading_sessions_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
+    )
+    return json_result(result)
+
+
+# ---------------------------------------------------------------------------
 @api.route("/get_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -370,6 +402,33 @@ def _serialize_read_articles_leaderboard_row(row):
             "username": username,
         },
         "read_articles_count": int(read_articles_count or 0),
+    }
+
+
+def _serialize_reading_sessions_leaderboard_row(row):
+    user_id = getattr(row, "user_id", None)
+    if user_id is None and isinstance(row, tuple):
+        user_id = row[0]
+
+    name = getattr(row, "name", None)
+    if name is None and isinstance(row, tuple):
+        name = row[1]
+
+    username = getattr(row, "username", None)
+    if username is None and isinstance(row, tuple):
+        username = row[2]
+
+    session_duration_ms = getattr(row, "session_duration_ms", None)
+    if session_duration_ms is None and isinstance(row, tuple):
+        session_duration_ms = row[3]
+
+    return {
+        "user": {
+            "id": user_id,
+            "name": name,
+            "username": username,
+        },
+        "session_duration_ms": int(session_duration_ms or 0),
     }
 
 

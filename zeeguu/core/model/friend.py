@@ -145,6 +145,51 @@ class Friend(db.Model):
             query = query.limit(limit)
 
         return query.all()
+
+    @staticmethod
+    def reading_sessions_leaderboard(user_id: int, limit: int = 20):
+        """
+        Return leaderboard rows for current user and all friends ordered by total
+        reading session duration in descending order.
+        """
+        from zeeguu.core.model.user_reading_session import UserReadingSession
+
+        friend_user_ids = (
+            db.session.query(
+                case(
+                    (Friend.user_id == user_id, Friend.friend_id),
+                    else_=Friend.user_id,
+                ).label("user_id")
+            )
+            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
+        )
+
+        related_user_ids = friend_user_ids.union(
+            db.session.query(literal(user_id).label("user_id"))
+        ).subquery()
+
+        total_duration = func.coalesce(func.sum(UserReadingSession.duration), 0)
+
+        query = (
+            db.session.query(
+                related_user_ids.c.user_id.label("user_id"),
+                User.name.label("name"),
+                User.username.label("username"),
+                total_duration.label("session_duration_ms"),
+            )
+            .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(
+                UserReadingSession,
+                UserReadingSession.user_id == related_user_ids.c.user_id,
+            )
+            .group_by(related_user_ids.c.user_id, User.name, User.username)
+            .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
+        )
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        return query.all()
    
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
