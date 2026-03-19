@@ -57,6 +57,36 @@ def friends_exercise_leaderboard():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/friends_exercises_done_leaderboard", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def friends_exercises_done_leaderboard():
+    """
+    Get exercises-done leaderboard for the current user and their friends.
+
+    Query params:
+        limit: Optional positive integer.
+    """
+    params, error_response = _parse_leaderboard_query_params()
+    if error_response:
+        return error_response
+
+    leaderboard_rows = Friend.exercises_done_leaderboard(
+        flask.g.user_id,
+        limit=params["limit"],
+        from_date=params["from_date"],
+        to_date=params["to_date"],
+    )
+    result = [_serialize_exercises_done_leaderboard_row(row) for row in leaderboard_rows]
+
+    log(
+        f"friends_exercises_done_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
+    )
+    return json_result(result)
+
+
+# ---------------------------------------------------------------------------
 @api.route("/friends_read_articles_leaderboard", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -424,6 +454,33 @@ def _serialize_reading_sessions_leaderboard_row(row):
             "username": username,
         },
         "session_duration_ms": int(session_duration_ms or 0),
+    }
+
+
+def _serialize_exercises_done_leaderboard_row(row):
+    user_id = getattr(row, "user_id", None)
+    if user_id is None and isinstance(row, tuple):
+        user_id = row[0]
+
+    name = getattr(row, "name", None)
+    if name is None and isinstance(row, tuple):
+        name = row[1]
+
+    username = getattr(row, "username", None)
+    if username is None and isinstance(row, tuple):
+        username = row[2]
+
+    exercises_done_count = getattr(row, "exercises_done_count", None)
+    if exercises_done_count is None and isinstance(row, tuple):
+        exercises_done_count = row[3]
+
+    return {
+        "user": {
+            "id": user_id,
+            "name": name,
+            "username": username,
+        },
+        "exercises_done_count": int(exercises_done_count or 0),
     }
 
 

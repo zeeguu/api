@@ -227,6 +227,62 @@ class Friend(db.Model):
             query = query.limit(limit)
 
         return query.all()
+
+    @staticmethod
+    def exercises_done_leaderboard(
+        user_id: int,
+        limit: int = 20,
+        from_date=None,
+        to_date=None,
+    ):
+        """
+        Return leaderboard rows for current user and all friends ordered by
+        number of exercises done in descending order.
+        """
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.user_word import UserWord
+
+        friend_user_ids = (
+            db.session.query(
+                case(
+                    (Friend.user_id == user_id, Friend.friend_id),
+                    else_=Friend.user_id,
+                ).label("user_id")
+            )
+            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
+        )
+
+        related_user_ids = friend_user_ids.union(
+            db.session.query(literal(user_id).label("user_id"))
+        ).subquery()
+
+        exercises_done_count = func.count(Exercise.id)
+
+        query = (
+            db.session.query(
+                related_user_ids.c.user_id.label("user_id"),
+                User.name.label("name"),
+                User.username.label("username"),
+                exercises_done_count.label("exercises_done_count"),
+            )
+            .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(UserWord, UserWord.user_id == related_user_ids.c.user_id)
+            .outerjoin(
+                Exercise,
+                and_(
+                    Exercise.user_word_id == UserWord.id,
+                    Exercise.time >= from_date if from_date is not None else True,
+                    Exercise.time <= to_date if to_date is not None else True,
+                ),
+            )
+            .group_by(related_user_ids.c.user_id, User.name, User.username)
+            .order_by(exercises_done_count.desc(), related_user_ids.c.user_id.asc())
+        )
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        return query.all()
    
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
