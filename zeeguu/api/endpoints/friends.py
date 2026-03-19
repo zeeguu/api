@@ -26,6 +26,70 @@ def get_friends():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/friends_exercise_leaderboard", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def friends_exercise_leaderboard():
+    """
+    Get exercise leaderboard for the current user and their friends.
+
+    Query params:
+        limit: Optional positive integer.
+    """
+   #  limit_arg = request.args.get("limit")
+   #  limit = None
+   #  if limit_arg is not None:
+   #      try:
+   #          limit = int(limit_arg)
+   #      except ValueError:
+   #          return make_error(400, "limit must be an integer")
+
+   #      if limit <= 0:
+   #          return make_error(400, "limit must be greater than 0")
+
+    leaderboard_rows = Friend.exercise_leaderboard(flask.g.user_id)
+    result = [_serialize_exercise_leaderboard_row(row) for row in leaderboard_rows]
+
+    log(
+        f"friends_exercise_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
+    )
+    return json_result(result)
+
+
+# ---------------------------------------------------------------------------
+@api.route("/friends_read_articles_leaderboard", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def friends_read_articles_leaderboard():
+    """
+    Get read-articles leaderboard for the current user and their friends.
+
+    Query params:
+        limit: Optional positive integer.
+    """
+    limit_arg = request.args.get("limit")
+    limit = 20
+    if limit_arg is not None:
+        try:
+            limit = int(limit_arg)
+        except ValueError:
+            return make_error(400, "limit must be an integer")
+
+        if limit <= 0:
+            return make_error(400, "limit must be greater than 0")
+
+    leaderboard_rows = Friend.read_articles_leaderboard(flask.g.user_id, limit=limit)
+    result = [_serialize_read_articles_leaderboard_row(row) for row in leaderboard_rows]
+
+    log(
+        f"friends_read_articles_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
+    )
+    return json_result(result)
+
+
+# ---------------------------------------------------------------------------
 @api.route("/get_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -249,6 +313,64 @@ def _serialize_user(user: User):
 
 def _serialize_users(users: list[User]):
     return [_serialize_user(user) for user in users]
+
+
+def _serialize_exercise_leaderboard_row(row):
+    # SQLAlchemy may return either Row objects (attribute access) or plain tuples,
+    # depending on query composition/version. Support both shapes safely.
+    user_id = getattr(row, "user_id", None)
+    if user_id is None:
+        user_id = getattr(row, "id", None)
+    if user_id is None and isinstance(row, tuple):
+        user_id = row[0]
+
+    name = getattr(row, "name", None)
+    if name is None and isinstance(row, tuple):
+        name = row[1]
+
+    username = getattr(row, "username", None)
+    if username is None and isinstance(row, tuple):
+        username = row[2]
+
+    session_duration_ms = getattr(row, "session_duration_ms", None)
+    if session_duration_ms is None and isinstance(row, tuple):
+        session_duration_ms = row[3]
+
+    return {
+        "user": {
+            "id": user_id,
+            "name": name,
+            "username": username,
+        },
+        "session_duration_ms": int(session_duration_ms or 0),
+    }
+
+
+def _serialize_read_articles_leaderboard_row(row):
+    user_id = getattr(row, "user_id", None)
+    if user_id is None and isinstance(row, tuple):
+        user_id = row[0]
+
+    name = getattr(row, "name", None)
+    if name is None and isinstance(row, tuple):
+        name = row[1]
+
+    username = getattr(row, "username", None)
+    if username is None and isinstance(row, tuple):
+        username = row[2]
+
+    read_articles_count = getattr(row, "read_articles_count", None)
+    if read_articles_count is None and isinstance(row, tuple):
+        read_articles_count = row[3]
+
+    return {
+        "user": {
+            "id": user_id,
+            "name": name,
+            "username": username,
+        },
+        "read_articles_count": int(read_articles_count or 0),
+    }
 
 
 def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
