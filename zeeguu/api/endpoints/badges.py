@@ -39,7 +39,6 @@ def get_badges_for_user(user_id: int = None):
     Returns:
     [
         {
-           "badge_id": 1,
            "name": "Meaning Builder",
            "description": "Translate {target_value} words while reading.",
            "levels": [
@@ -103,7 +102,6 @@ def serialize_badge(badge: Badge, achieved_map: dict, progress_map: dict) -> dic
     ]
 
     return {
-        "badge_id": badge.id,
         "name": badge.name,
         "description": badge.description,
         "levels": levels,
