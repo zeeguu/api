@@ -17,6 +17,7 @@ from zeeguu.api.utils.route_wrappers import requires_session
 from .. import api
 
 import zeeguu.core
+from sqlalchemy import func
 from zeeguu.core.model import Cohort
 
 
@@ -76,7 +77,7 @@ def inv_code_usable(invite_code):
     Checks if the inputted invite code is already in use.
 
     """
-    c = Cohort.query.filter_by(inv_code=invite_code).first()
+    c = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
     if c is None:
         return "OK"
     return "False"
