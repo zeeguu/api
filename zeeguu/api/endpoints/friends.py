@@ -1,15 +1,16 @@
 import flask
 from flask import request
-from zeeguu.core.model import User, user
+from sqlalchemy.orm.exc import NoResultFound
+
+from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.model import User
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
-from zeeguu.api.utils.json_result import json_result
-from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model.user_language import UserLanguage
-from zeeguu.logging import log, debug, warning, critical
+from zeeguu.logging import log, warning
 from . import api
+
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
@@ -280,7 +281,7 @@ def _serialize_user(user: User):
     return result
 
 def _serialize_user_languages(user):
-        # Add all languages the user is learning
+    # Add all languages the user is learning
     from zeeguu.core.model.user_language import UserLanguage
     user_languages = UserLanguage.all_user_languages_for_user(user)
     return [ul.language.as_dictionary() for ul in user_languages]
