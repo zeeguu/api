@@ -146,3 +146,154 @@ def test_get_friends(client: LoggedInClient):
     response = client.get("/get_friends")
     assert isinstance(response, list)
 
+
+def test_get_friends_for_friend_user_id(client: LoggedInClient):
+    """
+    Test /get_friends/<user_id> excludes the requester from the friend's friends list.
+    """
+    other_email = "friends-list@user.com"
+    other_client = LoggedInClient(
+        client.client,
+        email=other_email,
+        password="test",
+        username="friends-list",
+        learned_language="de",
+    )
+    third_email = "friends-list-third@user.com"
+    third_client = LoggedInClient(
+        client.client,
+        email=third_email,
+        password="test",
+        username="friends-list-third",
+        learned_language="de",
+    )
+
+    sender_user = User.find(client.email)
+    other_user = User.find(other_email)
+    third_user = User.find(third_email)
+
+    client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+
+    third_client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": third_user.id})
+
+    response = client.get(f"/get_friends/{other_user.id}")
+
+    assert isinstance(response, list)
+    friend_ids = [entry["id"] for entry in response]
+    assert sender_user.id not in friend_ids
+    assert third_user.id in friend_ids
+
+
+def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
+    """
+    Test /get_friends/<user_id> denies access when users are not friends.
+    """
+    stranger_email = "friends-private@user.com"
+    LoggedInClient(
+        client.client,
+        email=stranger_email,
+        password="test",
+        username="friends-private",
+        learned_language="de",
+    )
+    stranger_user = User.find(stranger_email)
+
+    response = client.get(f"/get_friends/{stranger_user.id}")
+
+    assert isinstance(response, dict)
+    assert response.get("message") == "You can only view friends for yourself or your friends."
+
+
+def test_get_user_details_returns_current_user_data(client: LoggedInClient):
+    """
+    Test /get_user_details returns the logged-in user's details and feature flags.
+    """
+    user = User.find(client.email)
+
+    response = client.get("/get_user_details")
+
+    assert isinstance(response, dict)
+    assert response["email"] == client.email
+    assert response["name"] == user.name
+    assert "learned_language" in response
+    assert "native_language" in response
+    assert "features" in response
+
+
+def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> returns details when users are friends.
+    """
+    other_email = "friend-details@user.com"
+    other_client = LoggedInClient(
+        client.client,
+        email=other_email,
+        password="test",
+        username="friend-details",
+        learned_language="de",
+    )
+
+    sender_user = User.find(client.email)
+    other_user = User.find(other_email)
+
+    client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+
+    response = client.get(f"/get_user_details/{other_user.id}")
+
+    assert isinstance(response, dict)
+    assert response["email"] == other_email
+    assert response["name"] == other_user.name
+    assert "learned_language" in response
+    assert "native_language" in response
+    assert "friends_since" in response
+    assert "mutual_streak" in response
+    assert isinstance(response["mutual_streak"], int)
+    assert response["friendship"]["friend_request_status"] == "accepted"
+
+
+def test_get_friend_details_pending_request_shows_pending_status(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> shows friendship.friend_request_status='pending'
+    when a friend request has been sent but not yet accepted.
+    """
+    pending_email = "pending-details@user.com"
+    LoggedInClient(
+        client.client,
+        email=pending_email,
+        password="test",
+        username="pending-details",
+        learned_language="de",
+    )
+    pending_user = User.find(pending_email)
+
+    client.post("/send_friend_request", json={"receiver_id": pending_user.id})
+
+    response = client.get(f"/get_user_details/{pending_user.id}")
+
+    assert isinstance(response, dict)
+    assert response["friendship"]["friend_request_status"] == "pending"
+
+
+def test_get_friend_details_no_relationship_returns_none_friendship(client: LoggedInClient):
+    """
+    Test /get_user_details/<friend_user_id> returns friendship=None when there is
+    no friendship or friend request between the users.
+    """
+    stranger_email = "no-relation@user.com"
+    LoggedInClient(
+        client.client,
+        email=stranger_email,
+        password="test",
+        username="no-relation",
+        learned_language="de",
+    )
+    stranger_user = User.find(stranger_email)
+
+    response = client.get(f"/get_user_details/{stranger_user.id}")
+
+    assert isinstance(response, dict)
+    assert response.get("friendship") is None
+
