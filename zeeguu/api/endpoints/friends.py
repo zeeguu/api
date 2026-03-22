@@ -12,6 +12,13 @@ from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.logging import log, warning
 from . import api
 
+LEADERBOARD_METRICS = {
+    "exercise_time": Friend.exercise_leaderboard,
+    "exercises_done": Friend.exercises_done_leaderboard,
+    "articles_read": Friend.read_articles_leaderboard,
+    "reading_sessions": Friend.reading_sessions_leaderboard,
+}
+
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
@@ -38,6 +45,7 @@ def get_friends(user_id: int = None):
     log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
     return json_result(result)
 
+
 def _serialize_user_with_friendship(user: User, friendship):
     user_data = _serialize_user(user)
     if not isinstance(user_data, dict):
@@ -50,123 +58,32 @@ def _serialize_user_with_friendship(user: User, friendship):
     user_data["languages"] = _serialize_user_languages(user) if user else []
     return user_data
 
-# ---------------------------------------------------------------------------
-@api.route("/friends_exercise_leaderboard", methods=["GET"])
-# ---------------------------------------------------------------------------
+
+@api.route("/friends_leaderboard", methods=["GET"])
 @cross_domain
 @requires_session
-def friends_exercise_leaderboard():
-    """
-    Get exercise leaderboard for the current user and their friends.
-
-    Query params:
-        limit: Optional positive integer.
-    """
+def friends_leaderboard():
     params, error_response = _parse_leaderboard_query_params()
     if error_response:
         return error_response
 
-    leaderboard_rows = Friend.exercise_leaderboard(
+    metric = LEADERBOARD_METRICS.get(request.args.get("metric"))
+
+    if not metric:
+        return make_error(400, "Invalid leaderboard metric")
+
+    rows = metric(
         flask.g.user_id,
         limit=params["limit"],
         from_date=params["from_date"],
         to_date=params["to_date"],
     )
-    result = [_serialize_exercise_leaderboard_row(row) for row in leaderboard_rows]
 
-    log(
-        f"friends_exercise_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
-    )
-    return json_result(result)
+    result = [
+        _serialize_leaderboard_row(row)
+        for row in rows
+    ]
 
-
-# ---------------------------------------------------------------------------
-@api.route("/friends_exercises_done_leaderboard", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-@requires_session
-def friends_exercises_done_leaderboard():
-    """
-    Get exercises-done leaderboard for the current user and their friends.
-
-    Query params:
-        limit: Optional positive integer.
-    """
-    params, error_response = _parse_leaderboard_query_params()
-    if error_response:
-        return error_response
-
-    leaderboard_rows = Friend.exercises_done_leaderboard(
-        flask.g.user_id,
-        limit=params["limit"],
-        from_date=params["from_date"],
-        to_date=params["to_date"],
-    )
-    result = [_serialize_exercises_done_leaderboard_row(row) for row in leaderboard_rows]
-
-    log(
-        f"friends_exercises_done_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
-    )
-    return json_result(result)
-
-
-# ---------------------------------------------------------------------------
-@api.route("/friends_read_articles_leaderboard", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-@requires_session
-def friends_read_articles_leaderboard():
-    """
-    Get read-articles leaderboard for the current user and their friends.
-
-    Query params:
-        limit: Optional positive integer.
-    """
-    params, error_response = _parse_leaderboard_query_params()
-    if error_response:
-        return error_response
-
-    leaderboard_rows = Friend.read_articles_leaderboard(
-        flask.g.user_id,
-        limit=params["limit"],
-        from_date=params["from_date"],
-        to_date=params["to_date"],
-    )
-    result = [_serialize_read_articles_leaderboard_row(row) for row in leaderboard_rows]
-
-    log(
-        f"friends_read_articles_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
-    )
-    return json_result(result)
-
-
-# ---------------------------------------------------------------------------
-@api.route("/friends_reading_sessions_leaderboard", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-@requires_session
-def friends_reading_sessions_leaderboard():
-    """
-    Get reading sessions leaderboard for the current user and their friends.
-
-    Query params:
-        limit: Optional positive integer.
-    """
-    params, error_response = _parse_leaderboard_query_params()
-    if error_response:
-        return error_response
-
-    leaderboard_rows = Friend.reading_sessions_leaderboard(
-        flask.g.user_id,
-        limit=params["limit"],
-        from_date=params["from_date"],
-        to_date=params["to_date"],
-    )
-    result = [_serialize_reading_sessions_leaderboard_row(row) for row in leaderboard_rows]
-
-    log(
-        f"friends_reading_sessions_leaderboard: user_id={flask.g.user_id} rows={len(result)}"
-    )
     return json_result(result)
 
 
@@ -183,6 +100,7 @@ def get_friend_requests():
     friendRequest = FriendRequest.get_friend_requests_for_user(flask.g.user_id)
     result = [_serialize_friend_request(req) for req in friendRequest]
     return json_result(result)
+
 
 # ---------------------------------------------------------------------------
 @api.route("/get_pending_friend_requests", methods=["GET"])
@@ -216,7 +134,7 @@ def send_friend_request():
         log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
         return make_error(status_code, error_message)
 
-    try: 
+    try:
         friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
         response = _serialize_friend_request(friend_request)
         return json_result(response)
@@ -248,6 +166,7 @@ def delete_friend_request():
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
     return json_result({"success": is_deleted})
 
+
 # ---------------------------------------------------------------------------
 @api.route("/accept_friend_request", methods=["POST"])
 # ---------------------------------------------------------------------------
@@ -258,7 +177,7 @@ def accept_friend_request():
     Accept a friend request between sender and receiver, and create a friendship
     """
     # current user is the receiver of the friend request
-    receiver_id = flask.g.user_id 
+    receiver_id = flask.g.user_id
     sender_id = request.json.get("sender_id")
     print(f"sender_id: {sender_id}")
     status_code, error = _is_friend_request_valid(sender_id, receiver_id)
@@ -270,9 +189,10 @@ def accept_friend_request():
     if friendship is None:
         log(f"accept_friend_request: no friend request found from user_id={sender_id} to user_id={receiver_id}")
         return make_error(404, "No friend request found to accept")
-    
+
     response = _serialize_friendship(friendship)
     return json_result(response)
+
 
 # ---------------------------------------------------------------------------
 @api.route("/reject_friend_request", methods=["POST"])
@@ -284,7 +204,7 @@ def reject_friend_request():
     Reject a friend request between sender and receiver, and delete the friend request record in the database
     """
     # current user is the receiver of the friend request
-    receiver_id = flask.g.user_id 
+    receiver_id = flask.g.user_id
     sender_id = request.json.get("sender_id")
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
 
@@ -295,6 +215,7 @@ def reject_friend_request():
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
     return json_result({"success": is_rejected})
 
+
 # ---------------------------------------------------------------------------
 @api.route("/unfriend", methods=["POST"])
 # ---------------------------------------------------------------------------
@@ -304,14 +225,14 @@ def unfriend():
     """
     Unfriend a friendship between user1 and user2, and delete the friends row (friendship record) in the database
     """
-    sender_id = flask.g.user_id 
+    sender_id = flask.g.user_id
     receiver_id = request.json.get("receiver_id")
 
     status_code, error_message = _is_friend_request_valid(sender_id, receiver_id)
     if status_code >= 400:
         log(f"unfriend: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
         return make_error(status_code, error_message)
-    
+
     # Remove the friendship record from the database
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
     log(f"unfriend: user_id={sender_id} unfriended user_id={receiver_id} - success={is_removed}")
@@ -335,7 +256,7 @@ def search_by_username(username):
     if not username or username.strip() == "":
         log(f"search_users: empty username search from user_id={flask.g.user_id}")
         return make_error(400, "Username cannot be empty")
-    
+
     result = Friend.search_users(flask.g.user_id, username)
     log(f"search_users: user_id={flask.g.user_id} searched for username='{username}' and found {len(result)} results")
     return json_result(result)
@@ -359,21 +280,22 @@ def _serialize_friend_request(fr: FriendRequest):
     return {
         "id": fr.id,
         "sender": {
-            "id": fr.sender.id, # This is the user_id is that nesessary?
-            "name": fr.sender.name, # This will be updated to username
-            "username": fr.sender.username, # This will be updated to username
-            "email": fr.sender.email, # Is this relevant?
+            "id": fr.sender.id,  # This is the user_id is that nesessary?
+            "name": fr.sender.name,  # This will be updated to username
+            "username": fr.sender.username,  # This will be updated to username
+            "email": fr.sender.email,  # Is this relevant?
         },
         "receiver": {
-            "id": fr.receiver.id, # This is the user_id is that nesessary?
-            "name": fr.receiver.name, # This will be updated to username
-            "username": fr.receiver.username, # This will be updated to username
-            "email": fr.receiver.email, # Is this relevant?
+            "id": fr.receiver.id,  # This is the user_id is that nesessary?
+            "name": fr.receiver.name,  # This will be updated to username
+            "username": fr.receiver.username,  # This will be updated to username
+            "email": fr.receiver.email,  # Is this relevant?
         },
         "friend_request_status": fr.status,
         "created_at": fr.created_at.isoformat() if fr.created_at else None,
         "responded_at": fr.responded_at.isoformat() if fr.responded_at else None,
     }
+
 
 def _serialize_friendship(friendship: Friend, status: str = "accepted"):
     return {
@@ -384,13 +306,13 @@ def _serialize_friendship(friendship: Friend, status: str = "accepted"):
         "friend_request_status": status,
         "friend_streak": friendship.friend_streak,
         "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None,
-    }   
+    }
+
 
 def _serialize_user(user: User):
     if user is None:
         warning("_serialize_user: user is None")
         return {}
-
 
     result = user.details_as_dictionary() or {}
     if not isinstance(result, dict):
@@ -401,129 +323,33 @@ def _serialize_user(user: User):
 
     return result
 
+
 def _serialize_user_languages(user):
     # Add all languages the user is learning
     from zeeguu.core.model.user_language import UserLanguage
     user_languages = UserLanguage.all_user_languages_for_user(user)
     return [ul.language.as_dictionary() for ul in user_languages]
 
+
 def _serialize_users(users: list[User]):
     return [_serialize_user(user) for user in users]
 
 
-def _serialize_exercise_leaderboard_row(row):
-    # SQLAlchemy may return either Row objects (attribute access) or plain tuples,
-    # depending on query composition/version. Support both shapes safely.
-    user_id = getattr(row, "user_id", None)
-    if user_id is None:
-        user_id = getattr(row, "id", None)
-    if user_id is None and isinstance(row, tuple):
-        user_id = row[0]
-
-    name = getattr(row, "name", None)
-    if name is None and isinstance(row, tuple):
-        name = row[1]
-
-    username = getattr(row, "username", None)
-    if username is None and isinstance(row, tuple):
-        username = row[2]
-
-    session_duration_ms = getattr(row, "session_duration_ms", None)
-    if session_duration_ms is None and isinstance(row, tuple):
-        session_duration_ms = row[3]
+def _serialize_leaderboard_row(row):
+    name = getattr(row, "name", None) or row[0]
+    username = getattr(row, "username", None) or row[1]
+    value = getattr(row, "value", None) or row[2]
 
     return {
         "user": {
-            "id": user_id,
             "name": name,
             "username": username,
         },
-        "session_duration_ms": int(session_duration_ms or 0),
+        "value": value,
     }
 
 
-def _serialize_read_articles_leaderboard_row(row):
-    user_id = getattr(row, "user_id", None)
-    if user_id is None and isinstance(row, tuple):
-        user_id = row[0]
-
-    name = getattr(row, "name", None)
-    if name is None and isinstance(row, tuple):
-        name = row[1]
-
-    username = getattr(row, "username", None)
-    if username is None and isinstance(row, tuple):
-        username = row[2]
-
-    read_articles_count = getattr(row, "read_articles_count", None)
-    if read_articles_count is None and isinstance(row, tuple):
-        read_articles_count = row[3]
-
-    return {
-        "user": {
-            "id": user_id,
-            "name": name,
-            "username": username,
-        },
-        "read_articles_count": int(read_articles_count or 0),
-    }
-
-
-def _serialize_reading_sessions_leaderboard_row(row):
-    user_id = getattr(row, "user_id", None)
-    if user_id is None and isinstance(row, tuple):
-        user_id = row[0]
-
-    name = getattr(row, "name", None)
-    if name is None and isinstance(row, tuple):
-        name = row[1]
-
-    username = getattr(row, "username", None)
-    if username is None and isinstance(row, tuple):
-        username = row[2]
-
-    session_duration_ms = getattr(row, "session_duration_ms", None)
-    if session_duration_ms is None and isinstance(row, tuple):
-        session_duration_ms = row[3]
-
-    return {
-        "user": {
-            "id": user_id,
-            "name": name,
-            "username": username,
-        },
-        "session_duration_ms": int(session_duration_ms or 0),
-    }
-
-
-def _serialize_exercises_done_leaderboard_row(row):
-    user_id = getattr(row, "user_id", None)
-    if user_id is None and isinstance(row, tuple):
-        user_id = row[0]
-
-    name = getattr(row, "name", None)
-    if name is None and isinstance(row, tuple):
-        name = row[1]
-
-    username = getattr(row, "username", None)
-    if username is None and isinstance(row, tuple):
-        username = row[2]
-
-    exercises_done_count = getattr(row, "exercises_done_count", None)
-    if exercises_done_count is None and isinstance(row, tuple):
-        exercises_done_count = row[3]
-
-    return {
-        "user": {
-            "id": user_id,
-            "name": name,
-            "username": username,
-        },
-        "exercises_done_count": int(exercises_done_count or 0),
-    }
-
-
-def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
+def _is_friend_request_valid(sender_id, receiver_id) -> tuple[int, str]:
     """
     :param sender_id: the user_id of the sender of the friend request
     :param receiver_id: the user_id of the receiver of the friend request
@@ -533,10 +359,10 @@ def _is_friend_request_valid(sender_id, receiver_id)-> tuple[int, str]:
     """
     if sender_id is None or receiver_id is None:
         return 422, "invalid data sender_id or/and receiver_id"
-    
+
     if sender_id == receiver_id:
         return 422, "cannot send friend request to yourself"
-    
+
     return 200, "ok"
 
 

@@ -152,6 +152,23 @@ class Friend(db.Model):
 
 
     @staticmethod
+    def _related_user_ids_subquery(user_id: int):
+        # For each friendship row touching this user, select "the other user".
+        return (
+            db.session.query(
+                case(
+                    (Friend.user_id == user_id, Friend.friend_id),
+                    else_=Friend.user_id,
+                ).label("user_id")
+            )
+            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
+            .union(
+                db.session.query(literal(user_id).label("user_id"))
+            )
+            .subquery()
+        )
+
+    @staticmethod
     def exercise_leaderboard(
         user_id: int,
         limit: int = 20,
@@ -164,30 +181,17 @@ class Friend(db.Model):
         """
         from zeeguu.core.model.user_exercise_session import UserExerciseSession
 
-        # For each friendship row touching this user, select "the other user".
-        friend_user_ids = (
-            db.session.query(
-                case(
-                    (Friend.user_id == user_id, Friend.friend_id),
-                    else_=Friend.user_id,
-                ).label("user_id")
-            )
-            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-        )
-
-        related_user_ids = friend_user_ids.union(
-            db.session.query(literal(user_id).label("user_id"))
-        ).subquery()
+        related_user_ids = Friend._related_user_ids_subquery(user_id)
 
         total_duration = func.coalesce(func.sum(UserExerciseSession.duration), 0)
 
         query = (
             db.session.query(
-                related_user_ids.c.user_id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
-                total_duration.label("session_duration_ms"),
+                total_duration.label("value"),
             )
+            .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserExerciseSession,
@@ -223,29 +227,17 @@ class Friend(db.Model):
         """
         from zeeguu.core.model.user_article import UserArticle
 
-        friend_user_ids = (
-            db.session.query(
-                case(
-                    (Friend.user_id == user_id, Friend.friend_id),
-                    else_=Friend.user_id,
-                ).label("user_id")
-            )
-            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-        )
-
-        related_user_ids = friend_user_ids.union(
-            db.session.query(literal(user_id).label("user_id"))
-        ).subquery()
+        related_user_ids = Friend._related_user_ids_subquery(user_id)
 
         completed_articles_count = func.count(UserArticle.id)
 
         query = (
             db.session.query(
-                related_user_ids.c.user_id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
-                completed_articles_count.label("read_articles_count"),
+                completed_articles_count.label("value"),
             )
+            .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserArticle,
@@ -282,29 +274,17 @@ class Friend(db.Model):
         """
         from zeeguu.core.model.user_reading_session import UserReadingSession
 
-        friend_user_ids = (
-            db.session.query(
-                case(
-                    (Friend.user_id == user_id, Friend.friend_id),
-                    else_=Friend.user_id,
-                ).label("user_id")
-            )
-            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-        )
-
-        related_user_ids = friend_user_ids.union(
-            db.session.query(literal(user_id).label("user_id"))
-        ).subquery()
+        related_user_ids = Friend._related_user_ids_subquery(user_id)
 
         total_duration = func.coalesce(func.sum(UserReadingSession.duration), 0)
 
         query = (
             db.session.query(
-                related_user_ids.c.user_id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
-                total_duration.label("session_duration_ms"),
+                total_duration.label("value"),
             )
+            .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(
                 UserReadingSession,
@@ -341,29 +321,17 @@ class Friend(db.Model):
         from zeeguu.core.model.exercise import Exercise
         from zeeguu.core.model.user_word import UserWord
 
-        friend_user_ids = (
-            db.session.query(
-                case(
-                    (Friend.user_id == user_id, Friend.friend_id),
-                    else_=Friend.user_id,
-                ).label("user_id")
-            )
-            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-        )
-
-        related_user_ids = friend_user_ids.union(
-            db.session.query(literal(user_id).label("user_id"))
-        ).subquery()
+        related_user_ids = Friend._related_user_ids_subquery(user_id)
 
         exercises_done_count = func.count(Exercise.id)
 
         query = (
             db.session.query(
-                related_user_ids.c.user_id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
-                exercises_done_count.label("exercises_done_count"),
+                exercises_done_count.label("value"),
             )
+            .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
             .outerjoin(UserWord, UserWord.user_id == related_user_ids.c.user_id)
             .outerjoin(
@@ -459,6 +427,8 @@ class Friend(db.Model):
         query = query.filter(or_(*filters), User.id != current_user_id).limit(limit)
 
         results = []
+
+        # TODO this is N+1
         for user in query.all():
             # Friendship status
             friendship = Friend.query.filter(
