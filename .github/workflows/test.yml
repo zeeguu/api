@@ -48,15 +48,18 @@ jobs:
           echo "ZEEGUU_RESOURCES_FOLDER=$ZEEGUU_RESOURCES_FOLDER" >> $GITHUB_ENV
           echo $ZEEGUU_RESOURCES_FOLDER
 
-          # Create and activate virtual environment
-          if [ ! -d "venv" ]; then
-            echo "Creating virtual environment..."
+          # Create or rebuild virtual environment when cache is stale/broken.
+          REBUILD_VENV=0
+          if [ ! -x "venv/bin/python" ] || ! venv/bin/python -V > /dev/null 2>&1; then
+            echo "Creating or rebuilding virtual environment..."
+            rm -rf venv
             python -m venv venv
+            REBUILD_VENV=1
           fi
           source venv/bin/activate
 
-          # Only install if cache missed or requirements changed
-          if [ "${{ steps.cache-venv.outputs.cache-hit }}" != 'true' ]; then
+          # Install when cache missed, requirements changed, or venv was rebuilt.
+          if [ "${{ steps.cache-venv.outputs.cache-hit }}" != 'true' ] || [ "$REBUILD_VENV" -eq 1 ]; then
             echo "Installing Python dependencies..."
             python -m pip install --upgrade pip
             pip install -r requirements.txt
@@ -85,4 +88,4 @@ jobs:
           source venv/bin/activate
           export NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data
           export DEV_SKIP_TRANSLATION=1
-          pytest
+          python -m pytest
