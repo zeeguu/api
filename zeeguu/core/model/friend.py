@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, and_, literal, case
 from sqlalchemy.orm import relationship, object_session
+
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
 from datetime import datetime, timedelta
@@ -187,6 +189,7 @@ class Friend(db.Model):
 
         query = (
             db.session.query(
+                User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
                 total_duration.label("value"),
@@ -233,6 +236,7 @@ class Friend(db.Model):
 
         query = (
             db.session.query(
+                User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
                 completed_articles_count.label("value"),
@@ -280,6 +284,7 @@ class Friend(db.Model):
 
         query = (
             db.session.query(
+                User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
                 total_duration.label("value"),
@@ -327,6 +332,7 @@ class Friend(db.Model):
 
         query = (
             db.session.query(
+                User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
                 exercises_done_count.label("value"),
@@ -442,20 +448,29 @@ class Friend(db.Model):
                 ((FriendRequest.sender_id == user.id) & (FriendRequest.receiver_id == current_user_id))
             ).order_by(FriendRequest.created_at.desc()).first()
 
+            user_avatar = UserAvatar.find(user.id)
+
 
             friendship_or_friend_request = Friend._get_friendship_or_friendrequest(
                 friendship,
                 friend_request)
 
-            results.append({
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    "friendship": friendship_or_friend_request,
-                },
-            })
+            user_data = {
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "email": user.email,
+                "friendship": friendship_or_friend_request,
+            }
+
+            if user_avatar:
+                user_data["user_avatar"] = {
+                    "image_name": user_avatar.image_name,
+                    "character_color": user_avatar.character_color,
+                    "background_color": user_avatar.background_color,
+                }
+
+            results.append({"user": user_data})
         return results
 
     @staticmethod

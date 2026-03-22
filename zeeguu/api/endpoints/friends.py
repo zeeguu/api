@@ -314,6 +314,7 @@ def _serialize_user(user: User):
         warning("_serialize_user: user is None")
         return {}
 
+    # TODO we shouldn't provide this much sensitive info about the friends
     result = user.details_as_dictionary() or {}
     if not isinstance(result, dict):
         warning(f"_serialize_user: details_as_dictionary returned {type(result)} for user_id={user.id}")
@@ -336,12 +337,14 @@ def _serialize_users(users: list[User]):
 
 
 def _serialize_leaderboard_row(row):
-    name = getattr(row, "name", None) or row[0]
-    username = getattr(row, "username", None) or row[1]
-    value = getattr(row, "value", None) or row[2]
+    user_id = getattr(row, "user_id", None) or row[0]
+    name = getattr(row, "name", None) or row[1]
+    username = getattr(row, "username", None) or row[2]
+    value = getattr(row, "value", None) or row[3]
 
     return {
         "user": {
+            "id": user_id,
             "name": name,
             "username": username,
         },
