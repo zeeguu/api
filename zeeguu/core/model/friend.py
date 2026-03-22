@@ -421,6 +421,7 @@ class Friend(db.Model):
         
         # Build base query
         filters = []
+        term = term.lower()
         if term:
             filters.append(func.lower(User.username).ilike(f"%{term}%")) # ilike for case-insensitive partial match
             filters.append(func.lower(User.email) == term) # exact match for email
