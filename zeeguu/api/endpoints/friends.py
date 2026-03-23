@@ -13,10 +13,11 @@ from zeeguu.logging import log, warning
 from . import api
 
 LEADERBOARD_METRICS = {
-    "exercise_time": Friend.exercise_leaderboard,
+    "exercise_time": Friend.exercise_time_leaderboard,
     "exercises_done": Friend.exercises_done_leaderboard,
     "articles_read": Friend.read_articles_leaderboard,
-    "reading_sessions": Friend.reading_sessions_leaderboard,
+    "reading_time": Friend.reading_time_leaderboard,
+    "listening_time": Friend.listening_time_leaderboard,
 }
 
 

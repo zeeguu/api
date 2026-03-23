@@ -171,7 +171,7 @@ class Friend(db.Model):
         )
 
     @staticmethod
-    def exercise_leaderboard(
+    def exercise_time_leaderboard(
         user_id: int,
         limit: int = 20,
         from_date=None,
@@ -204,6 +204,53 @@ class Friend(db.Model):
                     if from_date is not None
                     else True,
                     UserExerciseSession.start_time <= to_date
+                    if to_date is not None
+                    else True,
+                ),
+            )
+            .group_by(related_user_ids.c.user_id, User.name, User.username)
+            .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
+        )
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        return query.all()
+
+    @staticmethod
+    def listening_time_leaderboard(
+            user_id: int,
+            limit: int = 20,
+            from_date=None,
+            to_date=None,
+    ):
+        """
+        Return leaderboard rows for current user and all friends ordered by total
+        listening session duration in descending order.
+        """
+        from zeeguu.core.model.user_listening_session import UserListeningSession
+
+        related_user_ids = Friend._related_user_ids_subquery(user_id)
+
+        total_duration = func.coalesce(func.sum(UserListeningSession.duration), 0)
+
+        query = (
+            db.session.query(
+                User.id.label("user_id"),
+                User.name.label("name"),
+                User.username.label("username"),
+                total_duration.label("value"),
+            )
+            .select_from(related_user_ids)
+            .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(
+                UserListeningSession,
+                and_(
+                    UserListeningSession.user_id == related_user_ids.c.user_id,
+                    UserListeningSession.start_time >= from_date
+                    if from_date is not None
+                    else True,
+                    UserListeningSession.start_time <= to_date
                     if to_date is not None
                     else True,
                 ),
@@ -266,7 +313,7 @@ class Friend(db.Model):
         return query.all()
 
     @staticmethod
-    def reading_sessions_leaderboard(
+    def reading_time_leaderboard(
         user_id: int,
         limit: int = 20,
         from_date=None,
