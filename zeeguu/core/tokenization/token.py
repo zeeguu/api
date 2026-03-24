@@ -77,6 +77,10 @@ class Token:
         self.dep = dep
         self.head = head
         self.lemma = lemma
+        # Inline formatting flags - set from HTML source after tokenization
+        self.is_bold = False
+        self.is_italic = False
+
         # MWE (Multi-Word Expression) fields - set by MWE detector after tokenization
         self.mwe_group_id = None
         self.mwe_role = None  # "head" | "dependent" | None
@@ -106,6 +110,11 @@ class Token:
             "head": self.head,
             "lemma": self.lemma,
         }
+        # Only include inline formatting flags when set (to minimize payload)
+        if self.is_bold:
+            result["is_bold"] = True
+        if self.is_italic:
+            result["is_italic"] = True
         # Only include MWE fields if token is part of an MWE (to minimize payload)
         if self.mwe_group_id:
             result["mwe_group_id"] = self.mwe_group_id

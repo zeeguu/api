@@ -472,6 +472,76 @@ class Article(db.Model):
 
         return result
 
+    @staticmethod
+    def _extract_inline_formatting(element):
+        """
+        Extract character ranges with bold/italic formatting from an HTML element.
+        Returns a list of (char_start, char_end, is_bold, is_italic) tuples
+        where positions refer to the plain text (get_text()) of the element.
+        """
+        from bs4 import NavigableString
+
+        ranges = []
+        pos = [0]
+
+        def walk(node, bold=False, italic=False):
+            if isinstance(node, NavigableString):
+                text_len = len(str(node))
+                if text_len > 0 and (bold or italic):
+                    ranges.append((pos[0], pos[0] + text_len, bold, italic))
+                pos[0] += text_len
+            elif hasattr(node, "children"):
+                new_bold = bold or node.name in ("strong", "b")
+                new_italic = italic or node.name in ("em", "i")
+                for child in node.children:
+                    walk(child, new_bold, new_italic)
+
+        walk(element)
+        return ranges
+
+    @staticmethod
+    def _tag_tokens_with_formatting(token_paragraphs, plain_text, formatting_ranges):
+        """Tag tokens with is_bold/is_italic based on their position in the plain text."""
+        if not formatting_ranges:
+            return
+
+        pos = 0
+        for para in token_paragraphs:
+            for sentence in para:
+                for token in sentence:
+                    idx = plain_text.find(token.text, pos)
+                    if idx >= 0:
+                        token_end = idx + len(token.text)
+                        for start, end, is_bold, is_italic in formatting_ranges:
+                            if idx < end and token_end > start:
+                                if is_bold:
+                                    token.is_bold = True
+                                if is_italic:
+                                    token.is_italic = True
+                        pos = token_end
+
+    def _get_html_block_elements(self):
+        """
+        Re-parse htmlContent and return block elements in the same order
+        as create_article_fragments() produces them.
+        """
+        from bs4 import BeautifulSoup
+
+        html_content = getattr(self, "htmlContent", None)
+        if not html_content:
+            return []
+
+        soup = BeautifulSoup(html_content, "html.parser")
+        block_tags = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
+        elements = []
+
+        for element in soup.find_all(block_tags):
+            if element.name == "blockquote":
+                continue
+            elements.append(element)
+
+        return elements
+
     def _tokenize_fragments(self, tokenizer):
         """
         Tokenize article fragments with batch MWE processing for efficiency.
@@ -538,6 +608,19 @@ class Article(db.Model):
                     enrich_tokens_with_mwe(
                         frag_tokens, self.language.code, mode="stanza"
                     )
+
+        # Tag tokens with inline formatting (bold/italic) from HTML source
+        html_elements = self._get_html_block_elements()
+        if html_elements:
+            for frag_idx, frag_tokens in enumerate(fragment_tokens_list):
+                if frag_idx < len(html_elements):
+                    element = html_elements[frag_idx]
+                    formatting_ranges = self._extract_inline_formatting(element)
+                    if formatting_ranges:
+                        plain_text = element.get_text()
+                        self._tag_tokens_with_formatting(
+                            frag_tokens, plain_text, formatting_ranges
+                        )
 
         # Build result
         tokenized_fragments = []
