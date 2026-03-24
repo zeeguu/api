@@ -1,5 +1,6 @@
-import flask
 from datetime import datetime
+
+import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -9,6 +10,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.logging import log, warning
 from . import api
 
@@ -98,8 +100,22 @@ def get_friend_requests():
     Get all friend requests of a user
     """
 
-    friendRequest = FriendRequest.get_friend_requests_for_user(flask.g.user_id)
-    result = [_serialize_friend_request(req) for req in friendRequest]
+    friend_requests = FriendRequest.get_friend_requests_for_user(flask.g.user_id)
+    result = []
+    for req in friend_requests:
+        serialized_req = _serialize_friend_request(req)
+        user_avatar = UserAvatar.find(serialized_req["sender"]["id"])
+        user_avatar_dict = (
+            dict(
+                image_name=user_avatar.image_name,
+                character_color=user_avatar.character_color,
+                background_color=user_avatar.background_color,
+            )
+            if user_avatar
+            else None
+        )
+        serialized_req["sender"]["user_avatar"] = user_avatar_dict
+        result.append(serialized_req)
     return json_result(result)
 
 
@@ -113,8 +129,8 @@ def get_pending_friend_requests():
     Get all pending friend requests of a user
     """
 
-    friendRequest = FriendRequest.get_pending_friend_requests_for_user(flask.g.user_id)
-    result = [_serialize_friend_request(req) for req in friendRequest]
+    friend_requests = FriendRequest.get_pending_friend_requests_for_user(flask.g.user_id)
+    result = [_serialize_friend_request(req) for req in friend_requests]
     return json_result(result)
 
 
