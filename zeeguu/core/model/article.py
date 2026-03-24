@@ -85,6 +85,9 @@ class UnsignedBigInteger(TypeDecorator):
 """
 
 
+BLOCK_TAGS = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
+
+
 class Article(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
@@ -342,12 +345,7 @@ class Article(db.Model):
 
         # Extract text content from HTML elements and create fragments
         order = 0
-        # Include block-level HTML elements: headings, paragraphs, list items, blockquotes
-        # Note: We skip ul/ol containers to avoid duplication, only process individual li items
-        # Note: We skip inline elements like strong, em here as they should be preserved within their parent blocks
-        block_elements = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
-
-        for element in soup.find_all(block_elements):
+        for element in soup.find_all(BLOCK_TAGS):
             # Skip blockquote containers - we'll process their paragraph children instead
             if element.name == "blockquote":
                 continue
@@ -510,20 +508,23 @@ class Article(db.Model):
             for sentence in para:
                 for token in sentence:
                     idx = plain_text.find(token.text, pos)
-                    if idx >= 0:
-                        token_end = idx + len(token.text)
-                        for start, end, is_bold, is_italic in formatting_ranges:
-                            if idx < end and token_end > start:
-                                if is_bold:
-                                    token.is_bold = True
-                                if is_italic:
-                                    token.is_italic = True
-                        pos = token_end
+                    if idx < 0:
+                        # Tokenizer text diverged from HTML text; skip
+                        continue
+                    token_end = idx + len(token.text)
+                    for start, end, is_bold, is_italic in formatting_ranges:
+                        if idx < end and token_end > start:
+                            if is_bold:
+                                token.is_bold = True
+                            if is_italic:
+                                token.is_italic = True
+                    pos = token_end
 
     def _get_html_block_elements(self):
         """
         Re-parse htmlContent and return block elements in the same order
         as create_article_fragments() produces them.
+        Skips blockquote containers and empty elements to stay aligned.
         """
         from bs4 import BeautifulSoup
 
@@ -532,11 +533,12 @@ class Article(db.Model):
             return []
 
         soup = BeautifulSoup(html_content, "html.parser")
-        block_tags = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
         elements = []
 
-        for element in soup.find_all(block_tags):
+        for element in soup.find_all(BLOCK_TAGS):
             if element.name == "blockquote":
+                continue
+            if not element.get_text().strip():
                 continue
             elements.append(element)
 
