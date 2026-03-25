@@ -18,6 +18,9 @@ def _feature_map():
         "hide_recommendations": _hide_recommendations,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "gamification": _gamification,
+        "badges": _badges,
+        "friends": _friends,
+        "leaderboards": _leaderboards,
     }
 
 
@@ -98,17 +101,40 @@ def _hide_recommendations(user):
 
 # Gamification feature flag logic
 from .model.user import User 
+
 def _gamification(user: User):
     """
-    Enable gamification features for users whose invitation code is exactly 'gamification'.
+    Enable general gamification features for users whose invitation code is exactly 'gamification'.
     """
-    from datetime import datetime, date 
-    GAMIFICATION_INVITE_CODE = "gamification" # I guess we can decide on the invitation code
-    GAMIFICATION_START_DATE = date(2026, 4, 1) # Start after the first of April 2026
-    
-    # Start gamification features after the GAMIFICATION_START_DATE
+    return _gamification_flag_logic(user)
+
+def _badges(user: User):
+    """
+    Enable badges feature for users whose invitation code is exactly 'gamification'.
+    """
+    return _gamification_flag_logic(user)
+
+def _friends(user: User):
+    """
+    Enable friends feature for users whose invitation code is exactly 'gamification'.
+    """
+    return _gamification_flag_logic(user)
+
+def _leaderboards(user: User):
+    """
+    Enable leaderboards feature for users whose invitation code is exactly 'gamification'.
+    """
+    return _gamification_flag_logic(user)
+
+def _gamification_flag_logic(user: User):
+    """
+    Shared logic for enabling gamification-related features.
+    """
+    from datetime import datetime, date
+    GAMIFICATION_INVITE_CODE = "gamification"
+    GAMIFICATION_START_DATE = date(2026, 4, 1)
+    # Only enable before the start date
     if datetime.now().date() > GAMIFICATION_START_DATE:
         return False
-    
-    return user.invitation_code == GAMIFICATION_INVITE_CODE 
+    return getattr(user, "invitation_code", None) == GAMIFICATION_INVITE_CODE
 
