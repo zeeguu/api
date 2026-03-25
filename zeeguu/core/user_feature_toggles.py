@@ -16,6 +16,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
+        "gamification": _gamification,
     }
 
 
@@ -78,8 +79,18 @@ def _hide_recommendations(user):
         return False
 
     COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
-
+    # ...existing code...
     for user_cohort in user.cohorts:
         if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
             return True
     return False
+
+# Gamification feature flag logic
+from model.user import User 
+def _gamification(user: User):
+    """
+    Enable gamification features for users whose invitation code is exactly 'gamification'.
+    """
+    GAMIFICATION_INVITE_CODE = "gamification"
+    return user.invitation_code == GAMIFICATION_INVITE_CODE 
+
