@@ -507,17 +507,23 @@ class Article(db.Model):
         for para in token_paragraphs:
             for sentence in para:
                 for token in sentence:
-                    idx = plain_text.find(token.text, pos)
+                    token_text = token["text"] if isinstance(token, dict) else token.text
+                    idx = plain_text.find(token_text, pos)
                     if idx < 0:
-                        # Tokenizer text diverged from HTML text; skip
                         continue
-                    token_end = idx + len(token.text)
+                    token_end = idx + len(token_text)
                     for start, end, is_bold, is_italic in formatting_ranges:
                         if idx < end and token_end > start:
                             if is_bold:
-                                token.is_bold = True
+                                if isinstance(token, dict):
+                                    token["is_bold"] = True
+                                else:
+                                    token.is_bold = True
                             if is_italic:
-                                token.is_italic = True
+                                if isinstance(token, dict):
+                                    token["is_italic"] = True
+                                else:
+                                    token.is_italic = True
                     pos = token_end
 
     def _get_html_block_elements(self):
