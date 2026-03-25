@@ -86,11 +86,18 @@ def _hide_recommendations(user):
     return False
 
 # Gamification feature flag logic
-from model.user import User 
+from .model.user import User 
 def _gamification(user: User):
     """
     Enable gamification features for users whose invitation code is exactly 'gamification'.
     """
-    GAMIFICATION_INVITE_CODE = "gamification"
+    from datetime import datetime, date 
+    GAMIFICATION_INVITE_CODE = "gamification" # I guess we can decide on the invitation code
+    GAMIFICATION_START_DATE = date(2026, 4, 1) # Start after the first of April 2026
+    
+    # Start gamification features after the GAMIFICATION_START_DATE
+    if datetime.now().date() > GAMIFICATION_START_DATE:
+        return False
+    
     return user.invitation_code == GAMIFICATION_INVITE_CODE 
 
