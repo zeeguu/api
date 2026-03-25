@@ -91,7 +91,6 @@ def _hide_recommendations(user):
         return False
 
     COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
-    # ...existing code...
     for user_cohort in user.cohorts:
         if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
             return True
