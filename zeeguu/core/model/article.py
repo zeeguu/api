@@ -1350,8 +1350,8 @@ class Article(db.Model):
                 canonical_url, html_content=html_content
             )
 
-            # newspaper Article objects use .html, not .htmlContent
-            html_content = np_article.html
+            # Use readability-cleaned HTML (not raw np_article.html)
+            html_content = np_article.htmlContent
             article_text = np_article.text  # Full article text from readability server
             title = np_article.title
             authors = ", ".join(np_article.authors or [])
