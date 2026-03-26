@@ -507,7 +507,8 @@ class Article(db.Model):
         for para in token_paragraphs:
             for sentence in para:
                 for token in sentence:
-                    token_text = token["text"] if isinstance(token, dict) else token.text
+                    is_dict = isinstance(token, dict)
+                    token_text = token["text"] if is_dict else token.text
                     idx = plain_text.find(token_text, pos)
                     if idx < 0:
                         continue
@@ -515,12 +516,12 @@ class Article(db.Model):
                     for start, end, is_bold, is_italic in formatting_ranges:
                         if idx < end and token_end > start:
                             if is_bold:
-                                if isinstance(token, dict):
+                                if is_dict:
                                     token["is_bold"] = True
                                 else:
                                     token.is_bold = True
                             if is_italic:
-                                if isinstance(token, dict):
+                                if is_dict:
                                     token["is_italic"] = True
                                 else:
                                     token.is_italic = True
