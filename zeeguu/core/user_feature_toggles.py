@@ -89,7 +89,8 @@ def _hide_recommendations(user):
 
 # Gamification feature flag logic
 from .model.user import User 
-
+from datetime import datetime, date
+GAMIFICATION_START_DATE = date(2026, 4, 1)
 def _gamification(user: User):
     """
     Enable general gamification features for users whose invitation code is exactly 'gamification'.
@@ -97,32 +98,46 @@ def _gamification(user: User):
     return _gamification_flag_logic(user)
 
 def _badges(user: User):
-    """
-    Enable badges feature for users whose invitation code is exactly 'gamification'.
-    """
-    return _gamification_flag_logic(user)
+   """
+   Enable badges feature for users whose invitation code is exactly 'gamification'.
+   """
+   BADGES_INVITE_CODE = "badges_invite_code"
+   if not _has_gamification_started():
+      return False
+   
+   return user.invitation_code == BADGES_INVITE_CODE
 
 def _friends(user: User):
-    """
-    Enable friends feature for users whose invitation code is exactly 'gamification'.
-    """
-    return _gamification_flag_logic(user)
+   """
+   Enable friends feature for users whose invitation code is exactly 'gamification'.
+   """
+   FRIENDS_INVITE_CODE = "friends_invite_code"
+   if not _has_gamification_started():
+      return False
+   
+   return user.invitation_code == FRIENDS_INVITE_CODE
 
 def _leaderboards(user: User):
-    """
-    Enable leaderboards feature for users whose invitation code is exactly 'gamification'.
-    """
-    return _gamification_flag_logic(user)
+   """
+   Enable leaderboards feature for users whose invitation code is exactly 'gamification'.
+   """
+   LEADERBOARDS_INVITE_CODE = "leaderboards_invite_code"
+   if not _has_gamification_started():
+      return False
+   
+   return user.invitation_code == LEADERBOARDS_INVITE_CODE
 
 def _gamification_flag_logic(user: User):
-    """
-    Shared logic for enabling gamification-related features.
-    """
-    from datetime import datetime, date
-    GAMIFICATION_INVITE_CODE = "gamification"
-    GAMIFICATION_START_DATE = date(2026, 4, 1)
-    # Only enable before the start date
-    if datetime.now().date() > GAMIFICATION_START_DATE:
-        return False
-    return getattr(user, "invitation_code", None) == GAMIFICATION_INVITE_CODE
+   """
+   Shared logic for enabling gamification-related features.
+   """
 
+   GAMIFICATION_INVITE_CODE = "gamification"
+   # Only enable before the start date
+   if not _has_gamification_started():
+      return False
+   
+   return user.invitation_code == GAMIFICATION_INVITE_CODE
+
+def _has_gamification_started():
+   return datetime.now().date() >= GAMIFICATION_START_DATE
