@@ -133,7 +133,10 @@ def _gamification_flag_logic(user: User):
    """
 
    GAMIFICATION_INVITE_CODE = "gamification"
-   # Only enable before the start date
+   if user.is_dev:
+       return True
+   
+   # Only enable after the start date
    if not _has_gamification_started():
       return False
    
