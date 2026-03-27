@@ -39,7 +39,6 @@ def find_or_create_article():
     title = request.form.get("title", "") if pre_extracted else None
     author = request.form.get("author", "") if pre_extracted else None
     image_url = request.form.get("imageUrl", "") if pre_extracted else None
-    with_content = request.form.get("withContent", "true") == "true"
 
     print("-- url: " + url)
     print("-- pre_extracted: " + str(pre_extracted))
@@ -63,12 +62,11 @@ def find_or_create_article():
         print("-- article found or created: " + str(article.id))
 
         # Assess CEFR level for user-initiated article reading
-        # (only assess if article doesn't already have an assessment)
         if not article.cefr_assessment or not article.cefr_assessment.llm_cefr_level:
             article.assess_cefr_level(db_session)
             print("-- article CEFR level assessed")
 
-        uai = UserArticle.user_article_info(user, article, with_content=with_content)
+        uai = UserArticle.user_article_info(user, article, with_content=True)
         print("-- returning user article info: ", json.dumps(uai)[:50])
         return json_result(uai)
     except NoResultFound as e:
@@ -90,6 +88,58 @@ def find_or_create_article():
         traceback.print_exc()
 
         flask.abort(500)
+
+
+# ---------------------------------------------------------------------------
+@api.route("/detect_article_info", methods=("POST",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def detect_article_info():
+    """
+    Lightweight endpoint: downloads a URL, detects language and title.
+    Does NOT create an article in the DB.
+    Used by the share flow to show the language choice modal fast.
+
+    Expects: url (str)
+    Returns: {language, title, url}
+    """
+    url = request.form.get("url", "")
+    if not url:
+        flask.abort(400, "URL required")
+
+    from zeeguu.core.model.url import Url
+
+    canonical_url = Url.extract_canonical_url(url)
+
+    # Check if article already exists — if so, return instantly
+    existing = Article.find(canonical_url)
+    if existing:
+        return json_result({
+            "id": existing.id,
+            "language": existing.language.code,
+            "title": existing.title,
+            "url": canonical_url,
+            "exists": True,
+        })
+
+    # Download and detect language without creating article
+    try:
+        from zeeguu.core.content_retriever import readability_download_and_parse
+
+        np_article = readability_download_and_parse(canonical_url)
+        lang = np_article.meta_lang
+        title = np_article.title
+
+        return json_result({
+            "language": lang,
+            "title": title,
+            "url": canonical_url,
+            "exists": False,
+        })
+    except Exception as e:
+        log(f"detect_article_info failed for {url}: {e}")
+        flask.abort(422, "Could not parse article")
 
 
 # ---------------------------------------------------------------------------
