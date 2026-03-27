@@ -39,6 +39,7 @@ def find_or_create_article():
     title = request.form.get("title", "") if pre_extracted else None
     author = request.form.get("author", "") if pre_extracted else None
     image_url = request.form.get("imageUrl", "") if pre_extracted else None
+    with_content = request.form.get("withContent", "true") == "true"
 
     print("-- url: " + url)
     print("-- pre_extracted: " + str(pre_extracted))
@@ -67,7 +68,7 @@ def find_or_create_article():
             article.assess_cefr_level(db_session)
             print("-- article CEFR level assessed")
 
-        uai = UserArticle.user_article_info(user, article, with_content=True)
+        uai = UserArticle.user_article_info(user, article, with_content=with_content)
         print("-- returning user article info: ", json.dumps(uai)[:50])
         return json_result(uai)
     except NoResultFound as e:
