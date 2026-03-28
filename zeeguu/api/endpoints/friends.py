@@ -262,20 +262,21 @@ def unfriend():
 
 
 # ---------------------------------------------------------------------------
-@api.route("/search_users/<username>", methods=["GET"])
+@api.route("/search_users", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def search_by_username(username):
+def search_by_search_term():
     """
-    Search for users with <username> for the current user
+    Search for users with matching the search term for the current user
     """
-    if not username or username.strip() == "":
-        log(f"search_users: empty username search from user_id={flask.g.user_id}")
-        return make_error(400, "Username cannot be empty")
+    search_term = flask.request.args.get("query")
+    if not search_term or search_term.strip() == "":
+        return json_result([])
 
-    result = Friend.search_users(flask.g.user_id, username)
-    log(f"search_users: user_id={flask.g.user_id} searched for username='{username}' and found {len(result)} results")
+    search_term = search_term.strip()
+    result = Friend.search_users(flask.g.user_id, search_term)
+    log(f"search_users: user_id={flask.g.user_id} searched for search_term='{search_term}' and found {len(result)} results")
     return json_result(result)
 
 
