@@ -98,44 +98,49 @@ class Friend(db.Model):
         return friends
 
     @staticmethod
-    def get_friends_with_friendship(user_id: int, exclude_user_id: int = None):
-        """Return combined friend user + friendship data for the given user.
-
-        exclude_user_id: if provided, that user is omitted from the results.
+    def get_friends_with_details(user_id: int):
         """
-        friendships : list[Friend] = Friend.query.filter(
-            (Friend.user_id == user_id) | (Friend.friend_id == user_id)
-        ).all()
+        Return a list of all friends of the given user_id along with related data.
 
-        if not friendships:
-            return []
+        Returns a list of dictionaries, each representing a friendship containing:
+          - "user": the User object representing the friend
+          - "friendship": the Friend object linking the two users
+          - "avatar": the UserAvatar object for the friend (or None if not set)
+          - "languages": the list of active language of the friend (a list of
+                         UserLanguage objects)
+        """
+        from zeeguu.core.model import UserLanguage
+        rows = (
+            db.session.query(User, Friend, UserAvatar, UserLanguage)
+            .select_from(User)
+            .join(
+                Friend,
+                or_(
+                    and_(Friend.user_id == user_id, Friend.friend_id == User.id),
+                    and_(Friend.friend_id == user_id, Friend.user_id == User.id),
+                )
+            )
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
+            .outerjoin(UserLanguage, UserLanguage.user_id == User.id)
+            .all()
+        )
 
-        other_user_ids = [
-            friendship.friend_id if friendship.user_id == user_id else friendship.user_id
-            for friendship in friendships
-        ]
+        grouped = {}
+        for user, friendship, avatar, language in rows:
+            key = friendship.id
 
-        users = User.query.filter(User.id.in_(other_user_ids)).all()
-        users_by_id = {user.id: user for user in users}
+            if key not in grouped:
+                grouped[key] = {
+                    "user": user,
+                    "friendship": friendship,
+                    "user_avatar": avatar,
+                    "user_languages": []
+                }
 
-        result = []
-        for friendship in friendships:
+            if language:
+                grouped[key]["user_languages"].append(language)
 
-            if friendship.user_id == user_id:
-                other_user_id = friendship.friend_id
-            else:
-                other_user_id = friendship.user_id
-
-            # Exclude if matches exclude_user_id (usually exclude_user_id is the current user, to avoid returning self as a friend)
-            if exclude_user_id is not None and other_user_id == exclude_user_id:
-                continue
-
-            friend_user = users_by_id.get(other_user_id)
-            if not friend_user:
-                continue
-            result.append({"user": friend_user, "friendship": friendship})
-
-        return result
+        return list(grouped.values())
 
     @classmethod
     def are_friends(cls, user1_id: int, user2_id: int) -> bool:
@@ -192,14 +197,18 @@ class Friend(db.Model):
                 User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
+                UserAvatar.image_name.label("image_name"),
+                UserAvatar.character_color.label("character_color"),
+                UserAvatar.background_color.label("background_color"),
                 total_duration.label("value"),
             )
             .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(
                 UserExerciseSession,
                 and_(
-                    UserExerciseSession.user_id == related_user_ids.c.user_id,
+                    UserExerciseSession.user_id == User.id,
                     UserExerciseSession.start_time >= from_date
                     if from_date is not None
                     else True,
@@ -208,8 +217,8 @@ class Friend(db.Model):
                     else True,
                 ),
             )
-            .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
+            .group_by(User.id, User.name, User.username)
+            .order_by(total_duration.desc(), User.id.asc())
         )
 
         if limit is not None:
@@ -239,14 +248,18 @@ class Friend(db.Model):
                 User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
+                UserAvatar.image_name.label("image_name"),
+                UserAvatar.character_color.label("character_color"),
+                UserAvatar.background_color.label("background_color"),
                 total_duration.label("value"),
             )
             .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(
                 UserListeningSession,
                 and_(
-                    UserListeningSession.user_id == related_user_ids.c.user_id,
+                    UserListeningSession.user_id == User.id,
                     UserListeningSession.start_time >= from_date
                     if from_date is not None
                     else True,
@@ -255,8 +268,8 @@ class Friend(db.Model):
                     else True,
                 ),
             )
-            .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
+            .group_by(User.id, User.name, User.username)
+            .order_by(total_duration.desc(), User.id.asc())
         )
 
         if limit is not None:
@@ -286,14 +299,18 @@ class Friend(db.Model):
                 User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
+                UserAvatar.image_name.label("image_name"),
+                UserAvatar.character_color.label("character_color"),
+                UserAvatar.background_color.label("background_color"),
                 completed_articles_count.label("value"),
             )
             .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(
                 UserArticle,
                 and_(
-                    UserArticle.user_id == related_user_ids.c.user_id,
+                    UserArticle.user_id == User.id,
                     UserArticle.completed_at.isnot(None),
                     UserArticle.completed_at >= from_date
                     if from_date is not None
@@ -303,8 +320,8 @@ class Friend(db.Model):
                     else True,
                 ),
             )
-            .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(completed_articles_count.desc(), related_user_ids.c.user_id.asc())
+            .group_by(User.id, User.name, User.username)
+            .order_by(completed_articles_count.desc(), User.id.asc())
         )
 
         if limit is not None:
@@ -334,14 +351,18 @@ class Friend(db.Model):
                 User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
+                UserAvatar.image_name.label("image_name"),
+                UserAvatar.character_color.label("character_color"),
+                UserAvatar.background_color.label("background_color"),
                 total_duration.label("value"),
             )
             .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(
                 UserReadingSession,
                 and_(
-                    UserReadingSession.user_id == related_user_ids.c.user_id,
+                    UserReadingSession.user_id == User.id,
                     UserReadingSession.start_time >= from_date
                     if from_date is not None
                     else True,
@@ -350,8 +371,8 @@ class Friend(db.Model):
                     else True,
                 ),
             )
-            .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(total_duration.desc(), related_user_ids.c.user_id.asc())
+            .group_by(User.id, User.name, User.username)
+            .order_by(total_duration.desc(), User.id.asc())
         )
 
         if limit is not None:
@@ -382,11 +403,15 @@ class Friend(db.Model):
                 User.id.label("user_id"),
                 User.name.label("name"),
                 User.username.label("username"),
+                UserAvatar.image_name.label("image_name"),
+                UserAvatar.character_color.label("character_color"),
+                UserAvatar.background_color.label("background_color"),
                 exercises_done_count.label("value"),
             )
             .select_from(related_user_ids)
             .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserWord, UserWord.user_id == related_user_ids.c.user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
+            .outerjoin(UserWord, UserWord.user_id == User.id)
             .outerjoin(
                 Exercise,
                 and_(
@@ -395,8 +420,8 @@ class Friend(db.Model):
                     Exercise.time <= to_date if to_date is not None else True,
                 ),
             )
-            .group_by(related_user_ids.c.user_id, User.name, User.username)
-            .order_by(exercises_done_count.desc(), related_user_ids.c.user_id.asc())
+            .group_by(User.id, User.name, User.username)
+            .order_by(exercises_done_count.desc(), User.id.asc())
         )
 
         if limit is not None:
@@ -455,70 +480,69 @@ class Friend(db.Model):
         return details
 
 
-    @staticmethod
-    def search_users(current_user_id: int, term: str, limit: int = 20):
+    @classmethod
+    def search_users(cls, current_user_id: int, term: str, limit: int = 20):
         """
-        Search users by username (partial match) or exact email.
+        Search users by username (partial match) or exact email or name.
         For each user, return:
             - user info
             - friend request status (if any)
             - friendship status (if any)
         """
+        from sqlalchemy import or_, func
         from zeeguu.core.model.friend_request import FriendRequest
-        
-        # Build base query
+
         filters = []
         term = term.lower()
         if term:
-            filters.append(func.lower(User.username).ilike(f"%{term}%")) # ilike for case-insensitive partial match
+            filters.append(func.lower(User.username).ilike(f"%{term}%")) # case-insensitive partial match for username
             filters.append(func.lower(User.email) == term) # exact match for email
             filters.append(func.lower(User.name) == term) # exact match for name
         
         if not filters:
             return []  # nothing to search
-        
-        query = User.query
-        query = query.filter(or_(*filters), User.id != current_user_id).limit(limit)
+
+        query = (
+            db.session.query(User, UserAvatar)
+            .select_from(User)
+            .filter(
+                or_(*filters),
+                User.id != current_user_id
+            )
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
+            .limit(limit)
+        )
+
+        # Fetch all friendships involving the current user
+        friendships = Friend.query.filter(
+            (Friend.user_id == current_user_id) | (Friend.friend_id == current_user_id)
+        ).all()
+
+        friendship_map = {}
+        for friendship in friendships:
+            other_id = friendship.friend_id if friendship.user_id == current_user_id else friendship.user_id
+            friendship_map[other_id] = friendship
+
+        # Fetch all friend requests involving the current user
+        friend_requests = FriendRequest.query.filter(
+            (FriendRequest.sender_id == current_user_id) | (FriendRequest.receiver_id == current_user_id)
+        ).all()
+
+        friend_request_map = {}
+        for friend_request in friend_requests:
+            other_id = friend_request.receiver_id if friend_request.sender_id == current_user_id else friend_request.sender_id
+            friend_request_map[other_id] = friend_request
 
         results = []
 
-        # TODO this is N+1
-        for user in query.all():
-            # Friendship status
-            friendship = Friend.query.filter(
-                ((Friend.user_id == current_user_id) & (Friend.friend_id == user.id)) |
-                ((Friend.user_id == user.id) & (Friend.friend_id == current_user_id))
-            ).first()
+        for user, avatar in query.all():
+            results.append({
+                    "user": user,
+                    "user_avatar": avatar,
+                    "friendship": friendship_map.get(user.id),
+                    "friend_request": friend_request_map.get(user.id),
+                })
 
-            # Friend request status
-            friend_request = FriendRequest.query.filter(
-                ((FriendRequest.sender_id == current_user_id) & (FriendRequest.receiver_id == user.id)) |
-                ((FriendRequest.sender_id == user.id) & (FriendRequest.receiver_id == current_user_id))
-            ).order_by(FriendRequest.created_at.desc()).first()
-
-            user_avatar = UserAvatar.find(user.id)
-
-
-            friendship_or_friend_request = Friend._get_friendship_or_friendrequest(
-                friendship,
-                friend_request)
-
-            user_data = {
-                "id": user.id,
-                "name": user.name,
-                "username": user.username,
-                "email": user.email,
-                "friendship": friendship_or_friend_request,
-            }
-
-            if user_avatar:
-                user_data["user_avatar"] = {
-                    "image_name": user_avatar.image_name,
-                    "character_color": user_avatar.character_color,
-                    "background_color": user_avatar.background_color,
-                }
-
-            results.append({"user": user_data})
         return results
 
     @staticmethod

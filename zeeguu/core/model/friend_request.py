@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func
 from sqlalchemy.orm import relationship
+
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User  # assuming you have a User model
 from zeeguu.core.model.friend import Friend  # assuming you have a User model
@@ -13,7 +15,7 @@ class FriendRequest(db.Model):
     sender_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     receiver_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     status = Column(
-        Enum("pending", "accepted", "rejected", name="friend_request_status"),
+        Enum("pending", "accepted", "rejected", name="friend_request_status"), # TODO Do we need these? We basically only use pending since the request is deleted in both other cases
         default="pending",
     )
     created_at = Column(DateTime, default=func.now())
@@ -92,35 +94,38 @@ class FriendRequest(db.Model):
      return new_request
     
     @classmethod
-    def get_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
+    def get_received_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
             """
             Get friend requests received by a user.
 
             Args:
-                session (Session): SQLAlchemy session
                 user_id (int): ID of the user
                 status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
 
             Returns:
-                List[FriendRequest]: List of friend request objects
+                List[Tuple[FriendRequest, UserAvatar]]:
+                    A list of tuples, each containing:
+                        - FriendRequest: the friend request object
+                        - UserAvatar: the avatar of the sender (or None if not set)
             """
             requests = (
-                db.session.query(cls)
+                db.session.query(cls, UserAvatar)
                 .filter(FriendRequest.receiver_id == user_id)
                 .filter(FriendRequest.status == status)
+                .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
                 .order_by(FriendRequest.created_at.desc())
                 .all()
             )
             return requests
     
     @classmethod
-    def get_pending_friend_requests_for_user(cls, user_id: int):
+    def get_sent_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
             """
-            Get pending friend requests received by a user.
+            Get friend requests sent by a user.
 
             Args:
-                cls (FriendRequest): The FriendRequest class
                 user_id (int): ID of the user
+                status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
 
             Returns:
                 List[FriendRequest]: List of pending friend request objects
@@ -128,7 +133,7 @@ class FriendRequest(db.Model):
             requests = (
                 db.session.query(cls)
                 .filter(FriendRequest.sender_id == user_id)
-                .filter(FriendRequest.status == "pending")
+                .filter(FriendRequest.status == status)
                 .order_by(FriendRequest.created_at.desc())
                 .all()
             )
@@ -138,12 +143,12 @@ class FriendRequest(db.Model):
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
           """Delete a friend request between sender and receiver."""
           try:
-                fr = db.session.query(cls).filter_by(
+                friend_request = db.session.query(cls).filter_by(
                     sender_id=sender_id,
                     receiver_id=receiver_id,
                     status="pending"  # usually only pending requests can be deleted
                 ).one()
-                db.session.delete(fr)
+                db.session.delete(friend_request)
                 db.session.commit()
                 return True
           except NoResultFound:
