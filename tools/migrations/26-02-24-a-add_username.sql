@@ -1,6 +1,9 @@
 ALTER TABLE user
 ADD COLUMN username VARCHAR(50);
 
+ALTER TABLE user
+MODIFY username VARCHAR(50) CHARACTER SET utf8 COLLATE utf8_bin;
+
 -- This is maybe needed
 SET SQL_SAFE_UPDATES = 0;
 
@@ -15,7 +18,7 @@ SET SQL_SAFE_UPDATES = 1;
 
 -- Change the column to be not null and unique
 ALTER TABLE user
-MODIFY username VARCHAR(50) NOT NULL;
+MODIFY username VARCHAR(50) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL;
 
 ALTER TABLE user
 ADD CONSTRAINT unique_username UNIQUE (username);
