@@ -211,7 +211,7 @@ def reject_friend_request():
 @requires_session
 def unfriend():
     """
-    Unfriend two users by deleting the Friends row (friendship record) in the database.
+    Unfriend two users by deleting the Friend row (friendship record) in the database.
     """
     sender_id = flask.g.user_id
     receiver_id = request.json.get("receiver_id")

@@ -6,17 +6,19 @@ from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
 from datetime import datetime, timedelta
 
+
 class Friend(db.Model):
-    __tablename__ = "friends"
+    __tablename__ = "friend"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey(User.id), nullable=False)
+    user = relationship(User)
+    friend_id = Column(Integer, ForeignKey(User.id), nullable=False)
+    friend = relationship(User)
     created_at = Column(DateTime, default=func.now())
     friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
     friend_streak_last_updated = Column(DateTime, nullable=True)
-
 
     def update_friend_streak(self, session=None, commit=True):
         """
@@ -70,18 +72,6 @@ class Friend(db.Model):
             if commit:
                 session.commit()
 
-    # Explicit relationships with primaryjoin
-    user = relationship(
-        User,
-        foreign_keys=[user_id],
-        primaryjoin="Friend.user_id == User.id"
-    )
-    friend = relationship(
-            User,
-            foreign_keys=[friend_id],
-            primaryjoin="Friend.friend_id == User.id"
-        )
-
     @staticmethod
     def get_friends(user_id):
         """Return a list of User objects that are friends with the given user_id."""
@@ -90,8 +80,8 @@ class Friend(db.Model):
             db.session.query(User)
             .join(Friend, or_(Friend.user_id == user_id, Friend.friend_id == user_id))
             .filter(
-                    (Friend.user_id == user_id) & (User.id == Friend.friend_id)
-                    | (Friend.friend_id == user_id) & (User.id == Friend.user_id)
+                (Friend.user_id == user_id) & (User.id == Friend.friend_id)
+                | (Friend.friend_id == user_id) & (User.id == Friend.user_id)
             )
             .all()
         )
@@ -157,7 +147,6 @@ class Friend(db.Model):
         ).first()
         return friendship is not None
 
-
     @staticmethod
     def _related_user_ids_subquery(user_id: int):
         # For each friendship row touching this user, select "the other user".
@@ -177,10 +166,10 @@ class Friend(db.Model):
 
     @staticmethod
     def exercise_time_leaderboard(
-        user_id: int,
-        limit: int = 20,
-        from_date=None,
-        to_date=None,
+            user_id: int,
+            limit: int = 20,
+            from_date=None,
+            to_date=None,
     ):
         """
         Return leaderboard rows for current user and all friends ordered by total
@@ -279,10 +268,10 @@ class Friend(db.Model):
 
     @staticmethod
     def read_articles_leaderboard(
-        user_id: int,
-        limit: int = 20,
-        from_date=None,
-        to_date=None,
+            user_id: int,
+            limit: int = 20,
+            from_date=None,
+            to_date=None,
     ):
         """
         Return leaderboard rows for current user and all friends ordered by
@@ -331,10 +320,10 @@ class Friend(db.Model):
 
     @staticmethod
     def reading_time_leaderboard(
-        user_id: int,
-        limit: int = 20,
-        from_date=None,
-        to_date=None,
+            user_id: int,
+            limit: int = 20,
+            from_date=None,
+            to_date=None,
     ):
         """
         Return leaderboard rows for current user and all friends ordered by total
@@ -382,10 +371,10 @@ class Friend(db.Model):
 
     @staticmethod
     def exercises_done_leaderboard(
-        user_id: int,
-        limit: int = 20,
-        from_date=None,
-        to_date=None,
+            user_id: int,
+            limit: int = 20,
+            from_date=None,
+            to_date=None,
     ):
         """
         Return leaderboard rows for current user and all friends ordered by
@@ -430,7 +419,7 @@ class Friend(db.Model):
         return query.all()
 
     @classmethod
-    def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
+    def remove_friendship(cls, user1_id: int, user2_id: int) -> bool:
         # Look for friendship in either direction
         friendship = cls.query.filter(
             ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
@@ -441,7 +430,7 @@ class Friend(db.Model):
             db.session.delete(friendship)
             db.session.commit()
             return True
-        
+
         return False
 
     @classmethod
@@ -471,14 +460,13 @@ class Friend(db.Model):
         ).order_by(FriendRequest.created_at.desc()).first()
 
         details = friend.details_as_dictionary()
-        details["friendship"] = cls._get_friendship_or_friendrequest(friendship, friend_request)
+        details["friendship"] = cls._get_friendship_or_friend_request(friendship, friend_request)
 
         if friendship:
             details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
             details["mutual_streak"] = friendship.friend_streak or 0
 
         return details
-
 
     @classmethod
     def search_users(cls, current_user_id: int, term: str, limit: int = 20):
@@ -495,10 +483,10 @@ class Friend(db.Model):
         filters = []
         term = term.lower()
         if term:
-            filters.append(func.lower(User.username).ilike(f"%{term}%")) # case-insensitive partial match for username
-            filters.append(func.lower(User.email) == term) # exact match for email
-            filters.append(func.lower(User.name) == term) # exact match for name
-        
+            filters.append(func.lower(User.username).ilike(f"%{term}%"))  # case-insensitive partial match for username
+            filters.append(func.lower(User.email) == term)  # exact match for email
+            filters.append(func.lower(User.name) == term)  # exact match for name
+
         if not filters:
             return []  # nothing to search
 
@@ -537,16 +525,16 @@ class Friend(db.Model):
 
         for user, avatar in query.all():
             results.append({
-                    "user": user,
-                    "user_avatar": avatar,
-                    "friendship": friendship_map.get(user.id),
-                    "friend_request": friend_request_map.get(user.id),
-                })
+                "user": user,
+                "user_avatar": avatar,
+                "friendship": friendship_map.get(user.id),
+                "friend_request": friend_request_map.get(user.id),
+            })
 
         return results
 
     @staticmethod
-    def _get_friendship_or_friendrequest(friendship, friend_request):
+    def _get_friendship_or_friend_request(friendship, friend_request):
 
         if friendship:
             return {
@@ -563,8 +551,8 @@ class Friend(db.Model):
         elif friend_request:
             return {
                 "id": friend_request.id,
-                "sender_id": friend_request.sender_id, # TODO: Are these nessesary
-                "receiver_id": friend_request.receiver_id, # TODO: are these nesessary
+                "sender_id": friend_request.sender_id,  # TODO: Are these necessary
+                "receiver_id": friend_request.receiver_id,  # TODO: are these necessary
                 "friend_streak": 0,
                 "friend_streak_last_updated": None,
                 "friend_request_status": friend_request.status,
@@ -575,10 +563,10 @@ class Friend(db.Model):
                 ),
             }
 
+    @staticmethod
     def add_friendship(user_id: int, friend_id: int):
         """
         Adds a friendship between two users using SQLAlchemy ORM.
-        Stores both directions for easy querying.
         """
         # Check if friendship already exists
         existing = Friend.query.filter(
