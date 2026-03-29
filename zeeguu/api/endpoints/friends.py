@@ -1,27 +1,17 @@
-from datetime import datetime
-
 import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import UserLanguage
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
+from zeeguu.core.model import UserLanguage
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.core.model.user_avatar import UserAvatar
-from zeeguu.logging import log, warning
+from zeeguu.logging import log
 from . import api
-
-LEADERBOARD_METRICS = {
-    "exercise_time": Friend.exercise_time_leaderboard,
-    "exercises_done": Friend.exercises_done_leaderboard,
-    "articles_read": Friend.read_articles_leaderboard,
-    "reading_time": Friend.reading_time_leaderboard,
-    "listening_time": Friend.listening_time_leaderboard,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -46,34 +36,6 @@ def get_friends(user_id: int = None):
         for friend_detail in friend_details
     ]
     log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
-    return json_result(result)
-
-
-@api.route("/friends_leaderboard", methods=["GET"])
-@cross_domain
-@requires_session
-def friends_leaderboard():
-    params, error_response = _parse_leaderboard_query_params()
-    if error_response:
-        return error_response
-
-    metric = LEADERBOARD_METRICS.get(request.args.get("metric"))
-
-    if not metric:
-        return make_error(400, "Invalid leaderboard metric")
-
-    rows = metric(
-        flask.g.user_id,
-        limit=params["limit"],
-        from_date=params["from_date"],
-        to_date=params["to_date"],
-    )
-
-    result = [
-        _serialize_leaderboard_row(row)
-        for row in rows
-    ]
-
     return json_result(result)
 
 
@@ -342,27 +304,6 @@ def _serialize_friend_request(friend_request: FriendRequest):
     }
 
 
-def _serialize_leaderboard_row(row):
-    user_id = getattr(row, "user_id", None) or row[0]
-    name = getattr(row, "name", None) or row[1]
-    username = getattr(row, "username", None) or row[2]
-    value = getattr(row, "value", None) or row[3]
-
-    return {
-        "user": {
-            "id": user_id,
-            "name": name,
-            "username": username,
-            "user_avatar": {
-                "image_name": getattr(row, "image_name", None),
-                "character_color": getattr(row, "character_color", None),
-                "background_color": getattr(row, "background_color", None),
-            }
-        },
-        "value": value,
-    }
-
-
 def _validate_friend_request_participants(sender_id, receiver_id) -> tuple[int, str]:
     """
     :param sender_id: the user_id of the sender of the friend request
@@ -378,55 +319,3 @@ def _validate_friend_request_participants(sender_id, receiver_id) -> tuple[int, 
         return 422, "cannot send friend request to yourself"
 
     return 200, "ok"
-
-
-def _parse_leaderboard_query_params():
-    """
-    Parse common leaderboard query params:
-        limit: positive integer
-        from_date: ISO datetime string (optional)
-        to_date: ISO datetime string (optional)
-    """
-    limit = 20
-    limit_arg = request.args.get("limit")
-    if limit_arg is not None:
-        try:
-            limit = int(limit_arg)
-        except ValueError:
-            return None, make_error(400, "limit must be an integer")
-
-        if limit <= 0:
-            return None, make_error(400, "limit must be greater than 0")
-
-    from_date_str = request.args.get("from_date")
-    to_date_str = request.args.get("to_date")
-
-    from_date = None
-    to_date = None
-
-    if from_date_str:
-        from_date, error = _parse_iso_datetime(from_date_str, "from_date")
-        if error:
-            return None, error
-
-    if to_date_str:
-        to_date, error = _parse_iso_datetime(to_date_str, "to_date")
-        if error:
-            return None, error
-
-    if from_date and to_date and from_date > to_date:
-        return None, make_error(400, "from_date must be before or equal to to_date")
-
-    return {
-        "limit": limit,
-        "from_date": from_date,
-        "to_date": to_date,
-    }, None
-
-
-def _parse_iso_datetime(value: str, param_name: str):
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
-        return parsed, None
-    except ValueError:
-        return None, make_error(400, f"{param_name} must be a valid ISO datetime")

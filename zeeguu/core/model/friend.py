@@ -1,10 +1,11 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, and_, literal, case
+from datetime import datetime, timedelta
+
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, and_
 from sqlalchemy.orm import relationship, object_session
 
-from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
-from datetime import datetime, timedelta
+from zeeguu.core.model.user_avatar import UserAvatar
 
 
 class Friend(db.Model):
@@ -12,13 +13,22 @@ class Friend(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey(User.id), nullable=False)
-    user = relationship(User)
-    friend_id = Column(Integer, ForeignKey(User.id), nullable=False)
-    friend = relationship(User)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
     friend_streak_last_updated = Column(DateTime, nullable=True)
+
+    user = relationship(
+        User,
+        foreign_keys=[user_id],
+        primaryjoin="Friend.user_id == User.id"
+    )
+    friend = relationship(
+        User,
+        foreign_keys=[friend_id],
+        primaryjoin="Friend.friend_id == User.id"
+    )
 
     def update_friend_streak(self, session=None, commit=True):
         """
@@ -146,277 +156,6 @@ class Friend(db.Model):
             ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
         ).first()
         return friendship is not None
-
-    @staticmethod
-    def _related_user_ids_subquery(user_id: int):
-        # For each friendship row touching this user, select "the other user".
-        return (
-            db.session.query(
-                case(
-                    (Friend.user_id == user_id, Friend.friend_id),
-                    else_=Friend.user_id,
-                ).label("user_id")
-            )
-            .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-            .union(
-                db.session.query(literal(user_id).label("user_id"))
-            )
-            .subquery()
-        )
-
-    @staticmethod
-    def exercise_time_leaderboard(
-            user_id: int,
-            limit: int = 20,
-            from_date=None,
-            to_date=None,
-    ):
-        """
-        Return leaderboard rows for current user and all friends ordered by total
-        exercise session duration in descending order.
-        """
-        from zeeguu.core.model.user_exercise_session import UserExerciseSession
-
-        related_user_ids = Friend._related_user_ids_subquery(user_id)
-
-        total_duration = func.coalesce(func.sum(UserExerciseSession.duration), 0)
-
-        query = (
-            db.session.query(
-                User.id.label("user_id"),
-                User.name.label("name"),
-                User.username.label("username"),
-                UserAvatar.image_name.label("image_name"),
-                UserAvatar.character_color.label("character_color"),
-                UserAvatar.background_color.label("background_color"),
-                total_duration.label("value"),
-            )
-            .select_from(related_user_ids)
-            .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
-            .outerjoin(
-                UserExerciseSession,
-                and_(
-                    UserExerciseSession.user_id == User.id,
-                    UserExerciseSession.start_time >= from_date
-                    if from_date is not None
-                    else True,
-                    UserExerciseSession.start_time <= to_date
-                    if to_date is not None
-                    else True,
-                ),
-            )
-            .group_by(User.id, User.name, User.username)
-            .order_by(total_duration.desc(), User.id.asc())
-        )
-
-        if limit is not None:
-            query = query.limit(limit)
-
-        return query.all()
-
-    @staticmethod
-    def listening_time_leaderboard(
-            user_id: int,
-            limit: int = 20,
-            from_date=None,
-            to_date=None,
-    ):
-        """
-        Return leaderboard rows for current user and all friends ordered by total
-        listening session duration in descending order.
-        """
-        from zeeguu.core.model.user_listening_session import UserListeningSession
-
-        related_user_ids = Friend._related_user_ids_subquery(user_id)
-
-        total_duration = func.coalesce(func.sum(UserListeningSession.duration), 0)
-
-        query = (
-            db.session.query(
-                User.id.label("user_id"),
-                User.name.label("name"),
-                User.username.label("username"),
-                UserAvatar.image_name.label("image_name"),
-                UserAvatar.character_color.label("character_color"),
-                UserAvatar.background_color.label("background_color"),
-                total_duration.label("value"),
-            )
-            .select_from(related_user_ids)
-            .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
-            .outerjoin(
-                UserListeningSession,
-                and_(
-                    UserListeningSession.user_id == User.id,
-                    UserListeningSession.start_time >= from_date
-                    if from_date is not None
-                    else True,
-                    UserListeningSession.start_time <= to_date
-                    if to_date is not None
-                    else True,
-                ),
-            )
-            .group_by(User.id, User.name, User.username)
-            .order_by(total_duration.desc(), User.id.asc())
-        )
-
-        if limit is not None:
-            query = query.limit(limit)
-
-        return query.all()
-
-    @staticmethod
-    def read_articles_leaderboard(
-            user_id: int,
-            limit: int = 20,
-            from_date=None,
-            to_date=None,
-    ):
-        """
-        Return leaderboard rows for current user and all friends ordered by
-        number of completed articles in descending order.
-        """
-        from zeeguu.core.model.user_article import UserArticle
-
-        related_user_ids = Friend._related_user_ids_subquery(user_id)
-
-        completed_articles_count = func.count(UserArticle.id)
-
-        query = (
-            db.session.query(
-                User.id.label("user_id"),
-                User.name.label("name"),
-                User.username.label("username"),
-                UserAvatar.image_name.label("image_name"),
-                UserAvatar.character_color.label("character_color"),
-                UserAvatar.background_color.label("background_color"),
-                completed_articles_count.label("value"),
-            )
-            .select_from(related_user_ids)
-            .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
-            .outerjoin(
-                UserArticle,
-                and_(
-                    UserArticle.user_id == User.id,
-                    UserArticle.completed_at.isnot(None),
-                    UserArticle.completed_at >= from_date
-                    if from_date is not None
-                    else True,
-                    UserArticle.completed_at <= to_date
-                    if to_date is not None
-                    else True,
-                ),
-            )
-            .group_by(User.id, User.name, User.username)
-            .order_by(completed_articles_count.desc(), User.id.asc())
-        )
-
-        if limit is not None:
-            query = query.limit(limit)
-
-        return query.all()
-
-    @staticmethod
-    def reading_time_leaderboard(
-            user_id: int,
-            limit: int = 20,
-            from_date=None,
-            to_date=None,
-    ):
-        """
-        Return leaderboard rows for current user and all friends ordered by total
-        reading session duration in descending order.
-        """
-        from zeeguu.core.model.user_reading_session import UserReadingSession
-
-        related_user_ids = Friend._related_user_ids_subquery(user_id)
-
-        total_duration = func.coalesce(func.sum(UserReadingSession.duration), 0)
-
-        query = (
-            db.session.query(
-                User.id.label("user_id"),
-                User.name.label("name"),
-                User.username.label("username"),
-                UserAvatar.image_name.label("image_name"),
-                UserAvatar.character_color.label("character_color"),
-                UserAvatar.background_color.label("background_color"),
-                total_duration.label("value"),
-            )
-            .select_from(related_user_ids)
-            .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
-            .outerjoin(
-                UserReadingSession,
-                and_(
-                    UserReadingSession.user_id == User.id,
-                    UserReadingSession.start_time >= from_date
-                    if from_date is not None
-                    else True,
-                    UserReadingSession.start_time <= to_date
-                    if to_date is not None
-                    else True,
-                ),
-            )
-            .group_by(User.id, User.name, User.username)
-            .order_by(total_duration.desc(), User.id.asc())
-        )
-
-        if limit is not None:
-            query = query.limit(limit)
-
-        return query.all()
-
-    @staticmethod
-    def exercises_done_leaderboard(
-            user_id: int,
-            limit: int = 20,
-            from_date=None,
-            to_date=None,
-    ):
-        """
-        Return leaderboard rows for current user and all friends ordered by
-        number of exercises done in descending order.
-        """
-        from zeeguu.core.model.exercise import Exercise
-        from zeeguu.core.model.user_word import UserWord
-
-        related_user_ids = Friend._related_user_ids_subquery(user_id)
-
-        exercises_done_count = func.count(Exercise.id)
-
-        query = (
-            db.session.query(
-                User.id.label("user_id"),
-                User.name.label("name"),
-                User.username.label("username"),
-                UserAvatar.image_name.label("image_name"),
-                UserAvatar.character_color.label("character_color"),
-                UserAvatar.background_color.label("background_color"),
-                exercises_done_count.label("value"),
-            )
-            .select_from(related_user_ids)
-            .join(User, User.id == related_user_ids.c.user_id)
-            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
-            .outerjoin(UserWord, UserWord.user_id == User.id)
-            .outerjoin(
-                Exercise,
-                and_(
-                    Exercise.user_word_id == UserWord.id,
-                    Exercise.time >= from_date if from_date is not None else True,
-                    Exercise.time <= to_date if to_date is not None else True,
-                ),
-            )
-            .group_by(User.id, User.name, User.username)
-            .order_by(exercises_done_count.desc(), User.id.asc())
-        )
-
-        if limit is not None:
-            query = query.limit(limit)
-
-        return query.all()
 
     @classmethod
     def remove_friendship(cls, user1_id: int, user2_id: int) -> bool:
