@@ -30,7 +30,7 @@ class UserReadingSession(db.Model):
     article = db.relationship(Article)
 
     start_time = db.Column(db.DateTime)
-    duration = db.Column(db.Integer)  # Duration time in miliseconds
+    duration = db.Column(db.Integer)  # Duration time in seconds
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
@@ -54,7 +54,7 @@ class UserReadingSession(db.Model):
         self.platform = platform
 
     def human_readable_duration(self):
-        return human_readable_duration(self.duration)
+        return str(round(self.duration / 60, 1)) + "min"
 
     def human_readable_date(self):
         return human_readable_date(self.start_time)

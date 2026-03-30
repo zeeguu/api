@@ -56,7 +56,7 @@ def _time_by_day(user, table_name, date_field, duration_field):
     # Safe to use string formatting here since values are validated against whitelist
     query = (
         f" SELECT date({date_field}) as date, "
-        + f" SUM({duration_field}) / 1000 as duration "
+        + f" SUM({duration_field}) as duration "
         + f" FROM {table_name}"
         + " WHERE user_id = :uid GROUP BY date;"
     )

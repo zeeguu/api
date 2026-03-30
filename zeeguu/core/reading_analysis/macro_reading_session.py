@@ -26,7 +26,7 @@ class MacroSession(object):
 
     def append(self, session):
         self.sessions.append(session)
-        self.total_time += session.duration / 1000
+        self.total_time += session.duration
         self.reading_speed = int(self.article.word_count * 60 / self.total_time)
 
     def start_date(self):
@@ -49,7 +49,7 @@ class MacroSession(object):
 
         print("\tSessions: ")
         for session in self.sessions:
-            print(f"\t{session.start_time}, {session.duration / 1000}s")
+            print(f"\t{session.start_time}, {session.duration}s")
         print(" ")
 
     def print_summary(self):
@@ -76,7 +76,7 @@ def macro_sessions_for_user(user, language_id):
         if not user_article:
             continue
 
-        if session.duration < 1000:
+        if session.duration < 1:
             # less than 1s is not a session
             continue
 
