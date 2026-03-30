@@ -10,14 +10,14 @@ TEST_USER = "test_user"
 
 
 def test_add_user(client):
-    test_user_data = dict(password=TEST_PASS, username=TEST_USER)
+    test_user_data = dict(password=TEST_PASS, name=TEST_USER)
 
     response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
     assert str(response.data)
 
 
 def test_cant_add_same_email_twice(client):
-    test_user_data = dict(password=TEST_PASS, username=TEST_USER)
+    test_user_data = dict(password=TEST_PASS, name=TEST_USER)
     response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
     assert str(response.data)
 
@@ -28,19 +28,19 @@ def test_cant_add_same_email_twice(client):
 
 
 def test_create_user_returns_400_if_password_too_short(client):
-    form_data = dict(username="gigi", password="2sh", invite_code="test")
+    form_data = dict(name="gigi", password="2sh", invite_code="test")
     response = client.post("/add_user/i@i.la", data=form_data)
     assert response.status_code == 400
 
 
 def test_create_user_returns_400_if_password_absent(client):
-    form_data = dict(username="gigi", invite_code="test")
+    form_data = dict(name="gigi", invite_code="test")
     response = client.post("/add_user/i@i.la", data=form_data)
     assert response.status_code == 400
 
 
 def test_create_user_returns_400_if_password_not_given(client):
-    form_data = dict(username="gigi")
+    form_data = dict(name="gigi")
     response = client.post("/add_user/i@i.la", data=form_data)
     assert response.status_code == 400
 
@@ -103,6 +103,6 @@ def test_reset_password_returns_400_invalid_code(client):
 
 
 def _create_test_user(client):
-    test_user_data = dict(password=TEST_PASS, username=TEST_USER)
+    test_user_data = dict(password=TEST_PASS, name=TEST_USER)
 
     _ = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
