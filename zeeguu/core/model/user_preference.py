@@ -42,6 +42,7 @@ class UserPreference(db.Model):
     MAX_WORDS_TO_SCHEDULE = "max_words_to_schedule"
     FILTER_DISTURBING_CONTENT = "filter_disturbing_content"  # Filter violence/death/tragedy articles
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
+    SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
 
     def __init__(self, user: User, key=None, value=None):
         self.user = user
