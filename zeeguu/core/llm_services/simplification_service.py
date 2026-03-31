@@ -575,7 +575,9 @@ IMPORTANT:
                 import json
                 import markdown2
                 try:
-                    result = json.loads(result_text)
+                    # LLMs often return JSON with literal newlines inside
+                    # string values (instead of \n), which strict JSON rejects
+                    result = json.loads(result_text, strict=False)
                     
                     # Convert markdown content to HTML
                     if "content" in result and result["content"]:

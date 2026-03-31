@@ -16,6 +16,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
+        "show_non_simplified_articles": _show_non_simplified_articles,
     }
 
 
@@ -66,6 +67,17 @@ def _extension_experiment_1(user):
         or user.id in [3372, 3373, 2953, 3427, 2705]
         or user.id > 3555
     )
+
+
+def _show_non_simplified_articles(user):
+    """Show non-simplified (original) articles for legacy users.
+
+    Most users only see simplified articles. These legacy users
+    were active before simplification was standard and still expect
+    to see original articles in their feed.
+    """
+    LEGACY_USER_IDS = {4607, 4626}
+    return user.id in LEGACY_USER_IDS
 
 
 def _hide_recommendations(user):
