@@ -40,6 +40,9 @@ class DailyAudioLesson(db.Model):
     last_paused_at = Column(TIMESTAMP)
     pause_position_seconds = Column(Integer, default=0)
 
+    # Optional topic suggestion that themed the lesson
+    topic_suggestion = Column(db.String(100), nullable=True)
+
     # Relationship to segments (individual meaning lessons)
     segments = relationship(
         "DailyAudioLessonSegment",
@@ -48,12 +51,13 @@ class DailyAudioLesson(db.Model):
         cascade="all, delete-orphan",
     )
 
-    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None):
+    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, topic_suggestion=None):
         self.user = user
         self.created_by = created_by
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         self.language = language or user.learned_language
+        self.topic_suggestion = topic_suggestion
         self.listened_count = 0
         self.pause_position_seconds = 0
 

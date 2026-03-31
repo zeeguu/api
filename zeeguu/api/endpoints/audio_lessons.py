@@ -57,6 +57,7 @@ def _generate_lesson_in_background(user_id, preparation):
             translation_language=preparation["translation_language"],
             cefr_level=preparation["cefr_level"],
             progress=progress,
+            topic_suggestion=preparation.get("topic_suggestion"),
         )
     except Exception as e:
         log(f"[background_generate] Error for user {user_id}: {e}")
@@ -87,8 +88,9 @@ def generate_daily_lesson():
 
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
+    topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()[:100] or None
 
-    result = generator.prepare_lesson_generation(user, timezone_offset)
+    result = generator.prepare_lesson_generation(user, timezone_offset, topic_suggestion)
 
     # Existing lesson found — return it directly
     if result.get("lesson_id"):

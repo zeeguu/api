@@ -42,7 +42,7 @@ class DailyLessonGenerator:
             self._lesson_builder = LessonBuilder()
         return self._lesson_builder
 
-    def prepare_lesson_generation(self, user, timezone_offset=0):
+    def prepare_lesson_generation(self, user, timezone_offset=0, topic_suggestion=None):
         """
         Validate and prepare for lesson generation (synchronous, fast).
         Returns either an error/existing-lesson dict, or a preparation dict
@@ -51,6 +51,7 @@ class DailyLessonGenerator:
         Args:
             user: The User object to generate a lesson for
             timezone_offset: Client's timezone offset in minutes from UTC
+            topic_suggestion: Optional short topic hint for the LLM (max 100 chars)
 
         Returns:
             Dictionary with either error info, existing lesson, or preparation data
@@ -130,6 +131,7 @@ class DailyLessonGenerator:
             "translation_language": translation_language,
             "cefr_level": cefr_level,
             "progress_id": progress.id,
+            "topic_suggestion": topic_suggestion,
         }
 
     def select_words_for_lesson(
@@ -158,6 +160,7 @@ class DailyLessonGenerator:
         cefr_level,
         created_by="claude-v1",
         progress=None,
+        topic_suggestion=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
@@ -169,6 +172,7 @@ class DailyLessonGenerator:
             cefr_level: CEFR level for the lesson
             created_by: String identifying who created this lesson
             progress: Optional AudioLessonGenerationProgress for tracking
+            topic_suggestion: Optional short topic hint for the LLM
 
         Returns:
             AudioLessonMeaning object
@@ -179,8 +183,10 @@ class DailyLessonGenerator:
         meaning = user_word.meaning
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Check if audio lesson already exists for this meaning and teacher language
-        existing_lesson = AudioLessonMeaning.find(meaning=meaning, teacher_language=teacher_lang)
+        # Check if audio lesson already exists for this meaning, teacher language, and topic
+        existing_lesson = AudioLessonMeaning.find(
+            meaning=meaning, teacher_language=teacher_lang, topic_suggestion=topic_suggestion
+        )
         if existing_lesson:
             return existing_lesson
 
@@ -196,6 +202,7 @@ class DailyLessonGenerator:
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
+            topic_suggestion=topic_suggestion,
         )
 
         # Update progress: script done
@@ -210,6 +217,7 @@ class DailyLessonGenerator:
             created_by=created_by,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
+            topic_suggestion=topic_suggestion,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -250,6 +258,7 @@ class DailyLessonGenerator:
         translation_language: str,
         cefr_level: str,
         progress: AudioLessonGenerationProgress = None,
+        topic_suggestion: str = None,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -261,6 +270,7 @@ class DailyLessonGenerator:
             origin_language: Language code for the words being learned (e.g. 'es', 'da')
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
+            topic_suggestion: Optional short topic hint for the LLM
 
         Returns:
             Dictionary with lesson details or error information
@@ -277,6 +287,7 @@ class DailyLessonGenerator:
                 user=user,
                 created_by="generate_daily_lesson_v1",
                 language=user.learned_language,
+                topic_suggestion=topic_suggestion,
             )
             db.session.add(daily_lesson)
             log(f"[generate_daily_lesson] Created daily lesson object")
@@ -309,6 +320,7 @@ class DailyLessonGenerator:
                     audio_lesson_meaning = self.generate_audio_lesson_meaning(
                         user_word, origin_language, translation_language, cefr_level,
                         progress=progress,
+                        topic_suggestion=topic_suggestion,
                     )
                 except Exception as e:
                     log(
@@ -459,6 +471,7 @@ class DailyLessonGenerator:
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
+            "topic_suggestion": lesson.topic_suggestion,
         }
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
