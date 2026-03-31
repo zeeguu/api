@@ -24,6 +24,7 @@ class AudioLessonMeaning(db.Model):
 
     script = Column(Text, nullable=False)
     voice_config = Column(JSON)
+    topic_suggestion = Column(String(100), nullable=True)
 
     teacher_language_id = Column(Integer, ForeignKey(Language.id), nullable=True)
     teacher_language = relationship(Language)
@@ -45,6 +46,7 @@ class AudioLessonMeaning(db.Model):
         voice_config=None,
         duration_seconds=None,
         teacher_language=None,
+        topic_suggestion=None,
     ):
         self.meaning_id = meaning.id
         self.script = script
@@ -53,6 +55,7 @@ class AudioLessonMeaning(db.Model):
         self.lesson_type = lesson_type
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
+        self.topic_suggestion = topic_suggestion
         if teacher_language:
             self.teacher_language_id = teacher_language.id
 
@@ -66,9 +69,10 @@ class AudioLessonMeaning(db.Model):
         return f"/audio/lessons/{self.meaning_id}-{lang_code}.mp3"
 
     @classmethod
-    def find(cls, meaning, teacher_language=None):
-        """Find audio lesson for a specific meaning and teacher language"""
+    def find(cls, meaning, teacher_language=None, topic_suggestion=None):
+        """Find audio lesson for a specific meaning, teacher language, and topic"""
         query = cls.query.filter_by(meaning=meaning)
         if teacher_language:
             query = query.filter_by(teacher_language_id=teacher_language.id)
+        query = query.filter_by(topic_suggestion=topic_suggestion)
         return query.first()

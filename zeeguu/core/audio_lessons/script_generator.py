@@ -24,6 +24,7 @@ def generate_lesson_script(
     translation_language: str,
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
+    topic_suggestion: str = None,
 ) -> str:
     """
     Generate a lesson script using Claude API.
@@ -35,6 +36,7 @@ def generate_lesson_script(
         translation_language: Language code of the translation (e.g., 'en')
         cefr_level: Cefr level of the word being learned
         generator_prompt_file: full filename
+        topic_suggestion: Optional short topic hint for the LLM
 
     Returns:
         Generated script text
@@ -75,7 +77,10 @@ def generate_lesson_script(
         cefr_level=cefr_level,
     )
 
-    log(f"Generating script for {origin_word} -> {translation_word}")
+    if topic_suggestion:
+        prompt += f'\nCONTEXT: Set the dialogue scenario in a context related to "{topic_suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
+
+    log(f"Generating script for {origin_word} -> {translation_word} (topic: {topic_suggestion})")
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
