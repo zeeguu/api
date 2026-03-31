@@ -88,7 +88,12 @@ def generate_daily_lesson():
 
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
-    topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()[:100] or None
+    topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()
+    if topic_suggestion:
+        # Cap at 4 words and 24 characters to limit prompt injection surface
+        topic_suggestion = " ".join(topic_suggestion.split()[:4])[:24].strip() or None
+    else:
+        topic_suggestion = None
 
     result = generator.prepare_lesson_generation(user, timezone_offset, topic_suggestion)
 
