@@ -16,10 +16,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
-        "gamification": _gamification,
-        "badges": _badges,
-        "friends": _friends,
-        "leaderboards": _leaderboards,
+        "gamification": _gamification
     }
 
 
@@ -90,57 +87,23 @@ def _hide_recommendations(user):
 # Gamification feature flag logic
 from .model.user import User 
 from datetime import datetime, date
+
+from zeeguu.core.model import user
 GAMIFICATION_START_DATE = date(2026, 4, 1)
 def _gamification(user: User):
     """
     Enable general gamification features for users whose invitation code is exactly 'gamification'.
     """
-    return _gamification_flag_logic(user)
+    
+    GAMIFICATION_INVITE_CODE = "gamification"
+    if user.is_dev:
+        return True
 
-def _badges(user: User):
-   """
-   Enable badges feature for users whose invitation code is exactly 'gamification'.
-   """
-   BADGES_INVITE_CODE = "badges_invite_code"
-   if not _has_gamification_started():
-      return False
-   
-   return user.invitation_code == BADGES_INVITE_CODE
+    # Only enable after the start date
+    if not _has_gamification_started():
+        return False
 
-def _friends(user: User):
-   """
-   Enable friends feature for users whose invitation code is exactly 'gamification'.
-   """
-   FRIENDS_INVITE_CODE = "friends_invite_code"
-   if not _has_gamification_started():
-      return False
-   
-   return user.invitation_code == FRIENDS_INVITE_CODE
-
-def _leaderboards(user: User):
-   """
-   Enable leaderboards feature for users whose invitation code is exactly 'gamification'.
-   """
-   LEADERBOARDS_INVITE_CODE = "leaderboards_invite_code"
-   if not _has_gamification_started():
-      return False
-   
-   return user.invitation_code == LEADERBOARDS_INVITE_CODE
-
-def _gamification_flag_logic(user: User):
-   """
-   Shared logic for enabling gamification-related features.
-   """
-
-   GAMIFICATION_INVITE_CODE = "gamification"
-   if user.is_dev:
-       return True
-   
-   # Only enable after the start date
-   if not _has_gamification_started():
-      return False
-   
-   return user.invitation_code == GAMIFICATION_INVITE_CODE
+    return user.invitation_code == GAMIFICATION_INVITE_CODE
 
 def _has_gamification_started():
-   return datetime.now().date() >= GAMIFICATION_START_DATE
+    return datetime.now().date() >= GAMIFICATION_START_DATE
