@@ -4,11 +4,13 @@ from typing import Callable, Optional
 import flask
 from flask import request
 
+from zeeguu.core.leaderboards.leaderboards import cohort_leaderboard_user_ids_subquery
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.leaderboards.leaderboards import exercise_time_leaderboard, exercises_done_leaderboard, \
-    read_articles_leaderboard, reading_time_leaderboard, listening_time_leaderboard
+    read_articles_leaderboard, reading_time_leaderboard, listening_time_leaderboard, \
+    friend_leaderboard_user_ids_subquery
 from . import api
 
 LeaderboardMetric = Callable[[int, int, Optional[datetime], Optional[datetime]], list]
@@ -38,7 +40,36 @@ def friends_leaderboard():
         return make_error(400, "Invalid leaderboard metric")
 
     rows = metric(
-        flask.g.user_id,
+        friend_leaderboard_user_ids_subquery(flask.g.user_id),
+        params["limit"],
+        params["from_date"],
+        params["to_date"],
+    )
+
+    result = [
+        _serialize_leaderboard_row(row)
+        for row in rows
+    ]
+
+    return json_result(result)
+
+# ---------------------------------------------------------------------------
+@api.route("/cohort_leaderboard/<cohort_id>", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def cohort_leaderboard(cohort_id: int):
+    params, error_response = _parse_leaderboard_query_params()
+    if error_response:
+        return error_response
+
+    metric = LEADERBOARD_METRICS.get(request.args.get("metric"))
+
+    if not metric:
+        return make_error(400, "Invalid leaderboard metric")
+
+    rows = metric(
+        cohort_leaderboard_user_ids_subquery(cohort_id),
         params["limit"],
         params["from_date"],
         params["to_date"],

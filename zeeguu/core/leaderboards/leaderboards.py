@@ -7,7 +7,7 @@ from zeeguu.core.model.user_avatar import UserAvatar
 
 
 def exercise_time_leaderboard(
-        user_id: int,
+        user_ids_subquery,
         limit: int = 20,
         from_date=None,
         to_date=None,
@@ -17,8 +17,6 @@ def exercise_time_leaderboard(
     exercise session duration in descending order.
     """
     from zeeguu.core.model.user_exercise_session import UserExerciseSession
-
-    related_user_ids = _friend_leaderboard_user_ids_subquery(user_id)
 
     total_duration = func.coalesce(func.sum(UserExerciseSession.duration), 0)
 
@@ -34,7 +32,7 @@ def exercise_time_leaderboard(
     ]
 
     return _leaderboard_base(
-        related_user_ids,
+        user_ids_subquery,
         total_duration,
         joins,
         limit,
@@ -42,7 +40,7 @@ def exercise_time_leaderboard(
 
 
 def listening_time_leaderboard(
-        user_id: int,
+        user_ids_subquery,
         limit: int = 20,
         from_date=None,
         to_date=None,
@@ -52,8 +50,6 @@ def listening_time_leaderboard(
     listening session duration in descending order.
     """
     from zeeguu.core.model.user_listening_session import UserListeningSession
-
-    related_user_ids = _friend_leaderboard_user_ids_subquery(user_id)
 
     total_duration = func.coalesce(func.sum(UserListeningSession.duration), 0)
 
@@ -69,7 +65,7 @@ def listening_time_leaderboard(
     ]
 
     return _leaderboard_base(
-        related_user_ids,
+        user_ids_subquery,
         total_duration,
         joins,
         limit,
@@ -77,7 +73,7 @@ def listening_time_leaderboard(
 
 
 def read_articles_leaderboard(
-        user_id: int,
+        user_ids_subquery,
         limit: int = 20,
         from_date=None,
         to_date=None,
@@ -87,8 +83,6 @@ def read_articles_leaderboard(
     number of completed articles in descending order.
     """
     from zeeguu.core.model.user_article import UserArticle
-
-    related_user_ids = _friend_leaderboard_user_ids_subquery(user_id)
 
     completed_articles_count = func.count(UserArticle.id)
 
@@ -105,7 +99,7 @@ def read_articles_leaderboard(
     ]
 
     return _leaderboard_base(
-        related_user_ids,
+        user_ids_subquery,
         completed_articles_count,
         joins,
         limit,
@@ -113,7 +107,7 @@ def read_articles_leaderboard(
 
 
 def reading_time_leaderboard(
-        user_id: int,
+        user_ids_subquery,
         limit: int = 20,
         from_date=None,
         to_date=None,
@@ -123,8 +117,6 @@ def reading_time_leaderboard(
     reading session duration in descending order.
     """
     from zeeguu.core.model.user_reading_session import UserReadingSession
-
-    related_user_ids = _friend_leaderboard_user_ids_subquery(user_id)
 
     total_duration = func.coalesce(func.sum(UserReadingSession.duration), 0)
 
@@ -140,7 +132,7 @@ def reading_time_leaderboard(
     ]
 
     return _leaderboard_base(
-        related_user_ids,
+        user_ids_subquery,
         total_duration,
         joins,
         limit,
@@ -148,7 +140,7 @@ def reading_time_leaderboard(
 
 
 def exercises_done_leaderboard(
-        user_id: int,
+        user_ids_subquery,
         limit: int = 20,
         from_date=None,
         to_date=None,
@@ -166,8 +158,6 @@ def exercises_done_leaderboard(
         ExerciseOutcome.CORRECT_AFTER_HINT,
         *ExerciseOutcome.correct_after_translation
     ]
-
-    related_user_ids = _friend_leaderboard_user_ids_subquery(user_id)
 
     exercises_done_count = func.coalesce(
         func.sum(
@@ -193,14 +183,14 @@ def exercises_done_leaderboard(
     ]
 
     return _leaderboard_base(
-        related_user_ids,
+        user_ids_subquery,
         exercises_done_count,
         joins,
         limit,
     )
 
 
-def _friend_leaderboard_user_ids_subquery(user_id: int):
+def friend_leaderboard_user_ids_subquery(user_id: int):
     # For each friendship row touching this user, select "the other user".
     return (
         db.session.query(
@@ -213,6 +203,15 @@ def _friend_leaderboard_user_ids_subquery(user_id: int):
         .union(
             db.session.query(literal(user_id).label("user_id"))
         )
+        .subquery()
+    )
+
+def cohort_leaderboard_user_ids_subquery(cohort_id: int):
+    from zeeguu.core.model.user_cohort_map import UserCohortMap
+
+    return (
+        db.session.query(UserCohortMap.user_id.label("user_id"))
+        .filter(UserCohortMap.cohort_id == cohort_id)
         .subquery()
     )
 
