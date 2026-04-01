@@ -1241,6 +1241,10 @@ class User(db.Model):
         return User.query.filter(User.id == id).one()
 
     @classmethod
+    def find_by_username(cls, username):
+        return User.query.filter(User.username == username).one()
+
+    @classmethod
     def all_recent_user_ids(cls, days=90):
         from zeeguu.core.model import UserActivityData
 

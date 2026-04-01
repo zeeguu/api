@@ -16,16 +16,16 @@ from . import api
 
 # ---------------------------------------------------------------------------
 @api.route("/get_friends", methods=["GET"])
-@api.route("/get_friends/<int:user_id>", methods=["GET"])
+@api.route("/get_friends/<username>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_friends(user_id: int = None):
+def get_friends(username: str = None):
     """
     Get all friends for the current user, or for a friend by user_id.
     """
     requester_id = flask.g.user_id
-    used_user_id = user_id if user_id is not None else requester_id
+    used_user_id = User.find_by_username(username).id if username is not None else requester_id
 
     if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
         return make_error(403, "You can only view friends for yourself or your friends.")
@@ -80,13 +80,11 @@ def send_friend_request():
     """
     Send a friend request from sender (currently logged-in user) to receiver
     """
-    sender_id = flask.g.user_id
-    receiver_id = request.json.get("receiver_id")
-
-    status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
-    if status_code >= 400:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
-        return make_error(status_code, error_message)
+    try:
+        sender_id, receiver_id = get_sender_receiver_from_request()
+    except ValueError as error:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
+        return make_error(400, error)
 
     try:
         friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
@@ -110,7 +108,8 @@ def delete_friend_request():
     Delete a friend request between sender and receiver
     """
     sender_id = flask.g.user_id
-    receiver_id = request.json.get("receiver_id")
+    receiver_username = request.json.get("receiver_username")
+    receiver_id = User.find_by_username(receiver_username).id
 
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
     return json_result({"success": is_deleted})
@@ -125,14 +124,11 @@ def accept_friend_request():
     """
     Accept a friend request between sender and receiver, and create a friendship
     """
-    # current user is the receiver of the friend request
-    receiver_id = flask.g.user_id
-    sender_id = request.json.get("sender_id")
-
-    status_code, error = _validate_friend_request_participants(sender_id, receiver_id)
-    if status_code >= 400:
-        log(f"accept_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
-        return make_error(status_code, error)
+    try:
+        sender_id, receiver_id = get_sender_receiver_from_request()
+    except ValueError as error:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
+        return make_error(400, error)
 
     friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
     if friendship is None:
@@ -152,15 +148,11 @@ def reject_friend_request():
     """
     Reject a friend request between sender and receiver, and delete the friend request record in the database
     """
-    # current user is the receiver of the friend request
-    receiver_id = flask.g.user_id
-    sender_id = request.json.get("sender_id")
-
-    status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
-
-    if status_code >= 400:
-        log(f"reject_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
-        return make_error(status_code, error_message)
+    try:
+        sender_id, receiver_id = get_sender_receiver_from_request()
+    except ValueError as error:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
+        return make_error(400, error)
 
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
     return json_result({"success": is_rejected})
@@ -175,13 +167,11 @@ def unfriend():
     """
     Unfriend two users by deleting the Friend row (friendship record) in the database.
     """
-    sender_id = flask.g.user_id
-    receiver_id = request.json.get("receiver_id")
-
-    status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
-    if status_code >= 400:
-        log(f"unfriend: invalid request from user_id={sender_id} to user_id={receiver_id} - {error_message}")
-        return make_error(status_code, error_message)
+    try:
+        sender_id, receiver_id = get_sender_receiver_from_request()
+    except ValueError as error:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
+        return make_error(400, error)
 
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
     log(f"unfriend: user_id={sender_id} unfriended user_id={receiver_id} - success={is_removed}")
@@ -232,7 +222,6 @@ def _serialize_user_with_friendship_details(user_data):
 
 def _serialize_user(user: User):
     return {
-        "id": user.id,
         "name": user.name,
         "username": user.username,
     }
@@ -243,8 +232,8 @@ def _serialize_friendship(friendship: Friend, status: str = "accepted"):
         return None
 
     return {
-        "sender_id": friendship.user_id,
-        "receiver_id": friendship.friend_id,
+        "sender_username": friendship.user.username,
+        "receiver_username": friendship.friend.username,
         "created_at": friendship.created_at,
         "friend_request_status": status,
         "friend_streak": friendship.friend_streak,
@@ -289,12 +278,10 @@ def _serialize_friend_request(friend_request: FriendRequest):
 
     return {
         "sender": {
-            "id": friend_request.sender.id,  # This is the user_id is that necessary?
             "name": friend_request.sender.name,
             "username": friend_request.sender.username,
         },
         "receiver": {
-            "id": friend_request.receiver.id,  # This is the user_id is that necessary?
             "name": friend_request.receiver.name,
             "username": friend_request.receiver.username,
         },
@@ -304,18 +291,39 @@ def _serialize_friend_request(friend_request: FriendRequest):
     }
 
 
-def _validate_friend_request_participants(sender_id, receiver_id) -> tuple[int, str]:
+def get_sender_receiver_from_request(sender_field="sender_username"):
     """
-    :param sender_id: the user_id of the sender of the friend request
-    :param receiver_id: the user_id of the receiver of the friend request
+    Extract sender_id and receiver_id from request.json and current session.
+    Returns: (sender_id, receiver_id)
+    Raises ValueError with message if validation fails.
+    """
+    receiver_id = flask.g.user_id
+    receiver_username = User.find_by_id(receiver_id).username
+
+    sender_username = request.json.get(sender_field)
+    if sender_username is None:
+        raise ValueError("Missing sender username")
+
+    status_code, error_message = _validate_friend_request_participants(sender_username, receiver_username)
+    if status_code >= 400:
+        raise ValueError(error_message)
+
+    sender_id = User.find_by_username(sender_username).id
+    return sender_id, receiver_id
+
+
+def _validate_friend_request_participants(sender_username: str, receiver_username: str) -> tuple[int, str]:
+    """
+    :param sender_username: the username of the sender of the friend request
+    :param receiver_username: the username of the receiver of the friend request
     Validate the friend request data, return (status_code, error_message)
 
     :return: (status_code, error_message)
     """
-    if sender_id is None or receiver_id is None:
-        return 422, "invalid data sender_id or/and receiver_id"
+    if sender_username is None or receiver_username is None:
+        return 422, "invalid data sender_username or/and receiver_username"
 
-    if sender_id == receiver_id:
+    if sender_username == receiver_username:
         return 422, "cannot send friend request to yourself"
 
     return 200, "ok"

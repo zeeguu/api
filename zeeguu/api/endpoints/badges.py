@@ -1,6 +1,7 @@
 import flask
 from sqlalchemy.orm import joinedload
 
+from zeeguu.core.model import User
 from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.api.utils.abort_handling import make_error
@@ -27,11 +28,11 @@ def get_not_shown_user_badge_levels():
 
 # ---------------------------------------------------------------------------
 @api.route("/badges", methods=["GET"])
-@api.route("/badges/<int:user_id>", methods=["GET"])
+@api.route("/badges/<username>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_badges_for_user(user_id: int = None):
+def get_badges_for_user(username: str = None):
     """
     Retrieve all badges and their levels for the specified or current user.
     Each badge level includes achievement status and whether it has been shown.
@@ -55,7 +56,8 @@ def get_badges_for_user(user_id: int = None):
         }, ... ]
     """
     requester_id = flask.g.user_id
-    used_user_id = user_id if user_id is not None else requester_id
+
+    used_user_id = User.find_by_username(username).id if username is not None else requester_id
 
     if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
         return make_error(403, "You can only view badges for yourself or your friends.")

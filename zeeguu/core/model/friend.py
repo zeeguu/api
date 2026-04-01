@@ -173,7 +173,7 @@ class Friend(db.Model):
         return False
 
     @classmethod
-    def find_friend_details(cls, user_id: int, friend_user_id: int):
+    def find_friend_details(cls, user_id: int, friend_username: str):
         """
         Return details_as_dictionary for friend_user_id.
         Always includes a 'friendship' object with friend_request_status
@@ -184,9 +184,10 @@ class Friend(db.Model):
         from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
-        friend = User.find_by_id(friend_user_id)
+        friend = User.find_by_username(friend_username)
         if not friend:
             return None
+        friend_user_id = friend.id
 
         friendship = cls.query.filter(
             ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |

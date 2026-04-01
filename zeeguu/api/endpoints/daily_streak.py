@@ -23,12 +23,12 @@ def get_daily_streak():
 
 
 @api.route("/all_daily_streak", methods=["GET"])
-@api.route("/all_daily_streak/<int:user_id>", methods=["GET"])
+@api.route("/all_daily_streak/<username>", methods=["GET"])
 @cross_domain
 @requires_session
-def get_all_daily_streak(user_id: int = None):
+def get_all_daily_streak(username: str = None):
     requester_user_id = flask.g.user_id
-    requested_user_id = user_id if user_id is not None else requester_user_id
+    requested_user_id = User.find_by_username(username).id if username is not None else requester_user_id
 
     user = User.find_by_id(requested_user_id)
     user_languages = UserLanguage.all_user_languages_for_user(user)
