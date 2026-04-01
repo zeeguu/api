@@ -63,10 +63,19 @@ class DailyLessonGenerator:
         # Check if a lesson already exists for today
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
-            log(
-                f"[prepare_lesson_generation] Found existing lesson {existing_lesson.get('lesson_id')} for today"
-            )
-            return existing_lesson
+            # If the user provided a topic that differs from the existing lesson's,
+            # delete the old lesson so a new one can be generated with the topic.
+            existing_topic = existing_lesson.get("topic_suggestion")
+            if topic_suggestion and topic_suggestion != existing_topic:
+                log(
+                    f"[prepare_lesson_generation] Topic changed ('{existing_topic}' -> '{topic_suggestion}'), deleting existing lesson"
+                )
+                self.delete_todays_lesson_for_user(user, timezone_offset)
+            else:
+                log(
+                    f"[prepare_lesson_generation] Found existing lesson {existing_lesson.get('lesson_id')} for today"
+                )
+                return existing_lesson
         elif existing_lesson.get("error") and existing_lesson.get("status_code") == 404:
             # Stale lesson record with missing audio file — delete it so we can regenerate
             log(
