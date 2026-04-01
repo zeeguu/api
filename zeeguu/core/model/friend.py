@@ -278,7 +278,6 @@ class Friend(db.Model):
 
         if friendship:
             return {
-                "id": friendship.id,
                 "friend_streak": friendship.friend_streak,
                 "friend_streak_last_updated": (
                     friendship.friend_streak_last_updated.isoformat()
@@ -290,9 +289,8 @@ class Friend(db.Model):
             }
         elif friend_request:
             return {
-                "id": friend_request.id,
-                "sender_id": friend_request.sender_id,  # TODO: Are these necessary
-                "receiver_id": friend_request.receiver_id,  # TODO: are these necessary
+                "sender_username": friend_request.sender.username,
+                "receiver_username": friend_request.receiver.username,
                 "friend_streak": 0,
                 "friend_streak_last_updated": None,
                 "friend_request_status": friend_request.status,

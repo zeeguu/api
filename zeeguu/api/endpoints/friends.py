@@ -81,12 +81,8 @@ def send_friend_request():
     Send a friend request from sender (currently logged-in user) to receiver
     """
     try:
-        sender_id, receiver_id = get_sender_receiver_from_request()
-    except ValueError as error:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
-        return make_error(400, error)
-
-    try:
+        sender_id = flask.g.user_id
+        receiver_id = get_receiver_from_request(sender_id)
         friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
         response = _serialize_friend_request(friend_request)
         return json_result(response)
@@ -125,10 +121,11 @@ def accept_friend_request():
     Accept a friend request between sender and receiver, and create a friendship
     """
     try:
-        sender_id, receiver_id = get_sender_receiver_from_request()
-    except ValueError as error:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
-        return make_error(400, error)
+        receiver_id = flask.g.user_id
+        sender_id = get_sender_from_request(receiver_id)
+    except ValueError as e:
+        log(f"accept_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        return make_error(400, str(e))
 
     friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
     if friendship is None:
@@ -149,10 +146,11 @@ def reject_friend_request():
     Reject a friend request between sender and receiver, and delete the friend request record in the database
     """
     try:
-        sender_id, receiver_id = get_sender_receiver_from_request()
-    except ValueError as error:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
-        return make_error(400, error)
+        receiver_id = flask.g.user_id
+        sender_id = get_sender_from_request(receiver_id)
+    except ValueError as e:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        return make_error(400, str(e))
 
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
     return json_result({"success": is_rejected})
@@ -168,10 +166,11 @@ def unfriend():
     Unfriend two users by deleting the Friend row (friendship record) in the database.
     """
     try:
-        sender_id, receiver_id = get_sender_receiver_from_request()
-    except ValueError as error:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {error}")
-        return make_error(400, error)
+        sender_id = flask.g.user_id
+        receiver_id = get_receiver_from_request(sender_id)
+    except ValueError as e:
+        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        return make_error(400, str(e))
 
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
     log(f"unfriend: user_id={sender_id} unfriended user_id={receiver_id} - success={is_removed}")
@@ -291,39 +290,53 @@ def _serialize_friend_request(friend_request: FriendRequest):
     }
 
 
-def get_sender_receiver_from_request(sender_field="sender_username"):
+def get_sender_from_request(receiver_id:int, sender_field="sender_username"):
     """
-    Extract sender_id and receiver_id from request.json and current session.
-    Returns: (sender_id, receiver_id)
+    Extract sender_id from request.json and current session.
+    Returns: validated sender_id
     Raises ValueError with message if validation fails.
     """
-    receiver_id = flask.g.user_id
-    receiver_username = User.find_by_id(receiver_id).username
-
     sender_username = request.json.get(sender_field)
     if sender_username is None:
         raise ValueError("Missing sender username")
+    sender_id = User.find_by_username(sender_username).id
 
-    status_code, error_message = _validate_friend_request_participants(sender_username, receiver_username)
+    status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
     if status_code >= 400:
         raise ValueError(error_message)
 
-    sender_id = User.find_by_username(sender_username).id
-    return sender_id, receiver_id
+    return sender_id
 
-
-def _validate_friend_request_participants(sender_username: str, receiver_username: str) -> tuple[int, str]:
+def get_receiver_from_request(sender_id:int, receiver_field="receiver_username"):
     """
-    :param sender_username: the username of the sender of the friend request
-    :param receiver_username: the username of the receiver of the friend request
+    Extract receiver_id from request.json and current session.
+    Returns: validated receiver_id
+    Raises ValueError with message if validation fails.
+    """
+    receiver_username = request.json.get(receiver_field)
+    if receiver_username is None:
+        raise ValueError("Missing receiver username")
+    receiver_id = User.find_by_username(receiver_username).id
+
+    status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
+    if status_code >= 400:
+        raise ValueError(error_message)
+
+    return receiver_id
+
+
+def _validate_friend_request_participants(sender_id: int, receiver_id: int) -> tuple[int, str]:
+    """
+    :param sender_id: the user_id of the sender of the friend request
+    :param receiver_id: the user_id of the receiver of the friend request
     Validate the friend request data, return (status_code, error_message)
 
     :return: (status_code, error_message)
     """
-    if sender_username is None or receiver_username is None:
-        return 422, "invalid data sender_username or/and receiver_username"
+    if sender_id is None or receiver_id is None:
+        return 422, "invalid data sender or/and receiver"
 
-    if sender_username == receiver_username:
+    if sender_id == receiver_id:
         return 422, "cannot send friend request to yourself"
 
     return 200, "ok"
