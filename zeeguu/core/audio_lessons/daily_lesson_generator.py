@@ -42,7 +42,7 @@ class DailyLessonGenerator:
             self._lesson_builder = LessonBuilder()
         return self._lesson_builder
 
-    def prepare_lesson_generation(self, user, timezone_offset=0, topic_suggestion=None):
+    def prepare_lesson_generation(self, user, timezone_offset=0, topic_suggestion=None, suggestion_type=None):
         """
         Validate and prepare for lesson generation (synchronous, fast).
         Returns either an error/existing-lesson dict, or a preparation dict
@@ -52,6 +52,7 @@ class DailyLessonGenerator:
             user: The User object to generate a lesson for
             timezone_offset: Client's timezone offset in minutes from UTC
             topic_suggestion: Optional short topic hint for the LLM (max 100 chars)
+            suggestion_type: Optional type of suggestion ("topic" or "situation")
 
         Returns:
             Dictionary with either error info, existing lesson, or preparation data
@@ -141,6 +142,7 @@ class DailyLessonGenerator:
             "cefr_level": cefr_level,
             "progress_id": progress.id,
             "topic_suggestion": topic_suggestion,
+            "suggestion_type": suggestion_type,
         }
 
     def select_words_for_lesson(
@@ -170,6 +172,7 @@ class DailyLessonGenerator:
         created_by="claude-v1",
         progress=None,
         topic_suggestion=None,
+        suggestion_type=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
@@ -182,6 +185,7 @@ class DailyLessonGenerator:
             created_by: String identifying who created this lesson
             progress: Optional AudioLessonGenerationProgress for tracking
             topic_suggestion: Optional short topic hint for the LLM
+            suggestion_type: Optional type ("topic" or "situation")
 
         Returns:
             AudioLessonMeaning object
@@ -212,6 +216,7 @@ class DailyLessonGenerator:
             translation_language=translation_language,
             cefr_level=cefr_level,
             topic_suggestion=topic_suggestion,
+            suggestion_type=suggestion_type,
         )
 
         # Update progress: script done
@@ -268,6 +273,7 @@ class DailyLessonGenerator:
         cefr_level: str,
         progress: AudioLessonGenerationProgress = None,
         topic_suggestion: str = None,
+        suggestion_type: str = None,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -280,6 +286,7 @@ class DailyLessonGenerator:
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
             topic_suggestion: Optional short topic hint for the LLM
+            suggestion_type: Optional type ("topic" or "situation")
 
         Returns:
             Dictionary with lesson details or error information
@@ -330,6 +337,7 @@ class DailyLessonGenerator:
                         user_word, origin_language, translation_language, cefr_level,
                         progress=progress,
                         topic_suggestion=topic_suggestion,
+                        suggestion_type=suggestion_type,
                     )
                 except Exception as e:
                     log(

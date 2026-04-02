@@ -4,6 +4,7 @@ from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+from zeeguu.core.audio_lessons.script_generator import VALID_SUGGESTION_TYPES
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
 from zeeguu.logging import log
 from . import api
@@ -58,6 +59,7 @@ def _generate_lesson_in_background(user_id, preparation):
             cefr_level=preparation["cefr_level"],
             progress=progress,
             topic_suggestion=preparation.get("topic_suggestion"),
+            suggestion_type=preparation.get("suggestion_type"),
         )
     except Exception as e:
         log(f"[background_generate] Error for user {user_id}: {e}")
@@ -89,13 +91,16 @@ def generate_daily_lesson():
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
     topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()
+    suggestion_type = flask.request.form.get("suggestion_type", "").strip() or None
+    if suggestion_type not in (None, *VALID_SUGGESTION_TYPES):
+        suggestion_type = None
     if topic_suggestion:
-        # Cap at 4 words and 24 characters to limit prompt injection surface
-        topic_suggestion = " ".join(topic_suggestion.split()[:4])[:24].strip() or None
+        # Cap at 6 words and 48 characters to limit prompt injection surface
+        topic_suggestion = " ".join(topic_suggestion.split()[:6])[:48].strip() or None
     else:
         topic_suggestion = None
 
-    result = generator.prepare_lesson_generation(user, timezone_offset, topic_suggestion)
+    result = generator.prepare_lesson_generation(user, timezone_offset, topic_suggestion, suggestion_type)
 
     # Existing lesson found — return it directly
     if result.get("lesson_id"):

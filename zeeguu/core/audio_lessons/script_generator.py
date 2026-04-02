@@ -6,6 +6,8 @@ import os
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.logging import log
 
+VALID_SUGGESTION_TYPES = ("topic", "situation")
+
 
 # Load the prompt template
 def get_prompt_template(file_name) -> str:
@@ -25,6 +27,7 @@ def generate_lesson_script(
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
     topic_suggestion: str = None,
+    suggestion_type: str = None,
 ) -> str:
     """
     Generate a lesson script using Claude API.
@@ -37,6 +40,7 @@ def generate_lesson_script(
         cefr_level: Cefr level of the word being learned
         generator_prompt_file: full filename
         topic_suggestion: Optional short topic hint for the LLM
+        suggestion_type: Optional type ("topic" or "situation")
 
     Returns:
         Generated script text
@@ -78,9 +82,12 @@ def generate_lesson_script(
     )
 
     if topic_suggestion:
-        prompt += f'\nCONTEXT: Set the dialogue scenario in a context related to "{topic_suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
+        if suggestion_type == "situation":
+            prompt += f'\nSITUATION: Structure the lesson as a roleplay scenario: "{topic_suggestion}". The dialogue should simulate a real conversation the learner might have in this situation.\n'
+        else:
+            prompt += f'\nTOPIC: Set the dialogue scenario in a context related to "{topic_suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
 
-    log(f"Generating script for {origin_word} -> {translation_word} (topic: {topic_suggestion})")
+    log(f"Generating script for {origin_word} -> {translation_word} (topic: {topic_suggestion}, type: {suggestion_type})")
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
