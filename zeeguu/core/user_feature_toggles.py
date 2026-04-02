@@ -97,6 +97,8 @@ def _hide_recommendations(user):
     return False
 
 # Gamification feature flag logic
+from sqlalchemy.exc import NoResultFound
+
 from .model.user import User 
 from .model.cohort import Cohort
 from datetime import datetime, date
@@ -116,8 +118,12 @@ def _gamification(user: User):
     if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
         return True
     
-    # Find gamification cohort by invite code
-    gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
+    # Find gamification cohort by invite code, if it exists.
+    try:
+        gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
+    except NoResultFound:
+        gamification_cohort = None
+
     if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
         return True
 
