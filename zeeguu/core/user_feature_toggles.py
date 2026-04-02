@@ -86,24 +86,26 @@ def _hide_recommendations(user):
 
 # Gamification feature flag logic
 from .model.user import User 
+from .model.cohort import Cohort
 from datetime import datetime, date
-
-from zeeguu.core.model import user
 GAMIFICATION_START_DATE = date(2026, 4, 1)
 def _gamification(user: User):
     """
-    Enable general gamification features for users whose invitation code is exactly 'gamification'.
+    Enable general gamification features for users whose invitation with the gamification invite code, 
+    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards. 
     """
     
-    GAMIFICATION_INVITE_CODE = "gamification"
+    GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
     if user.is_dev:
         return True
 
-    # Only enable after the start date
-    if not _has_gamification_started():
-        return False
+    if user.invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
+        return True
+    
+    # Find gamification cohort by invite code
+    gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
+    if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
+        return True
 
-    return user.invitation_code == GAMIFICATION_INVITE_CODE
-
-def _has_gamification_started():
-    return datetime.now().date() >= GAMIFICATION_START_DATE
+    # Disabled for everyone else
+    return False
