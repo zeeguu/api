@@ -110,8 +110,10 @@ def _gamification(user: User):
     GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
     if user.is_dev:
         return True
-
-    if user.invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
+    
+    # Invitation code can be None
+    invitation_code = user.invitation_code or ""
+    if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
         return True
     
     # Find gamification cohort by invite code
