@@ -71,21 +71,23 @@ def generate_lesson_script(
         translation_language, translation_language
     )
 
-    # Load and format the prompt
-    prompt_template = get_prompt_template(generator_prompt_file)
+    # Select template based on suggestion type
+    if suggestion and suggestion_type == "situation":
+        prompt_file = "meaning_lesson--situation-v1.txt"
+    elif suggestion and suggestion_type == "topic":
+        prompt_file = "meaning_lesson--topic-v1.txt"
+    else:
+        prompt_file = generator_prompt_file
+
+    prompt_template = get_prompt_template(prompt_file)
     prompt = prompt_template.format(
         origin_word=origin_word,
         translation_word=translation_word,
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
+        suggestion=suggestion or "",
     )
-
-    if suggestion:
-        if suggestion_type == "situation":
-            prompt += f'\nSITUATION: Structure the lesson as a roleplay scenario: "{suggestion}". The dialogue should simulate a real conversation the learner might have in this situation.\n'
-        else:
-            prompt += f'\nTOPIC: Set the dialogue scenario in a context related to "{suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
 
     log(f"Generating script for {origin_word} -> {translation_word} (topic: {suggestion}, type: {suggestion_type})")
 

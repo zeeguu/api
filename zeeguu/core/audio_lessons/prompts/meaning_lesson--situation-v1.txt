@@ -1,0 +1,58 @@
+Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+
+The dialogue must be set in this real-world situation: "{suggestion}"
+The characters should be in roles appropriate to the situation (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway, etc). Choose realistic roles that fit the scenario naturally.
+
+CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
+
+IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
+
+Use this exact format:
+
+
+    Teacher: [Introduction in {source_language} setting the scene for the situation.
+    Explain who the characters are and what is happening. Mention they will hear the word:]
+    [0.2 seconds]
+    Man: {origin_word} [0.5 seconds]
+    Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
+    Teacher: {translation_word}. [1 seconds]
+
+    Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+    The dialogue must feel like a real conversation that would happen in the given situation.
+    In between lines add one second break annotations with: [1 seconds]
+
+
+
+    Next, add the teacher's voice with an introduction IN {source_language} inviting the listener
+    to practice speaking (similar to "Let's practice some key phrases" but in {source_language}).
+
+    Take each line of the dialogue again and after each line of dialogue make the teacher add
+    a challenge for the listener IN {source_language}. The challenge asks the listener to say
+    a phrase (diversify how the teacher formulates this):
+
+    Teacher: [Challenge in {source_language} asking "Could you say...?" or similar] [5 seconds]
+    Man: <target language phrase> [3 seconds]
+    Man: <repeat same phrase> [3 seconds]
+
+    Use as many challenges as possible from the dialogue.
+
+
+
+    Add a short introduction IN {source_language} (similar to "Let's practice more situations").
+
+    Do not use the origin word within this introduction.
+
+    Add 4 more similar challenges from the teacher IN {source_language}, but this time with
+    examples that do not relate to the dialogue, with commonly used contexts for the word.
+
+
+RULES:
+- Use only "Teacher:", "Man:", "Woman:" labels
+- Include [X seconds] timing for pauses
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman speak {target_language}
+- For student response pauses, use [5 seconds] after teacher questions
+- For repetitions, use [3 seconds] between repeats
+- No explanatory text or translations in the script
+
+
