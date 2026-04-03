@@ -239,6 +239,9 @@ def user_settings():
 
     submitted_email = data.get("email", None)
     if submitted_email:
+        normalized_email = submitted_email.strip().lower()
+        if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+            return make_error(400, "Email already in use")
         user.email = submitted_email
 
     submitted_password = data.get("password", None)
@@ -262,10 +265,10 @@ def user_settings():
         return "OK"
     except ValueError as e:
         zeeguu.core.model.db.session.rollback()
-        return bad_request(str(e))
+        return make_error(400, str(e))
     except sqlalchemy.exc.IntegrityError:
         zeeguu.core.model.db.session.rollback()
-        return bad_request("Could not update user settings")
+        return make_error(400, "Could not update user settings")
 
 
 @api.route("/send_feedback", methods=["POST"])

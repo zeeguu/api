@@ -54,6 +54,9 @@ def create_account(
     if User.username_exists(normalized_username):
         raise Exception("Username already in use")
 
+    if User.email_exists(email):
+        raise Exception("There is already an account for this email.")
+
     cohort = (
         Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
         if invite_code
@@ -132,6 +135,9 @@ def create_basic_account(
     normalized_username = _normalize_username(username)
     if User.username_exists(normalized_username):
         raise Exception("Username already in use")
+
+    if User.email_exists(email):
+        raise Exception("There is already an account for this email.")
 
     cohort = (
         Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
