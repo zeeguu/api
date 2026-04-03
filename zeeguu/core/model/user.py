@@ -525,9 +525,8 @@ class User(db.Model):
             raise ValueError("Invalid username")
         return name
 
-    @classmethod
     @sqlalchemy.orm.validates("username")
-    def validate_username(cls, col, username):
+    def validate_username(self, col, username):
         if username is None:
             return username
 
@@ -536,9 +535,9 @@ class User(db.Model):
         if len(username) == 0:
             raise ValueError("Username cannot be empty")
 
-        if len(username) > cls.MAX_USERNAME_LENGTH:
+        if len(username) > self.MAX_USERNAME_LENGTH:
             raise ValueError(
-                f"Username can be at most {cls.MAX_USERNAME_LENGTH} characters"
+                f"Username can be at most {self.MAX_USERNAME_LENGTH} characters"
             )
 
         return username

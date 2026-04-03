@@ -17,11 +17,12 @@ def test_add_user(client):
 
 
 def test_cant_add_same_email_twice(client):
-    test_user_data = dict(password=TEST_PASS, username=TEST_USER)
-    response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
+    first_user_data = dict(password=TEST_PASS, username="user_one")
+    response = client.post(f"/add_user/{TEST_EMAIL}", data=first_user_data)
     assert str(response.data)
 
-    response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
+    second_user_data = dict(password=TEST_PASS, username="user_two")
+    response = client.post(f"/add_user/{TEST_EMAIL}", data=second_user_data)
     assert response.status_code == 400
     data = json.loads(response.data)
     assert "There is already an account for this email" in data["message"]
