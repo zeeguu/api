@@ -18,6 +18,13 @@ Use this exact format:
     Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
     Teacher: {translation_word}. [1 seconds]
 
+    [If "{origin_word}" has other common meanings besides "{translation_word}", add a teacher
+    line in {source_language} briefly mentioning them, e.g. "Note that this word can also mean..."]
+
+    [If "{origin_word}" is not the most common way to say "{translation_word}" in {target_language},
+    add a teacher line in {source_language} mentioning the more common synonym, e.g.
+    "The most common way to say {translation_word} is ... but {origin_word} is also used."]
+
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
     The dialogue must feel like a real conversation that would happen in the given situation.
     In between lines add one second break annotations with: [1 seconds]
