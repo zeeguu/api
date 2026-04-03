@@ -90,14 +90,10 @@ def generate_daily_lesson():
 
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
-    topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()
+    topic_suggestion = flask.request.form.get("topic_suggestion", "").strip()[:80].strip() or None
     suggestion_type = flask.request.form.get("suggestion_type", "").strip() or None
     if suggestion_type not in (None, *VALID_SUGGESTION_TYPES):
         suggestion_type = None
-    if topic_suggestion:
-        topic_suggestion = topic_suggestion[:80].strip() or None
-    else:
-        topic_suggestion = None
 
     result = generator.prepare_lesson_generation(user, timezone_offset, topic_suggestion, suggestion_type)
 
