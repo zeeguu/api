@@ -64,8 +64,7 @@ class DailyLessonGenerator:
         # Check if a lesson already exists for today
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
-            # If the user provided a topic that differs from the existing lesson's,
-            # delete the old lesson so a new one can be generated with the topic.
+            # If the suggestion changed, delete today's lesson and regenerate.
             existing_topic = existing_lesson.get("suggestion")
             existing_type = existing_lesson.get("suggestion_type")
             topic_changed = suggestion and suggestion != existing_topic
