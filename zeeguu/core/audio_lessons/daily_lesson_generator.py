@@ -67,9 +67,12 @@ class DailyLessonGenerator:
             # If the user provided a topic that differs from the existing lesson's,
             # delete the old lesson so a new one can be generated with the topic.
             existing_topic = existing_lesson.get("topic_suggestion")
-            if topic_suggestion and topic_suggestion != existing_topic:
+            existing_type = existing_lesson.get("suggestion_type")
+            topic_changed = topic_suggestion and topic_suggestion != existing_topic
+            type_changed = suggestion_type and suggestion_type != existing_type
+            if topic_changed or type_changed:
                 log(
-                    f"[prepare_lesson_generation] Topic changed ('{existing_topic}' -> '{topic_suggestion}'), deleting existing lesson"
+                    f"[prepare_lesson_generation] Suggestion changed ('{existing_topic}/{existing_type}' -> '{topic_suggestion}/{suggestion_type}'), deleting existing lesson"
                 )
                 self.delete_todays_lesson_for_user(user, timezone_offset)
             else:
@@ -491,6 +494,7 @@ class DailyLessonGenerator:
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
             "topic_suggestion": lesson.topic_suggestion,
+            "suggestion_type": lesson.suggestion_type,
         }
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
