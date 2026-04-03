@@ -363,7 +363,7 @@ class DailyLessonGenerator:
 
             # Build the final concatenated MP3 for the daily lesson
             try:
-                daily_mp3_path = self.lesson_builder.build_daily_lesson(daily_lesson)
+                daily_mp3_path = self.lesson_builder.build_daily_lesson(daily_lesson, self.voice_synthesizer)
 
                 # Calculate total duration
                 total_duration = self.voice_synthesizer.get_audio_duration(
