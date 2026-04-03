@@ -40,6 +40,17 @@ def get_friends(username: str = None):
 
 
 # ---------------------------------------------------------------------------
+@api.route("/get_number_of_received_friend_requests", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def get_number_of_received_friend_requests():
+    """
+    Get the number of friend requests received by a user.
+    """
+    return json_result(FriendRequest.get_number_of_received_friend_requests_for_user(flask.g.user_id))
+
+# ---------------------------------------------------------------------------
 @api.route("/get_received_friend_requests", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain

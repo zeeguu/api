@@ -92,7 +92,23 @@ class FriendRequest(db.Model):
      db.session.refresh(new_request)  # To get the ID and timestamps
 
      return new_request
-    
+
+    @classmethod
+    def get_number_of_received_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
+            """
+            Get the number of friend requests received by a user.
+
+            Args:
+                user_id (int): ID of the user
+                status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
+
+            Returns:
+                The number of friend requests received by a user.
+            """
+
+            return cls.query.filter_by(receiver_id=user_id, status=status).count()
+
+
     @classmethod
     def get_received_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
             """
