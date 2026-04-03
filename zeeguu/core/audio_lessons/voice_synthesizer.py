@@ -68,7 +68,7 @@ class VoiceSynthesizer:
         """
         lines = script.split("\n")
         joined_lines = []
-        voice_pattern = re.compile(r"^(Teacher|Man|Woman|Armin|Aldo):\s*", re.IGNORECASE)
+        voice_pattern = re.compile(r"^(Teacher|TeacherL2|Man|Woman|Armin|Aldo):\s*", re.IGNORECASE)
 
         for line in lines:
             stripped = line.strip()
@@ -118,7 +118,7 @@ class VoiceSynthesizer:
                 continue
 
             # Parse voice lines like "Teacher: Some text [2 seconds]"
-            voice_match = re.match(r"^(Teacher|Man|Woman|Armin|Aldo):\s*(.+)$", line, re.IGNORECASE)
+            voice_match = re.match(r"^(Teacher|TeacherL2|Man|Woman|Armin|Aldo):\s*(.+)$", line, re.IGNORECASE)
             if not voice_match:
                 continue
 
@@ -144,7 +144,12 @@ class VoiceSynthesizer:
             language_code: Language code for the target language
             teacher_language: Optional language code for teacher voice (defaults to English)
         """
-        if voice_type == "teacher":
+        if voice_type == "teacherl2":
+            # TeacherL2: same voice identity as teacher, but speaking the target language
+            normalized_language = normalize_language_code(language_code)
+            voice_id = get_voice_id(language_code, "teacher")
+            language = normalized_language
+        elif voice_type == "teacher":
             # If teacher_language is specified, use that language's teacher voice
             if teacher_language:
                 normalized_language = normalize_language_code(teacher_language)
@@ -295,8 +300,8 @@ class VoiceSynthesizer:
                     on_progress(current_speech_segment, total_speech_segments, voice_type)
 
                 # Generate speech
-                # Apply speaking rate slowdown only to man and woman voices, not teacher
-                rate = speaking_rate if voice_type in ["man", "woman"] else 1.0
+                # Apply speaking rate slowdown to target language voices, not teacher
+                rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
                 audio_path = self.synthesize_segment(
                     text, voice_type, language_code, rate, teacher_language_code
                 )

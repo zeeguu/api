@@ -14,7 +14,7 @@ Use this exact format:
     Teacher: [Introduction in {source_language} explaining that in the following conversation
     they will hear a man and woman talking about {suggestion}. Mention they will hear the word:]
     [0.2 seconds]
-    Man: {origin_word} [0.5 seconds]
+    TeacherL2: {origin_word} [0.5 seconds]
     Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
     Teacher: {translation_word}. [1 seconds]
 
@@ -48,9 +48,11 @@ Use this exact format:
 
 
 RULES:
-- Use only "Teacher:", "Man:", "Woman:" labels
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
 - Include [X seconds] timing for pauses
-- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman speak {target_language}
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- Man and Woman must be adults. Never create child characters.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script
