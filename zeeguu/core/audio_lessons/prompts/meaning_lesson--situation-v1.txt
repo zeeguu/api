@@ -53,6 +53,7 @@ RULES:
 - Include [X seconds] timing for pauses
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
 - Man and Woman must be adults. Never create child characters.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script

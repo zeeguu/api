@@ -5,10 +5,9 @@ IMPORTANT: Output ONLY the script lines below. Do not include any explanations, 
 
 Use this exact format:
 
-Teacher: You will be practicing the word [0.5 seconds]
+Teacher: In the following conversation you will hear the word [0.5 seconds]
 TeacherL2: {origin_word} [0.5 seconds]
-Teacher: which means {translation_word}.
-Teacher: In this dialogue you will hear a man and woman discussing [brief scenario, also describe the relation between the man and woman]]
+Teacher: which means {translation_word}. [1 seconds]
 
 Create a dialogue of at least 8 lines between Man and Woman using the target word naturally
 
@@ -42,6 +41,7 @@ TeacherL2: {origin_word} [0.5 seconds]
 Teacher: which means {translation_word}.
 
 - Man and Woman must be adults. Never create child characters.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - Keep vocabulary simple (A1-A2 level)
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
