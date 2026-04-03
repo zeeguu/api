@@ -198,7 +198,7 @@ class DailyLessonGenerator:
 
         # Check if audio lesson already exists for this meaning, teacher language, and topic
         existing_lesson = AudioLessonMeaning.find(
-            meaning=meaning, teacher_language=teacher_lang, topic_suggestion=topic_suggestion
+            meaning=meaning, teacher_language=teacher_lang, topic_suggestion=topic_suggestion, suggestion_type=suggestion_type
         )
         if existing_lesson:
             return existing_lesson
@@ -232,6 +232,7 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
             topic_suggestion=topic_suggestion,
+            suggestion_type=suggestion_type,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -304,6 +305,7 @@ class DailyLessonGenerator:
                 created_by="generate_daily_lesson_v1",
                 language=user.learned_language,
                 topic_suggestion=topic_suggestion,
+                suggestion_type=suggestion_type,
             )
             db.session.add(daily_lesson)
             log(f"[generate_daily_lesson] Created daily lesson object")
