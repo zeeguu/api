@@ -26,7 +26,7 @@ def generate_lesson_script(
     translation_language: str,
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
-    topic_suggestion: str = None,
+    suggestion: str = None,
     suggestion_type: str = None,
 ) -> str:
     """
@@ -39,7 +39,7 @@ def generate_lesson_script(
         translation_language: Language code of the translation (e.g., 'en')
         cefr_level: Cefr level of the word being learned
         generator_prompt_file: full filename
-        topic_suggestion: Optional short topic hint for the LLM
+        suggestion: Optional short topic hint for the LLM
         suggestion_type: Optional type ("topic" or "situation")
 
     Returns:
@@ -81,13 +81,13 @@ def generate_lesson_script(
         cefr_level=cefr_level,
     )
 
-    if topic_suggestion:
+    if suggestion:
         if suggestion_type == "situation":
-            prompt += f'\nSITUATION: Structure the lesson as a roleplay scenario: "{topic_suggestion}". The dialogue should simulate a real conversation the learner might have in this situation.\n'
+            prompt += f'\nSITUATION: Structure the lesson as a roleplay scenario: "{suggestion}". The dialogue should simulate a real conversation the learner might have in this situation.\n'
         else:
-            prompt += f'\nTOPIC: Set the dialogue scenario in a context related to "{topic_suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
+            prompt += f'\nTOPIC: Set the dialogue scenario in a context related to "{suggestion}". The examples and challenges should use vocabulary relevant to this topic.\n'
 
-    log(f"Generating script for {origin_word} -> {translation_word} (topic: {topic_suggestion}, type: {suggestion_type})")
+    log(f"Generating script for {origin_word} -> {translation_word} (topic: {suggestion}, type: {suggestion_type})")
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
