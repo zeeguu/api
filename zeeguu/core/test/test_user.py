@@ -72,13 +72,13 @@ class UserTest(ModelTestMixIn):
         assert User.validate_name("", random_name)
 
     def test_validate_username(self):
-        username = "x" * 50
+        username = "x" * User.MAX_USERNAME_LENGTH
         self.user.username = username
         assert self.user.username == username
 
     def test_validate_username_too_long(self):
-        with pytest.raises(ValueError, match="Username can be at most 50 characters"):
-            self.user.username = "x" * 51
+        with pytest.raises(ValueError, match=f"Username can be at most {User.MAX_USERNAME_LENGTH} characters"):
+            self.user.username = "x" * (User.MAX_USERNAME_LENGTH + 1)
 
     def test_username_exists(self):
         assert User.username_exists(self.user.username)
