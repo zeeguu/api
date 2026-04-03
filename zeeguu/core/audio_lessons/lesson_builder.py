@@ -189,6 +189,24 @@ OUTRO_PHRASES = {
 }
 
 
+# Short positive closing after the outro reminder.
+CLOSING_PHRASES = {
+    "en": ["Keep it up! See you next time.", "Keep practicing, and see you soon!", "You're doing great. See you next time!"],
+    "da": ["Bliv ved! Vi ses næste gang.", "Fortsæt med at øve, og vi ses snart!", "Du klarer det godt. Vi ses næste gang!"],
+    "de": ["Weiter so! Bis zum nächsten Mal.", "Üb weiter, und bis bald!", "Du machst das toll. Bis zum nächsten Mal!"],
+    "es": ["¡Sigue así! Nos vemos la próxima vez.", "¡Sigue practicando y nos vemos pronto!", "¡Lo estás haciendo genial! ¡Hasta la próxima!"],
+    "fr": ["Continue comme ça ! À la prochaine.", "Continue à pratiquer, et à bientôt !", "Tu fais du super travail. À la prochaine !"],
+    "it": ["Continua così! Ci vediamo la prossima volta.", "Continua a esercitarti, e a presto!", "Stai andando alla grande. Alla prossima!"],
+    "nl": ["Ga zo door! Tot de volgende keer.", "Blijf oefenen, en tot snel!", "Je doet het geweldig. Tot de volgende keer!"],
+    "pt": ["Continua assim! Até à próxima.", "Continua a praticar, e até breve!", "Estás a ir muito bem. Até à próxima!"],
+    "sv": ["Fortsätt så! Vi ses nästa gång.", "Fortsätt öva, så ses vi snart!", "Du gör det jättebra. Vi ses nästa gång!"],
+    "pl": ["Tak trzymaj! Do następnego razu.", "Ćwicz dalej, i do zobaczenia wkrótce!", "Świetnie ci idzie. Do następnego razu!"],
+    "ro": ["Continuă tot așa! Ne vedem data viitoare.", "Continuă să exersezi, și pe curând!", "Te descurci foarte bine. Pe data viitoare!"],
+    "el": ["Συνέχισε έτσι! Τα λέμε την επόμενη φορά.", "Συνέχισε να εξασκείσαι, και τα λέμε σύντομα!", "Τα πας υπέροχα. Τα λέμε την επόμενη φορά!"],
+    "uk": ["Так тримати! До наступного разу.", "Продовжуй практикувати, і до зустрічі!", "Ти чудово справляєшся. До наступного разу!"],
+}
+
+
 class LessonBuilder:
     """Handles building complete daily lessons from individual segments."""
 
@@ -199,12 +217,10 @@ class LessonBuilder:
         # Create directory if it doesn't exist
         os.makedirs(self.daily_lessons_dir, exist_ok=True)
 
-    def _get_outro_audio(self, voice_synthesizer, teacher_language: str) -> AudioSegment:
-        """Generate a short outro with congratulations and word list reminder."""
-        phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
-        phrase = random.choice(phrases)
+    def _synthesize_teacher_phrase(self, voice_synthesizer, teacher_language: str, text: str) -> AudioSegment:
+        """Synthesize a short teacher phrase."""
         audio_path = voice_synthesizer.synthesize_segment(
-            text=phrase,
+            text=text,
             voice_type="teacher",
             language_code=teacher_language,
             speaking_rate=1.0,
@@ -212,18 +228,25 @@ class LessonBuilder:
         )
         return AudioSegment.from_mp3(audio_path)
 
+    def _get_outro_segments(self, voice_synthesizer, teacher_language: str) -> list:
+        """Generate outro: word list reminder + positive closing. Returns list of AudioSegments."""
+        segments = []
+
+        # Word list reminder
+        phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
+        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
+
+        # Short pause then positive closing
+        segments.append(AudioSegment.silent(duration=1500))
+        closings = CLOSING_PHRASES.get(teacher_language, CLOSING_PHRASES["en"])
+        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(closings)))
+
+        return segments
+
     def _get_transition_audio(self, voice_synthesizer, teacher_language: str) -> AudioSegment:
         """Generate a short teacher transition phrase between segments."""
         phrases = TRANSITION_PHRASES.get(teacher_language, TRANSITION_PHRASES["en"])
-        phrase = random.choice(phrases)
-        audio_path = voice_synthesizer.synthesize_segment(
-            text=phrase,
-            voice_type="teacher",
-            language_code=teacher_language,
-            speaking_rate=1.0,
-            teacher_language=teacher_language,
-        )
-        return AudioSegment.from_mp3(audio_path)
+        return self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases))
 
     def build_daily_lesson(self, daily_lesson: DailyAudioLesson, voice_synthesizer=None) -> str:
         """
@@ -293,8 +316,7 @@ class LessonBuilder:
         # Add outro after all segments
         if voice_synthesizer and teacher_language and meaning_segment_count > 0:
             audio_segments.append(AudioSegment.silent(duration=2000))
-            outro = self._get_outro_audio(voice_synthesizer, teacher_language)
-            audio_segments.append(outro)
+            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language))
 
         # Combine all audio segments
         if audio_segments:
