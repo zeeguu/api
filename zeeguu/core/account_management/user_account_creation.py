@@ -132,9 +132,10 @@ def create_basic_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    normalized_username = _normalize_username(username)
-    if User.username_exists(normalized_username):
-        raise Exception("Username already in use")
+    # TODO: Implement this when username is implemented
+    # normalized_username = _normalize_username(username)
+    # if User.username_exists(normalized_username):
+    #     raise Exception("Username already in use")
 
     if User.email_exists(email):
         raise Exception("There is already an account for this email.")
@@ -151,13 +152,11 @@ def create_basic_account(
             raise Exception(
                 "No more places in this class. Please contact us (zeeguu.team@gmail.com)."
             )
-
     try:
         new_user = User(
             email,
             username,
             password,
-            username=normalized_username,
             invitation_code=invite_code,
             creation_platform=creation_platform,
         )
