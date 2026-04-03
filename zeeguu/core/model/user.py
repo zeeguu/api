@@ -40,11 +40,12 @@ class User(db.Model):
 
     EMAIL_VALIDATION_REGEX = r"(^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$)"
     ANONYMOUS_EMAIL_DOMAIN = "@anon.zeeguu"
+    MAX_USERNAME_LENGTH = 50
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     name = db.Column(db.String(255))
-    username = db.Column(db.String(50), unique=True, index=True)
+    username = db.Column(db.String(MAX_USERNAME_LENGTH), unique=True, index=True)
     invitation_code = db.Column(db.String(255))
     password = db.Column(db.String(255))
     password_salt = db.Column(db.String(255))
@@ -523,6 +524,24 @@ class User(db.Model):
         if name is None or len(name) == 0:
             raise ValueError("Invalid username")
         return name
+
+    @classmethod
+    @sqlalchemy.orm.validates("username")
+    def validate_username(cls, col, username):
+        if username is None:
+            return username
+
+        username = username.strip()
+
+        if len(username) == 0:
+            raise ValueError("Username cannot be empty")
+
+        if len(username) > cls.MAX_USERNAME_LENGTH:
+            raise ValueError(
+                f"Username can be at most {cls.MAX_USERNAME_LENGTH} characters"
+            )
+
+        return username
 
     def update_password(self, password: str):
         """
@@ -1243,6 +1262,14 @@ class User(db.Model):
     @classmethod
     def find_by_username(cls, username):
         return User.query.filter(User.username == username).one()
+
+    @classmethod
+    def username_exists(cls, username):
+        try:
+            cls.query.filter(cls.username == username).one()
+            return True
+        except sqlalchemy.orm.exc.NoResultFound:
+            return False
 
     @classmethod
     def all_recent_user_ids(cls, days=90):

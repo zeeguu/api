@@ -4,6 +4,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timedelta
 
+import pytest
 from dateutil.utils import today
 
 from zeeguu.core.account_management.user_account_deletion import (
@@ -69,6 +70,18 @@ class UserTest(ModelTestMixIn):
     def test_validate_name(self):
         random_name = self.faker.name()
         assert User.validate_name("", random_name)
+
+    def test_validate_username(self):
+        username = "x" * 50
+        assert User.validate_username("", username) == username
+
+    def test_validate_username_too_long(self):
+        with pytest.raises(ValueError, match="Username can be at most 50 characters"):
+            User.validate_username("", "x" * 51)
+
+    def test_username_exists(self):
+        assert User.username_exists(self.user.username)
+        assert not User.username_exists("definitely_missing_username_12345")
 
     def test_update_password(self):
         password_before = self.user.password
