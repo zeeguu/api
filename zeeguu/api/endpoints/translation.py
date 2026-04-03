@@ -8,7 +8,7 @@ from python_translators.translation_query import TranslationQuery
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, update_user_streak
 from zeeguu.core.translation_services.translator import (
     get_next_results,
     contribute_trans,
@@ -157,6 +157,9 @@ def get_one_translation(from_lang_code, to_lang_code):
         log(
             f"[TRANSLATION-TIMING] Bookmark.find_or_create completed in {bookmark_elapsed:.3f}s for word='{word_str}'"
         )
+
+        # Update daily streak when user translates a word (active reading practice)
+        update_user_streak()
 
     return json_result(
         {
