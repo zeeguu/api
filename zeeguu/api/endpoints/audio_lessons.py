@@ -95,8 +95,7 @@ def generate_daily_lesson():
     if suggestion_type not in (None, *VALID_SUGGESTION_TYPES):
         suggestion_type = None
     if topic_suggestion:
-        # Cap at 6 words and 48 characters to limit prompt injection surface
-        topic_suggestion = " ".join(topic_suggestion.split()[:6])[:48].strip() or None
+        topic_suggestion = topic_suggestion[:80].strip() or None
     else:
         topic_suggestion = None
 
