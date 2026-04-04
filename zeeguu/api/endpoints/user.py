@@ -1,7 +1,9 @@
 import flask
+import sqlalchemy
 
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from zeeguu.core.model.user_avatar import UserAvatar
@@ -218,6 +220,9 @@ def user_settings():
 
     submitted_username = data.get("username", None)
     if submitted_username:
+        normalized_username = submitted_username.strip()
+        if normalized_username != user.username and User.username_exists(normalized_username):
+            return make_error(400, "Username already in use")
         user.username = submitted_username
 
     submitted_native_language_code = data.get("native_language", None)
@@ -234,6 +239,9 @@ def user_settings():
 
     submitted_email = data.get("email", None)
     if submitted_email:
+        normalized_email = submitted_email.strip().lower()
+        if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+            return make_error(400, "Email already in use")
         user.email = submitted_email
 
     submitted_password = data.get("password", None)
@@ -250,10 +258,17 @@ def user_settings():
     if submitted_password:
         user.update_password(submitted_password)
 
-    zeeguu.core.model.db.session.add(user_avatar)
-    zeeguu.core.model.db.session.add(user)
-    zeeguu.core.model.db.session.commit()
-    return "OK"
+    try:
+        zeeguu.core.model.db.session.add(user_avatar)
+        zeeguu.core.model.db.session.add(user)
+        zeeguu.core.model.db.session.commit()
+        return "OK"
+    except ValueError as e:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, str(e))
+    except sqlalchemy.exc.IntegrityError:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, "Could not update user settings")
 
 
 @api.route("/send_feedback", methods=["POST"])
