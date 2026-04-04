@@ -100,3 +100,79 @@ def generate_lesson_script(
     except Exception as e:
         log(f"Failed to generate script for {origin_word}: {e}")
         raise Exception(f"Failed to generate script: {str(e)}")
+
+
+def generate_dialogue_script(
+    words: list,
+    origin_language: str,
+    translation_language: str,
+    suggestion: str,
+    suggestion_type: str,
+    cefr_level: str = "A1",
+) -> str:
+    """
+    Generate a single flowing dialogue script that incorporates multiple words.
+
+    Args:
+        words: List of (origin_word, translation_word) tuples
+        origin_language: Language code of the words being learned (e.g., 'da')
+        translation_language: Language code of the translations (e.g., 'en')
+        suggestion: The topic or situation for the dialogue
+        suggestion_type: "topic" or "situation"
+        cefr_level: CEFR level of the learner
+
+    Returns:
+        Generated script text
+    """
+    language_names = {
+        "da": "Danish",
+        "es": "Spanish",
+        "en": "English",
+        "de": "German",
+        "fr": "French",
+        "ro": "Romanian",
+        "el": "Greek",
+        "it": "Italian",
+        "pt": "Portuguese",
+        "nl": "Dutch",
+        "sv": "Swedish",
+        "pl": "Polish",
+        "uk": "Ukrainian",
+    }
+
+    origin_lang_name = language_names.get(origin_language, origin_language)
+    translation_lang_name = language_names.get(
+        translation_language, translation_language
+    )
+
+    # Build the words block for the prompt
+    words_block = "\n".join(
+        [f'- "{origin}" meaning "{translation}"' for origin, translation in words]
+    )
+
+    # Select template
+    if suggestion_type == "situation":
+        prompt_file = "dialogue_lesson--situation-v1.txt"
+    else:
+        prompt_file = "dialogue_lesson--topic-v1.txt"
+
+    prompt_template = get_prompt_template(prompt_file)
+    prompt = prompt_template.format(
+        target_language=origin_lang_name,
+        source_language=translation_lang_name,
+        cefr_level=cefr_level,
+        suggestion=suggestion,
+        words_block=words_block,
+    )
+
+    word_names = ", ".join([w[0] for w in words])
+    log(f"Generating dialogue script for [{word_names}] (suggestion: {suggestion}, type: {suggestion_type})")
+
+    try:
+        script = generate_audio_lesson_script(prompt)
+        log(f"Successfully generated dialogue script for [{word_names}]")
+        return script
+
+    except Exception as e:
+        log(f"Failed to generate dialogue script: {e}")
+        raise Exception(f"Failed to generate dialogue script: {str(e)}")

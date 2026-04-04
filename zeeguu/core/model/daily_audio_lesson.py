@@ -99,6 +99,20 @@ class DailyAudioLesson(db.Model):
         db.session.add(segment)
         return segment
 
+    def add_dialogue_segment(self, audio_lesson_dialogue, sequence_order):
+        """Add a dialogue lesson segment to this daily lesson"""
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+        from zeeguu.core.model import db
+
+        segment = DailyAudioLessonSegment(
+            daily_lesson=self,
+            segment_type="dialogue_lesson",
+            audio_lesson_dialogue=audio_lesson_dialogue,
+            sequence_order=sequence_order,
+        )
+        db.session.add(segment)
+        return segment
+
     def add_outro_segment(self, daily_audio_lesson_wrapper, sequence_order):
         """Add outro segment to this daily lesson"""
         from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment

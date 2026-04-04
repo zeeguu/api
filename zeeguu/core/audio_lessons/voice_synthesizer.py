@@ -329,6 +329,67 @@ class VoiceSynthesizer:
         log(f"Generated lesson audio: {output_path}")
         return output_path
 
+    def generate_dialogue_audio(
+        self,
+        dialogue_id: int,
+        teacher_language_code: str,
+        script: str,
+        language_code: str,
+        cefr_level: str = None,
+        on_progress: callable = None,
+    ) -> str:
+        """
+        Generate audio for a dialogue lesson. Same synthesis logic as meaning lessons
+        but saved to /audio/dialogues/{dialogue_id}-{teacher_language_code}.mp3.
+        """
+        dialogues_dir = os.path.join(self.audio_dir, "dialogues")
+        os.makedirs(dialogues_dir, exist_ok=True)
+
+        segments = self.parse_script(script)
+        audio_segments = []
+
+        speech_segments = [(v, t, s) for v, t, s in segments if v != "silence"]
+        total_speech_segments = len(speech_segments)
+        current_speech_segment = 0
+
+        speaking_rate = 1.0
+        if cefr_level:
+            if cefr_level in ("A1", "A2"):
+                speaking_rate = 0.9
+
+        for voice_type, text, silence_duration in segments:
+            if voice_type == "silence":
+                silence = AudioSegment.silent(duration=silence_duration * 1000)
+                audio_segments.append(silence)
+            else:
+                current_speech_segment += 1
+                if on_progress:
+                    on_progress(current_speech_segment, total_speech_segments, voice_type)
+
+                rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
+                audio_path = self.synthesize_segment(
+                    text, voice_type, language_code, rate, teacher_language_code
+                )
+                audio_segment = AudioSegment.from_mp3(audio_path)
+                audio_segments.append(audio_segment)
+
+                if silence_duration > 0:
+                    silence = AudioSegment.silent(duration=silence_duration * 1000)
+                    audio_segments.append(silence)
+
+        if audio_segments:
+            combined_audio = audio_segments[0]
+            for segment in audio_segments[1:]:
+                combined_audio += segment
+        else:
+            combined_audio = AudioSegment.silent(duration=1000)
+
+        output_path = os.path.join(dialogues_dir, f"{dialogue_id}-{teacher_language_code}.mp3")
+        combined_audio.export(output_path, format="mp3")
+
+        log(f"Generated dialogue audio: {output_path}")
+        return output_path
+
     def get_audio_duration(self, audio_path: str) -> int:
         """Get the duration of an audio file in seconds."""
         try:

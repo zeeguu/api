@@ -294,6 +294,17 @@ class LessonBuilder:
                 audio_path = os.path.join(self.audio_dir, relative_path)
 
             elif (
+                segment.segment_type == "dialogue_lesson"
+                and segment.audio_lesson_dialogue
+            ):
+                # Single dialogue — no transitions needed
+                meaning_segment_count += 1
+                relative_path = segment.audio_lesson_dialogue.audio_file_path
+                if relative_path.startswith("/audio/"):
+                    relative_path = relative_path[7:]
+                audio_path = os.path.join(self.audio_dir, relative_path)
+
+            elif (
                 segment.segment_type in ["intro", "outro"]
                 and segment.daily_audio_lesson_wrapper
             ):

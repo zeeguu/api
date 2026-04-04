@@ -5,6 +5,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 from zeeguu.core.audio_lessons.script_generator import VALID_SUGGESTION_TYPES
+from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
 from zeeguu.logging import log
 from . import api
@@ -95,6 +96,14 @@ def generate_daily_lesson():
     if suggestion_type not in (None, *VALID_SUGGESTION_TYPES):
         suggestion_type = None
 
+    # Validate and canonicalize the suggestion
+    original_suggestion = suggestion
+    if suggestion and suggestion_type:
+        is_valid, canonical_or_reason = validate_suggestion(suggestion, suggestion_type)
+        if not is_valid:
+            return json_result({"error": f"Can't generate a lesson for this: {canonical_or_reason}"}), 400
+        suggestion = canonical_or_reason
+
     result = generator.prepare_lesson_generation(user, timezone_offset, suggestion, suggestion_type)
 
     # Existing lesson found — return it directly
@@ -112,7 +121,58 @@ def generate_daily_lesson():
 
     run_in_background(_generate_lesson_in_background, user.id, result)
 
-    return json_result({"status": "generating", "message": "Lesson generation started"}), 202
+    response = {"status": "generating", "message": "Lesson generation started"}
+    if suggestion:
+        response["suggestion"] = suggestion
+    if original_suggestion and original_suggestion != suggestion:
+        response["original_suggestion"] = original_suggestion
+    return json_result(response), 202
+
+
+@api.route("/autocomplete_lesson_suggestions", methods=["GET"])
+@cross_domain
+@requires_session
+def autocomplete_lesson_suggestions():
+    """
+    Autocomplete for topic/situation suggestions.
+    Returns existing canonical suggestions that match the user's query.
+
+    Query parameters:
+    - q: partial text to match
+    - suggestion_type (optional): "topic" or "situation" to filter by type
+    """
+    from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+
+    user = User.find_by_id(flask.g.user_id)
+    query = flask.request.args.get("q", "").strip().lower()
+    suggestion_type = flask.request.args.get("suggestion_type")
+
+    if len(query) < 2:
+        return json_result({"suggestions": []}), 200
+
+    cefr_level = user.cefr_level_for_learned_language()
+
+    results = AudioLessonDialogue.query.with_entities(
+        AudioLessonDialogue.suggestion,
+        AudioLessonDialogue.suggestion_type,
+    ).filter(
+        AudioLessonDialogue.suggestion.like(f"%{query}%"),
+        AudioLessonDialogue.difficulty_level == cefr_level,
+        AudioLessonDialogue.language_id == user.learned_language_id,
+        AudioLessonDialogue.teacher_language_id == user.native_language_id,
+    )
+
+    if suggestion_type in VALID_SUGGESTION_TYPES:
+        results = results.filter_by(suggestion_type=suggestion_type)
+
+    results = results.distinct().limit(10).all()
+
+    suggestions = [
+        {"suggestion": r.suggestion, "suggestion_type": r.suggestion_type}
+        for r in results
+    ]
+
+    return json_result({"suggestions": suggestions}), 200
 
 
 @api.route("/get_daily_lesson", methods=["GET"])
