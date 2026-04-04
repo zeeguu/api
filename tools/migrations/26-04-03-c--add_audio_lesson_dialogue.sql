@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
     FOREIGN KEY (teacher_language_id) REFERENCES language(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Index for cache lookups and autocomplete
+CREATE INDEX idx_dialogue_lookup ON audio_lesson_dialogue (language_id, teacher_language_id, difficulty_level, suggestion_type, suggestion);
+CREATE INDEX idx_dialogue_autocomplete ON audio_lesson_dialogue (language_id, teacher_language_id, difficulty_level, is_general);
+
 -- Add dialogue_lesson to segment_type enum and add FK column
 ALTER TABLE daily_audio_lesson_segment
     MODIFY COLUMN segment_type ENUM('intro', 'meaning_lesson', 'dialogue_lesson', 'outro') NOT NULL DEFAULT 'meaning_lesson';

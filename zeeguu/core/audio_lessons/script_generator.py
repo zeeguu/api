@@ -4,6 +4,7 @@ Script generator for audio lessons using unified LLM service.
 
 import os
 from zeeguu.core.llm_services import generate_audio_lesson_script
+from zeeguu.core.model.language import Language
 from zeeguu.logging import log
 
 VALID_SUGGESTION_TYPES = ("topic", "situation")
@@ -49,27 +50,8 @@ def generate_lesson_script(
         Exception: If API call fails or returns unexpected response
     """
 
-    # Get language names for the prompt
-    language_names = {
-        "da": "Danish",
-        "es": "Spanish",
-        "en": "English",
-        "de": "German",
-        "fr": "French",
-        "ro": "Romanian",
-        "el": "Greek",
-        "it": "Italian",
-        "pt": "Portuguese",
-        "nl": "Dutch",
-        "sv": "Swedish",
-        "pl": "Polish",
-        "uk": "Ukrainian",
-    }
-
-    origin_lang_name = language_names.get(origin_language, origin_language)
-    translation_lang_name = language_names.get(
-        translation_language, translation_language
-    )
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
     # Select template based on suggestion type
     if suggestion and suggestion_type == "situation":
