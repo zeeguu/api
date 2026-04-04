@@ -180,8 +180,6 @@ def create_basic_account(
 
     except sqlalchemy.exc.IntegrityError:
         raise Exception("There is already an account for this email.")
-    except ValueError:
-        raise
     except Exception as e:
         print(e)
         raise Exception("Could not create the account")
