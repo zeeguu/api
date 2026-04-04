@@ -15,3 +15,23 @@ def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
     return json_result({"daily_streak": user_language.daily_streak or 0})
+
+
+@api.route("/all_language_streaks", methods=["GET"])
+@cross_domain
+@requires_session
+def get_all_language_streaks():
+    user = User.find_by_id(flask.g.user_id)
+    user_languages = UserLanguage.query.filter_by(user_id=user.id).all()
+    result = []
+    for ul in user_languages:
+        if ul.language_id == user.native_language_id:
+            continue
+        result.append({
+            "code": ul.language.code,
+            "language": ul.language.name,
+            "daily_streak": ul.daily_streak or 0,
+        })
+    # Sort by streak descending so highest streaks come first
+    result.sort(key=lambda x: x["daily_streak"], reverse=True)
+    return json_result(result)
