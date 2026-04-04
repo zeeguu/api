@@ -11,6 +11,7 @@ VALIDATION_PROMPT = """You are a content classifier for a language learning app.
 
 The user typed: "{suggestion}"
 The type is: "{suggestion_type}"
+The user's native language is: {native_language}
 
 Classify this into one of three categories:
 
@@ -20,20 +21,25 @@ Classify this into one of three categories:
 
 3. "general" — a topic or situation that many language learners would benefit from. Be generous here — if the user phrases a general topic personally (e.g. "talking to my boss about a raise"), it's still general (canonicalize to "asking for a raise"). Examples: "restaurant", "doctor visit", "job interview", "grocery shopping", "travel", "cooking", "meeting neighbors", "asking for a raise", "renting an apartment", "public transport".
 
-If valid (niche or general), also produce a short canonical form (lowercase, 2-5 words, no articles at the start). Examples: "At the Restaurant" → "restaurant", "going to the doctor's office" → "doctor visit", "cooking Italian food" → "cooking italian food".
+If valid (niche or general), produce a short canonical form IN {native_language} (lowercase, 2-5 words, no articles at the start). The canonical form must be in {native_language} regardless of what language the user typed in. Examples for English: "At the Restaurant" → "restaurant", "going to the doctor's office" → "doctor visit". Examples for other languages: "похід до лікаря" → "візит до лікаря" (Ukrainian), "beim Arzt" → "arztbesuch" (German).
 
 Reply with ONLY a JSON object, no other text:
-{{"category": "general", "canonical": "the canonical form"}}
+{{"category": "general", "canonical": "the canonical form in {native_language}"}}
 or
-{{"category": "niche", "canonical": "the canonical form"}}
+{{"category": "niche", "canonical": "the canonical form in {native_language}"}}
 or
-{{"category": "invalid", "reason": "brief reason"}}
+{{"category": "invalid", "reason": "brief reason in {native_language}"}}
 """
 
 
-def validate_suggestion(suggestion, suggestion_type):
+def validate_suggestion(suggestion, suggestion_type, native_language="English"):
     """
     Validate and sanitize a user suggestion.
+
+    Args:
+        suggestion: The user's raw input
+        suggestion_type: "topic" or "situation"
+        native_language: The user's native language name (canonical form will be in this language)
 
     Returns:
         (is_valid, result_dict) where result_dict contains:
@@ -56,6 +62,7 @@ def validate_suggestion(suggestion, suggestion_type):
         prompt = VALIDATION_PROMPT.format(
             suggestion=suggestion,
             suggestion_type=suggestion_type or "topic",
+            native_language=native_language,
         )
         response = llm.generate_text(prompt, max_tokens=100, temperature=0.0)
 

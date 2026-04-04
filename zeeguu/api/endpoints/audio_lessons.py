@@ -101,7 +101,7 @@ def generate_daily_lesson():
     original_suggestion = suggestion
     is_general_topic = False
     if suggestion and suggestion_type:
-        is_valid, validation_result = validate_suggestion(suggestion, suggestion_type)
+        is_valid, validation_result = validate_suggestion(suggestion, suggestion_type, user.native_language.name)
         if not is_valid:
             return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
         suggestion = validation_result["canonical"]
