@@ -169,7 +169,7 @@ def generate_dialogue_script(
     log(f"Generating dialogue script for [{word_names}] (suggestion: {suggestion}, type: {suggestion_type})")
 
     try:
-        script = generate_audio_lesson_script(prompt)
+        script = generate_audio_lesson_script(prompt, max_tokens=4000)
         log(f"Successfully generated dialogue script for [{word_names}]")
         return script
 

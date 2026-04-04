@@ -96,13 +96,14 @@ def get_llm_service(provider: Optional[str] = None) -> LLMService:
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def generate_audio_lesson_script(prompt: str) -> str:
+def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500) -> str:
     """
     Convenience function for generating audio lesson scripts.
     Uses the unified service with automatic Anthropic -> DeepSeek fallback.
+    Default 2500 tokens for single-word meaning lessons.
     """
     llm_service = get_llm_service("unified")
-    return llm_service.generate_text(prompt, max_tokens=1500, temperature=0.7)
+    return llm_service.generate_text(prompt, max_tokens=max_tokens, temperature=0.7)
 
 
 def prepare_learning_card(
