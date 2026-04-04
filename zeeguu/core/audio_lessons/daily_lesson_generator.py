@@ -708,6 +708,8 @@ class DailyLessonGenerator:
                         "pause_position_seconds": lesson.pause_position_seconds,
                         "is_paused": lesson.is_paused,
                         "listened_count": lesson.listened_count,
+                        "suggestion": lesson.suggestion,
+                        "suggestion_type": lesson.suggestion_type,
                     }
                 )
 
