@@ -131,8 +131,11 @@ class DailyLessonGenerator:
             }
 
         # Create progress tracking record
+        # Dialogue lessons (topic/situation) generate one segment; auto generates per-word
+        is_dialogue = suggestion and suggestion_type in ("topic", "situation")
+        progress_total = 1 if is_dialogue else len(selected_words)
         progress = AudioLessonGenerationProgress.create_for_user(
-            user=user, total_words=len(selected_words)
+            user=user, total_words=progress_total
         )
         db.session.commit()  # Commit so frontend can see it immediately
 
