@@ -1260,14 +1260,17 @@ class User(db.Model):
 
     @classmethod
     def find_by_username(cls, username):
-        return User.query.filter(User.username == username).one()
+        try:
+            return User.query.filter(User.username == username).one()
+        except NoResultFound:
+            return None
 
     @classmethod
     def username_exists(cls, username):
         try:
             cls.query.filter(cls.username == username).one()
             return True
-        except sqlalchemy.orm.exc.NoResultFound:
+        except NoResultFound:
             return False
 
     @classmethod

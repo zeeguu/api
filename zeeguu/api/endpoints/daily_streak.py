@@ -28,7 +28,16 @@ def get_daily_streak():
 @requires_session
 def get_all_daily_streak(username: str = None):
     requester_user_id = flask.g.user_id
-    requested_user_id = User.find_by_username(username).id if username is not None else requester_user_id
+    self_or_friend = True
+    if username is not None:
+        requested_user = User.find_by_username(username)
+        if requested_user is None:
+            return []
+        requested_user_id = requested_user.id
+        if requester_user_id != requested_user_id and not Friend.are_friends(requester_user_id, requested_user_id):
+            self_or_friend = False
+    else:
+        requested_user_id = requester_user_id
 
     user = User.find_by_id(requested_user_id)
     user_languages = UserLanguage.all_user_languages_for_user(user)
@@ -37,7 +46,7 @@ def get_all_daily_streak(username: str = None):
         obj = {
             "language": user_language.language.as_dictionary(),
         }
-        if requester_user_id == requested_user_id or Friend.are_friends(requester_user_id, requested_user_id):
+        if self_or_friend:
             obj.update({
                 "daily_streak": user_language.daily_streak or 0,
                 "max_streak": user_language.max_streak or 0,

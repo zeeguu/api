@@ -56,11 +56,15 @@ def get_badges_for_user(username: str = None):
         }, ... ]
     """
     requester_id = flask.g.user_id
-
-    used_user_id = User.find_by_username(username).id if username is not None else requester_id
-
-    if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
-        return make_error(403, "You can only view badges for yourself or your friends.")
+    if username is not None:
+        used_user = User.find_by_username(username)
+        if used_user is None:
+            return []
+        used_user_id = used_user.id
+        if requester_id != used_user_id and not Friend.are_friends(requester_id, used_user_id):
+            return make_error(403, "You can only view badges for yourself or your friends.")
+    else:
+        used_user_id = requester_id
 
     badges = Badge.query.options(joinedload(Badge.badge_levels)).all()
     user_badge_levels = UserBadgeLevel.find_all(used_user_id)

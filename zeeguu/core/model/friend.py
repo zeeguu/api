@@ -185,7 +185,7 @@ class Friend(db.Model):
         from zeeguu.core.model.friend_request import FriendRequest
 
         friend = User.find_by_username(friend_username)
-        if not friend:
+        if friend is None:
             return None
         friend_user_id = friend.id
 

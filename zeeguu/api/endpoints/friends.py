@@ -25,10 +25,15 @@ def get_friends(username: str = None):
     Get all friends for the current user, or for a friend by user_id.
     """
     requester_id = flask.g.user_id
-    used_user_id = User.find_by_username(username).id if username is not None else requester_id
-
-    if used_user_id != requester_id and not Friend.are_friends(requester_id, used_user_id):
-        return make_error(403, "You can only view friends for yourself or your friends.")
+    if username is not None:
+        used_user = User.find_by_username(username)
+        if used_user is None:
+            return []
+        used_user_id = used_user.id
+        if requester_id != used_user_id and not Friend.are_friends(requester_id, used_user_id):
+            return make_error(403, "You can only view friends for yourself or your friends.")
+    else:
+        used_user_id = requester_id
 
     friend_details = Friend.get_friends_with_details(used_user_id)
     result = [
@@ -116,7 +121,10 @@ def delete_friend_request():
     """
     sender_id = flask.g.user_id
     receiver_username = request.json.get("receiver_username")
-    receiver_id = User.find_by_username(receiver_username).id
+    receiver = User.find_by_username(receiver_username)
+    if receiver is None:
+        raise json_result({"success": False})
+    receiver_id = receiver.id
 
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
     return json_result({"success": is_deleted})
@@ -310,7 +318,10 @@ def get_sender_from_request(receiver_id:int, sender_field="sender_username"):
     sender_username = request.json.get(sender_field)
     if sender_username is None:
         raise ValueError("Missing sender username")
-    sender_id = User.find_by_username(sender_username).id
+    sender = User.find_by_username(sender_username)
+    if sender is None:
+        raise ValueError("Sender user not found")
+    sender_id = sender.id
 
     status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
     if status_code >= 400:
@@ -327,7 +338,10 @@ def get_receiver_from_request(sender_id:int, receiver_field="receiver_username")
     receiver_username = request.json.get(receiver_field)
     if receiver_username is None:
         raise ValueError("Missing receiver username")
-    receiver_id = User.find_by_username(receiver_username).id
+    receiver = User.find_by_username(receiver_username)
+    if receiver is None:
+        raise ValueError("Receiver user not found")
+    receiver_id = receiver.id
 
     status_code, error_message = _validate_friend_request_participants(sender_id, receiver_id)
     if status_code >= 400:
