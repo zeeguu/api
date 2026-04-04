@@ -210,55 +210,55 @@ def user_settings():
     """
     :return: OK for success
     """
-    user_id = flask.g.user_id
-    data = flask.request.form
-    user = User.find_by_id(user_id)
-
-    submitted_name = data.get("name", None)
-    if submitted_name:
-        user.name = submitted_name
-
-    submitted_username = data.get("username", None)
-    if submitted_username:
-        normalized_username = submitted_username.strip()
-        if normalized_username != user.username and User.username_exists(normalized_username):
-            return make_error(400, "Username already in use")
-        user.username = submitted_username
-
-    submitted_native_language_code = data.get("native_language", None)
-    if submitted_native_language_code:
-        user.set_native_language(submitted_native_language_code)
-
-    cefr_level = data.get("cefr_level", None)
-    submitted_learned_language_code = data.get("learned_language", None)
-
-    if submitted_learned_language_code:
-        user.set_learned_language(
-            submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
-        )
-
-    submitted_email = data.get("email", None)
-    if submitted_email:
-        normalized_email = submitted_email.strip().lower()
-        if normalized_email != user.email.lower() and User.email_exists(normalized_email):
-            return make_error(400, "Email already in use")
-        user.email = submitted_email
-
-    submitted_password = data.get("password", None)
-    if submitted_password:
-        user.update_password(submitted_password)
-
-    submitted_avatar_image_name = data.get("avatar_image_name", None)
-    submitted_avatar_character_color = data.get("avatar_character_color", None)
-    submitted_avatar_background_color = data.get("avatar_background_color", None)
-    user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
-                                              submitted_avatar_background_color)
-
-    submitted_password = data.get("password", None)
-    if submitted_password:
-        user.update_password(submitted_password)
-
     try:
+        user_id = flask.g.user_id
+        data = flask.request.form
+        user = User.find_by_id(user_id)
+
+        submitted_name = data.get("name", None)
+        if submitted_name:
+            user.name = submitted_name
+
+        submitted_username = data.get("username", None)
+        if submitted_username:
+            normalized_username = submitted_username.strip()
+            if normalized_username != user.username and User.username_exists(normalized_username):
+                return make_error(400, "Username already in use")
+            user.username = submitted_username
+
+        submitted_native_language_code = data.get("native_language", None)
+        if submitted_native_language_code:
+            user.set_native_language(submitted_native_language_code)
+
+        cefr_level = data.get("cefr_level", None)
+        submitted_learned_language_code = data.get("learned_language", None)
+
+        if submitted_learned_language_code:
+            user.set_learned_language(
+                submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
+            )
+
+        submitted_email = data.get("email", None)
+        if submitted_email:
+            normalized_email = submitted_email.strip().lower()
+            if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+                return make_error(400, "Email already in use")
+            user.email = submitted_email
+
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
+
+        submitted_avatar_image_name = data.get("avatar_image_name", None)
+        submitted_avatar_character_color = data.get("avatar_character_color", None)
+        submitted_avatar_background_color = data.get("avatar_background_color", None)
+        user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
+                                                  submitted_avatar_background_color)
+
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
+
         zeeguu.core.model.db.session.add(user_avatar)
         zeeguu.core.model.db.session.add(user)
         zeeguu.core.model.db.session.commit()
