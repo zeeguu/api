@@ -12,14 +12,22 @@ VALIDATION_PROMPT = """You are a content classifier for a language learning app.
 The user typed: "{suggestion}"
 The type is: "{suggestion_type}"
 
-Your job:
-1. Is this a reasonable topic or situation for a language learning dialogue? It should be something two adults could have a conversation about. Reject anything offensive, nonsensical, or too vague (e.g. just a single letter or random characters).
-2. If valid, produce a short canonical form (lowercase, 2-5 words, no articles at the start). For example: "At the Restaurant" → "restaurant", "going to the doctor's office" → "doctor visit", "cooking Italian food" → "cooking italian food".
+Classify this into one of three categories:
+
+1. "invalid" — offensive, nonsensical, random characters, too vague (single word with no clear topic), or not something two adults could have a conversation about.
+
+2. "niche" — a valid topic but too personal or specific for other learners. It references specific people, dates, or situations unique to the user. Examples: "my sister's wedding next Saturday", "explaining to my neighbor why my dog barks", "my thesis defense at university", "what happened at the Berlin flea market yesterday". These are fine to generate but shouldn't appear in autocomplete.
+
+3. "general" — a topic or situation that many language learners would benefit from. Be generous here — if the user phrases a general topic personally (e.g. "talking to my boss about a raise"), it's still general (canonicalize to "asking for a raise"). Examples: "restaurant", "doctor visit", "job interview", "grocery shopping", "travel", "cooking", "meeting neighbors", "asking for a raise", "renting an apartment", "public transport".
+
+If valid (niche or general), also produce a short canonical form (lowercase, 2-5 words, no articles at the start). Examples: "At the Restaurant" → "restaurant", "going to the doctor's office" → "doctor visit", "cooking Italian food" → "cooking italian food".
 
 Reply with ONLY a JSON object, no other text:
-{{"valid": true, "canonical": "the canonical form"}}
+{{"category": "general", "canonical": "the canonical form"}}
 or
-{{"valid": false, "reason": "brief reason"}}
+{{"category": "niche", "canonical": "the canonical form"}}
+or
+{{"category": "invalid", "reason": "brief reason"}}
 """
 
 
@@ -28,20 +36,20 @@ def validate_suggestion(suggestion, suggestion_type):
     Validate and sanitize a user suggestion.
 
     Returns:
-        (is_valid, canonical_or_reason)
-        - If valid: (True, "canonical form")
-        - If invalid: (False, "reason for rejection")
+        (is_valid, result_dict) where result_dict contains:
+        - If valid: {"canonical": "...", "is_general": True/False}
+        - If invalid: {"reason": "..."}
     """
     if not suggestion or not suggestion.strip():
-        return False, "Empty suggestion"
+        return False, {"reason": "Empty suggestion"}
 
     suggestion = suggestion.strip()
 
     # Quick rejections without LLM
     if len(suggestion) < 2:
-        return False, "Suggestion too short"
+        return False, {"reason": "Suggestion too short"}
     if len(suggestion) > 80:
-        return False, "Suggestion too long"
+        return False, {"reason": "Suggestion too long"}
 
     try:
         llm = get_llm_service("unified")
@@ -58,17 +66,19 @@ def validate_suggestion(suggestion, suggestion_type):
             response = response.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
         result = json.loads(response)
+        category = result.get("category", "invalid")
 
-        if result.get("valid"):
-            canonical = result.get("canonical", suggestion.lower()).strip()[:80]
-            log(f"[suggestion_validator] '{suggestion}' → canonical: '{canonical}'")
-            return True, canonical
-        else:
+        if category == "invalid":
             reason = result.get("reason", "Not suitable for a language lesson")
             log(f"[suggestion_validator] '{suggestion}' rejected: {reason}")
-            return False, reason
+            return False, {"reason": reason}
+
+        canonical = result.get("canonical", suggestion.lower()).strip()[:80]
+        is_general = category == "general"
+        log(f"[suggestion_validator] '{suggestion}' → canonical: '{canonical}' (general: {is_general})")
+        return True, {"canonical": canonical, "is_general": is_general}
 
     except Exception as e:
         # If validation fails, let it through with basic sanitization
         log(f"[suggestion_validator] LLM validation failed, allowing with basic sanitization: {e}")
-        return True, suggestion.strip().lower()[:80]
+        return True, {"canonical": suggestion.strip().lower()[:80], "is_general": False}

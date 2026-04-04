@@ -277,6 +277,7 @@ class DailyLessonGenerator:
         suggestion_type,
         created_by="claude-v1",
         progress=None,
+        is_general=False,
     ):
         """
         Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
@@ -330,6 +331,7 @@ class DailyLessonGenerator:
             language=learned_lang,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
+            is_general=is_general,
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
@@ -369,6 +371,7 @@ class DailyLessonGenerator:
         progress: AudioLessonGenerationProgress = None,
         suggestion: str = None,
         suggestion_type: str = None,
+        is_general: bool = False,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -423,6 +426,7 @@ class DailyLessonGenerator:
                         selected_words, origin_language, translation_language,
                         cefr_level, suggestion, suggestion_type,
                         progress=progress,
+                        is_general=is_general,
                     )
                 except Exception as e:
                     log(f"[generate_daily_lesson] Failed to generate dialogue: {str(e)}")

@@ -35,6 +35,7 @@ class AudioLessonDialogue(db.Model):
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
     duration_seconds = Column(Integer)
+    is_general = Column(db.Boolean, default=False)
     created_by = Column(String(255), nullable=False)
 
     def __init__(
@@ -48,6 +49,7 @@ class AudioLessonDialogue(db.Model):
         voice_config=None,
         duration_seconds=None,
         teacher_language=None,
+        is_general=False,
     ):
         self.script = script
         self.created_by = created_by
@@ -57,6 +59,7 @@ class AudioLessonDialogue(db.Model):
         self.difficulty_level = difficulty_level
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
+        self.is_general = is_general
         if teacher_language:
             self.teacher_language_id = teacher_language.id
 

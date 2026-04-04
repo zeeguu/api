@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
     teacher_language_id INT,
     difficulty_level ENUM('A1', 'A2', 'B1', 'B2', 'C1', 'C2'),
     duration_seconds INT,
+    is_general BOOLEAN NOT NULL DEFAULT FALSE,
     created_by VARCHAR(255) NOT NULL,
     FOREIGN KEY (language_id) REFERENCES language(id),
     FOREIGN KEY (teacher_language_id) REFERENCES language(id)

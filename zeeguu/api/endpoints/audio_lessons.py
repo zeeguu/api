@@ -61,6 +61,7 @@ def _generate_lesson_in_background(user_id, preparation):
             progress=progress,
             suggestion=preparation.get("suggestion"),
             suggestion_type=preparation.get("suggestion_type"),
+            is_general=preparation.get("is_general", False),
         )
     except Exception as e:
         log(f"[background_generate] Error for user {user_id}: {e}")
@@ -98,11 +99,13 @@ def generate_daily_lesson():
 
     # Validate and canonicalize the suggestion
     original_suggestion = suggestion
+    is_general_topic = False
     if suggestion and suggestion_type:
-        is_valid, canonical_or_reason = validate_suggestion(suggestion, suggestion_type)
+        is_valid, validation_result = validate_suggestion(suggestion, suggestion_type)
         if not is_valid:
-            return json_result({"error": f"Can't generate a lesson for this: {canonical_or_reason}"}), 400
-        suggestion = canonical_or_reason
+            return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
+        suggestion = validation_result["canonical"]
+        is_general_topic = validation_result["is_general"]
 
     result = generator.prepare_lesson_generation(user, timezone_offset, suggestion, suggestion_type)
 
@@ -119,6 +122,7 @@ def generate_daily_lesson():
     if "selected_word_ids" not in result:
         return json_result({"error": "Unexpected preparation result"}), 500
 
+    result["is_general"] = is_general_topic
     run_in_background(_generate_lesson_in_background, user.id, result)
 
     response = {"status": "generating", "message": "Lesson generation started"}
@@ -160,6 +164,7 @@ def autocomplete_lesson_suggestions():
         AudioLessonDialogue.difficulty_level == cefr_level,
         AudioLessonDialogue.language_id == user.learned_language_id,
         AudioLessonDialogue.teacher_language_id == user.native_language_id,
+        AudioLessonDialogue.is_general == True,
     )
 
     if suggestion_type in VALID_SUGGESTION_TYPES:
