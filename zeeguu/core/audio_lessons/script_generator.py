@@ -92,7 +92,7 @@ def generate_dialogue_script(
     suggestion_type: str,
     cefr_level: str = "A1",
     past_titles: list = None,
-) -> str:
+) -> tuple:
     """
     Generate a single flowing dialogue script that incorporates multiple words.
 
