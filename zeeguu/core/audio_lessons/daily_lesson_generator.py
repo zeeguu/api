@@ -66,7 +66,7 @@ class DailyLessonGenerator:
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
             # If the canonical_suggestion changed, delete today's lesson and regenerate.
-            existing_topic = existing_lesson.get("suggestion")
+            existing_topic = existing_lesson.get("canonical_suggestion")
             existing_type = existing_lesson.get("suggestion_type")
             topic_changed = canonical_suggestion and canonical_suggestion != existing_topic
             type_changed = suggestion_type and suggestion_type != existing_type
@@ -147,7 +147,7 @@ class DailyLessonGenerator:
             "translation_language": translation_language,
             "cefr_level": cefr_level,
             "progress_id": progress.id,
-            "suggestion": canonical_suggestion,
+            "canonical_suggestion": canonical_suggestion,
             "suggestion_type": suggestion_type,
         }
 
@@ -601,7 +601,7 @@ class DailyLessonGenerator:
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
-            "suggestion": lesson.canonical_suggestion,
+            "canonical_suggestion": lesson.canonical_suggestion,
             "suggestion_type": lesson.suggestion_type,
         }
         if dialogue_title:
@@ -820,7 +820,7 @@ class DailyLessonGenerator:
                         "pause_position_seconds": lesson.pause_position_seconds,
                         "is_paused": lesson.is_paused,
                         "listened_count": lesson.listened_count,
-                        "suggestion": lesson.canonical_suggestion,
+                        "canonical_suggestion": lesson.canonical_suggestion,
                         "suggestion_type": lesson.suggestion_type,
                     }
                 )
