@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
     script TEXT NOT NULL,
     voice_config JSON,
     canonical_suggestion VARCHAR(100) NOT NULL,
-    suggestion_type VARCHAR(20) NOT NULL,
+    lesson_type VARCHAR(20) NOT NULL,
     title VARCHAR(200),
     language_id INT NOT NULL,
     teacher_language_id INT,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Index for cache lookups and autocomplete
-CREATE INDEX idx_dialogue_lookup ON audio_lesson_dialogue (language_id, teacher_language_id, difficulty_level, suggestion_type, canonical_suggestion);
+CREATE INDEX idx_dialogue_lookup ON audio_lesson_dialogue (language_id, teacher_language_id, difficulty_level, lesson_type, canonical_suggestion);
 CREATE INDEX idx_dialogue_autocomplete ON audio_lesson_dialogue (language_id, teacher_language_id, difficulty_level, is_general);
 
 -- Add dialogue_lesson to segment_type enum and add FK column

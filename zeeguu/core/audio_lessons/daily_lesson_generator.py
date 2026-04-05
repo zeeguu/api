@@ -43,7 +43,7 @@ class DailyLessonGenerator:
             self._lesson_builder = LessonBuilder()
         return self._lesson_builder
 
-    def prepare_lesson_generation(self, user, timezone_offset=0, canonical_suggestion=None, suggestion_type=None):
+    def prepare_lesson_generation(self, user, timezone_offset=0, canonical_suggestion=None, lesson_type=None):
         """
         Validate and prepare for lesson generation (synchronous, fast).
         Returns either an error/existing-lesson dict, or a preparation dict
@@ -53,7 +53,7 @@ class DailyLessonGenerator:
             user: The User object to generate a lesson for
             timezone_offset: Client's timezone offset in minutes from UTC
             canonical_suggestion: Canonicalized topic/situation (max 100 chars)
-            suggestion_type: Optional type ("topic" or "situation")
+            lesson_type: Optional type ("topic" or "situation")
 
         Returns:
             Dictionary with either error info, existing lesson, or preparation data
@@ -118,7 +118,7 @@ class DailyLessonGenerator:
 
         # Create progress tracking record
         # Dialogue lessons (topic/situation) generate one segment; auto generates per-word
-        is_dialogue = canonical_suggestion and suggestion_type in ("topic", "situation")
+        is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
         progress_total = 1 if is_dialogue else len(selected_words)
         progress = AudioLessonGenerationProgress.create_for_user(
             user=user, total_words=progress_total
@@ -134,7 +134,7 @@ class DailyLessonGenerator:
             "cefr_level": cefr_level,
             "progress_id": progress.id,
             "canonical_suggestion": canonical_suggestion,
-            "suggestion_type": suggestion_type,
+            "lesson_type": lesson_type,
         }
 
     def select_words_for_lesson(
@@ -239,7 +239,7 @@ class DailyLessonGenerator:
         translation_language,
         cefr_level,
         canonical_suggestion,
-        suggestion_type,
+        lesson_type,
         created_by="claude-v1",
         progress=None,
         is_general=False,
@@ -254,7 +254,7 @@ class DailyLessonGenerator:
         # Try to find an existing dialogue the user hasn't heard yet
         existing = AudioLessonDialogue.find_unheard(
             canonical_suggestion=canonical_suggestion,
-            suggestion_type=suggestion_type,
+            lesson_type=lesson_type,
             language=learned_lang,
             teacher_language=teacher_lang,
             difficulty_level=cefr_level,
@@ -272,7 +272,7 @@ class DailyLessonGenerator:
         # Collect past titles for this topic to avoid repetition
         past_titles = AudioLessonDialogue.past_titles_for(
             canonical_suggestion=canonical_suggestion,
-            suggestion_type=suggestion_type,
+            lesson_type=lesson_type,
             language=learned_lang,
             teacher_language=teacher_lang,
             difficulty_level=cefr_level,
@@ -282,7 +282,7 @@ class DailyLessonGenerator:
             origin_language=origin_language,
             translation_language=translation_language,
             suggestion=canonical_suggestion,
-            suggestion_type=suggestion_type,
+            lesson_type=lesson_type,
             cefr_level=cefr_level,
             past_titles=past_titles,
         )
@@ -296,7 +296,7 @@ class DailyLessonGenerator:
             script=script,
             created_by=created_by,
             canonical_suggestion=canonical_suggestion,
-            suggestion_type=suggestion_type,
+            lesson_type=lesson_type,
             language=learned_lang,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
@@ -340,7 +340,7 @@ class DailyLessonGenerator:
         cefr_level: str,
         progress: AudioLessonGenerationProgress = None,
         canonical_suggestion: str = None,
-        suggestion_type: str = None,
+        lesson_type: str = None,
         is_general: bool = False,
     ) -> dict:
         """
@@ -354,7 +354,7 @@ class DailyLessonGenerator:
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
             canonical_suggestion: Optional short topic hint for the LLM
-            suggestion_type: Optional type ("topic" or "situation")
+            lesson_type: Optional type ("topic" or "situation")
 
         Returns:
             Dictionary with lesson details or error information
@@ -372,7 +372,7 @@ class DailyLessonGenerator:
                 created_by="generate_daily_lesson_v1",
                 language=user.learned_language,
                 canonical_suggestion=canonical_suggestion,
-                suggestion_type=suggestion_type,
+                lesson_type=lesson_type,
             )
             db.session.add(daily_lesson)
             log(f"[generate_daily_lesson] Created daily lesson object")
@@ -389,12 +389,12 @@ class DailyLessonGenerator:
                     )
 
             # Branch: topic/situation → single dialogue; auto → per-word meaning lessons
-            if canonical_suggestion and suggestion_type in ("topic", "situation"):
+            if canonical_suggestion and lesson_type in ("topic", "situation"):
                 # Generate one flowing dialogue incorporating all words
                 try:
                     audio_lesson_dialogue = self.generate_audio_lesson_dialogue(
                         user, origin_language, translation_language,
-                        cefr_level, canonical_suggestion, suggestion_type,
+                        cefr_level, canonical_suggestion, lesson_type,
                         progress=progress,
                         is_general=is_general,
                     )
@@ -580,7 +580,7 @@ class DailyLessonGenerator:
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
             "canonical_suggestion": lesson.canonical_suggestion,
-            "suggestion_type": lesson.suggestion_type,
+            "lesson_type": lesson.lesson_type,
         }
         if dialogue_title:
             result["title"] = dialogue_title
@@ -799,7 +799,7 @@ class DailyLessonGenerator:
                         "is_paused": lesson.is_paused,
                         "listened_count": lesson.listened_count,
                         "canonical_suggestion": lesson.canonical_suggestion,
-                        "suggestion_type": lesson.suggestion_type,
+                        "lesson_type": lesson.lesson_type,
                     }
                 )
 

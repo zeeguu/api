@@ -7,7 +7,7 @@ from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
 from zeeguu.logging import log
 
-VALID_SUGGESTION_TYPES = ("topic", "situation")
+VALID_LESSON_TYPES = ("topic", "situation")
 
 
 # Load the prompt template
@@ -61,7 +61,7 @@ def generate_dialogue_script(
     origin_language: str,
     translation_language: str,
     suggestion: str,
-    suggestion_type: str,
+    lesson_type: str,
     cefr_level: str = "A1",
     past_titles: list = None,
 ) -> tuple:
@@ -74,7 +74,7 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    if suggestion_type == "situation":
+    if lesson_type == "situation":
         prompt_file = "dialogue_lesson--situation-v1.txt"
     else:
         prompt_file = "dialogue_lesson--topic-v1.txt"
@@ -91,7 +91,7 @@ def generate_dialogue_script(
         titles_list = "\n".join([f"- {t}" for t in past_titles])
         prompt += f"\n\nIMPORTANT: The following dialogues about this topic already exist. Create a DIFFERENT scenario:\n{titles_list}\n"
 
-    log(f"Generating dialogue script (suggestion: {suggestion}, type: {suggestion_type})")
+    log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
 
     try:
         raw = generate_audio_lesson_script(prompt, max_tokens=4000)

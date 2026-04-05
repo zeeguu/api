@@ -10,7 +10,7 @@ from zeeguu.logging import log
 VALIDATION_PROMPT = """You are a content classifier for a language learning app. A user wants to generate a listening lesson about a topic or situation.
 
 The user typed: "{suggestion}"
-The type is: "{suggestion_type}"
+The type is: "{lesson_type}"
 The user's native language is: {native_language}
 
 Classify this into one of three categories:
@@ -32,13 +32,13 @@ or
 """
 
 
-def validate_suggestion(suggestion, suggestion_type, native_language="English"):
+def validate_suggestion(suggestion, lesson_type, native_language="English"):
     """
     Validate and sanitize a user suggestion.
 
     Args:
         suggestion: The user's raw input
-        suggestion_type: "topic" or "situation"
+        lesson_type: "topic" or "situation"
         native_language: The user's native language name (canonical form will be in this language)
 
     Returns:
@@ -61,7 +61,7 @@ def validate_suggestion(suggestion, suggestion_type, native_language="English"):
         llm = get_llm_service("unified")
         prompt = VALIDATION_PROMPT.format(
             suggestion=suggestion,
-            suggestion_type=suggestion_type or "topic",
+            lesson_type=lesson_type or "topic",
             native_language=native_language,
         )
         response = llm.generate_text(prompt, max_tokens=100, temperature=0.0)
