@@ -26,7 +26,7 @@ class UserExerciseSession(db.Model):
     user = db.relationship(User)
 
     start_time = db.Column(db.DateTime)
-    duration = db.Column(db.Integer)  # Duration time in miliseconds
+    duration = db.Column(db.Integer)  # Duration time in seconds
     last_action_time = db.Column(db.DateTime)
 
     is_active = db.Column(db.Boolean)
@@ -46,7 +46,7 @@ class UserExerciseSession(db.Model):
         self.last_action_time = current_time
 
         duration = self.last_action_time - self.start_time
-        self.duration = duration.total_seconds() * 1000
+        self.duration = duration.total_seconds()
 
     def exercises_in_session_string(self):
         from zeeguu.core.sql.learner.exercises_history import exercises_in_session
