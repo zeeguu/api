@@ -692,8 +692,19 @@ class DailyLessonGenerator:
                 os.remove(audio_path)
                 log(f"Deleted audio file: {audio_path}")
 
-            # Delete the lesson from database (cascading deletes will handle segments)
+            # Delete underlying content (dialogues/meanings) and their audio files
             lesson_id = lesson.id
+            for segment in lesson.segments:
+                if segment.audio_lesson_dialogue:
+                    dialogue = segment.audio_lesson_dialogue
+                    dialogue_audio = os.path.join(
+                        ZEEGUU_DATA_FOLDER, "audio", "lessons",
+                        f"dialogue-{dialogue.id}-{dialogue.teacher_language.code if dialogue.teacher_language else 'en'}.mp3"
+                    )
+                    if os.path.exists(dialogue_audio):
+                        os.remove(dialogue_audio)
+                    db.session.delete(dialogue)
+
             db.session.delete(lesson)
             db.session.commit()
 
