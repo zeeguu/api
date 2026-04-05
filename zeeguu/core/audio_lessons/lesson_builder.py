@@ -119,6 +119,23 @@ TRANSITION_PHRASES = {
 }
 
 
+# Dialogue outro: wrap-up in the teacher's language (no word list talk)
+DIALOGUE_OUTRO_PHRASES = {
+    "en": ["That's the end of today's lesson. Come back tomorrow for a new conversation!"],
+    "da": ["Det var slutningen på dagens lektion. Kom tilbage i morgen til en ny samtale!"],
+    "de": ["Das war das Ende der heutigen Lektion. Komm morgen für ein neues Gespräch zurück!"],
+    "es": ["Eso es todo por hoy. ¡Vuelve mañana para una nueva conversación!"],
+    "fr": ["C'est la fin de la leçon d'aujourd'hui. Reviens demain pour une nouvelle conversation !"],
+    "it": ["Questa è la fine della lezione di oggi. Torna domani per una nuova conversazione!"],
+    "nl": ["Dat was het einde van de les van vandaag. Kom morgen terug voor een nieuw gesprek!"],
+    "pt": ["Esta é a lição de hoje. Volta amanhã para uma nova conversa!"],
+    "sv": ["Det var slutet på dagens lektion. Kom tillbaka imorgon för ett nytt samtal!"],
+    "pl": ["To koniec dzisiejszej lekcji. Wróć jutro na nową rozmowę!"],
+    "ro": ["Aceasta a fost lecția de astăzi. Revino mâine pentru o nouă conversație!"],
+    "el": ["Αυτό ήταν το τέλος του σημερινού μαθήματος. Επέστρεψε αύριο για μια νέα συζήτηση!"],
+    "uk": ["Це кінець сьогоднішнього уроку. Повертайся завтра на нову розмову!"],
+}
+
 # Outro phrases: congratulations + reminder about word list management.
 OUTRO_PHRASES = {
     "en": [
@@ -258,14 +275,18 @@ class LessonBuilder:
         return AudioSegment.from_mp3(audio_path)
 
     def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None, is_dialogue=False) -> list:
-        """Generate outro. For meaning lessons: word list reminder + closing. For dialogue lessons: just closing."""
+        """Generate outro. Teacher wraps up, then closing in the learned language."""
         segments = []
 
-        if not is_dialogue:
-            # Word list reminder only for meaning lessons
+        if is_dialogue:
+            # Dialogue: "That's the end of today's lesson. Come back tomorrow!"
+            phrases = DIALOGUE_OUTRO_PHRASES.get(teacher_language, DIALOGUE_OUTRO_PHRASES["en"])
+        else:
+            # Meaning lessons: word list reminder
             phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
-            segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
-            segments.append(AudioSegment.silent(duration=1500))
+
+        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
+        segments.append(AudioSegment.silent(duration=1500))
 
         # Positive closing in the LEARNED language
         closing_lang = learned_language or teacher_language
