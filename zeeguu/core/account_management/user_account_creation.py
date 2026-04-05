@@ -9,6 +9,10 @@ from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.logging import log
 
 
+def _normalize_username(username):
+    return username.strip() if username else username
+
+
 def valid_invite_code(invite_code):
     # Allow empty invite codes (for App Store / open signups)
     if not invite_code or invite_code.strip() == "":
@@ -46,7 +50,18 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first() if invite_code else None
+    normalized_username = _normalize_username(username)
+    if User.username_exists(normalized_username):
+        raise Exception("Username already in use")
+
+    if User.email_exists(email):
+        raise Exception("There is already an account for this email.")
+
+    cohort = (
+        Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
+        if invite_code
+        else None
+    )
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
@@ -56,13 +71,13 @@ def create_account(
             )
 
     try:
-
         learned_language = Language.find_or_create(learned_language_code)
         native_language = Language.find_or_create(native_language_code)
         new_user = User(
             email,
             username,
             password,
+            username=normalized_username,
             invitation_code=invite_code,
             learned_language=learned_language,
             native_language=native_language,
@@ -77,24 +92,19 @@ def create_account(
             db_session, new_user, learned_language
         )
         learned_language.cefr_level = int(learned_cefr_level)
-        # TODO: although these are required... they should simply
-        # be functions of CEFR level so at some further point should
-        # removed
         learned_language.declared_level_min = 0
         learned_language.declared_level_max = 11
 
         db_session.add(learned_language)
 
-        if cohort:
-            if cohort.is_cohort_of_teachers:
-                teacher = Teacher(new_user)
-                db_session.add(teacher)
+        if cohort and cohort.is_cohort_of_teachers:
+            teacher = Teacher(new_user)
+            db_session.add(teacher)
 
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
 
-        # Send email verification code
         code = UniqueCode(email)
         db_session.add(code)
         db_session.commit()
@@ -110,7 +120,9 @@ def create_account(
         raise Exception("Could not create the account")
 
 
-def create_basic_account(db_session, username, password, invite_code, email, creation_platform=None):
+def create_basic_account(
+    db_session, username, password, invite_code, email, creation_platform=None
+):
     cohort_name = ""
     if password is None or len(password) < 4:
         raise Exception("Password should be at least 4 characters long")
@@ -118,7 +130,19 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first() if invite_code else None
+    # TODO: Implement this when username is implemented
+    # normalized_username = _normalize_username(username)
+    # if User.username_exists(normalized_username):
+    #     raise Exception("Username already in use")
+
+    if User.email_exists(email):
+        raise Exception("There is already an account for this email.")
+
+    cohort = (
+        Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.lower()).first()
+        if invite_code
+        else None
+    )
     if cohort:
         if cohort.cohort_still_has_capacity():
             cohort_name = cohort.name
@@ -126,25 +150,26 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
             raise Exception(
                 "No more places in this class. Please contact us (zeeguu.team@gmail.com)."
             )
-
     try:
         new_user = User(
-            email, username, password, invitation_code=invite_code, creation_platform=creation_platform
+            email,
+            username,
+            password,
+            invitation_code=invite_code,
+            creation_platform=creation_platform,
         )
         new_user.email_verified = False  # Require email verification
 
         db_session.add(new_user)
 
-        if cohort:
-            if cohort.is_cohort_of_teachers:
-                teacher = Teacher(new_user)
-                db_session.add(teacher)
+        if cohort and cohort.is_cohort_of_teachers:
+            teacher = Teacher(new_user)
+            db_session.add(teacher)
 
         db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
 
-        # Send email verification code
         code = UniqueCode(email)
         db_session.add(code)
         db_session.commit()

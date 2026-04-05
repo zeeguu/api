@@ -17,14 +17,36 @@ def test_add_user(client):
 
 
 def test_cant_add_same_email_twice(client):
-    test_user_data = dict(password=TEST_PASS, username=TEST_USER)
-    response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
+    first_user_data = dict(password=TEST_PASS, username="user_one")
+    response = client.post(f"/add_user/{TEST_EMAIL}", data=first_user_data)
     assert str(response.data)
 
-    response = client.post(f"/add_user/{TEST_EMAIL}", data=test_user_data)
+    second_user_data = dict(password=TEST_PASS, username="user_two")
+    response = client.post(f"/add_user/{TEST_EMAIL}", data=second_user_data)
     assert response.status_code == 400
     data = json.loads(response.data)
     assert "There is already an account for this email" in data["message"]
+
+
+def test_cant_add_same_username_twice(client):
+    first_user_data = dict(password=TEST_PASS, username="shared_username")
+    second_user_data = dict(password=TEST_PASS, username="shared_username")
+
+    response = client.post("/add_user/first@zeeguu.test", data=first_user_data)
+    assert response.status_code == 200
+
+    response = client.post("/add_user/second@zeeguu.test", data=second_user_data)
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert "Username already in use" in data["message"]
+
+
+def test_create_user_returns_400_if_username_too_long(client):
+    form_data = dict(username="x" * 51, password=TEST_PASS, invite_code="test")
+    response = client.post("/add_user/longusername@zeeguu.test", data=form_data)
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert "Username can be at most 50 characters" in data["message"]
 
 
 def test_create_user_returns_400_if_password_too_short(client):

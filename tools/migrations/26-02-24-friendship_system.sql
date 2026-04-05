@@ -1,5 +1,5 @@
--- friends table
-CREATE TABLE friends (
+-- friend table
+CREATE TABLE friend (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     friend_id INT NOT NULL,
