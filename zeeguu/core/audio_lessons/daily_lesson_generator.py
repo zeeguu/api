@@ -43,7 +43,7 @@ class DailyLessonGenerator:
             self._lesson_builder = LessonBuilder()
         return self._lesson_builder
 
-    def prepare_lesson_generation(self, user, timezone_offset=0, canonical_suggestion=None, lesson_type=None):
+    def prepare_lesson_generation(self, user, timezone_offset=0, canonical_suggestion=None, lesson_type="three_words_lesson"):
         """
         Validate and prepare for lesson generation (synchronous, fast).
         Returns either an error/existing-lesson dict, or a preparation dict
@@ -759,8 +759,9 @@ class DailyLessonGenerator:
                 )
                 audio_exists = os.path.exists(audio_path)
 
-                # Get lesson words (meaning lessons only; dialogue lessons are topic-based)
+                # Get lesson words and dialogue title
                 words = []
+                dialogue_title = None
                 for segment in lesson.segments:
                     if (
                         segment.segment_type == "meaning_lesson"
@@ -773,9 +774,13 @@ class DailyLessonGenerator:
                                 "translation": meaning.translation.content,
                             }
                         )
+                    elif (
+                        segment.segment_type == "dialogue_lesson"
+                        and segment.audio_lesson_dialogue
+                    ):
+                        dialogue_title = segment.audio_lesson_dialogue.title
 
-                lessons_data.append(
-                    {
+                lesson_data = {
                         "lesson_id": lesson.id,
                         "audio_url": (
                             f"/audio/daily_lessons/{lesson.id}.mp3"
@@ -801,7 +806,9 @@ class DailyLessonGenerator:
                         "canonical_suggestion": lesson.canonical_suggestion,
                         "lesson_type": lesson.lesson_type,
                     }
-                )
+                if dialogue_title:
+                    lesson_data["title"] = dialogue_title
+                lessons_data.append(lesson_data)
 
             return {
                 "lessons": lessons_data,

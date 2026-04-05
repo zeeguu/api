@@ -11,7 +11,7 @@ class AudioLessonDialogue(db.Model):
     The dialogue is about topic immersion — not centered on specific vocabulary words.
     User words may be sprinkled in as hints but are not tracked here.
 
-    MP3 files are stored on disk: {ZEEGUU_DATA_FOLDER}/audio/dialogues/{id}-{lang_code}.mp3
+    MP3 files are stored on disk: {ZEEGUU_DATA_FOLDER}/audio/lessons/dialogue-{id}-{lang_code}.mp3
     """
 
     __tablename__ = "audio_lesson_dialogue"
@@ -20,8 +20,6 @@ class AudioLessonDialogue(db.Model):
     id = Column(Integer, primary_key=True)
 
     script = Column(Text, nullable=False)
-    voice_config = Column(JSON)
-
     canonical_suggestion = Column(String(100), nullable=False)
     lesson_type = Column(String(20), nullable=False)  # "topic" or "situation"
     title = Column(String(200), nullable=True)  # specific description, e.g. "ordering pizza at a trattoria"
@@ -47,7 +45,6 @@ class AudioLessonDialogue(db.Model):
         lesson_type,
         language,
         difficulty_level=None,
-        voice_config=None,
         duration_seconds=None,
         teacher_language=None,
         is_general=False,
@@ -60,7 +57,6 @@ class AudioLessonDialogue(db.Model):
         self.title = title
         self.language_id = language.id
         self.difficulty_level = difficulty_level
-        self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         self.is_general = is_general
         if teacher_language:
@@ -83,7 +79,7 @@ class AudioLessonDialogue(db.Model):
             language_id=language.id,
             teacher_language_id=teacher_language.id,
             difficulty_level=difficulty_level,
-        ).filter(cls.title.isnot(None)).with_entities(cls.title).all()
+        ).filter(cls.title.isnot(None)).with_entities(cls.title).limit(10).all()
         return [r.title for r in results]
 
     @classmethod

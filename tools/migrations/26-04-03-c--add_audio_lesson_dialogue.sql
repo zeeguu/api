@@ -2,7 +2,6 @@
 CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
     id INT AUTO_INCREMENT PRIMARY KEY,
     script TEXT NOT NULL,
-    voice_config JSON,
     canonical_suggestion VARCHAR(100) NOT NULL,
     lesson_type VARCHAR(20) NOT NULL,
     title VARCHAR(200),

@@ -51,7 +51,7 @@ class DailyAudioLesson(db.Model):
         cascade="all, delete-orphan",
     )
 
-    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, canonical_suggestion=None, lesson_type=None):
+    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, canonical_suggestion=None, lesson_type="three_words_lesson"):
         self.user = user
         self.created_by = created_by
         self.voice_config = voice_config
