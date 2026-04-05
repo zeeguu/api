@@ -1,6 +1,9 @@
 Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
 Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
 
+The dialogue must be set in this real-world situation: "{suggestion}"
+The characters should be in roles appropriate to the situation (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway, etc). Choose realistic roles that fit the scenario naturally.
+
 CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
 
 IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
@@ -8,8 +11,9 @@ IMPORTANT: Output ONLY the script lines below. Do not include any explanations, 
 Use this exact format:
 
 
-    Teacher: [Brief sentence in {source_language} saying that in the following conversation
-    they will hear the word:] [0.2 seconds]
+    Teacher: [Introduction in {source_language} setting the scene for the situation.
+    Explain who the characters are and what is happening. Mention they will hear the word:]
+    [0.2 seconds]
     TeacherL2: {origin_word} [0.5 seconds]
     Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
     Teacher: {translation_word}. [1 seconds]
@@ -22,6 +26,7 @@ Use this exact format:
     "The most common way to say {translation_word} is ... but {origin_word} is also used."]
 
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+    The dialogue must feel like a real conversation that would happen in the given situation.
     In between lines add one second break annotations with: [1 seconds]
 
 
