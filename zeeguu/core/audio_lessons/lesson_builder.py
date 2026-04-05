@@ -259,7 +259,7 @@ class LessonBuilder:
             Path to the generated daily lesson MP3 file
         """
         audio_segments = []
-        meaning_segment_count = 0
+        content_segment_count = 0
 
         # Determine teacher language for transitions
         teacher_language = None
@@ -278,8 +278,8 @@ class LessonBuilder:
                 and segment.audio_lesson_meaning
             ):
                 # Add transition before 2nd+ meaning segments
-                meaning_segment_count += 1
-                if meaning_segment_count > 1 and voice_synthesizer and teacher_language:
+                content_segment_count += 1
+                if content_segment_count > 1 and voice_synthesizer and teacher_language:
                     # Add silence then transition phrase
                     audio_segments.append(AudioSegment.silent(duration=2000))
                     transition = self._get_transition_audio(voice_synthesizer, teacher_language)
@@ -298,7 +298,7 @@ class LessonBuilder:
                 and segment.audio_lesson_dialogue
             ):
                 # Single dialogue — no transitions needed
-                meaning_segment_count += 1
+                content_segment_count += 1
                 relative_path = segment.audio_lesson_dialogue.audio_file_path
                 if relative_path.startswith("/audio/"):
                     relative_path = relative_path[7:]
@@ -325,7 +325,7 @@ class LessonBuilder:
                 )
 
         # Add outro after all segments
-        if voice_synthesizer and teacher_language and meaning_segment_count > 0:
+        if voice_synthesizer and teacher_language and content_segment_count > 0:
             audio_segments.append(AudioSegment.silent(duration=2000))
             audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language))
 
