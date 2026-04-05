@@ -48,6 +48,8 @@ class UserLanguage(db.Model):
 
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
+    max_streak = Column(Integer, default=0)
+    max_streak_date = Column(DateTime, nullable=True)
 
     def __init__(
         self,
@@ -108,7 +110,7 @@ class UserLanguage(db.Model):
         return cls.query.filter(cls.user == user).filter(cls.language_id == i).one()
 
     @classmethod
-    def all_for_user(cls, user):
+    def all_languages_for_user(cls, user):
         user_main_learned_language = user.learned_language
         user_languages = [
             language_id.language
@@ -120,12 +122,18 @@ class UserLanguage(db.Model):
 
         return user_languages
 
-    def update_streak_if_needed(self, session=None):
+    @classmethod
+    def all_user_languages_for_user(cls, user):
+        return cls.query.filter(cls.user == user).all()
+
+    def update_streak_if_needed(self, user, session=None):
         """
         Update last_practiced timestamp and daily_streak counter for this language.
+        Call this when user performs actual practice (exercises, reading, etc.).
         Only updates once per day to minimize database writes.
         """
         now = datetime.datetime.now()
+        active_session = session or db.session
 
         if not self.last_practiced or self.last_practiced.date() < now.date():
             if not self.last_practiced:
@@ -133,8 +141,52 @@ class UserLanguage(db.Model):
             elif self.last_practiced.date() == now.date() - datetime.timedelta(days=1):
                 self.daily_streak = (self.daily_streak or 0) + 1
             else:
+                # Gap in practice - save max before resetting
+                self._update_max_streak_if_needed()
                 self.daily_streak = 1
 
             self.last_practiced = now
+            self._update_max_streak_if_needed()
+            active_session.add(self)
+
+            from zeeguu.core.badges.badge_progress import BadgeCode, update_badge_progress
+            daily_streak_badge_progress = max(
+                [user_language.daily_streak for user_language in self.all_user_languages_for_user(user)]
+            )
+            update_badge_progress(db.session, BadgeCode.STREAK_COUNT, user.id, daily_streak_badge_progress)
+
+        # Update friend streaks for all friendships even if the user's own
+        # daily streak does not change (e.g. repeated practice on same day).
+        from zeeguu.core.model.friend import Friend
+        friendships: list[Friend] = Friend.query.filter(
+            (Friend.user_id == user.id) | (Friend.friend_id == user.id)
+        ).all()
+        for friendship in friendships:
+            friendship.update_friend_streak(session=active_session, commit=False)
+
+        active_session.commit()
+
+    def reset_streak_if_broken(self, session=None):
+        """
+        Reset streak to 0 if user hasn't practiced since yesterday.
+        Call this on login/session validation to ensure streak reflects reality.
+        Does NOT update last_practiced or increment streak.
+        """
+        if not self.last_practiced:
+            return
+
+        now = datetime.datetime.now()
+        yesterday = now.date() - datetime.timedelta(days=1)
+
+        # If last practice was before yesterday, streak is broken
+        if self.last_practiced.date() < yesterday:
+            self._update_max_streak_if_needed()
+            self.daily_streak = 0
             if session:
                 session.add(self)
+
+    def _update_max_streak_if_needed(self):
+        """Update max_streak if current streak exceeds it."""
+        if self.daily_streak > (self.max_streak or 0):
+            self.max_streak = self.daily_streak
+            self.max_streak_date = self.last_practiced

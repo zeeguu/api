@@ -88,4 +88,4 @@ jobs:
           source venv/bin/activate
           export NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data
           export DEV_SKIP_TRANSLATION=1
-          pytest
+          python -m pytest

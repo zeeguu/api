@@ -2,7 +2,7 @@ import flask
 from flask import request
 
 from . import api, db_session
-from zeeguu.api.utils import requires_session, json_result
+from zeeguu.api.utils import requires_session, json_result, update_user_streak
 from .helpers.activity_sessions import update_activity_session
 from ...core.model import UserListeningSession
 
@@ -20,6 +20,10 @@ def listening_session_start():
     session = UserListeningSession._create_new_session(
         db_session, flask.g.user_id, daily_audio_lesson_id, platform=platform
     )
+
+    # Update daily streak when user starts listening
+    update_user_streak()
+
     return json_result(dict(id=session.id))
 
 
