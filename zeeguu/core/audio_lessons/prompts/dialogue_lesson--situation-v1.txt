@@ -8,6 +8,7 @@ IMPORTANT: On the very first line, output a short descriptive title for this spe
 
 Use this exact format:
 
+    <title in {source_language}, 5-10 words, describing what happens — not just the situation>
 
     Teacher: [Introduction IN {source_language} setting the scene for the situation "{suggestion}".
     Explain who the characters are and what is happening.] [0.5 seconds]

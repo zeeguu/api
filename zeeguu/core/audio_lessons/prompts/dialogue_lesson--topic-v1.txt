@@ -7,6 +7,7 @@ IMPORTANT: On the very first line, output a short descriptive title for this spe
 
 Use this exact format:
 
+    <title in {source_language}, 5-10 words, describing what happens — not just the topic>
 
     Teacher: [Brief introduction IN {source_language} setting up the topic "{suggestion}".] [0.5 seconds]
 
