@@ -15,7 +15,7 @@ The user's native language is: {native_language}
 
 Classify this into one of three categories:
 
-1. "invalid" — offensive, nonsensical, random characters, too vague (single word with no clear topic), or not something two adults could have a conversation about.
+1. "invalid" — offensive, nonsensical, random characters, too vague (single word with no clear topic), not something two adults could have a conversation about, or requires a child as a speaking character (we only have adult voices). Note: adults talking ABOUT children is fine (e.g. "parent-teacher meeting"), but scenarios where a child would be a speaker are not (e.g. "a child ordering ice cream").
 
 2. "niche" — a valid topic but too personal or specific for other learners. It references specific people, dates, or situations unique to the user. Examples: "my sister's wedding next Saturday", "explaining to my neighbor why my dog barks", "my thesis defense at university", "what happened at the Berlin flea market yesterday". These are fine to generate but shouldn't appear in autocomplete.
 
