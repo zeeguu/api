@@ -98,7 +98,6 @@ def generate_daily_lesson():
         suggestion_type = None
 
     # Validate and canonicalize the suggestion
-    original_suggestion = suggestion
     is_general_topic = False
     if suggestion and suggestion_type:
         is_valid, validation_result = validate_suggestion(suggestion, suggestion_type, user.native_language.name)
@@ -125,12 +124,7 @@ def generate_daily_lesson():
     result["is_general"] = is_general_topic
     run_in_background(_generate_lesson_in_background, user.id, result)
 
-    response = {"status": "generating", "message": "Lesson generation started"}
-    if suggestion:
-        response["suggestion"] = suggestion
-    if original_suggestion and original_suggestion != suggestion:
-        response["original_suggestion"] = original_suggestion
-    return json_result(response), 202
+    return json_result({"status": "generating", "message": "Lesson generation started"}), 202
 
 
 @api.route("/autocomplete_lesson_suggestions", methods=["GET"])
