@@ -40,8 +40,7 @@ class DailyAudioLesson(db.Model):
     last_paused_at = Column(TIMESTAMP)
     pause_position_seconds = Column(Integer, default=0)
 
-    # Optional topic suggestion that themed the lesson
-    suggestion = Column(db.String(100), nullable=True)
+    canonical_suggestion = Column(db.String(100), nullable=True)
     suggestion_type = Column(db.String(20), nullable=True)
 
     # Relationship to segments (individual meaning lessons)
@@ -52,13 +51,13 @@ class DailyAudioLesson(db.Model):
         cascade="all, delete-orphan",
     )
 
-    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, suggestion=None, suggestion_type=None):
+    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, canonical_suggestion=None, suggestion_type=None):
         self.user = user
         self.created_by = created_by
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         self.language = language or user.learned_language
-        self.suggestion = suggestion
+        self.canonical_suggestion = canonical_suggestion
         self.suggestion_type = suggestion_type
         self.listened_count = 0
         self.pause_position_seconds = 0

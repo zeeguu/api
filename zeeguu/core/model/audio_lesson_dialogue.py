@@ -22,7 +22,7 @@ class AudioLessonDialogue(db.Model):
     script = Column(Text, nullable=False)
     voice_config = Column(JSON)
 
-    suggestion = Column(String(100), nullable=False)
+    canonical_suggestion = Column(String(100), nullable=False)
     suggestion_type = Column(String(20), nullable=False)  # "topic" or "situation"
     title = Column(String(200), nullable=True)  # specific description, e.g. "ordering pizza at a trattoria"
 
@@ -43,7 +43,7 @@ class AudioLessonDialogue(db.Model):
         self,
         script,
         created_by,
-        suggestion,
+        canonical_suggestion,
         suggestion_type,
         language,
         difficulty_level=None,
@@ -55,7 +55,7 @@ class AudioLessonDialogue(db.Model):
     ):
         self.script = script
         self.created_by = created_by
-        self.suggestion = suggestion
+        self.canonical_suggestion = canonical_suggestion
         self.suggestion_type = suggestion_type
         self.title = title
         self.language_id = language.id
@@ -67,7 +67,7 @@ class AudioLessonDialogue(db.Model):
             self.teacher_language_id = teacher_language.id
 
     def __repr__(self):
-        return f"<AudioLessonDialogue {self.id} '{self.suggestion}' ({self.suggestion_type})>"
+        return f"<AudioLessonDialogue {self.id} '{self.canonical_suggestion}' ({self.suggestion_type})>"
 
     @property
     def audio_file_path(self):
@@ -75,10 +75,10 @@ class AudioLessonDialogue(db.Model):
         return f"/audio/dialogues/{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def past_titles_for(cls, suggestion, suggestion_type, language, teacher_language, difficulty_level):
+    def past_titles_for(cls, canonical_suggestion, suggestion_type, language, teacher_language, difficulty_level):
         """Get all existing titles for this topic combination."""
         results = cls.query.filter_by(
-            suggestion=suggestion,
+            canonical_suggestion=canonical_suggestion,
             suggestion_type=suggestion_type,
             language_id=language.id,
             teacher_language_id=teacher_language.id,
@@ -87,7 +87,7 @@ class AudioLessonDialogue(db.Model):
         return [r.title for r in results]
 
     @classmethod
-    def find_unheard(cls, suggestion, suggestion_type, language, teacher_language, difficulty_level, user):
+    def find_unheard(cls, canonical_suggestion, suggestion_type, language, teacher_language, difficulty_level, user):
         """
         Find an existing dialogue the user hasn't heard yet.
         Returns None if all matching dialogues have been heard (or none exist).
@@ -106,7 +106,7 @@ class AudioLessonDialogue(db.Model):
         )
 
         query = cls.query.filter_by(
-            suggestion=suggestion,
+            canonical_suggestion=canonical_suggestion,
             suggestion_type=suggestion_type,
             language_id=language.id,
             teacher_language_id=teacher_language.id,
