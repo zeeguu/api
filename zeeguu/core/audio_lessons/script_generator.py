@@ -6,6 +6,8 @@ import os
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.logging import log
 
+VALID_SUGGESTION_TYPES = ("topic", "situation")
+
 
 # Load the prompt template
 def get_prompt_template(file_name) -> str:
@@ -24,6 +26,8 @@ def generate_lesson_script(
     translation_language: str,
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
+    suggestion: str = None,
+    suggestion_type: str = None,
 ) -> str:
     """
     Generate a lesson script using Claude API.
@@ -35,6 +39,8 @@ def generate_lesson_script(
         translation_language: Language code of the translation (e.g., 'en')
         cefr_level: Cefr level of the word being learned
         generator_prompt_file: full filename
+        suggestion: Optional short topic hint for the LLM
+        suggestion_type: Optional type ("topic" or "situation")
 
     Returns:
         Generated script text
@@ -65,17 +71,25 @@ def generate_lesson_script(
         translation_language, translation_language
     )
 
-    # Load and format the prompt
-    prompt_template = get_prompt_template(generator_prompt_file)
+    # Select template based on suggestion type
+    if suggestion and suggestion_type == "situation":
+        prompt_file = "meaning_lesson--situation-v1.txt"
+    elif suggestion and suggestion_type == "topic":
+        prompt_file = "meaning_lesson--topic-v1.txt"
+    else:
+        prompt_file = generator_prompt_file
+
+    prompt_template = get_prompt_template(prompt_file)
     prompt = prompt_template.format(
         origin_word=origin_word,
         translation_word=translation_word,
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
+        suggestion=suggestion or "",
     )
 
-    log(f"Generating script for {origin_word} -> {translation_word}")
+    log(f"Generating script for {origin_word} -> {translation_word} (topic: {suggestion}, type: {suggestion_type})")
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
