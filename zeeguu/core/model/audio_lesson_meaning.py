@@ -31,7 +31,6 @@ class AudioLessonMeaning(db.Model):
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
-    lesson_type = Column(String(50), default="contextual_examples")
     duration_seconds = Column(Integer)
     created_by = Column(String(255), nullable=False)  # e.g. Claude-v2-Opus-Promopt1
 
@@ -41,7 +40,6 @@ class AudioLessonMeaning(db.Model):
         script,
         created_by,
         difficulty_level=None,
-        lesson_type="contextual_examples",
         voice_config=None,
         duration_seconds=None,
         teacher_language=None,
@@ -50,7 +48,6 @@ class AudioLessonMeaning(db.Model):
         self.script = script
         self.created_by = created_by
         self.difficulty_level = difficulty_level
-        self.lesson_type = lesson_type
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         if teacher_language:
