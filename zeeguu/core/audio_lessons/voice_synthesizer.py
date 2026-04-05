@@ -78,8 +78,8 @@ class VoiceSynthesizer:
             # Check if this line starts with a voice label
             if voice_pattern.match(stripped):
                 joined_lines.append(stripped)
-            elif stripped.startswith("[") and "silence" in stripped.lower():
-                # Standalone silence marker
+            elif stripped.startswith("[") and re.search(r"\[([0-9.]+)\s*seconds?", stripped, re.IGNORECASE):
+                # Standalone timing/silence marker
                 joined_lines.append(stripped)
             elif joined_lines:
                 # Continuation line - append to previous line
@@ -106,11 +106,10 @@ class VoiceSynthesizer:
             if not line:
                 continue
 
-            # Handle silence markers like [1 second silence]
-            if line.startswith("[") and "silence" in line.lower():
-                # Extract duration from patterns like "[1 second silence]"
+            # Handle standalone silence/timing markers like [1 seconds], [1 second silence]
+            if line.startswith("["):
                 duration_match = re.search(
-                    r"\[([0-9.]+)\s*second[s]?\s*silence\]", line, re.IGNORECASE
+                    r"\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", line, re.IGNORECASE
                 )
                 if duration_match:
                     duration = float(duration_match.group(1))
@@ -125,12 +124,13 @@ class VoiceSynthesizer:
             voice_type = voice_match.group(1).lower()
             text = voice_match.group(2)
 
-            # Check for silence duration at end of line
+            # Extract silence duration from the last [X seconds] marker
             silence_duration = DEFAULT_SILENCE_SECONDS
-            silence_match = re.search(r"\[([0-9.]+)\s*seconds?\]$", text)
+            silence_match = re.search(r"\[([0-9.]+)\s*seconds?\]", text)
             if silence_match:
                 silence_duration = float(silence_match.group(1))
-                text = re.sub(r"\s*\[[0-9.]+\s*seconds?\]$", "", text)
+            # Strip ALL timing annotations from the text
+            text = re.sub(r"\s*\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", "", text)
 
             segments.append((voice_type, text.strip(), silence_duration))
 
