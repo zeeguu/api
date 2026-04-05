@@ -95,7 +95,7 @@ def generate_dialogue_script(
     log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
 
     try:
-        raw = generate_audio_lesson_script(prompt, max_tokens=6000)
+        raw = generate_audio_lesson_script(prompt, max_tokens=8000)
 
         # Parse title from first line
         title = None

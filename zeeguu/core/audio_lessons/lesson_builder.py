@@ -257,16 +257,17 @@ class LessonBuilder:
         )
         return AudioSegment.from_mp3(audio_path)
 
-    def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None) -> list:
-        """Generate outro: word list reminder (teacher language) + positive closing (learned language)."""
+    def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None, is_dialogue=False) -> list:
+        """Generate outro. For meaning lessons: word list reminder + closing. For dialogue lessons: just closing."""
         segments = []
 
-        # Word list reminder in teacher language
-        phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
-        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
+        if not is_dialogue:
+            # Word list reminder only for meaning lessons
+            phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
+            segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
+            segments.append(AudioSegment.silent(duration=1500))
 
-        # Short pause then positive closing in the LEARNED language
-        segments.append(AudioSegment.silent(duration=1500))
+        # Positive closing in the LEARNED language
         closing_lang = learned_language or teacher_language
         closings = CLOSING_PHRASES.get(closing_lang, CLOSING_PHRASES["en"])
         segments.append(self._synthesize_learned_language_phrase(voice_synthesizer, closing_lang, random.choice(closings)))
@@ -371,7 +372,8 @@ class LessonBuilder:
         # Add outro after all segments
         if voice_synthesizer and teacher_language and content_segment_count > 0:
             audio_segments.append(AudioSegment.silent(duration=2000))
-            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language, learned_language))
+            has_dialogue = any(s.segment_type == "dialogue_lesson" for s in segments_list)
+            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language, learned_language, is_dialogue=has_dialogue))
 
         # Combine all audio segments
         if audio_segments:
