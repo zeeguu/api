@@ -94,6 +94,16 @@ def save_user_preferences():
         show_mwe_hints.value = show_mwe_hints_value
         db_session.add(show_mwe_hints)
 
+    show_reading_timer_value = data.get(UserPreference.SHOW_READING_TIMER, None)
+    if show_reading_timer_value is not None:
+        show_reading_timer = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.SHOW_READING_TIMER,
+        )
+        show_reading_timer.value = show_reading_timer_value
+        db_session.add(show_reading_timer)
+
     db_session.add(user)
     db_session.commit()
     return "OK"
