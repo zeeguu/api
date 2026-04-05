@@ -60,7 +60,7 @@ class AudioLessonMeaning(db.Model):
     def audio_file_path(self):
         """Returns the expected path for the audio file based on meaning ID and teacher language"""
         lang_code = self.teacher_language.code if self.teacher_language else "en"
-        return f"/audio/lessons/{self.meaning_id}-{lang_code}.mp3"
+        return f"/audio/lessons/meaning-{self.meaning_id}-{lang_code}.mp3"
 
     @classmethod
     def find(cls, meaning, teacher_language=None):

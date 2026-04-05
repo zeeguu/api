@@ -72,7 +72,7 @@ class AudioLessonDialogue(db.Model):
     @property
     def audio_file_path(self):
         lang_code = self.teacher_language.code if self.teacher_language else "en"
-        return f"/audio/dialogues/{self.id}-{lang_code}.mp3"
+        return f"/audio/lessons/dialogue-{self.id}-{lang_code}.mp3"
 
     @classmethod
     def past_titles_for(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level):

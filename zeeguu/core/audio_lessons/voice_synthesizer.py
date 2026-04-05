@@ -293,14 +293,12 @@ class VoiceSynthesizer:
 
     def generate_lesson_audio(self, meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
         """Generate audio for a meaning lesson."""
-        output_path = os.path.join(self.lessons_dir, f"{meaning_id}-{teacher_language_code}.mp3")
+        output_path = os.path.join(self.lessons_dir, f"meaning-{meaning_id}-{teacher_language_code}.mp3")
         return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
 
     def generate_dialogue_audio(self, dialogue_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
         """Generate audio for a dialogue lesson."""
-        dialogues_dir = os.path.join(self.audio_dir, "dialogues")
-        os.makedirs(dialogues_dir, exist_ok=True)
-        output_path = os.path.join(dialogues_dir, f"{dialogue_id}-{teacher_language_code}.mp3")
+        output_path = os.path.join(self.lessons_dir, f"dialogue-{dialogue_id}-{teacher_language_code}.mp3")
         return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
 
     def get_audio_duration(self, audio_path: str) -> int:
