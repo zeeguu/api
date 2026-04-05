@@ -274,8 +274,10 @@ def _serialize_user_languages(user_languages: list[UserLanguage]):
     if not user_languages:
         return None
 
+    user_languages.sort(key=lambda ul: ul.max_streak, reverse=True)
     return [{
-        "language": user_language.language.as_dictionary(),
+        "code": user_language.language.code,
+        "language": user_language.language.name,
         "daily_streak": user_language.daily_streak,
         "max_streak": user_language.max_streak,
     } for user_language in user_languages]
