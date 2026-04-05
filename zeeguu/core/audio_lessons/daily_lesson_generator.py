@@ -121,7 +121,7 @@ class DailyLessonGenerator:
         is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
         progress_total = 1 if is_dialogue else len(selected_words)
         progress = AudioLessonGenerationProgress.create_for_user(
-            user=user, total_words=progress_total
+            user=user, total_segments=progress_total
         )
         db.session.commit()  # Commit so frontend can see it immediately
 
@@ -265,7 +265,7 @@ class DailyLessonGenerator:
 
         # Update progress
         if progress:
-            progress.start_word(1, total_segments=0, word_name=canonical_suggestion)
+            progress.start_segment(1, segment_name=canonical_suggestion)
             progress.update_generating_script()
             db.session.commit()
 
@@ -419,7 +419,7 @@ class DailyLessonGenerator:
 
                     # Update progress for this word
                     if progress:
-                        progress.start_word(idx + 1, total_segments=0, word_name=meaning.origin.content)
+                        progress.start_segment(idx + 1, segment_name=meaning.origin.content)
                         db.session.commit()
 
                     # Generate individual audio lesson meaning

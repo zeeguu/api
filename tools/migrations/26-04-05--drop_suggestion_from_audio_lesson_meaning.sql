@@ -8,3 +8,7 @@ ALTER TABLE daily_audio_lesson
 
 ALTER TABLE daily_audio_lesson
     CHANGE COLUMN suggestion_type lesson_type VARCHAR(20) DEFAULT NULL;
+
+ALTER TABLE audio_lesson_generation_progress
+    CHANGE COLUMN current_word current_segment INT DEFAULT 0,
+    CHANGE COLUMN total_words total_segments INT DEFAULT 0;
