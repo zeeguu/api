@@ -27,51 +27,24 @@ def generate_lesson_script(
     translation_language: str,
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
-    suggestion: str = None,
-    suggestion_type: str = None,
 ) -> str:
     """
-    Generate a lesson script using Claude API.
-
-    Args:
-        origin_word: The word being learned
-        translation_word: The translation
-        origin_language: Language code of the word being learned (e.g., 'da')
-        translation_language: Language code of the translation (e.g., 'en')
-        cefr_level: Cefr level of the word being learned
-        generator_prompt_file: full filename
-        suggestion: Optional short topic hint for the LLM
-        suggestion_type: Optional type ("topic" or "situation")
-
-    Returns:
-        Generated script text
-
-    Raises:
-        Exception: If API call fails or returns unexpected response
+    Generate a meaning lesson script for a single word (auto mode only).
     """
 
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    # Select template based on suggestion type
-    if suggestion and suggestion_type == "situation":
-        prompt_file = "meaning_lesson--situation-v1.txt"
-    elif suggestion and suggestion_type == "topic":
-        prompt_file = "meaning_lesson--topic-v1.txt"
-    else:
-        prompt_file = generator_prompt_file
-
-    prompt_template = get_prompt_template(prompt_file)
+    prompt_template = get_prompt_template(generator_prompt_file)
     prompt = prompt_template.format(
         origin_word=origin_word,
         translation_word=translation_word,
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
-        suggestion=suggestion or "",
     )
 
-    log(f"Generating script for {origin_word} -> {translation_word} (topic: {suggestion}, type: {suggestion_type})")
+    log(f"Generating script for {origin_word} -> {translation_word}")
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback

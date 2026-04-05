@@ -177,34 +177,16 @@ class DailyLessonGenerator:
         cefr_level,
         created_by="claude-v1",
         progress=None,
-        suggestion=None,
-        suggestion_type=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
-
-        Args:
-            user_word: UserWord object containing the meaning
-            origin_language: Language code for the origin language
-            translation_language: Language code for the translation language
-            cefr_level: CEFR level for the lesson
-            created_by: String identifying who created this lesson
-            progress: Optional AudioLessonGenerationProgress for tracking
-            suggestion: Optional short topic hint for the LLM
-            suggestion_type: Optional type ("topic" or "situation")
-
-        Returns:
-            AudioLessonMeaning object
-
-        Raises:
-            Exception if generation fails
+        Only used in auto mode (no topic/situation).
         """
         meaning = user_word.meaning
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Check if audio lesson already exists for this meaning, teacher language, and topic
         existing_lesson = AudioLessonMeaning.find(
-            meaning=meaning, teacher_language=teacher_lang, suggestion=suggestion, suggestion_type=suggestion_type
+            meaning=meaning, teacher_language=teacher_lang
         )
         if existing_lesson:
             return existing_lesson
@@ -214,15 +196,12 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        # Generate script using Claude
         script = generate_lesson_script(
             origin_word=meaning.origin.content,
             translation_word=meaning.translation.content,
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
-            suggestion=suggestion,
-            suggestion_type=suggestion_type,
         )
 
         # Update progress: script done
@@ -230,15 +209,12 @@ class DailyLessonGenerator:
             progress.update_script_done()
             db.session.commit()
 
-        # Create audio lesson meaning
         audio_lesson_meaning = AudioLessonMeaning(
             meaning=meaning,
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
-            suggestion=suggestion,
-            suggestion_type=suggestion_type,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -473,8 +449,6 @@ class DailyLessonGenerator:
                         audio_lesson_meaning = self.generate_audio_lesson_meaning(
                             user_word, origin_language, translation_language, cefr_level,
                             progress=progress,
-                            suggestion=suggestion,
-                            suggestion_type=suggestion_type,
                         )
                     except Exception as e:
                         log(
