@@ -1,9 +1,6 @@
 Create a language learning audio script with a single flowing conversation about "{suggestion}".
 Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
 
-The dialogue should naturally incorporate these {target_language} words:
-{words_block}
-
 CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
 
 IMPORTANT: On the very first line, output a short descriptive title for this specific dialogue IN {source_language} (5-10 words, describing what happens in the conversation — not just the topic). Then a blank line, then the script. Do not include any other explanations or preamble.
@@ -11,24 +8,12 @@ IMPORTANT: On the very first line, output a short descriptive title for this spe
 Use this exact format:
 
 
-    Teacher: [Introduction IN {source_language} setting up the topic "{suggestion}". Say that in
-    the following conversation about {suggestion}, they will hear these words:] [0.5 seconds]
-
-    For each word, add:
-    TeacherL2: <word> [0.3 seconds]
-    Teacher: [Say "meaning" or "which means" in {source_language}] <translation>. [0.5 seconds]
-
-    [For any word that has other common meanings besides the one listed, briefly mention them
-    in {source_language}, e.g. "Note that this word can also mean..."]
-
-    [For any word that is not the most common way to express its meaning in {target_language},
-    mention the more common synonym in {source_language}.]
+    Teacher: [Brief introduction IN {source_language} setting up the topic "{suggestion}".] [0.5 seconds]
 
     [1 seconds]
 
     Create a single flowing dialogue of at least 14 lines between Man and Woman themed
-    around {suggestion}. The conversation should use ALL the listed words naturally --
-    don't force them, but weave them into a realistic exchange about the topic.
+    around {suggestion}. Make it a natural, realistic exchange about the topic.
     In between lines add one second break annotations with: [1 seconds]
 
 
@@ -45,7 +30,7 @@ Use this exact format:
     Man: <target language phrase> [3 seconds]
     Man: <repeat same phrase> [3 seconds]
 
-    Include at least 8 challenges, prioritizing phrases that contain the listed words.
+    Include at least 8 challenges.
 
 
 
@@ -54,7 +39,7 @@ Use this exact format:
 
     Add 4 more challenges from the teacher IN {source_language}, still themed around
     {suggestion}. These should use different sentences than the dialogue, but remain
-    within the same topic. Prioritize using the listed words in new contexts.
+    within the same topic.
 
 
 RULES:
@@ -67,4 +52,3 @@ RULES:
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script
-- ALL listed words must appear in the dialogue at least once

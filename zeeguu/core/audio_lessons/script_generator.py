@@ -58,7 +58,6 @@ def generate_lesson_script(
 
 
 def generate_dialogue_script(
-    words: list,
     origin_language: str,
     translation_language: str,
     suggestion: str,
@@ -67,15 +66,7 @@ def generate_dialogue_script(
     past_titles: list = None,
 ) -> tuple:
     """
-    Generate a single flowing dialogue script that incorporates multiple words.
-
-    Args:
-        words: List of (origin_word, translation_word) tuples
-        origin_language: Language code of the words being learned (e.g., 'da')
-        translation_language: Language code of the translations (e.g., 'en')
-        suggestion: The topic or situation for the dialogue
-        suggestion_type: "topic" or "situation"
-        cefr_level: CEFR level of the learner
+    Generate a single flowing dialogue script about a topic or situation.
 
     Returns:
         Tuple of (title, script) — title is a short description of the dialogue
@@ -83,12 +74,6 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    # Build the words block for the prompt
-    words_block = "\n".join(
-        [f'- "{origin}" meaning "{translation}"' for origin, translation in words]
-    )
-
-    # Select template
     if suggestion_type == "situation":
         prompt_file = "dialogue_lesson--situation-v1.txt"
     else:
@@ -100,16 +85,13 @@ def generate_dialogue_script(
         source_language=translation_lang_name,
         cefr_level=cefr_level,
         suggestion=suggestion,
-        words_block=words_block,
     )
 
-    # Add past titles to avoid generating the same scenario
     if past_titles:
         titles_list = "\n".join([f"- {t}" for t in past_titles])
         prompt += f"\n\nIMPORTANT: The following dialogues about this topic already exist. Create a DIFFERENT scenario:\n{titles_list}\n"
 
-    word_names = ", ".join([w[0] for w in words])
-    log(f"Generating dialogue script for [{word_names}] (suggestion: {suggestion}, type: {suggestion_type})")
+    log(f"Generating dialogue script (suggestion: {suggestion}, type: {suggestion_type})")
 
     try:
         raw = generate_audio_lesson_script(prompt, max_tokens=4000)
@@ -122,7 +104,7 @@ def generate_dialogue_script(
             title = lines[0].strip().lstrip("#").strip()[:200]
             script = lines[1].strip()
 
-        log(f"Successfully generated dialogue script for [{word_names}], title: '{title}'")
+        log(f"Successfully generated dialogue script, title: '{title}'")
         return title, script
 
     except Exception as e:

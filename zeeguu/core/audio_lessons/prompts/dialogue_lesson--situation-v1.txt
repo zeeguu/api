@@ -2,9 +2,6 @@ Create a language learning audio script with a single flowing conversation set i
 The characters should be in roles appropriate to the situation (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway, etc). Choose realistic roles that fit the scenario naturally.
 Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
 
-The dialogue should naturally incorporate these {target_language} words:
-{words_block}
-
 CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
 
 IMPORTANT: On the very first line, output a short descriptive title for this specific dialogue IN {source_language} (5-10 words, describing what happens in the conversation — not just the situation). Then a blank line, then the script. Do not include any other explanations or preamble.
@@ -13,24 +10,12 @@ Use this exact format:
 
 
     Teacher: [Introduction IN {source_language} setting the scene for the situation "{suggestion}".
-    Explain who the characters are and what is happening. Say that they will hear these words:]
-    [0.5 seconds]
-
-    For each word, add:
-    TeacherL2: <word> [0.3 seconds]
-    Teacher: [Say "meaning" or "which means" in {source_language}] <translation>. [0.5 seconds]
-
-    [For any word that has other common meanings besides the one listed, briefly mention them
-    in {source_language}, e.g. "Note that this word can also mean..."]
-
-    [For any word that is not the most common way to express its meaning in {target_language},
-    mention the more common synonym in {source_language}.]
+    Explain who the characters are and what is happening.] [0.5 seconds]
 
     [1 seconds]
 
     Create a single flowing dialogue of at least 14 lines between Man and Woman that feels
-    like a real conversation in the given situation. The conversation should use ALL the listed
-    words naturally -- don't force them, but weave them into a realistic exchange.
+    like a real conversation in the given situation.
     In between lines add one second break annotations with: [1 seconds]
 
 
@@ -47,7 +32,7 @@ Use this exact format:
     Man: <target language phrase> [3 seconds]
     Man: <repeat same phrase> [3 seconds]
 
-    Include at least 8 challenges, prioritizing phrases that contain the listed words.
+    Include at least 8 challenges.
 
 
 
@@ -56,7 +41,7 @@ Use this exact format:
 
     Add 4 more challenges from the teacher IN {source_language}, still set in the
     {suggestion} scenario. These should use different exchanges than the dialogue,
-    but remain within the same situation. Prioritize using the listed words in new contexts.
+    but remain within the same situation.
 
 
 RULES:
@@ -69,4 +54,3 @@ RULES:
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script
-- ALL listed words must appear in the dialogue at least once

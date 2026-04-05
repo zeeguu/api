@@ -249,7 +249,6 @@ class DailyLessonGenerator:
     def generate_audio_lesson_dialogue(
         self,
         user,
-        selected_words,
         origin_language,
         translation_language,
         cefr_level,
@@ -280,8 +279,7 @@ class DailyLessonGenerator:
 
         # Update progress
         if progress:
-            word_names = ", ".join([uw.meaning.origin.content for uw in selected_words])
-            progress.start_word(1, total_segments=0, word_name=word_names or canonical_suggestion)
+            progress.start_word(1, total_segments=0, word_name=canonical_suggestion)
             progress.update_generating_script()
             db.session.commit()
 
@@ -294,16 +292,10 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
         )
 
-        # Collect words as optional hints for the LLM
-        words = [
-            (uw.meaning.origin.content, uw.meaning.translation.content)
-            for uw in selected_words
-        ]
         title, script = generate_dialogue_script(
-            words=words,
             origin_language=origin_language,
             translation_language=translation_language,
-            canonical_suggestion=canonical_suggestion,
+            suggestion=canonical_suggestion,
             suggestion_type=suggestion_type,
             cefr_level=cefr_level,
             past_titles=past_titles,
@@ -415,7 +407,7 @@ class DailyLessonGenerator:
                 # Generate one flowing dialogue incorporating all words
                 try:
                     audio_lesson_dialogue = self.generate_audio_lesson_dialogue(
-                        user, selected_words, origin_language, translation_language,
+                        user, origin_language, translation_language,
                         cefr_level, canonical_suggestion, suggestion_type,
                         progress=progress,
                         is_general=is_general,
