@@ -95,7 +95,7 @@ def generate_daily_lesson():
     suggestion = flask.request.form.get("suggestion", "").strip()[:80].strip() or None
     lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
     if lesson_type not in VALID_LESSON_TYPES:
-        lesson_type = THREE_WORDS_LESSON
+        return json_result({"error": f"Invalid lesson_type: {lesson_type}"}), 400
 
     # Validate and canonicalize the suggestion
     canonical_suggestion = None
