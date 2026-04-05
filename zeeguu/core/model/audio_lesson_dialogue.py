@@ -24,6 +24,7 @@ class AudioLessonDialogue(db.Model):
 
     suggestion = Column(String(100), nullable=False)
     suggestion_type = Column(String(20), nullable=False)  # "topic" or "situation"
+    title = Column(String(200), nullable=True)  # specific description, e.g. "ordering pizza at a trattoria"
 
     language_id = Column(Integer, ForeignKey(Language.id), nullable=False)
     language = relationship(Language, foreign_keys=[language_id])
@@ -50,11 +51,13 @@ class AudioLessonDialogue(db.Model):
         duration_seconds=None,
         teacher_language=None,
         is_general=False,
+        title=None,
     ):
         self.script = script
         self.created_by = created_by
         self.suggestion = suggestion
         self.suggestion_type = suggestion_type
+        self.title = title
         self.language_id = language.id
         self.difficulty_level = difficulty_level
         self.voice_config = voice_config
@@ -72,15 +75,44 @@ class AudioLessonDialogue(db.Model):
         return f"/audio/dialogues/{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def find(cls, suggestion, suggestion_type, language, teacher_language=None, difficulty_level=None):
-        """Find an existing dialogue matching suggestion, type, language, teacher language, and level."""
+    def past_titles_for(cls, suggestion, suggestion_type, language, teacher_language, difficulty_level):
+        """Get all existing titles for this topic combination."""
+        results = cls.query.filter_by(
+            suggestion=suggestion,
+            suggestion_type=suggestion_type,
+            language_id=language.id,
+            teacher_language_id=teacher_language.id,
+            difficulty_level=difficulty_level,
+        ).filter(cls.title.isnot(None)).with_entities(cls.title).all()
+        return [r.title for r in results]
+
+    @classmethod
+    def find_unheard(cls, suggestion, suggestion_type, language, teacher_language, difficulty_level, user):
+        """
+        Find an existing dialogue the user hasn't heard yet.
+        Returns None if all matching dialogues have been heard (or none exist).
+        """
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+        from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+
+        # IDs of dialogues this user has already been served
+        heard_ids = (
+            db.session.query(DailyAudioLessonSegment.audio_lesson_dialogue_id)
+            .join(DailyAudioLesson, DailyAudioLessonSegment.daily_audio_lesson_id == DailyAudioLesson.id)
+            .filter(
+                DailyAudioLesson.user_id == user.id,
+                DailyAudioLessonSegment.audio_lesson_dialogue_id.isnot(None),
+            )
+        )
+
         query = cls.query.filter_by(
             suggestion=suggestion,
             suggestion_type=suggestion_type,
             language_id=language.id,
+            teacher_language_id=teacher_language.id,
+            difficulty_level=difficulty_level,
+        ).filter(
+            cls.id.notin_(heard_ids)
         )
-        if teacher_language:
-            query = query.filter_by(teacher_language_id=teacher_language.id)
-        if difficulty_level:
-            query = query.filter_by(difficulty_level=difficulty_level)
+
         return query.first()

@@ -272,6 +272,7 @@ class DailyLessonGenerator:
 
     def generate_audio_lesson_dialogue(
         self,
+        user,
         selected_words,
         origin_language,
         translation_language,
@@ -284,18 +285,19 @@ class DailyLessonGenerator:
     ):
         """
         Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
-        User words are passed as hints but not tracked on the dialogue itself.
+        Reuses an existing dialogue the user hasn't heard yet, or generates a new one.
         """
         learned_lang = Language.find_or_create(origin_language)
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Check if a matching dialogue already exists (same topic, language, level)
-        existing = AudioLessonDialogue.find(
+        # Try to find an existing dialogue the user hasn't heard yet
+        existing = AudioLessonDialogue.find_unheard(
             suggestion=suggestion,
             suggestion_type=suggestion_type,
             language=learned_lang,
             teacher_language=teacher_lang,
             difficulty_level=cefr_level,
+            user=user,
         )
         if existing:
             return existing
@@ -307,25 +309,35 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
+        # Collect past titles for this topic to avoid repetition
+        past_titles = AudioLessonDialogue.past_titles_for(
+            suggestion=suggestion,
+            suggestion_type=suggestion_type,
+            language=learned_lang,
+            teacher_language=teacher_lang,
+            difficulty_level=cefr_level,
+        )
+
         # Collect words as optional hints for the LLM
         words = [
             (uw.meaning.origin.content, uw.meaning.translation.content)
             for uw in selected_words
         ]
-        script = generate_dialogue_script(
+        title, script = generate_dialogue_script(
             words=words,
             origin_language=origin_language,
             translation_language=translation_language,
             suggestion=suggestion,
             suggestion_type=suggestion_type,
             cefr_level=cefr_level,
+            past_titles=past_titles,
         )
 
         if progress:
             progress.update_script_done()
             db.session.commit()
 
-        # Create the dialogue record — no meanings tracked
+        # Create the dialogue record
         dialogue = AudioLessonDialogue(
             script=script,
             created_by=created_by,
@@ -335,6 +347,7 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
             is_general=is_general,
+            title=title,
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
@@ -426,7 +439,7 @@ class DailyLessonGenerator:
                 # Generate one flowing dialogue incorporating all words
                 try:
                     audio_lesson_dialogue = self.generate_audio_lesson_dialogue(
-                        selected_words, origin_language, translation_language,
+                        user, selected_words, origin_language, translation_language,
                         cefr_level, suggestion, suggestion_type,
                         progress=progress,
                         is_general=is_general,
@@ -577,6 +590,7 @@ class DailyLessonGenerator:
 
         # Get lesson details including words with full metadata
         words = []
+        dialogue_title = None
         for segment in lesson.segments:
             if (
                 segment.segment_type == "meaning_lesson"
@@ -597,9 +611,13 @@ class DailyLessonGenerator:
                             "translation": meaning.translation.content,
                         }
                     )
-            # dialogue_lesson segments don't track specific words
+            elif (
+                segment.segment_type == "dialogue_lesson"
+                and segment.audio_lesson_dialogue
+            ):
+                dialogue_title = segment.audio_lesson_dialogue.title
 
-        return {
+        result = {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
@@ -612,6 +630,9 @@ class DailyLessonGenerator:
             "suggestion": lesson.suggestion,
             "suggestion_type": lesson.suggestion_type,
         }
+        if dialogue_title:
+            result["title"] = dialogue_title
+        return result
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
         """

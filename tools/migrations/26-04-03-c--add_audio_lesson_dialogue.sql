@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS audio_lesson_dialogue (
     voice_config JSON,
     suggestion VARCHAR(100) NOT NULL,
     suggestion_type VARCHAR(20) NOT NULL,
+    title VARCHAR(200),
     language_id INT NOT NULL,
     teacher_language_id INT,
     difficulty_level ENUM('A1', 'A2', 'B1', 'B2', 'C1', 'C2'),

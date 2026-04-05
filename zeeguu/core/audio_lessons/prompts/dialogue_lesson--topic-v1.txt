@@ -6,7 +6,7 @@ The dialogue should naturally incorporate these {target_language} words:
 
 CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
 
-IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
+IMPORTANT: On the very first line, output a short descriptive title for this specific dialogue IN {source_language} (5-10 words, describing what happens in the conversation — not just the topic). Then a blank line, then the script. Do not include any other explanations or preamble.
 
 Use this exact format:
 

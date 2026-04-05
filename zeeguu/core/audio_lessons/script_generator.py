@@ -91,6 +91,7 @@ def generate_dialogue_script(
     suggestion: str,
     suggestion_type: str,
     cefr_level: str = "A1",
+    past_titles: list = None,
 ) -> str:
     """
     Generate a single flowing dialogue script that incorporates multiple words.
@@ -104,28 +105,10 @@ def generate_dialogue_script(
         cefr_level: CEFR level of the learner
 
     Returns:
-        Generated script text
+        Tuple of (title, script) — title is a short description of the dialogue
     """
-    language_names = {
-        "da": "Danish",
-        "es": "Spanish",
-        "en": "English",
-        "de": "German",
-        "fr": "French",
-        "ro": "Romanian",
-        "el": "Greek",
-        "it": "Italian",
-        "pt": "Portuguese",
-        "nl": "Dutch",
-        "sv": "Swedish",
-        "pl": "Polish",
-        "uk": "Ukrainian",
-    }
-
-    origin_lang_name = language_names.get(origin_language, origin_language)
-    translation_lang_name = language_names.get(
-        translation_language, translation_language
-    )
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
     # Build the words block for the prompt
     words_block = "\n".join(
@@ -147,13 +130,27 @@ def generate_dialogue_script(
         words_block=words_block,
     )
 
+    # Add past titles to avoid generating the same scenario
+    if past_titles:
+        titles_list = "\n".join([f"- {t}" for t in past_titles])
+        prompt += f"\n\nIMPORTANT: The following dialogues about this topic already exist. Create a DIFFERENT scenario:\n{titles_list}\n"
+
     word_names = ", ".join([w[0] for w in words])
     log(f"Generating dialogue script for [{word_names}] (suggestion: {suggestion}, type: {suggestion_type})")
 
     try:
-        script = generate_audio_lesson_script(prompt, max_tokens=4000)
-        log(f"Successfully generated dialogue script for [{word_names}]")
-        return script
+        raw = generate_audio_lesson_script(prompt, max_tokens=4000)
+
+        # Parse title from first line
+        title = None
+        script = raw
+        lines = raw.strip().split("\n", 1)
+        if len(lines) == 2 and not lines[0].strip().startswith("Teacher:"):
+            title = lines[0].strip().lstrip("#").strip()[:200]
+            script = lines[1].strip()
+
+        log(f"Successfully generated dialogue script for [{word_names}], title: '{title}'")
+        return title, script
 
     except Exception as e:
         log(f"Failed to generate dialogue script: {e}")
