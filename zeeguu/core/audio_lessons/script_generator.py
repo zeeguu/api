@@ -7,7 +7,8 @@ from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
 from zeeguu.logging import log
 
-VALID_LESSON_TYPES = ("topic", "situation")
+THREE_WORDS_LESSON = "three_words_lesson"
+VALID_LESSON_TYPES = (THREE_WORDS_LESSON, "topic", "situation")
 
 
 # Load the prompt template

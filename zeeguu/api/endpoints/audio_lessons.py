@@ -4,7 +4,7 @@ from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES
+from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES, THREE_WORDS_LESSON
 from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
 from zeeguu.logging import log
@@ -93,14 +93,14 @@ def generate_daily_lesson():
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
     suggestion = flask.request.form.get("suggestion", "").strip()[:80].strip() or None
-    lesson_type = flask.request.form.get("lesson_type", "").strip() or None
-    if lesson_type not in (None, *VALID_LESSON_TYPES):
-        lesson_type = None
+    lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
+    if lesson_type not in VALID_LESSON_TYPES:
+        lesson_type = THREE_WORDS_LESSON
 
     # Validate and canonicalize the suggestion
     canonical_suggestion = None
     is_general_topic = False
-    if suggestion and lesson_type:
+    if suggestion and lesson_type in ("topic", "situation"):
         is_valid, validation_result = validate_suggestion(suggestion, lesson_type, user.native_language.name)
         if not is_valid:
             return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
