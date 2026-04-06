@@ -28,7 +28,7 @@ def update_activity_session(session_class, request, db_session):
     return session
 
 
-MIN_STREAK_DURATION_MS = 120_000  # 2 minutes in milliseconds (frontend sends ms)
+MIN_STREAK_DURATION_MS = 20_000  # TEMP: 20s for testing (was 120_000 = 2 min)
 
 
 def _update_streak(db_session):
