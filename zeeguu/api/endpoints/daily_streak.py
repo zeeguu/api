@@ -15,7 +15,11 @@ from ...core.model.db import db
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
-    return json_result({"daily_streak": user_language.daily_streak or 0})
+    streak = user_language.daily_streak or 0
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    if user_language.last_practiced and user_language.last_practiced.date() < yesterday:
+        streak = 0
+    return json_result({"daily_streak": streak})
 
 
 @api.route("/all_language_streaks", methods=["GET"])
@@ -28,14 +32,20 @@ def get_all_language_streaks():
     for ul in user_languages:
         if ul.language_id == user.native_language_id:
             continue
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
         practiced_today = (
             ul.last_practiced is not None
-            and ul.last_practiced.date() == datetime.date.today()
+            and ul.last_practiced.date() == today
         )
+        # Streak is only valid if practiced today or yesterday
+        streak = ul.daily_streak or 0
+        if ul.last_practiced and ul.last_practiced.date() < yesterday:
+            streak = 0
         result.append({
             "code": ul.language.code,
             "language": ul.language.name,
-            "daily_streak": ul.daily_streak or 0,
+            "daily_streak": streak,
             "practiced_today": practiced_today,
         })
     # Sort by streak descending so highest streaks come first
