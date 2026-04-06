@@ -15,7 +15,11 @@ from ...core.model.db import db
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
-    return json_result({"daily_streak": user_language.daily_streak or 0})
+    streak = user_language.daily_streak or 0
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    if user_language.last_practiced and user_language.last_practiced.date() < yesterday:
+        streak = 0
+    return json_result({"daily_streak": streak})
 
 
 @api.route("/all_language_streaks", methods=["GET"])
