@@ -20,7 +20,10 @@ def update_activity_session(session_class, request, db_session):
     session.last_action_time = datetime.now()
     db_session.add(session)
 
+    import zeeguu.core.util.log as log
+    log.info(f"[STREAK DEBUG] duration={duration}, threshold={MIN_STREAK_DURATION_MS}, will_update={duration >= MIN_STREAK_DURATION_MS}")
     if duration >= MIN_STREAK_DURATION_MS:
+        log.info(f"[STREAK DEBUG] calling _update_streak")
         _update_streak(db_session)
 
     db_session.commit()
