@@ -59,6 +59,7 @@ def _generate_lesson_in_background(user_id, preparation):
             translation_language=preparation["translation_language"],
             cefr_level=preparation["cefr_level"],
             progress=progress,
+            raw_suggestion=preparation.get("raw_suggestion"),
             canonical_suggestion=preparation.get("canonical_suggestion"),
             lesson_type=preparation.get("lesson_type"),
             is_general=preparation.get("is_general", False),
@@ -101,11 +102,17 @@ def generate_daily_lesson():
     canonical_suggestion = None
     is_general_topic = False
     if suggestion and lesson_type in ("topic", "situation"):
-        is_valid, validation_result = validate_suggestion(suggestion, lesson_type, user.native_language.name)
-        if not is_valid:
-            return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
-        canonical_suggestion = validation_result["canonical"]
-        is_general_topic = validation_result["is_general"]
+        # Reuse canonical form if this user has typed the same thing before
+        from zeeguu.core.model import DailyAudioLesson
+        cached_canonical = DailyAudioLesson.find_canonical_for_raw_suggestion(user, suggestion)
+        if cached_canonical:
+            canonical_suggestion = cached_canonical
+        else:
+            is_valid, validation_result = validate_suggestion(suggestion, lesson_type, user.native_language.name)
+            if not is_valid:
+                return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
+            canonical_suggestion = validation_result["canonical"]
+            is_general_topic = validation_result["is_general"]
 
     result = generator.prepare_lesson_generation(user, timezone_offset, canonical_suggestion, lesson_type)
 
@@ -122,6 +129,7 @@ def generate_daily_lesson():
     if "selected_word_ids" not in result:
         return json_result({"error": "Unexpected preparation result"}), 500
 
+    result["raw_suggestion"] = suggestion
     result["is_general"] = is_general_topic
     run_in_background(_generate_lesson_in_background, user.id, result)
 

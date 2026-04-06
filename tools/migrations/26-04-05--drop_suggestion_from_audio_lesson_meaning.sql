@@ -4,6 +4,9 @@ ALTER TABLE audio_lesson_meaning
     DROP COLUMN lesson_type;
 
 ALTER TABLE daily_audio_lesson
+    ADD COLUMN raw_suggestion VARCHAR(100) DEFAULT NULL AFTER pause_position_seconds;
+
+ALTER TABLE daily_audio_lesson
     CHANGE COLUMN suggestion canonical_suggestion VARCHAR(100) DEFAULT NULL;
 
 ALTER TABLE daily_audio_lesson

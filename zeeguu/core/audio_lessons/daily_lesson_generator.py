@@ -339,6 +339,7 @@ class DailyLessonGenerator:
         translation_language: str,
         cefr_level: str,
         progress: AudioLessonGenerationProgress = None,
+        raw_suggestion: str = None,
         canonical_suggestion: str = None,
         lesson_type: str = None,
         is_general: bool = False,
@@ -371,6 +372,7 @@ class DailyLessonGenerator:
                 user=user,
                 created_by="generate_daily_lesson_v1",
                 language=user.learned_language,
+                raw_suggestion=raw_suggestion,
                 canonical_suggestion=canonical_suggestion,
                 lesson_type=lesson_type,
             )
