@@ -95,6 +95,7 @@ from .user_watching_session import UserWatchingSession
 
 # audio lessons
 from .audio_lesson_meaning import AudioLessonMeaning
+from .audio_lesson_dialogue import AudioLessonDialogue
 from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment

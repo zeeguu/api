@@ -78,8 +78,8 @@ class VoiceSynthesizer:
             # Check if this line starts with a voice label
             if voice_pattern.match(stripped):
                 joined_lines.append(stripped)
-            elif stripped.startswith("[") and "silence" in stripped.lower():
-                # Standalone silence marker
+            elif stripped.startswith("[") and re.search(r"\[([0-9.]+)\s*seconds?", stripped, re.IGNORECASE):
+                # Standalone timing/silence marker
                 joined_lines.append(stripped)
             elif joined_lines:
                 # Continuation line - append to previous line
@@ -106,11 +106,10 @@ class VoiceSynthesizer:
             if not line:
                 continue
 
-            # Handle silence markers like [1 second silence]
-            if line.startswith("[") and "silence" in line.lower():
-                # Extract duration from patterns like "[1 second silence]"
+            # Handle standalone silence/timing markers like [1 seconds], [1 second silence]
+            if line.startswith("["):
                 duration_match = re.search(
-                    r"\[([0-9.]+)\s*second[s]?\s*silence\]", line, re.IGNORECASE
+                    r"\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", line, re.IGNORECASE
                 )
                 if duration_match:
                     duration = float(duration_match.group(1))
@@ -125,12 +124,13 @@ class VoiceSynthesizer:
             voice_type = voice_match.group(1).lower()
             text = voice_match.group(2)
 
-            # Check for silence duration at end of line
+            # Extract silence duration from the last [X seconds] marker
             silence_duration = DEFAULT_SILENCE_SECONDS
-            silence_match = re.search(r"\[([0-9.]+)\s*seconds?\]$", text)
+            silence_match = re.search(r"\[([0-9.]+)\s*seconds?\]", text)
             if silence_match:
                 silence_duration = float(silence_match.group(1))
-                text = re.sub(r"\s*\[[0-9.]+\s*seconds?\]$", "", text)
+            # Strip ALL timing annotations from the text
+            text = re.sub(r"\s*\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", "", text)
 
             segments.append((voice_type, text.strip(), silence_duration))
 
@@ -246,61 +246,29 @@ class VoiceSynthesizer:
 
         return cached_path
 
-    def generate_lesson_audio(
-        self,
-        meaning_id: int,
-        teacher_language_code: str,
-        script: str,
-        language_code: str,
-        cefr_level: str = None,
-        on_progress: callable = None,
-    ) -> str:
-        """
-        Generate the complete audio lesson from script.
-
-        Args:
-            meaning_id: The meaning ID for the filename
-            teacher_language_code: The teacher's language code (e.g., 'en', 'uk') - used for
-                                   both filename and voice selection
-            script: The script to synthesize
-            language_code: The target language code for man/woman voices
-            cefr_level: CEFR level for speaking rate adjustment
-            on_progress: Optional callback function(current, total, voice_type) for progress updates
-
-        Returns:
-            Path to the generated MP3 file
-        """
+    def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None):
+        """Shared logic: parse script, synthesize all segments, combine and export to output_path."""
         segments = self.parse_script(script)
         audio_segments = []
 
-        # Count speech segments (not silence) for progress tracking
         speech_segments = [(v, t, s) for v, t, s in segments if v != "silence"]
         total_speech_segments = len(speech_segments)
         current_speech_segment = 0
 
         # Determine speaking rate based on CEFR level
         speaking_rate = 1.0
-        if cefr_level:
-            if cefr_level == "A2":
-                speaking_rate = 0.9
-            elif cefr_level == "A1":
-                speaking_rate = 0.9  # 0.8 was painfully slow for Portuguese; this might end up being language specific? or maybe a setting for the frontend
+        if cefr_level and cefr_level in ("A1", "A2"):
+            speaking_rate = 0.9
 
         for voice_type, text, silence_duration in segments:
             if voice_type == "silence":
-                # Add silence - silence_duration contains the duration in seconds
-                silence = AudioSegment.silent(
-                    duration=silence_duration * 1000
-                )  # Convert to milliseconds
+                silence = AudioSegment.silent(duration=silence_duration * 1000)
                 audio_segments.append(silence)
             else:
-                # Update progress before synthesizing
                 current_speech_segment += 1
                 if on_progress:
                     on_progress(current_speech_segment, total_speech_segments, voice_type)
 
-                # Generate speech
-                # Apply speaking rate slowdown to target language voices, not teacher
                 rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
                 audio_path = self.synthesize_segment(
                     text, voice_type, language_code, rate, teacher_language_code
@@ -308,26 +276,30 @@ class VoiceSynthesizer:
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
 
-                # Add silence after speech (if specified)
                 if silence_duration > 0:
                     silence = AudioSegment.silent(duration=silence_duration * 1000)
                     audio_segments.append(silence)
 
-        # Combine all audio segments
         if audio_segments:
             combined_audio = audio_segments[0]
             for segment in audio_segments[1:]:
                 combined_audio += segment
         else:
-            # Empty audio if no segments
-            combined_audio = AudioSegment.silent(duration=1000)  # 1 second silence
+            combined_audio = AudioSegment.silent(duration=1000)
 
-        # Save the final lesson audio
-        output_path = os.path.join(self.lessons_dir, f"{meaning_id}-{teacher_language_code}.mp3")
         combined_audio.export(output_path, format="mp3")
-
-        log(f"Generated lesson audio: {output_path}")
+        log(f"Generated audio: {output_path}")
         return output_path
+
+    def generate_lesson_audio(self, meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
+        """Generate audio for a meaning lesson."""
+        output_path = os.path.join(self.lessons_dir, f"meaning-{meaning_id}-{teacher_language_code}.mp3")
+        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
+
+    def generate_dialogue_audio(self, dialogue_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
+        """Generate audio for a dialogue lesson."""
+        output_path = os.path.join(self.lessons_dir, f"dialogue-{dialogue_id}-{teacher_language_code}.mp3")
+        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
 
     def get_audio_duration(self, audio_path: str) -> int:
         """Get the duration of an audio file in seconds."""

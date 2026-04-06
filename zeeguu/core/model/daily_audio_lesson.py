@@ -40,9 +40,9 @@ class DailyAudioLesson(db.Model):
     last_paused_at = Column(TIMESTAMP)
     pause_position_seconds = Column(Integer, default=0)
 
-    # Optional topic suggestion that themed the lesson
-    suggestion = Column(db.String(100), nullable=True)
-    suggestion_type = Column(db.String(20), nullable=True)
+    raw_suggestion = Column(db.String(100), nullable=True)
+    canonical_suggestion = Column(db.String(100), nullable=True)
+    lesson_type = Column(db.String(20), nullable=True)
 
     # Relationship to segments (individual meaning lessons)
     segments = relationship(
@@ -52,14 +52,15 @@ class DailyAudioLesson(db.Model):
         cascade="all, delete-orphan",
     )
 
-    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, suggestion=None, suggestion_type=None):
+    def __init__(self, user, created_by, voice_config=None, duration_seconds=None, language=None, raw_suggestion=None, canonical_suggestion=None, lesson_type="three_words_lesson"):
         self.user = user
         self.created_by = created_by
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         self.language = language or user.learned_language
-        self.suggestion = suggestion
-        self.suggestion_type = suggestion_type
+        self.raw_suggestion = raw_suggestion
+        self.canonical_suggestion = canonical_suggestion
+        self.lesson_type = lesson_type
         self.listened_count = 0
         self.pause_position_seconds = 0
 
@@ -96,6 +97,20 @@ class DailyAudioLesson(db.Model):
             sequence_order=sequence_order,
         )
         # Only add to session - the relationship will be handled automatically
+        db.session.add(segment)
+        return segment
+
+    def add_dialogue_segment(self, audio_lesson_dialogue, sequence_order):
+        """Add a dialogue lesson segment to this daily lesson"""
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+        from zeeguu.core.model import db
+
+        segment = DailyAudioLessonSegment(
+            daily_lesson=self,
+            segment_type="dialogue_lesson",
+            audio_lesson_dialogue=audio_lesson_dialogue,
+            sequence_order=sequence_order,
+        )
         db.session.add(segment)
         return segment
 
@@ -149,6 +164,17 @@ class DailyAudioLesson(db.Model):
     def is_paused(self):
         """Check if lesson is currently paused"""
         return self.pause_position_seconds > 0 and not self.is_completed
+
+    @classmethod
+    def find_canonical_for_raw_suggestion(cls, user, raw_suggestion):
+        """Find the canonical form previously used for this raw suggestion by this user."""
+        result = (
+            cls.query.filter_by(user_id=user.id, raw_suggestion=raw_suggestion)
+            .filter(cls.canonical_suggestion.isnot(None))
+            .order_by(cls.id.desc())
+            .first()
+        )
+        return result.canonical_suggestion if result else None
 
     @classmethod
     def find_latest_for_user(cls, user, include_completed=False):

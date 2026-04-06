@@ -119,6 +119,23 @@ TRANSITION_PHRASES = {
 }
 
 
+# Dialogue outro: wrap-up in the teacher's language (no word list talk)
+DIALOGUE_OUTRO_PHRASES = {
+    "en": ["That's the end of today's lesson. Come back tomorrow for a new conversation!"],
+    "da": ["Det var slutningen på dagens lektion. Kom tilbage i morgen til en ny samtale!"],
+    "de": ["Das war das Ende der heutigen Lektion. Komm morgen für ein neues Gespräch zurück!"],
+    "es": ["Eso es todo por hoy. ¡Vuelve mañana para una nueva conversación!"],
+    "fr": ["C'est la fin de la leçon d'aujourd'hui. Reviens demain pour une nouvelle conversation !"],
+    "it": ["Questa è la fine della lezione di oggi. Torna domani per una nuova conversazione!"],
+    "nl": ["Dat was het einde van de les van vandaag. Kom morgen terug voor een nieuw gesprek!"],
+    "pt": ["Esta é a lição de hoje. Volta amanhã para uma nova conversa!"],
+    "sv": ["Det var slutet på dagens lektion. Kom tillbaka imorgon för ett nytt samtal!"],
+    "pl": ["To koniec dzisiejszej lekcji. Wróć jutro na nową rozmowę!"],
+    "ro": ["Aceasta a fost lecția de astăzi. Revino mâine pentru o nouă conversație!"],
+    "el": ["Αυτό ήταν το τέλος του σημερινού μαθήματος. Επέστρεψε αύριο για μια νέα συζήτηση!"],
+    "uk": ["Це кінець сьогоднішнього уроку. Повертайся завтра на нову розмову!"],
+}
+
 # Outro phrases: congratulations + reminder about word list management.
 OUTRO_PHRASES = {
     "en": [
@@ -189,21 +206,39 @@ OUTRO_PHRASES = {
 }
 
 
-# Short positive closing after the outro reminder.
+# Short positive closing IN THE LEARNED LANGUAGE — a bit of practice at the end!
 CLOSING_PHRASES = {
-    "en": ["Keep it up! See you next time.", "Keep practicing, and see you soon!", "You're doing great. See you next time!"],
-    "da": ["Bliv ved! Vi ses næste gang.", "Fortsæt med at øve, og vi ses snart!", "Du klarer det godt. Vi ses næste gang!"],
-    "de": ["Weiter so! Bis zum nächsten Mal.", "Üb weiter, und bis bald!", "Du machst das toll. Bis zum nächsten Mal!"],
-    "es": ["¡Sigue así! Nos vemos la próxima vez.", "¡Sigue practicando y nos vemos pronto!", "¡Lo estás haciendo genial! ¡Hasta la próxima!"],
-    "fr": ["Continue comme ça ! À la prochaine.", "Continue à pratiquer, et à bientôt !", "Tu fais du super travail. À la prochaine !"],
-    "it": ["Continua così! Ci vediamo la prossima volta.", "Continua a esercitarti, e a presto!", "Stai andando alla grande. Alla prossima!"],
-    "nl": ["Ga zo door! Tot de volgende keer.", "Blijf oefenen, en tot snel!", "Je doet het geweldig. Tot de volgende keer!"],
-    "pt": ["Continua assim! Até à próxima.", "Continua a praticar, e até breve!", "Estás a ir muito bem. Até à próxima!"],
-    "sv": ["Fortsätt så! Vi ses nästa gång.", "Fortsätt öva, så ses vi snart!", "Du gör det jättebra. Vi ses nästa gång!"],
-    "pl": ["Tak trzymaj! Do następnego razu.", "Ćwicz dalej, i do zobaczenia wkrótce!", "Świetnie ci idzie. Do następnego razu!"],
-    "ro": ["Continuă tot așa! Ne vedem data viitoare.", "Continuă să exersezi, și pe curând!", "Te descurci foarte bine. Pe data viitoare!"],
-    "el": ["Συνέχισε έτσι! Τα λέμε την επόμενη φορά.", "Συνέχισε να εξασκείσαι, και τα λέμε σύντομα!", "Τα πας υπέροχα. Τα λέμε την επόμενη φορά!"],
-    "uk": ["Так тримати! До наступного разу.", "Продовжуй практикувати, і до зустрічі!", "Ти чудово справляєшся. До наступного разу!"],
+    "en": ["Great job! See you next time.", "Well done! See you soon!", "You're doing great. See you next time!"],
+    "da": ["Godt klaret! Vi ses næste gang.", "Flot arbejde! Vi ses snart!", "Du klarer det godt. Vi ses næste gang!"],
+    "de": ["Gut gemacht! Bis zum nächsten Mal.", "Sehr gut! Bis bald!", "Du machst das toll. Bis zum nächsten Mal!"],
+    "es": ["¡Buen trabajo! ¡Nos vemos la próxima vez!", "¡Muy bien! ¡Nos vemos pronto!", "¡Lo estás haciendo genial! ¡Hasta la próxima!"],
+    "fr": ["Bon travail ! À la prochaine.", "Très bien ! À bientôt !", "Tu fais du super travail. À la prochaine !"],
+    "it": ["Ottimo lavoro! Ci vediamo la prossima volta.", "Molto bene! A presto!", "Stai andando alla grande. Alla prossima!"],
+    "nl": ["Goed gedaan! Tot de volgende keer.", "Heel goed! Tot snel!", "Je doet het geweldig. Tot de volgende keer!"],
+    "pt": ["Bom trabalho! Até à próxima.", "Muito bem! Até breve!", "Estás a ir muito bem. Até à próxima!"],
+    "sv": ["Bra jobbat! Vi ses nästa gång.", "Mycket bra! Vi ses snart!", "Du gör det jättebra. Vi ses nästa gång!"],
+    "pl": ["Dobra robota! Do następnego razu.", "Bardzo dobrze! Do zobaczenia wkrótce!", "Świetnie ci idzie. Do następnego razu!"],
+    "ro": ["Bravo! Ne vedem data viitoare.", "Foarte bine! Pe curând!", "Te descurci foarte bine. Pe data viitoare!"],
+    "el": ["Μπράβο! Τα λέμε την επόμενη φορά.", "Πολύ καλά! Τα λέμε σύντομα!", "Τα πας υπέροχα. Τα λέμε την επόμενη φορά!"],
+    "uk": ["Чудова робота! До наступного разу.", "Дуже добре! До зустрічі!", "Ти чудово справляєшся. До наступного разу!"],
+}
+
+
+# Dialogue intro: teacher explains the format before the dialogue plays
+DIALOGUE_INTRO_PHRASES = {
+    "en": ["First, listen to the whole conversation. Then, we'll practice the key phrases together."],
+    "da": ["Først skal du lytte til hele samtalen. Bagefter øver vi de vigtigste sætninger sammen."],
+    "de": ["Zuerst hörst du das ganze Gespräch. Danach üben wir die wichtigsten Sätze zusammen."],
+    "es": ["Primero, escucha toda la conversación. Después, practicaremos las frases clave juntos."],
+    "fr": ["D'abord, écoute toute la conversation. Ensuite, nous pratiquerons les phrases clés ensemble."],
+    "it": ["Prima, ascolta tutta la conversazione. Poi, praticheremo le frasi chiave insieme."],
+    "nl": ["Luister eerst naar het hele gesprek. Daarna oefenen we de belangrijkste zinnen samen."],
+    "pt": ["Primeiro, ouve toda a conversa. Depois, vamos praticar as frases-chave juntos."],
+    "sv": ["Lyssna först på hela samtalet. Sedan övar vi de viktigaste fraserna tillsammans."],
+    "pl": ["Najpierw posłuchaj całej rozmowy. Potem przećwiczymy kluczowe zwroty razem."],
+    "ro": ["Mai întâi, ascultă toată conversația. Apoi, vom exersa împreună expresiile cheie."],
+    "el": ["Πρώτα, άκουσε ολόκληρη τη συζήτηση. Μετά, θα εξασκήσουμε τις βασικές φράσεις μαζί."],
+    "uk": ["Спочатку послухай всю розмову. Потім ми разом попрактикуємо ключові фрази."],
 }
 
 
@@ -228,20 +263,42 @@ class LessonBuilder:
         )
         return AudioSegment.from_mp3(audio_path)
 
-    def _get_outro_segments(self, voice_synthesizer, teacher_language: str) -> list:
-        """Generate outro: word list reminder + positive closing. Returns list of AudioSegments."""
+    def _synthesize_learned_language_phrase(self, voice_synthesizer, learned_language: str, text: str) -> AudioSegment:
+        """Synthesize a phrase in the learned language (using the woman voice)."""
+        audio_path = voice_synthesizer.synthesize_segment(
+            text=text,
+            voice_type="woman",
+            language_code=learned_language,
+            speaking_rate=0.9,
+            teacher_language=learned_language,
+        )
+        return AudioSegment.from_mp3(audio_path)
+
+    def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None, is_dialogue=False) -> list:
+        """Generate outro. Teacher wraps up, then closing in the learned language."""
         segments = []
 
-        # Word list reminder
-        phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
-        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
+        if is_dialogue:
+            # Dialogue: "That's the end of today's lesson. Come back tomorrow!"
+            phrases = DIALOGUE_OUTRO_PHRASES.get(teacher_language, DIALOGUE_OUTRO_PHRASES["en"])
+        else:
+            # Meaning lessons: word list reminder
+            phrases = OUTRO_PHRASES.get(teacher_language, OUTRO_PHRASES["en"])
 
-        # Short pause then positive closing
+        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases)))
         segments.append(AudioSegment.silent(duration=1500))
-        closings = CLOSING_PHRASES.get(teacher_language, CLOSING_PHRASES["en"])
-        segments.append(self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(closings)))
+
+        # Positive closing in the LEARNED language
+        closing_lang = learned_language or teacher_language
+        closings = CLOSING_PHRASES.get(closing_lang, CLOSING_PHRASES["en"])
+        segments.append(self._synthesize_learned_language_phrase(voice_synthesizer, closing_lang, random.choice(closings)))
 
         return segments
+
+    def _get_dialogue_intro_audio(self, voice_synthesizer, teacher_language: str) -> AudioSegment:
+        """Generate a short teacher intro before a dialogue segment."""
+        phrases = DIALOGUE_INTRO_PHRASES.get(teacher_language, DIALOGUE_INTRO_PHRASES["en"])
+        return self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases))
 
     def _get_transition_audio(self, voice_synthesizer, teacher_language: str) -> AudioSegment:
         """Generate a short teacher transition phrase between segments."""
@@ -259,12 +316,16 @@ class LessonBuilder:
             Path to the generated daily lesson MP3 file
         """
         audio_segments = []
-        meaning_segment_count = 0
+        content_segment_count = 0
 
-        # Determine teacher language for transitions
+        # Determine languages for transitions and outro
         teacher_language = None
-        if daily_lesson.user and daily_lesson.user.native_language:
-            teacher_language = daily_lesson.user.native_language.code
+        learned_language = None
+        if daily_lesson.user:
+            if daily_lesson.user.native_language:
+                teacher_language = daily_lesson.user.native_language.code
+            if daily_lesson.user.learned_language:
+                learned_language = daily_lesson.user.learned_language.code
 
         # Process segments in order
         segments_list = list(daily_lesson.segments)
@@ -278,8 +339,8 @@ class LessonBuilder:
                 and segment.audio_lesson_meaning
             ):
                 # Add transition before 2nd+ meaning segments
-                meaning_segment_count += 1
-                if meaning_segment_count > 1 and voice_synthesizer and teacher_language:
+                content_segment_count += 1
+                if content_segment_count > 1 and voice_synthesizer and teacher_language:
                     # Add silence then transition phrase
                     audio_segments.append(AudioSegment.silent(duration=2000))
                     transition = self._get_transition_audio(voice_synthesizer, teacher_language)
@@ -291,6 +352,22 @@ class LessonBuilder:
                 # Remove leading /audio/ since we're already in /$ZEEGUU_DATA_FOLDER/audio
                 if relative_path.startswith("/audio/"):
                     relative_path = relative_path[7:]  # Remove '/audio/'
+                audio_path = os.path.join(self.audio_dir, relative_path)
+
+            elif (
+                segment.segment_type == "dialogue_lesson"
+                and segment.audio_lesson_dialogue
+            ):
+                content_segment_count += 1
+                # Add teacher intro before dialogue
+                if voice_synthesizer and teacher_language:
+                    intro = self._get_dialogue_intro_audio(voice_synthesizer, teacher_language)
+                    audio_segments.append(intro)
+                    audio_segments.append(AudioSegment.silent(duration=1500))
+
+                relative_path = segment.audio_lesson_dialogue.audio_file_path
+                if relative_path.startswith("/audio/"):
+                    relative_path = relative_path[7:]
                 audio_path = os.path.join(self.audio_dir, relative_path)
 
             elif (
@@ -314,9 +391,10 @@ class LessonBuilder:
                 )
 
         # Add outro after all segments
-        if voice_synthesizer and teacher_language and meaning_segment_count > 0:
+        if voice_synthesizer and teacher_language and content_segment_count > 0:
             audio_segments.append(AudioSegment.silent(duration=2000))
-            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language))
+            has_dialogue = any(s.segment_type == "dialogue_lesson" for s in segments_list)
+            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language, learned_language, is_dialogue=has_dialogue))
 
         # Combine all audio segments
         if audio_segments:

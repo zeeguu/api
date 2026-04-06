@@ -4,7 +4,8 @@ from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-from zeeguu.core.audio_lessons.script_generator import VALID_SUGGESTION_TYPES
+from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES, THREE_WORDS_LESSON
+from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
 from zeeguu.logging import log
 from . import api
@@ -58,8 +59,10 @@ def _generate_lesson_in_background(user_id, preparation):
             translation_language=preparation["translation_language"],
             cefr_level=preparation["cefr_level"],
             progress=progress,
-            suggestion=preparation.get("suggestion"),
-            suggestion_type=preparation.get("suggestion_type"),
+            raw_suggestion=preparation.get("raw_suggestion"),
+            canonical_suggestion=preparation.get("canonical_suggestion"),
+            lesson_type=preparation.get("lesson_type"),
+            is_general=preparation.get("is_general", False),
         )
     except Exception as e:
         log(f"[background_generate] Error for user {user_id}: {e}")
@@ -91,11 +94,27 @@ def generate_daily_lesson():
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
     suggestion = flask.request.form.get("suggestion", "").strip()[:80].strip() or None
-    suggestion_type = flask.request.form.get("suggestion_type", "").strip() or None
-    if suggestion_type not in (None, *VALID_SUGGESTION_TYPES):
-        suggestion_type = None
+    lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
+    if lesson_type not in VALID_LESSON_TYPES:
+        return json_result({"error": f"Invalid lesson_type: {lesson_type}"}), 400
 
-    result = generator.prepare_lesson_generation(user, timezone_offset, suggestion, suggestion_type)
+    # Validate and canonicalize the suggestion
+    canonical_suggestion = None
+    is_general_topic = False
+    if suggestion and lesson_type in ("topic", "situation"):
+        # Reuse canonical form if this user has typed the same thing before
+        from zeeguu.core.model import DailyAudioLesson
+        cached_canonical = DailyAudioLesson.find_canonical_for_raw_suggestion(user, suggestion)
+        if cached_canonical:
+            canonical_suggestion = cached_canonical
+        else:
+            is_valid, validation_result = validate_suggestion(suggestion, lesson_type, user.native_language.name)
+            if not is_valid:
+                return json_result({"error": f"Can't generate a lesson for this: {validation_result['reason']}"}), 400
+            canonical_suggestion = validation_result["canonical"]
+            is_general_topic = validation_result["is_general"]
+
+    result = generator.prepare_lesson_generation(user, timezone_offset, canonical_suggestion, lesson_type)
 
     # Existing lesson found — return it directly
     if result.get("lesson_id"):
@@ -110,6 +129,8 @@ def generate_daily_lesson():
     if "selected_word_ids" not in result:
         return json_result({"error": "Unexpected preparation result"}), 500
 
+    result["raw_suggestion"] = suggestion
+    result["is_general"] = is_general_topic
     run_in_background(_generate_lesson_in_background, user.id, result)
 
     return json_result({"status": "generating", "message": "Lesson generation started"}), 202

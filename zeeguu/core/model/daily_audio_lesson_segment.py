@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
+from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 
 
@@ -20,20 +21,24 @@ class DailyAudioLessonSegment(db.Model):
     daily_audio_lesson_id = Column(Integer, ForeignKey('daily_audio_lesson.id', ondelete='CASCADE'), nullable=False)
     daily_lesson = relationship('DailyAudioLesson', back_populates='segments')
     
-    segment_type = Column(Enum('intro', 'meaning_lesson', 'outro', name='segment_type'), nullable=False, default='meaning_lesson')
+    segment_type = Column(Enum('intro', 'meaning_lesson', 'dialogue_lesson', 'outro', name='segment_type'), nullable=False, default='meaning_lesson')
     
     audio_lesson_meaning_id = Column(Integer, ForeignKey(AudioLessonMeaning.id, ondelete='CASCADE'))
     audio_lesson_meaning = relationship(AudioLessonMeaning)
-    
+
+    audio_lesson_dialogue_id = Column(Integer, ForeignKey(AudioLessonDialogue.id, ondelete='CASCADE'))
+    audio_lesson_dialogue = relationship(AudioLessonDialogue)
+
     daily_audio_lesson_wrapper_id = Column(Integer, ForeignKey(DailyAudioLessonWrapper.id, ondelete='CASCADE'))
     daily_audio_lesson_wrapper = relationship(DailyAudioLessonWrapper)
     
     sequence_order = Column(Integer, nullable=False)
 
-    def __init__(self, daily_lesson, segment_type='meaning_lesson', audio_lesson_meaning=None, daily_audio_lesson_wrapper=None, sequence_order=1):
+    def __init__(self, daily_lesson, segment_type='meaning_lesson', audio_lesson_meaning=None, audio_lesson_dialogue=None, daily_audio_lesson_wrapper=None, sequence_order=1):
         self.daily_lesson = daily_lesson
         self.segment_type = segment_type
         self.audio_lesson_meaning = audio_lesson_meaning
+        self.audio_lesson_dialogue = audio_lesson_dialogue
         self.daily_audio_lesson_wrapper = daily_audio_lesson_wrapper
         self.sequence_order = sequence_order
 
@@ -45,6 +50,8 @@ class DailyAudioLessonSegment(db.Model):
         """Returns the expected path for the audio file based on segment type and content"""
         if self.segment_type == 'meaning_lesson' and self.audio_lesson_meaning:
             return self.audio_lesson_meaning.audio_file_path
+        elif self.segment_type == 'dialogue_lesson' and self.audio_lesson_dialogue:
+            return self.audio_lesson_dialogue.audio_file_path
         elif self.daily_audio_lesson_wrapper:
             return self.daily_audio_lesson_wrapper.audio_file_path
         else:
@@ -61,3 +68,7 @@ class DailyAudioLessonSegment(db.Model):
     @property
     def is_meaning_lesson(self):
         return self.segment_type == 'meaning_lesson'
+
+    @property
+    def is_dialogue_lesson(self):
+        return self.segment_type == 'dialogue_lesson'
