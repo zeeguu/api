@@ -73,19 +73,22 @@ class DailyLessonGenerator:
             )
             self.delete_todays_lesson_for_user(user, timezone_offset)
 
-        # Select words for the lesson and get info about unscheduled words
-        selected_words, unscheduled_words = self.select_words_for_lesson(
-            user, 3, return_unscheduled_info=True
-        )
-        log(
-            f"[prepare_lesson_generation] Selected {len(selected_words)} words for lesson"
-        )
-        if len(selected_words) < 2:
-            return {
-                "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
-                "available_words": len(selected_words),
-                "status_code": 400,
-            }
+        # Select words for the lesson (only required for vocabulary lessons)
+        is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
+        selected_words, unscheduled_words = [], []
+        if not is_dialogue:
+            selected_words, unscheduled_words = self.select_words_for_lesson(
+                user, 3, return_unscheduled_info=True
+            )
+            log(
+                f"[prepare_lesson_generation] Selected {len(selected_words)} words for lesson"
+            )
+            if len(selected_words) < 2:
+                return {
+                    "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
+                    "available_words": len(selected_words),
+                    "status_code": 400,
+                }
 
         # Get user's languages and CEFR level
         origin_language = user.learned_language.code
