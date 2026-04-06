@@ -8,7 +8,7 @@ from zeeguu.core.model.user_avatar import UserAvatar
 
 def exercise_time_leaderboard(
         user_ids_subquery,
-        limit: int = 20,
+        limit: int = None,
         from_date=None,
         to_date=None,
 ):
@@ -41,7 +41,7 @@ def exercise_time_leaderboard(
 
 def listening_time_leaderboard(
         user_ids_subquery,
-        limit: int = 20,
+        limit: int = None,
         from_date=None,
         to_date=None,
 ):
@@ -74,7 +74,7 @@ def listening_time_leaderboard(
 
 def read_articles_leaderboard(
         user_ids_subquery,
-        limit: int = 20,
+        limit: int = None,
         from_date=None,
         to_date=None,
 ):
@@ -108,7 +108,7 @@ def read_articles_leaderboard(
 
 def reading_time_leaderboard(
         user_ids_subquery,
-        limit: int = 20,
+        limit: int = None,
         from_date=None,
         to_date=None,
 ):
@@ -141,7 +141,7 @@ def reading_time_leaderboard(
 
 def exercises_done_leaderboard(
         user_ids_subquery,
-        limit: int = 20,
+        limit: int = None,
         from_date=None,
         to_date=None,
 ):

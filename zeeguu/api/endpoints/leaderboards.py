@@ -94,7 +94,7 @@ def _parse_leaderboard_query_params():
         from_date: ISO datetime string (optional)
         to_date: ISO datetime string (optional)
     """
-    limit = 20
+    limit = None
     limit_arg = request.args.get("limit")
     if limit_arg is not None:
         try:
