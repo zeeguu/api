@@ -28,7 +28,7 @@ def update_activity_session(session_class, request, db_session):
     return session
 
 
-MIN_STREAK_DURATION_SECONDS = 60
+MIN_STREAK_DURATION_SECONDS = 120
 
 
 def _update_streak(db_session):
