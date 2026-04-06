@@ -20,7 +20,7 @@ def update_activity_session(session_class, request, db_session):
     session.last_action_time = datetime.now()
     db_session.add(session)
 
-    if duration >= MIN_STREAK_DURATION_SECONDS:
+    if duration >= MIN_STREAK_DURATION_MS:
         _update_streak(db_session)
 
     db_session.commit()
@@ -28,7 +28,7 @@ def update_activity_session(session_class, request, db_session):
     return session
 
 
-MIN_STREAK_DURATION_SECONDS = 120
+MIN_STREAK_DURATION_MS = 120_000  # 2 minutes in milliseconds (frontend sends ms)
 
 
 def _update_streak(db_session):
