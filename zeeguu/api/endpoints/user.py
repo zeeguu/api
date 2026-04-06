@@ -1,7 +1,9 @@
 import flask
+import sqlalchemy
 
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from zeeguu.core.model.user_avatar import UserAvatar
@@ -185,17 +187,17 @@ def get_user_details():
 
     return json_result(details_dict)
 
-@api.route("/get_user_details/<int:friend_user_id>", methods=["GET"])
+@api.route("/get_user_details/<friend_username>", methods=["GET"])
 @cross_domain
 @requires_session
-def get_friend_details(friend_user_id):
+def get_friend_details(friend_username):
     """
-    Return user details for friend_user_id, including a 'friendship' object
+    Return user details for friend_username, including a 'friendship' object
     with friend_request_status ('accepted', 'pending', or None).
     """
     user = User.find_by_id(flask.g.user_id)
     from zeeguu.core.model.friend import Friend
-    friend_details = Friend.find_friend_details(user.id, friend_user_id)
+    friend_details = Friend.find_friend_details(user.id, friend_username)
     if not friend_details:
         return flask.jsonify({"error": "Not friends with this user or user not found."})
     return json_result(friend_details)
@@ -208,74 +210,65 @@ def user_settings():
     """
     :return: OK for success
     """
-    user_id = flask.g.user_id
-    data = flask.request.form
-    user = User.find_by_id(user_id)
+    try:
+        user_id = flask.g.user_id
+        data = flask.request.form
+        user = User.find_by_id(user_id)
 
-    submitted_name = data.get("name", None)
-    if submitted_name:
-        user.name = submitted_name
+        submitted_name = data.get("name", None)
+        if submitted_name:
+            user.name = submitted_name
 
-    submitted_username = data.get("username", None)
-    if submitted_username:
-        user.username = submitted_username
+        submitted_username = data.get("username", None)
+        if submitted_username:
+            normalized_username = submitted_username.strip()
+            if normalized_username != user.username and User.username_exists(normalized_username):
+                return make_error(400, "Username already in use")
+            user.username = submitted_username
 
-    submitted_native_language_code = data.get("native_language", None)
-    if submitted_native_language_code:
-        user.set_native_language(submitted_native_language_code)
+        submitted_native_language_code = data.get("native_language", None)
+        if submitted_native_language_code:
+            user.set_native_language(submitted_native_language_code)
 
-    cefr_level = data.get("cefr_level", None)
-    submitted_learned_language_code = data.get("learned_language", None)
+        cefr_level = data.get("cefr_level", None)
+        submitted_learned_language_code = data.get("learned_language", None)
 
-    if submitted_learned_language_code:
-        user.set_learned_language(
-            submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
-        )
+        if submitted_learned_language_code:
+            user.set_learned_language(
+                submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
+            )
 
-    submitted_email = data.get("email", None)
-    if submitted_email:
-        user.email = submitted_email
+        submitted_email = data.get("email", None)
+        if submitted_email:
+            normalized_email = submitted_email.strip().lower()
+            if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+                return make_error(400, "Email already in use")
+            user.email = submitted_email
 
-    submitted_password = data.get("password", None)
-    if submitted_password:
-        user.update_password(submitted_password)
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
 
-    submitted_avatar_image_name = data.get("avatar_image_name", None)
-    submitted_avatar_character_color = data.get("avatar_character_color", None)
-    submitted_avatar_background_color = data.get("avatar_background_color", None)
-    user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
-                                submitted_avatar_background_color)
-    if any([
-        submitted_avatar_image_name,
-        submitted_avatar_character_color,
-        submitted_avatar_background_color
-    ]):
-        user_avatar = UserAvatar.find(user_id)
+        submitted_avatar_image_name = data.get("avatar_image_name", None)
+        submitted_avatar_character_color = data.get("avatar_character_color", None)
+        submitted_avatar_background_color = data.get("avatar_background_color", None)
+        user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
+                                                  submitted_avatar_background_color)
 
-        if not user_avatar:
-            user_avatar = UserAvatar(user_id,
-                                     submitted_avatar_image_name,
-                                     submitted_avatar_character_color,
-                                     submitted_avatar_background_color)
-        else:
-            if submitted_avatar_image_name:
-                user_avatar.image_name = submitted_avatar_image_name
-
-            if submitted_avatar_character_color:
-                user_avatar.character_color = submitted_avatar_character_color
-
-            if submitted_avatar_background_color:
-                user_avatar.background_color = submitted_avatar_background_color
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
 
         zeeguu.core.model.db.session.add(user_avatar)
-
-    submitted_password = data.get("password", None)
-    if submitted_password:
-        user.update_password(submitted_password)
-
-    zeeguu.core.model.db.session.add(user)
-    zeeguu.core.model.db.session.commit()
-    return "OK"
+        zeeguu.core.model.db.session.add(user)
+        zeeguu.core.model.db.session.commit()
+        return "OK"
+    except ValueError as e:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, str(e))
+    except sqlalchemy.exc.IntegrityError:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, "Could not update user settings")
 
 
 @api.route("/send_feedback", methods=["POST"])

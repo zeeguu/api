@@ -1,21 +1,36 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
-from sqlalchemy.orm import relationship, object_session
-from zeeguu.core.model.db import db
-from zeeguu.core.model.user import User  # assuming you have a User model
 from datetime import datetime, timedelta
 
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, and_
+from sqlalchemy.orm import relationship, object_session
+
+from zeeguu.core.model.db import db
+from zeeguu.core.model.user import User
+from zeeguu.core.model.user_avatar import UserAvatar
+
+
 class Friend(db.Model):
-    __tablename__ = "friends"
+    __tablename__ = "friend"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
+    deleted_at = Column(DateTime, nullable=True)
     friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
     friend_streak_last_updated = Column(DateTime, nullable=True)
-    
-    
+
+    user = relationship(
+        User,
+        foreign_keys=[user_id],
+        primaryjoin="Friend.user_id == User.id"
+    )
+    friend = relationship(
+        User,
+        foreign_keys=[friend_id],
+        primaryjoin="Friend.friend_id == User.id"
+    )
+
     def update_friend_streak(self, session=None, commit=True):
         """
         Update friend_streak based on both users' most recent practice in any language.
@@ -68,72 +83,67 @@ class Friend(db.Model):
             if commit:
                 session.commit()
 
-    # Explicit relationships with primaryjoin
-    user = relationship(
-        User,
-        foreign_keys=[user_id],
-        primaryjoin="Friend.user_id == User.id"
-    )
-    friend = relationship(
-            User,
-            foreign_keys=[friend_id],
-            primaryjoin="Friend.friend_id == User.id"
-        )
-
     @staticmethod
     def get_friends(user_id):
         """Return a list of User objects that are friends with the given user_id."""
         # query where user is either the user_id or the friend_id
         friends = (
             db.session.query(User)
-            .join(Friend, or_(Friend.user_id == user_id, Friend.friend_id == user_id))
-            .filter(
-                    (Friend.user_id == user_id) & (User.id == Friend.friend_id)
-                    | (Friend.friend_id == user_id) & (User.id == Friend.user_id)
+            .join(
+                Friend,
+                ((Friend.user_id == user_id) & (Friend.friend_id == User.id)) |
+                ((Friend.friend_id == user_id) & (Friend.user_id == User.id))
             )
+            .filter(Friend.deleted_at.is_(None))
             .all()
         )
         return friends
 
     @staticmethod
-    def get_friends_with_friendship(user_id: int, exclude_user_id: int = None):
-        """Return combined friend user + friendship data for the given user.
-        
-        exclude_user_id: if provided, that user is omitted from the results.
+    def get_friends_with_details(user_id: int):
         """
-        friendships : list[Friend] = Friend.query.filter(
-            (Friend.user_id == user_id) | (Friend.friend_id == user_id)
-        ).all()
+        Return a list of all friends of the given user_id along with related data.
 
-        if not friendships:
-            return []
+        Returns a list of dictionaries, each representing a friendship containing:
+          - "user": the User object representing the friend
+          - "friendship": the Friend object linking the two users
+          - "user_avatar": the UserAvatar object for the friend (or None if not set)
+          - "user_languages": the list of active language of the friend (a list of
+            UserLanguage objects)
+        """
+        from zeeguu.core.model import UserLanguage
+        rows = (
+            db.session.query(User, Friend, UserAvatar, UserLanguage)
+            .select_from(User)
+            .join(
+                Friend,
+                or_(
+                    and_(Friend.user_id == user_id, Friend.friend_id == User.id),
+                    and_(Friend.friend_id == user_id, Friend.user_id == User.id),
+                )
+            )
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
+            .outerjoin(UserLanguage, UserLanguage.user_id == User.id)
+            .filter(Friend.deleted_at.is_(None))
+            .all()
+        )
 
-        other_user_ids = [
-            friendship.friend_id if friendship.user_id == user_id else friendship.user_id
-            for friendship in friendships
-        ]
+        grouped = {}
+        for user, friendship, avatar, language in rows:
+            key = friendship.id
 
-        users = User.query.filter(User.id.in_(other_user_ids)).all()
-        users_by_id = {user.id: user for user in users}
+            if key not in grouped:
+                grouped[key] = {
+                    "user": user,
+                    "friendship": friendship,
+                    "user_avatar": avatar,
+                    "user_languages": []
+                }
 
-        result = []
-        for friendship in friendships:
+            if language:
+                grouped[key]["user_languages"].append(language)
 
-            if friendship.user_id == user_id: 
-                other_user_id = friendship.friend_id 
-            else:
-                other_user_id = friendship.user_id
-
-            # Exclude if matches exclude_user_id (usually exclude_user_id is the current user, to avoid returning self as a friend)
-            if exclude_user_id is not None and other_user_id == exclude_user_id:
-                continue
-
-            friend_user = users_by_id.get(other_user_id)
-            if not friend_user:
-                continue
-            result.append({"user": friend_user, "friendship": friendship})
-
-        return result
+        return list(grouped.values())
 
     @classmethod
     def are_friends(cls, user1_id: int, user2_id: int) -> bool:
@@ -144,47 +154,73 @@ class Friend(db.Model):
         if user1_id == user2_id:
             return True
 
-        friendship = cls.query.filter(
-            ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
-            ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
-        ).first()
+        friendship = (
+            cls.query
+            .filter(
+                ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
+                ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
+            )
+            .filter(cls.deleted_at.is_(None))
+            .first()
+        )
         return friendship is not None
-    
+
     @classmethod
-    def remove_friendship(cls, user1_id: int, user2_id: int)->bool:
+    def remove_friendship(cls, user1_id: int, user2_id: int) -> bool:
+        """
+        Deletes a friendship between two users.
+
+        Only does a logical delete by setting deleted_at to the current time.
+        """
         # Look for friendship in either direction
-        friendship = cls.query.filter(
-            ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
-            ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
-        ).first()
+        friendship = (
+            cls.query
+            .filter(
+                ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
+                ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
+            )
+            .filter(cls.deleted_at.is_(None))
+            .first()
+        )
 
         if friendship:
-            db.session.delete(friendship)
+            friendship.deleted_at = datetime.now()
+            db.session.add(friendship)
             db.session.commit()
             return True
-        
+
         return False
-    
+
     @classmethod
-    def find_friend_details(cls, user_id: int, friend_user_id: int):
+    def find_friend_details(cls, user_id: int, friend_username: str):
         """
-        Return details_as_dictionary for friend_user_id.
-        Always includes a 'friendship' object with friend_request_status
-        ('accepted', 'pending', 'rejected', or None if no relationship).
-        When friends, also includes friends_since and mutual_streak.
+        Fetch profile details of the given friend_username.
+
+        Returns the target user's details_as_dictionary(), with additional
+        information including:
+        - friendship data (created_at, friend_streak, ...) between user_id
+          and friend_username, if exists,
+        - or friend request data (sender_username, receiver_username,...) between user_id and friend_username,
+          if exists.
         Returns None if the target user is not found.
         """
         from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
-        friend = User.find_by_id(friend_user_id)
-        if not friend:
+        friend = User.find_by_username(friend_username)
+        if friend is None:
             return None
+        friend_user_id = friend.id
 
-        friendship = cls.query.filter(
-            ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
-            ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
-        ).first()
+        friendship = (
+            cls.query
+            .filter(
+                ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
+                ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
+            )
+            .filter(cls.deleted_at.is_(None))
+            .first()
+        )
 
         friend_request = FriendRequest.query.filter(
             ((FriendRequest.sender_id == user_id) & (FriendRequest.receiver_id == friend_user_id)) |
@@ -192,7 +228,7 @@ class Friend(db.Model):
         ).order_by(FriendRequest.created_at.desc()).first()
 
         details = friend.details_as_dictionary()
-        details["friendship"] = cls._get_friendship_or_friendrequest(friendship, friend_request)
+        details["friendship"] = cls._get_friendship_or_friend_request(friendship, friend_request)
 
         if friendship:
             details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
@@ -200,100 +236,95 @@ class Friend(db.Model):
 
         return details
 
-
-    @staticmethod
-    def search_users(current_user_id: int, term: str, limit: int = 20):
+    @classmethod
+    def search_users(cls, current_user_id: int, term: str, limit: int = 20):
         """
-        Search users by username (partial match) or exact email.
+        Search users by username (partial match) or exact email or name.
         For each user, return:
             - user info
-            - friend request status (if any)
             - friendship status (if any)
+            - friend request status (if any)
         """
+        from sqlalchemy import or_, func
         from zeeguu.core.model.friend_request import FriendRequest
-        
-        # Build base query
+
         filters = []
+        term = term.lower()
         if term:
-            filters.append(func.lower(User.username).ilike(f"%{term}%")) # ilike for case-insensitive partial match
-            filters.append(func.lower(User.email) == term) # exact match for email
-            filters.append(func.lower(User.name) == term) # exact match for name
-        
+            filters.append(func.lower(User.username).ilike(f"%{term}%"))  # case-insensitive partial match for username
+            filters.append(func.lower(User.email) == term)  # exact match for email
+            filters.append(func.lower(User.name) == term)  # exact match for name
+
         if not filters:
             return []  # nothing to search
-        
-        query = User.query
-        query = query.filter(or_(*filters), User.id != current_user_id).limit(limit)
+
+        query = (
+            db.session.query(User, UserAvatar)
+            .select_from(User)
+            .filter(
+                or_(*filters),
+                User.id != current_user_id
+            )
+            .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
+            .limit(limit)
+        )
+
+        # Fetch all friendships involving the current user
+        friendships = (
+            Friend.query
+            .filter(
+                (Friend.user_id == current_user_id) | (Friend.friend_id == current_user_id)
+            )
+            .filter(Friend.deleted_at.is_(None))
+            .all()
+        )
+
+        friendship_map = {}
+        for friendship in friendships:
+            other_id = friendship.friend_id if friendship.user_id == current_user_id else friendship.user_id
+            friendship_map[other_id] = friendship
+
+        # Fetch all friend requests involving the current user
+        friend_requests = FriendRequest.query.filter(
+            (FriendRequest.sender_id == current_user_id) | (FriendRequest.receiver_id == current_user_id)
+        ).all()
+
+        friend_request_map = {}
+        for friend_request in friend_requests:
+            other_id = friend_request.receiver_id if friend_request.sender_id == current_user_id else friend_request.sender_id
+            friend_request_map[other_id] = friend_request
 
         results = []
-        for user in query.all():
-            # Friendship status
-            friendship = Friend.query.filter(
-                ((Friend.user_id == current_user_id) & (Friend.friend_id == user.id)) |
-                ((Friend.user_id == user.id) & (Friend.friend_id == current_user_id))
-            ).first()
 
-            # Friend request status
-            friend_request = FriendRequest.query.filter(
-                ((FriendRequest.sender_id == current_user_id) & (FriendRequest.receiver_id == user.id)) |
-                ((FriendRequest.sender_id == user.id) & (FriendRequest.receiver_id == current_user_id))
-            ).order_by(FriendRequest.created_at.desc()).first()
-
-            
-            friendship_or_friend_request = Friend._get_friendship_or_friendrequest(
-                friendship,
-                friend_request)
-            
+        for user, avatar in query.all():
             results.append({
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    "friendship": friendship_or_friend_request,
-                },
+                "user": user,
+                "user_avatar": avatar,
+                "friendship": friendship_map.get(user.id),
+                "friend_request": friend_request_map.get(user.id),
             })
+
         return results
+
     @staticmethod
-    def _get_friendship_or_friendrequest(friendship, friend_request):
-        
-        if friendship:
-            return {
-                "id": friendship.id,
-                "friend_streak": friendship.friend_streak,
-                "friend_streak_last_updated": (
-                    friendship.friend_streak_last_updated.isoformat()
-                    if friendship.friend_streak_last_updated
-                    else None
-                ),
-                "friend_request_status": "accepted",
-                "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
-            }
-        elif friend_request:
-            return {
-                "id": friend_request.id,
-                "sender_id": friend_request.sender_id, # TODO: Are these nessesary
-                "receiver_id": friend_request.receiver_id, # TODO: are these nesessary
-                "friend_streak": 0,
-                "friend_streak_last_updated": None,
-                "friend_request_status": friend_request.status,
-                "created_at": (
-                    friend_request.created_at.isoformat()
-                    if friend_request.created_at
-                    else None
-                ),
-            }
-        
     def add_friendship(user_id: int, friend_id: int):
         """
-        Adds a friendship between two users using SQLAlchemy ORM.
-        Stores both directions for easy querying.
+        Creates a friendship between two users, or returns it if they are already friends.
+
+        If their friendship was previously logically deleted, this will create a new
+        row for the same users instead of overwriting the existing one. This ensures
+        past friend leaderboards will show correct data for their respective time periods.
         """
         # Check if friendship already exists
-        existing = Friend.query.filter(
-            ((Friend.user_id == user_id) & (Friend.friend_id == friend_id)) |
-            ((Friend.user_id == friend_id) & (Friend.friend_id == user_id))
-        ).first()
+        existing = (
+            Friend.query
+            .filter(
+                ((Friend.user_id == user_id) & (Friend.friend_id == friend_id)) |
+                ((Friend.user_id == friend_id) & (Friend.friend_id == user_id))
+            )
+            .filter(Friend.deleted_at.is_(None))
+            .first()
+        )
 
         if existing:
             return existing  # friendship already exists
@@ -304,3 +335,30 @@ class Friend(db.Model):
         db.session.commit()
         db.session.refresh(friendship)
         return friendship
+
+    @staticmethod
+    def _get_friendship_or_friend_request(friendship, friend_request):
+        if friendship:
+            return {
+                "friend_streak": friendship.friend_streak,
+                "friend_streak_last_updated": (
+                    friendship.friend_streak_last_updated.isoformat()
+                    if friendship.friend_streak_last_updated
+                    else None
+                ),
+                "is_accepted": True,
+                "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
+            }
+        elif friend_request:
+            return {
+                "sender_username": friend_request.sender.username,
+                "receiver_username": friend_request.receiver.username,
+                "friend_streak": 0,
+                "friend_streak_last_updated": None,
+                "is_accepted": False,
+                "created_at": (
+                    friend_request.created_at.isoformat()
+                    if friend_request.created_at
+                    else None
+                ),
+            }

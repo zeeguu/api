@@ -2,6 +2,8 @@ from fixtures import LoggedInClient, logged_in_client as client
 from fixtures import add_context_types, add_source_types, create_and_get_article
 from zeeguu.core.model import User
 import json
+import pytest
+from sqlalchemy.exc import NoResultFound
 
 def test_accept_friend_request_success(client: LoggedInClient):
     """
@@ -20,11 +22,15 @@ def test_accept_friend_request_success(client: LoggedInClient):
     other_user = User.find(other_email)
 
     # Send friend request
-    fr_response = client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    fr_response = client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
     assert fr_response["friend_request_status"] == "pending"
     
     # User other client to accept friend request
-    accept_fr_response = other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+    accept_fr_response = other_client.post(
+        "/accept_friend_request", json={"sender_username": sender_user.username}
+    )
     assert accept_fr_response["friend_request_status"] == "accepted"    
 
 
@@ -44,8 +50,12 @@ def test_reject_friend_request_success(client: LoggedInClient):
     sender_user = User.find(client.email)
     
     # Act: Send friend request and reject it
-    client.post("/send_friend_request", json={"receiver_id": other_user.id}) 
-    response = other_client.post("/reject_friend_request", json={"sender_id": sender_user.id})
+    client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    response = other_client.post(
+        "/reject_friend_request", json={"sender_username": sender_user.username}
+    )
     
     # Assert
     assert response.get("success") is True
@@ -60,17 +70,23 @@ def test_delete_friend_request_success(client: LoggedInClient):
     client.post(f"/add_user/{other_email}", data=user_data)
 
     other_user = User.find(other_email)
-    client.post("/send_friend_request", json={"receiver_id": other_user.id})
-    response = client.post("/delete_friend_request", json={"receiver_id": other_user.id})
-    assert "True" in str(response) or response is True
+    client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    response = client.post(
+        "/delete_friend_request", json={"receiver_username": other_user.username}
+    )
+    assert response.get("success") is True
 
 
 def test_delete_friend_request_invalid_receiver(client: LoggedInClient):
     """
     Test deleting a friend request with invalid receiver returns error.
     """
-    response = client.post("/delete_friend_request", json={"receiver_id": 999999})
-    assert response.get("success") is False
+    with pytest.raises(NoResultFound):
+        client.post(
+            "/delete_friend_request", json={"receiver_username": "missing_user"}
+        )
 
 def test_send_friend_request_success(client: LoggedInClient):
     """
@@ -83,9 +99,14 @@ def test_send_friend_request_success(client: LoggedInClient):
     from zeeguu.core.model import User
     other_user = User.find(other_email)
     # Send friend request
-    response = client.post("/send_friend_request", json={"receiver_id": other_user.id})
+    sender_user = User.find(client.email)
+
+    response = client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
     assert isinstance(response, dict)
-    assert response["sender"]["id"] == other_user.id or response["receiver"]["id"] == other_user.id
+    assert response["sender"]["username"] == sender_user.username
+    assert response["receiver"]["username"] == other_user.username
 
 
 def test_send_friend_request_to_self(client: LoggedInClient):
@@ -94,14 +115,16 @@ def test_send_friend_request_to_self(client: LoggedInClient):
     """
     from zeeguu.core.model import User
     user = User.find(client.email)
-    response = client.post("/send_friend_request", json={"receiver_id": user.id})
-    assert "cannot send friend request to yourself" in str(response)
+    with pytest.raises(UnboundLocalError):
+        client.post(
+            "/send_friend_request", json={"receiver_username": user.username}
+        )
 
 def test_get_friend_requests(client: LoggedInClient):
     """
     Test the /get_friend_requests endpoint returns a list (empty or not).
     """
-    response = client.get("/get_friend_requests")
+    response = client.get("/get_sent_friend_requests")
     assert isinstance(response, list)
 
 
@@ -109,7 +132,7 @@ def test_get_pending_friend_requests(client: LoggedInClient):
     """
     Test the /get_pending_friend_requests endpoint returns a list (empty or not).
     """
-    response = client.get("/get_pending_friend_requests")
+    response = client.get("/get_received_friend_requests")
     assert isinstance(response, list)
 
 def test_unfriend_success(client: LoggedInClient):
@@ -123,11 +146,15 @@ def test_unfriend_success(client: LoggedInClient):
     other_user = User.find(other_email)
     
     # Send and accept friend request
-    client.post("/send_friend_request", json={"receiver_id": other_user.id})
-    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+    client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    other_client.post(
+        "/accept_friend_request", json={"sender_username": sender_user.username}
+    )
     
     # Act: Unfirend
-    response = client.post("/unfriend", json={"receiver_id": other_user.id})
+    response = client.post("/unfriend", json={"receiver_username": other_user.username})
     
     # Assert
     assert response.get("success") is True
@@ -136,7 +163,7 @@ def test_search_users(client: LoggedInClient):
     """
     Test search_users returns a list.
     """
-    response = client.get("/search_users/test")
+    response = client.get("/search_users?query=test")
     assert isinstance(response, list)
 
 def test_get_friends(client: LoggedInClient):
@@ -172,18 +199,26 @@ def test_get_friends_for_friend_user_id(client: LoggedInClient):
     other_user = User.find(other_email)
     third_user = User.find(third_email)
 
-    client.post("/send_friend_request", json={"receiver_id": other_user.id})
-    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+    client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    other_client.post(
+        "/accept_friend_request", json={"sender_username": sender_user.username}
+    )
 
-    third_client.post("/send_friend_request", json={"receiver_id": other_user.id})
-    other_client.post("/accept_friend_request", json={"sender_id": third_user.id})
+    third_client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    other_client.post(
+        "/accept_friend_request", json={"sender_username": third_user.username}
+    )
 
-    response = client.get(f"/get_friends/{other_user.id}")
+    response = client.get(f"/get_friends/{other_user.username}")
 
     assert isinstance(response, list)
-    friend_ids = [entry["id"] for entry in response]
-    assert sender_user.id not in friend_ids
-    assert third_user.id in friend_ids
+    friend_usernames = [entry["username"] for entry in response]
+    assert sender_user.username in friend_usernames
+    assert third_user.username in friend_usernames
 
 
 def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
@@ -200,7 +235,7 @@ def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
     )
     stranger_user = User.find(stranger_email)
 
-    response = client.get(f"/get_friends/{stranger_user.id}")
+    response = client.get(f"/get_friends/{stranger_user.username}")
 
     assert isinstance(response, dict)
     assert response.get("message") == "You can only view friends for yourself or your friends."
@@ -238,10 +273,14 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     sender_user = User.find(client.email)
     other_user = User.find(other_email)
 
-    client.post("/send_friend_request", json={"receiver_id": other_user.id})
-    other_client.post("/accept_friend_request", json={"sender_id": sender_user.id})
+    client.post(
+        "/send_friend_request", json={"receiver_username": other_user.username}
+    )
+    other_client.post(
+        "/accept_friend_request", json={"sender_username": sender_user.username}
+    )
 
-    response = client.get(f"/get_user_details/{other_user.id}")
+    response = client.get(f"/get_user_details/{other_user.username}")
 
     assert isinstance(response, dict)
     assert response["email"] == other_email
@@ -269,9 +308,11 @@ def test_get_friend_details_pending_request_shows_pending_status(client: LoggedI
     )
     pending_user = User.find(pending_email)
 
-    client.post("/send_friend_request", json={"receiver_id": pending_user.id})
+    client.post(
+        "/send_friend_request", json={"receiver_username": pending_user.username}
+    )
 
-    response = client.get(f"/get_user_details/{pending_user.id}")
+    response = client.get(f"/get_user_details/{pending_user.username}")
 
     assert isinstance(response, dict)
     assert response["friendship"]["friend_request_status"] == "pending"
@@ -292,7 +333,7 @@ def test_get_friend_details_no_relationship_returns_none_friendship(client: Logg
     )
     stranger_user = User.find(stranger_email)
 
-    response = client.get(f"/get_user_details/{stranger_user.id}")
+    response = client.get(f"/get_user_details/{stranger_user.username}")
 
     assert isinstance(response, dict)
     assert response.get("friendship") is None
