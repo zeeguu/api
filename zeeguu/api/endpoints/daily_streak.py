@@ -28,14 +28,20 @@ def get_all_language_streaks():
     for ul in user_languages:
         if ul.language_id == user.native_language_id:
             continue
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
         practiced_today = (
             ul.last_practiced is not None
-            and ul.last_practiced.date() == datetime.date.today()
+            and ul.last_practiced.date() == today
         )
+        # Streak is only valid if practiced today or yesterday
+        streak = ul.daily_streak or 0
+        if ul.last_practiced and ul.last_practiced.date() < yesterday:
+            streak = 0
         result.append({
             "code": ul.language.code,
             "language": ul.language.name,
-            "daily_streak": ul.daily_streak or 0,
+            "daily_streak": streak,
             "practiced_today": practiced_today,
         })
     # Sort by streak descending so highest streaks come first
