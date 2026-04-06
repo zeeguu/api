@@ -176,7 +176,7 @@ class Friend(db.Model):
     def find_friend_details(cls, user_id: int, friend_username: str):
         """
         Return details_as_dictionary for friend_user_id.
-        Always includes a 'friendship' object with friend_request_status
+        Always includes a 'friendship' object with is_accepted
         ('accepted', 'pending', 'rejected', or None if no relationship).
         When friends, also includes friends_since and mutual_streak.
         Returns None if the target user is not found.
@@ -284,7 +284,7 @@ class Friend(db.Model):
                     if friendship.friend_streak_last_updated
                     else None
                 ),
-                "friend_request_status": "accepted",
+                "is_accepted": True,
                 "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
             }
         elif friend_request:
@@ -293,7 +293,7 @@ class Friend(db.Model):
                 "receiver_username": friend_request.receiver.username,
                 "friend_streak": 0,
                 "friend_streak_last_updated": None,
-                "friend_request_status": friend_request.status,
+                "is_accepted": False,
                 "created_at": (
                     friend_request.created_at.isoformat()
                     if friend_request.created_at

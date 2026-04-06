@@ -14,10 +14,7 @@ class FriendRequest(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     sender_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     receiver_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    status = Column(
-        Enum("pending", "accepted", "rejected", name="friend_request_status"), # TODO Do we need these? We basically only use pending since the request is deleted in both other cases
-        default="pending",
-    )
+
     created_at = Column(DateTime, default=func.now())
     responded_at = Column(DateTime, nullable=True)
 
@@ -37,13 +34,10 @@ class FriendRequest(db.Model):
     def __init__(
             self,
             sender_id,
-            receiver_id,
-            status="pending"
+            receiver_id
     ):
         self.sender_id = sender_id
         self.receiver_id = receiver_id
-        self.status = status 
-
 
     def __repr__(self):
           return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "reciever: " + str( self.receiver_id) 
@@ -83,8 +77,7 @@ class FriendRequest(db.Model):
      # Create new friend request
      new_request = FriendRequest(
           sender_id=sender_id,
-          receiver_id=receiver_id,
-          status="pending" ## TODO: This should be an enum/constant 
+          receiver_id=receiver_id
      )
 
      db.session.add(new_request)
@@ -94,29 +87,27 @@ class FriendRequest(db.Model):
      return new_request
 
     @classmethod
-    def get_number_of_received_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
+    def get_number_of_received_friend_requests_for_user(cls, user_id: int):
             """
             Get the number of friend requests received by a user.
 
             Args:
                 user_id (int): ID of the user
-                status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
 
             Returns:
                 The number of friend requests received by a user.
             """
 
-            return cls.query.filter_by(receiver_id=user_id, status=status).count()
+            return cls.query.filter_by(receiver_id=user_id).count()
 
 
     @classmethod
-    def get_received_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
+    def get_received_friend_requests_for_user(cls, user_id: int):
             """
             Get friend requests received by a user.
 
             Args:
                 user_id (int): ID of the user
-                status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
 
             Returns:
                 List[Tuple[FriendRequest, UserAvatar]]:
@@ -127,7 +118,6 @@ class FriendRequest(db.Model):
             requests = (
                 db.session.query(cls, UserAvatar)
                 .filter(FriendRequest.receiver_id == user_id)
-                .filter(FriendRequest.status == status)
                 .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
                 .order_by(FriendRequest.created_at.desc())
                 .all()
@@ -135,13 +125,12 @@ class FriendRequest(db.Model):
             return requests
     
     @classmethod
-    def get_sent_friend_requests_for_user(cls, user_id: int, status: str = "pending"):
+    def get_sent_friend_requests_for_user(cls, user_id: int):
             """
             Get friend requests sent by a user.
 
             Args:
                 user_id (int): ID of the user
-                status (str): Filter by status ("pending", "accepted", "rejected"). Default: "pending"
 
             Returns:
                 List[FriendRequest]: List of pending friend request objects
@@ -149,7 +138,6 @@ class FriendRequest(db.Model):
             requests = (
                 db.session.query(cls)
                 .filter(FriendRequest.sender_id == user_id)
-                .filter(FriendRequest.status == status)
                 .order_by(FriendRequest.created_at.desc())
                 .all()
             )
@@ -161,8 +149,7 @@ class FriendRequest(db.Model):
           try:
                 friend_request = db.session.query(cls).filter_by(
                     sender_id=sender_id,
-                    receiver_id=receiver_id,
-                    status="pending"  # usually only pending requests can be deleted
+                    receiver_id=receiver_id
                 ).one()
                 db.session.delete(friend_request)
                 db.session.commit()

@@ -17,7 +17,6 @@ CREATE TABLE friend_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
-    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     responded_at DATETIME,
     FOREIGN KEY (sender_id) REFERENCES user(id),
