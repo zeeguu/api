@@ -20,11 +20,15 @@ def update_activity_session(session_class, request, db_session):
     session.last_action_time = datetime.now()
     db_session.add(session)
 
-    _update_streak(db_session)
+    if duration >= MIN_STREAK_DURATION_SECONDS:
+        _update_streak(db_session)
 
     db_session.commit()
 
     return session
+
+
+MIN_STREAK_DURATION_SECONDS = 60
 
 
 def _update_streak(db_session):
