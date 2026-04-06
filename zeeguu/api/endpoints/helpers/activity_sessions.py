@@ -3,7 +3,11 @@
     between UserExerciseSession and UserReadingSession
 """
 
+import flask
 from datetime import datetime
+
+from zeeguu.core.model import User
+from zeeguu.core.model.user_language import UserLanguage
 
 
 def update_activity_session(session_class, request, db_session):
@@ -15,6 +19,18 @@ def update_activity_session(session_class, request, db_session):
     session.duration = duration
     session.last_action_time = datetime.now()
     db_session.add(session)
+
+    _update_streak(db_session)
+
     db_session.commit()
 
     return session
+
+
+def _update_streak(db_session):
+    user = User.find_by_id(flask.g.user_id)
+    if user and user.learned_language:
+        user_language = UserLanguage.find_or_create(
+            db_session, user, user.learned_language
+        )
+        user_language.update_streak_if_needed(db_session)
