@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import func, and_, case, or_, literal
 
 from zeeguu.core.model import User
@@ -190,8 +192,9 @@ def exercises_done_leaderboard(
     )
 
 
-def friend_leaderboard_user_ids_subquery(user_id: int):
+def friend_leaderboard_user_ids_subquery(user_id: int, to_date=None):
     # For each friendship row touching this user, select "the other user".
+    to_date = to_date or datetime.now()
     return (
         db.session.query(
             case(
@@ -200,11 +203,14 @@ def friend_leaderboard_user_ids_subquery(user_id: int):
             ).label("user_id")
         )
         .filter(or_(Friend.user_id == user_id, Friend.friend_id == user_id))
+        .filter(Friend.created_at <= to_date)
+        .filter(or_(Friend.deleted_at.is_(None), Friend.deleted_at >= to_date))
         .union(
             db.session.query(literal(user_id).label("user_id"))
         )
         .subquery()
     )
+
 
 def cohort_leaderboard_user_ids_subquery(cohort_id: int):
     from zeeguu.core.model.user_cohort_map import UserCohortMap

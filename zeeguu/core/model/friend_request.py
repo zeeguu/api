@@ -46,7 +46,7 @@ class FriendRequest(db.Model):
 
 
     def __repr__(self):
-          return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "reciever: " + str( self.receiver_id) 
+          return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "receiver: " + str( self.receiver_id)
 
     @classmethod
     def send_friend_request(cls, sender_id: int, receiver_id: int):
