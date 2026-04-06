@@ -2,7 +2,7 @@ import flask
 
 from zeeguu.core.model import UserExerciseSession
 
-from zeeguu.api.utils.route_wrappers import requires_session
+from zeeguu.api.utils.route_wrappers import requires_session, cross_domain
 from zeeguu.api.utils.json_result import json_result
 from . import api, db_session
 from flask import request
@@ -17,6 +17,7 @@ from zeeguu.core.emailer.user_activity import (
     "/exercise_session_start",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def exercise_session_start():
     platform = request.form.get("platform", None)
@@ -32,6 +33,7 @@ def exercise_session_start():
     "/exercise_session_update",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def exercise_session_update():
     session = update_activity_session(UserExerciseSession, request, db_session)
@@ -42,6 +44,7 @@ def exercise_session_update():
     "/exercise_session_end",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def exercise_session_end():
     from zeeguu.core.sql.learner.exercises_history import exercises_in_session
@@ -64,6 +67,7 @@ def exercise_session_end():
     "/exercise_session_info/<id>",
     methods=["GET"],
 )
+@cross_domain
 @requires_session
 def exercise_session_info(id):
     session = UserExerciseSession.find_by_id(id)

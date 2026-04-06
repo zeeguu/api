@@ -3,6 +3,7 @@ from flask import request
 
 from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
+from zeeguu.api.utils.route_wrappers import cross_domain
 from .helpers.activity_sessions import update_activity_session
 from ...core.model import UserBrowsingSession
 
@@ -11,6 +12,7 @@ from ...core.model import UserBrowsingSession
     "/browsing_session_start",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def browsing_session_start():
     platform = request.form.get("platform", None)
@@ -24,6 +26,7 @@ def browsing_session_start():
     "/browsing_session_update",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def browsing_session_update():
     session = update_activity_session(UserBrowsingSession, request, db_session)
@@ -34,6 +37,7 @@ def browsing_session_update():
     "/browsing_session_end",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def browsing_session_end():
     session = update_activity_session(UserBrowsingSession, request, db_session)
@@ -47,6 +51,7 @@ def browsing_session_end():
     "/browsing_session_info/<id>",
     methods=["GET"],
 )
+@cross_domain
 @requires_session
 def browsing_session_info(id):
     browsing_session = UserBrowsingSession.find_by_id(id)

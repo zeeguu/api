@@ -4,6 +4,7 @@ from flask import request
 
 from zeeguu.api.endpoints.helpers.activity_sessions import update_activity_session
 from zeeguu.api.utils import json_result, requires_session
+from zeeguu.api.utils.route_wrappers import cross_domain
 from zeeguu.core.model.user_watching_session import UserWatchingSession
 
 from . import api, db_session
@@ -12,6 +13,7 @@ from . import api, db_session
 # ---------------------------------------------------------------------------
 @api.route("/watching_session_start", methods=["POST"])
 # ---------------------------------------------------------------------------
+@cross_domain
 @requires_session
 def watching_session_start():
     video_id = int(request.form.get("video_id", ""))
@@ -27,6 +29,7 @@ def watching_session_start():
 # ---------------------------------------------------------------------------
 @api.route("/watching_session_update", methods=["POST"])
 # ---------------------------------------------------------------------------
+@cross_domain
 @requires_session
 def watching_session_update():
     session = update_activity_session(UserWatchingSession, request, db_session)
