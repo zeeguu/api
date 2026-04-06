@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
-from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
+from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.model import (
@@ -19,6 +19,7 @@ from zeeguu.core.model import (
     DailyAudioLesson,
     AudioLessonGenerationProgress,
 )
+from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 
@@ -42,7 +43,7 @@ class DailyLessonGenerator:
             self._lesson_builder = LessonBuilder()
         return self._lesson_builder
 
-    def prepare_lesson_generation(self, user, timezone_offset=0, suggestion=None, suggestion_type=None):
+    def prepare_lesson_generation(self, user, timezone_offset=0, canonical_suggestion=None, lesson_type="three_words_lesson"):
         """
         Validate and prepare for lesson generation (synchronous, fast).
         Returns either an error/existing-lesson dict, or a preparation dict
@@ -51,8 +52,8 @@ class DailyLessonGenerator:
         Args:
             user: The User object to generate a lesson for
             timezone_offset: Client's timezone offset in minutes from UTC
-            suggestion: Optional short topic hint for the LLM (max 100 chars)
-            suggestion_type: Optional type of suggestion ("topic" or "situation")
+            canonical_suggestion: Canonicalized topic/situation (max 100 chars)
+            lesson_type: Optional type ("topic" or "situation")
 
         Returns:
             Dictionary with either error info, existing lesson, or preparation data
@@ -64,21 +65,7 @@ class DailyLessonGenerator:
         # Check if a lesson already exists for today
         existing_lesson = self.get_todays_lesson_for_user(user, timezone_offset)
         if existing_lesson.get("lesson_id"):
-            # If the suggestion changed, delete today's lesson and regenerate.
-            existing_topic = existing_lesson.get("suggestion")
-            existing_type = existing_lesson.get("suggestion_type")
-            topic_changed = suggestion and suggestion != existing_topic
-            type_changed = suggestion_type and suggestion_type != existing_type
-            if topic_changed or type_changed:
-                log(
-                    f"[prepare_lesson_generation] Suggestion changed ('{existing_topic}/{existing_type}' -> '{suggestion}/{suggestion_type}'), deleting existing lesson"
-                )
-                self.delete_todays_lesson_for_user(user, timezone_offset)
-            else:
-                log(
-                    f"[prepare_lesson_generation] Found existing lesson {existing_lesson.get('lesson_id')} for today"
-                )
-                return existing_lesson
+            return existing_lesson
         elif existing_lesson.get("error") and existing_lesson.get("status_code") == 404:
             # Stale lesson record with missing audio file — delete it so we can regenerate
             log(
@@ -130,8 +117,11 @@ class DailyLessonGenerator:
             }
 
         # Create progress tracking record
+        # Dialogue lessons (topic/situation) generate one segment; auto generates per-word
+        is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
+        progress_total = 1 if is_dialogue else len(selected_words)
         progress = AudioLessonGenerationProgress.create_for_user(
-            user=user, total_words=len(selected_words)
+            user=user, total_segments=progress_total
         )
         db.session.commit()  # Commit so frontend can see it immediately
 
@@ -143,8 +133,8 @@ class DailyLessonGenerator:
             "translation_language": translation_language,
             "cefr_level": cefr_level,
             "progress_id": progress.id,
-            "suggestion": suggestion,
-            "suggestion_type": suggestion_type,
+            "canonical_suggestion": canonical_suggestion,
+            "lesson_type": lesson_type,
         }
 
     def select_words_for_lesson(
@@ -173,34 +163,16 @@ class DailyLessonGenerator:
         cefr_level,
         created_by="claude-v1",
         progress=None,
-        suggestion=None,
-        suggestion_type=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
-
-        Args:
-            user_word: UserWord object containing the meaning
-            origin_language: Language code for the origin language
-            translation_language: Language code for the translation language
-            cefr_level: CEFR level for the lesson
-            created_by: String identifying who created this lesson
-            progress: Optional AudioLessonGenerationProgress for tracking
-            suggestion: Optional short topic hint for the LLM
-            suggestion_type: Optional type ("topic" or "situation")
-
-        Returns:
-            AudioLessonMeaning object
-
-        Raises:
-            Exception if generation fails
+        Only used in auto mode (no topic/situation).
         """
         meaning = user_word.meaning
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Check if audio lesson already exists for this meaning, teacher language, and topic
         existing_lesson = AudioLessonMeaning.find(
-            meaning=meaning, teacher_language=teacher_lang, suggestion=suggestion, suggestion_type=suggestion_type
+            meaning=meaning, teacher_language=teacher_lang
         )
         if existing_lesson:
             return existing_lesson
@@ -210,15 +182,12 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        # Generate script using Claude
         script = generate_lesson_script(
             origin_word=meaning.origin.content,
             translation_word=meaning.translation.content,
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
-            suggestion=suggestion,
-            suggestion_type=suggestion_type,
         )
 
         # Update progress: script done
@@ -226,15 +195,12 @@ class DailyLessonGenerator:
             progress.update_script_done()
             db.session.commit()
 
-        # Create audio lesson meaning
         audio_lesson_meaning = AudioLessonMeaning(
             meaning=meaning,
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
-            suggestion=suggestion,
-            suggestion_type=suggestion_type,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -266,6 +232,104 @@ class DailyLessonGenerator:
 
         return audio_lesson_meaning
 
+    def generate_audio_lesson_dialogue(
+        self,
+        user,
+        origin_language,
+        translation_language,
+        cefr_level,
+        canonical_suggestion,
+        lesson_type,
+        created_by="claude-v1",
+        progress=None,
+        is_general=False,
+    ):
+        """
+        Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
+        Reuses an existing dialogue the user hasn't heard yet, or generates a new one.
+        """
+        learned_lang = Language.find_or_create(origin_language)
+        teacher_lang = Language.find_or_create(translation_language)
+
+        # Try to find an existing dialogue the user hasn't heard yet
+        existing = AudioLessonDialogue.find_unheard(
+            canonical_suggestion=canonical_suggestion,
+            lesson_type=lesson_type,
+            language=learned_lang,
+            teacher_language=teacher_lang,
+            difficulty_level=cefr_level,
+            user=user,
+        )
+        if existing:
+            return existing
+
+        # Update progress
+        if progress:
+            progress.start_segment(1, segment_name=canonical_suggestion)
+            progress.update_generating_script()
+            db.session.commit()
+
+        # Collect past titles for this topic to avoid repetition
+        past_titles = AudioLessonDialogue.past_titles_for(
+            canonical_suggestion=canonical_suggestion,
+            lesson_type=lesson_type,
+            language=learned_lang,
+            teacher_language=teacher_lang,
+            difficulty_level=cefr_level,
+        )
+
+        title, script = generate_dialogue_script(
+            origin_language=origin_language,
+            translation_language=translation_language,
+            suggestion=canonical_suggestion,
+            lesson_type=lesson_type,
+            cefr_level=cefr_level,
+            past_titles=past_titles,
+        )
+
+        if progress:
+            progress.update_script_done()
+            db.session.commit()
+
+        # Create the dialogue record
+        dialogue = AudioLessonDialogue(
+            script=script,
+            created_by=created_by,
+            canonical_suggestion=canonical_suggestion,
+            lesson_type=lesson_type,
+            language=learned_lang,
+            difficulty_level=cefr_level,
+            teacher_language=teacher_lang,
+            is_general=is_general,
+            title=title,
+        )
+        db.session.add(dialogue)
+        db.session.flush()  # Get the ID
+
+        # Progress callback
+        def on_audio_progress(current, total, voice_type):
+            if progress:
+                progress.update_segment(current, total, voice_type)
+                db.session.commit()
+
+        # Generate audio
+        mp3_path = self.voice_synthesizer.generate_dialogue_audio(
+            dialogue_id=dialogue.id,
+            teacher_language_code=translation_language,
+            script=script,
+            language_code=origin_language,
+            cefr_level=cefr_level,
+            on_progress=on_audio_progress if progress else None,
+        )
+
+        if progress:
+            progress.update_combining()
+            db.session.commit()
+
+        dialogue.duration_seconds = self.voice_synthesizer.get_audio_duration(mp3_path)
+
+        return dialogue
+
     def generate_daily_lesson(
         self,
         user: User,
@@ -275,8 +339,10 @@ class DailyLessonGenerator:
         translation_language: str,
         cefr_level: str,
         progress: AudioLessonGenerationProgress = None,
-        suggestion: str = None,
-        suggestion_type: str = None,
+        raw_suggestion: str = None,
+        canonical_suggestion: str = None,
+        lesson_type: str = None,
+        is_general: bool = False,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -288,8 +354,8 @@ class DailyLessonGenerator:
             origin_language: Language code for the words being learned (e.g. 'es', 'da')
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
-            suggestion: Optional short topic hint for the LLM
-            suggestion_type: Optional type ("topic" or "situation")
+            canonical_suggestion: Optional short topic hint for the LLM
+            lesson_type: Optional type ("topic" or "situation")
 
         Returns:
             Dictionary with lesson details or error information
@@ -306,8 +372,9 @@ class DailyLessonGenerator:
                 user=user,
                 created_by="generate_daily_lesson_v1",
                 language=user.learned_language,
-                suggestion=suggestion,
-                suggestion_type=suggestion_type,
+                raw_suggestion=raw_suggestion,
+                canonical_suggestion=canonical_suggestion,
+                lesson_type=lesson_type,
             )
             db.session.add(daily_lesson)
             log(f"[generate_daily_lesson] Created daily lesson object")
@@ -323,43 +390,63 @@ class DailyLessonGenerator:
                         f"[generate_daily_lesson] Scheduled unscheduled word: {user_word.meaning.origin.content}"
                     )
 
-            # Generate audio lesson for each selected word
-            for idx, user_word in enumerate(selected_words):
-                meaning = user_word.meaning
-                log(
-                    f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
-                )
-
-                # Update progress for this word
-                if progress:
-                    progress.start_word(idx + 1, total_segments=0, word_name=meaning.origin.content)
-                    db.session.commit()
-
-                # Generate individual audio lesson meaning
+            # Branch: topic/situation → single dialogue; auto → per-word meaning lessons
+            if canonical_suggestion and lesson_type in ("topic", "situation"):
+                # Generate one flowing dialogue incorporating all words
                 try:
-                    audio_lesson_meaning = self.generate_audio_lesson_meaning(
-                        user_word, origin_language, translation_language, cefr_level,
+                    audio_lesson_dialogue = self.generate_audio_lesson_dialogue(
+                        user, origin_language, translation_language,
+                        cefr_level, canonical_suggestion, lesson_type,
                         progress=progress,
-                        suggestion=suggestion,
-                        suggestion_type=suggestion_type,
+                        is_general=is_general,
                     )
                 except Exception as e:
-                    log(
-                        f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
-                    )
+                    log(f"[generate_daily_lesson] Failed to generate dialogue: {str(e)}")
                     if progress:
-                        progress.mark_error(f"Failed on word '{meaning.origin.content}': {str(e)}")
+                        progress.mark_error(f"Failed to generate dialogue: {str(e)}")
                         db.session.commit()
                     db.session.rollback()
-                    return {
-                        "error": f"Failed to generate audio lesson meaning: {str(e)}",
-                        "word": meaning.origin.content,
-                    }
+                    return {"error": f"Failed to generate dialogue: {str(e)}"}
 
-                # Add segment to daily lesson
-                daily_lesson.add_meaning_segment(
-                    audio_lesson_meaning=audio_lesson_meaning, sequence_order=idx + 1
+                daily_lesson.add_dialogue_segment(
+                    audio_lesson_dialogue=audio_lesson_dialogue, sequence_order=1
                 )
+            else:
+                # Auto mode: generate individual meaning lessons per word
+                for idx, user_word in enumerate(selected_words):
+                    meaning = user_word.meaning
+                    log(
+                        f"[generate_daily_lesson] Processing word {idx+1}/{len(selected_words)}: {meaning.origin.content}"
+                    )
+
+                    # Update progress for this word
+                    if progress:
+                        progress.start_segment(idx + 1, segment_name=meaning.origin.content)
+                        db.session.commit()
+
+                    # Generate individual audio lesson meaning
+                    try:
+                        audio_lesson_meaning = self.generate_audio_lesson_meaning(
+                            user_word, origin_language, translation_language, cefr_level,
+                            progress=progress,
+                        )
+                    except Exception as e:
+                        log(
+                            f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
+                        )
+                        if progress:
+                            progress.mark_error(f"Failed on word '{meaning.origin.content}': {str(e)}")
+                            db.session.commit()
+                        db.session.rollback()
+                        return {
+                            "error": f"Failed to generate audio lesson meaning: {str(e)}",
+                            "word": meaning.origin.content,
+                        }
+
+                    # Add segment to daily lesson
+                    daily_lesson.add_meaning_segment(
+                        audio_lesson_meaning=audio_lesson_meaning, sequence_order=idx + 1
+                    )
 
             # Build the final concatenated MP3 for the daily lesson
             try:
@@ -457,32 +544,34 @@ class DailyLessonGenerator:
 
         # Get lesson details including words with full metadata
         words = []
+        dialogue_title = None
         for segment in lesson.segments:
             if (
                 segment.segment_type == "meaning_lesson"
                 and segment.audio_lesson_meaning
             ):
                 meaning = segment.audio_lesson_meaning.meaning
-
-                # Find the UserWord for this meaning to get scheduling metadata
                 user_word = UserWord.query.filter_by(
                     user_id=lesson.user_id,
                     meaning_id=meaning.id
                 ).first()
 
                 if user_word:
-                    # Use full UserWord serialization to include scheduling_reason
                     words.append(user_word.as_dictionary())
                 else:
-                    # Fallback to basic info if UserWord not found (shouldn't happen)
                     words.append(
                         {
                             "origin": meaning.origin.content,
                             "translation": meaning.translation.content,
                         }
                     )
+            elif (
+                segment.segment_type == "dialogue_lesson"
+                and segment.audio_lesson_dialogue
+            ):
+                dialogue_title = segment.audio_lesson_dialogue.title
 
-        return {
+        result = {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
@@ -492,9 +581,12 @@ class DailyLessonGenerator:
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
-            "suggestion": lesson.suggestion,
-            "suggestion_type": lesson.suggestion_type,
+            "canonical_suggestion": lesson.canonical_suggestion,
+            "lesson_type": lesson.lesson_type,
         }
+        if dialogue_title:
+            result["title"] = dialogue_title
+        return result
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
         """
@@ -602,8 +694,19 @@ class DailyLessonGenerator:
                 os.remove(audio_path)
                 log(f"Deleted audio file: {audio_path}")
 
-            # Delete the lesson from database (cascading deletes will handle segments)
+            # Delete underlying content (dialogues/meanings) and their audio files
             lesson_id = lesson.id
+            for segment in lesson.segments:
+                if segment.audio_lesson_dialogue:
+                    dialogue = segment.audio_lesson_dialogue
+                    dialogue_audio = os.path.join(
+                        ZEEGUU_DATA_FOLDER, "audio", "lessons",
+                        f"dialogue-{dialogue.id}-{dialogue.teacher_language.code if dialogue.teacher_language else 'en'}.mp3"
+                    )
+                    if os.path.exists(dialogue_audio):
+                        os.remove(dialogue_audio)
+                    db.session.delete(dialogue)
+
             db.session.delete(lesson)
             db.session.commit()
 
@@ -669,8 +772,9 @@ class DailyLessonGenerator:
                 )
                 audio_exists = os.path.exists(audio_path)
 
-                # Get lesson words
+                # Get lesson words and dialogue title
                 words = []
+                dialogue_title = None
                 for segment in lesson.segments:
                     if (
                         segment.segment_type == "meaning_lesson"
@@ -683,9 +787,13 @@ class DailyLessonGenerator:
                                 "translation": meaning.translation.content,
                             }
                         )
+                    elif (
+                        segment.segment_type == "dialogue_lesson"
+                        and segment.audio_lesson_dialogue
+                    ):
+                        dialogue_title = segment.audio_lesson_dialogue.title
 
-                lessons_data.append(
-                    {
+                lesson_data = {
                         "lesson_id": lesson.id,
                         "audio_url": (
                             f"/audio/daily_lessons/{lesson.id}.mp3"
@@ -708,10 +816,12 @@ class DailyLessonGenerator:
                         "pause_position_seconds": lesson.pause_position_seconds,
                         "is_paused": lesson.is_paused,
                         "listened_count": lesson.listened_count,
-                        "suggestion": lesson.suggestion,
-                        "suggestion_type": lesson.suggestion_type,
+                        "canonical_suggestion": lesson.canonical_suggestion,
+                        "lesson_type": lesson.lesson_type,
                     }
-                )
+                if dialogue_title:
+                    lesson_data["title"] = dialogue_title
+                lessons_data.append(lesson_data)
 
             return {
                 "lessons": lessons_data,
@@ -834,25 +944,22 @@ class DailyLessonGenerator:
                 db.session, "DAILY_AUDIO_LESSON"
             )
 
-            # Progress each word in the lesson
+            # Progress each word in the lesson (meaning lessons only;
+            # dialogue lessons are topic immersion and don't track specific words)
             for segment in lesson.segments:
                 if (
                     segment.segment_type == "meaning_lesson"
                     and segment.audio_lesson_meaning
                 ):
                     meaning = segment.audio_lesson_meaning.meaning
-
-                    # Find or create the user word
                     user_word = UserWord.find_or_create(db.session, user, meaning)
 
-                    # Report exercise outcome for audio lesson completion
-                    # Use CORRECT outcome since the user listened through the entire lesson
                     user_word.report_exercise_outcome(
                         db.session,
                         audio_lesson_source,
                         ExerciseOutcome.CORRECT,
-                        0,  # No solving speed for audio lessons
-                        None,  # No session_id needed
+                        0,
+                        None,
                         f"Audio lesson completion for lesson {lesson.id}",
                     )
 
