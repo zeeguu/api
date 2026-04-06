@@ -77,7 +77,8 @@ def get_all_language_streaks_detailed(username: str = None):
     result = []
     for user_language in user_languages:
         obj = {
-            "language": user_language.language.as_dictionary(),
+            "code": user_language.language.code,
+            "language": user_language.language.name,
         }
         if self_or_friend:
             obj.update({
