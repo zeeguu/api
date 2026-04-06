@@ -40,7 +40,7 @@ def friends_leaderboard():
         return make_error(400, "Invalid leaderboard metric")
 
     rows = metric(
-        friend_leaderboard_user_ids_subquery(flask.g.user_id),
+        friend_leaderboard_user_ids_subquery(flask.g.user_id, params["to_date"]),
         params["limit"],
         params["from_date"],
         params["to_date"],
