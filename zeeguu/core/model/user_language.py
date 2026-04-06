@@ -129,7 +129,6 @@ class UserLanguage(db.Model):
     def update_streak_if_needed(self, user, session=None):
         """
         Update last_practiced timestamp and daily_streak counter for this language.
-        Call this when user performs actual practice (exercises, reading, etc.).
         Only updates once per day to minimize database writes.
         """
         now = datetime.datetime.now()

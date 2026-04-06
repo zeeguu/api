@@ -37,8 +37,8 @@ def get_all_language_streaks():
         today = datetime.date.today()
         yesterday = today - datetime.timedelta(days=1)
         practiced_today = (
-                ul.last_practiced is not None
-                and ul.last_practiced.date() == today
+            ul.last_practiced is not None
+            and ul.last_practiced.date() == today
         )
         # Streak is only valid if practiced today or yesterday
         streak = ul.daily_streak or 0

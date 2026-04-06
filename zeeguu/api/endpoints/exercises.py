@@ -6,7 +6,7 @@ from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.user import User
 
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, update_user_streak
+from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from . import api, db_session
@@ -221,9 +221,6 @@ def report_exercise_outcome():
             session_id,
             other_feedback,
         )
-
-        # Update daily streak when user completes an exercise
-        update_user_streak()
 
         return "OK"
     except Exception as e:

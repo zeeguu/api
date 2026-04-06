@@ -451,12 +451,19 @@ class User(db.Model):
     def update_last_seen_if_needed(self, session=None):
         """
         Update last_seen timestamp, but only once per day to minimize database writes.
-        Note: daily_streak is now tracked per-language in UserLanguage model.
+        Also maintains the daily_streak counter.
         """
         now = datetime.datetime.now()
 
         # Only update if last_seen is None or it's a different day
         if not self.last_seen or self.last_seen.date() < now.date():
+            if not self.last_seen:
+                self.daily_streak = 1
+            elif self.last_seen.date() == now.date() - datetime.timedelta(days=1):
+                self.daily_streak = (self.daily_streak or 0) + 1
+            else:
+                self.daily_streak = 1
+
             self.last_seen = now
             if session:
                 session.add(self)
