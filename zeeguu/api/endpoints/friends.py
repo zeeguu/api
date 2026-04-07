@@ -254,8 +254,7 @@ def _serialize_friendship(friendship: Friend):
         "receiver_username": friendship.friend.username,
         "created_at": friendship.created_at,
         "friend_streak": friendship.friend_streak,
-        "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None,
-        "friend_request_status": "accepted",
+        "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None
     }
 
 
@@ -306,8 +305,7 @@ def _serialize_friend_request(friend_request: FriendRequest):
             "username": friend_request.receiver.username,
         },
         "created_at": friend_request.created_at.isoformat() if friend_request.created_at else None,
-        "responded_at": friend_request.responded_at.isoformat() if friend_request.responded_at else None,
-        "friend_request_status": "pending",
+        "responded_at": friend_request.responded_at.isoformat() if friend_request.responded_at else None
     }
 
 
