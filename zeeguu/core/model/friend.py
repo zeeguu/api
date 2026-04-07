@@ -346,7 +346,7 @@ class Friend(db.Model):
                     if friendship.friend_streak_last_updated
                     else None
                 ),
-                "is_accepted": True,
+                "friend_request_status": "accepted",
                 "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
             }
         elif friend_request:
@@ -355,7 +355,7 @@ class Friend(db.Model):
                 "receiver_username": friend_request.receiver.username,
                 "friend_streak": 0,
                 "friend_streak_last_updated": None,
-                "is_accepted": False,
+                "friend_request_status": "pending",
                 "created_at": (
                     friend_request.created_at.isoformat()
                     if friend_request.created_at

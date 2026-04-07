@@ -92,9 +92,11 @@ class LoggedInClient:
     code for a successful response
     """
 
-    def response_from_post(self, endpoint, data=dict()):
-
-        response = self.client.post(self.append_session(endpoint), data=data)
+    def response_from_post(self, endpoint, data=dict(), json=None):
+        if json is not None:
+            response = self.client.post(self.append_session(endpoint), json=json)
+        else:
+            response = self.client.post(self.append_session(endpoint), data=data)
         return response
 
     def post(self, endpoint, data=dict(), json=None):

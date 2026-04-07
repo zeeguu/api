@@ -83,10 +83,13 @@ def test_delete_friend_request_invalid_receiver(client: LoggedInClient):
     """
     Test deleting a friend request with invalid receiver returns error.
     """
-    with pytest.raises(NoResultFound):
-        client.post(
-            "/delete_friend_request", json={"receiver_username": "missing_user"}
-        )
+    response = client.response_from_post(
+        "/delete_friend_request", json={"receiver_username": "missing_user"}
+    )
+
+    assert response.status_code == 404  
+    assert response.get_json()["message"] == "User not found"
+    
 
 def test_send_friend_request_success(client: LoggedInClient):
     """
