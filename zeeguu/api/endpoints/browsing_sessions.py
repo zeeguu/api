@@ -18,12 +18,12 @@ def browsing_session_start():
     platform = request.form.get("platform", None)
     if platform is not None:
         platform = int(platform)
-    # Capture the user's current learned_language so streak attribution
-    # survives a later language toggle (see activity_sessions._session_language).
     user = User.find_by_id(flask.g.user_id)
-    language_id = user.learned_language_id if user else None
     session = UserBrowsingSession._create_new_session(
-        db_session, flask.g.user_id, platform=platform, language_id=language_id
+        db_session,
+        flask.g.user_id,
+        platform=platform,
+        language_id=user.learned_language_id,
     )
     return json_result(dict(id=session.id))
 

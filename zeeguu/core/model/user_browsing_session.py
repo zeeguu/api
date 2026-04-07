@@ -32,8 +32,7 @@ class UserBrowsingSession(db.Model):
     is_active = db.Column(db.Boolean)
     platform = db.Column(db.SmallInteger)
 
-    # Captured at session start so streak attribution survives a later
-    # learned_language toggle. See activity_sessions._session_language.
+    # Snapshot of user.learned_language_id at session start; see activity_sessions._session_language.
     language_id = db.Column(db.Integer, db.ForeignKey(Language.id), nullable=True)
     language = db.relationship(Language)
 
@@ -69,8 +68,7 @@ class UserBrowsingSession(db.Model):
         user_id = user identifier
         current_time = optional override for the current time
         platform = platform identifier (see constants.py PLATFORM_*)
-        language_id = the user's learned_language at session start; captured
-            here so streak attribution survives a later language toggle.
+        language_id = snapshot of user.learned_language_id; see activity_sessions._session_language
         """
         if current_time is None:
             current_time = datetime.now()
