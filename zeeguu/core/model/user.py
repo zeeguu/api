@@ -96,8 +96,8 @@ class User(db.Model):
         "lively", "mighty", "patient", "vivid", "wise"
     ]
 
-    NOUNS = [
-        "otter", "falcon", "wolf", "fox", "owl", "panther",
+    ANIMALS = [
+        "elephant", "otter", "wolf", "fox", "owl", "panther",
         "lion", "tiger", "bear", "eagle", "rabbit", "deer",
         "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
     ]
@@ -109,15 +109,15 @@ class User(db.Model):
         """
         :summary:
 
-        Generate a random username in the format 'adjective_noun1234'  
+        Generate a random username in the format 'adjective_animal1234'
         Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames
         
         :return: A string username
         """
         adjective = random.choice(cls.ADJECTIVES)
-        noun = random.choice(cls.NOUNS)
+        animal = random.choice(cls.ANIMALS)
         number = random.randint(1, cls.MAX_NUMBER_USERNAME)
-        return f"{adjective}_{noun}{number}"
+        return f"{adjective}_{animal}{number}"
 
     @classmethod
     def create_anonymous(

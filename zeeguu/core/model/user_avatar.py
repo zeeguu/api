@@ -1,5 +1,7 @@
 from typing import Optional
+import re
 
+from zeeguu.core.model import User
 from zeeguu.core.model.db import db
 
 
@@ -53,3 +55,31 @@ class UserAvatar(db.Model):
         else:
             user_avatar = UserAvatar(user_id, image_name, character_color, background_color)
         return user_avatar
+
+    @classmethod
+    def create_default_avatar_for_user(cls, user: User) -> "UserAvatar":
+        """
+        Return the existing avatar for the given user, if it exists.
+        Otherwise, create a default avatar based on the user's username.
+
+        The default avatar's image_name is derived from the part of the username
+        after the first underscore, stripping any digits. If the result is empty
+        or not in User.ANIMALS, the first animal from User.ANIMALS is used.
+
+        Args:
+            user (User): The user for whom to create or fetch the avatar.
+
+        Returns:
+            UserAvatar: The existing or newly created default avatar.
+        """
+        existing_avatar = cls.find(user.id)
+        if existing_avatar:
+            return existing_avatar
+
+        _, _, tail = user.username.partition("_")
+        animal_name = re.sub(r"\d+", "", tail)
+
+        if not animal_name or animal_name not in User.ANIMALS:
+            animal_name = User.ANIMALS[0]
+
+        return UserAvatar(user.id, animal_name, None, None)

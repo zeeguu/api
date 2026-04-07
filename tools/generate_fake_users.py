@@ -28,7 +28,7 @@ def random_name():
 
 def random_username():
     adjectives = User.ADJECTIVES
-    nouns = User.NOUNS
+    nouns = User.ANIMALS
     return f"{random.choice(adjectives)}_{random.choice(nouns)}_{random.randint(1,9999)}"
 
 def random_language():
