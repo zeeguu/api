@@ -26,7 +26,6 @@ def reading_session_start():
     session = UserReadingSession(flask.g.user_id, article_id, datetime.now(), reading_source, platform)
     db_session.add(session)
     db_session.commit()
-
     return json_result(dict(id=session.id))
 
 
