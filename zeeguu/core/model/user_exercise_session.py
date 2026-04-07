@@ -3,6 +3,7 @@ import zeeguu.core
 
 from datetime import datetime, timedelta
 from zeeguu.core.model.user import User
+from zeeguu.core.model.language import Language
 
 from zeeguu.core.model.db import db
 
@@ -32,10 +33,16 @@ class UserExerciseSession(db.Model):
     is_active = db.Column(db.Boolean)
     platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user_id, start_time, current_time=None, platform=None):
+    # Captured at session start so streak attribution survives a later
+    # learned_language toggle. See activity_sessions._session_language.
+    language_id = db.Column(db.Integer, db.ForeignKey(Language.id), nullable=True)
+    language = db.relationship(Language)
+
+    def __init__(self, user_id, start_time, current_time=None, platform=None, language_id=None):
         self.user_id = user_id
         self.is_active = False
         self.platform = platform
+        self.language_id = language_id
 
         # When we want to emulate an event happening in a particular moment in the past or in the future,
         #   we can provide the current_time variable to override the datetime.now()

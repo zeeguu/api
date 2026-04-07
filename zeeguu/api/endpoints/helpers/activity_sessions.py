@@ -36,14 +36,20 @@ def _session_language(session):
     """Return the Language this activity session belongs to, or None.
 
     The streak must be credited to the language of the *content* the user
-    is practicing, not to the user's currently-selected `learned_language`.
-    Otherwise, a tail update for a session in language A that arrives after
-    the user has switched to language B incorrectly credits B's streak.
+    was practicing when the session began, not to the user's currently-
+    selected `learned_language`. Otherwise, a tail update for a session in
+    language A that arrives after the user has switched to language B
+    incorrectly credits B's streak.
 
-    Listening, reading, and watching sessions all carry a content reference
-    (daily audio lesson / article / video) that knows its own language.
-    Exercise and browsing sessions have no content link, so callers fall
-    back to `user.learned_language` for those.
+    Listening, reading, and watching sessions carry a content reference
+    (daily audio lesson / article / video) that knows its own language —
+    that's the source of truth for those.
+
+    Exercise and browsing sessions have no content link, but they capture
+    the user's `learned_language_id` at session-creation time on their own
+    `language_id` column (added in 26-04-07 migration). Old rows from
+    before the migration have NULL `language_id`; for those the caller
+    falls back to `user.learned_language`.
     """
     daily_audio_lesson = getattr(session, "daily_audio_lesson", None)
     if daily_audio_lesson is not None:
@@ -56,6 +62,10 @@ def _session_language(session):
     video = getattr(session, "video", None)
     if video is not None:
         return Language.find_by_id(video.language_id)
+
+    session_language_id = getattr(session, "language_id", None)
+    if session_language_id is not None:
+        return Language.find_by_id(session_language_id)
 
     return None
 
