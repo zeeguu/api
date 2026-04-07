@@ -34,7 +34,7 @@ def valid_invite_code(invite_code):
 # TODO: delete after the new onboarding of Iga is done
 def create_account(
     db_session,
-    username,
+    username, # TODO: this should be name (and add username too)
     password,
     invite_code,
     email,
@@ -50,9 +50,12 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    normalized_username = _normalize_username(username)
-    if User.username_exists(normalized_username):
-        raise Exception("Username already in use")
+    # TODO Implment this when username is implemented
+    # normalized_username = _normalize_username(username)
+    # if normalized_username and len(normalized_username) > 50:
+    #     raise Exception("Username can be at most 50 characters")
+    # if User.username_exists(normalized_username):
+    #     raise Exception("Username already in use")
 
     if User.email_exists(email):
         raise Exception("There is already an account for this email.")
@@ -77,7 +80,7 @@ def create_account(
             email,
             username,
             password,
-            username=normalized_username,
+            username=None,
             invitation_code=invite_code,
             learned_language=learned_language,
             native_language=native_language,
