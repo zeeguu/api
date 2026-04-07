@@ -60,6 +60,23 @@ def get_all_language_streaks():
 @cross_domain
 @requires_session
 def get_all_language_streaks_detailed(username: str = None):
+    """
+       Retrieve detailed language streak information for a user.
+
+       If username is provided, returns the given user's language streaks only if they are
+       friends with the requester. Otherwise, returns the requester's own language streaks.
+
+       Args:
+           username (str, optional): The username of the user whose streaks are requested.
+
+       Returns:
+           list[dict]: A list of dictionaries, each containing:
+               - code (str): The code of the language.
+               - language (str): The name of the language.
+               - daily_streak (int, optional): Current daily streak for the language (visible only to self or friends).
+               - max_streak (int, optional): Max streak for the language (visible only to self or friends).
+               - max_streak_date (str, optional): Date when the max streak was achieved at (visible only to self or friends).
+    """
     requester_user_id = flask.g.user_id
     self_or_friend = True
     if username is not None:

@@ -98,7 +98,7 @@ def send_friend_request():
     """
     try:
         sender_id = flask.g.user_id
-        receiver_id = get_receiver_from_request(sender_id)
+        receiver_id = _get_receiver_from_request(sender_id)
         friend_request = FriendRequest.send_friend_request(sender_id, receiver_id)
         response = _serialize_friend_request(friend_request)
         return json_result(response)
@@ -141,7 +141,7 @@ def accept_friend_request():
     """
     try:
         receiver_id = flask.g.user_id
-        sender_id = get_sender_from_request(receiver_id)
+        sender_id = _get_sender_from_request(receiver_id)
     except ValueError as e:
         log(f"accept_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
         return make_error(400, str(e))
@@ -166,7 +166,7 @@ def reject_friend_request():
     """
     try:
         receiver_id = flask.g.user_id
-        sender_id = get_sender_from_request(receiver_id)
+        sender_id = _get_sender_from_request(receiver_id)
     except ValueError as e:
         log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
         return make_error(400, str(e))
@@ -186,7 +186,7 @@ def unfriend():
     """
     try:
         sender_id = flask.g.user_id
-        receiver_id = get_receiver_from_request(sender_id)
+        receiver_id = _get_receiver_from_request(sender_id)
     except ValueError as e:
         log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
         return make_error(400, str(e))
@@ -309,7 +309,7 @@ def _serialize_friend_request(friend_request: FriendRequest):
     }
 
 
-def get_sender_from_request(receiver_id:int, sender_field="sender_username"):
+def _get_sender_from_request(receiver_id:int, sender_field="sender_username"):
     """
     Extract sender_id from request.json and current session.
     Returns: validated sender_id
@@ -329,7 +329,7 @@ def get_sender_from_request(receiver_id:int, sender_field="sender_username"):
 
     return sender_id
 
-def get_receiver_from_request(sender_id:int, receiver_field="receiver_username"):
+def _get_receiver_from_request(sender_id:int, receiver_field="receiver_username"):
     """
     Extract receiver_id from request.json and current session.
     Returns: validated receiver_id

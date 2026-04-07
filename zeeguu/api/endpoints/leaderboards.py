@@ -30,6 +30,32 @@ LEADERBOARD_METRICS: dict[str, LeaderboardMetric] = {
 @cross_domain
 @requires_session
 def friends_leaderboard():
+    """
+        Retrieve the leaderboard for the authenticated user and their friends.
+
+        Query Parameters:
+            metric (str, required): The metric to rank users by. Must be a member of LEADERBOARD_METRICS.
+            limit (int, optional): Maximum number of leaderboard entries to return. Must be > 0.
+            from_date (ISO datetime string, optional): Filter results starting from this date.
+            to_date (ISO datetime string, optional): Filter results up to this date.
+
+        Returns:
+            list[dict]: A list of leaderboard entries sorted descending by the metric. Each entry contains:
+                - user (dict):
+                    - name (str): Full name of the user.
+                    - username (str): User's username.
+                    - avatar (dict):
+                        - image_name (str or None): User's avatar image file name.
+                        - character_color (str or None): Color of avatar character.
+                        - background_color (str or None): Avatar background color.
+                - value (numeric): The leaderboard metric value for the user.
+
+        Errors:
+            400 Bad Request if:
+                - metric is invalid
+                - limit is not a positive integer
+                - from_date or to_date is invalid or from_date > to_date
+    """
     params, error_response = _parse_leaderboard_query_params()
     if error_response:
         return error_response
@@ -53,12 +79,42 @@ def friends_leaderboard():
 
     return json_result(result)
 
+
 # ---------------------------------------------------------------------------
 @api.route("/cohort_leaderboard/<cohort_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
 def cohort_leaderboard(cohort_id: int):
+    """
+        Retrieve the leaderboard for all users in a specific cohort.
+
+        Path Parameters:
+            cohort_id (int): ID of the cohort whose leaderboard is requested.
+
+        Query Parameters:
+            metric (str, required): The metric to rank users by. Must be a member of LEADERBOARD_METRICS.
+            limit (int, optional): Maximum number of leaderboard entries to return. Must be > 0.
+            from_date (ISO datetime string, optional): Filter results starting from this date.
+            to_date (ISO datetime string, optional): Filter results up to this date.
+
+        Returns:
+            list[dict]: A list of leaderboard entries sorted descending by the metric. Each entry contains:
+                - user (dict):
+                    - name (str): Full name of the user.
+                    - username (str): User's username.
+                    - avatar (dict):
+                        - image_name (str or None): User's avatar image file name.
+                        - character_color (str or None): Color of avatar character.
+                        - background_color (str or None): Avatar background color.
+                - value (numeric): The leaderboard metric value for the user.
+
+        Errors:
+            400 Bad Request if:
+                - metric is invalid
+                - limit is not a positive integer
+                - from_date or to_date is invalid or from_date > to_date
+    """
     params, error_response = _parse_leaderboard_query_params()
     if error_response:
         return error_response

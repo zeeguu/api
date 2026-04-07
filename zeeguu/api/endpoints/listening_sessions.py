@@ -20,7 +20,6 @@ def listening_session_start():
     session = UserListeningSession._create_new_session(
         db_session, flask.g.user_id, daily_audio_lesson_id, platform=platform
     )
-
     return json_result(dict(id=session.id))
 
 

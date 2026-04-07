@@ -199,7 +199,7 @@ def get_friend_details(friend_username):
     from zeeguu.core.model.friend import Friend
     friend_details = Friend.find_friend_details(user.id, friend_username)
     if not friend_details:
-        return flask.jsonify({"error": "Not friends with this user or user not found."})
+        return make_error(401, "Not friends with this user or user not found.")
     return json_result(friend_details)
 
 
@@ -208,7 +208,19 @@ def get_friend_details(friend_username):
 @requires_session
 def user_settings():
     """
-    :return: OK for success
+        Update the authenticated user's settings.
+
+        Accepts form data to update:
+            - name
+            - username (must be unique)
+            - native_language
+            - learned_language (with optional CEFR level)
+            - email (must be unique)
+            - password
+            - avatar (image name, character color, background color)
+
+        Returns:
+            str: "OK" on success, or a 400 error with a message if validation fails.
     """
     try:
         user_id = flask.g.user_id

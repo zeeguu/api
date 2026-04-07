@@ -6,9 +6,6 @@ from zeeguu.core.model.db import db
 
 
 class UserAvatar(db.Model):
-    """
-
-    """
     __tablename__ = "user_avatar"
 
     id = db.Column(db.Integer, primary_key=True)
