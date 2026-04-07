@@ -31,13 +31,13 @@ class AnthropicService(LLMService):
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
-    def _make_api_request(self, prompt: Dict) -> str:
+    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """Make single API request - fail fast, no retries"""
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=1000,
-                temperature=0.7,
+                max_tokens=max_tokens,
+                temperature=temperature,
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
@@ -95,8 +95,9 @@ class AnthropicService(LLMService):
     def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """Generate text using Anthropic API - fail fast to DeepSeek fallback"""
         # Try Anthropic API - fail fast
-        content = self._make_api_request({
-            "system": "You are a helpful assistant.",
-            "user": prompt
-        })
+        content = self._make_api_request(
+            {"system": "You are a helpful assistant.", "user": prompt},
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
         return content
