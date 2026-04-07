@@ -1,9 +1,9 @@
-from fixtures import LoggedInClient, logged_in_client as client
-from fixtures import add_context_types, add_source_types, create_and_get_article
-from zeeguu.core.model import User
-import json
 import pytest
-from sqlalchemy.exc import NoResultFound
+
+from fixtures import LoggedInClient, logged_in_client as client
+from zeeguu.core.model import User
+from zeeguu.core.model.friend import Friend
+
 
 def test_accept_friend_request_success(client: LoggedInClient):
     """
@@ -25,13 +25,13 @@ def test_accept_friend_request_success(client: LoggedInClient):
     fr_response = client.post(
         "/send_friend_request", json={"receiver_username": other_user.username}
     )
-    assert fr_response["friend_request_status"] == "pending"
-    
+    assert not Friend.are_friends(sender_user.id, other_user.id)
+
     # User other client to accept friend request
     accept_fr_response = other_client.post(
         "/accept_friend_request", json={"sender_username": sender_user.username}
     )
-    assert accept_fr_response["friend_request_status"] == "accepted"    
+    assert Friend.are_friends(sender_user.id, other_user.id)
 
 
 def test_reject_friend_request_success(client: LoggedInClient):
@@ -83,10 +83,13 @@ def test_delete_friend_request_invalid_receiver(client: LoggedInClient):
     """
     Test deleting a friend request with invalid receiver returns error.
     """
-    with pytest.raises(NoResultFound):
-        client.post(
-            "/delete_friend_request", json={"receiver_username": "missing_user"}
-        )
+    response = client.response_from_post(
+        "/delete_friend_request", json={"receiver_username": "missing_user"}
+    )
+
+    assert response.status_code == 404  
+    assert response.get_json()["message"] == "User not found"
+    
 
 def test_send_friend_request_success(client: LoggedInClient):
     """
@@ -290,12 +293,12 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     assert "friends_since" in response
     assert "mutual_streak" in response
     assert isinstance(response["mutual_streak"], int)
-    assert response["friendship"]["friend_request_status"] == "accepted"
+    assert response["friendship"]["is_accepted"] == True
 
 
-def test_get_friend_details_pending_request_shows_pending_status(client: LoggedInClient):
+def test_get_friend_details_pending_request_shows_is_accepted_false(client: LoggedInClient):
     """
-    Test /get_user_details/<friend_user_id> shows friendship.friend_request_status='pending'
+    Test /get_user_details/<friend_user_id> shows friendship.is_accepted=False
     when a friend request has been sent but not yet accepted.
     """
     pending_email = "pending-details@user.com"
@@ -315,7 +318,7 @@ def test_get_friend_details_pending_request_shows_pending_status(client: LoggedI
     response = client.get(f"/get_user_details/{pending_user.username}")
 
     assert isinstance(response, dict)
-    assert response["friendship"]["friend_request_status"] == "pending"
+    assert response["friendship"]["is_accepted"] == False
 
 
 def test_get_friend_details_no_relationship_returns_none_friendship(client: LoggedInClient):

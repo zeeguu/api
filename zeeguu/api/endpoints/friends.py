@@ -123,7 +123,7 @@ def delete_friend_request():
     receiver_username = request.json.get("receiver_username")
     receiver = User.find_by_username(receiver_username)
     if receiver is None:
-        raise json_result({"success": False})
+        return make_error(404, "User not found")
     receiver_id = receiver.id
 
     is_deleted = FriendRequest.delete_friend_request(sender_id, receiver_id)
@@ -254,7 +254,7 @@ def _serialize_friendship(friendship: Friend):
         "receiver_username": friendship.friend.username,
         "created_at": friendship.created_at,
         "friend_streak": friendship.friend_streak,
-        "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None,
+        "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None
     }
 
 
@@ -305,7 +305,7 @@ def _serialize_friend_request(friend_request: FriendRequest):
             "username": friend_request.receiver.username,
         },
         "created_at": friend_request.created_at.isoformat() if friend_request.created_at else None,
-        "responded_at": friend_request.responded_at.isoformat() if friend_request.responded_at else None,
+        "responded_at": friend_request.responded_at.isoformat() if friend_request.responded_at else None
     }
 
 
