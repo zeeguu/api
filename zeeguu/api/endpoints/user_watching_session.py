@@ -34,3 +34,18 @@ def watching_session_start():
 def watching_session_update():
     session = update_activity_session(UserWatchingSession, request, db_session)
     return json_result(dict(id=session.id, duration=session.duration))
+
+
+# ---------------------------------------------------------------------------
+@api.route("/watching_session_end", methods=["POST"])
+# ---------------------------------------------------------------------------
+# UserWatchingSession has no is_active flag (unlike listening/reading/etc),
+# so this endpoint is functionally a final-update. It exists for symmetry
+# with the other session types and to give the frontend a clear "this is
+# the end" semantic that can grow side effects later without a frontend
+# change.
+@cross_domain
+@requires_session
+def watching_session_end():
+    session = update_activity_session(UserWatchingSession, request, db_session)
+    return json_result(dict(id=session.id, duration=session.duration))
