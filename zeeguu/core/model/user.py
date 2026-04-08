@@ -80,7 +80,7 @@ class User(db.Model):
 
         self.email = email 
         self.name = name # The name of the user
-        self.username = username or self.generate_username() # Username is custom name to display in UI
+        self.username = username or self.generate_unique_username() # Username is custom name to display in UI
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -105,19 +105,23 @@ class User(db.Model):
     MAX_NUMBER_USERNAME = 9999
 
     @classmethod
-    def generate_username(cls):
+    def generate_unique_username(cls):
         """
         :summary:
 
-        Generate a random username in the format 'adjective_animal1234'
+        Generate a random unique username in the format 'adjective_animal1234'
         Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames
         
         :return: A string username
         """
-        adjective = random.choice(cls.ADJECTIVES)
-        animal = random.choice(cls.ANIMALS)
-        number = random.randint(1, cls.MAX_NUMBER_USERNAME)
-        return f"{adjective}_{animal}{number}"
+        while True:
+            adjective = random.choice(cls.ADJECTIVES)
+            animal = random.choice(cls.ANIMALS)
+            number = random.randint(1, cls.MAX_NUMBER_USERNAME)
+            username = f"{adjective}_{animal}{number}"
+            exists = User.query.filter_by(username=username).first()
+            if not exists:
+                return username
 
     @classmethod
     def create_anonymous(

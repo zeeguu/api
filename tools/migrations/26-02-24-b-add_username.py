@@ -20,18 +20,10 @@ from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.user import User
 
 
-def generate_unique_username():
-    while True:
-        username = User.generate_username()
-        exists = User.query.filter_by(username=username).first()
-        if not exists:
-            return username
-
-
 def populate_usernames():
     users: list[User] = User.query.all()
     for user in users:
-        user.username = generate_unique_username()
+        user.username = User.generate_unique_username()
         user_avatar = UserAvatar.create_default_avatar_for_user(user)
         db.session.add(user_avatar)
     db.session.commit()
