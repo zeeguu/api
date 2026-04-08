@@ -11,7 +11,6 @@ CREATE TABLE badge (
 CREATE TABLE badge_level (
     id INT AUTO_INCREMENT PRIMARY KEY,
     badge_id INT NOT NULL,
-    name VARCHAR(100),
     level INT NOT NULL,
     target_value INT NOT NULL,
     icon_name VARCHAR(255),
