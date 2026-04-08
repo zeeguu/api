@@ -2,6 +2,7 @@ import sqlalchemy
 from sqlalchemy import func
 
 import zeeguu.core
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.emailer.user_activity import send_new_user_account_email
 from zeeguu.core.emailer.email_confirmation import send_email_confirmation
 from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
@@ -50,7 +51,7 @@ def create_account(
     if not valid_invite_code(invite_code):
         raise Exception("Invitation code is not recognized. Please contact us.")
 
-    # TODO Implment this when username is implemented
+    # TODO Implement this when username is implemented
     # normalized_username = _normalize_username(username)
     # if normalized_username and len(normalized_username) > 50:
     #     raise Exception("Username can be at most 50 characters")
@@ -105,6 +106,10 @@ def create_account(
             db_session.add(teacher)
 
         db_session.commit()
+
+        # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
+        user_avatar = UserAvatar.create_default_avatar_for_user(new_user)
+        db_session.add(user_avatar)
 
         send_new_user_account_email(username, invite_code, cohort_name)
 
@@ -164,6 +169,10 @@ def create_basic_account(
         new_user.email_verified = False  # Require email verification
 
         db_session.add(new_user)
+
+        # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
+        user_avatar = UserAvatar.create_default_avatar_for_user(new_user)
+        db_session.add(user_avatar)
 
         if cohort and cohort.is_cohort_of_teachers:
             teacher = Teacher(new_user)
