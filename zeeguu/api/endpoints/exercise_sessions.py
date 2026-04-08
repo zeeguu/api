@@ -1,6 +1,6 @@
 import flask
 
-from zeeguu.core.model import UserExerciseSession
+from zeeguu.core.model import User, UserExerciseSession
 
 from zeeguu.api.utils.route_wrappers import requires_session, cross_domain
 from zeeguu.api.utils.json_result import json_result
@@ -23,7 +23,13 @@ def exercise_session_start():
     platform = request.form.get("platform", None)
     if platform is not None:
         platform = int(platform)
-    session = UserExerciseSession(flask.g.user_id, datetime.now(), platform=platform)
+    user = User.find_by_id(flask.g.user_id)
+    session = UserExerciseSession(
+        flask.g.user_id,
+        datetime.now(),
+        platform=platform,
+        language_id=user.learned_language_id,
+    )
     db_session.add(session)
     db_session.commit()
     return json_result(dict(id=session.id))
