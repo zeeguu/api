@@ -49,8 +49,7 @@ def get_badges_for_user(username: str = None):
                    "icon_name": "/badge1.svg",
                    "achieved": true,
                    "achieved_at": "2026-03-03T12:34:56",
-                   "is_shown": false,
-                   "name": "Beginner"
+                   "is_shown": false
                }, ...]
            "current_value": 10
         }, ... ]
@@ -126,6 +125,5 @@ def serialize_badge_level(level: BadgeLevel, user_level: UserBadgeLevel | None) 
             if user_level and user_level.achieved_at
             else None
         ),
-        "is_shown": user_level.is_shown if user_level else False,
-        "name": level.name,
+        "is_shown": user_level.is_shown if user_level else False
     }
