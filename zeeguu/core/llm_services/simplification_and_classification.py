@@ -80,7 +80,7 @@ def simplify_article_adaptive_levels(
     target_language: str,
     model: str = "deepseek-chat",
     simplification_provider: str = None,
-    correct_grammar: bool = True,
+    correct_grammar: bool = False,
 ) -> dict:
     """
     Simplify article to all levels simpler than the original using a single API call.
@@ -92,7 +92,7 @@ def simplify_article_adaptive_levels(
         target_language: Language code (e.g., 'da', 'es')
         model: Model to use (deprecated, provider chosen automatically)
         simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
-        correct_grammar: Whether to run a separate grammar/spelling correction pass after simplification (default: True). Corrections are logged to grammar_correction_log table for monitoring.
+        correct_grammar: Whether to run a separate Haiku grammar/spelling correction pass after simplification. Default is False — the DeepSeek + Haiku correction experiment ran 2025-12-09 → 2026-04-05 and concluded that the corrections were overwhelmingly cosmetic (~96% of title fixes and ~72% of content fixes were ≤2 char diffs). The correction pass and grammar_correction_log writes are kept in place but disabled by default; data from the experiment is preserved in the table.
 
     Returns:
         Dict containing all simplified versions and original metadata:
