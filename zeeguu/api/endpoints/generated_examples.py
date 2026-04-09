@@ -108,6 +108,11 @@ def alternative_sentences(user_word_id):
     origin_lang = user_word.meaning.origin.language.code
     translation_lang = user_word.meaning.translation.language.code
 
+    # Get the current context so we can exclude it from alternatives
+    current_context = ""
+    if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
+        current_context = user_word.preferred_bookmark.get_context().strip().lower()
+
     # Determine CEFR level
     cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
 
@@ -140,6 +145,10 @@ def alternative_sentences(user_word_id):
         prompt_version = "pregenerated"
 
         for db_example in db_examples:
+            # Skip examples that duplicate the current exercise context
+            if db_example.sentence.strip().lower() == current_context:
+                continue
+
             example_dict = {
                 "id": db_example.id,  # Include the sentence ID
                 "sentence": db_example.sentence,
@@ -237,21 +246,25 @@ def alternative_sentences(user_word_id):
             f"Saved {len(examples)} real-time generated examples to database for user_word {user_word_id}"
         )
 
-        # Add IDs and pre-created bookmarks to the examples we're returning
+        # Add IDs and pre-created bookmarks, skipping duplicates of current context
+        filtered_examples = []
         for i, example in enumerate(examples):
+            if example["sentence"].strip().lower() == current_context:
+                continue
             example["id"] = saved_examples[i].id
             bookmark_dict = _build_bookmark_dict_for_example(
                 user, user_word, saved_examples[i]
             )
             if bookmark_dict:
                 example["bookmark"] = bookmark_dict
+            filtered_examples.append(example)
 
         return json_result(
             {
                 "user_word_id": user_word_id,
                 "word": origin_word,
                 "translation": translation,
-                "examples": examples,
+                "examples": filtered_examples,
                 "ai_generator_id": ai_generator.id,
                 "llm_model": llm_model,
                 "prompt_version": prompt_version,

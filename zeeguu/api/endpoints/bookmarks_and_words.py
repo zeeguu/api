@@ -485,11 +485,21 @@ def get_past_contexts(user_word_id):
         .all()
     )
 
+    # Get the current context to exclude duplicates
+    current_context = ""
+    if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
+        current_context = user_word.preferred_bookmark.get_context().strip().lower()
+
     past_contexts = []
     for bookmark in bookmarks:
+        # Skip the preferred bookmark and any content duplicates of it
+        if bookmark.id == user_word.preferred_bookmark_id:
+            continue
+        if bookmark.get_context().strip().lower() == current_context:
+            continue
+
         context_data = {
             "bookmark_id": bookmark.id,
-            "is_preferred": bookmark.id == user_word.preferred_bookmark_id,
             "context": bookmark.get_context(),
             "context_type": (
                 bookmark.context.context_type.type
