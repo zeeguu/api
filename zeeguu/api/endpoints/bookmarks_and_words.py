@@ -512,6 +512,17 @@ def get_past_contexts(user_word_id):
         context_data["c_sentence_i"] = bookmark.context.sentence_i
         context_data["c_token_i"] = bookmark.context.token_i
 
+        # Include full bookmark dict so frontend can render instantly on swipe
+        try:
+            bookmark_dict = bookmark.as_dictionary(
+                with_context=True, with_context_tokenized=True
+            )
+            bookmark_dict["from_lang"] = user_word.meaning.origin.language.code
+            bookmark_dict["to_lang"] = user_word.meaning.translation.language.code
+            context_data["bookmark"] = bookmark_dict
+        except Exception as e:
+            log(f"Failed to build bookmark dict for past context {bookmark.id}: {e}")
+
         past_contexts.append(context_data)
 
     result = {
