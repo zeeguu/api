@@ -50,6 +50,10 @@ class UserLanguage(db.Model):
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
 
+    @property
+    def last_practiced_local(self):
+        return to_user_local_date(self.user, self.last_practiced)
+
     def __init__(
         self,
         user,
@@ -127,7 +131,7 @@ class UserLanguage(db.Model):
         Only updates once per day to minimize database writes.
         """
         today = user_local_today(self.user)
-        last_local = to_user_local_date(self.user, self.last_practiced)
+        last_local = self.last_practiced_local
 
         if last_local is None or last_local < today:
             if last_local is None:
