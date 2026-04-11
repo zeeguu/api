@@ -54,6 +54,16 @@ class UserLanguage(db.Model):
     def local_last_practiced(self):
         return to_user_local_date(self.user, self.last_practiced)
 
+    @property
+    def current_daily_streak(self):
+        """Stored streak, zeroed out if not practiced today or yesterday."""
+        last = self.local_last_practiced
+        if last is None:
+            return 0
+        if last < user_local_today(self.user) - datetime.timedelta(days=1):
+            return 0
+        return self.daily_streak or 0
+
     def __init__(
         self,
         user,

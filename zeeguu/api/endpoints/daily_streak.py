@@ -1,4 +1,3 @@
-import datetime
 import flask
 
 from zeeguu.api.utils.json_result import json_result
@@ -15,13 +14,8 @@ from ...core.model.db import db
 @requires_session
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
-    user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
-    streak = user_language.daily_streak or 0
-    yesterday = user_local_today(user) - datetime.timedelta(days=1)
-    last_local = user_language.local_last_practiced
-    if last_local and last_local < yesterday:
-        streak = 0
-    return json_result({"daily_streak": streak})
+    ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
+    return json_result({"daily_streak": ul.current_daily_streak})
 
 
 @api.route("/all_language_streaks", methods=["GET"])
@@ -29,25 +23,16 @@ def get_daily_streak():
 @requires_session
 def get_all_language_streaks():
     user = User.find_by_id(flask.g.user_id)
-    user_languages = UserLanguage.query.filter_by(user_id=user.id).all()
     today = user_local_today(user)
-    yesterday = today - datetime.timedelta(days=1)
-    result = []
-    for ul in user_languages:
-        if ul.language_id == user.native_language_id:
-            continue
-        last_local = ul.local_last_practiced
-        practiced_today = last_local == today
-        # Streak is only valid if practiced today or yesterday
-        streak = ul.daily_streak or 0
-        if last_local and last_local < yesterday:
-            streak = 0
-        result.append({
+    result = [
+        {
             "code": ul.language.code,
             "language": ul.language.name,
-            "daily_streak": streak,
-            "practiced_today": practiced_today,
-        })
-    # Sort by streak descending so highest streaks come first
+            "daily_streak": ul.current_daily_streak,
+            "practiced_today": ul.local_last_practiced == today,
+        }
+        for ul in UserLanguage.query.filter_by(user_id=user.id).all()
+        if ul.language_id != user.native_language_id
+    ]
     result.sort(key=lambda x: x["daily_streak"], reverse=True)
     return json_result(result)
