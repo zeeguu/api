@@ -1,4 +1,5 @@
 import flask
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
@@ -94,13 +95,6 @@ def learned_and_native_language():
 @cross_domain
 @requires_session
 def set_user_timezone():
-    """
-    Persist the client's IANA timezone (e.g. "Europe/Copenhagen") so daily
-    streaks roll over at the user's local midnight instead of the server's.
-    The client posts this on launch and on resume whenever the value changes.
-    """
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
     tz = flask.request.form.get("timezone", "").strip()
     try:
         ZoneInfo(tz)

@@ -4,15 +4,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SERVER_HOUR_DIFFERENCE = 1  # Frankfurt is +1 from UTC
 
-# Naive DB datetimes (e.g. user_language.last_practiced) are stored in
-# server-local time — see normalize_to_server_time below. SERVER_TZ tags
-# them with the running process's local zone so we can convert to a user's
-# local zone for streak comparisons.
-SERVER_TZ = datetime.now().astimezone().tzinfo
+# Pinned to Frankfurt to match the project's existing convention (see
+# normalize_to_server_time). IANA so DST is handled — a naive offset
+# would silently mis-bucket streaks twice a year.
+SERVER_TZ = ZoneInfo("Europe/Berlin")
 
 
-def _user_zone(user):
-    if user is not None and getattr(user, "timezone", None):
+def user_zone(user):
+    if getattr(user, "timezone", None):
         try:
             return ZoneInfo(user.timezone)
         except ZoneInfoNotFoundError:
@@ -21,19 +20,14 @@ def _user_zone(user):
 
 
 def user_today(user):
-    """Today's calendar date in the user's local timezone."""
-    return datetime.now(_user_zone(user)).date()
+    return datetime.now(user_zone(user)).date()
 
 
-def to_user_local_date(user, naive_server_dt):
-    """Reinterpret a naive server-local datetime as the user's local date."""
+def to_user_local_date(user, naive_server_dt, zone=None):
     if naive_server_dt is None:
         return None
-    return (
-        naive_server_dt.replace(tzinfo=SERVER_TZ)
-        .astimezone(_user_zone(user))
-        .date()
-    )
+    target = zone or user_zone(user)
+    return naive_server_dt.replace(tzinfo=SERVER_TZ).astimezone(target).date()
 
 """
 datetime (dt) is not by default a timezone aware object. When articles

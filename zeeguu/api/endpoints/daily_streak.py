@@ -3,7 +3,7 @@ import flask
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.util.time import user_today, to_user_local_date
+from zeeguu.core.util.time import user_today, to_user_local_date, user_zone
 from . import api
 from ...core.model import User
 from ...core.model.user_language import UserLanguage
@@ -30,13 +30,14 @@ def get_daily_streak():
 def get_all_language_streaks():
     user = User.find_by_id(flask.g.user_id)
     user_languages = UserLanguage.query.filter_by(user_id=user.id).all()
-    today = user_today(user)
+    zone = user_zone(user)
+    today = datetime.datetime.now(zone).date()
     yesterday = today - datetime.timedelta(days=1)
     result = []
     for ul in user_languages:
         if ul.language_id == user.native_language_id:
             continue
-        last_local = to_user_local_date(user, ul.last_practiced)
+        last_local = to_user_local_date(user, ul.last_practiced, zone=zone)
         practiced_today = last_local == today
         # Streak is only valid if practiced today or yesterday
         streak = ul.daily_streak or 0
