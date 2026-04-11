@@ -31,7 +31,7 @@ def get_all_language_streaks():
     user = User.find_by_id(flask.g.user_id)
     user_languages = UserLanguage.query.filter_by(user_id=user.id).all()
     zone = user_zone(user)
-    today = datetime.datetime.now(zone).date()
+    today = user_today(user, zone=zone)
     yesterday = today - datetime.timedelta(days=1)
     result = []
     for ul in user_languages:

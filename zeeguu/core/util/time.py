@@ -19,15 +19,14 @@ def user_zone(user):
     return SERVER_TZ
 
 
-def user_today(user):
-    return datetime.now(user_zone(user)).date()
+def user_today(user, zone=None):
+    return datetime.now(zone or user_zone(user)).date()
 
 
 def to_user_local_date(user, naive_server_dt, zone=None):
     if naive_server_dt is None:
         return None
-    target = zone or user_zone(user)
-    return naive_server_dt.replace(tzinfo=SERVER_TZ).astimezone(target).date()
+    return naive_server_dt.replace(tzinfo=SERVER_TZ).astimezone(zone or user_zone(user)).date()
 
 """
 datetime (dt) is not by default a timezone aware object. When articles
