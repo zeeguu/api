@@ -90,6 +90,29 @@ def learned_and_native_language():
     return json_result(res)
 
 
+@api.route("/user_timezone", methods=["POST"])
+@cross_domain
+@requires_session
+def set_user_timezone():
+    """
+    Persist the client's IANA timezone (e.g. "Europe/Copenhagen") so daily
+    streaks roll over at the user's local midnight instead of the server's.
+    The client posts this on launch and on resume whenever the value changes.
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    tz = flask.request.form.get("timezone", "").strip()
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        flask.abort(400, "invalid timezone")
+
+    user = User.find_by_id(flask.g.user_id)
+    user.timezone = tz
+    zeeguu.core.model.db.session.commit()
+    return "OK"
+
+
 @api.route("/get_unfinished_user_reading_sessions", methods=("GET",))
 @api.route(
     "/get_unfinished_user_reading_sessions/<int:total_sessions>", methods=("GET",)

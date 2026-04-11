@@ -125,16 +125,19 @@ class UserLanguage(db.Model):
         Update last_practiced timestamp and daily_streak counter for this language.
         Only updates once per day to minimize database writes.
         """
-        now = datetime.datetime.now()
+        from zeeguu.core.util.time import user_today, to_user_local_date
 
-        if not self.last_practiced or self.last_practiced.date() < now.date():
-            if not self.last_practiced:
+        today = user_today(self.user)
+        last_local = to_user_local_date(self.user, self.last_practiced)
+
+        if last_local is None or last_local < today:
+            if last_local is None:
                 self.daily_streak = 1
-            elif self.last_practiced.date() == now.date() - datetime.timedelta(days=1):
+            elif last_local == today - datetime.timedelta(days=1):
                 self.daily_streak = (self.daily_streak or 0) + 1
             else:
                 self.daily_streak = 1
 
-            self.last_practiced = now
+            self.last_practiced = datetime.datetime.now()
             if session:
                 session.add(self)
