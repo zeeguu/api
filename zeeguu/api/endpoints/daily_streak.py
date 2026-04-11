@@ -18,7 +18,7 @@ def get_daily_streak():
     user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
     streak = user_language.daily_streak or 0
     yesterday = user_local_today(user) - datetime.timedelta(days=1)
-    last_local = user_language.last_practiced_local
+    last_local = user_language.local_last_practiced
     if last_local and last_local < yesterday:
         streak = 0
     return json_result({"daily_streak": streak})
@@ -36,7 +36,7 @@ def get_all_language_streaks():
     for ul in user_languages:
         if ul.language_id == user.native_language_id:
             continue
-        last_local = ul.last_practiced_local
+        last_local = ul.local_last_practiced
         practiced_today = last_local == today
         # Streak is only valid if practiced today or yesterday
         streak = ul.daily_streak or 0
