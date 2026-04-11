@@ -19,7 +19,7 @@ def user_zone(user):
     return SERVER_TZ
 
 
-def user_today(user, zone=None):
+def user_local_today(user, zone=None):
     return datetime.now(zone or user_zone(user)).date()
 
 

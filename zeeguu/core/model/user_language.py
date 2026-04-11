@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
-from zeeguu.core.util.time import user_today, to_user_local_date
+from zeeguu.core.util.time import user_local_today, to_user_local_date
 
 import zeeguu.core
 
@@ -126,7 +126,7 @@ class UserLanguage(db.Model):
         Update last_practiced timestamp and daily_streak counter for this language.
         Only updates once per day to minimize database writes.
         """
-        today = user_today(self.user)
+        today = user_local_today(self.user)
         last_local = to_user_local_date(self.user, self.last_practiced)
 
         if last_local is None or last_local < today:
