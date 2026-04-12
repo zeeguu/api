@@ -1,47 +1,54 @@
-import enum
-
-from zeeguu.core.model.badge_level import BadgeLevel
 from zeeguu.core.model.db import db
-
-
-class BadgeCode(enum.Enum):
-    """Enum representing all available badge codes in the system."""
-    TRANSLATED_WORDS = 'TRANSLATED_WORDS'
-    CORRECT_EXERCISES = 'CORRECT_EXERCISES'
-    COMPLETED_AUDIO_LESSONS = 'COMPLETED_AUDIO_LESSONS'
-    STREAK_COUNT = 'STREAK_COUNT'
-    LEARNED_WORDS = 'LEARNED_WORDS'
-    READ_ARTICLES = 'READ_ARTICLES'
-    NUMBER_OF_FRIENDS = 'NUMBER_OF_FRIENDS'
 
 
 class Badge(db.Model):
     """
-       Represents a badge that can be earned by users. Each badge can have
-       multiple levels defined in BadgeLevel.
+       Represents a specific badge level within an activity type.
+       Each badge belongs to an ActivityType and has a level and threshold.
     """
     __tablename__ = "badge"
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.Enum(BadgeCode), nullable=False, unique=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
+    activity_type_id = db.Column(db.Integer, db.ForeignKey("activity_type.id"), nullable=False)
+    level = db.Column(db.Integer, nullable=False)
+    threshold = db.Column(db.Integer, nullable=False)
+    name = db.Column(db.String(100))
+    icon_name = db.Column(db.String(255))
 
     __table_args__ = (
-        db.UniqueConstraint("code"),
+        db.UniqueConstraint("activity_type_id", "level"),
     )
 
-    badge_levels = db.relationship(BadgeLevel, back_populates="badge", cascade="all, delete-orphan")
+    activity_type = db.relationship("ActivityType", back_populates="badges")
+    user_badges = db.relationship(
+        "UserBadge",
+        back_populates="badge",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
-        return f"<Badge {self.name}>"
+        return f"<Badge ActivityType:{self.activity_type_id} Level:{self.level}>"
 
     @classmethod
-    def find(cls, code: BadgeCode) -> "Badge":
+    def find_all_achievable(cls, activity_type_id: int, current_value: int) -> list["Badge"]:
         """
-        Find a badge by its BadgeCode enum value.
+        Find all badge levels for a specific activity type that are achievable
+        given the user's current value.
+
+        Returns:
+            List of Badge objects that are achievable.
+        """
+        return cls.query.filter(
+            cls.activity_type_id == activity_type_id,
+            cls.threshold <= current_value
+        ).all()
+
+    @classmethod
+    def find(cls, activity_type_id: int, level: int) -> "Badge | None":
+        """
+        Find a specific badge by activity type ID and level number.
 
         Returns:
             Badge object if found, else None.
         """
-        return cls.query.filter_by(code=code).first()
+        return cls.query.filter_by(activity_type_id=activity_type_id, level=level).first()

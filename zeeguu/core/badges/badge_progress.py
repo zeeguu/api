@@ -1,89 +1,89 @@
-from zeeguu.core.model.user_badge_progress import UserBadgeProgress
-from zeeguu.core.model.badge import BadgeCode, Badge
-from zeeguu.core.model.badge_level import BadgeLevel
-from zeeguu.core.model.user_badge_level import UserBadgeLevel
+from zeeguu.core.model.user_metric import UserMetric
+from zeeguu.core.model.activity_type import MetricKey, ActivityType
+from zeeguu.core.model.badge import Badge
+from zeeguu.core.model.user_badge import UserBadge
 from zeeguu.logging import log
 
 
-def _award_badge_levels(db_session, badge_id: int, user_id: int, current_value: int) -> list[UserBadgeLevel]:
+def _award_badges(db_session, activity_type_id: int, user_id: int, current_value: int) -> list[UserBadge]:
     """
-       Create UserBadgeLevel entries for all newly achieved levels.
-       Returns only newly created levels.
+       Create UserBadge entries for all newly achieved badge levels.
+       Returns only newly created entries.
     """
-    badge_level_ids = db_session.scalars(
-        db_session.query(BadgeLevel.id)
+    badge_ids = db_session.scalars(
+        db_session.query(Badge.id)
         .filter(
-            BadgeLevel.badge_id == badge_id,
-            BadgeLevel.target_value <= current_value
+            Badge.activity_type_id == activity_type_id,
+            Badge.threshold <= current_value
         )
-        .order_by(BadgeLevel.level.asc())
+        .order_by(Badge.level.asc())
     ).all()
 
-    if not badge_level_ids:
+    if not badge_ids:
         return []
 
-    existing_levels = UserBadgeLevel.find(user_id=user_id, badge_level_ids=badge_level_ids)
-    owned_ids = {lvl.badge_level_id for lvl in existing_levels}
+    existing = UserBadge.find(user_id=user_id, badge_ids=badge_ids)
+    owned_ids = {ub.badge_id for ub in existing}
 
-    missing_ids = [lvl_id for lvl_id in badge_level_ids if lvl_id not in owned_ids]
+    missing_ids = [bid for bid in badge_ids if bid not in owned_ids]
 
-    created_badges = [
-        UserBadgeLevel(user_id=user_id, badge_level_id=level_id)
-        for level_id in missing_ids
+    created = [
+        UserBadge(user_id=user_id, badge_id=badge_id)
+        for badge_id in missing_ids
     ]
 
-    db_session.add_all(created_badges)
+    db_session.add_all(created)
 
-    return created_badges
+    return created
 
 
-def increment_badge_progress(db_session, badge_code: BadgeCode, user_id: int, increment_value: int = 1) \
-        -> list[UserBadgeLevel]:
+def increment_badge_progress(db_session, metric_key: MetricKey, user_id: int, increment_value: int = 1) \
+        -> list[UserBadge]:
     """
-        Increment a user's badge progress and award newly achieved levels.
-        Returns newly created UserBadgeLevel records.
+        Increment a user's metric and award newly achieved badges.
+        Returns newly created UserBadge records.
     """
-    badge = Badge.find(badge_code)
-    if not badge:
-        log(f"[BADGE-ERROR] Cannot find badge entity with code='{badge_code}'")
+    activity_type = ActivityType.find(metric_key)
+    if not activity_type:
+        log(f"[BADGE-ERROR] Cannot find activity type with metric_key='{metric_key}'")
         return []
 
-    progress = UserBadgeProgress.create_or_increment(
+    metric = UserMetric.create_or_increment(
         db_session,
         user_id,
-        badge.id,
+        activity_type.id,
         increment_value
     )
 
-    return _award_badge_levels(
+    return _award_badges(
         db_session,
-        badge.id,
+        activity_type.id,
         user_id,
-        progress.current_value
+        metric.value
     )
 
 
-def update_badge_progress(db_session, badge_code: BadgeCode, user_id: int, current_value: int) \
-        -> list[UserBadgeLevel]:
+def update_badge_progress(db_session, metric_key: MetricKey, user_id: int, current_value: int) \
+        -> list[UserBadge]:
     """
-        Overwrite a user's badge progress and award newly achieved levels.
-        Returns newly created UserBadgeLevel records.
+        Overwrite a user's metric and award newly achieved badges.
+        Returns newly created UserBadge records.
     """
-    badge = Badge.find(badge_code)
-    if not badge:
-        log(f"[BADGE-ERROR] Cannot find badge entity with code='{badge_code}'")
+    activity_type = ActivityType.find(metric_key)
+    if not activity_type:
+        log(f"[BADGE-ERROR] Cannot find activity type with metric_key='{metric_key}'")
         return []
 
-    progress = UserBadgeProgress.create_or_update(
+    metric = UserMetric.create_or_update(
         db_session,
         user_id,
-        badge.id,
+        activity_type.id,
         current_value
     )
 
-    return _award_badge_levels(
+    return _award_badges(
         db_session,
-        badge.id,
+        activity_type.id,
         user_id,
-        progress.current_value
+        metric.value
     )

@@ -2,14 +2,14 @@ import flask
 from sqlalchemy.orm import joinedload
 
 from zeeguu.core.model import User
-from zeeguu.core.model.user_badge_progress import UserBadgeProgress
-from zeeguu.core.model.badge_level import BadgeLevel
+from zeeguu.core.model.user_metric import UserMetric
+from zeeguu.core.model.badge import Badge
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model.badge import Badge
+from zeeguu.core.model.activity_type import ActivityType
 from zeeguu.core.model.friend import Friend
-from zeeguu.core.model.user_badge_level import UserBadgeLevel
+from zeeguu.core.model.user_badge import UserBadge
 from . import api, db_session
 
 
@@ -23,7 +23,7 @@ def get_not_shown_user_badge_levels():
     Return the number of user badge levels that the current user has achieved
     but have not yet been shown to them.
     """
-    return json_result(UserBadgeLevel.count_user_not_shown(flask.g.user_id))
+    return json_result(UserBadge.count_user_not_shown(flask.g.user_id))
 
 
 # ---------------------------------------------------------------------------
@@ -65,13 +65,13 @@ def get_badges_for_user(username: str = None):
     else:
         used_user_id = requester_id
 
-    badges = Badge.query.options(joinedload(Badge.badge_levels)).all()
-    user_badge_levels = UserBadgeLevel.find_all(used_user_id)
-    achieved_map = {ubl.badge_level_id: ubl for ubl in user_badge_levels}
-    user_badge_progress = UserBadgeProgress.find_all(used_user_id)
-    progress_map = {ubp.badge_id: ubp for ubp in user_badge_progress}
+    activity_types = ActivityType.query.options(joinedload(ActivityType.badges)).all()
+    user_badges = UserBadge.find_all(used_user_id)
+    achieved_map = {ub.badge_id: ub for ub in user_badges}
+    user_metrics = UserMetric.find_all(used_user_id)
+    progress_map = {um.activity_type_id: um for um in user_metrics}
 
-    result = [serialize_badge(badge, achieved_map, progress_map) for badge in badges]
+    result = [serialize_activity_type(at, achieved_map, progress_map) for at in activity_types]
 
     return json_result(result)
 
@@ -93,37 +93,37 @@ def update_not_shown_user_badge_levels():
         "updated": true
     }
     """
-    UserBadgeLevel.update_not_shown_for_user(db_session, flask.g.user_id)
+    UserBadge.update_not_shown_for_user(db_session, flask.g.user_id)
     db_session.commit()
 
     return json_result({"updated": True})
 
 
-def serialize_badge(badge: Badge, achieved_map: dict, progress_map: dict) -> dict:
-    progress = progress_map.get(badge.id)
+def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, progress_map: dict) -> dict:
+    metric = progress_map.get(activity_type.id)
     levels = [
-        serialize_badge_level(level, achieved_map.get(level.id))
-        for level in sorted(badge.badge_levels, key=lambda b: b.level)
+        serialize_badge(badge, achieved_map.get(badge.id))
+        for badge in sorted(activity_type.badges, key=lambda b: b.level)
     ]
 
     return {
-        "name": badge.name,
-        "description": badge.description,
+        "name": activity_type.name,
+        "description": activity_type.description,
         "levels": levels,
-        "current_value": progress.current_value if progress else 0,
+        "current_value": metric.value if metric else 0,
     }
 
 
-def serialize_badge_level(level: BadgeLevel, user_level: UserBadgeLevel | None) -> dict:
+def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
-        "badge_level": level.level,
-        "target_value": level.target_value,
-        "icon_name": level.icon_name,
-        "achieved": user_level is not None,
+        "badge_level": badge.level,
+        "target_value": badge.threshold,
+        "icon_name": badge.icon_name,
+        "achieved": user_badge is not None,
         "achieved_at": (
-            user_level.achieved_at.isoformat()
-            if user_level and user_level.achieved_at
+            user_badge.achieved_at.isoformat()
+            if user_badge and user_badge.achieved_at
             else None
         ),
-        "is_shown": user_level.is_shown if user_level else False
+        "is_shown": user_badge.is_shown if user_badge else False
     }
