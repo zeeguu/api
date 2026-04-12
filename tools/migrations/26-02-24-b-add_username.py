@@ -9,19 +9,15 @@ This script should be run after the database schema has been updated to include 
 
 26-02-24-a-add_username.sql should have been run first to add the 'username' column to the 'user' table.
 
-Run with: source ~/.venvs/z_env/bin/activate && python tools/migrations/26-02-24-b-add_username.py
+Run with: pip install -e . && python tools/migrations/26-02-24-b-add_username.py
 """
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.user import User
 
 
 def populate_usernames():
-    users: list[User] = User.query.all()
+    # Only query users who don't have a username set (i.e., those with username == None)
+    users: list[User] = User.query.filter(User.username == None).all()
     for user in users:
         user.username = User.generate_unique_username()
         user_avatar = UserAvatar.create_default_avatar_for_user(user)

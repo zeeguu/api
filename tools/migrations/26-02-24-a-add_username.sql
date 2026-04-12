@@ -1,24 +1,5 @@
+-- Step 1 of 3: Add nullable username column.
+-- After this, run 26-02-24-b-add_username.py to populate usernames.
+-- Then run 26-02-24-c-add_username.sql to enforce NOT NULL + UNIQUE.
 ALTER TABLE user
-ADD COLUMN username VARCHAR(50);
-
-ALTER TABLE user
-MODIFY username VARCHAR(50) CHARACTER SET utf8 COLLATE utf8_bin;
-
--- This is maybe needed
-SET SQL_SAFE_UPDATES = 0;
-
--- Option 1 user_<id>
-UPDATE user
-SET username = CONCAT('user_', id)
-WHERE id IS NOT NULL
-AND username IS NULL;
-
--- In that case remember to enable it again
-SET SQL_SAFE_UPDATES = 1;
-
--- Change the column to be not null and unique
-ALTER TABLE user
-MODIFY username VARCHAR(50) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL;
-
-ALTER TABLE user
-ADD CONSTRAINT unique_username UNIQUE (username);
+ADD COLUMN username VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
