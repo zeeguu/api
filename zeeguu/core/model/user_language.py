@@ -158,7 +158,7 @@ class UserLanguage(db.Model):
         # daily streak does not change (e.g. repeated practice on same day).
         from zeeguu.core.model.friend import Friend
         friendships: list[Friend] = Friend.query.filter(
-            (Friend.user_id == user.id) | (Friend.friend_id == user.id)
+            (Friend.user_a_id == user.id) | (Friend.user_b_id == user.id)
         ).all()
         for friendship in friendships:
             friendship.update_friend_streak(session=active_session, commit=False)

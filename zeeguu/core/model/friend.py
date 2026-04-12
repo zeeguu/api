@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, and_
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, case
 from sqlalchemy.orm import relationship, object_session
 
 from zeeguu.core.model.db import db
@@ -13,23 +13,32 @@ class Friend(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    friend_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    # The user ids are stored in a consistent order (smaller id first) to simplify queries
+    user_a_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_b_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     deleted_at = Column(DateTime, nullable=True)
     friend_streak = Column(Integer, default=0)  # Tracks streak with this friend
     friend_streak_last_updated = Column(DateTime, nullable=True)
 
-    user = relationship(
+    user_a = relationship(
         User,
-        foreign_keys=[user_id],
-        primaryjoin="Friend.user_id == User.id"
+        foreign_keys=[user_a_id],
+        primaryjoin="Friend.user_a_id == User.id"
     )
-    friend = relationship(
+    user_b = relationship(
         User,
-        foreign_keys=[friend_id],
-        primaryjoin="Friend.friend_id == User.id"
+        foreign_keys=[user_b_id],
+        primaryjoin="Friend.user_b_id == User.id"
     )
+
+    def __init__(self, user_a_id: int, user_b_id: int):
+        # Always store in canonical order (smaller id first) so every query
+        # can use a simple or_ without worrying about which side is which.
+        if user_a_id > user_b_id:
+            user_a_id, user_b_id = user_b_id, user_a_id
+        self.user_a_id = user_a_id
+        self.user_b_id = user_b_id
 
     def update_friend_streak(self, session=None, commit=True):
         """
@@ -41,8 +50,8 @@ class Friend(db.Model):
         session = session or object_session(self) or db.session
 
         # Get all UserLanguage records for each user
-        user_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_id).all()
-        friend_langs = UserLanguage.query.filter(UserLanguage.user_id == self.friend_id).all()
+        user_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_a_id).all()
+        friend_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_b_id).all()
 
         # Find the most recent last_practiced date for each user
         user_date = None
@@ -86,15 +95,13 @@ class Friend(db.Model):
     @staticmethod
     def get_friends(user_id):
         """Return a list of User objects that are friends with the given user_id."""
-        # query where user is either the user_id or the friend_id
+        other_user_id = case((Friend.user_a_id == user_id, Friend.user_b_id), else_=Friend.user_a_id)
         friends = (
             db.session.query(User)
-            .join(
-                Friend,
-                ((Friend.user_id == user_id) & (Friend.friend_id == User.id)) |
-                ((Friend.friend_id == user_id) & (Friend.user_id == User.id))
-            )
+            .select_from(Friend)
+            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
             .filter(Friend.deleted_at.is_(None))
+            .join(User, User.id == other_user_id)
             .all()
         )
         return friends
@@ -112,19 +119,21 @@ class Friend(db.Model):
             UserLanguage objects)
         """
         from zeeguu.core.model import UserLanguage
+
+        # Each friendship row stores both user ids but doesn't tell us which one
+        # is "the other person" relative to the caller. The CASE expression derives
+        # that at query time: if user_a_id is the caller, the other user is user_b_id,
+        # and vice versa. This lets us do a single join to User instead of the
+        # OR-of-ANDs pattern that would otherwise be required.
+        other_user_id = case((Friend.user_a_id == user_id, Friend.user_b_id), else_=Friend.user_a_id)
         rows = (
             db.session.query(User, Friend, UserAvatar, UserLanguage)
-            .select_from(User)
-            .join(
-                Friend,
-                or_(
-                    and_(Friend.user_id == user_id, Friend.friend_id == User.id),
-                    and_(Friend.friend_id == user_id, Friend.user_id == User.id),
-                )
-            )
+            .select_from(Friend)
+            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
+            .filter(Friend.deleted_at.is_(None))
+            .join(User, User.id == other_user_id)
             .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(UserLanguage, UserLanguage.user_id == User.id)
-            .filter(Friend.deleted_at.is_(None))
             .all()
         )
 
@@ -146,39 +155,34 @@ class Friend(db.Model):
         return list(grouped.values())
 
     @classmethod
-    def are_friends(cls, user1_id: int, user2_id: int) -> bool:
+    def are_friends(cls, user_1_id: int, user_2_id: int) -> bool:
         """Return True if two users are friends (in either direction)."""
-        if user1_id is None or user2_id is None:
+        if user_1_id is None or user_2_id is None:
             return False
 
-        if user1_id == user2_id:
-            return True
+        if user_1_id == user_2_id:
+            return True # You are always a friend to yourself
 
+        a_id, b_id = min(user_1_id, user_2_id), max(user_1_id, user_2_id)
         friendship = (
             cls.query
-            .filter(
-                ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
-                ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
-            )
+            .filter(cls.user_a_id == a_id, cls.user_b_id == b_id)
             .filter(cls.deleted_at.is_(None))
             .first()
         )
         return friendship is not None
 
     @classmethod
-    def remove_friendship(cls, user1_id: int, user2_id: int) -> bool:
+    def remove_friendship(cls, user_1_id: int, user_2_id: int) -> bool:
         """
         Deletes a friendship between two users.
 
         Only does a logical delete by setting deleted_at to the current time.
         """
-        # Look for friendship in either direction
+        a_id, b_id = min(user_1_id, user_2_id), max(user_1_id, user_2_id)
         friendship = (
             cls.query
-            .filter(
-                ((cls.user_id == user1_id) & (cls.friend_id == user2_id)) |
-                ((cls.user_id == user2_id) & (cls.friend_id == user1_id))
-            )
+            .filter(cls.user_a_id == a_id, cls.user_b_id == b_id)
             .filter(cls.deleted_at.is_(None))
             .first()
         )
@@ -212,12 +216,10 @@ class Friend(db.Model):
             return None
         friend_user_id = friend.id
 
+        a_id, b_id = min(user_id, friend_user_id), max(user_id, friend_user_id)
         friendship = (
             cls.query
-            .filter(
-                ((cls.user_id == user_id) & (cls.friend_id == friend_user_id)) |
-                ((cls.user_id == friend_user_id) & (cls.friend_id == user_id))
-            )
+            .filter(cls.user_a_id == a_id, cls.user_b_id == b_id)
             .filter(cls.deleted_at.is_(None))
             .first()
         )
@@ -271,17 +273,15 @@ class Friend(db.Model):
 
         # Fetch all friendships involving the current user
         friendships = (
-            Friend.query
-            .filter(
-                (Friend.user_id == current_user_id) | (Friend.friend_id == current_user_id)
-            )
-            .filter(Friend.deleted_at.is_(None))
+            cls.query
+            .filter(or_(cls.user_a_id == current_user_id, cls.user_b_id == current_user_id))
+            .filter(cls.deleted_at.is_(None))
             .all()
         )
 
         friendship_map = {}
         for friendship in friendships:
-            other_id = friendship.friend_id if friendship.user_id == current_user_id else friendship.user_id
+            other_id = friendship.user_b_id if friendship.user_a_id == current_user_id else friendship.user_a_id
             friendship_map[other_id] = friendship
 
         # Fetch all friend requests involving the current user
@@ -307,7 +307,7 @@ class Friend(db.Model):
         return results
 
     @staticmethod
-    def add_friendship(user_id: int, friend_id: int):
+    def add_friendship(user_id: int, other_id: int):
         """
         Creates a friendship between two users, or returns it if they are already friends.
 
@@ -315,13 +315,15 @@ class Friend(db.Model):
         row for the same users instead of overwriting the existing one. This ensures
         past friend leaderboards will show correct data for their respective time periods.
         """
+        # Ensure canonical ordering before any lookup or insert
+        if user_id > other_id:
+            # This swaps the values of user_id and other_id so that user_id is always the smaller one
+            user_id, other_id = other_id, user_id
+
         # Check if friendship already exists
         existing = (
             Friend.query
-            .filter(
-                ((Friend.user_id == user_id) & (Friend.friend_id == friend_id)) |
-                ((Friend.user_id == friend_id) & (Friend.friend_id == user_id))
-            )
+            .filter(Friend.user_a_id == user_id, Friend.user_b_id == other_id)
             .filter(Friend.deleted_at.is_(None))
             .first()
         )
@@ -330,7 +332,7 @@ class Friend(db.Model):
             return existing  # friendship already exists
 
         # Add friendship
-        friendship = Friend(user_id=user_id, friend_id=friend_id)
+        friendship = Friend(user_a_id=user_id, user_b_id=other_id)
         db.session.add(friendship)
         db.session.commit()
         db.session.refresh(friendship)
