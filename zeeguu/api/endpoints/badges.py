@@ -40,12 +40,12 @@ def get_badges_for_user(username: str = None):
     Returns:
     [
         {
-           "name": "Meaning Builder",
-           "description": "Translate {target_value} words while reading.",
+           "name": "Translated Words",
+           "description": "Translate {threshold} words while reading.",
            "levels": [
                {
                    "badge_level": 1,
-                   "target_value": 50,
+                   "threshold": 50,
                    "icon_name": "/badge1.svg",
                    "achieved": true,
                    "achieved_at": "2026-03-03T12:34:56",
@@ -117,7 +117,7 @@ def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, pro
 def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "badge_level": badge.level,
-        "target_value": badge.threshold,
+        "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,
         "achieved_at": (

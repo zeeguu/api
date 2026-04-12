@@ -2,13 +2,13 @@
 
 INSERT INTO activity_type (id, metric_key, name, description, is_accumulative)
 VALUES
-        (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {target_value} unique words while reading.', TRUE),
-        (2, 'CORRECT_EXERCISES', 'Correct Exercises', 'Solve {target_value} exercises correctly.', TRUE),
-        (3, 'COMPLETED_AUDIO_LESSONS', 'Completed Audio Lessons', 'Complete {target_value} audio lesson(s).', TRUE),
-        (4, 'STREAK_COUNT', 'Streak Count', 'Maintain a streak for {target_value} days.', TRUE),
-        (5, 'LEARNED_WORDS', 'Learned Words', 'Learn {target_value} new word(s).', TRUE),
-        (6, 'READ_ARTICLES', 'Read Articles', 'Read {target_value} articles.', TRUE),
-        (7, 'NUMBER_OF_FRIENDS', 'Number of Friends', 'Add {target_value} friend(s).', TRUE);
+        (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {threshold} unique words while reading.', TRUE),
+        (2, 'CORRECT_EXERCISES', 'Correct Exercises', 'Solve {threshold} exercises correctly.', TRUE),
+        (3, 'COMPLETED_AUDIO_LESSONS', 'Completed Audio Lessons', 'Complete {threshold} audio lesson(s).', TRUE),
+        (4, 'STREAK_COUNT', 'Streak Count', 'Maintain a streak for {threshold} days.', TRUE),
+        (5, 'LEARNED_WORDS', 'Learned Words', 'Learn {threshold} new word(s).', TRUE),
+        (6, 'READ_ARTICLES', 'Read Articles', 'Read {threshold} articles.', TRUE),
+        (7, 'NUMBER_OF_FRIENDS', 'Number of Friends', 'Add {threshold} friend(s).', TRUE);
 
 INSERT INTO badge (id, activity_type_id, level, threshold, name, icon_name)
 VALUES
