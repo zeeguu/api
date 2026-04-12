@@ -45,6 +45,7 @@ def get_badges_for_user(username: str = None):
            "badges": [
                {
                    "level": 1,
+                   "name": "Word Explorer",
                    "threshold": 50,
                    "icon_name": "/badge1.svg",
                    "achieved": true,
@@ -118,6 +119,7 @@ def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, pro
 def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "level": badge.level,
+        "name": badge.name,
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,
