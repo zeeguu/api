@@ -14,6 +14,13 @@ class ActivityTypeMetric(enum.Enum):
     NUMBER_OF_FRIENDS = 'NUMBER_OF_FRIENDS'
 
 
+class BadgeType(enum.Enum):
+    """Enum representing all available badge types in the system."""
+    COUNTER = 'COUNTER'  # Progress value can only go up, incrementally
+    GAUGE = 'GAUGE'  # Progress value always reflects current state and might reset to 0
+    ONE_TIME = 'ONE_TIME'  # These badges don't have any levels, and are either achieved once or not
+
+
 class ActivityType(db.Model):
     """
        Represents a type of activity that can earn badges. Each activity type
@@ -25,7 +32,7 @@ class ActivityType(db.Model):
     metric = db.Column(db.Enum(ActivityTypeMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    is_accumulative = db.Column(db.Boolean)
+    badge_type = db.Column(db.Enum(BadgeType), nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint("metric"),

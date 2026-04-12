@@ -6,7 +6,7 @@ CREATE TABLE activity_type (
     metric VARCHAR(100) UNIQUE,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    is_accumulative BOOLEAN -- true = counter-based, false = one-off
+    badge_type VARCHAR(100) NOT NULL -- 'COUNTER', 'GAUGE' or 'ONE_TIME'
 );
 
 -- Defines specific badges, organized as levels within an activity type (like bronze/silver/gold).
