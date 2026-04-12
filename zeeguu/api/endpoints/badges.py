@@ -1,15 +1,15 @@
 import flask
 from sqlalchemy.orm import joinedload
 
-from zeeguu.core.model import User
-from zeeguu.core.model.user_metric import UserMetric
-from zeeguu.core.model.badge import Badge
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.model import User
 from zeeguu.core.model.activity_type import ActivityType
+from zeeguu.core.model.badge import Badge
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.user_badge import UserBadge
+from zeeguu.core.model.user_metric import UserMetric
 from . import api, db_session
 
 
@@ -20,7 +20,7 @@ from . import api, db_session
 @requires_session
 def get_not_shown_user_badge_levels():
     """
-    Return the number of user badge levels that the current user has achieved
+    Return the number of UserBadge entries that the current user has achieved
     but have not yet been shown to them.
     """
     return json_result(UserBadge.count_user_not_shown(flask.g.user_id))
@@ -34,17 +34,17 @@ def get_not_shown_user_badge_levels():
 @requires_session
 def get_badges_for_user(username: str = None):
     """
-    Retrieve all badges and their levels for the specified or current user.
-    Each badge level includes achievement status and whether it has been shown.
+    Retrieve all activity types and their corresponding badges for the specified or current user.
+    Each badge includes achievement status and whether it has been shown.
 
     Returns:
     [
         {
            "name": "Translated Words",
            "description": "Translate {threshold} words while reading.",
-           "levels": [
+           "badges": [
                {
-                   "badge_level": 1,
+                   "level": 1,
                    "threshold": 50,
                    "icon_name": "/badge1.svg",
                    "achieved": true,
@@ -75,6 +75,7 @@ def get_badges_for_user(username: str = None):
 
     return json_result(result)
 
+
 # ---------------------------------------------------------------------------
 @api.route("/badges/update_not_shown", methods=["POST"])
 # ---------------------------------------------------------------------------
@@ -82,9 +83,9 @@ def get_badges_for_user(username: str = None):
 @requires_session
 def update_not_shown_user_badge_levels():
     """
-    Mark all unseen badge levels for the current user as shown.
+    Mark all unseen badges for the current user as shown.
 
-    This updates all UserBadgeLevel records where:
+    This updates all UserBadge records where:
         - user_id matches the current user
         - is_shown is False
 
@@ -101,7 +102,7 @@ def update_not_shown_user_badge_levels():
 
 def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, progress_map: dict) -> dict:
     metric = progress_map.get(activity_type.id)
-    levels = [
+    badges = [
         serialize_badge(badge, achieved_map.get(badge.id))
         for badge in sorted(activity_type.badges, key=lambda b: b.level)
     ]
@@ -109,14 +110,14 @@ def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, pro
     return {
         "name": activity_type.name,
         "description": activity_type.description,
-        "levels": levels,
+        "badges": badges,
         "current_value": metric.value if metric else 0,
     }
 
 
 def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
-        "badge_level": badge.level,
+        "level": badge.level,
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,

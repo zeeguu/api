@@ -188,8 +188,9 @@ class Friend(db.Model):
             db.session.add(friendship)
             db.session.commit()
 
-            Friend._sync_number_of_friends_badge_progress(user1_id)
-            Friend._sync_number_of_friends_badge_progress(user2_id)
+            from zeeguu.core import events
+            events.friendship_changed.send(None, user_id=user1_id, db_session=db.session)
+            events.friendship_changed.send(None, user_id=user2_id, db_session=db.session)
             db.session.commit()
 
             return True
@@ -339,9 +340,9 @@ class Friend(db.Model):
         db.session.add(friendship)
         db.session.commit()
 
-        # Sync "NUMBER_OF_FRIENDS" badge progress
-        Friend._sync_number_of_friends_badge_progress(user_id)
-        Friend._sync_number_of_friends_badge_progress(friend_id)
+        from zeeguu.core import events
+        events.friendship_changed.send(None, user_id=user_id, db_session=db.session)
+        events.friendship_changed.send(None, user_id=friend_id, db_session=db.session)
         db.session.commit()
 
         return friendship
@@ -386,17 +387,3 @@ class Friend(db.Model):
                 ),
             }
 
-    @staticmethod
-    def _sync_number_of_friends_badge_progress(user_id: int):
-        """
-        Sync the stored "NUMBER_OF_FRIENDS" badge metric with the user's current friend count.
-        """
-        from zeeguu.core.badges.badge_progress import update_badge_progress
-        from zeeguu.core.model.activity_type import ActivityTypeMetric
-
-        update_badge_progress(
-            db.session,
-            ActivityTypeMetric.NUMBER_OF_FRIENDS,
-            user_id,
-            Friend.count_active_friends(user_id),
-        )

@@ -131,6 +131,8 @@ class UserLanguage(db.Model):
         Update last_practiced timestamp and daily_streak counter for this language.
         Only updates once per day to minimize database writes.
         """
+        from zeeguu.core import events
+
         now = datetime.datetime.now()
         active_session = session or db.session
 
@@ -148,21 +150,11 @@ class UserLanguage(db.Model):
             self._update_max_streak_if_needed()
             active_session.add(self)
 
-            from zeeguu.core.badges.badge_progress import update_badge_progress
-            from zeeguu.core.model.activity_type import ActivityTypeMetric
-            daily_streak_badge_progress = max(
-                [user_language.daily_streak for user_language in self.all_user_languages_for_user(user)]
-            )
-            update_badge_progress(db.session, ActivityTypeMetric.STREAK_COUNT, user.id, daily_streak_badge_progress)
+            events.streak_changed.send(None, user_id=user.id, db_session=db.session)
 
         # Update friend streaks for all friendships even if the user's own
         # daily streak does not change (e.g. repeated practice on same day).
-        from zeeguu.core.model.friend import Friend
-        friendships: list[Friend] = Friend.query.filter(
-            (Friend.user_id == user.id) | (Friend.friend_id == user.id)
-        ).all()
-        for friendship in friendships:
-            friendship.update_friend_streak(session=active_session, commit=False)
+        events.friend_streak_changed.send(None, user_id=user.id, db_session=db.session)
 
         active_session.commit()
 

@@ -895,9 +895,8 @@ class DailyLessonGenerator:
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
 
-                from zeeguu.core.badges.badge_progress import increment_badge_progress
-                from zeeguu.core.model.activity_type import ActivityTypeMetric
-                increment_badge_progress(db.session, ActivityTypeMetric.COMPLETED_AUDIO_LESSONS, user.id)
+                from zeeguu.core import events
+                events.audio_lesson_completed.send(None, user_id=user.id, db_session=db.session)
 
             else:
                 return {
