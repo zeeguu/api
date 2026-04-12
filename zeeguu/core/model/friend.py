@@ -187,6 +187,11 @@ class Friend(db.Model):
             friendship.deleted_at = datetime.now()
             db.session.add(friendship)
             db.session.commit()
+
+            Friend._sync_number_of_friends_badge_progress(user1_id)
+            Friend._sync_number_of_friends_badge_progress(user2_id)
+            db.session.commit()
+
             return True
 
         return False
@@ -333,8 +338,26 @@ class Friend(db.Model):
         friendship = Friend(user_id=user_id, friend_id=friend_id)
         db.session.add(friendship)
         db.session.commit()
-        db.session.refresh(friendship)
+
+        # Sync "NUMBER_OF_FRIENDS" badge progress
+        Friend._sync_number_of_friends_badge_progress(user_id)
+        Friend._sync_number_of_friends_badge_progress(friend_id)
+        db.session.commit()
+
         return friendship
+
+    @staticmethod
+    def count_active_friends(user_id: int) -> int:
+        """Return the current number of friends for a user."""
+        return (
+                db.session.query(func.count(Friend.id))
+                .filter(
+                    ((Friend.user_id == user_id) | (Friend.friend_id == user_id)),
+                    Friend.deleted_at.is_(None),
+                )
+                .scalar()
+                or 0
+        )
 
     @staticmethod
     def _get_friendship_or_friend_request(friendship, friend_request):
@@ -362,3 +385,18 @@ class Friend(db.Model):
                     else None
                 ),
             }
+
+    @staticmethod
+    def _sync_number_of_friends_badge_progress(user_id: int):
+        """
+        Sync the stored "NUMBER_OF_FRIENDS" badge metric with the user's current friend count.
+        """
+        from zeeguu.core.badges.badge_progress import update_badge_progress
+        from zeeguu.core.model.activity_type import ActivityTypeMetric
+
+        update_badge_progress(
+            db.session,
+            ActivityTypeMetric.NUMBER_OF_FRIENDS,
+            user_id,
+            Friend.count_active_friends(user_id),
+        )
