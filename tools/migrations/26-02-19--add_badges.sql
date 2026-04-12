@@ -21,7 +21,7 @@ CREATE TABLE badge (
     FOREIGN KEY (activity_type_id) REFERENCES activity_type(id)
 );
 
---Tracks which badges each user has earned.
+-- Tracks which badges each user has earned.
 CREATE TABLE user_badge (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
