@@ -896,8 +896,8 @@ class DailyLessonGenerator:
                 self._send_lesson_completion_notification(lesson, user)
 
                 from zeeguu.core.badges.badge_progress import increment_badge_progress
-                from zeeguu.core.model.activity_type import MetricKey
-                increment_badge_progress(db.session, MetricKey.COMPLETED_AUDIO_LESSONS, user.id)
+                from zeeguu.core.model.activity_type import ActivityTypeMetric
+                increment_badge_progress(db.session, ActivityTypeMetric.COMPLETED_AUDIO_LESSONS, user.id)
 
             else:
                 return {

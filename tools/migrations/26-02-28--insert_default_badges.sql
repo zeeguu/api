@@ -1,6 +1,6 @@
 -- tools/migrations/26-02-28--insert_default_badges.sql
 
-INSERT INTO activity_type (id, metric_key, name, description, is_accumulative)
+INSERT INTO activity_type (id, metric, name, description, is_accumulative)
 VALUES
         (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {threshold} unique words while reading.', TRUE),
         (2, 'CORRECT_EXERCISES', 'Correct Exercises', 'Solve {threshold} exercises correctly.', TRUE),

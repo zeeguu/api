@@ -64,9 +64,9 @@ class FourLevelsPerWord(BasicSRSchedule):
                 else:
                     self.set_meaning_as_learned(db_session)
                     from zeeguu.core.badges.badge_progress import increment_badge_progress
-                    from zeeguu.core.model.activity_type import MetricKey
+                    from zeeguu.core.model.activity_type import ActivityTypeMetric
                     user_id = self.user_word.user.id
-                    increment_badge_progress(db_session, MetricKey.LEARNED_WORDS, user_id)
+                    increment_badge_progress(db_session, ActivityTypeMetric.LEARNED_WORDS, user_id)
                     db_session.commit()
                     # we simply return because the self object will have been deleted inside of the above call
                     return

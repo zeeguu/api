@@ -149,11 +149,11 @@ class UserLanguage(db.Model):
             active_session.add(self)
 
             from zeeguu.core.badges.badge_progress import update_badge_progress
-            from zeeguu.core.model.activity_type import MetricKey
+            from zeeguu.core.model.activity_type import ActivityTypeMetric
             daily_streak_badge_progress = max(
                 [user_language.daily_streak for user_language in self.all_user_languages_for_user(user)]
             )
-            update_badge_progress(db.session, MetricKey.STREAK_COUNT, user.id, daily_streak_badge_progress)
+            update_badge_progress(db.session, ActivityTypeMetric.STREAK_COUNT, user.id, daily_streak_badge_progress)
 
         # Update friend streaks for all friendships even if the user's own
         # daily streak does not change (e.g. repeated practice on same day).

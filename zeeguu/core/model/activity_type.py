@@ -3,8 +3,8 @@ import enum
 from zeeguu.core.model.db import db
 
 
-class MetricKey(enum.Enum):
-    """Enum representing all available activity metric keys in the system."""
+class ActivityTypeMetric(enum.Enum):
+    """Enum representing all available activity metrics in the system."""
     TRANSLATED_WORDS = 'TRANSLATED_WORDS'
     CORRECT_EXERCISES = 'CORRECT_EXERCISES'
     COMPLETED_AUDIO_LESSONS = 'COMPLETED_AUDIO_LESSONS'
@@ -22,13 +22,13 @@ class ActivityType(db.Model):
     __tablename__ = "activity_type"
 
     id = db.Column(db.Integer, primary_key=True)
-    metric_key = db.Column(db.Enum(MetricKey), nullable=False, unique=True)
+    metric = db.Column(db.Enum(ActivityTypeMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     is_accumulative = db.Column(db.Boolean)
 
     __table_args__ = (
-        db.UniqueConstraint("metric_key"),
+        db.UniqueConstraint("metric"),
     )
 
     badges = db.relationship("Badge", back_populates="activity_type", cascade="all, delete-orphan")
@@ -37,11 +37,11 @@ class ActivityType(db.Model):
         return f"<ActivityType {self.name}>"
 
     @classmethod
-    def find(cls, metric_key: MetricKey) -> "ActivityType":
+    def find(cls, metric: ActivityTypeMetric) -> "ActivityType":
         """
-        Find an activity type by its MetricKey enum value.
+        Find an activity type by its ActivityTypeMetric enum value.
 
         Returns:
             ActivityType object if found, else None.
         """
-        return cls.query.filter_by(metric_key=metric_key).first()
+        return cls.query.filter_by(metric=metric).first()

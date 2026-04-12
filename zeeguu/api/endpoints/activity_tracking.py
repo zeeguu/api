@@ -3,7 +3,7 @@ from flask import request
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.badges.badge_progress import increment_badge_progress
-from zeeguu.core.model.activity_type import MetricKey
+from zeeguu.core.model.activity_type import ActivityTypeMetric
 from zeeguu.core.model import UserActivityData, User
 from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
     distill_article_interactions,
@@ -138,7 +138,7 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
             user_article.completed_at = datetime.now()
 
             # Update READ_ARTICLES badge progress
-            increment_badge_progress(db_session, MetricKey.READ_ARTICLES, user.id)
+            increment_badge_progress(db_session, ActivityTypeMetric.READ_ARTICLES, user.id)
 
             # Send notification if enabled
             from flask import current_app

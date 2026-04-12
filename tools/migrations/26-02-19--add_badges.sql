@@ -3,7 +3,7 @@
 -- Defines the types of activities that can earn badges.
 CREATE TABLE activity_type (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    metric_key VARCHAR(100) UNIQUE,
+    metric VARCHAR(100) UNIQUE,
     name VARCHAR(100) NOT NULL,
     description TEXT,
     is_accumulative BOOLEAN -- true = counter-based, false = one-off
