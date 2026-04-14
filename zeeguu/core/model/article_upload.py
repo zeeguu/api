@@ -1,4 +1,11 @@
-"""Per-user ingestion entity for extension / share uploads."""
+"""Per-user ingestion entity for extension / share uploads.
+
+We persist the extras the client already extracted with Readability
+(title, image_url, author, language) alongside raw_html/text_content,
+so the choice modal can render a proper preview immediately and the
+conversion endpoint doesn't pay a second readability_server pass when
+deriving the Article.
+"""
 from datetime import datetime
 
 from langdetect import detect
