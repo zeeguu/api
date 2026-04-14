@@ -344,7 +344,7 @@ class Friend(db.Model):
 
         from zeeguu.core import events
         events.friendship_changed.send(None, user_id=user_id, db_session=db.session)
-        events.friendship_changed.send(None, user_id=friend_id, db_session=db.session)
+        events.friendship_changed.send(None, user_id=other_id, db_session=db.session)
         db.session.commit()
 
         return friendship
@@ -355,7 +355,7 @@ class Friend(db.Model):
         return (
                 db.session.query(func.count(Friend.id))
                 .filter(
-                    ((Friend.user_id == user_id) | (Friend.friend_id == user_id)),
+                    ((Friend.user_a_id == user_id) | (Friend.user_b_id == user_id)),
                     Friend.deleted_at.is_(None),
                 )
                 .scalar()
