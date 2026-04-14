@@ -8,7 +8,7 @@ from zeeguu.core.model.friend import Friend  # assuming you have a User model
 from sqlalchemy.exc import NoResultFound
 
 class FriendRequest(db.Model):
-    __tablename__ = "friend_requests"
+    __tablename__ = "friend_request"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
