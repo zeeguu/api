@@ -9,7 +9,6 @@ from zeeguu.core.content_recommender import (
 from zeeguu.core.model import (
     UserArticle,
     Article,
-    ArticleUpload,
     PersonalCopy,
     User,
     UserArticleBrokenReport,
@@ -142,20 +141,6 @@ def saved_articles(page: int = None):
         saves = PersonalCopy.all_for(user)
 
     article_infos = UserArticle.article_infos(user, saves, select_appropriate=True)
-
-    # Client routes is_upload items to /shared-article?upload_id=<id>
-    # instead of /read/article?id=<id>.
-    if page is None or page == 0:
-        saved_upload_ids = {
-            a.source_upload_id for a in saves if a.source_upload_id is not None
-        }
-        uploads = [
-            u for u in ArticleUpload.for_user(user) if u.id not in saved_upload_ids
-        ]
-        for upload in uploads:
-            d = upload.as_dictionary()
-            d["is_upload"] = True
-            article_infos.append(d)
 
     return json_result(article_infos)
 
