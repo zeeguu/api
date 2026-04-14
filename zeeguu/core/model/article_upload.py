@@ -78,12 +78,14 @@ class ArticleUpload(db.Model):
 
     @classmethod
     def find_or_create(cls, session, user, url_string, raw_html, text_content,
-                       title=None, image_url=None, author=None):
-        detection_basis = (text_content or raw_html or title or "")[:_LANGDETECT_MAX_CHARS]
-        try:
-            lang_code = detect(detection_basis) if detection_basis else None
-        except LangDetectException:
-            lang_code = None
+                       title=None, image_url=None, author=None, language_code=None):
+        lang_code = language_code
+        if not lang_code:
+            detection_basis = (text_content or raw_html or title or "")[:_LANGDETECT_MAX_CHARS]
+            try:
+                lang_code = detect(detection_basis) if detection_basis else None
+            except LangDetectException:
+                lang_code = None
         language = Language.find(lang_code) if lang_code else None
 
         url_obj = Url.find_or_create(session, url_string, title=title or "")
