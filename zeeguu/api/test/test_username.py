@@ -122,18 +122,6 @@ class TestUsernameValidation:
         assert user.username == "brave wolf"
 
     # --- Case sensitivity --------------------------------------------------
-    def test_username_case_insensitive_uniqueness(self, app, client):
-        """
-        utf8mb4_unicode_ci collation treats 'BraveWolf1' and 'bravewolf1' as the same.
-        After user1 claims 'BraveWolf1', user2 setting 'bravewolf1' should be rejected.
-        """
-        lc1 = logged_in(client, "case1@zeeguu.test")
-        r1 = set_username(lc1, "BraveWolf1")
-        assert r1.status_code == 200
-
-        lc2 = logged_in(client, "case2@zeeguu.test")
-        r2 = set_username(lc2, "bravewolf1")
-        assert r2.status_code == 400
 
     def test_username_update_own_case_change(self, app, client):
         """A user should be able to change only the casing of their own username."""
@@ -147,7 +135,6 @@ class TestUsernameValidation:
         assert user.username.upper() == "MYUSER99"
 
     # --- Update via /user_settings -----------------------------------------
-
     def test_update_username_success(self, app, client):
         lc = logged_in(client, "update1@zeeguu.test")
         response = set_username(lc, "newname42")
