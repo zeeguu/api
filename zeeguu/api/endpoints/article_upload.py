@@ -16,11 +16,8 @@ _DEFAULT_CEFR_LEVEL = "A2"
 
 
 def _extract_with_readability_server(url, raw_html):
-    """
-    Run the readability_server on raw_html and return a dict with
-    cleaned {title, text, image_url, author, language_code}, or None
-    if extraction fails. Never raises; callers fall back to client hints.
-    """
+    """Never raises; callers fall back to client hints."""
+    from sentry_sdk import capture_exception
     from zeeguu.core.content_retriever import readability_download_and_parse
     from zeeguu.core.content_retriever.article_downloader import extract_article_image
 
@@ -28,14 +25,13 @@ def _extract_with_readability_server(url, raw_html):
         np_article = readability_download_and_parse(url, html_content=raw_html)
     except Exception as e:
         log(f"readability_server extraction failed for {url}: {e}")
+        capture_exception(e)
         return None
-
-    image = extract_article_image(np_article) or None
 
     return {
         "title": np_article.title or None,
         "text": np_article.text or None,
-        "image_url": image,
+        "image_url": extract_article_image(np_article) or None,
         "author": ", ".join(np_article.authors) if np_article.authors else None,
         "language_code": np_article.meta_lang or None,
     }
@@ -88,6 +84,8 @@ def _ensure_personal_copy(user, article):
 @cross_domain
 @requires_session
 def article_upload_create():
+    from zeeguu.core.model.url import Url
+
     url = request.form.get("url", "").strip()
     if not url:
         flask.abort(400, "url required")
@@ -101,30 +99,30 @@ def article_upload_create():
     if not raw_html and not client_text:
         flask.abort(400, "raw_html or text_content required")
 
-    # Prefer server-side extraction so uploads match the metadata quality
-    # (title, image, summary basis, author, language) the crawler produces.
-    # Fall back to client-provided hints if readability_server is unreachable
-    # or the page can't be cleanly parsed.
-    server_extracted = _extract_with_readability_server(url, raw_html) if raw_html else None
-    if server_extracted:
-        text_content = server_extracted["text"] or client_text
-        title = server_extracted["title"] or client_title
-        image_url = server_extracted["image_url"] or client_image
-        author = server_extracted["author"] or client_author
-    else:
-        text_content, title, image_url, author = client_text, client_title, client_image, client_author
-
     user = User.find_by_id(flask.g.user_id)
+
+    # Short-circuit re-sends: the existing upload already went through
+    # readability_server on first creation, so we avoid paying for that
+    # roundtrip again when the user clicks the extension on a page they've
+    # already sent in.
+    url_obj = Url.find_or_create(db_session, url, title=client_title or "")
+    existing = ArticleUpload.query.filter_by(user_id=user.id, url_id=url_obj.id).first()
+    if existing:
+        return json_result(existing.as_dictionary())
+
+    server = _extract_with_readability_server(url, raw_html) if raw_html else {}
+    server = server or {}
 
     upload = ArticleUpload.find_or_create(
         db_session,
         user=user,
         url_string=url,
         raw_html=raw_html,
-        text_content=text_content,
-        title=title,
-        image_url=image_url,
-        author=author,
+        text_content=server.get("text") or client_text,
+        title=server.get("title") or client_title,
+        image_url=server.get("image_url") or client_image,
+        author=server.get("author") or client_author,
+        language_code=server.get("language_code"),
     )
     return json_result(upload.as_dictionary())
 
