@@ -8,33 +8,10 @@ from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.logging import log
 
 from . import api, db_session
 
 _DEFAULT_CEFR_LEVEL = "A2"
-
-
-def _extract_with_readability_server(url, raw_html):
-    """Never raises; callers fall back to client hints."""
-    from sentry_sdk import capture_exception
-    from zeeguu.core.content_retriever import readability_download_and_parse
-    from zeeguu.core.content_retriever.article_downloader import extract_article_image
-
-    try:
-        np_article = readability_download_and_parse(url, html_content=raw_html)
-    except Exception as e:
-        log(f"readability_server extraction failed for {url}: {e}")
-        capture_exception(e)
-        return None
-
-    return {
-        "title": np_article.title or None,
-        "text": np_article.text or None,
-        "image_url": extract_article_image(np_article) or None,
-        "author": ", ".join(np_article.authors) if np_article.authors else None,
-        "language_code": np_article.meta_lang or None,
-    }
 
 
 def _find_upload_or_404(upload_id, user):
@@ -91,38 +68,31 @@ def article_upload_create():
         flask.abort(400, "url required")
 
     raw_html = request.form.get("raw_html") or None
-    client_text = request.form.get("text_content") or None
-    client_title = request.form.get("title") or None
-    client_image = request.form.get("image_url") or None
-    client_author = request.form.get("author") or None
+    text_content = request.form.get("text_content") or None
+    title = request.form.get("title") or None
+    image_url = request.form.get("image_url") or None
+    author = request.form.get("author") or None
 
-    if not raw_html and not client_text:
+    if not raw_html and not text_content:
         flask.abort(400, "raw_html or text_content required")
 
     user = User.find_by_id(flask.g.user_id)
 
-    # Short-circuit re-sends: the existing upload already went through
-    # readability_server on first creation, so we avoid paying for that
-    # roundtrip again when the user clicks the extension on a page they've
-    # already sent in.
-    url_obj = Url.find_or_create(db_session, url, title=client_title or "")
+    # Short-circuit re-sends of the same URL.
+    url_obj = Url.find_or_create(db_session, url, title=title or "")
     existing = ArticleUpload.query.filter_by(user_id=user.id, url_id=url_obj.id).first()
     if existing:
         return json_result(existing.as_dictionary())
-
-    server = _extract_with_readability_server(url, raw_html) if raw_html else {}
-    server = server or {}
 
     upload = ArticleUpload.find_or_create(
         db_session,
         user=user,
         url_string=url,
         raw_html=raw_html,
-        text_content=server.get("text") or client_text,
-        title=server.get("title") or client_title,
-        image_url=server.get("image_url") or client_image,
-        author=server.get("author") or client_author,
-        language_code=server.get("language_code"),
+        text_content=text_content,
+        title=title,
+        image_url=image_url,
+        author=author,
     )
     return json_result(upload.as_dictionary())
 
