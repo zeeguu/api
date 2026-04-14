@@ -1,4 +1,4 @@
--- tools/migrations/26-02-28--insert_default_badges.sql
+-- tools/migrations/26-02-20--insert_default_badges.sql
 
 INSERT INTO activity_type (id, metric, name, description, badge_type)
 VALUES (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {threshold} unique words while reading.', 'COUNTER'),
@@ -33,8 +33,8 @@ VALUES
     (15, 3, 5, 300, 'Audio Virtuoso', 'completed-audio-lessons-4.svg'),
 
     -- Streak Count
-    (16, 4, 1, 7, 'Warming Up', 'streak-count-1.svg'),
-    (17, 4, 2, 30, 'On a Roll', 'streak-count-1.svg'),
+    (16, 4, 1, 7, 'Consistent Starter', 'streak-count-1.svg'),
+    (17, 4, 2, 30, 'Streak Builder', 'streak-count-1.svg'),
     (18, 4, 3, 90, 'Dedicated Learner', 'streak-count-1.svg'),
     (19, 4, 4, 180, 'Habitual Learner', 'streak-count-1.svg'),
     (20, 4, 5, 365, 'Streak Master', 'streak-count-1.svg'),

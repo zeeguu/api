@@ -18,7 +18,7 @@ class BadgeType(enum.Enum):
     """Enum representing all available badge types in the system."""
     COUNTER = 'COUNTER'  # Progress value can only go up, incrementally
     GAUGE = 'GAUGE'  # Progress value always reflects current state and might reset to 0
-    ONE_TIME = 'ONE_TIME'  # These badges don't have any levels, and are either achieved once or not
+    ONE_TIME = 'ONE_TIME'  # These badges only have 1 level, and are either achieved once or not
 
 
 class ActivityType(db.Model):

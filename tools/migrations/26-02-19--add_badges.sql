@@ -3,10 +3,12 @@
 -- Defines the types of activities that can earn badges.
 CREATE TABLE activity_type (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    metric VARCHAR(100) UNIQUE,
+    metric
+        ENUM('TRANSLATED_WORDS', 'CORRECT_EXERCISES', 'COMPLETED_AUDIO_LESSONS',
+        'STREAK_COUNT', 'LEARNED_WORDS', 'READ_ARTICLES', 'NUMBER_OF_FRIENDS') UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    badge_type VARCHAR(100) NOT NULL -- 'COUNTER', 'GAUGE' or 'ONE_TIME'
+    badge_type ENUM('COUNTER', 'GAUGE', 'ONE_TIME') NOT NULL
 );
 
 -- Defines specific badges, organized as levels within an activity type (like bronze/silver/gold).
