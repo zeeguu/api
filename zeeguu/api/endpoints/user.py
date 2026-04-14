@@ -234,7 +234,9 @@ def user_settings():
         submitted_username = data.get("username", None)
         if submitted_username:
             normalized_username = submitted_username.strip()
-            if normalized_username != user.username and User.username_exists(normalized_username):
+            # A user can change their username to the same username (case-insensitive)
+            # E.g from "MYUSER99" to "myuser99"
+            if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
                 return make_error(400, "Username already in use")
             user.username = submitted_username
 

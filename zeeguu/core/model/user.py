@@ -1277,8 +1277,10 @@ class User(db.Model):
             return None
 
     @classmethod
-    def username_exists(cls, username):
+    def username_exists(cls, username: str):
         try:
+            # use to lower for case-insensitive comparison
+            # Username are using utf8mb4_unicode_ci collation, so the database will handle case-insensitivity
             cls.query.filter(cls.username == username).one()
             return True
         except NoResultFound:
