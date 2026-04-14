@@ -191,6 +191,12 @@ class Friend(db.Model):
             friendship.deleted_at = datetime.now()
             db.session.add(friendship)
             db.session.commit()
+
+            from zeeguu.core import events
+            events.friendship_changed.send(None, user_id=user_1_id, db_session=db.session)
+            events.friendship_changed.send(None, user_id=user_2_id, db_session=db.session)
+            db.session.commit()
+
             return True
 
         return False
@@ -339,8 +345,26 @@ class Friend(db.Model):
         friendship = Friend(user_a_id=user_id, user_b_id=other_id)
         db.session.add(friendship)
         db.session.commit()
-        db.session.refresh(friendship)
+
+        from zeeguu.core import events
+        events.friendship_changed.send(None, user_id=user_id, db_session=db.session)
+        events.friendship_changed.send(None, user_id=other_id, db_session=db.session)
+        db.session.commit()
+
         return friendship
+
+    @staticmethod
+    def count_active_friends(user_id: int) -> int:
+        """Return the current number of friends for a user."""
+        return (
+                db.session.query(func.count(Friend.id))
+                .filter(
+                    ((Friend.user_a_id == user_id) | (Friend.user_b_id == user_id)),
+                    Friend.deleted_at.is_(None),
+                )
+                .scalar()
+                or 0
+        )
 
     @staticmethod
     def _get_friendship_or_friend_request(friendship, friend_request):
@@ -368,3 +392,4 @@ class Friend(db.Model):
                     else None
                 ),
             }
+

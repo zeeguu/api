@@ -114,6 +114,10 @@ def create_app(testing=False):
     with app.app_context():
         db.create_all()
 
+    # Register event listeners for badges and friendship modules
+    import zeeguu.core.badges.listeners # noqa: F401
+    import zeeguu.core.friends.listeners # noqa: F401
+
     from .endpoints import api
 
     app.register_blueprint(api)
