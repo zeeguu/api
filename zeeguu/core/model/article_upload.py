@@ -3,8 +3,7 @@ from datetime import datetime
 
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UnicodeText
 from sqlalchemy.orm import joinedload, relationship
 
 from zeeguu.core.model.db import db
@@ -34,8 +33,8 @@ class ArticleUpload(db.Model):
     language = relationship(Language)
 
     title = Column(String(512))
-    raw_html = Column(MEDIUMTEXT)
-    text_content = Column(MEDIUMTEXT)
+    raw_html = Column(UnicodeText())
+    text_content = Column(UnicodeText())
     image_url = Column(String(2048))
     author = Column(String(256))
 
