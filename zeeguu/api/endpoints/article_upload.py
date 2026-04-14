@@ -8,10 +8,37 @@ from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.logging import log
 
 from . import api, db_session
 
 _DEFAULT_CEFR_LEVEL = "A2"
+
+
+def _extract_with_readability_server(url, raw_html):
+    """
+    Run the readability_server on raw_html and return a dict with
+    cleaned {title, text, image_url, author, language_code}, or None
+    if extraction fails. Never raises; callers fall back to client hints.
+    """
+    from zeeguu.core.content_retriever import readability_download_and_parse
+    from zeeguu.core.content_retriever.article_downloader import extract_article_image
+
+    try:
+        np_article = readability_download_and_parse(url, html_content=raw_html)
+    except Exception as e:
+        log(f"readability_server extraction failed for {url}: {e}")
+        return None
+
+    image = extract_article_image(np_article) or None
+
+    return {
+        "title": np_article.title or None,
+        "text": np_article.text or None,
+        "image_url": image,
+        "author": ", ".join(np_article.authors) if np_article.authors else None,
+        "language_code": np_article.meta_lang or None,
+    }
 
 
 def _find_upload_or_404(upload_id, user):
@@ -66,13 +93,26 @@ def article_upload_create():
         flask.abort(400, "url required")
 
     raw_html = request.form.get("raw_html") or None
-    text_content = request.form.get("text_content") or None
-    title = request.form.get("title") or None
-    image_url = request.form.get("image_url") or None
-    author = request.form.get("author") or None
+    client_text = request.form.get("text_content") or None
+    client_title = request.form.get("title") or None
+    client_image = request.form.get("image_url") or None
+    client_author = request.form.get("author") or None
 
-    if not raw_html and not text_content:
+    if not raw_html and not client_text:
         flask.abort(400, "raw_html or text_content required")
+
+    # Prefer server-side extraction so uploads match the metadata quality
+    # (title, image, summary basis, author, language) the crawler produces.
+    # Fall back to client-provided hints if readability_server is unreachable
+    # or the page can't be cleanly parsed.
+    server_extracted = _extract_with_readability_server(url, raw_html) if raw_html else None
+    if server_extracted:
+        text_content = server_extracted["text"] or client_text
+        title = server_extracted["title"] or client_title
+        image_url = server_extracted["image_url"] or client_image
+        author = server_extracted["author"] or client_author
+    else:
+        text_content, title, image_url, author = client_text, client_title, client_image, client_author
 
     user = User.find_by_id(flask.g.user_id)
 
