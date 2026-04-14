@@ -77,8 +77,8 @@ class ArticleUpload(db.Model):
         )
 
     @classmethod
-    def create(cls, session, user, url_string, raw_html, text_content,
-               title=None, image_url=None, author=None):
+    def find_or_create(cls, session, user, url_string, raw_html, text_content,
+                       title=None, image_url=None, author=None):
         detection_basis = (text_content or raw_html or title or "")[:_LANGDETECT_MAX_CHARS]
         try:
             lang_code = detect(detection_basis) if detection_basis else None
@@ -87,6 +87,18 @@ class ArticleUpload(db.Model):
         language = Language.find(lang_code) if lang_code else None
 
         url_obj = Url.find_or_create(session, url_string, title=title or "")
+
+        existing = cls.query.filter_by(user_id=user.id, url_id=url_obj.id).first()
+        if existing:
+            existing.raw_html = raw_html
+            existing.text_content = text_content
+            existing.title = title
+            existing.image_url = image_url
+            existing.author = author
+            existing.language = language
+            session.add(existing)
+            session.commit()
+            return existing
 
         upload = cls(
             user=user,

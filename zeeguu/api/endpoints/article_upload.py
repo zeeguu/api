@@ -76,7 +76,7 @@ def article_upload_create():
 
     user = User.find_by_id(flask.g.user_id)
 
-    upload = ArticleUpload.create(
+    upload = ArticleUpload.find_or_create(
         db_session,
         user=user,
         url_string=url,
