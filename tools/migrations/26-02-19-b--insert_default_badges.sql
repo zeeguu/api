@@ -1,4 +1,4 @@
--- tools/migrations/26-02-20--insert_default_badges.sql
+-- tools/migrations/26-02-19-b--insert_default_badges.sql
 
 INSERT INTO activity_type (id, metric, name, description, badge_type)
 VALUES (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {threshold} unique words while reading.', 'COUNTER'),
