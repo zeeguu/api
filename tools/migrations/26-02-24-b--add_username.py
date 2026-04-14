@@ -7,9 +7,9 @@ and are guaranteed to be unique across the user base.
 A corresponding user avatar is also generated based on the animal in the username.
 This script should be run after the database schema has been updated to include the new 'username' column in the 'user' table.
 
-26-02-24-a-add_username.sql should have been run first to add the 'username' column to the 'user' table.
+26-02-24-a--add_username.sql should have been run first to add the 'username' column to the 'user' table.
 
-Run with: pip install -e . && python tools/migrations/26-02-24-b-add_username.py
+Run with: pip install -e . && python tools/migrations/26-02-24-b--add_username.py
 
 You might have to run this before: 
 set -a 
