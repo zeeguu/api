@@ -119,27 +119,27 @@ def article_upload_promote(upload_id):
 @requires_session
 def article_upload_simplify(upload_id):
     from zeeguu.core.llm_services.simplification_and_classification import (
-        create_user_specific_simplified_version,
+        create_simplified_version_from_upload,
     )
 
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
 
-    # Simplification uses user.cefr_level_for_learned_language() as target;
-    # parent CEFR isn't needed, so we skip the 2–10s LLM CEFR call here.
-    parent = _promote_upload_or_abort(upload)
     user_level = _user_cefr_level(user)
 
-    existing = [v for v in parent.simplified_versions if v.cefr_level == user_level]
-    simplified = existing[0] if existing else create_user_specific_simplified_version(
-        db_session, parent, user_level
+    existing = Article.query.filter_by(
+        source_upload_id=upload.id, cefr_level=user_level
+    ).first()
+    simplified = existing or create_simplified_version_from_upload(
+        db_session, upload, user_level
     )
+    if simplified is None:
+        flask.abort(500, "Could not simplify this upload")
 
-    target_article = simplified or parent
-    _ensure_personal_copy(user, target_article)
+    _ensure_personal_copy(user, simplified)
 
     return json_result(
-        UserArticle.user_article_info(user, target_article, with_content=True)
+        UserArticle.user_article_info(user, simplified, with_content=True)
     )
 
 

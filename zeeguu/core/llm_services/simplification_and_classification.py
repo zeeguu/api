@@ -872,6 +872,59 @@ def create_user_specific_simplified_version(session, article, target_level):
         return None
 
 
+def create_simplified_version_from_upload(session, upload, target_level):
+    """
+    Simplify an ArticleUpload directly at target_level. No parent Article
+    is created; the resulting simplified Article stores source_upload_id
+    as the back-reference. Returns the simplified Article or None.
+    """
+    from zeeguu.logging import log
+
+    log(f"Creating simplified article from upload {upload.id} at level {target_level}")
+
+    cefr_order = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    if target_level not in cefr_order:
+        log(f"Invalid target CEFR level: {target_level}")
+        return None
+
+    if not upload.language:
+        log(f"Upload {upload.id} has no detected language; cannot simplify")
+        return None
+
+    content = upload.text_content or upload.raw_html or ""
+    title = upload.title or ""
+    if not content.strip():
+        log(f"Upload {upload.id} has no content to simplify")
+        return None
+
+    try:
+        result = _create_targeted_simplified_version(
+            content,
+            title,
+            upload.language.code,
+            None,  # original_level unknown and unused by the service
+            target_level,
+        )
+        if not result:
+            log(f"Simplification LLM returned nothing for upload {upload.id}")
+            return None
+
+        return Article.create_simplified_version(
+            session=session,
+            source_upload=upload,
+            simplified_title=result["title"],
+            simplified_content=result["content"],
+            simplified_summary=result.get("summary", ""),
+            cefr_level=target_level,
+            ai_model="claude-3-5-sonnet",
+            commit=True,
+        )
+    except Exception as e:
+        log(f"Error simplifying upload {upload.id}: {e}")
+        session.rollback()
+        return None
+
+
 def _create_targeted_simplified_version(
     content, title, language_code, original_level, target_level
 ):

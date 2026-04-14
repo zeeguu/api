@@ -808,21 +808,47 @@ class Article(db.Model):
     def create_simplified_version(
         cls,
         session,
-        parent_article,
         simplified_title,
         simplified_content,
         simplified_summary,
         cefr_level,
         ai_model,
+        parent_article=None,
+        source_upload=None,
         original_cefr_level=None,
         original_summary=None,
         commit=True,
     ):
         """
-        Creates a simplified version of an article as a new entry in the article table
+        Create a simplified Article row derived from either an existing
+        Article (parent_article) or directly from an ArticleUpload
+        (source_upload). Exactly one of the two must be provided.
         """
         from zeeguu.core.model.source import Source
         from zeeguu.core.model.source_type import SourceType
+        from zeeguu.core.model.url import Url
+        import uuid
+
+        if (parent_article is None) == (source_upload is None):
+            raise ValueError("Provide exactly one of parent_article or source_upload")
+
+        # Derive the ambient fields from whichever source we have.
+        if parent_article is not None:
+            language = parent_article.language
+            published_time = parent_article.published_time
+            feed = parent_article.feed
+            uploader = parent_article.uploader
+            img_url = parent_article.img_url
+        else:
+            language = source_upload.language
+            published_time = source_upload.created_at
+            feed = None
+            uploader = None
+            img_url = (
+                Url.find_or_create(session, source_upload.image_url)
+                if source_upload.image_url
+                else None
+            )
 
         # Normalize Unicode to NFC (precomposed form) - LLMs may return NFD (decomposed)
         # which causes visual rendering issues with diacritics (e.g., Romanian ă, â)
@@ -830,34 +856,24 @@ class Article(db.Model):
         simplified_content = unicodedata.normalize('NFC', simplified_content) if simplified_content else simplified_content
         simplified_summary = unicodedata.normalize('NFC', simplified_summary) if simplified_summary else simplified_summary
 
-        # Create a Source object for the simplified content
         source_type = SourceType.find_by_type(SourceType.ARTICLE)
         simplified_source = Source.find_or_create(
             session,
             simplified_content,
             source_type,
-            parent_article.language,
+            language,
             0,  # broken flag
             commit=False,
         )
 
-        # Create temporary placeholder URL for simplified article
-        # We'll update this to the standard format after the article gets its ID
-        from zeeguu.core.model.url import Url
-        import uuid
-
         placeholder_url_string = f"https://zeeguu.org/simplified/pending/{uuid.uuid4()}"
         placeholder_url = Url.find_or_create(session, placeholder_url_string)
 
-        # Create the simplified article
-        # Check if content is already HTML (from SimplificationService) or needs conversion
         simplified_html = ""
         if simplified_content:
-            # If content starts with HTML tags, it's already been converted
             if simplified_content.strip().startswith("<"):
                 simplified_html = simplified_content
             else:
-                # Convert markdown/plain text to HTML
                 import markdown2
 
                 simplified_html = markdown2.markdown(
@@ -866,55 +882,52 @@ class Article(db.Model):
                 )
 
         simplified_article = cls(
-            placeholder_url,  # Temporary placeholder URL
+            placeholder_url,
             simplified_title,
             "",  # Empty authors field for simplified articles
             simplified_source,
-            simplified_summary,  # Use AI-generated summary
-            parent_article.published_time,
-            parent_article.feed,
-            parent_article.language,
-            simplified_html,  # Use generated HTML from simplified content
-            parent_article.uploader,
+            simplified_summary,
+            published_time,
+            feed,
+            language,
+            simplified_html,
+            uploader,
         )
 
-        # Debug: Ensure summary is set correctly
         if simplified_summary and len(simplified_summary) > 10:
             simplified_article.summary = simplified_summary
             log(
                 f"Set simplified summary ({len(simplified_summary)} chars): {simplified_summary[:100]}..."
             )
 
-        # Set simplified article specific fields
-        simplified_article.parent_article_id = parent_article.id
         simplified_article.cefr_level = cefr_level
+        if parent_article is not None:
+            simplified_article.parent_article_id = parent_article.id
+        if source_upload is not None:
+            simplified_article.source_upload_id = source_upload.id
 
-        # Find or create AI model record
         ai_generator_record = AIGenerator.find_or_create(session, ai_model)
         simplified_article.simplification_ai_generator_id = ai_generator_record.id
 
-        # Inherit image from parent article
-        if parent_article.img_url:
-            simplified_article.img_url = parent_article.img_url
+        if img_url is not None:
+            simplified_article.img_url = img_url
 
-        # Set the original article's CEFR level and summary if provided and not already set
-        if original_cefr_level and not parent_article.cefr_level:
-            parent_article.cefr_level = original_cefr_level
-            session.add(parent_article)
-
-        if original_summary:
-            parent_article.summary = original_summary
-            session.add(parent_article)
+        if parent_article is not None:
+            if original_cefr_level and not parent_article.cefr_level:
+                parent_article.cefr_level = original_cefr_level
+                session.add(parent_article)
+            if original_summary:
+                parent_article.summary = original_summary
+                session.add(parent_article)
 
         session.add(simplified_article)
 
-        # Inherit topics from parent article with same origin type
-        for topic_map in parent_article.topics:
-            simplified_article.add_topic_if_doesnt_exist(
-                topic_map.topic, session, topic_map.origin_type
-            )
+        if parent_article is not None:
+            for topic_map in parent_article.topics:
+                simplified_article.add_topic_if_doesnt_exist(
+                    topic_map.topic, session, topic_map.origin_type
+                )
 
-        # Create article fragments for web display
         simplified_article.create_article_fragments(session)
 
         if commit:
