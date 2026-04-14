@@ -193,8 +193,8 @@ class Friend(db.Model):
             db.session.commit()
 
             from zeeguu.core import events
-            events.friendship_changed.send(None, user_id=user1_id, db_session=db.session)
-            events.friendship_changed.send(None, user_id=user2_id, db_session=db.session)
+            events.friendship_changed.send(None, user_id=user_1_id, db_session=db.session)
+            events.friendship_changed.send(None, user_id=user_2_id, db_session=db.session)
             db.session.commit()
 
             return True
