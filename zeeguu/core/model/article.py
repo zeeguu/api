@@ -165,6 +165,10 @@ class Article(db.Model):
     uploader_id = Column(Integer, ForeignKey(User.id))
     uploader = relationship(User)
 
+    # Set when this article was derived from a user's ArticleUpload
+    # (extension body-scrape or iOS share). Nullable for normal feed articles.
+    source_upload_id = Column(Integer, ForeignKey("article_upload.id"))
+
     topics = relationship(
         "ArticleTopicMap",
         back_populates="article",
@@ -1296,6 +1300,7 @@ class Article(db.Model):
         title=None,
         author=None,
         image_url=None,
+        source_upload_id=None,
     ):
         """
         Find existing article by URL or create new article from URL.
@@ -1389,6 +1394,9 @@ class Article(db.Model):
             language,
             html_content,
         )
+
+        if source_upload_id is not None:
+            new_article.source_upload_id = source_upload_id
 
         session.add(new_article)
 
