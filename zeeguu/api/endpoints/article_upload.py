@@ -1,18 +1,7 @@
-"""
-Endpoints for ArticleUpload — the lightweight per-user ingestion entity.
-
-The Chrome extension scrapes the page body, POSTs it here to create an
-ArticleUpload, then navigates to /shared-article?upload_id=<id>. The
-SharedArticleHandler fetches upload info and shows the choice modal.
-On the user's choice, one of the derivation endpoints below runs:
-the upload's content becomes a full Article (promoted / simplified /
-translated-and-adapted), PersonalCopy is created, and the client
-navigates to the reader.
-
-See docs/future-work/extension-ingestion-unification.md
-"""
+"""Endpoints for ArticleUpload — lightweight per-user ingestion entity."""
 import flask
 from flask import request
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, ArticleUpload, User
 from zeeguu.core.model.personal_copy import PersonalCopy
@@ -21,6 +10,8 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 from . import api, db_session
+
+_DEFAULT_CEFR_LEVEL = "A2"
 
 
 def _find_upload_or_404(upload_id, user):
@@ -32,22 +23,33 @@ def _find_upload_or_404(upload_id, user):
     return upload
 
 
-def _promote_upload(upload):
-    """
-    Promote an upload's raw content into a full Article row, setting
-    source_upload_id as the back-reference. Reuses Article.find_or_create
-    so all existing work (fragments, FK, topics, CEFR) happens exactly once.
-    """
-    return Article.find_or_create(
-        db_session,
-        upload.url.as_string(),
-        html_content=upload.raw_html,
-        text_content=upload.text_content,
-        title=upload.title,
-        author=upload.author,
-        image_url=upload.image_url,
-        source_upload_id=upload.id,
+def _promote_upload_or_abort(upload):
+    from zeeguu.core.content_retriever.crawler_exceptions import (
+        FailedToParseWithReadabilityServer,
     )
+
+    try:
+        return Article.find_or_create(
+            db_session,
+            upload.url.as_string(),
+            html_content=upload.raw_html,
+            text_content=upload.text_content,
+            title=upload.title,
+            author=upload.author,
+            image_url=upload.image_url,
+            source_upload_id=upload.id,
+        )
+    except NoResultFound:
+        flask.abort(406, "Language not supported")
+    except FailedToParseWithReadabilityServer:
+        flask.abort(422, "Could not parse article content")
+
+
+def _user_cefr_level(user):
+    try:
+        return user.cefr_level_for_learned_language()
+    except Exception:
+        return _DEFAULT_CEFR_LEVEL
 
 
 def _ensure_personal_copy(user, article):
@@ -59,17 +61,6 @@ def _ensure_personal_copy(user, article):
 @cross_domain
 @requires_session
 def article_upload_create():
-    """
-    Create a new ArticleUpload from client-scraped content.
-
-    Expects (form):
-      - url (required)
-      - raw_html (optional but typical for extension)
-      - text_content (optional; extension usually sends this too)
-      - title, image_url, author (optional)
-
-    Returns: { upload_id, url, title, language, image_url, author, created_at }
-    """
     url = request.form.get("url", "").strip()
     if not url:
         flask.abort(400, "url required")
@@ -102,7 +93,6 @@ def article_upload_create():
 @cross_domain
 @requires_session
 def article_upload_get(upload_id):
-    """Return upload info for the SharedArticleHandler choice modal."""
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
     return json_result(upload.as_dictionary())
@@ -112,15 +102,10 @@ def article_upload_get(upload_id):
 @cross_domain
 @requires_session
 def article_upload_promote(upload_id):
-    """
-    Read Original / Read As-Is: promote the upload to a full Article and
-    add a PersonalCopy for the user. Returns user_article_info so the
-    client can navigate directly to the reader.
-    """
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
 
-    article = _promote_upload(upload)
+    article = _promote_upload_or_abort(upload)
     if not article.cefr_assessment or not article.cefr_assessment.llm_cefr_level:
         article.assess_cefr_level(db_session)
 
@@ -133,11 +118,6 @@ def article_upload_promote(upload_id):
 @cross_domain
 @requires_session
 def article_upload_simplify(upload_id):
-    """
-    Promote the upload (so simplification has a parent Article to anchor to)
-    and create a simplified version at the user's CEFR level. Returns
-    user_article_info for the simplified article.
-    """
     from zeeguu.core.llm_services.simplification_and_classification import (
         create_user_specific_simplified_version,
     )
@@ -145,14 +125,10 @@ def article_upload_simplify(upload_id):
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
 
-    parent = _promote_upload(upload)
-    if not parent.cefr_assessment or not parent.cefr_assessment.llm_cefr_level:
-        parent.assess_cefr_level(db_session)
-
-    try:
-        user_level = user.cefr_level_for_learned_language()
-    except Exception:
-        user_level = "A2"
+    # Simplification uses user.cefr_level_for_learned_language() as target;
+    # parent CEFR isn't needed, so we skip the 2–10s LLM CEFR call here.
+    parent = _promote_upload_or_abort(upload)
+    user_level = _user_cefr_level(user)
 
     existing = [v for v in parent.simplified_versions if v.cefr_level == user_level]
     simplified = existing[0] if existing else create_user_specific_simplified_version(
@@ -171,12 +147,6 @@ def article_upload_simplify(upload_id):
 @cross_domain
 @requires_session
 def article_upload_translate_and_adapt(upload_id):
-    """
-    Promote the upload, then delegate to the existing translate-and-adapt
-    flow by URL. The existing endpoint caches by URL anyway, so running it
-    on the already-promoted article's URL gives us the same behavior as the
-    share-sheet path.
-    """
     from zeeguu.core.llm_services.simplification_service import SimplificationService
     from zeeguu.core.model import Language
     from zeeguu.core.model.url import Url
@@ -187,15 +157,7 @@ def article_upload_translate_and_adapt(upload_id):
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
 
-    parent = _promote_upload(upload)
-    if not parent.cefr_assessment or not parent.cefr_assessment.llm_cefr_level:
-        parent.assess_cefr_level(db_session)
-
-    try:
-        user_level = user.cefr_level_for_learned_language()
-    except Exception:
-        user_level = "A1"
-
+    user_level = _user_cefr_level(user)
     target_language = user.learned_language.code
     source_language = upload.language.code if upload.language else "unknown"
 
@@ -249,8 +211,8 @@ def article_upload_translate_and_adapt(upload_id):
     )
     translated_article.cefr_level = user_level
     translated_article.source_upload_id = upload.id
-    if parent.img_url:
-        translated_article.img_url = parent.img_url
+    if upload.image_url:
+        translated_article.img_url = Url.find_or_create(db_session, upload.image_url)
 
     db_session.add(translated_article)
     db_session.commit()

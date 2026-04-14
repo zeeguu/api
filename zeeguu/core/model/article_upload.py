@@ -1,25 +1,21 @@
-"""
-ArticleUpload — per-user, lightweight ingestion entity.
-
-Created when a user sends an article to Zeeguu from the Chrome extension
-(client-side body scrape) or iOS share sheet. Unlike Article, this entity
-deliberately skips the expensive work: no Stanza tokenization, no FK/CEFR,
-no fragment creation, no topic inference, no Elasticsearch indexing.
-
-An ArticleUpload is promoted to a full Article (or a derived simplified /
-translated-and-adapted Article) only when the user commits to a reading
-choice in SharedArticleHandler. See docs/future-work/extension-ingestion-unification.md
-"""
+"""Per-user ingestion entity for extension / share uploads."""
 from datetime import datetime
 
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import joinedload, relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.user import User
+
+# langdetect only needs a few KB; don't feed it full raw_html.
+_LANGDETECT_MAX_CHARS = 4000
+
+_DEFAULT_USER_UPLOADS_LIMIT = 100
 
 
 class ArticleUpload(db.Model):
@@ -65,22 +61,24 @@ class ArticleUpload(db.Model):
         return cls.query.filter_by(id=upload_id).first()
 
     @classmethod
-    def for_user(cls, user):
-        return cls.query.filter_by(user_id=user.id).order_by(cls.created_at.desc()).all()
+    def for_user(cls, user, limit=_DEFAULT_USER_UPLOADS_LIMIT):
+        return (
+            cls.query.options(joinedload(cls.url), joinedload(cls.language))
+            .filter_by(user_id=user.id)
+            .order_by(cls.created_at.desc())
+            .limit(limit)
+            .all()
+        )
 
     @classmethod
     def create(cls, session, user, url_string, raw_html, text_content,
                title=None, image_url=None, author=None):
-        """
-        Detect language cheaply (langdetect only) and persist the upload row.
-        No Stanza, no FK, no fragments — that work is deferred to the moment
-        the user picks a reading choice and we derive an Article.
-        """
-        from langdetect import detect
-
-        detection_basis = text_content or raw_html or title or ""
-        lang_code = detect(detection_basis) if detection_basis else None
-        language = Language.find(lang_code)
+        detection_basis = (text_content or raw_html or title or "")[:_LANGDETECT_MAX_CHARS]
+        try:
+            lang_code = detect(detection_basis) if detection_basis else None
+        except LangDetectException:
+            lang_code = None
+        language = Language.find(lang_code) if lang_code else None
 
         url_obj = Url.find_or_create(session, url_string, title=title or "")
 
@@ -100,7 +98,7 @@ class ArticleUpload(db.Model):
 
     def as_dictionary(self):
         return {
-            "upload_id": self.id,
+            "id": self.id,
             "url": self.url.as_string() if self.url else None,
             "title": self.title,
             "language": self.language.code if self.language else None,

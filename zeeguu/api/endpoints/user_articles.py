@@ -143,10 +143,8 @@ def saved_articles(page: int = None):
 
     article_infos = UserArticle.article_infos(user, saves, select_appropriate=True)
 
-    # Include user's uploads that haven't been promoted+saved yet. Uploads
-    # render as pseudo-article-infos marked with is_upload so the client can
-    # route their click to /shared-article?upload_id=<id> instead of /read.
-    # See docs/future-work/extension-ingestion-unification.md
+    # Client routes is_upload items to /shared-article?upload_id=<id>
+    # instead of /read/article?id=<id>.
     if page is None or page == 0:
         saved_upload_ids = {
             a.source_upload_id for a in saves if a.source_upload_id is not None
