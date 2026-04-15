@@ -92,8 +92,18 @@ class Friend(db.Model):
             if commit:
                 session.commit()
 
+    @classmethod
+    def get_friend_objects(cls, user_id):
+        """Return all Friend objects (including soft-deleted) associated with the given user_id."""
+        friends = (
+            db.session.query(cls)
+            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
+            .all()
+        )
+        return friends
+
     @staticmethod
-    def get_friends(user_id):
+    def get_friend_users(user_id):
         """Return a list of User objects that are friends with the given user_id."""
         other_user_id = case((Friend.user_a_id == user_id, Friend.user_b_id), else_=Friend.user_a_id)
         friends = (

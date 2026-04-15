@@ -7,6 +7,11 @@ from zeeguu.core.model import (
     UserPreference,
     UserCohortMap,
     UserWord,
+    Friend,
+    FriendRequest,
+    UserAvatar,
+    UserBadge,
+    UserMetric
 )
 
 import time
@@ -51,6 +56,9 @@ tables_to_modify = [
     SearchFilter,
     UserPreference,
     UserCohortMap,
+    UserMetric,
+    UserBadge,
+    UserAvatar
 ]
 
 
@@ -107,6 +115,22 @@ def delete_user_account(db_session, user_to_delete):
         )
         print(f"user_word_interaction_history: {len(user_word_history)}")
         for each in user_word_history:
+            total_rows_affected += 1
+            db_session.delete(each)
+        db_session.commit()
+
+        # Delete friend requests (they can reference a User in two different fields)
+        user_friend_requests = FriendRequest.get_all_friend_requests_for_user(user_to_delete.id)
+        print(f"friend_request: {len(user_friend_requests)}")
+        for each in user_friend_requests:
+            total_rows_affected += 1
+            db_session.delete(each)
+        db_session.commit()
+
+        # Delete friends (they can reference a User in two different fields)
+        user_friends = Friend.get_friend_objects(user_to_delete.id)
+        print(f"friend: {len(user_friends)}")
+        for each in user_friends:
             total_rows_affected += 1
             db_session.delete(each)
         db_session.commit()
