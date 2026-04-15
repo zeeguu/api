@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func
+from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func, or_
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.user_avatar import UserAvatar
@@ -142,7 +142,25 @@ class FriendRequest(db.Model):
                 .all()
             )
             return requests
-    
+
+    @classmethod
+    def get_all_friend_requests_for_user(cls, user_id: int):
+        """
+        Get friend requests received and sent by a user.
+
+        Args:
+            user_id (int): ID of the user
+
+        Returns:
+            List[FriendRequest]
+        """
+        requests = (
+            db.session.query(cls)
+            .filter(or_(FriendRequest.receiver_id == user_id, FriendRequest.sender_id == user_id))
+            .all()
+        )
+        return requests
+
     @classmethod
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
           """Delete a friend request between sender and receiver."""

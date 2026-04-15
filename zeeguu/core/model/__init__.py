@@ -115,3 +115,17 @@ from .monthly_activity_stats_cache import MonthlyActivityStatsCache
 
 # translation history
 from .translation_search import TranslationSearch
+
+# badges
+from .activity_type import ActivityType
+from .badge import Badge
+from .user_metric import UserMetric
+from .user_badge import UserBadge
+
+# user avatar
+from .user_avatar import UserAvatar
+
+# friends
+from .friend_request import FriendRequest
+from .friend import Friend
+
