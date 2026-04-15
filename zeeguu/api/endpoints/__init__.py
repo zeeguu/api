@@ -28,6 +28,7 @@ from .teacher_dashboard import *
 from . import topics
 from . import search
 from . import article
+from . import article_upload
 from . import accounts
 from . import speech
 from . import own_texts

@@ -1,9 +1,8 @@
-import datetime
-
 import flask
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.util.time import user_local_today
 from zeeguu.core.model.friend import Friend
 from . import api
 from ...core.model import User
@@ -16,12 +15,8 @@ from ...core.model.user_language import UserLanguage
 @requires_session
 def get_daily_streak():
     user = User.find_by_id(flask.g.user_id)
-    user_language = UserLanguage.find_or_create(db.session, user, user.learned_language)
-    streak = user_language.daily_streak or 0
-    yesterday = datetime.date.today() - datetime.timedelta(days=1)
-    if user_language.last_practiced and user_language.last_practiced.date() < yesterday:
-        streak = 0
-    return json_result({"daily_streak": streak})
+    ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
+    return json_result({"daily_streak": ul.current_daily_streak})
 
 
 @api.route("/all_language_streaks", methods=["GET"])
@@ -29,28 +24,17 @@ def get_daily_streak():
 @requires_session
 def get_all_language_streaks():
     user = User.find_by_id(flask.g.user_id)
-    user_languages = UserLanguage.query.filter_by(user_id=user.id).all()
-    result = []
-    for ul in user_languages:
-        if ul.language_id == user.native_language_id:
-            continue
-        today = datetime.date.today()
-        yesterday = today - datetime.timedelta(days=1)
-        practiced_today = (
-            ul.last_practiced is not None
-            and ul.last_practiced.date() == today
-        )
-        # Streak is only valid if practiced today or yesterday
-        streak = ul.daily_streak or 0
-        if ul.last_practiced and ul.last_practiced.date() < yesterday:
-            streak = 0
-        result.append({
+    today = user_local_today(user)
+    result = [
+        {
             "code": ul.language.code,
             "language": ul.language.name,
-            "daily_streak": streak,
-            "practiced_today": practiced_today,
-        })
-    # Sort by streak descending so highest streaks come first
+            "daily_streak": ul.current_daily_streak,
+            "practiced_today": ul.local_last_practiced == today,
+        }
+        for ul in UserLanguage.query.filter_by(user_id=user.id).all()
+        if ul.language_id != user.native_language_id
+    ]
     result.sort(key=lambda x: x["daily_streak"], reverse=True)
     return json_result(result)
 

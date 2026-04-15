@@ -1,4 +1,5 @@
 import flask
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import sqlalchemy
 
 import zeeguu.core
@@ -91,6 +92,22 @@ def learned_and_native_language():
     user = User.find_by_id(flask.g.user_id)
     res = dict(native=user.native_language_id, learned=user.learned_language_id)
     return json_result(res)
+
+
+@api.route("/user_timezone", methods=["POST"])
+@cross_domain
+@requires_session
+def set_user_timezone():
+    tz = flask.request.form.get("timezone", "").strip()
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        flask.abort(400, "invalid timezone")
+
+    user = User.find_by_id(flask.g.user_id)
+    user.timezone = tz
+    zeeguu.core.model.db.session.commit()
+    return "OK"
 
 
 @api.route("/get_unfinished_user_reading_sessions", methods=("GET",))

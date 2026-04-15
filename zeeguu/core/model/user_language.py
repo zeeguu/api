@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
+from zeeguu.core.util.time import user_local_today, to_user_local_date
 
 import zeeguu.core
 
@@ -50,6 +51,24 @@ class UserLanguage(db.Model):
     daily_streak = Column(Integer, default=0)
     max_streak = Column(Integer, default=0)
     max_streak_date = Column(DateTime, nullable=True)
+
+    @property
+    def local_last_practiced(self):
+        return to_user_local_date(self.user, self.last_practiced)
+
+    @property
+    def current_daily_streak(self):
+        """Stored streak, zeroed out if not practiced today or yesterday."""
+        last_practiced = self.local_last_practiced
+        yesterday = user_local_today(self.user) - datetime.timedelta(days=1)
+
+        if last_practiced is None:
+            return 0
+
+        if last_practiced < yesterday:
+            return 0
+
+        return self.daily_streak or 0
 
     def __init__(
         self,
@@ -126,56 +145,36 @@ class UserLanguage(db.Model):
     def all_user_languages_for_user(cls, user):
         return cls.query.filter(cls.user == user).all()
 
-    def update_streak_if_needed(self, user, session=None):
+    def update_streak_if_needed(self, user, db_session):
         """
         Update last_practiced timestamp and daily_streak counter for this language.
         Only updates once per day to minimize database writes.
         """
         from zeeguu.core import events
 
-        now = datetime.datetime.now()
-        active_session = session or db.session
+        today = user_local_today(self.user)
+        last_local = self.local_last_practiced
 
-        if not self.last_practiced or self.last_practiced.date() < now.date():
-            if not self.last_practiced:
+        if last_local is None or last_local < today:
+            if last_local is None:
                 self.daily_streak = 1
-            elif self.last_practiced.date() == now.date() - datetime.timedelta(days=1):
+            elif last_local == today - datetime.timedelta(days=1):
                 self.daily_streak = (self.daily_streak or 0) + 1
             else:
                 # Gap in practice - save max before resetting
                 self._update_max_streak_if_needed()
                 self.daily_streak = 1
 
-            self.last_practiced = now
+            self.last_practiced = datetime.datetime.now()
             self._update_max_streak_if_needed()
-            active_session.add(self)
 
-            events.streak_changed.send(None, user_id=user.id, db_session=db.session)
+            db_session.add(self)
+
+            events.streak_changed.send(None, user_id=user.id, db_session=db_session)
 
         # Update friend streaks for all friendships even if the user's own
         # daily streak does not change (e.g. repeated practice on same day).
-        events.friend_streak_changed.send(None, user_id=user.id, db_session=db.session)
-
-        active_session.commit()
-
-    def reset_streak_if_broken(self, session=None):
-        """
-        Reset streak to 0 if user hasn't practiced since yesterday.
-        Call this on login/session validation to ensure streak reflects reality.
-        Does NOT update last_practiced or increment streak.
-        """
-        if not self.last_practiced:
-            return
-
-        now = datetime.datetime.now()
-        yesterday = now.date() - datetime.timedelta(days=1)
-
-        # If last practice was before yesterday, streak is broken
-        if self.last_practiced.date() < yesterday:
-            self._update_max_streak_if_needed()
-            self.daily_streak = 0
-            if session:
-                session.add(self)
+        events.friend_streak_changed.send(None, user_id=user.id, db_session=db_session)
 
     def _update_max_streak_if_needed(self):
         """Update max_streak if current streak exceeds it."""

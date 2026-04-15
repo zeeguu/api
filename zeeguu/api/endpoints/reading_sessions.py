@@ -3,6 +3,7 @@ from flask import request
 
 from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
+from zeeguu.api.utils.route_wrappers import cross_domain
 from .helpers.activity_sessions import update_activity_session
 from ...core.model import UserReadingSession
 from datetime import datetime
@@ -12,6 +13,7 @@ from datetime import datetime
     "/reading_session_start",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def reading_session_start():
     article_id_str = request.form.get("article_id", "")
@@ -33,6 +35,7 @@ def reading_session_start():
     "/reading_session_update",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def reading_session_update():
     session = update_activity_session(UserReadingSession, request, db_session)
@@ -43,6 +46,7 @@ def reading_session_update():
     "/reading_session_end",
     methods=["POST"],
 )
+@cross_domain
 @requires_session
 def reading_session_end():
     session = update_activity_session(UserReadingSession, request, db_session)
@@ -53,6 +57,7 @@ def reading_session_end():
     "/reading_session_info/<id>",
     methods=["GET"],
 )
+@cross_domain
 @requires_session
 def reading_session_info(id):
     reading_session = UserReadingSession.find_by_id(id)

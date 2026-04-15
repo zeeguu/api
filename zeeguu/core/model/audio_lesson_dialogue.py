@@ -83,10 +83,14 @@ class AudioLessonDialogue(db.Model):
         return [r.title for r in results]
 
     @classmethod
-    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user):
+    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user, only_general=False):
         """
         Find an existing dialogue the user hasn't heard yet.
         Returns None if all matching dialogues have been heard (or none exist).
+
+        When only_general is True, niche dialogues are excluded — they were
+        generated from another user's specific raw input and would not match
+        what the current requester actually asked for.
         """
         from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
         from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
@@ -110,5 +114,8 @@ class AudioLessonDialogue(db.Model):
         ).filter(
             cls.id.notin_(heard_ids)
         )
+
+        if only_general:
+            query = query.filter(cls.is_general.is_(True))
 
         return query.first()

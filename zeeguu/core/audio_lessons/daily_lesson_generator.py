@@ -73,19 +73,22 @@ class DailyLessonGenerator:
             )
             self.delete_todays_lesson_for_user(user, timezone_offset)
 
-        # Select words for the lesson and get info about unscheduled words
-        selected_words, unscheduled_words = self.select_words_for_lesson(
-            user, 3, return_unscheduled_info=True
-        )
-        log(
-            f"[prepare_lesson_generation] Selected {len(selected_words)} words for lesson"
-        )
-        if len(selected_words) < 2:
-            return {
-                "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
-                "available_words": len(selected_words),
-                "status_code": 400,
-            }
+        # Select words for the lesson (only required for vocabulary lessons)
+        is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
+        selected_words, unscheduled_words = [], []
+        if not is_dialogue:
+            selected_words, unscheduled_words = self.select_words_for_lesson(
+                user, 3, return_unscheduled_info=True
+            )
+            log(
+                f"[prepare_lesson_generation] Selected {len(selected_words)} words for lesson"
+            )
+            if len(selected_words) < 2:
+                return {
+                    "error": f"Not enough words available for audio lesson. Need at least 2 words that haven't been in previous audio lessons.",
+                    "available_words": len(selected_words),
+                    "status_code": 400,
+                }
 
         # Get user's languages and CEFR level
         origin_language = user.learned_language.code
@@ -243,15 +246,22 @@ class DailyLessonGenerator:
         created_by="claude-v1",
         progress=None,
         is_general=False,
+        raw_suggestion=None,
     ):
         """
         Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
         Reuses an existing dialogue the user hasn't heard yet, or generates a new one.
+
+        canonical_suggestion is used as a cache key for dedup/reuse across users.
+        raw_suggestion is the user's original input and is what actually drives
+        content generation, so specific details are not lost to canonicalization.
         """
         learned_lang = Language.find_or_create(origin_language)
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Try to find an existing dialogue the user hasn't heard yet
+        # Try to find an existing dialogue the user hasn't heard yet.
+        # Only general dialogues are reused across users; niche dialogues are
+        # too specific to be safely served to anyone but the original requester.
         existing = AudioLessonDialogue.find_unheard(
             canonical_suggestion=canonical_suggestion,
             lesson_type=lesson_type,
@@ -259,6 +269,7 @@ class DailyLessonGenerator:
             teacher_language=teacher_lang,
             difficulty_level=cefr_level,
             user=user,
+            only_general=True,
         )
         if existing:
             return existing
@@ -278,10 +289,13 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
         )
 
+        # Drive content from the raw user input so specific details are preserved.
+        # Fall back to canonical only if no raw input was provided.
+        content_suggestion = raw_suggestion or canonical_suggestion
         title, script = generate_dialogue_script(
             origin_language=origin_language,
             translation_language=translation_language,
-            suggestion=canonical_suggestion,
+            suggestion=content_suggestion,
             lesson_type=lesson_type,
             cefr_level=cefr_level,
             past_titles=past_titles,
@@ -399,6 +413,7 @@ class DailyLessonGenerator:
                         cefr_level, canonical_suggestion, lesson_type,
                         progress=progress,
                         is_general=is_general,
+                        raw_suggestion=raw_suggestion,
                     )
                 except Exception as e:
                     log(f"[generate_daily_lesson] Failed to generate dialogue: {str(e)}")
