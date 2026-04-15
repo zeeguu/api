@@ -41,7 +41,7 @@ def on_streak_changed(sender, user_id: int, db_session):
     if not user:
         return
     current_value = max(
-        [user_language.daily_streak for user_language in UserLanguage.all_user_languages_for_user(user)]
+        [user_language.current_daily_streak for user_language in UserLanguage.all_user_languages_for_user(user)]
     )
     process_badge_event(
         db_session,
