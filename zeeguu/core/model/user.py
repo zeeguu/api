@@ -1255,13 +1255,17 @@ class User(db.Model):
     @classmethod
     def find(cls, email):
         query = zeeguu.core.model.db.session.query(User)
-        return query.filter(func.lower(User.email) == email.lower()).one()
+        # NOTE: email is stored in lowercase and the collation is utf8mb4_unicode_ci
+        # This means that the database will handle case-insensitivity
+        return query.filter(User.email == email).one()
 
     @classmethod
     def email_exists(cls, email):
         query = zeeguu.core.model.db.session.query(User)
         try:
-            query.filter(func.lower(User.email) == email.lower()).one()
+            # NOTE: email is stored in lowercase and the collation is utf8mb4_unicode_ci
+            # This means that the database will handle case-insensitivity
+            query.filter(User.email == email).one()
             return True
         except sqlalchemy.orm.exc.NoResultFound:
             return False
@@ -1280,7 +1284,6 @@ class User(db.Model):
     @classmethod
     def username_exists(cls, username: str):
         try:
-            # use to lower for case-insensitive comparison
             # Username are using utf8mb4_unicode_ci collation, so the database will handle case-insensitivity
             cls.query.filter(cls.username == username).one()
             return True

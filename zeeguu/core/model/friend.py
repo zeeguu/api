@@ -269,13 +269,13 @@ class Friend(db.Model):
         filters = []
         term = term.lower()
         if term:
-            # The ilike operator is used for case-insensitive matching; the % characters allow for partial matches
-            # the searches on email and name will fail if characters outside the supported uft8_bin character range e.g searching for "😊"
-            # The frontend normalizes/sanitizes the search term before sending it to the backend
-            filters.append(User.username.ilike(f"%{term}%"))  # case-insensitive partial match for username
+            # The 'like()' acts just as 'ilike()' here due to the utf8mb4_unicode_ci collation; the % characters allow for partial matches
+            # The username, email and name are all utf8mb4_unicode_ci, so they are all case-insensitive.
+            # NOTE: So there is no need to apply func.lower() to the column values here, as the collation handles that for us.
+            filters.append(User.username.like(f"%{term}%"))  # case-insensitive partial match for username
             # The email column is only stored in lower case
             filters.append(User.email == term)  # exact match for email
-            filters.append(func.lower(User.name) == term)  # exact match for name
+            filters.append(User.name == term)  # exact match for name
 
         if not filters:
             return []  # nothing to search
