@@ -17,6 +17,7 @@ def _feature_map():
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
         "show_non_simplified_articles": _show_non_simplified_articles,
+        "always_open_externally": _always_open_externally,
     }
 
 
@@ -78,6 +79,22 @@ def _show_non_simplified_articles(user):
     """
     LEGACY_USER_IDS = {4607, 4626}
     return user.id in LEGACY_USER_IDS
+
+
+def _always_open_externally(user):
+    """Article cards in the feed always render the "Open Externally"
+    button for these users — except for saved articles, which still
+    open in the Zeeguu reader.
+
+    Click-through behavior is unchanged: the redirect-notification modal
+    still appears unless the user has dismissed it with "don't show again".
+
+    Initial rollout: internal devs testing the external-first flow. Once
+    validated we'll likely expose this as a user-facing setting instead of a
+    hardcoded flag.
+    """
+    BETA_USER_IDS = {4607}
+    return user.id in BETA_USER_IDS
 
 
 def _hide_recommendations(user):
