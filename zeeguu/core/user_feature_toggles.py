@@ -17,6 +17,7 @@ def _feature_map():
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
         "show_non_simplified_articles": _show_non_simplified_articles,
+        "always_open_externally": _always_open_externally,
         "gamification": _gamification
     }
 
@@ -81,6 +82,22 @@ def _show_non_simplified_articles(user):
     return user.id in LEGACY_USER_IDS
 
 
+def _always_open_externally(user):
+    """Article cards in the feed always render the "Open Externally"
+    button for these users — except for saved articles, which still
+    open in the Zeeguu reader.
+
+    Click-through behavior is unchanged: the redirect-notification modal
+    still appears unless the user has dismissed it with "don't show again".
+
+    Initial rollout: internal devs testing the external-first flow. Once
+    validated we'll likely expose this as a user-facing setting instead of a
+    hardcoded flag.
+    """
+    BETA_USER_IDS = {4607}
+    return user.id in BETA_USER_IDS
+
+
 def _hide_recommendations(user):
     """Hide recommended articles for students in specific cohorts.
 
@@ -91,6 +108,7 @@ def _hide_recommendations(user):
         return False
 
     COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
+
     for user_cohort in user.cohorts:
         if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
             return True
@@ -99,25 +117,25 @@ def _hide_recommendations(user):
 # Gamification feature flag logic
 from sqlalchemy.exc import NoResultFound
 
-from .model.user import User 
+from .model.user import User
 from .model.cohort import Cohort
 from datetime import datetime, date
 GAMIFICATION_START_DATE = date(2026, 4, 1)
 def _gamification(user: User):
     """
-    Enable general gamification features for users whose invitation with the gamification invite code, 
-    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards. 
+    Enable general gamification features for users whose invitation with the gamification invite code,
+    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards.
     """
-    
+
     GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
     if user.is_dev:
         return True
-    
+
     # Invitation code can be None
     invitation_code = user.invitation_code or ""
     if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
         return True
-    
+
     # Find gamification cohort by invite code, if it exists.
     try:
         gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
