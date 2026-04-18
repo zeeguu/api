@@ -51,9 +51,9 @@ VOICE_CONFIG = {
         "teacher": "pl-PL-Chirp3-HD-Sulafat",
     },
     "en-US": {  # English
-        "teacher": "en-US-Wavenet-J",
-        "man": "en-US-Wavenet-D",
-        "woman": "en-US-Wavenet-F",
+        "woman": "en-US-Chirp3-HD-Aoede",
+        "man": "en-US-Chirp3-HD-Enceladus",
+        "teacher": "en-US-Chirp3-HD-Sulafat",
     },
     "ro-RO": {  # Romanian
         "woman": "ro-RO-Chirp3-HD-Aoede",

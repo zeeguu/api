@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from zeeguu.core.model import User
+from zeeguu.core.model.language import Language
 
 from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.util.time import human_readable_duration, human_readable_date
@@ -31,10 +32,15 @@ class UserBrowsingSession(db.Model):
     is_active = db.Column(db.Boolean)
     platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user_id, current_time=None, platform=None):
+    # Snapshot of user.learned_language_id at session start; see activity_sessions._session_language.
+    language_id = db.Column(db.Integer, db.ForeignKey(Language.id), nullable=True)
+    language = db.relationship(Language)
+
+    def __init__(self, user_id, current_time=None, platform=None, language_id=None):
         self.user_id = user_id
         self.is_active = True
         self.platform = platform
+        self.language_id = language_id
 
         if current_time is None:
             current_time = datetime.now()
@@ -54,7 +60,7 @@ class UserBrowsingSession(db.Model):
         return cls.query.filter(cls.id == session_id).one()
 
     @staticmethod
-    def _create_new_session(db_session, user_id, current_time=None, platform=None):
+    def _create_new_session(db_session, user_id, current_time=None, platform=None, language_id=None):
         """
         Creates a new browsing session
 
@@ -62,11 +68,12 @@ class UserBrowsingSession(db.Model):
         user_id = user identifier
         current_time = optional override for the current time
         platform = platform identifier (see constants.py PLATFORM_*)
+        language_id = snapshot of user.learned_language_id; see activity_sessions._session_language
         """
         if current_time is None:
             current_time = datetime.now()
 
-        browsing_session = UserBrowsingSession(user_id, current_time, platform)
+        browsing_session = UserBrowsingSession(user_id, current_time, platform, language_id=language_id)
         db_session.add(browsing_session)
         db_session.commit()
         return browsing_session

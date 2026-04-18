@@ -7,6 +7,7 @@ from .url import Url
 from .domain_name import DomainName
 
 from .article import Article
+from .article_upload import ArticleUpload
 from .article_cefr_assessment import ArticleCefrAssessment
 from .article_tokenization_cache import ArticleTokenizationCache
 from .text import Text
@@ -95,6 +96,7 @@ from .user_watching_session import UserWatchingSession
 
 # audio lessons
 from .audio_lesson_meaning import AudioLessonMeaning
+from .audio_lesson_dialogue import AudioLessonDialogue
 from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment

@@ -38,17 +38,16 @@ class AudioLessonGenerationProgress(db.Model):
     total_steps = Column(Integer, default=0)
     message = Column(String(255), nullable=True)
 
-    # Track which word we're on (for "Word 2 of 3" display)
-    current_word = Column(Integer, default=0)
-    total_words = Column(Integer, default=0)
+    current_segment = Column(Integer, default=0)
+    total_segments = Column(Integer, default=0)
 
     started_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def __init__(self, user, total_words=3):
+    def __init__(self, user, total_segments=1):
         self.user = user
-        self.total_words = total_words
-        self.current_word = 0
+        self.total_segments = total_segments
+        self.current_segment = 0
         self.current_step = 0
         self.total_steps = 0
         self.status = "pending"
@@ -56,76 +55,70 @@ class AudioLessonGenerationProgress(db.Model):
     def __repr__(self):
         return f"<AudioLessonGenerationProgress user={self.user_id} status={self.status}>"
 
-    def _word_label(self):
-        name = getattr(self, '_current_word_name', None)
-        return f"'{name}'" if name else f"word {self.current_word}"
+    def _segment_prefix(self):
+        name = getattr(self, '_current_segment_name', None)
+        if self.total_segments == 1 and name:
+            return name
+        if name:
+            return f"Segment {self.current_segment}/{self.total_segments} ({name})"
+        return f"Segment {self.current_segment}/{self.total_segments}"
 
-    def _word_prefix(self):
-        return f"Word {self.current_word}/{self.total_words} ({self._word_label()})"
-
-    def start_word(self, word_number, total_segments, word_name=None):
-        """Called when starting to process a new word."""
-        self.current_word = word_number
-        self.total_steps = total_segments
+    def start_segment(self, segment_number, segment_name=None):
+        """Called when starting to process a new segment."""
+        self.current_segment = segment_number
         self.current_step = 0
+        self.total_steps = 0
         self.status = "generating_script"
-        self._current_word_name = word_name
-        self.message = f"{self._word_prefix()}: Generating script..."
+        self._current_segment_name = segment_name
+        self.message = f"{self._segment_prefix()}: Generating script..."
         db.session.flush()
 
     def update_generating_script(self):
-        """Called when starting to generate the script for current word."""
         self.status = "generating_script"
-        self.message = f"{self._word_prefix()}: Generating script..."
+        self.message = f"{self._segment_prefix()}: Generating script..."
         db.session.flush()
 
     def update_script_done(self):
-        """Called when script generation is complete."""
         self.status = "synthesizing_audio"
-        self.message = f"{self._word_prefix()}: Synthesizing audio..."
+        self.message = f"{self._segment_prefix()}: Synthesizing audio..."
         db.session.flush()
 
-    def update_segment(self, segment_number, total_segments, voice_type):
+    def update_segment(self, step_number, total_steps, voice_type):
         """Called when synthesizing each audio segment."""
-        self.current_step = segment_number
-        self.total_steps = total_segments
-        self.message = f"{self._word_prefix()}: Synthesizing {voice_type} voice ({segment_number}/{total_segments})"
+        self.current_step = step_number
+        self.total_steps = total_steps
+        self.message = f"{self._segment_prefix()}: Synthesizing {voice_type} voice ({step_number}/{total_steps})"
         db.session.flush()
 
     def update_combining(self):
-        """Called when combining audio segments."""
         self.status = "combining_audio"
-        self.message = f"{self._word_prefix()}: Combining audio..."
+        self.message = f"{self._segment_prefix()}: Combining audio..."
         db.session.flush()
 
     def mark_done(self):
-        """Called when generation is complete."""
         self.status = "done"
         self.current_step = self.total_steps
         self.message = "Audio lesson ready!"
         db.session.flush()
 
     def mark_error(self, error_message):
-        """Called when an error occurs."""
         self.status = "error"
         self.message = error_message[:255] if error_message else "Unknown error"
         db.session.flush()
 
     def to_dict(self):
-        """Convert to dictionary for API response."""
         return {
             "status": self.status,
             "current_step": self.current_step,
             "total_steps": self.total_steps,
-            "current_word": self.current_word,
-            "total_words": self.total_words,
+            "current_segment": self.current_segment,
+            "total_segments": self.total_segments,
             "message": self.message,
             "started_at": self.started_at.isoformat() if self.started_at else None,
         }
 
     @classmethod
     def find_for_user(cls, user):
-        """Find the most recent progress record for a user."""
         return (
             cls.query.filter_by(user_id=user.id)
             .order_by(cls.started_at.desc())
@@ -134,7 +127,6 @@ class AudioLessonGenerationProgress(db.Model):
 
     @classmethod
     def find_active_for_user(cls, user):
-        """Find an active (in-progress) generation for a user."""
         return (
             cls.query.filter_by(user_id=user.id)
             .filter(cls.status.notin_(["done", "error"]))
@@ -142,19 +134,15 @@ class AudioLessonGenerationProgress(db.Model):
         )
 
     @classmethod
-    def create_for_user(cls, user, total_words=3):
-        """Create a new progress record, deleting any old ones."""
-        # Delete old progress records for this user
+    def create_for_user(cls, user, total_segments=1):
         cls.query.filter_by(user_id=user.id).delete()
-
-        progress = cls(user=user, total_words=total_words)
+        progress = cls(user=user, total_segments=total_segments)
         db.session.add(progress)
         db.session.flush()
         return progress
 
     @classmethod
     def cleanup_old_records(cls, hours=1):
-        """Delete progress records older than specified hours."""
         from datetime import timedelta
         cutoff = datetime.utcnow() - timedelta(hours=hours)
         cls.query.filter(cls.started_at < cutoff).delete()

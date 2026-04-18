@@ -654,8 +654,10 @@ class UserArticle(db.Model):
 
                 # Don't show original articles that aren't simplified —
                 # they'd open externally, which defeats the purpose
+                # (legacy users with the feature toggle can still see them)
                 if not article.parent_article_id and not article.uploader_id:
-                    continue
+                    if not user.has_feature("show_non_simplified_articles"):
+                        continue
 
             if article.id in seen_ids:
                 continue

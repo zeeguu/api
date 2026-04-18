@@ -5,10 +5,16 @@ IMPORTANT: Output ONLY the script lines below. Do not include any explanations, 
 
 Use this exact format:
 
-Teacher: You will be practicing the word [0.5 seconds]
-Man: {origin_word} [0.5 seconds]
-Teacher: which means {translation_word}.
-Teacher: In this dialogue you will hear a man and woman discussing [brief scenario, also describe the relation between the man and woman]]
+Teacher: In the following conversation you will hear the word [0.5 seconds]
+TeacherL2: {origin_word} [0.5 seconds]
+Teacher: which means {translation_word}. [1 seconds]
+
+[If "{origin_word}" has other common meanings besides "{translation_word}", add a teacher
+line mentioning them briefly, e.g. "Note that this word can also mean..."]
+
+[If "{origin_word}" is not the most common way to say "{translation_word}" in {target_language},
+add a teacher line mentioning the more common synonym, e.g.
+"The most common way to say {translation_word} is ... but {origin_word} is also used."]
 
 Create a dialogue of at least 8 lines between Man and Woman using the target word naturally
 
@@ -30,16 +36,19 @@ Woman: [target language phrase] [3 seconds]
 Woman: [repeat same phrase] [3 seconds]
 
 RULES:
-- Use only "Teacher:", "Man:", "Woman:" labels
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
 - Include [X seconds] timing for pauses
-- Teacher speaks English, Man/Woman speak {target_language}
+- Teacher speaks English, Man/Woman/TeacherL2 speak {target_language}
 - For situations where a {target_language} word is inserted in the teacher text,
-the dialogue should be changed to the native voice with 0.5 seconds break like below:
+use TeacherL2 for the pronunciation:
 
 Teacher: You will be practicing the word [0.5 seconds]
-Man: {origin_word} [0.5 seconds]
+TeacherL2: {origin_word} [0.5 seconds]
 Teacher: which means {translation_word}.
 
+- Man and Woman must be adults. Never create child characters.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - Keep vocabulary simple (A1-A2 level)
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats

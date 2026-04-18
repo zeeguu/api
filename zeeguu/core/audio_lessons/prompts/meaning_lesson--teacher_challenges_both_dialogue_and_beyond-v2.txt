@@ -8,12 +8,18 @@ IMPORTANT: Output ONLY the script lines below. Do not include any explanations, 
 Use this exact format:
 
 
-    Teacher: [Introduction in {source_language} explaining that in the following conversation
-    they will hear a man and woman discussing <brief scenario>. Mention they will hear the word:]
-    [0.2 seconds]
-    Man: {origin_word} [0.5 seconds]
+    Teacher: [Brief sentence in {source_language} saying that in the following conversation
+    they will hear the word:] [0.2 seconds]
+    TeacherL2: {origin_word} [0.5 seconds]
     Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
     Teacher: {translation_word}. [1 seconds]
+
+    [If "{origin_word}" has other common meanings besides "{translation_word}", add a teacher
+    line in {source_language} briefly mentioning them, e.g. "Note that this word can also mean..."]
+
+    [If "{origin_word}" is not the most common way to say "{translation_word}" in {target_language},
+    add a teacher line in {source_language} mentioning the more common synonym, e.g.
+    "The most common way to say {translation_word} is ... but {origin_word} is also used."]
 
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
     In between lines add one second break annotations with: [1 seconds]
@@ -44,9 +50,12 @@ Use this exact format:
 
 
 RULES:
-- Use only "Teacher:", "Man:", "Woman:" labels
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
 - Include [X seconds] timing for pauses
-- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman speak {target_language}
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- Man and Woman must be adults. Never create child characters.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
 - No explanatory text or translations in the script

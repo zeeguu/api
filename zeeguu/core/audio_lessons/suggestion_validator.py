@@ -1,0 +1,91 @@
+"""
+Validates and sanitizes user-provided topic/situation suggestions for audio lessons.
+Uses an LLM to classify whether the input is appropriate and to produce a canonical form.
+"""
+
+import json
+from zeeguu.core.llm_services import get_llm_service
+from zeeguu.logging import log
+
+VALIDATION_PROMPT = """You are a content classifier for a language learning app. A user wants to generate a listening lesson about a topic or situation.
+
+The user typed: "{suggestion}"
+The type is: "{lesson_type}"
+The user's native language is: {native_language}
+
+Classify this into one of three categories:
+
+1. "invalid" — offensive, nonsensical, random characters, too vague (single word with no clear topic), not something two adults could have a conversation about, or requires a child as a speaking character (we only have adult voices). Note: adults talking ABOUT children is fine (e.g. "parent-teacher meeting"), but scenarios where a child would be a speaker are not (e.g. "a child ordering ice cream").
+
+2. "niche" — a valid topic but too personal or specific for other learners. It references specific people, dates, or situations unique to the user. Examples: "my sister's wedding next Saturday", "explaining to my neighbor why my dog barks", "my thesis defense at university", "what happened at the Berlin flea market yesterday". These are fine to generate but shouldn't appear in autocomplete.
+
+3. "general" — a topic or situation that many language learners would benefit from. Be generous here — if the user phrases a general topic personally (e.g. "talking to my boss about a raise"), it's still general (canonicalize to "asking for a raise"). Examples: "restaurant", "doctor visit", "job interview", "grocery shopping", "travel", "cooking", "meeting neighbors", "asking for a raise", "renting an apartment", "public transport".
+
+If valid (niche or general), produce a short canonical form IN {native_language} (lowercase, 2-5 words, no articles at the start). The canonical form must be in {native_language} regardless of what language the user typed in. Examples for English: "At the Restaurant" → "restaurant", "going to the doctor's office" → "doctor visit". Examples for other languages: "похід до лікаря" → "візит до лікаря" (Ukrainian), "beim Arzt" → "arztbesuch" (German).
+
+Reply with ONLY a JSON object, no other text:
+{{"category": "general", "canonical": "the canonical form in {native_language}"}}
+or
+{{"category": "niche", "canonical": "the canonical form in {native_language}"}}
+or
+{{"category": "invalid", "reason": "brief reason in {native_language}"}}
+"""
+
+
+def validate_suggestion(suggestion, lesson_type, native_language="English"):
+    """
+    Validate and sanitize a user suggestion.
+
+    Args:
+        suggestion: The user's raw input
+        lesson_type: "topic" or "situation"
+        native_language: The user's native language name (canonical form will be in this language)
+
+    Returns:
+        (is_valid, result_dict) where result_dict contains:
+        - If valid: {"canonical": "...", "is_general": True/False}
+        - If invalid: {"reason": "..."}
+    """
+    if not suggestion or not suggestion.strip():
+        return False, {"reason": "Empty suggestion"}
+
+    suggestion = suggestion.strip()
+
+    # Quick rejections without LLM
+    if len(suggestion) < 2:
+        return False, {"reason": "Suggestion too short"}
+    if len(suggestion) > 80:
+        return False, {"reason": "Suggestion too long"}
+
+    try:
+        llm = get_llm_service("unified")
+        prompt = VALIDATION_PROMPT.format(
+            suggestion=suggestion,
+            lesson_type=lesson_type or "topic",
+            native_language=native_language,
+        )
+        response = llm.generate_text(prompt, max_tokens=100, temperature=0.0)
+
+        # Parse the JSON response
+        response = response.strip()
+        # Handle potential markdown code block wrapping
+        if response.startswith("```"):
+            response = response.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        result = json.loads(response)
+        category = result.get("category", "invalid")
+
+        if category == "invalid":
+            reason = result.get("reason", "Not suitable for a language lesson")
+            log(f"[suggestion_validator] '{suggestion}' rejected: {reason}")
+            return False, {"reason": reason}
+
+        canonical = result.get("canonical", suggestion.lower()).strip()[:80]
+        is_general = category == "general"
+        log(f"[suggestion_validator] '{suggestion}' → canonical: '{canonical}' (general: {is_general})")
+        return True, {"canonical": canonical, "is_general": is_general}
+
+    except Exception as e:
+        # If validation fails, let it through with basic sanitization
+        log(f"[suggestion_validator] LLM validation failed, allowing with basic sanitization: {e}")
+        return True, {"canonical": suggestion.strip().lower()[:80], "is_general": False}
