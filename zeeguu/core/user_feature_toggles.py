@@ -5,6 +5,17 @@ This module contains the core logic for determining which features
 are enabled for a user based on their cohort membership, invitation code, etc.
 """
 
+import os
+
+
+def _csv_env_values(env_var_name):
+    raw_value = os.environ.get(env_var_name, "")
+    return {
+        token.strip().casefold()
+        for token in raw_value.split(",")
+        if token.strip()
+    }
+
 
 def _feature_map():
     return {
@@ -16,6 +27,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
+        "verbal_flashcards": _verbal_flashcards,
     }
 
 
@@ -83,3 +95,16 @@ def _hide_recommendations(user):
         if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
             return True
     return False
+
+
+def _verbal_flashcards(user):
+    """
+    Enable verbal flashcards only for users whose own stored invitation code
+    is explicitly allow-listed.
+    """
+    allowed_invite_codes = _csv_env_values("VERBAL_FLASHCARDS_INVITE_CODES")
+    if not allowed_invite_codes:
+        return False
+
+    invitation_code = (getattr(user, "invitation_code", None) or "").strip().casefold()
+    return invitation_code in allowed_invite_codes

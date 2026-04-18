@@ -1,0 +1,5 @@
+flask>=2.0.0
+gunicorn>=21.0.0
+huggingface_hub>=0.24.0
+nemo_toolkit[asr]
+pydub
