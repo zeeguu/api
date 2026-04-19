@@ -103,10 +103,10 @@ def send_friend_request():
         response = _serialize_friend_request(friend_request)
         return json_result(response)
     except ValueError as e:
-        log(f"send_friend_request: error sending friend request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        log(f"send_friend_request: error - {str(e)}")
         return make_error(400, str(e))
     except NoResultFound:
-        log(f"send_friend_request: user not found for user_id={receiver_id}")
+        log(f"send_friend_request: user not found")
         return make_error(404, "User not found")
 
 
@@ -143,7 +143,7 @@ def accept_friend_request():
         receiver_id = flask.g.user_id
         sender_id = _get_sender_from_request(receiver_id)
     except ValueError as e:
-        log(f"accept_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        log(f"accept_friend_request: error - {str(e)}")
         return make_error(400, str(e))
 
     friendship = FriendRequest.accept_friend_request(sender_id, receiver_id)
@@ -168,7 +168,7 @@ def reject_friend_request():
         receiver_id = flask.g.user_id
         sender_id = _get_sender_from_request(receiver_id)
     except ValueError as e:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        log(f"reject_friend_request: error - {str(e)}")
         return make_error(400, str(e))
 
     is_rejected = FriendRequest.reject_friend_request(sender_id, receiver_id)
@@ -188,7 +188,7 @@ def unfriend():
         sender_id = flask.g.user_id
         receiver_id = _get_receiver_from_request(sender_id)
     except ValueError as e:
-        log(f"send_friend_request: invalid request from user_id={sender_id} to user_id={receiver_id} - {str(e)}")
+        log(f"unfriend: error - {str(e)}")
         return make_error(400, str(e))
 
     is_removed = Friend.remove_friendship(sender_id, receiver_id)
