@@ -172,9 +172,8 @@ class UserLanguage(db.Model):
 
             events.streak_changed.send(None, user_id=user.id, db_session=db_session)
 
-        # Update friend streaks for all friendships even if the user's own
-        # daily streak does not change (e.g. repeated practice on same day).
-        events.friend_streak_changed.send(None, user_id=user.id, db_session=db_session)
+            # Update friend streaks for all friendships
+            events.friend_streak_changed.send(None, user_id=user.id, db_session=db_session)
 
     def _update_max_streak_if_needed(self):
         """Update max_streak if current streak exceeds it."""

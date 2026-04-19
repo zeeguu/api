@@ -253,7 +253,7 @@ def _serialize_friendship(friendship: Friend, current_user_id: int):
     return {
         "other_username": other_user.username,
         "created_at": friendship.created_at,
-        "friend_streak": friendship.friend_streak,
+        "friend_streak": friendship.current_friend_streak,
         "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None
     }
 
