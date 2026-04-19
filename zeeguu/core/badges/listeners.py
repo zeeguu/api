@@ -45,7 +45,7 @@ def on_streak_changed(sender, user_id: int, db_session):
     )
     process_badge_event(
         db_session,
-        ActivityTypeMetric.STREAK_COUNT,
+        ActivityTypeMetric.STREAK_DAYS,
         user_id,
         current_value=current_value,
     )
@@ -76,7 +76,7 @@ def on_friendship_changed(sender, user_id: int, db_session):
     current_value = Friend.count_active_friends(user_id)
     process_badge_event(
         db_session,
-        ActivityTypeMetric.NUMBER_OF_FRIENDS,
+        ActivityTypeMetric.FRIENDS,
         user_id,
         current_value=current_value,
     )
