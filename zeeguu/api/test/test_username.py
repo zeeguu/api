@@ -206,14 +206,12 @@ class TestUsernameSearch:
         assert "ëlïté99" in usernames
 
     def test_search_users_exact_email_match(self, app, client):
+        """Email search is not supported; searching by email returns no results."""
         logged_in(client, "emailsearch@zeeguu.test")
         lc = logged_in(client, "emailsearcher@zeeguu.test")
 
         results = lc.get("/search_users?query=emailsearch@zeeguu.test")
-        # Exactly one result: the user with that email
-        assert len(results) == 1
-        # The found user's email matches (verified via name returned by API)
-        assert results[0].get("username") is not None
+        assert results == []
 
     def test_search_users_sql_injection_safe(self, app, client):
         lc = logged_in(client, "sqlinj@zeeguu.test")
