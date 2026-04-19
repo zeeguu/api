@@ -30,7 +30,7 @@ def valid_invite_code(invite_code):
 # TODO: delete after the new onboarding of Iga is done
 def create_account(
     db_session,
-    username,
+    name,
     password,
     invite_code,
     email,
@@ -62,7 +62,7 @@ def create_account(
 
         new_user = User(
             email,
-            username,
+            name,
             password,
             invitation_code=invite_code,
             learned_language=learned_language,
@@ -93,7 +93,7 @@ def create_account(
 
         db_session.commit()
 
-        send_new_user_account_email(username, invite_code, cohort_name)
+        send_new_user_account_email(name, invite_code, cohort_name)
 
         # Send email verification code
         code = UniqueCode(email)
@@ -111,7 +111,7 @@ def create_account(
         raise Exception("Could not create the account")
 
 
-def create_basic_account(db_session, username, password, invite_code, email, creation_platform=None):
+def create_basic_account(db_session, name, password, invite_code, email, creation_platform=None):
     cohort_name = ""
     if password is None or len(password) < 4:
         raise Exception("Password should be at least 4 characters long")
@@ -130,7 +130,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
 
     try:
         new_user = User(
-            email, username, password, invitation_code=invite_code, creation_platform=creation_platform
+            email, name, password, invitation_code=invite_code, creation_platform=creation_platform
         )
         new_user.email_verified = False  # Require email verification
 
@@ -143,7 +143,7 @@ def create_basic_account(db_session, username, password, invite_code, email, cre
 
         db_session.commit()
 
-        send_new_user_account_email(username, invite_code, cohort_name)
+        send_new_user_account_email(name, invite_code, cohort_name)
 
         # Send email verification code
         code = UniqueCode(email)

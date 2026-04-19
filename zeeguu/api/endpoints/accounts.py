@@ -43,7 +43,7 @@ def add_user(email):
     """
 
     password = request.form.get("password")
-    username = request.form.get("username")
+    name = request.form.get("name")
     learned_language_code = request.form.get(
         "learned_language", "de"
     )  # default language; it's changed by the ui later
@@ -59,7 +59,7 @@ def add_user(email):
     try:
         new_user = create_account(
             db_session,
-            username,
+            name,
             password,
             invite_code,
             email,
@@ -105,13 +105,13 @@ def add_basic_user(email):
     from ...core.account_management.user_account_creation import create_basic_account
 
     password = request.form.get("password")
-    username = request.form.get("username")
+    name = request.form.get("name")
     invite_code = request.form.get("invite_code")
     platform = request.form.get("platform")
 
     try:
         new_user = create_basic_account(
-            db_session, username, password, invite_code, email, creation_platform=platform
+            db_session, name, password, invite_code, email, creation_platform=platform
         )
         new_session = Session.create_for_user(new_user)
         db_session.add(new_session)
