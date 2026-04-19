@@ -30,9 +30,9 @@ def test_get_badges_for_friend_user_id(client: LoggedInClient):
     response = client.get(f"/badges/{other_user.username}")
 
     assert isinstance(response, list)
-    if response:
-        assert "name" in response[0]
-        assert "levels" in response[0]
+    assert len(response) > 0
+    assert "name" in response[0]
+    assert "badges" in response[0]
 
 
 def test_get_badges_for_non_friend_user_denied(client: LoggedInClient):
