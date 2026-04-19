@@ -227,7 +227,7 @@ class Friend(db.Model):
         from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
-        friend = User.find_by_username(friend_username)
+        friend: User = User.find_by_username(friend_username)
         if friend is None:
             return None
         friend_user_id = friend.id
@@ -246,6 +246,7 @@ class Friend(db.Model):
         ).order_by(FriendRequest.created_at.desc()).first()
 
         details = friend.details_as_dictionary()
+        details.pop("email", None) # Do not include email in friend details
         details["friendship"] = cls._get_friendship_or_friend_request(friendship, friend_request)
 
         if friendship:

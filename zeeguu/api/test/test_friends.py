@@ -286,7 +286,7 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     response = client.get(f"/get_user_details/{other_user.username}")
 
     assert isinstance(response, dict)
-    assert response["email"] == other_email
+    assert "email" not in response
     assert response["name"] == other_user.name
     assert "learned_language" in response
     assert "native_language" in response
