@@ -277,7 +277,7 @@ class Friend(db.Model):
             # Similarly, _ matches any single character. 
             # NOTE: We escape '\' first to avoid double-escaping, then escape '%' and '_' so they are treated as literal characters in the search term rather than wildcards.
             escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            filters.append(User.username.like(f"%{escaped}%")) # case-insensitive partial match for username
+            filters.append(User.username.like(f"%{escaped}%", escape="\\")) # case-insensitive partial match for username
             # The email column is only stored in lower case
             filters.append(User.name == term)  # exact match for name
 

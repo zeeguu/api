@@ -213,12 +213,59 @@ class TestUsernameSearch:
         results = lc.get("/search_users?query=emailsearch@zeeguu.test")
         assert results == []
 
-    def test_search_users_sql_injection_safe(self, app, client):
-        lc = logged_in(client, "sqlinj@zeeguu.test")
+    def test_search_users_percent_not_wildcard(self, app, client):
+        """'%' in the search term is escaped and not treated as a SQL wildcard.
 
+        Without escaping, LIKE '%%%' matches every username. With escaping,
+        LIKE '%\\%%' matches only usernames that contain a literal '%', so a
+        user whose name has no '%' must not appear in results.
+        """
         import urllib.parse
+
+        lc_target = logged_in(client, "nopercent@zeeguu.test")
+        set_username(lc_target, "nopercent_user")
+
+        lc = logged_in(client, "percentsearcher@zeeguu.test")
+        results = lc.get("/search_users?query=" + urllib.parse.quote("%"))
+        usernames = [r["username"] for r in results]
+        assert "nopercent_user" not in usernames
+
+    def test_search_users_underscore_not_wildcard(self, app, client):
+        """'_' in the search term is escaped and not treated as a SQL single-char wildcard.
+
+        Without escaping, LIKE '%a_c%' matches 'aXc_user42' because '_' acts as
+        a single-character wildcard (matching 'X'). With escaping, LIKE '%a\\_c%'
+        only matches usernames containing the literal sequence 'a_c'.
+        """
+        import urllib.parse
+
+        # 'aXc_user42' contains 'aXc' — 'X' ≠ '_', so it must NOT match 'a_c'
+        lc_target = logged_in(client, "axcuser@zeeguu.test")
+        set_username(lc_target, "aXc_user42")
+
+        lc = logged_in(client, "underscoresearcher@zeeguu.test")
+        results = lc.get("/search_users?query=" + urllib.parse.quote("a_c"))
+        usernames = [r["username"] for r in results]
+        assert "aXc_user42" not in usernames
+
+    def test_search_users_underscore_literal_match(self, app, client):
+        """A literal '_' in a username IS found when the search term contains '_'."""
+        import urllib.parse
+
+        lc_target = logged_in(client, "literalunderscore@zeeguu.test")
+        set_username(lc_target, "a_c_literal")
+
+        lc = logged_in(client, "literalunderscoresearcher@zeeguu.test")
+        results = lc.get("/search_users?query=" + urllib.parse.quote("a_c"))
+        usernames = [r["username"] for r in results]
+        assert "a_c_literal" in usernames
+
+    def test_search_users_sql_injection_safe(self, app, client):
+        """SQL injection attempts do not crash the endpoint and return an empty list."""
+        import urllib.parse
+
+        lc = logged_in(client, "sqlinj@zeeguu.test")
         payload = urllib.parse.quote("'; DROP TABLE user; --")
         results = lc.get(f"/search_users?query={payload}")
-        # Should return an empty list without crashing or exposing data
         assert isinstance(results, list)
         assert results == []
