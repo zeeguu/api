@@ -86,13 +86,12 @@ def _award_badges(db_session, activity_type_id: int, user_id: int, current_value
        Create UserBadge entries for all newly achieved badges.
        Returns only newly created entries.
     """
+    from sqlalchemy import select
     badge_ids = db_session.scalars(
-        db_session.query(Badge.id)
-        .filter(
+        select(Badge.id).where(
             Badge.activity_type_id == activity_type_id,
             Badge.threshold <= current_value
-        )
-        .order_by(Badge.level.asc())
+        ).order_by(Badge.level.asc())
     ).all()
 
     if not badge_ids:

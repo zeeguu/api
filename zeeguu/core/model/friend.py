@@ -40,6 +40,20 @@ class Friend(db.Model):
         self.user_a_id = user_a_id
         self.user_b_id = user_b_id
 
+    @property
+    def current_friend_streak(self):
+        """Stored friend streak, zeroed out if not updated today or yesterday."""
+        last_updated = self.friend_streak_last_updated.date() if self.friend_streak_last_updated else None
+        yesterday = datetime.now().date() - timedelta(days=1)
+
+        if last_updated is None:
+            return 0
+
+        if last_updated < yesterday:
+            return 0
+
+        return self.friend_streak or 0
+
     def update_friend_streak(self, session=None, commit=True):
         """
         Update friend_streak based on both users' most recent practice in any language.
@@ -227,7 +241,7 @@ class Friend(db.Model):
         from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
-        friend = User.find_by_username(friend_username)
+        friend: User = User.find_by_username(friend_username)
         if friend is None:
             return None
         friend_user_id = friend.id
@@ -246,11 +260,12 @@ class Friend(db.Model):
         ).order_by(FriendRequest.created_at.desc()).first()
 
         details = friend.details_as_dictionary()
+        details.pop("email", None) # Do not include email in friend details
         details["friendship"] = cls._get_friendship_or_friend_request(friendship, friend_request)
 
         if friendship:
             details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
-            details["mutual_streak"] = friendship.friend_streak or 0
+            details["mutual_streak"] = friendship.current_friend_streak or 0
 
         return details
 
@@ -272,9 +287,13 @@ class Friend(db.Model):
             # The 'like()' acts just as 'ilike()' here due to the utf8mb4_unicode_ci collation; the % characters allow for partial matches
             # The username, email and name are all utf8mb4_unicode_ci, so they are all case-insensitive.
             # NOTE: So there is no need to apply func.lower() to the column values here, as the collation handles that for us.
-            filters.append(User.username.like(f"%{term}%"))  # case-insensitive partial match for username
+            # '%' and '_' are special in SQL LIKE patterns. A search for 100% becomes LIKE '%100%%'
+            # The '%' from user input acts as a wildcard, matching 100percent, 100xyz, etc. 
+            # Similarly, _ matches any single character. 
+            # NOTE: We escape '\' first to avoid double-escaping, then escape '%' and '_' so they are treated as literal characters in the search term rather than wildcards.
+            escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            filters.append(User.username.like(f"%{escaped}%", escape="\\")) # case-insensitive partial match for username
             # The email column is only stored in lower case
-            filters.append(User.email == term)  # exact match for email
             filters.append(User.name == term)  # exact match for name
 
         if not filters:
@@ -380,7 +399,7 @@ class Friend(db.Model):
     def _get_friendship_or_friend_request(friendship, friend_request):
         if friendship:
             return {
-                "friend_streak": friendship.friend_streak,
+                "friend_streak": friendship.current_friend_streak,
                 "friend_streak_last_updated": (
                     friendship.friend_streak_last_updated.isoformat()
                     if friendship.friend_streak_last_updated

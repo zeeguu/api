@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, func, or_
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.db import db
-from zeeguu.core.model.user import User  # assuming you have a User model
-from zeeguu.core.model.friend import Friend  # assuming you have a User model
+from zeeguu.core.model.user import User
+from zeeguu.core.model.friend import Friend
 from sqlalchemy.exc import NoResultFound
 
 class FriendRequest(db.Model):
@@ -40,51 +40,51 @@ class FriendRequest(db.Model):
         self.receiver_id = receiver_id
 
     def __repr__(self):
-          return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "receiver: " + str( self.receiver_id)
+        return "id: "+ str(self.id) + "sender: "+ str(self.sender_id) + "receiver: " + str( self.receiver_id)
 
     @classmethod
     def send_friend_request(cls, sender_id: int, receiver_id: int):
-     """
-     Send a friend request from sender to receiver.
+        """
+        Send a friend request from sender to receiver.
 
-     Args:
-          sender_id (int): ID of the user sending the request
-          receiver_id (int): ID of the user receiving the request
+        Args:
+            sender_id (int): ID of the user sending the request
+            receiver_id (int): ID of the user receiving the request
 
-     Returns:
-          FriendRequest: The created friend request object
-     """
+        Returns:
+            FriendRequest: The created friend request object
+        """
 
-     # Prevent sending request to self
-     if sender_id == receiver_id:
-          raise ValueError("Cannot send a friend request to yourself.")
+        # Prevent sending request to self
+        if sender_id == receiver_id:
+            raise ValueError("Cannot send a friend request to yourself.")
 
-     # Check if users exist
-     sender = db.session.query(User).filter_by(id=sender_id).first()
-     receiver = db.session.query(User).filter_by(id=receiver_id).first()
-     if not sender or not receiver:
-          raise ValueError("Sender or receiver does not exist.")
+        # Check if users exist
+        sender = db.session.query(User).filter_by(id=sender_id).first()
+        receiver = db.session.query(User).filter_by(id=receiver_id).first()
+        if not sender or not receiver:
+            raise ValueError("Sender or receiver does not exist.")
 
-     # Check for existing friend request
-     existing_request = db.session.query(cls).filter(
-          ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == receiver_id)) |
-          ((FriendRequest.sender_id == receiver_id) & (FriendRequest.receiver_id == sender_id))
-     ).first()
+        # Check for existing friend request
+        existing_request = db.session.query(cls).filter(
+            ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == receiver_id)) |
+            ((FriendRequest.sender_id == receiver_id) & (FriendRequest.receiver_id == sender_id))
+        ).first()
 
-     if existing_request:
-          raise ValueError("A friend request already exists between these users.")
+        if existing_request:
+            raise ValueError("A friend request already exists between these users.")
 
-     # Create new friend request
-     new_request = FriendRequest(
-          sender_id=sender_id,
-          receiver_id=receiver_id
-     )
+        # Create new friend request
+        new_request = FriendRequest(
+            sender_id=sender_id,
+            receiver_id=receiver_id
+        )
 
-     db.session.add(new_request)
-     db.session.commit()
-     db.session.refresh(new_request)  # To get the ID and timestamps
+        db.session.add(new_request)
+        db.session.commit()
+        db.session.refresh(new_request)  # To get the ID and timestamps
 
-     return new_request
+        return new_request
 
     @classmethod
     def get_number_of_received_friend_requests_for_user(cls, user_id: int):
@@ -103,45 +103,45 @@ class FriendRequest(db.Model):
 
     @classmethod
     def get_received_friend_requests_for_user(cls, user_id: int):
-            """
-            Get friend requests received by a user.
+        """
+        Get friend requests received by a user.
 
-            Args:
-                user_id (int): ID of the user
+        Args:
+            user_id (int): ID of the user
 
-            Returns:
-                List[Tuple[FriendRequest, UserAvatar]]:
-                    A list of tuples, each containing:
-                        - FriendRequest: the friend request object
-                        - UserAvatar: the avatar of the sender (or None if not set)
-            """
-            requests = (
-                db.session.query(cls, UserAvatar)
-                .filter(FriendRequest.receiver_id == user_id)
-                .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
-                .order_by(FriendRequest.created_at.desc())
-                .all()
-            )
-            return requests
+        Returns:
+            List[Tuple[FriendRequest, UserAvatar]]:
+                A list of tuples, each containing:
+                    - FriendRequest: the friend request object
+                    - UserAvatar: the avatar of the sender (or None if not set)
+        """
+        requests = (
+            db.session.query(cls, UserAvatar)
+            .filter(FriendRequest.receiver_id == user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
+            .order_by(FriendRequest.created_at.desc())
+            .all()
+        )
+        return requests
     
     @classmethod
     def get_sent_friend_requests_for_user(cls, user_id: int):
-            """
-            Get friend requests sent by a user.
+        """
+        Get friend requests sent by a user.
 
-            Args:
-                user_id (int): ID of the user
+        Args:
+            user_id (int): ID of the user
 
-            Returns:
-                List[FriendRequest]: List of pending friend request objects
-            """
-            requests = (
-                db.session.query(cls)
-                .filter(FriendRequest.sender_id == user_id)
-                .order_by(FriendRequest.created_at.desc())
-                .all()
-            )
-            return requests
+        Returns:
+            List[FriendRequest]: List of pending friend request objects
+        """
+        requests = (
+            db.session.query(cls)
+            .filter(FriendRequest.sender_id == user_id)
+            .order_by(FriendRequest.created_at.desc())
+            .all()
+        )
+        return requests
 
     @classmethod
     def get_all_friend_requests_for_user(cls, user_id: int):
@@ -163,25 +163,25 @@ class FriendRequest(db.Model):
 
     @classmethod
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
-          """Delete a friend request between sender and receiver."""
-          try:
-                friend_request = db.session.query(cls).filter_by(
-                    sender_id=sender_id,
-                    receiver_id=receiver_id
-                ).one()
-                db.session.delete(friend_request)
-                db.session.commit()
-                return True
-          except NoResultFound:
-                return False
-          
+        """Delete a friend request between sender and receiver."""
+        try:
+            friend_request = db.session.query(cls).filter_by(
+                sender_id=sender_id,
+                receiver_id=receiver_id
+            ).one()
+            db.session.delete(friend_request)
+            db.session.commit()
+            return True
+        except NoResultFound:
+            return False
+
     @classmethod
     def accept_friend_request(cls, sender_id: int, receiver_id: int):
         try:
             # Find the pending request
             is_deleted = cls.delete_friend_request(sender_id, receiver_id)
             if not is_deleted:
-                raise None # If the request was not found or could not be deleted, we cannot accept it
+                return None # If the request was not found or could not be deleted, we cannot accept it
 
             # Create the friendship record in the database
             friendship = Friend.add_friendship(sender_id, receiver_id)

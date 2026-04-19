@@ -286,10 +286,6 @@ def user_settings():
         user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
                                                   submitted_avatar_background_color)
 
-        submitted_password = data.get("password", None)
-        if submitted_password:
-            user.update_password(submitted_password)
-
         zeeguu.core.model.db.session.add(user_avatar)
         zeeguu.core.model.db.session.add(user)
         zeeguu.core.model.db.session.commit()

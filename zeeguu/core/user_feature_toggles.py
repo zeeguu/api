@@ -119,8 +119,6 @@ from sqlalchemy.exc import NoResultFound
 
 from .model.user import User
 from .model.cohort import Cohort
-from datetime import datetime, date
-GAMIFICATION_START_DATE = date(2026, 4, 1)
 def _gamification(user: User):
     """
     Enable general gamification features for users whose invitation with the gamification invite code,

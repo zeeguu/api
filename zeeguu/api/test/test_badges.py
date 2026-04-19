@@ -1,11 +1,29 @@
 from fixtures import LoggedInClient, logged_in_client as client
-from zeeguu.core.model import User
+from zeeguu.core.model import User, db
+from zeeguu.core.model.activity_type import ActivityType, ActivityTypeMetric, BadgeType
+from zeeguu.core.model.badge import Badge
+
+
+def _create_test_activity_type():
+    """Seed a minimal ActivityType with one Badge so the endpoint returns data."""
+    at = ActivityType(
+        metric=ActivityTypeMetric.TRANSLATED_WORDS,
+        name="Translated Words",
+        description="Translate {threshold} words while reading.",
+        badge_type=BadgeType.COUNTER,
+    )
+    db.session.add(at)
+    db.session.flush()
+    db.session.add(Badge(activity_type_id=at.id, level=1, threshold=50, name="Word Explorer", icon_name="/badge1.svg"))
+    db.session.commit()
 
 
 def test_get_badges_for_friend_user_id(client: LoggedInClient):
     """
     Test /badges/<username> returns badge data when users are friends.
     """
+    _create_test_activity_type()
+
     other_email = "badges-friend@user.com"
     other_client = LoggedInClient(
         client.client,
@@ -30,9 +48,9 @@ def test_get_badges_for_friend_user_id(client: LoggedInClient):
     response = client.get(f"/badges/{other_user.username}")
 
     assert isinstance(response, list)
-    if response:
-        assert "name" in response[0]
-        assert "levels" in response[0]
+    assert len(response) > 0
+    assert "name" in response[0]
+    assert "badges" in response[0]
 
 
 def test_get_badges_for_non_friend_user_denied(client: LoggedInClient):

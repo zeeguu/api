@@ -1,5 +1,3 @@
-import pytest
-
 from fixtures import LoggedInClient, logged_in_client as client
 from zeeguu.core.model import User
 from zeeguu.core.model.friend import Friend
@@ -118,10 +116,11 @@ def test_send_friend_request_to_self(client: LoggedInClient):
     """
     from zeeguu.core.model import User
     user = User.find(client.email)
-    with pytest.raises(UnboundLocalError):
-        client.post(
+    response = client.response_from_post(
             "/send_friend_request", json={"receiver_username": user.username}
         )
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "cannot send friend request to yourself"
 
 def test_get_friend_requests(client: LoggedInClient):
     """
@@ -286,7 +285,7 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     response = client.get(f"/get_user_details/{other_user.username}")
 
     assert isinstance(response, dict)
-    assert response["email"] == other_email
+    assert "email" not in response
     assert response["name"] == other_user.name
     assert "learned_language" in response
     assert "native_language" in response
