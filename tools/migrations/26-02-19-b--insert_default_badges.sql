@@ -4,10 +4,10 @@ INSERT INTO activity_type (id, metric, name, description, badge_type)
 VALUES (1, 'TRANSLATED_WORDS', 'Translated Words', 'Translate {threshold} unique words while reading.', 'COUNTER'),
        (2, 'CORRECT_EXERCISES', 'Correct Exercises', 'Solve {threshold} exercises correctly.', 'COUNTER'),
        (3, 'COMPLETED_AUDIO_LESSONS', 'Completed Audio Lessons', 'Complete {threshold} audio lesson(s).', 'COUNTER'),
-       (4, 'STREAK_COUNT', 'Streak Count', 'Maintain a streak for {threshold} days.', 'GAUGE'),
+       (4, 'STREAK_DAYS', 'Streak Days', 'Maintain a streak for {threshold} days.', 'GAUGE'),
        (5, 'LEARNED_WORDS', 'Learned Words', 'Learn {threshold} new word(s).', 'COUNTER'),
        (6, 'READ_ARTICLES', 'Read Articles', 'Read {threshold} articles.', 'COUNTER'),
-       (7, 'NUMBER_OF_FRIENDS', 'Number of Friends', 'Add {threshold} friend(s).', 'GAUGE');
+       (7, 'FRIENDS', 'Friends', 'Add {threshold} friend(s).', 'GAUGE');
 
 INSERT INTO badge (id, activity_type_id, level, threshold, name, icon_name)
 VALUES

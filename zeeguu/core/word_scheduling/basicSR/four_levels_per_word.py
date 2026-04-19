@@ -66,7 +66,6 @@ class FourLevelsPerWord(BasicSRSchedule):
                     from zeeguu.core import events
                     user_id = self.user_word.user.id
                     events.word_learned.send(None, user_id=user_id, db_session=db_session)
-                    db_session.commit()
                     # we simply return because the self object will have been deleted inside of the above call
                     return
             else:
