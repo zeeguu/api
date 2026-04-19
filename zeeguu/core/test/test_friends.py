@@ -46,10 +46,11 @@ class FriendTest(ModelTestMixIn):
 
       # Practice today for user1, user2, user3
       now = datetime.now()
+      yesterday = now - timedelta(days=1)
       ul1 = UserLanguage.find_or_create(session, user1, lang)
       ul2 = UserLanguage.find_or_create(session, user2, lang)
       ul3 = UserLanguage.find_or_create(session, user3, lang)
-      ul1.last_practiced = now
+      ul1.last_practiced = yesterday
       ul2.last_practiced = now
       ul3.last_practiced = now
       session.add(ul1)
