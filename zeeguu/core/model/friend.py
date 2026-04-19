@@ -272,9 +272,13 @@ class Friend(db.Model):
             # The 'like()' acts just as 'ilike()' here due to the utf8mb4_unicode_ci collation; the % characters allow for partial matches
             # The username, email and name are all utf8mb4_unicode_ci, so they are all case-insensitive.
             # NOTE: So there is no need to apply func.lower() to the column values here, as the collation handles that for us.
-            filters.append(User.username.like(f"%{term}%"))  # case-insensitive partial match for username
+            # '%' and '_' are special in SQL LIKE patterns. A search for 100% becomes LIKE '%100%%'
+            # The '%' from user input acts as a wildcard, matching 100percent, 100xyz, etc. 
+            # Similarly, _ matches any single character. 
+            # NOTE: We escape '\' first to avoid double-escaping, then escape '%' and '_' so they are treated as literal characters in the search term rather than wildcards.
+            escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            filters.append(User.username.like(f"%{escaped}%", escape="\\")) # case-insensitive partial match for username
             # The email column is only stored in lower case
-            filters.append(User.email == term)  # exact match for email
             filters.append(User.name == term)  # exact match for name
 
         if not filters:
