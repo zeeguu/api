@@ -40,6 +40,20 @@ class Friend(db.Model):
         self.user_a_id = user_a_id
         self.user_b_id = user_b_id
 
+    @property
+    def current_friend_streak(self):
+        """Stored friend streak, zeroed out if not updated today or yesterday."""
+        last_updated = self.friend_streak_last_updated.date() if self.friend_streak_last_updated else None
+        yesterday = datetime.now().date() - timedelta(days=1)
+
+        if last_updated is None:
+            return 0
+
+        if last_updated < yesterday:
+            return 0
+
+        return self.friend_streak or 0
+
     def update_friend_streak(self, session=None, commit=True):
         """
         Update friend_streak based on both users' most recent practice in any language.
@@ -251,7 +265,7 @@ class Friend(db.Model):
 
         if friendship:
             details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
-            details["mutual_streak"] = friendship.friend_streak or 0
+            details["mutual_streak"] = friendship.current_friend_streak or 0
 
         return details
 
@@ -385,7 +399,7 @@ class Friend(db.Model):
     def _get_friendship_or_friend_request(friendship, friend_request):
         if friendship:
             return {
-                "friend_streak": friendship.friend_streak,
+                "friend_streak": friendship.current_friend_streak,
                 "friend_streak_last_updated": (
                     friendship.friend_streak_last_updated.isoformat()
                     if friendship.friend_streak_last_updated
