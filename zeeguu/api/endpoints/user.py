@@ -204,6 +204,7 @@ def get_user_details():
 
     return json_result(details_dict)
 
+
 @api.route("/get_user_details/<friend_username>", methods=["GET"])
 @cross_domain
 @requires_session
@@ -214,10 +215,13 @@ def get_friend_details(friend_username):
     """
     user = User.find_by_id(flask.g.user_id)
     from zeeguu.core.model.friend import Friend
-    friend_details = Friend.find_friend_details(user.id, friend_username)
-    if not friend_details:
+    friend_user, friend_user_avatar, friendship, friend_request = Friend.find_friend_details(user.id, friend_username)
+    if not friend_user:
         return make_error(401, "Not friends with this user or user not found.")
-    return json_result(friend_details)
+
+    details_dict = _serialize_friend_details(friend_user, friend_user_avatar, friendship, friend_request)
+
+    return json_result(details_dict)
 
 
 @api.route("/user_settings", methods=["POST"])
@@ -350,3 +354,51 @@ def leave_cohort(cohort_id):
     except Exception as e:
         print(e)
         return "FAIL"
+
+
+def _serialize_friend_details(friend_user, friend_user_avatar, friendship, friend_request):
+    details = _serialize_friend_user(friend_user, friend_user_avatar)
+    if friendship:
+        details["friendship"] = {
+            "friend_streak": friendship.current_friend_streak,
+            "friend_streak_last_updated": (
+                friendship.friend_streak_last_updated.isoformat()
+                if friendship.friend_streak_last_updated
+                else None
+            ),
+            "is_accepted": True,
+            "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
+        }
+    elif friend_request:
+        details["friendship"] = {
+            "sender_username": friend_request.sender.username,
+            "receiver_username": friend_request.receiver.username,
+            "friend_streak": 0,
+            "friend_streak_last_updated": None,
+            "is_accepted": False,
+            "created_at": (
+                friend_request.created_at.isoformat()
+                if friend_request.created_at
+                else None
+            ),
+        }
+    return details
+
+
+def _serialize_friend_user(friend_user, friend_user_avatar):
+    user_avatar_dict = (
+        dict(
+            image_name=friend_user_avatar.image_name,
+            character_color=friend_user_avatar.character_color,
+            background_color=friend_user_avatar.background_color,
+        )
+        if friend_user_avatar is not None
+        else None
+    )
+
+    return dict(
+        name=friend_user.name,
+        username=friend_user.username,
+        created_at=friend_user.created_at.isoformat() if friend_user.created_at else None,
+        user_avatar=user_avatar_dict,
+    )
