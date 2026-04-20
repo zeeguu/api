@@ -145,6 +145,9 @@ class User(db.Model):
         # since the DB must have an email we generate a fake one
         fake_email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
 
+        # since the DB must also have a username we generate a fake one
+        fake_username = "user_" + uuid
+
         if learned_language_code is not None:
             try:
                 learned_language = Language.find_or_create(learned_language_code)
@@ -165,6 +168,7 @@ class User(db.Model):
             fake_email,
             uuid,
             password,
+            fake_username,
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,
