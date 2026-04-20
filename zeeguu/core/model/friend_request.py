@@ -67,8 +67,8 @@ class FriendRequest(db.Model):
 
         # Check for existing friend request
         existing_request = db.session.query(cls).filter(
-            ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == receiver_id)) |
-            ((FriendRequest.sender_id == receiver_id) & (FriendRequest.receiver_id == sender_id))
+            ((cls.sender_id == sender_id) & (cls.receiver_id == receiver_id)) |
+            ((cls.sender_id == receiver_id) & (cls.receiver_id == sender_id))
         ).first()
 
         if existing_request:
@@ -117,9 +117,9 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls, UserAvatar)
-            .filter(FriendRequest.receiver_id == user_id)
+            .filter(cls.receiver_id == user_id)
             .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
-            .order_by(FriendRequest.created_at.desc())
+            .order_by(cls.created_at.desc())
             .all()
         )
         return requests
@@ -137,8 +137,8 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls)
-            .filter(FriendRequest.sender_id == user_id)
-            .order_by(FriendRequest.created_at.desc())
+            .filter(cls.sender_id == user_id)
+            .order_by(cls.created_at.desc())
             .all()
         )
         return requests
@@ -156,7 +156,7 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls)
-            .filter(or_(FriendRequest.receiver_id == user_id, FriendRequest.sender_id == user_id))
+            .filter(or_(cls.receiver_id == user_id, cls.sender_id == user_id))
             .all()
         )
         return requests

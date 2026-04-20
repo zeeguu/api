@@ -110,28 +110,14 @@ class Friend(db.Model):
     def get_friend_objects(cls, user_id):
         """Return all Friend objects (including soft-deleted) associated with the given user_id."""
         friends = (
-            db.session.query(cls)
-            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
+            cls.query
+            .filter(or_(cls.user_a_id == user_id, cls.user_b_id == user_id))
             .all()
         )
         return friends
 
-    @staticmethod
-    def get_friend_users(user_id):
-        """Return a list of User objects that are friends with the given user_id."""
-        other_user_id = case((Friend.user_a_id == user_id, Friend.user_b_id), else_=Friend.user_a_id)
-        friends = (
-            db.session.query(User)
-            .select_from(Friend)
-            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
-            .filter(Friend.deleted_at.is_(None))
-            .join(User, User.id == other_user_id)
-            .all()
-        )
-        return friends
-
-    @staticmethod
-    def get_friends_with_details(user_id: int):
+    @classmethod
+    def get_friends_with_details(cls, user_id: int):
         """
         Return a list of all friends of the given user_id along with related data.
 
@@ -149,12 +135,12 @@ class Friend(db.Model):
         # that at query time: if user_a_id is the caller, the other user is user_b_id,
         # and vice versa. This lets us do a single join to User instead of the
         # OR-of-ANDs pattern that would otherwise be required.
-        other_user_id = case((Friend.user_a_id == user_id, Friend.user_b_id), else_=Friend.user_a_id)
+        other_user_id = case((cls.user_a_id == user_id, cls.user_b_id), else_=cls.user_a_id)
         rows = (
-            db.session.query(User, Friend, UserAvatar, UserLanguage)
-            .select_from(Friend)
-            .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
-            .filter(Friend.deleted_at.is_(None))
+            db.session.query(User, cls, UserAvatar, UserLanguage)
+            .select_from(cls)
+            .filter(or_(cls.user_a_id == user_id, cls.user_b_id == user_id))
+            .filter(cls.deleted_at.is_(None))
             .join(User, User.id == other_user_id)
             .outerjoin(UserAvatar, UserAvatar.user_id == User.id)
             .outerjoin(UserLanguage, UserLanguage.user_id == User.id)
@@ -292,8 +278,7 @@ class Friend(db.Model):
             # Similarly, _ matches any single character. 
             # NOTE: We escape '\' first to avoid double-escaping, then escape '%' and '_' so they are treated as literal characters in the search term rather than wildcards.
             escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            filters.append(User.username.like(f"%{escaped}%", escape="\\")) # case-insensitive partial match for username
-            # The email column is only stored in lower case
+            filters.append(User.username.like(f"%{escaped}%", escape="\\")) # partial match for username
             filters.append(User.name == term)  # exact match for name
 
         if not filters:
@@ -345,8 +330,8 @@ class Friend(db.Model):
 
         return results
 
-    @staticmethod
-    def add_friendship(user_id: int, other_id: int):
+    @classmethod
+    def add_friendship(cls, user_id: int, other_id: int):
         """
         Creates a friendship between two users, or returns it if they are already friends.
 
@@ -361,9 +346,9 @@ class Friend(db.Model):
 
         # Check if friendship already exists
         existing = (
-            Friend.query
-            .filter(Friend.user_a_id == user_id, Friend.user_b_id == other_id)
-            .filter(Friend.deleted_at.is_(None))
+            cls.query
+            .filter(cls.user_a_id == user_id, cls.user_b_id == other_id)
+            .filter(cls.deleted_at.is_(None))
             .first()
         )
 
@@ -382,21 +367,21 @@ class Friend(db.Model):
 
         return friendship
 
-    @staticmethod
-    def count_active_friends(user_id: int) -> int:
+    @classmethod
+    def count_active_friends(cls, user_id: int) -> int:
         """Return the current number of friends for a user."""
         return (
-                db.session.query(func.count(Friend.id))
+                db.session.query(func.count(cls.id))
                 .filter(
-                    ((Friend.user_a_id == user_id) | (Friend.user_b_id == user_id)),
-                    Friend.deleted_at.is_(None),
+                    ((cls.user_a_id == user_id) | (cls.user_b_id == user_id)),
+                    cls.deleted_at.is_(None),
                 )
                 .scalar()
                 or 0
         )
 
-    @staticmethod
-    def _get_friendship_or_friend_request(friendship, friend_request):
+    @classmethod
+    def _get_friendship_or_friend_request(cls, friendship, friend_request):
         if friendship:
             return {
                 "friend_streak": friendship.current_friend_streak,
