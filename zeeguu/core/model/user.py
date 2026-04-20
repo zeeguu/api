@@ -231,7 +231,7 @@ class User(db.Model):
                 character_color=user_avatar.character_color,
                 background_color=user_avatar.background_color,
             )
-            if user_avatar
+            if user_avatar is not None
             else None
         )
 

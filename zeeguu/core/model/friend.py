@@ -216,21 +216,21 @@ class Friend(db.Model):
         """
         Fetch profile details of the given friend_username.
 
-        Returns the target user's details_as_dictionary(), with additional
-        information including:
-        - friendship data (created_at, friend_streak, ...) between user_id
-          and friend_username, if exists,
-        - or friend request data (sender_username, receiver_username,...) between user_id and friend_username,
-          if exists.
+        Returns the target user and additional information including:
+            - target user's avatar
+            - friendship between user_id and friend_username, if exists,
+            - or friend request between user_id and friend_username, if exists.
         Returns None if the target user is not found.
         """
         from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
-        friend: User = User.find_by_username(friend_username)
-        if friend is None:
+        friend_user: User = User.find_by_username(friend_username)
+        if friend_user is None:
             return None
-        friend_user_id = friend.id
+        friend_user_id = friend_user.id
+
+        friend_user_avatar = UserAvatar.find(friend_user_id)
 
         a_id, b_id = min(user_id, friend_user_id), max(user_id, friend_user_id)
         friendship = (
@@ -245,15 +245,7 @@ class Friend(db.Model):
             ((FriendRequest.sender_id == friend_user_id) & (FriendRequest.receiver_id == user_id))
         ).order_by(FriendRequest.created_at.desc()).first()
 
-        details = friend.details_as_dictionary()
-        details.pop("email", None) # Do not include email in friend details
-        details["friendship"] = cls._get_friendship_or_friend_request(friendship, friend_request)
-
-        if friendship:
-            details["friends_since"] = friendship.created_at.isoformat() if friendship.created_at else None
-            details["mutual_streak"] = friendship.current_friend_streak or 0
-
-        return details
+        return friend_user, friend_user_avatar, friendship, friend_request
 
     @classmethod
     def add_friendship(cls, user_id: int, other_id: int):
@@ -304,31 +296,3 @@ class Friend(db.Model):
                 .scalar()
                 or 0
         )
-
-    @classmethod
-    def _get_friendship_or_friend_request(cls, friendship, friend_request):
-        if friendship:
-            return {
-                "friend_streak": friendship.current_friend_streak,
-                "friend_streak_last_updated": (
-                    friendship.friend_streak_last_updated.isoformat()
-                    if friendship.friend_streak_last_updated
-                    else None
-                ),
-                "is_accepted": True,
-                "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
-            }
-        elif friend_request:
-            return {
-                "sender_username": friend_request.sender.username,
-                "receiver_username": friend_request.receiver.username,
-                "friend_streak": 0,
-                "friend_streak_last_updated": None,
-                "is_accepted": False,
-                "created_at": (
-                    friend_request.created_at.isoformat()
-                    if friend_request.created_at
-                    else None
-                ),
-            }
-
