@@ -117,6 +117,20 @@ class Friend(db.Model):
         return friends
 
     @classmethod
+    def get_friendship_map(cls, user_id: int) -> dict:
+        """Return a dict mapping each friend's user id to their Friend object with user_id."""
+        friendships = (
+            cls.query
+            .filter(or_(cls.user_a_id == user_id, cls.user_b_id == user_id))
+            .filter(cls.deleted_at.is_(None))
+            .all()
+        )
+        return {
+            (f.user_b_id if f.user_a_id == user_id else f.user_a_id): f
+            for f in friendships
+        }
+
+    @classmethod
     def get_friends_with_details(cls, user_id: int):
         """
         Return a list of all friends of the given user_id along with related data.

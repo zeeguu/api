@@ -215,10 +215,17 @@ def search_by_search_term():
         return json_result([])
 
     search_term = search_term.strip()
-    user_details = User.search(flask.g.user_id, search_term)
+    users_and_avatars = User.search(flask.g.user_id, search_term)
+    friendship_map   = Friend.get_friendship_map(flask.g.user_id)
+    friend_request_map = FriendRequest.get_request_map(flask.g.user_id)
     result = [
-        _serialize_user_with_friendship_details(user_detail)
-        for user_detail in user_details
+        _serialize_user_with_friendship_details({
+            "user": user,
+            "user_avatar": avatar,
+            "friendship": friendship_map.get(user.id),
+            "friend_request": friend_request_map.get(user.id),
+        })
+        for user, avatar in users_and_avatars
     ]
 
     log(f"search_users: user_id={flask.g.user_id} searched for search_term='{search_term}' and found {len(result)} results")

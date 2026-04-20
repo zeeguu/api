@@ -162,6 +162,23 @@ class FriendRequest(db.Model):
         return requests
 
     @classmethod
+    def get_request_map(cls, user_id: int) -> dict:
+        """
+        Return a dict mapping each other user's id to their FriendRequest with user_id.
+        Only includes open (non-responded) requests.
+        """
+        requests = (
+            db.session.query(cls)
+            .filter((cls.sender_id == user_id) | (cls.receiver_id == user_id))
+            .filter(cls.responded_at.is_(None))
+            .all()
+        )
+        return {
+            (r.receiver_id if r.sender_id == user_id else r.sender_id): r
+            for r in requests
+        }
+
+    @classmethod
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
         """Delete a friend request between sender and receiver."""
         try:
