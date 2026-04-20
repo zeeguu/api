@@ -1288,11 +1288,10 @@ class User(db.Model):
     def search(cls, current_user_id: int, term: str, limit: int = 20):
         """
         Search users by username (partial match) or exact name.
-        For each result, return user info, friendship status, and friend request status.
+        Returns a list of (User, UserAvatar) tuples. Callers are responsible
+        for annotating results with friendship / friend-request data.
         """
         from sqlalchemy import or_
-        from zeeguu.core.model.friend import Friend
-        from zeeguu.core.model.friend_request import FriendRequest
         from zeeguu.core.model.user_avatar import UserAvatar
 
         term = term.lower()
@@ -1308,7 +1307,7 @@ class User(db.Model):
             cls.name == term,                                  # exact match for name
         ]
 
-        users_and_avatars = (
+        return (
             db.session.query(cls, UserAvatar)
             .select_from(cls)
             .filter(or_(*filters), cls.id != current_user_id)
@@ -1316,35 +1315,6 @@ class User(db.Model):
             .limit(limit)
             .all()
         )
-
-        friendships = (
-            Friend.query
-            .filter(or_(Friend.user_a_id == current_user_id, Friend.user_b_id == current_user_id))
-            .filter(Friend.deleted_at.is_(None))
-            .all()
-        )
-        friendship_map = {
-            (f.user_b_id if f.user_a_id == current_user_id else f.user_a_id): f
-            for f in friendships
-        }
-
-        friend_requests = FriendRequest.query.filter(
-            (FriendRequest.sender_id == current_user_id) | (FriendRequest.receiver_id == current_user_id)
-        ).all()
-        friend_request_map = {
-            (fr.receiver_id if fr.sender_id == current_user_id else fr.sender_id): fr
-            for fr in friend_requests
-        }
-
-        return [
-            {
-                "user": user,
-                "user_avatar": avatar,
-                "friendship": friendship_map.get(user.id),
-                "friend_request": friend_request_map.get(user.id),
-            }
-            for user, avatar in users_and_avatars
-        ]
 
     @classmethod
     def username_exists(cls, username: str):

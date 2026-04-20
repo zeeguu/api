@@ -16,7 +16,6 @@ class FriendRequest(db.Model):
     receiver_id = Column(Integer, ForeignKey("user.id"), nullable=False)
 
     created_at = Column(DateTime, default=func.now())
-    responded_at = Column(DateTime, nullable=True)
 
     # relationships
     # Relationships — explicit foreign_keys and primaryjoin
@@ -160,6 +159,19 @@ class FriendRequest(db.Model):
             .all()
         )
         return requests
+
+    @classmethod
+    def get_request_map(cls, user_id: int) -> dict:
+        """Return a dict mapping each other user's id to their FriendRequest with user_id."""
+        requests = (
+            db.session.query(cls)
+            .filter((cls.sender_id == user_id) | (cls.receiver_id == user_id))
+            .all()
+        )
+        return {
+            (r.receiver_id if r.sender_id == user_id else r.sender_id): r
+            for r in requests
+        }
 
     @classmethod
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
