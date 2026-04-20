@@ -177,23 +177,16 @@ class FriendRequest(db.Model):
 
     @classmethod
     def accept_friend_request(cls, sender_id: int, receiver_id: int):
-        try:
-            # Find the pending request
-            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
-            if not is_deleted:
-                return None # If the request was not found or could not be deleted, we cannot accept it
+        # Find the pending request and delete it
+        is_deleted = cls.delete_friend_request(sender_id, receiver_id)
+        if not is_deleted:
+            return None  # If the request was not found or could not be deleted, we cannot accept it
 
-            # Create the friendship record in the database
-            friendship = Friend.add_friendship(sender_id, receiver_id)
-            return friendship
-        except NoResultFound:
-            return None
+        # Create the friendship record in the database
+        friendship = Friend.add_friendship(sender_id, receiver_id)
+        return friendship
     
     @classmethod
     def reject_friend_request(cls, sender_id: int, receiver_id: int):
-        try:
-            # We just delete the friend request from the database 
-            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
-            return is_deleted
-        except NoResultFound:
-            return False
+        # We just delete the friend request from the database
+        return cls.delete_friend_request(sender_id, receiver_id)
