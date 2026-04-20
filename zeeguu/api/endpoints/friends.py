@@ -37,7 +37,7 @@ def get_friends(username: str = None):
 
     friend_details = Friend.get_friends_with_details(used_user_id)
     result = [
-        _serialize_user_with_friendship_details(friend_detail, used_user_id)
+        _serialize_user_with_friendship_details(friend_detail)
         for friend_detail in friend_details
     ]
     log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
@@ -151,7 +151,7 @@ def accept_friend_request():
         log(f"accept_friend_request: no friend request found from user_id={sender_id} to user_id={receiver_id}")
         return make_error(404, "No friend request found to accept")
 
-    response = _serialize_friendship(friendship, receiver_id)
+    response = _serialize_friendship(friendship)
     return json_result(response)
 
 
@@ -217,7 +217,7 @@ def search_by_search_term():
     search_term = search_term.strip()
     user_details = Friend.search_users(flask.g.user_id, search_term)
     result = [
-        _serialize_user_with_friendship_details(user_detail, flask.g.user_id)
+        _serialize_user_with_friendship_details(user_detail)
         for user_detail in user_details
     ]
 
@@ -229,9 +229,9 @@ def search_by_search_term():
 # Helper functions below
 # ---------------------------------------------------------------------------
 
-def _serialize_user_with_friendship_details(user_data, current_user_id: int):
+def _serialize_user_with_friendship_details(user_data):
     result = _serialize_user(user_data.get("user"))
-    result["friendship"] = _serialize_friendship(user_data.get("friendship"), current_user_id)
+    result["friendship"] = _serialize_friendship(user_data.get("friendship"))
     result["friend_request"] = _serialize_friend_request(user_data.get("friend_request"))
     result["avatar"] = _serialize_user_avatar(user_data.get("user_avatar"))
     result["languages"] = _serialize_user_languages(user_data.get("user_languages"))
@@ -245,13 +245,11 @@ def _serialize_user(user: User):
     }
 
 
-def _serialize_friendship(friendship: Friend, current_user_id: int):
+def _serialize_friendship(friendship: Friend):
     if friendship is None:
         return None
 
-    other_user = friendship.user_b if friendship.user_a_id == current_user_id else friendship.user_a
     return {
-        "other_username": other_user.username,
         "created_at": friendship.created_at,
         "friend_streak": friendship.current_friend_streak,
         "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None
