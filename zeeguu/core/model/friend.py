@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func, or_, case
 from sqlalchemy.orm import relationship, object_session
@@ -58,46 +58,47 @@ class Friend(db.Model):
         """
         Update friend_streak based on both users' most recent practice in any language.
         Uses the latest last_practiced date across all UserLanguage records for each user.
+        Dates are evaluated in each user's local timezone so streaks are fair worldwide.
         """
         from zeeguu.core.model.user_language import UserLanguage
+        from zeeguu.core.util.time import user_local_today, to_user_local_date
 
         session = session or object_session(self) or db.session
 
-        # Get all UserLanguage records for each user
-        user_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_a_id).all()
-        friend_langs = UserLanguage.query.filter(UserLanguage.user_id == self.user_b_id).all()
+        # Find last practice time for user_a and user_b across all languages
+        user_a_last_practiced = UserLanguage.last_practiced_by_user(self.user_a_id)
+        user_b_last_practiced = UserLanguage.last_practiced_by_user(self.user_b_id)
 
-        # Find the most recent last_practiced date for each user
-        user_date = None
-        friend_date = None
-        if user_langs:
-            user_date = max((ul.last_practiced for ul in user_langs if ul.last_practiced), default=None)
-        if friend_langs:
-            friend_date = max((ul.last_practiced for ul in friend_langs if ul.last_practiced), default=None)
+        # Convert each practice timestamp to the respective user's local date so that
+        # a user who practices at 11 pm in their timezone is credited for that day,
+        # not the server's day (which may already have rolled over).
+        user_a_date   = to_user_local_date(self.user_a, user_a_last_practiced)
+        user_b_date = to_user_local_date(self.user_b, user_b_last_practiced)
+        user_a_today   = user_local_today(self.user_a)
+        user_b_today = user_local_today(self.user_b)
 
-        user_date = user_date.date() if user_date else None
-        friend_date = friend_date.date() if friend_date else None
-        today = datetime.now().date()
-        yesterday = today - timedelta(days=1)
-        last_updated_date = (
-            self.friend_streak_last_updated.date()
-            if self.friend_streak_last_updated
-            else None
-        )
+        # last_updated is a server-side timestamp; keep it in server time for the
+        # idempotency check (already_counted_today / streak_was_active_yesterday).
+        server_today     = datetime.now().date()
+        server_yesterday = server_today - timedelta(days=1)
+        last_updated_date = self.friend_streak_last_updated.date() if self.friend_streak_last_updated else None
 
-        # If both practiced today, update at most once per day.
-        if user_date == today and friend_date == today:
-            if last_updated_date != today:
-                if last_updated_date == yesterday and (self.friend_streak or 0) > 0:
-                    self.friend_streak = (self.friend_streak or 0) + 1
-                else:
-                    self.friend_streak = 1
-                self.friend_streak_last_updated = datetime.now()
-        # Do not reset if one side has never practiced yet.
-        elif user_date is None or friend_date is None:
-            pass
-        # Reset only when at least one side has not practiced since before yesterday.
-        elif user_date < yesterday or friend_date < yesterday:
+        # Determine if the streak should be incremented, reset, or left unchanged:
+        both_practiced_today        = user_a_date == user_a_today and user_b_date == user_b_today
+        either_has_no_history       = user_a_date is None or user_b_date is None
+        either_lapsed               = self._either_lapsed(user_a_date, user_b_date, user_a_today, user_b_today)
+        already_counted_today       = last_updated_date == server_today
+        streak_was_active_yesterday = last_updated_date == server_yesterday and self.friend_streak > 0
+
+        if either_has_no_history:
+            pass  # do not reset if one side has never practiced
+        elif both_practiced_today and not already_counted_today:
+            if streak_was_active_yesterday:
+                self.friend_streak += 1 
+            else:
+                self.friend_streak = 1
+            self.friend_streak_last_updated = datetime.now()
+        elif either_lapsed:
             self.friend_streak = 0
             self.friend_streak_last_updated = datetime.now()
 
@@ -105,6 +106,15 @@ class Friend(db.Model):
             session.add(self)
             if commit:
                 session.commit()
+
+    def _either_lapsed(self, user_a_date, user_b_date, user_a_today, user_b_today):
+        """
+        Return True only when both users have practice history and at least one hasn't
+        practiced since before yesterday (in their own timezone).
+        """
+        if user_a_date is None or user_b_date is None:
+            return False
+        return user_a_date < user_a_today - timedelta(days=1) or user_b_date < user_b_today - timedelta(days=1)
 
     @classmethod
     def get_friend_objects(cls, user_id):
