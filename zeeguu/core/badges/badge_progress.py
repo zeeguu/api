@@ -5,7 +5,7 @@ from zeeguu.core.model.user_metric import UserMetric
 from zeeguu.logging import log
 
 
-def process_badge_event(
+def update_metric_and_award_badges(
         db_session,
         metric: ActivityMetric,
         user_id: int,
