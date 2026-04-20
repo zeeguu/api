@@ -215,7 +215,7 @@ def search_by_search_term():
         return json_result([])
 
     search_term = search_term.strip()
-    user_details = Friend.search_users(flask.g.user_id, search_term)
+    user_details = User.search(flask.g.user_id, search_term)
     result = [
         _serialize_user_with_friendship_details(user_detail)
         for user_detail in user_details
