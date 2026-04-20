@@ -23,12 +23,13 @@ from zeeguu.core.model.user import User
 
 def populate_usernames():
     # Only query users who don't have a username set (i.e., those with username == None)
-    users: list[User] = User.query.filter(User.username == None).all()
+    users: list[User] = User.query.filter(User.username.is_(None)).all()
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} Found {len(users)} users without usernames. Populating now...")
     for user in users:
-        user.username = User.generate_unique_username()
-        user_avatar = UserAvatar.create_default_avatar_for_user(user)
-        db.session.add(user_avatar)
+        generated_username, animal = User.generate_unique_username()
+        user.username = generated_username
+        if UserAvatar.find(user.id) is None:
+            db.session.add(UserAvatar(user.id, animal, None, None))
     db.session.commit()
 
 
