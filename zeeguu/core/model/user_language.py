@@ -2,7 +2,7 @@ import datetime
 
 from MySQLdb import IntegrityError
 import sqlalchemy
-from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime, func, select
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
@@ -97,6 +97,14 @@ class UserLanguage(db.Model):
 
     def __str__(self):
         return f'User language (uid: {self.user_id}, language:"{self.Language}")'
+
+    @classmethod
+    def last_practiced_by_user(cls, user_id: int):
+        """Return the most recent last_practiced datetime across all languages for a user."""
+        return db.session.scalar(
+            select(func.max(cls.last_practiced))
+            .where(cls.user_id == user_id)
+        )
 
     @classmethod
     def find_or_create(cls, session, user, language):
