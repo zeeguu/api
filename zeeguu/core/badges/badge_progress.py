@@ -1,4 +1,4 @@
-from zeeguu.core.model.activity_type import ActivityTypeMetric, ActivityType, BadgeType
+from zeeguu.core.model.activity_type import ActivityMetric, ActivityType, BadgeType
 from zeeguu.core.model.badge import Badge
 from zeeguu.core.model.user_badge import UserBadge
 from zeeguu.core.model.user_metric import UserMetric
@@ -7,7 +7,7 @@ from zeeguu.logging import log
 
 def process_badge_event(
         db_session,
-        metric: ActivityTypeMetric,
+        metric: ActivityMetric,
         user_id: int,
         increment_value: int = 1,
         current_value: int | None = None,
@@ -43,7 +43,7 @@ def process_badge_event(
         log(f"[BADGE-ERROR] Unsupported badge_type='{activity_type.badge_type}' for metric='{metric}'")
         return []
 
-    return _award_badges(
+    return _award_new_badges(
         db_session,
         activity_type.id,
         user_id,
@@ -81,7 +81,7 @@ def _update_user_metric(db_session, user_id, activity_type_id: int, current_valu
     )
 
 
-def _award_badges(db_session, activity_type_id: int, user_id: int, current_value: int) -> list[UserBadge]:
+def _award_new_badges(db_session, activity_type_id: int, user_id: int, current_value: int) -> list[UserBadge]:
     """
        Create UserBadge entries for all newly achieved badges.
        Returns only newly created entries.

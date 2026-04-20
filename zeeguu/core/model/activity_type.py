@@ -3,7 +3,7 @@ import enum
 from zeeguu.core.model.db import db
 
 
-class ActivityTypeMetric(enum.Enum):
+class ActivityMetric(enum.Enum):
     """Enum representing all available activity metrics in the system."""
     TRANSLATED_WORDS = 'TRANSLATED_WORDS'
     CORRECT_EXERCISES = 'CORRECT_EXERCISES'
@@ -29,7 +29,7 @@ class ActivityType(db.Model):
     __tablename__ = "activity_type"
 
     id = db.Column(db.Integer, primary_key=True)
-    metric = db.Column(db.Enum(ActivityTypeMetric), nullable=False, unique=True)
+    metric = db.Column(db.Enum(ActivityMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     badge_type = db.Column(db.Enum(BadgeType), nullable=False)
@@ -44,9 +44,9 @@ class ActivityType(db.Model):
         return f"<ActivityType {self.name}>"
 
     @classmethod
-    def find(cls, metric: ActivityTypeMetric) -> "ActivityType":
+    def find(cls, metric: ActivityMetric) -> "ActivityType":
         """
-        Find an activity type by its ActivityTypeMetric enum value.
+        Find an activity type by its ActivityMetric enum value.
 
         Returns:
             ActivityType object if found, else None.
