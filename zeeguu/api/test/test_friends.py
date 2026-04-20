@@ -285,14 +285,14 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     response = client.get(f"/get_user_details/{other_user.username}")
 
     assert isinstance(response, dict)
-    assert "email" not in response
     assert response["name"] == other_user.name
-    assert "learned_language" in response
-    assert "native_language" in response
-    assert "friends_since" in response
-    assert "mutual_streak" in response
-    assert isinstance(response["mutual_streak"], int)
+    assert response["username"] == other_user.username
+    assert "created_at" in response
+    assert "user_avatar" in response
+    assert "email" not in response
+    assert "friendship" in response
     assert response["friendship"]["is_accepted"] == True
+    assert isinstance(response["friendship"]["friend_streak"], int)
 
 
 def test_get_friend_details_pending_request_shows_is_accepted_false(client: LoggedInClient):

@@ -1,13 +1,13 @@
 from fixtures import LoggedInClient, logged_in_client as client
 from zeeguu.core.model import User, db
-from zeeguu.core.model.activity_type import ActivityType, ActivityTypeMetric, BadgeType
+from zeeguu.core.model.activity_type import ActivityType, ActivityMetric, BadgeType
 from zeeguu.core.model.badge import Badge
 
 
 def _create_test_activity_type():
     """Seed a minimal ActivityType with one Badge so the endpoint returns data."""
     at = ActivityType(
-        metric=ActivityTypeMetric.TRANSLATED_WORDS,
+        metric=ActivityMetric.TRANSLATED_WORDS,
         name="Translated Words",
         description="Translate {threshold} words while reading.",
         badge_type=BadgeType.COUNTER,

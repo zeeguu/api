@@ -16,7 +16,6 @@ class FriendRequest(db.Model):
     receiver_id = Column(Integer, ForeignKey("user.id"), nullable=False)
 
     created_at = Column(DateTime, default=func.now())
-    responded_at = Column(DateTime, nullable=True)
 
     # relationships
     # Relationships — explicit foreign_keys and primaryjoin
@@ -67,8 +66,8 @@ class FriendRequest(db.Model):
 
         # Check for existing friend request
         existing_request = db.session.query(cls).filter(
-            ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == receiver_id)) |
-            ((FriendRequest.sender_id == receiver_id) & (FriendRequest.receiver_id == sender_id))
+            ((cls.sender_id == sender_id) & (cls.receiver_id == receiver_id)) |
+            ((cls.sender_id == receiver_id) & (cls.receiver_id == sender_id))
         ).first()
 
         if existing_request:
@@ -117,9 +116,9 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls, UserAvatar)
-            .filter(FriendRequest.receiver_id == user_id)
+            .filter(cls.receiver_id == user_id)
             .outerjoin(UserAvatar, UserAvatar.user_id == cls.sender_id)
-            .order_by(FriendRequest.created_at.desc())
+            .order_by(cls.created_at.desc())
             .all()
         )
         return requests
@@ -137,8 +136,8 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls)
-            .filter(FriendRequest.sender_id == user_id)
-            .order_by(FriendRequest.created_at.desc())
+            .filter(cls.sender_id == user_id)
+            .order_by(cls.created_at.desc())
             .all()
         )
         return requests
@@ -156,10 +155,23 @@ class FriendRequest(db.Model):
         """
         requests = (
             db.session.query(cls)
-            .filter(or_(FriendRequest.receiver_id == user_id, FriendRequest.sender_id == user_id))
+            .filter(or_(cls.receiver_id == user_id, cls.sender_id == user_id))
             .all()
         )
         return requests
+
+    @classmethod
+    def get_request_map(cls, user_id: int) -> dict:
+        """Return a dict mapping each other user's id to their FriendRequest with user_id."""
+        requests = (
+            db.session.query(cls)
+            .filter((cls.sender_id == user_id) | (cls.receiver_id == user_id))
+            .all()
+        )
+        return {
+            (r.receiver_id if r.sender_id == user_id else r.sender_id): r
+            for r in requests
+        }
 
     @classmethod
     def delete_friend_request(cls, sender_id: int, receiver_id: int)->bool:
@@ -177,23 +189,16 @@ class FriendRequest(db.Model):
 
     @classmethod
     def accept_friend_request(cls, sender_id: int, receiver_id: int):
-        try:
-            # Find the pending request
-            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
-            if not is_deleted:
-                return None # If the request was not found or could not be deleted, we cannot accept it
+        # Find the pending request and delete it
+        is_deleted = cls.delete_friend_request(sender_id, receiver_id)
+        if not is_deleted:
+            return None  # If the request was not found or could not be deleted, we cannot accept it
 
-            # Create the friendship record in the database
-            friendship = Friend.add_friendship(sender_id, receiver_id)
-            return friendship
-        except NoResultFound:
-            return None
+        # Create the friendship record in the database
+        friendship = Friend.add_friendship(sender_id, receiver_id)
+        return friendship
     
     @classmethod
     def reject_friend_request(cls, sender_id: int, receiver_id: int):
-        try:
-            # We just delete the friend request from the database 
-            is_deleted = cls.delete_friend_request(sender_id, receiver_id)
-            return is_deleted
-        except NoResultFound:
-            return False
+        # We just delete the friend request from the database
+        return cls.delete_friend_request(sender_id, receiver_id)

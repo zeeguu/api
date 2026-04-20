@@ -77,11 +77,12 @@ def create_account(
     try:
         learned_language = Language.find_or_create(learned_language_code)
         native_language = Language.find_or_create(native_language_code)
+        generated_username, animal = User.generate_unique_username()
         new_user = User(
             email,
             username,
             password,
-            username=None,
+            username=generated_username,
             invitation_code=invite_code,
             learned_language=learned_language,
             native_language=native_language,
@@ -108,7 +109,7 @@ def create_account(
         db_session.commit()
 
         # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
-        user_avatar = UserAvatar.create_default_avatar_for_user(new_user)
+        user_avatar = UserAvatar(new_user.id, animal, None, None)
         db_session.add(user_avatar)
 
         send_new_user_account_email(username, invite_code, cohort_name)
@@ -159,10 +160,12 @@ def create_basic_account(
                 "No more places in this class. Please contact us (zeeguu.team@gmail.com)."
             )
     try:
+        generated_username, animal = User.generate_unique_username()
         new_user = User(
             email,
             username,
             password,
+            generated_username,
             invitation_code=invite_code,
             creation_platform=creation_platform,
         )
@@ -170,15 +173,15 @@ def create_basic_account(
 
         db_session.add(new_user)
 
-        # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
-        user_avatar = UserAvatar.create_default_avatar_for_user(new_user)
-        db_session.add(user_avatar)
-
         if cohort and cohort.is_cohort_of_teachers:
             teacher = Teacher(new_user)
             db_session.add(teacher)
 
         db_session.commit()
+
+        # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
+        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        db_session.add(user_avatar)
 
         send_new_user_account_email(username, invite_code, cohort_name)
 

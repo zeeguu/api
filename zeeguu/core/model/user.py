@@ -70,7 +70,7 @@ class User(db.Model):
         email,
         name,
         password,
-        username=None,
+        username,
         learned_language=None,
         native_language=None,
         invitation_code=None,
@@ -81,7 +81,7 @@ class User(db.Model):
 
         self.email = email 
         self.name = name # The name of the user
-        self.username = username or self.generate_unique_username() # Username is custom name to display in UI
+        self.username = username # Username is custom name to display in UI
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -108,21 +108,20 @@ class User(db.Model):
     @classmethod
     def generate_unique_username(cls):
         """
-        :summary:
-
-        Generate a random unique username in the format 'adjective_animal1234'
-        Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames
+        Generate a random unique username in the format 'adjective_animal1234'.
+        Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames.
         
-        :return: A string username
+        Returns:
+            username: The generated username.
+            animal: The animal that was used to generate the username.
         """
         while True:
             adjective = random.choice(cls.ADJECTIVES)
             animal = random.choice(cls.ANIMALS)
             number = random.randint(1, cls.MAX_NUMBER_USERNAME)
             username = f"{adjective}_{animal}{number}"
-            exists = User.query.filter_by(username=username).first()
-            if not exists:
-                return username
+            if not User.query.filter_by(username=username).first():
+                return username, animal
 
     @classmethod
     def create_anonymous(
@@ -146,6 +145,9 @@ class User(db.Model):
         # since the DB must have an email we generate a fake one
         fake_email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
 
+        # since the DB must also have a username we generate a fake one
+        fake_username = "user_" + uuid
+
         if learned_language_code is not None:
             try:
                 learned_language = Language.find_or_create(learned_language_code)
@@ -166,6 +168,7 @@ class User(db.Model):
             fake_email,
             uuid,
             password,
+            fake_username,
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,
@@ -231,7 +234,7 @@ class User(db.Model):
                 character_color=user_avatar.character_color,
                 background_color=user_avatar.background_color,
             )
-            if user_avatar
+            if user_avatar is not None
             else None
         )
 
@@ -1280,6 +1283,38 @@ class User(db.Model):
             return User.query.filter(User.username == username).one()
         except NoResultFound:
             return None
+
+    @classmethod
+    def search(cls, current_user_id: int, term: str, limit: int = 20):
+        """
+        Search users by username (partial match) or exact name.
+        Returns a list of (User, UserAvatar) tuples. Callers are responsible
+        for annotating results with friendship / friend-request data.
+        """
+        from sqlalchemy import or_
+        from zeeguu.core.model.user_avatar import UserAvatar
+
+        term = term.lower()
+        if not term:
+            return []
+
+        # The 'like()' acts just as 'ilike()' here due to the utf8mb4_unicode_ci collation.
+        # '%' and '_' are special in SQL LIKE patterns, so they are escaped first.
+        # '\' is escaped first to avoid double-escaping.
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filters = [
+            cls.username.like(f"%{escaped}%", escape="\\"),  # partial match for username
+            cls.name == term,                                  # exact match for name
+        ]
+
+        return (
+            db.session.query(cls, UserAvatar)
+            .select_from(cls)
+            .filter(or_(*filters), cls.id != current_user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == cls.id)
+            .limit(limit)
+            .all()
+        )
 
     @classmethod
     def username_exists(cls, username: str):
