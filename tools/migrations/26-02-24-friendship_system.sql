@@ -18,7 +18,6 @@ CREATE TABLE friend_request (
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    responded_at DATETIME,
     FOREIGN KEY (sender_id) REFERENCES user(id),
     FOREIGN KEY (receiver_id) REFERENCES user(id)
 );

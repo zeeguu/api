@@ -310,7 +310,6 @@ def _serialize_friend_request(friend_request: FriendRequest):
             "username": friend_request.receiver.username,
         },
         "created_at": friend_request.created_at.isoformat() if friend_request.created_at else None,
-        "responded_at": friend_request.responded_at.isoformat() if friend_request.responded_at else None
     }
 
 
