@@ -27,9 +27,16 @@ def populate_usernames():
     users: list[User] = User.query.filter(User.username.is_(None)).all()
     total = len(users)
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} Found {total} users without usernames. Populating now...")
+
+    # Track usernames assigned in this run but not yet committed, so we don't
+    # hand the same username to two users when the UNIQUE constraint isn't yet
+    # enforced and intermediate assignments are invisible to DB checks.
+    assigned_in_session: set[str] = set()
     avatar_count = 0
+    
     for i, user in enumerate(users, 1):
-        generated_username, animal = User.generate_unique_username()
+        generated_username, animal = User.generate_unique_username(exclude=assigned_in_session)
+        assigned_in_session.add(generated_username)
         user.username = generated_username
         avatar_created = False
         if UserAvatar.find(user.id) is None:
@@ -37,6 +44,8 @@ def populate_usernames():
             avatar_created = True
             avatar_count += 1
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} [{i}/{total}] user_id={user.id} -> username='{generated_username}' (avatar={'created' if avatar_created else 'exists'})")
+    # Commit all changes to the database at once after processing all users
+    # This is more efficient about 2-3x faster than comitting each user in the loop
     db.session.commit()
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} Done. Assigned {total} usernames, created {avatar_count} avatars.")
 
@@ -50,7 +59,11 @@ if __name__ == "__main__":
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     print(f"{start_time} {'='*60}")
     print(f"{start_time} STARTING - username population...")
-    populate_usernames()
+    try: 
+        populate_usernames()
+    except Exception as e:
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} ERROR during username population: {e}")
     end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    print(f"{end_time} COMPLETED - username population.")
+    total_time = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S.%f') - datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
+    print(f"{end_time} COMPLETED - username population. Total time: {total_time.seconds}s {total_time.microseconds // 1000}ms.")
     print(f"{end_time} {'='*60}")

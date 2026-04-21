@@ -106,11 +106,15 @@ class User(db.Model):
     MAX_NUMBER_USERNAME = 9999
 
     @classmethod
-    def generate_unique_username(cls):
+    def generate_unique_username(cls, exclude: set = None):
         """
         Generate a random unique username in the format 'adjective_animal1234'.
         Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames.
-        
+
+        Args:
+            exclude: optional set of usernames already reserved in the current
+                     session but not yet committed (e.g. during bulk migrations).
+
         Returns:
             username: The generated username.
             animal: The animal that was used to generate the username.
@@ -120,6 +124,8 @@ class User(db.Model):
             animal = random.choice(cls.ANIMALS)
             number = random.randint(1, cls.MAX_NUMBER_USERNAME)
             username = f"{adjective}_{animal}{number}"
+            if exclude and username in exclude:
+                continue
             if not User.query.filter_by(username=username).first():
                 return username, animal
 
