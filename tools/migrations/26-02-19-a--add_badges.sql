@@ -7,7 +7,6 @@ CREATE TABLE activity_type (
         ENUM('TRANSLATED_WORDS', 'CORRECT_EXERCISES', 'COMPLETED_AUDIO_LESSONS',
         'STREAK_DAYS', 'LEARNED_WORDS', 'READ_ARTICLES', 'FRIENDS') UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
-    description TEXT,
     badge_type ENUM('COUNTER', 'GAUGE', 'ONE_TIME') NOT NULL
 );
 
@@ -18,6 +17,7 @@ CREATE TABLE badge (
     level INT NOT NULL,
     threshold INT NOT NULL,
     name VARCHAR(100),
+    description TEXT,
     icon_name VARCHAR(255),
     UNIQUE(activity_type_id, level),
     FOREIGN KEY (activity_type_id) REFERENCES activity_type(id)
@@ -31,7 +31,7 @@ CREATE TABLE user_badge (
     achieved_at DATETIME DEFAULT NULL,
     is_shown BOOLEAN DEFAULT FALSE,
     UNIQUE(user_id, badge_id),
-    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (badge_id) REFERENCES badge(id)
 );
 
@@ -43,6 +43,6 @@ CREATE TABLE user_metric (
     value INT NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE(user_id, activity_type_id),
-    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (activity_type_id) REFERENCES activity_type(id)
 );

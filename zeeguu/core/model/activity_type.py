@@ -31,7 +31,6 @@ class ActivityType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     metric = db.Column(db.Enum(ActivityMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
     badge_type = db.Column(db.Enum(BadgeType), nullable=False)
 
     __table_args__ = (

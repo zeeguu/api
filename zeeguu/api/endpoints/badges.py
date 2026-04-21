@@ -110,7 +110,6 @@ def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, pro
 
     return {
         "name": activity_type.name,
-        "description": activity_type.description,
         "badges": badges,
         "current_value": metric.value if metric else 0,
     }
@@ -120,6 +119,7 @@ def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "level": badge.level,
         "name": badge.name,
+        "description": badge.description,
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,
