@@ -41,7 +41,10 @@ def on_streak_changed(sender, user_id: int, db_session):
     if not user:
         return
     current_value = max(
-        [user_language.current_daily_streak for user_language in UserLanguage.all_user_languages_for_user(user)]
+        [
+            user_language.current_daily_streak
+            for user_language in UserLanguage.all_user_languages_for_user(user, db_session)
+        ]
     )
     update_metric_and_award_badges(
         db_session,
@@ -73,7 +76,7 @@ def on_article_read(sender, user_id: int, db_session):
 
 @events.friendship_changed.connect
 def on_friendship_changed(sender, user_id: int, db_session):
-    current_value = Friend.count_active_friends(user_id)
+    current_value = Friend.count_active_friends(user_id, db_session)
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.FRIENDS,

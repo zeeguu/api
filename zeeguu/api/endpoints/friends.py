@@ -37,7 +37,10 @@ def get_friends(username: str = None):
 
     friend_details = Friend.get_friends_with_details(used_user_id)
     result = [
-        _serialize_user_with_friendship_details(friend_detail)
+        _serialize_users_for_get_friends(
+            friend_detail,
+            is_own_friends_list=(username is None),
+        )
         for friend_detail in friend_details
     ]
     log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
@@ -219,7 +222,7 @@ def search_by_search_term():
     friendship_map   = Friend.get_friendship_map(flask.g.user_id)
     friend_request_map = FriendRequest.get_request_map(flask.g.user_id)
     result = [
-        _serialize_user_with_friendship_details({
+        _serialize_users_for_search_users({
             "user": user,
             "user_avatar": avatar,
             "friendship": friendship_map.get(user.id),
@@ -235,13 +238,23 @@ def search_by_search_term():
 # ---------------------------------------------------------------------------
 # Helper functions below
 # ---------------------------------------------------------------------------
+def _serialize_users_for_get_friends(user_data, is_own_friends_list: bool):
+    result = _serialize_users_common(user_data, include_friendship_data=is_own_friends_list)
+    result["languages"] = _serialize_user_languages(user_data.get("user_languages"), include_streaks=is_own_friends_list)
+    return result
 
-def _serialize_user_with_friendship_details(user_data):
-    result = _serialize_user(user_data.get("user"))
-    result["friendship"] = _serialize_friendship(user_data.get("friendship"))
+
+def _serialize_users_for_search_users(user_data):
+    result = _serialize_users_common(user_data, include_friendship_data=True)
     result["friend_request"] = _serialize_friend_request(user_data.get("friend_request"))
+    return result
+
+
+def _serialize_users_common(user_data, include_friendship_data: bool):
+    result = _serialize_user(user_data.get("user"))
     result["avatar"] = _serialize_user_avatar(user_data.get("user_avatar"))
-    result["languages"] = _serialize_user_languages(user_data.get("user_languages"))
+    if include_friendship_data:
+        result["friendship"] = _serialize_friendship(user_data.get("friendship"))
     return result
 
 
@@ -274,17 +287,23 @@ def _serialize_user_avatar(user_avatar: UserAvatar):
     }
 
 
-def _serialize_user_languages(user_languages: list[UserLanguage]):
+def _serialize_user_languages(user_languages: list[UserLanguage], include_streaks: bool = True):
     if not user_languages:
         return None
 
     user_languages.sort(key=lambda ul: ul.max_streak, reverse=True)
-    return [{
-        "code": user_language.language.code,
-        "language": user_language.language.name,
-        "daily_streak": user_language.daily_streak,
-        "max_streak": user_language.max_streak,
-    } for user_language in user_languages]
+    result = []
+    for user_language in user_languages:
+        obj = {
+            "code": user_language.language.code,
+            "language": user_language.language.name,
+        }
+        if include_streaks:
+            obj["daily_streak"] = user_language.daily_streak
+            obj["max_streak"] = user_language.max_streak
+        result.append(obj)
+
+    return result
 
 
 def _serialize_friend_request(friend_request: FriendRequest):

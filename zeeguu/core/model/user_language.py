@@ -99,9 +99,9 @@ class UserLanguage(db.Model):
         return f'User language (uid: {self.user_id}, language:"{self.Language}")'
 
     @classmethod
-    def last_practiced_by_user(cls, user_id: int):
+    def last_practiced_by_user(cls, user_id: int, db_session):
         """Return the most recent last_practiced datetime across all languages for a user."""
-        return db.session.scalar(
+        return db_session.scalar(
             select(func.max(cls.last_practiced))
             .where(cls.user_id == user_id)
         )
@@ -150,8 +150,8 @@ class UserLanguage(db.Model):
         return user_languages
 
     @classmethod
-    def all_user_languages_for_user(cls, user):
-        return cls.query.filter(cls.user == user).all()
+    def all_user_languages_for_user(cls, user, db_session):
+        return db_session.query(cls).filter(cls.user == user).all()
 
     def update_streak_if_needed(self, user, db_session):
         """
@@ -177,6 +177,7 @@ class UserLanguage(db.Model):
             self._update_max_streak_if_needed()
 
             db_session.add(self)
+            db_session.flush()
 
             events.streak_changed.send(None, user_id=user.id, db_session=db_session)
 

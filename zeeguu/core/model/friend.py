@@ -66,8 +66,8 @@ class Friend(db.Model):
         session = session or object_session(self) or db.session
 
         # Find last practice time for user_a and user_b across all languages
-        user_a_last_practiced = UserLanguage.last_practiced_by_user(self.user_a_id)
-        user_b_last_practiced = UserLanguage.last_practiced_by_user(self.user_b_id)
+        user_a_last_practiced = UserLanguage.last_practiced_by_user(self.user_a_id, session)
+        user_b_last_practiced = UserLanguage.last_practiced_by_user(self.user_b_id, session)
 
         # Convert each practice timestamp to the respective user's local date so that
         # a user who practices at 11 pm in their timezone is credited for that day,
@@ -224,7 +224,7 @@ class Friend(db.Model):
         if friendship:
             friendship.deleted_at = datetime.now()
             db.session.add(friendship)
-            db.session.commit()
+            db.session.flush()
 
             from zeeguu.core import events
             events.friendship_changed.send(None, user_id=user_1_id, db_session=db.session)
@@ -299,7 +299,7 @@ class Friend(db.Model):
         # Add friendship
         friendship = Friend(user_a_id=user_id, user_b_id=other_id)
         db.session.add(friendship)
-        db.session.commit()
+        db.session.flush()
 
         from zeeguu.core import events
         events.friendship_changed.send(None, user_id=user_id, db_session=db.session)
@@ -309,10 +309,10 @@ class Friend(db.Model):
         return friendship
 
     @classmethod
-    def count_active_friends(cls, user_id: int) -> int:
+    def count_active_friends(cls, user_id: int, db_session) -> int:
         """Return the current number of friends for a user."""
         return (
-                db.session.query(func.count(cls.id))
+                db_session.query(func.count(cls.id))
                 .filter(
                     ((cls.user_a_id == user_id) | (cls.user_b_id == user_id)),
                     cls.deleted_at.is_(None),
