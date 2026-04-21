@@ -93,7 +93,7 @@ def _always_open_externally(user):
     validated we'll likely expose this as a user-facing setting instead of a
     hardcoded flag.
     """
-    BETA_USER_IDS = {4607}
+    BETA_USER_IDS = {4607, 6083, 6250}
     return user.id in BETA_USER_IDS
 
 
