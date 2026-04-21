@@ -71,13 +71,14 @@ def _extension_experiment_1(user):
 
 
 def _show_non_simplified_articles(user):
-    """Show non-simplified (original) articles for legacy users.
+    """Show non-simplified (original) articles.
 
-    Most users only see simplified articles. These legacy users
-    were active before simplification was standard and still expect
-    to see original articles in their feed.
+    Transitional allowlist: the product direction is flipping so that
+    full articles (opened externally) become the default. This set holds
+    the pilots on the new flow while we validate it; eventually this will
+    be the behavior for everyone and the flag can go away.
     """
-    LEGACY_USER_IDS = {4607, 4626}
+    LEGACY_USER_IDS = {4607, 4626, 6083, 6250}
     return user.id in LEGACY_USER_IDS
 
 
@@ -89,12 +90,13 @@ def _always_open_externally(user):
     Click-through behavior is unchanged: the redirect-notification modal
     still appears unless the user has dismissed it with "don't show again".
 
-    Initial rollout: internal devs testing the external-first flow. Once
-    validated we'll likely expose this as a user-facing setting instead of a
-    hardcoded flag.
+    Rollout: the original pilot users, plus every user signed up from id
+    6367 onwards (i.e., all new users going forward). Existing users keep
+    the in-reader flow until we flip the default for them too.
     """
     BETA_USER_IDS = {4607, 6083, 6250}
-    return user.id in BETA_USER_IDS
+    NEW_USER_THRESHOLD = 6367
+    return user.id in BETA_USER_IDS or user.id >= NEW_USER_THRESHOLD
 
 
 def _hide_recommendations(user):
