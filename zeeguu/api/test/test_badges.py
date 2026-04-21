@@ -9,12 +9,11 @@ def _create_test_activity_type():
     at = ActivityType(
         metric=ActivityMetric.TRANSLATED_WORDS,
         name="Translated Words",
-        description="Translate {threshold} words while reading.",
         badge_type=BadgeType.COUNTER,
     )
     db.session.add(at)
     db.session.flush()
-    db.session.add(Badge(activity_type_id=at.id, level=1, threshold=50, name="Word Explorer", icon_name="/badge1.svg"))
+    db.session.add(Badge(activity_type_id=at.id, level=1, threshold=50, name="Word Explorer", description="Translate {threshold} words while reading.", icon_name="/badge1.svg"))
     db.session.commit()
 
 
