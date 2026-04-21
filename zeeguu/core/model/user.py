@@ -128,6 +128,7 @@ class User(db.Model):
         cls,
         uuid,
         password,
+        username,
         learned_language_code=None,
         native_language_code=None,
         creation_platform=None,
@@ -136,6 +137,7 @@ class User(db.Model):
 
         :param uuid:
         :param password:
+        :param username:
         :param learned_language_code:
         :param native_language_code:
         :param creation_platform:
@@ -144,9 +146,6 @@ class User(db.Model):
 
         # since the DB must have an email we generate a fake one
         fake_email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
-
-        # since the DB must also have a username we generate a fake one
-        fake_username = "user_" + uuid
 
         if learned_language_code is not None:
             try:
@@ -168,7 +167,7 @@ class User(db.Model):
             fake_email,
             uuid,
             password,
-            fake_username,
+            username,
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,
