@@ -37,9 +37,6 @@ def create_test_app():
     with app.app_context():
         db.create_all()
 
-    import zeeguu.core.badges.listeners # noqa: F401
-    import zeeguu.core.friends.listeners # noqa: F401
-
     # Set zeeguu.core.app for code that needs config access
     zeeguu.core.app = app
 
