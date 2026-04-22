@@ -1,6 +1,8 @@
+import random
 from typing import Optional
 
 from zeeguu.core.model.db import db
+
 
 
 class UserAvatar(db.Model):
@@ -11,6 +13,9 @@ class UserAvatar(db.Model):
     image_name = db.Column(db.String(100))
     character_color = db.Column(db.String(7))
     background_color = db.Column(db.String(7))
+    # Colors for avatar character and background.
+    AVATAR_CHARACTER_COLORS = ["#F6D110", "#f09000", "#EA2F14", "#6367FF", "#0D1A63", "#008BFF", "#005F02"]
+    AVATAR_BACKGROUND_COLORS = ["#FFF9C7", "#ffe0b3", "#ffc3b3", "#C9BEFF", "#81A6C6", "#9CD5FF", "#BCD9A2"]
 
     user = db.relationship("User")
 
@@ -28,6 +33,12 @@ class UserAvatar(db.Model):
 
     def __repr__(self):
         return f"<UserAvatar User:{self.user_id}>"
+
+    @classmethod
+    def random_colors(cls):
+        """Return a randomly paired (character_color, background_color) tuple."""
+        idx = random.randrange(len(cls.AVATAR_CHARACTER_COLORS))
+        return cls.AVATAR_CHARACTER_COLORS[idx], cls.AVATAR_BACKGROUND_COLORS[idx]
 
     @classmethod
     def find(cls, user_id: int) -> Optional["UserAvatar"]:
