@@ -1,7 +1,7 @@
 from zeeguu.core import events
 from zeeguu.core.badges.badge_progress import update_metric_and_award_badges
 from zeeguu.core.model import User, UserLanguage
-from zeeguu.core.model.activity_type import ActivityMetric
+from zeeguu.core.model.badge_category import ActivityMetric
 from zeeguu.core.model.friend import Friend
 
 
@@ -10,8 +10,7 @@ def on_word_translated(sender, user_id: int, db_session):
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.TRANSLATED_WORDS,
-        user_id,
-        increment_value=1,
+        user_id
     )
 
 
@@ -20,8 +19,7 @@ def on_exercise_correct(sender, user_id: int, db_session):
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.CORRECT_EXERCISES,
-        user_id,
-        increment_value=1,
+        user_id
     )
 
 
@@ -30,8 +28,7 @@ def on_audio_lesson_completed(sender, user_id: int, db_session):
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.COMPLETED_AUDIO_LESSONS,
-        user_id,
-        increment_value=1,
+        user_id
     )
 
 
@@ -50,7 +47,7 @@ def on_streak_changed(sender, user_id: int, db_session):
         db_session,
         ActivityMetric.STREAK_DAYS,
         user_id,
-        current_value=current_value,
+        current_value
     )
 
 
@@ -59,8 +56,7 @@ def on_word_learned(sender, user_id: int, db_session):
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.LEARNED_WORDS,
-        user_id,
-        increment_value=1,
+        user_id
     )
 
 
@@ -69,8 +65,7 @@ def on_article_read(sender, user_id: int, db_session):
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.READ_ARTICLES,
-        user_id,
-        increment_value=1,
+        user_id
     )
 
 
@@ -81,5 +76,5 @@ def on_friendship_changed(sender, user_id: int, db_session):
         db_session,
         ActivityMetric.FRIENDS,
         user_id,
-        current_value=current_value,
+        current_value
     )

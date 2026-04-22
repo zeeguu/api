@@ -117,9 +117,9 @@ from .monthly_activity_stats_cache import MonthlyActivityStatsCache
 from .translation_search import TranslationSearch
 
 # badges
-from .activity_type import ActivityType
+from .badge_category import BadgeCategory
 from .badge import Badge
-from .user_metric import UserMetric
+from .user_badge_progress import UserBadgeProgress
 from .user_badge import UserBadge
 
 # user avatar

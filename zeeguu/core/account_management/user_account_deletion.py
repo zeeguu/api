@@ -11,7 +11,7 @@ from zeeguu.core.model import (
     FriendRequest,
     UserAvatar,
     UserBadge,
-    UserMetric
+    UserBadgeProgress
 )
 
 import time
@@ -56,7 +56,7 @@ tables_to_modify = [
     SearchFilter,
     UserPreference,
     UserCohortMap,
-    UserMetric,
+    UserBadgeProgress,
     UserBadge,
     UserAvatar
 ]

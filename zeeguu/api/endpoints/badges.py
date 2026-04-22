@@ -5,11 +5,11 @@ from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
-from zeeguu.core.model.activity_type import ActivityType
+from zeeguu.core.model.badge_category import BadgeCategory
 from zeeguu.core.model.badge import Badge
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.user_badge import UserBadge
-from zeeguu.core.model.user_metric import UserMetric
+from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from . import api, db_session
 
 
@@ -66,13 +66,13 @@ def get_badges_for_user(username: str = None):
     else:
         used_user_id = requester_id
 
-    activity_types = ActivityType.query.options(joinedload(ActivityType.badges)).all()
+    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
     user_badges = UserBadge.find_all(used_user_id)
     achieved_map = {ub.badge_id: ub for ub in user_badges}
-    user_metrics = UserMetric.find_all(used_user_id)
-    progress_map = {um.activity_type_id: um for um in user_metrics}
+    user_badge_progress_list = UserBadgeProgress.find_all(used_user_id)
+    progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
 
-    result = [serialize_activity_type(at, achieved_map, progress_map) for at in activity_types]
+    result = [serialize_badge_category(at, achieved_map, progress_map) for at in badge_categories]
 
     return json_result(result)
 
@@ -101,15 +101,15 @@ def update_not_shown_user_badge_levels():
     return json_result({"updated": True})
 
 
-def serialize_activity_type(activity_type: ActivityType, achieved_map: dict, progress_map: dict) -> dict:
-    metric = progress_map.get(activity_type.id)
+def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, progress_map: dict) -> dict:
+    metric = progress_map.get(badge_category.id)
     badges = [
         serialize_badge(badge, achieved_map.get(badge.id))
-        for badge in sorted(activity_type.badges, key=lambda b: b.level)
+        for badge in sorted(badge_category.badges, key=lambda b: b.level)
     ]
 
     return {
-        "name": activity_type.name,
+        "name": badge_category.name,
         "badges": badges,
         "current_value": metric.value if metric else 0,
     }
