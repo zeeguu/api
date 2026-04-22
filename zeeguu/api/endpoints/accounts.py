@@ -5,6 +5,7 @@ import flask
 from flask import request
 from zeeguu.core.model import Session
 from zeeguu.core.model import User
+from zeeguu.core.model import UserAvatar
 from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
@@ -145,8 +146,13 @@ def add_anon_user():
     platform = request.form.get("platform", None)
 
     try:
-        new_user = User.create_anonymous(uuid, password, language_code, native_code, creation_platform=platform)
+        generated_username, animal = User.generate_unique_username()
+        new_user = User.create_anonymous(uuid, password, generated_username, language_code, native_code, creation_platform=platform)
         db_session.add(new_user)
+        db_session.commit()
+
+        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        db_session.add(user_avatar)
         db_session.commit()
 
         # Create UserLanguage record with CEFR level if provided

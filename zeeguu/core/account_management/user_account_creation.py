@@ -109,7 +109,8 @@ def create_account(
         db_session.commit()
 
         # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
-        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        character_color, background_color = UserAvatar.random_colors()
+        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
 
         send_new_user_account_email(username, invite_code, cohort_name)
@@ -180,7 +181,8 @@ def create_basic_account(
         db_session.commit()
 
         # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
-        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        character_color, background_color = UserAvatar.random_colors()
+        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
 
         send_new_user_account_email(username, invite_code, cohort_name)

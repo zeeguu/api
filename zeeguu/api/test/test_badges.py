@@ -1,20 +1,19 @@
 from fixtures import LoggedInClient, logged_in_client as client
 from zeeguu.core.model import User, db
-from zeeguu.core.model.activity_type import ActivityType, ActivityMetric, BadgeType
+from zeeguu.core.model.badge_category import BadgeCategory, ActivityMetric, AwardMechanism
 from zeeguu.core.model.badge import Badge
 
 
-def _create_test_activity_type():
-    """Seed a minimal ActivityType with one Badge so the endpoint returns data."""
-    at = ActivityType(
+def _create_test_badge_category():
+    """Seed a minimal BadgeCategory with one Badge so the endpoint returns data."""
+    at = BadgeCategory(
         metric=ActivityMetric.TRANSLATED_WORDS,
         name="Translated Words",
-        description="Translate {threshold} words while reading.",
-        badge_type=BadgeType.COUNTER,
+        award_mechanism=AwardMechanism.COUNTER,
     )
     db.session.add(at)
     db.session.flush()
-    db.session.add(Badge(activity_type_id=at.id, level=1, threshold=50, name="Word Explorer", icon_name="/badge1.svg"))
+    db.session.add(Badge(badge_category_id=at.id, level=1, threshold=50, name="Word Explorer", description="Translate {threshold} words while reading.", icon_name="/badge1.svg"))
     db.session.commit()
 
 
@@ -22,7 +21,7 @@ def test_get_badges_for_friend_user_id(client: LoggedInClient):
     """
     Test /badges/<username> returns badge data when users are friends.
     """
-    _create_test_activity_type()
+    _create_test_badge_category()
 
     other_email = "badges-friend@user.com"
     other_client = LoggedInClient(

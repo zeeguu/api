@@ -106,11 +106,15 @@ class User(db.Model):
     MAX_NUMBER_USERNAME = 9999
 
     @classmethod
-    def generate_unique_username(cls):
+    def generate_unique_username(cls, exclude: set = None):
         """
         Generate a random unique username in the format 'adjective_animal1234'.
         Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames.
-        
+
+        Args:
+            exclude: optional set of usernames already reserved in the current
+                     session but not yet committed (e.g. during bulk migrations).
+
         Returns:
             username: The generated username.
             animal: The animal that was used to generate the username.
@@ -120,6 +124,8 @@ class User(db.Model):
             animal = random.choice(cls.ANIMALS)
             number = random.randint(1, cls.MAX_NUMBER_USERNAME)
             username = f"{adjective}_{animal}{number}"
+            if exclude and username in exclude:
+                continue
             if not User.query.filter_by(username=username).first():
                 return username, animal
 
@@ -128,6 +134,7 @@ class User(db.Model):
         cls,
         uuid,
         password,
+        username,
         learned_language_code=None,
         native_language_code=None,
         creation_platform=None,
@@ -136,6 +143,7 @@ class User(db.Model):
 
         :param uuid:
         :param password:
+        :param username:
         :param learned_language_code:
         :param native_language_code:
         :param creation_platform:
@@ -144,9 +152,6 @@ class User(db.Model):
 
         # since the DB must have an email we generate a fake one
         fake_email = uuid + cls.ANONYMOUS_EMAIL_DOMAIN
-
-        # since the DB must also have a username we generate a fake one
-        fake_username = "user_" + uuid
 
         if learned_language_code is not None:
             try:
@@ -168,7 +173,7 @@ class User(db.Model):
             fake_email,
             uuid,
             password,
-            fake_username,
+            username,
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,

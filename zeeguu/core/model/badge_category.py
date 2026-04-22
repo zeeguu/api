@@ -14,41 +14,40 @@ class ActivityMetric(enum.Enum):
     FRIENDS = 'FRIENDS'
 
 
-class BadgeType(enum.Enum):
-    """Enum representing all available badge types in the system."""
+class AwardMechanism(enum.Enum):
+    """Enum representing all available badge award mechanisms in the system."""
     COUNTER = 'COUNTER'  # Progress value can only go up, incrementally
     GAUGE = 'GAUGE'  # Progress value always reflects current state and might reset to 0
     ONE_TIME = 'ONE_TIME'  # These badges only have 1 level, and are either achieved once or not
 
 
-class ActivityType(db.Model):
+class BadgeCategory(db.Model):
     """
-       Represents a type of activity that can earn badges. Each activity type
-       can have multiple badge levels defined in Badge.
+       Represents a category of badge that can be earned.
+       Each category can have multiple badge levels defined in Badge.
     """
-    __tablename__ = "activity_type"
+    __tablename__ = "badge_category"
 
     id = db.Column(db.Integer, primary_key=True)
     metric = db.Column(db.Enum(ActivityMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    badge_type = db.Column(db.Enum(BadgeType), nullable=False)
+    award_mechanism = db.Column(db.Enum(AwardMechanism), nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint("metric"),
     )
 
-    badges = db.relationship("Badge", back_populates="activity_type", cascade="all, delete-orphan")
+    badges = db.relationship("Badge", back_populates="badge_category", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<ActivityType {self.name}>"
+        return f"<BadgeCategory {self.name}>"
 
     @classmethod
-    def find(cls, metric: ActivityMetric) -> "ActivityType":
+    def find(cls, metric: ActivityMetric) -> "BadgeCategory":
         """
-        Find an activity type by its ActivityMetric enum value.
+        Find a badge category by its ActivityMetric enum value.
 
         Returns:
-            ActivityType object if found, else None.
+            BadgeCategory object if found, else None.
         """
         return cls.query.filter_by(metric=metric).first()
