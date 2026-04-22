@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 import zeeguu.core
-import zeeguu.core.friends.listeners  # noqa: F401
 from zeeguu.core.model.friend import Friend
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
