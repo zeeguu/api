@@ -1,6 +1,6 @@
 -- tools/migrations/26-02-19-b--insert_default_badges.sql
 
-INSERT INTO activity_type (id, metric, name, badge_type)
+INSERT INTO badge_category (id, metric, name, award_mechanism)
 VALUES (1, 'TRANSLATED_WORDS', 'Translated Words', 'COUNTER'),
        (2, 'CORRECT_EXERCISES', 'Correct Exercises', 'COUNTER'),
        (3, 'COMPLETED_AUDIO_LESSONS', 'Completed Audio Lessons', 'COUNTER'),
@@ -9,7 +9,7 @@ VALUES (1, 'TRANSLATED_WORDS', 'Translated Words', 'COUNTER'),
        (6, 'READ_ARTICLES', 'Read Articles', 'COUNTER'),
        (7, 'FRIENDS', 'Friends', 'GAUGE');
 
-INSERT INTO badge (id, activity_type_id, level, threshold, name, description, icon_name)
+INSERT INTO badge (id, badge_category_id, level, threshold, name, description, icon_name)
 VALUES
     -- Translated Words
     (1, 1, 1, 10, 'Word Explorer', 'Translate {threshold} unique words while reading.', 'translated-words.svg'),
