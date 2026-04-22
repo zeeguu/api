@@ -55,6 +55,7 @@ class User(db.Model):
     native_language = relationship(Language, foreign_keys=[native_language_id])
 
     cohorts = relationship("UserCohortMap", back_populates="user")
+    badges = relationship("UserBadge", back_populates="user")
 
     is_dev = Column(Boolean)
     is_admin = Column(Boolean, default=False)

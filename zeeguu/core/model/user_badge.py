@@ -21,7 +21,7 @@ class UserBadge(db.Model):
     )
 
     badge = db.relationship("Badge", back_populates="user_badges")
-    user = db.relationship("User")
+    user = db.relationship("User", back_populates="badges")
 
     def __init__(
             self,
