@@ -39,11 +39,13 @@ def populate_usernames():
         assigned_in_session.add(generated_username)
         user.username = generated_username
         avatar_created = False
+        # If the user doesn't have an avatar, create one based on the animal in the username.
         if UserAvatar.find(user.id) is None:
-            db.session.add(UserAvatar(user.id, animal, None, None))
+            animal_color, background_color = UserAvatar.random_colors()
+            db.session.add(UserAvatar(user.id, animal, animal_color, background_color))
             avatar_created = True
             avatar_count += 1
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} [{i}/{total}] user_id={user.id} -> username='{generated_username}' (avatar={'created' if avatar_created else 'exists'})")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]} [{i}/{total}] user_id={user.id} -> username='{generated_username}' (avatar={'created(' + animal_color + '/' + background_color + ')' if avatar_created else 'exists'})")
     # Commit all changes to the database at once after processing all users
     # This is more efficient about 2-3x faster than comitting each user in the loop
     db.session.commit()
