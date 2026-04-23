@@ -39,25 +39,6 @@ def get_all_language_streaks():
     return json_result(result)
 
 
-def _serialize_language_streaks(user_id: int, include_private: bool) -> list[dict]:
-    user_languages = UserLanguage.query.filter_by(user_id=user_id).all()
-    user_languages.sort(key=lambda ul: ul.max_streak or 0, reverse=True)
-    result = []
-    for ul in user_languages:
-        obj = {
-            "code": ul.language.code,
-            "language": ul.language.name
-        }
-        if include_private:
-            obj.update({
-                "daily_streak": ul.current_daily_streak,
-                "max_streak": ul.max_streak or 0,
-                "max_streak_date": ul.max_streak_date.strftime("%Y-%m-%d") if ul.max_streak_date else None,
-            })
-        result.append(obj)
-    return result
-
-
 @api.route("/language_streak_history", methods=["GET"])
 @cross_domain
 @requires_session
@@ -102,3 +83,22 @@ def get_friend_language_streak_history(username):
         return []
     is_self_or_friend = friend.id == flask.g.user_id or Friend.are_friends(flask.g.user_id, friend.id)
     return json_result(_serialize_language_streaks(friend.id, include_private=is_self_or_friend))
+
+
+def _serialize_language_streaks(user_id: int, include_private: bool) -> list[dict]:
+    user_languages = UserLanguage.query.filter_by(user_id=user_id).all()
+    user_languages.sort(key=lambda ul: ul.max_streak or 0, reverse=True)
+    result = []
+    for ul in user_languages:
+        obj = {
+            "code": ul.language.code,
+            "language": ul.language.name
+        }
+        if include_private:
+            obj.update({
+                "daily_streak": ul.current_daily_streak,
+                "max_streak": ul.max_streak or 0,
+                "max_streak_date": ul.max_streak_date.strftime("%Y-%m-%d") if ul.max_streak_date else None,
+            })
+        result.append(obj)
+    return result

@@ -24,65 +24,6 @@ def count_unseen_badges():
     """
     return json_result(UserBadge.count_user_not_shown(flask.g.user_id))
 
-
-# ---------------------------------------------------------------------------
-@api.route("/badges", methods=["GET"])
-@api.route("/badges/<username>", methods=["GET"])
-# ---------------------------------------------------------------------------
-@cross_domain
-@requires_session
-def get_badges_for_user(username: str = None):
-    """
-    Retrieve all activity types and their corresponding badges for the specified or current user.
-    Each badge includes achievement status and whether it has been shown.
-
-    Returns:
-    [
-        {
-           "name": "Translated Words",
-           "description": "Translate {threshold} words while reading.",
-           "badges": [
-               {
-                   "level": 1,
-                   "name": "Word Explorer",
-                   "threshold": 50,
-                   "icon_name": "/badge1.svg",
-                   "achieved": true,
-                   "achieved_at": "2026-03-03T12:34:56",
-                   "is_shown": false
-               }, ...]
-           "current_value": 10
-        }, ... ]
-    """
-    requester_id = flask.g.user_id
-    if username is not None:
-        used_user = User.find_by_username(username)
-        if used_user is None:
-            return []
-        used_user_id = used_user.id
-        if requester_id != used_user_id and not Friend.are_friends(requester_id, used_user_id):
-            return make_error(403, "You can only view badges for yourself or your friends.")
-    else:
-        used_user_id = requester_id
-
-    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
-    user_badges = UserBadge.find_all(used_user_id)
-    achieved_map = {ub.badge_id: ub for ub in user_badges}
-    user_badge_progress_list = UserBadgeProgress.find_all(used_user_id)
-    progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
-
-    result = [serialize_badge_category(at, achieved_map, progress_map) for at in badge_categories]
-
-    return json_result(result)
-
-def _serialize_user_badges(user_id: int) -> list[dict]:
-    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
-    user_badges = UserBadge.find_all(user_id)
-    achieved_map = {ub.badge_id: ub for ub in user_badges}
-    user_badge_progress_list = UserBadgeProgress.find_all(user_id)
-    progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
-    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in badge_categories]
-
 # ---------------------------------------------------------------------------
 @api.route("/my_badges", methods=["GET"])
 # ---------------------------------------------------------------------------
@@ -170,6 +111,15 @@ def mark_all_badges_as_seen():
     db_session.commit()
 
     return json_result({"updated": True})
+
+
+def _serialize_user_badges(user_id: int) -> list[dict]:
+    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
+    user_badges = UserBadge.find_all(user_id)
+    achieved_map = {ub.badge_id: ub for ub in user_badges}
+    user_badge_progress_list = UserBadgeProgress.find_all(user_id)
+    progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
+    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in badge_categories]
 
 
 def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, progress_map: dict) -> dict:
