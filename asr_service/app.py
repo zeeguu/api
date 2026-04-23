@@ -22,6 +22,24 @@ ASR_WORKER_NAME = os.environ.get(
     "ASR_WORKER_NAME",
     f"asr-{ASR_LANGUAGE_CODE}",
 )
+DEFAULT_MAX_AUDIO_BYTES = 10 * 1024 * 1024
+MAX_ASR_AUDIO_BYTES = int(
+    os.environ.get(
+        "ASR_MAX_AUDIO_BYTES",
+        os.environ.get("VERBAL_FLASHCARD_MAX_AUDIO_BYTES", DEFAULT_MAX_AUDIO_BYTES),
+    )
+)
+
+
+class ASRAudioTooLarge(ValueError):
+    pass
+
+
+def raise_if_audio_too_large(size):
+    if size is not None and size > MAX_ASR_AUDIO_BYTES:
+        raise ASRAudioTooLarge(
+            f"Audio upload is too large. Maximum size is {MAX_ASR_AUDIO_BYTES} bytes."
+        )
 
 
 try:
@@ -55,7 +73,8 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
         )
 
     try:
-        audio_bytes = audio_storage.read()
+        audio_bytes = audio_storage.read(MAX_ASR_AUDIO_BYTES + 1)
+        raise_if_audio_too_large(len(audio_bytes))
 
         if not ASR_AVAILABLE or asr_model is None:
             raise RuntimeError("ASR model is not available in this worker")
@@ -111,6 +130,11 @@ def health():
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
+    try:
+        raise_if_audio_too_large(request.content_length)
+    except ASRAudioTooLarge as exc:
+        return jsonify({"error": str(exc)}), 413
+
     if "file" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
@@ -131,6 +155,8 @@ def transcribe():
                 "transcription": transcription,
             }
         )
+    except ASRAudioTooLarge as exc:
+        return jsonify({"error": str(exc)}), 413
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:

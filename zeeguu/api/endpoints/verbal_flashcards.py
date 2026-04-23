@@ -1,5 +1,6 @@
 import traceback
 import flask
+import os
 from flask import request
 
 from zeeguu.core.model.user import User
@@ -19,6 +20,14 @@ from zeeguu.logging import log
 
 DEFAULT_FLASHCARD_LIMIT = 50
 DEFAULT_FLASHCARD_OFFSET = 0
+DEFAULT_MAX_AUDIO_BYTES = 10 * 1024 * 1024
+MAX_VERBAL_FLASHCARD_AUDIO_BYTES = int(
+    os.environ.get("VERBAL_FLASHCARD_MAX_AUDIO_BYTES", DEFAULT_MAX_AUDIO_BYTES)
+)
+
+
+class VerbalFlashcardAudioTooLarge(ValueError):
+    pass
 
 
 def _verbal_flashcards_unavailable_response():
@@ -58,12 +67,30 @@ def _parse_optional_session_id(value):
         raise ValueError("session_id must be an integer")
 
 
+def _raise_if_audio_too_large(size):
+    if size is not None and size > MAX_VERBAL_FLASHCARD_AUDIO_BYTES:
+        raise VerbalFlashcardAudioTooLarge(
+            "Audio upload is too large. "
+            f"Maximum size is {MAX_VERBAL_FLASHCARD_AUDIO_BYTES} bytes."
+        )
+
+
+def _ensure_request_audio_size_is_allowed():
+    _raise_if_audio_too_large(request.content_length)
+
+
+def _read_audio_file_with_size_limit(audio_file):
+    audio_bytes = audio_file.read(MAX_VERBAL_FLASHCARD_AUDIO_BYTES + 1)
+    _raise_if_audio_too_large(len(audio_bytes))
+    return audio_bytes
+
+
 def transcribe_audio(audio_file, language_code=None):
     """
     Transcribe audio by routing the request to the dedicated ASR worker that
     owns the model for the user's learned language.
     """
-    audio_bytes = audio_file.read()
+    audio_bytes = _read_audio_file_with_size_limit(audio_file)
     transcription_result = transcribe_with_asr_worker(
         audio_bytes,
         getattr(audio_file, "filename", None),
@@ -93,6 +120,8 @@ def transcribe_audio_endpoint():
     }
     """
     try:
+        _ensure_request_audio_size_is_allowed()
+
         if "file" not in request.files:
             return json_result({"error": "No audio file provided"}), 400
 
@@ -124,6 +153,9 @@ def transcribe_audio_endpoint():
     except ASRServiceRequestError as e:
         log(f"Transcription endpoint worker failure: {e}")
         return json_result({"Transcription endpoint worker failure"}), 502
+    except VerbalFlashcardAudioTooLarge as e:
+        log(f"Transcription endpoint rejected large audio upload: {e}")
+        return json_result({"Transcription endpoint rejected large audio upload"}), 413
     except Exception as e:
         log(f"Transcription endpoint error: {e}")
         traceback.print_exc()

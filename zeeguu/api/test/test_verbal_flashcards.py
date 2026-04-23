@@ -258,6 +258,30 @@ def test_transcribe_endpoint_returns_transcription(client, monkeypatch):
     assert "flashcard" not in data
 
 
+def test_transcribe_endpoint_rejects_large_audio_upload(client, monkeypatch):
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.MAX_VERBAL_FLASHCARD_AUDIO_BYTES",
+        512,
+    )
+
+    def fail_if_called(audio_file, language_code=None):
+        raise AssertionError("transcribe_audio should not run for oversized uploads")
+
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
+        fail_if_called,
+    )
+
+    response = client.client.post(
+        client.append_session("/verbal_flashcards/transcribe"),
+        data={"file": (io.BytesIO(b"x" * 1024), "sample.wav")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 413
+    assert b"Audio upload is too large" in response.data
+
+
 def test_transcribe_audio_routes_to_language_worker(monkeypatch):
     from zeeguu.api.endpoints import verbal_flashcards
 
@@ -299,6 +323,21 @@ def test_transcribe_audio_routes_to_language_worker(monkeypatch):
     assert captured["filename"] == "sample.webm"
     assert captured["content_type"] == "audio/webm"
     assert captured["language_code"] == "da"
+
+
+def test_transcribe_audio_rejects_file_that_exceeds_read_limit(monkeypatch):
+    from zeeguu.api.endpoints import verbal_flashcards
+
+    monkeypatch.setattr(verbal_flashcards, "MAX_VERBAL_FLASHCARD_AUDIO_BYTES", 5)
+
+    audio_file = FileStorage(
+        stream=io.BytesIO(b"123456"),
+        filename="sample.webm",
+        content_type="audio/webm",
+    )
+
+    with pytest.raises(verbal_flashcards.VerbalFlashcardAudioTooLarge):
+        verbal_flashcards.transcribe_audio(audio_file, language_code="da")
 
 
 def test_transcribe_endpoint_returns_503_when_worker_is_not_configured(client, monkeypatch):
