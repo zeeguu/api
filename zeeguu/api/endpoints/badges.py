@@ -7,7 +7,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from zeeguu.core.model.badge_category import BadgeCategory
 from zeeguu.core.model.badge import Badge
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_badge import UserBadge
 from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from . import api, db_session
@@ -61,7 +61,7 @@ def get_badges_for_user(username: str = None):
         if used_user is None:
             return []
         used_user_id = used_user.id
-        if requester_id != used_user_id and not Friend.are_friends(requester_id, used_user_id):
+        if requester_id != used_user_id and not Friendship.are_friends(requester_id, used_user_id):
             return make_error(403, "You can only view badges for yourself or your friends.")
     else:
         used_user_id = requester_id

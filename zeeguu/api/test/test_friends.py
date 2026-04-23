@@ -1,6 +1,6 @@
 from fixtures import LoggedInClient, logged_in_client as client
 from zeeguu.core.model import User
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 
 
 def test_accept_friend_request_success(client: LoggedInClient):
@@ -23,13 +23,13 @@ def test_accept_friend_request_success(client: LoggedInClient):
     fr_response = client.post(
         "/send_friend_request", json={"receiver_username": other_user.username}
     )
-    assert not Friend.are_friends(sender_user.id, other_user.id)
+    assert not Friendship.are_friends(sender_user.id, other_user.id)
 
     # User other client to accept friend request
     accept_fr_response = other_client.post(
         "/accept_friend_request", json={"sender_username": sender_user.username}
     )
-    assert Friend.are_friends(sender_user.id, other_user.id)
+    assert Friendship.are_friends(sender_user.id, other_user.id)
 
 
 def test_reject_friend_request_success(client: LoggedInClient):
