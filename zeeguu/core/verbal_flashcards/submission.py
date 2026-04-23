@@ -1,7 +1,7 @@
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.verbal_flashcards.flashcard_selection import (
-    _ensure_schedule_for_verbal_flashcard,
+    ensure_schedule_for_verbal_flashcard,
     find_flashcard_for_user,
 )
 from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
@@ -45,7 +45,7 @@ def record_flashcard_answer(
     if not user_word or user_word.user_id != user.id:
         return None
 
-    _ensure_schedule_for_verbal_flashcard(user_word)
+    ensure_schedule_for_verbal_flashcard(db_session, user_word)
 
     user_word.report_exercise_outcome(
         db_session,

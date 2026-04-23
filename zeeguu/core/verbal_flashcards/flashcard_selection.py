@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from zeeguu.core.model.db import db
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
@@ -71,7 +70,7 @@ def find_flashcard_for_user(user, flashcard_id):
     )
 
 
-def _ensure_schedule_for_verbal_flashcard(user_word):
+def ensure_schedule_for_verbal_flashcard(db_session, user_word):
     """
     Verbal flashcards can target higher-level words that are not currently in the
     standard exercise pipeline. Create a schedule row without resetting the level
@@ -85,6 +84,6 @@ def _ensure_schedule_for_verbal_flashcard(user_word):
     schedule.next_practice_time = datetime.now()
     schedule.consecutive_correct_answers = 0
     schedule.cooling_interval = 0
-    db.session.add(schedule)
-    db.session.commit()
+    db_session.add(schedule)
+    db_session.flush()
     return schedule
