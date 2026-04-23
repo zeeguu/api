@@ -562,14 +562,14 @@ def transcribe_audio_endpoint():
 
     except ASRServiceNotConfigured as e:
         log(f"Transcription endpoint not configured: {e}")
-        return json_result({"error": str(e)}), 503
+        return json_result({"Transcription endpoint not configured"}), 503
     except ASRServiceRequestError as e:
         log(f"Transcription endpoint worker failure: {e}")
-        return json_result({"error": str(e)}), 502
+        return json_result({"Transcription endpoint worker failure"}), 502
     except Exception as e:
         log(f"Transcription endpoint error: {e}")
         traceback.print_exc()
-        return json_result({"error": str(e)}), 500
+        return json_result({"Transcription endpoint error"}), 500
 
 
 @api.route("/verbal_flashcards", methods=["GET"])
