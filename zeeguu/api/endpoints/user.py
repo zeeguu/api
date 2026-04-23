@@ -255,11 +255,13 @@ def user_settings():
         submitted_username = data.get("username", None)
         if submitted_username:
             normalized_username = submitted_username.strip()
+            if len(normalized_username) > User.MAX_USERNAME_LENGTH:
+                return make_error(400, f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
             # A user can change their username to the same username (case-insensitive)
             # E.g from "MYUSER99" to "myuser99"
             if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
                 return make_error(400, "Username already in use")
-            user.username = submitted_username
+            user.username = normalized_username
 
         submitted_native_language_code = data.get("native_language", None)
         if submitted_native_language_code:
@@ -278,7 +280,7 @@ def user_settings():
             normalized_email = submitted_email.strip().lower()
             if normalized_email != user.email.lower() and User.email_exists(normalized_email):
                 return make_error(400, "Email already in use")
-            user.email = submitted_email
+            user.email = normalized_email
 
         submitted_password = data.get("password", None)
         if submitted_password:
