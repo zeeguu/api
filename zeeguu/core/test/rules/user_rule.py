@@ -22,6 +22,7 @@ class UserRule(BaseRule):
         random_email = self.faker.simple_profile()["mail"]
         random_name = self.faker.name()
         random_password = self.faker.password()
+        random_username = self.faker.unique.user_name()
         random_learned_language = LanguageRule().random
         random_native_language = LanguageRule().random
 
@@ -32,6 +33,7 @@ class UserRule(BaseRule):
             random_email,
             random_name,
             random_password,
+            random_username,
             learned_language=random_learned_language,
             native_language=random_native_language,
         )

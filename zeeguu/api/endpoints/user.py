@@ -1,13 +1,19 @@
-import flask
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import flask
+import sqlalchemy
 
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
+from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.user_feedback import UserFeedback
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
@@ -202,44 +208,105 @@ def get_user_details():
     return json_result(details_dict)
 
 
+@api.route("/get_friend_details/<friend_username>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_friend_details(friend_username):
+    """
+    Return user details for friend_username, including a 'friendship' object
+    with friend_request_status ('accepted', 'pending', or None).
+    """
+    user = User.find_by_id(flask.g.user_id)
+    from zeeguu.core.model.friendship import Friendship
+    friend_user, friend_user_avatar, friendship, friend_request = Friendship.find_friend_details(user.id, friend_username)
+    if not friend_user:
+        return make_error(401, "Not friends with this user or user not found.")
+
+    details_dict = _serialize_friend_details(friend_user, friend_user_avatar, friendship, friend_request)
+
+    return json_result(details_dict)
+
+
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
 @requires_session
 def user_settings():
     """
-    :return: OK for success
+        Update the authenticated user's settings.
+
+        Accepts form data to update:
+            - name
+            - username (must be unique)
+            - native_language
+            - learned_language (with optional CEFR level)
+            - email (must be unique)
+            - password
+            - avatar (image name, character color, background color)
+
+        Returns:
+            str: "OK" on success, or a 400 error with a message if validation fails.
     """
+    try:
+        user_id = flask.g.user_id
+        data = flask.request.form
+        user = User.find_by_id(user_id)
 
-    data = flask.request.form
-    user = User.find_by_id(flask.g.user_id)
+        submitted_name = data.get("name", None)
+        if submitted_name:
+            user.name = submitted_name
 
-    submitted_name = data.get("name", None)
-    if submitted_name:
-        user.name = submitted_name
+        submitted_username = data.get("username", None)
+        if submitted_username:
+            normalized_username = submitted_username.strip()
+            if len(normalized_username) > User.MAX_USERNAME_LENGTH:
+                return make_error(400, f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
+            if not re.fullmatch(User.USERNAME_VALIDATION_REGEX, normalized_username):
+                return make_error(400, "Username can only contain letters, numbers, and underscores")
+            # A user can change their username to the same username (case-insensitive)
+            # E.g from "MYUSER99" to "myuser99"
+            if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
+                return make_error(400, "Username already in use")
+            user.username = normalized_username
 
-    submitted_native_language_code = data.get("native_language", None)
-    if submitted_native_language_code:
-        user.set_native_language(submitted_native_language_code)
+        submitted_native_language_code = data.get("native_language", None)
+        if submitted_native_language_code:
+            user.set_native_language(submitted_native_language_code)
 
-    cefr_level = data.get("cefr_level", None)
-    submitted_learned_language_code = data.get("learned_language", None)
+        cefr_level = data.get("cefr_level", None)
+        submitted_learned_language_code = data.get("learned_language", None)
 
-    if submitted_learned_language_code:
-        user.set_learned_language(
-            submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
-        )
+        if submitted_learned_language_code:
+            user.set_learned_language(
+                submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
+            )
 
-    submitted_email = data.get("email", None)
-    if submitted_email:
-        user.email = submitted_email
+        submitted_email = data.get("email", None)
+        if submitted_email:
+            normalized_email = submitted_email.strip().lower()
+            if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+                return make_error(400, "Email already in use")
+            user.email = normalized_email
 
-    submitted_password = data.get("password", None)
-    if submitted_password:
-        user.update_password(submitted_password)
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
 
-    zeeguu.core.model.db.session.add(user)
-    zeeguu.core.model.db.session.commit()
-    return "OK"
+        submitted_avatar_image_name = data.get("avatar_image_name", None)
+        submitted_avatar_character_color = data.get("avatar_character_color", None)
+        submitted_avatar_background_color = data.get("avatar_background_color", None)
+        user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name, submitted_avatar_character_color,
+                                                  submitted_avatar_background_color)
+
+        zeeguu.core.model.db.session.add(user_avatar)
+        zeeguu.core.model.db.session.add(user)
+        zeeguu.core.model.db.session.commit()
+        return "OK"
+    except ValueError as e:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, str(e))
+    except sqlalchemy.exc.IntegrityError:
+        zeeguu.core.model.db.session.rollback()
+        return make_error(400, "Could not update user settings")
 
 
 @api.route("/send_feedback", methods=["POST"])
@@ -294,3 +361,51 @@ def leave_cohort(cohort_id):
     except Exception as e:
         print(e)
         return "FAIL"
+
+
+def _serialize_friend_details(friend_user, friend_user_avatar, friendship, friend_request):
+    details = _serialize_friend_user(friend_user, friend_user_avatar)
+    if friendship:
+        details["friendship"] = {
+            "friend_streak": compute_current_streak(friendship),
+            "friend_streak_last_updated": (
+                friendship.friend_streak_last_updated.isoformat()
+                if friendship.friend_streak_last_updated
+                else None
+            ),
+            "is_accepted": True,
+            "created_at": friendship.created_at.isoformat() if friendship.created_at else None,
+        }
+    elif friend_request:
+        details["friendship"] = {
+            "sender_username": friend_request.sender.username,
+            "receiver_username": friend_request.receiver.username,
+            "friend_streak": 0,
+            "friend_streak_last_updated": None,
+            "is_accepted": False,
+            "created_at": (
+                friend_request.created_at.isoformat()
+                if friend_request.created_at
+                else None
+            ),
+        }
+    return details
+
+
+def _serialize_friend_user(friend_user, friend_user_avatar):
+    user_avatar_dict = (
+        dict(
+            image_name=friend_user_avatar.image_name,
+            character_color=friend_user_avatar.character_color,
+            background_color=friend_user_avatar.background_color,
+        )
+        if friend_user_avatar is not None
+        else None
+    )
+
+    return dict(
+        name=friend_user.name,
+        username=friend_user.username,
+        created_at=friend_user.created_at.isoformat() if friend_user.created_at else None,
+        user_avatar=user_avatar_dict,
+    )

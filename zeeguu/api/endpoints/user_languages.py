@@ -105,7 +105,7 @@ def get_user_languages():
     """
     all_user_languages = []
     user = User.find_by_id(flask.g.user_id)
-    user_languages = UserLanguage.all_for_user(user)
+    user_languages = UserLanguage.all_languages_for_user(user)
     for lan in user_languages:
         all_user_languages.append(lan.as_dictionary())
     return json_result(all_user_languages)

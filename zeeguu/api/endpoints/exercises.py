@@ -212,7 +212,7 @@ def report_exercise_outcome():
         user_word = UserWord.query.get(user_word_id)
         if not user_word:
             return "FAIL - UserWord not found"
-            
+
         user_word.report_exercise_outcome(
             db_session,
             source,

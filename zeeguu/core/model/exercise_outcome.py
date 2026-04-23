@@ -21,12 +21,15 @@ class ExerciseOutcome(db.Model):
     ASKED_FOR_HINT = "asked_for_hint"
     # TODO: Rename to EXERCISE_FEEDBACK
     OTHER_FEEDBACK = "other_feedback"
+    CORRECT_AFTER_HINT = "HC"
 
     correct_outcomes = [CORRECT, TOO_EASY, "Correct"]
 
     too_easy_outcomes = ["too_easy", TOO_EASY]
 
     wrong_outcomes = ["W", WRONG, SHOW_SOLUTION, ASKED_FOR_HINT]
+
+    correct_after_translation = ["TC", "TTC", "TTTC"]
 
     @classmethod
     def is_valid_attempt(cls, outcome: str):
@@ -45,13 +48,9 @@ class ExerciseOutcome(db.Model):
     def is_correct(cls, outcome: str):
         is_correct = outcome == ExerciseOutcome.CORRECT
         # allow for a few translations before hitting the correct; they work like hints
-        is_correct_after_translation = outcome in [
-            "TC",
-            "TTC",
-            "TTTC",
-        ]
+        is_correct_after_translation = outcome in ExerciseOutcome.correct_after_translation
         # if it's correct after hint it should still be fine
-        is_correct_after_hint = outcome == "HC"
+        is_correct_after_hint = outcome == ExerciseOutcome.CORRECT_AFTER_HINT
         return is_correct or is_correct_after_translation or is_correct_after_hint
 
     def __init__(self, outcome):

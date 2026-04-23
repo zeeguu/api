@@ -392,6 +392,11 @@ class UserWord(db.Model):
         )
         db_session.add(exercise)
 
+        if source.source != "DAILY_AUDIO_LESSON" and exercise.is_correct():
+            from zeeguu.core import events
+            events.exercise_correct.send(None, user_id=self.user.id, db_session=db_session)
+
+
         scheduler = self.get_scheduler()
         scheduler.update(db_session, self, exercise_outcome, time)
 

@@ -41,12 +41,24 @@ def logged_in_teacher(app, _mock_web):
 
 
 class LoggedInClient:
-    def __init__(self, client):
+    
+    def __init__(
+            self,
+            client,
+            email="i@mir.lu",
+            password="test",
+            username="test",
+            learned_language="de"):
+        
         self.client = client
 
         # Creating a user and returning also the session
-        test_user_data = dict(password="test", username="test", learned_language="de")
-        self.email = "i@mir.lu"
+        test_user_data = dict(
+            username=username,
+            password=password,
+            learned_language=learned_language)
+        
+        self.email = email
         response = self.client.post(f"/add_user/{self.email}", data=test_user_data)
         assert response.status_code == 200
 
@@ -80,9 +92,11 @@ class LoggedInClient:
     code for a successful response
     """
 
-    def response_from_post(self, endpoint, data=dict()):
-
-        response = self.client.post(self.append_session(endpoint), data=data)
+    def response_from_post(self, endpoint, data=dict(), json=None):
+        if json is not None:
+            response = self.client.post(self.append_session(endpoint), json=json)
+        else:
+            response = self.client.post(self.append_session(endpoint), data=data)
         return response
 
     def post(self, endpoint, data=dict(), json=None):

@@ -18,6 +18,7 @@ def _feature_map():
         "hide_recommendations": _hide_recommendations,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
+        "gamification": _gamification
     }
 
 
@@ -113,4 +114,36 @@ def _hide_recommendations(user):
     for user_cohort in user.cohorts:
         if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
             return True
+    return False
+
+# Gamification feature flag logic
+from sqlalchemy.exc import NoResultFound
+
+from .model.user import User
+from .model.cohort import Cohort
+def _gamification(user: User):
+    """
+    Enable general gamification features for users whose invitation with the gamification invite code,
+    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards.
+    """
+
+    GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
+    if user.is_dev:
+        return True
+
+    # Invitation code can be None
+    invitation_code = user.invitation_code or ""
+    if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
+        return True
+
+    # Find gamification cohort by invite code, if it exists.
+    try:
+        gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
+    except NoResultFound:
+        gamification_cohort = None
+
+    if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
+        return True
+
+    # Disabled for everyone else
     return False
