@@ -127,5 +127,5 @@ from .user_avatar import UserAvatar
 
 # friends
 from .friend_request import FriendRequest
-from .friend import Friend
+from .friendship import Friendship
 

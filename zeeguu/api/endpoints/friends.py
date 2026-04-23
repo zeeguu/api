@@ -7,7 +7,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from zeeguu.core.model import UserLanguage
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.logging import log
@@ -30,12 +30,12 @@ def get_friends(username: str = None):
         if used_user is None:
             return []
         used_user_id = used_user.id
-        if requester_id != used_user_id and not Friend.are_friends(requester_id, used_user_id):
+        if requester_id != used_user_id and not Friendship.are_friends(requester_id, used_user_id):
             return make_error(403, "You can only view friends for yourself or your friends.")
     else:
         used_user_id = requester_id
 
-    friend_details = Friend.get_friends_with_details(used_user_id)
+    friend_details = Friendship.get_friends_of(used_user_id)
     result = [
         _serialize_users_for_get_friends(
             friend_detail,
@@ -185,7 +185,7 @@ def reject_friend_request():
 @requires_session
 def unfriend():
     """
-    Unfriend two users by deleting the Friend row (friendship record) in the database.
+    Unfriend two users by deleting the Friendship row (friendship record) in the database.
     """
     try:
         sender_id = flask.g.user_id
@@ -194,7 +194,7 @@ def unfriend():
         log(f"unfriend: error - {str(e)}")
         return make_error(400, str(e))
 
-    is_removed = Friend.remove_friendship(sender_id, receiver_id)
+    is_removed = Friendship.remove(sender_id, receiver_id)
     log(f"unfriend: user_id={sender_id} unfriended user_id={receiver_id} - success={is_removed}")
     return json_result({"success": is_removed})
 
@@ -219,7 +219,7 @@ def search_by_search_term():
 
     search_term = search_term.strip()
     users_and_avatars = User.search(flask.g.user_id, search_term)
-    friendship_map   = Friend.get_friendship_map(flask.g.user_id)
+    friendship_map   = Friendship.get_friendship_map(flask.g.user_id)
     friend_request_map = FriendRequest.get_request_map(flask.g.user_id)
     result = [
         _serialize_users_for_search_users({
@@ -265,7 +265,7 @@ def _serialize_user(user: User):
     }
 
 
-def _serialize_friendship(friendship: Friend):
+def _serialize_friendship(friendship: Friendship):
     if friendship is None:
         return None
 

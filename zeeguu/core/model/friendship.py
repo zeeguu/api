@@ -8,8 +8,8 @@ from zeeguu.core.model.user import User
 from zeeguu.core.model.user_avatar import UserAvatar
 
 
-class Friend(db.Model):
-    __tablename__ = "friend"
+class Friendship(db.Model):
+    __tablename__ = "friendship"
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -24,12 +24,12 @@ class Friend(db.Model):
     user_a = relationship(
         User,
         foreign_keys=[user_a_id],
-        primaryjoin="Friend.user_a_id == User.id"
+        primaryjoin="Friendship.user_a_id == User.id"
     )
     user_b = relationship(
         User,
         foreign_keys=[user_b_id],
-        primaryjoin="Friend.user_b_id == User.id"
+        primaryjoin="Friendship.user_b_id == User.id"
     )
 
     def __init__(self, user_a_id: int, user_b_id: int):
@@ -140,13 +140,13 @@ class Friend(db.Model):
         }
 
     @classmethod
-    def get_friends_with_details(cls, user_id: int):
+    def get_friends_of(cls, user_id: int):
         """
         Return a list of all friends of the given user_id along with related data.
 
         Returns a list of dictionaries, each representing a friendship containing:
           - "user": the User object representing the friend
-          - "friendship": the Friend object linking the two users
+          - "friendship": the Friendship object linking the two users
           - "user_avatar": the UserAvatar object for the friend (or None if not set)
           - "user_languages": the list of active language of the friend (a list of
             UserLanguage objects)
@@ -206,7 +206,7 @@ class Friend(db.Model):
         return friendship is not None
 
     @classmethod
-    def remove_friendship(cls, user_1_id: int, user_2_id: int) -> bool:
+    def remove(cls, user_1_id: int, user_2_id: int) -> bool:
         """
         Deletes a friendship between two users.
 
@@ -271,7 +271,7 @@ class Friend(db.Model):
         return friend_user, friend_user_avatar, friendship, friend_request
 
     @classmethod
-    def add_friendship(cls, user_id: int, other_id: int):
+    def add(cls, user_id: int, other_id: int):
         """
         Creates a friendship between two users, or returns it if they are already friends.
 
@@ -296,7 +296,7 @@ class Friend(db.Model):
             return existing  # friendship already exists
 
         # Add friendship
-        friendship = Friend(user_a_id=user_id, user_b_id=other_id)
+        friendship = Friendship(user_a_id=user_id, user_b_id=other_id)
         db.session.add(friendship)
         db.session.flush()
 
