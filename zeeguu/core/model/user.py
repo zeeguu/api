@@ -104,31 +104,77 @@ class User(db.Model):
         "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
     ]
 
+    # Legacy ceiling, retained for backwards compat with callers that still
+    # read it (e.g. tests). The tiered generator below uses its own per-tier
+    # suffix ranges rather than a single flat cap.
     MAX_NUMBER_USERNAME = 9999
 
+    # Suffix-width tiers tried, in order, when prefer_no_digit=True.
+    # None means "no suffix at all". Each numeric value is the inclusive
+    # upper bound for random.randint(0, value).
+    _USERNAME_TIERS_PRETTY = (None, 9, 99, 999, 9999)
+    # When prefer_no_digit=False, we skip straight to 4 digits — used for
+    # backfilling inactive accounts so we don't consume the small no-digit
+    # pool (see generate_unique_username docstring).
+    _USERNAME_TIERS_FALLBACK = (9999,)
+
     @classmethod
-    def generate_unique_username(cls, exclude: set = None):
+    def generate_unique_username(cls, exclude: set = None, prefer_no_digit: bool = True):
         """
-        Generate a random unique username in the format 'adjective_animal1234'.
-        Can currently generate 20 x 18 x 9999 = 3,598,200 unique usernames.
+        Generate a random unique username in the format 'adjective_animal[digits]'.
+
+        We try tiers in order from most-readable to least-readable:
+            tier 0: no digit       (e.g. 'clever_otter')     — 20 x 18 = 360 combos
+            tier 1: 1 digit  0..9  (e.g. 'clever_otter7')    — 3,600 combos
+            tier 2: 2 digits 0..99 (e.g. 'clever_otter42')   — 36,000 combos
+            tier 3: 3 digits       (e.g. 'clever_otter500')  — 360,000 combos
+            tier 4: 4 digits       (e.g. 'clever_otter5678') — 3,600,000 combos
+
+        When `prefer_no_digit=True` (the default), we start at tier 0 and only
+        escalate when a tier can't find a free slot. This keeps usernames short
+        and memorable for users who will actually see them in the UI.
+
+        When `prefer_no_digit=False`, we jump straight to tier 4 (4-digit suffix).
+        The backfill migration uses this for inactive accounts so that the small
+        no-digit pool (360 names) is reserved for MAUs and future signups rather
+        than being consumed by dormant users who may never log in again.
 
         Args:
             exclude: optional set of usernames already reserved in the current
-                     session but not yet committed (e.g. during bulk migrations).
+                     session but not yet committed — e.g. the bulk migration
+                     assigns usernames before the UNIQUE constraint exists, so
+                     mid-run picks aren't visible to DB checks yet.
+            prefer_no_digit: start at tier 0 (default) or skip to tier 4.
 
         Returns:
-            username: The generated username.
-            animal: The animal that was used to generate the username.
+            (username, animal) tuple. The animal is returned separately so
+            callers can pick the matching avatar SVG.
         """
-        while True:
-            adjective = random.choice(cls.ADJECTIVES)
-            animal = random.choice(cls.ANIMALS)
-            number = random.randint(1, cls.MAX_NUMBER_USERNAME)
-            username = f"{adjective}_{animal}{number}"
-            if exclude and username in exclude:
-                continue
-            if not User.query.filter_by(username=username).first():
-                return username, animal
+        exclude = exclude or set()
+        tiers = cls._USERNAME_TIERS_PRETTY if prefer_no_digit else cls._USERNAME_TIERS_FALLBACK
+        pair_count = len(cls.ADJECTIVES) * len(cls.ANIMALS)
+
+        for suffix_max in tiers:
+            # 4x pair_count attempts is overkill for tiers 1..4 (they have
+            # 10x..10000x more slots than pair_count) and gives tier 0 a
+            # reasonable chance to surface a free name even when the tier is
+            # nearly full. If we still can't find one, we fall through to
+            # the next tier rather than loop forever.
+            for _ in range(pair_count * 4):
+                adjective = random.choice(cls.ADJECTIVES)
+                animal = random.choice(cls.ANIMALS)
+                if suffix_max is None:
+                    username = f"{adjective}_{animal}"
+                else:
+                    username = f"{adjective}_{animal}{random.randint(0, suffix_max)}"
+                if username in exclude:
+                    continue
+                if not cls.query.filter_by(username=username).first():
+                    return username, animal
+
+        raise RuntimeError(
+            "Username space exhausted across all tiers — expand ADJECTIVES/ANIMALS."
+        )
 
     @classmethod
     def create_anonymous(
