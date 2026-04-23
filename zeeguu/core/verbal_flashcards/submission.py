@@ -19,6 +19,7 @@ def record_flashcard_answer(
     answer_source,
     response_time,
     session_id,
+    language_code=None,
 ):
     flashcard = find_flashcard_for_user(user, flashcard_id)
     if not flashcard:
@@ -27,7 +28,11 @@ def record_flashcard_answer(
     accuracy_analysis = None
     if user_answer:
         expected_text = flashcard["expectedText"]
-        accuracy_analysis = calculate_accuracy(user_answer, expected_text)
+        accuracy_analysis = calculate_accuracy(
+            user_answer,
+            expected_text,
+            language_code=language_code,
+        )
 
         if accuracy_analysis.get("isAccepted"):
             is_correct = True

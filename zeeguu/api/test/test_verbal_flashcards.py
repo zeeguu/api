@@ -157,6 +157,14 @@ def test_asr_tolerant_danish_form_folds_danish_letters_for_transcript_matching()
     assert asr_tolerant_danish_form("hvad") == "va"
 
 
+def test_normalizer_registry_defaults_to_danish_until_more_languages_exist():
+    from zeeguu.core.verbal_flashcards.text_normalization import normalizer_for
+
+    assert normalizer_for("da").asr_tolerant_form("træ") == "tre"
+    assert normalizer_for("da-DK").asr_tolerant_form("hvad") == "va"
+    assert normalizer_for("de").asr_tolerant_form("træ") == "tre"
+
+
 def test_score_word_match_accepts_common_danish_asr_variants():
     from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 

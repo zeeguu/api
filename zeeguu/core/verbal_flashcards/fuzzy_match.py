@@ -1,6 +1,5 @@
 from zeeguu.core.verbal_flashcards.text_normalization import (
-    asr_tolerant_danish_form,
-    canonical_danish_form,
+    normalizer_for,
     sanitize_spoken_text,
 )
 
@@ -143,9 +142,10 @@ def boundary_aware_jaro_winkler_similarity(source, target):
     return max(forward_score, reversed_score)
 
 
-def fuzzy_match_threshold(expected_word):
+def fuzzy_match_threshold(expected_word, language_code=None):
     """Length-aware thresholds tuned for short flashcard answers."""
-    normalized_length = len(canonical_danish_form(expected_word))
+    normalizer = normalizer_for(language_code)
+    normalized_length = len(normalizer.canonical_form(expected_word))
 
     if normalized_length <= 2:
         return 1.0
@@ -156,15 +156,16 @@ def fuzzy_match_threshold(expected_word):
     return 0.79
 
 
-def score_word_match(user_word, expected_word):
+def score_word_match(user_word, expected_word, language_code=None):
     """Compare two words using exact, normalized, and fuzzy similarity signals."""
     user_word = user_word or ""
     expected_word = expected_word or ""
+    normalizer = normalizer_for(language_code)
 
-    normalized_user_word = canonical_danish_form(user_word)
-    normalized_expected_word = canonical_danish_form(expected_word)
-    asr_user_word = asr_tolerant_danish_form(user_word)
-    asr_expected_word = asr_tolerant_danish_form(expected_word)
+    normalized_user_word = normalizer.canonical_form(user_word)
+    normalized_expected_word = normalizer.canonical_form(expected_word)
+    asr_user_word = normalizer.asr_tolerant_form(user_word)
+    asr_expected_word = normalizer.asr_tolerant_form(expected_word)
 
     if user_word == expected_word:
         return {
@@ -212,7 +213,7 @@ def score_word_match(user_word, expected_word):
         normalized_damerau_levenshtein,
         (normalized_damerau_levenshtein * 0.75) + (jaro_winkler * 0.25),
     )
-    match_threshold = fuzzy_match_threshold(expected_word)
+    match_threshold = fuzzy_match_threshold(expected_word, language_code)
 
     return {
         "isMatch": combined_score >= match_threshold,
@@ -225,13 +226,13 @@ def score_word_match(user_word, expected_word):
     }
 
 
-def calculate_accuracy(user_speech, expected_text):
+def calculate_accuracy(user_speech, expected_text, language_code=None):
     """
     Calculate accuracy between user speech and expected text.
     Each expected word looks for the closest unmatched spoken word.
     """
-    user_speech = sanitize_spoken_text(user_speech)
-    expected_text = sanitize_spoken_text(expected_text)
+    user_speech = sanitize_spoken_text(user_speech, language_code)
+    expected_text = sanitize_spoken_text(expected_text, language_code)
 
     user_words = [w for w in user_speech.split() if len(w) > 0]
     expected_words = [w for w in expected_text.split() if len(w) > 0]
@@ -248,7 +249,7 @@ def calculate_accuracy(user_speech, expected_text):
             if j in matched_indices:
                 continue
 
-            scores = score_word_match(user_word, expected_word)
+            scores = score_word_match(user_word, expected_word, language_code)
             candidate = {
                 "userWord": user_word,
                 "actualPosition": j,
@@ -287,7 +288,7 @@ def calculate_accuracy(user_speech, expected_text):
                 "matchThreshold": (
                     best_score["matchThreshold"]
                     if best_score
-                    else fuzzy_match_threshold(expected_word)
+                    else fuzzy_match_threshold(expected_word, language_code)
                 ),
                 "isClose": bool(
                     best_score

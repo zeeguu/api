@@ -215,6 +215,7 @@ def submit_answer():
         user, feature_gate = _current_verbal_flashcards_user()
         if feature_gate:
             return feature_gate
+        learned_language_code = user.learned_language.code if user.learned_language else None
 
         try:
             session_id = _parse_optional_session_id(session_id)
@@ -232,6 +233,7 @@ def submit_answer():
             answer_source,
             response_time,
             session_id,
+            language_code=learned_language_code,
         )
         if not response_data:
             return json_result({"error": "Flashcard not found"}), 404
@@ -275,11 +277,19 @@ def check_pronunciation():
 
         user_speech = data.get("user_speech", "")
         expected_text = data.get("expected_text", "")
+        language_code = (
+            data.get("language_code")
+            or (user.learned_language.code if user.learned_language else None)
+        )
 
         if not user_speech or not expected_text:
             return json_result({"error": "user_speech and expected_text are required"}), 400
 
-        accuracy_analysis = calculate_accuracy(user_speech, expected_text)
+        accuracy_analysis = calculate_accuracy(
+            user_speech,
+            expected_text,
+            language_code=language_code,
+        )
 
         return json_result(accuracy_analysis)
 
