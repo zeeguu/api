@@ -58,14 +58,28 @@ def parse_asr_service_urls(raw_value):
     return mapping
 
 
+def in_development_context():
+    """Return True when local dev defaults should be enabled."""
+    flask_env = os.environ.get("FLASK_ENV", "").strip().casefold()
+    if flask_env == "development":
+        return True
+
+    if has_app_context():
+        app_env = str(current_app.config.get("ENV", "")).strip().casefold()
+        if app_env == "development":
+            return True
+
+    return False
+
+
 def configured_asr_service_urls():
-    """Return configured worker URLs, falling back to the local Danish worker."""
+    """Return configured worker URLs, using localhost fallback only in development."""
     raw_value = os.environ.get("ASR_SERVICE_URLS", "")
 
     if not raw_value and has_app_context():
         raw_value = current_app.config.get("ASR_SERVICE_URLS", "")
 
-    if not raw_value:
+    if not raw_value and in_development_context():
         raw_value = LOCAL_DEV_ASR_SERVICE_URLS
 
     return parse_asr_service_urls(raw_value)
