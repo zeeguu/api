@@ -39,54 +39,66 @@ def get_all_language_streaks():
     return json_result(result)
 
 
-@api.route("/all_language_streaks_detailed", methods=["GET"])
-@api.route("/all_language_streaks_detailed/<username>", methods=["GET"])
-@cross_domain
-@requires_session
-def get_all_language_streaks_detailed(username: str = None):
-    """
-       Retrieve detailed language streak information for a user.
-
-       If username is provided, returns the given user's language streaks only if they are
-       friends with the requester. Otherwise, returns the requester's own language streaks.
-
-       Args:
-           username (str, optional): The username of the user whose streaks are requested.
-
-       Returns:
-           list[dict]: A list of dictionaries, each containing:
-               - code (str): The code of the language.
-               - language (str): The name of the language.
-               - daily_streak (int, optional): Current daily streak for the language (visible only to self or friends).
-               - max_streak (int, optional): Max streak for the language (visible only to self or friends).
-               - max_streak_date (str, optional): Date when the max streak was achieved at (visible only to self or friends).
-    """
-    requester_user_id = flask.g.user_id
-    self_or_friend = True
-    if username is not None:
-        requested_user = User.find_by_username(username)
-        if requested_user is None:
-            return []
-        requested_user_id = requested_user.id
-        if requester_user_id != requested_user_id and not Friend.are_friends(requester_user_id, requested_user_id):
-            self_or_friend = False
-    else:
-        requested_user_id = requester_user_id
-
-    user_languages = UserLanguage.query.filter_by(user_id=requested_user_id).all()
-    user_languages.sort(key=lambda ul: ul.max_streak, reverse=True)
+def _serialize_language_streaks(user_id: int, include_private: bool) -> list[dict]:
+    user_languages = UserLanguage.query.filter_by(user_id=user_id).all()
+    user_languages.sort(key=lambda ul: ul.max_streak or 0, reverse=True)
     result = []
-    for user_language in user_languages:
+    for ul in user_languages:
         obj = {
-            "code": user_language.language.code,
-            "language": user_language.language.name,
+            "code": ul.language.code,
+            "language": ul.language.name
         }
-        if self_or_friend:
+        if include_private:
             obj.update({
-                "daily_streak": user_language.current_daily_streak,
-                "max_streak": user_language.max_streak or 0,
-                "max_streak_date": user_language.max_streak_date.strftime(
-                    "%Y-%m-%d") if user_language.max_streak_date else None
+                "daily_streak": ul.current_daily_streak,
+                "max_streak": ul.max_streak or 0,
+                "max_streak_date": ul.max_streak_date.strftime("%Y-%m-%d") if ul.max_streak_date else None,
             })
         result.append(obj)
-    return json_result(result)
+    return result
+
+
+@api.route("/language_streak_history", methods=["GET"])
+@cross_domain
+@requires_session
+def get_my_language_streak_history():
+    """
+           Retrieve detailed language streak information for the logged-in user.
+
+           Returns:
+               list[dict]: A list of dictionaries, each containing:
+                   - code (str): The code of the language.
+                   - language (str): The name of the language.
+                   - daily_streak (int, optional): Current daily streak for the language.
+                   - max_streak (int, optional): Max streak for the language.
+                   - max_streak_date (str, optional): Date when the max streak was achieved at.
+        """
+    return json_result(_serialize_language_streaks(flask.g.user_id, include_private=True))
+
+
+@api.route("/friend_language_streak_history/<username>", methods=["GET"])
+@cross_domain
+@requires_session
+def get_friend_language_streak_history(username):
+    """
+           Retrieve detailed language streak information for a user.
+
+           Returns the given user's language streaks only if they are friends with the requester.
+           Otherwise, returns the requester's own language streaks.
+
+           Args:
+               username (str): The username of the user whose streaks are requested.
+
+           Returns:
+               list[dict]: A list of dictionaries, each containing:
+                   - code (str): The code of the language.
+                   - language (str): The name of the language.
+                   - daily_streak (int, optional): Current daily streak for the language (visible only to self or friends).
+                   - max_streak (int, optional): Max streak for the language (visible only to self or friends).
+                   - max_streak_date (str, optional): Date when the max streak was achieved at (visible only to self or friends).
+        """
+    friend = User.find_by_username(username)
+    if friend is None:
+        return []
+    is_self_or_friend = friend.id == flask.g.user_id or Friend.are_friends(flask.g.user_id, friend.id)
+    return json_result(_serialize_language_streaks(friend.id, include_private=is_self_or_friend))
