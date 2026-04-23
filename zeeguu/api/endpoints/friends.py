@@ -2,6 +2,7 @@ import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
+from core.friends.friend_streak import compute_current_streak
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -273,7 +274,7 @@ def _serialize_friendship(friendship: Friendship):
 
     return {
         "created_at": friendship.created_at,
-        "friend_streak": friendship.current_friend_streak,
+        "friend_streak": compute_current_streak(friendship),
         "friend_streak_last_updated": friendship.friend_streak_last_updated.isoformat() if friendship.friend_streak_last_updated else None
     }
 

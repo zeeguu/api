@@ -1,16 +1,18 @@
-import flask
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import flask
 import sqlalchemy
 
 import zeeguu.core
+from core.friends.friend_streak import compute_current_streak
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
-from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.user_feedback import UserFeedback
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
@@ -362,7 +364,7 @@ def _serialize_friend_details(friend_user, friend_user_avatar, friendship, frien
     details = _serialize_friend_user(friend_user, friend_user_avatar)
     if friendship:
         details["friendship"] = {
-            "friend_streak": friendship.current_friend_streak,
+            "friend_streak": compute_current_streak(friendship),
             "friend_streak_last_updated": (
                 friendship.friend_streak_last_updated.isoformat()
                 if friendship.friend_streak_last_updated
