@@ -240,7 +240,7 @@ def test_friends_of_for_non_friend_user_denied(client: LoggedInClient):
     response = client.get(f"/friends_of/{stranger_user.username}")
 
     assert isinstance(response, dict)
-    assert response.get("message") == "You can only view friends for yourself or your friends."
+    assert response.get("message") == "You can only view friends of yourself or your friends."
 
 
 def test_get_user_details_returns_current_user_data(client: LoggedInClient):
