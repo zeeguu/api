@@ -83,7 +83,7 @@ def get_all_language_streaks_detailed(username: str = None):
         }
         if self_or_friend:
             obj.update({
-                "daily_streak": user_language.daily_streak or 0,
+                "daily_streak": user_language.current_daily_streak,
                 "max_streak": user_language.max_streak or 0,
                 "max_streak_date": user_language.max_streak_date.strftime(
                     "%Y-%m-%d") if user_language.max_streak_date else None
