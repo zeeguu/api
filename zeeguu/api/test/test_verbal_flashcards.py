@@ -422,6 +422,32 @@ def test_submit_uses_fuzzy_acceptance_to_override_is_correct(client):
     assert response["flashcard_id"] == str(bookmark_id)
 
 
+def test_submit_uses_direct_bookmark_lookup_not_live_flashcard_collection(client, monkeypatch):
+    _prepare_bookmark_support()
+
+    bookmark_id = add_one_bookmark(client)
+    bookmark = _set_bookmark_level(bookmark_id, 3)
+
+    monkeypatch.setattr(
+        "zeeguu.core.verbal_flashcards.flashcard_selection.get_flashcard_collection",
+        lambda user: [],
+    )
+
+    response = client.post(
+        "/verbal_flashcards/submit",
+        json={
+            "flashcard_id": str(bookmark_id),
+            "user_answer": bookmark.user_word.meaning.origin.content,
+            "is_correct": True,
+            "answer_source": "speech",
+        },
+    )
+
+    assert response["success"] is True
+    assert response["flashcard_id"] == str(bookmark_id)
+    assert response["is_correct"] is True
+
+
 def test_submit_rejects_non_integer_session_id(client):
     _prepare_bookmark_support()
 

@@ -1,15 +1,16 @@
 from datetime import datetime
 
+from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 
 
-def _verbal_flashcard_from_user_word(user_word):
-    bookmark = user_word.preferred_bookmark
-    if not bookmark:
+def _verbal_flashcard_from_bookmark(bookmark):
+    if not bookmark or not bookmark.user_word:
         return None
 
+    user_word = bookmark.user_word
     prompt = user_word.meaning.translation.content
     answer = user_word.meaning.origin.content
 
@@ -29,6 +30,10 @@ def _verbal_flashcard_from_user_word(user_word):
         "answer": answer,
         "expectedText": answer,
     }
+
+
+def _verbal_flashcard_from_user_word(user_word):
+    return _verbal_flashcard_from_bookmark(user_word.preferred_bookmark)
 
 
 def get_flashcard_collection(user):
@@ -68,6 +73,20 @@ def find_flashcard_for_user(user, flashcard_id):
         (card for card in get_flashcard_collection(user) if card["id"] == flashcard_id),
         None,
     )
+
+
+def find_flashcard_submission_target(user, flashcard_id):
+    if not flashcard_id:
+        return None
+
+    bookmark = Bookmark.find(flashcard_id)
+    if not bookmark or not bookmark.user_word or bookmark.user_word.user_id != user.id:
+        return None
+
+    if (bookmark.user_word.level or 0) < 3:
+        return None
+
+    return _verbal_flashcard_from_bookmark(bookmark)
 
 
 def ensure_schedule_for_verbal_flashcard(db_session, user_word):

@@ -2,7 +2,7 @@ from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.verbal_flashcards.flashcard_selection import (
     ensure_schedule_for_verbal_flashcard,
-    find_flashcard_for_user,
+    find_flashcard_submission_target,
 )
 from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
@@ -21,7 +21,7 @@ def record_flashcard_answer(
     session_id,
     language_code=None,
 ):
-    flashcard = find_flashcard_for_user(user, flashcard_id)
+    flashcard = find_flashcard_submission_target(user, flashcard_id)
     if not flashcard:
         return None
 
