@@ -120,6 +120,7 @@ def detect_article_info():
             "language": existing.language.code,
             "title": existing.title,
             "url": canonical_url,
+            "img_url": existing.img_url.as_string() if existing.img_url else None,
             "exists": True,
         })
 
@@ -135,6 +136,7 @@ def detect_article_info():
             "language": lang,
             "title": title,
             "url": canonical_url,
+            "img_url": np_article.top_image or None,
             "exists": False,
         })
     except Exception as e:

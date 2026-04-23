@@ -485,11 +485,21 @@ def get_past_contexts(user_word_id):
         .all()
     )
 
+    # Get the current context to exclude duplicates
+    current_context = ""
+    if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
+        current_context = user_word.preferred_bookmark.get_context().strip().lower()
+
     past_contexts = []
     for bookmark in bookmarks:
+        # Skip the preferred bookmark and any content duplicates of it
+        if bookmark.id == user_word.preferred_bookmark_id:
+            continue
+        if bookmark.get_context().strip().lower() == current_context:
+            continue
+
         context_data = {
             "bookmark_id": bookmark.id,
-            "is_preferred": bookmark.id == user_word.preferred_bookmark_id,
             "context": bookmark.get_context(),
             "context_type": (
                 bookmark.context.context_type.type
@@ -511,6 +521,17 @@ def get_past_contexts(user_word_id):
         context_data["token_i"] = bookmark.token_i
         context_data["c_sentence_i"] = bookmark.context.sentence_i
         context_data["c_token_i"] = bookmark.context.token_i
+
+        # Include full bookmark dict so frontend can render instantly on swipe
+        try:
+            bookmark_dict = bookmark.as_dictionary(
+                with_context=True, with_context_tokenized=True
+            )
+            bookmark_dict["from_lang"] = user_word.meaning.origin.language.code
+            bookmark_dict["to_lang"] = user_word.meaning.translation.language.code
+            context_data["bookmark"] = bookmark_dict
+        except Exception as e:
+            log(f"Failed to build bookmark dict for past context {bookmark.id}: {e}")
 
         past_contexts.append(context_data)
 

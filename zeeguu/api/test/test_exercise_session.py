@@ -7,6 +7,7 @@ from fixtures import (
     add_context_types,
     add_source_types,
 )
+from zeeguu.core.model import User, UserExerciseSession
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
@@ -14,6 +15,16 @@ def test_start_new_exercise_session(client):
     new_exercise_session = client.post("/exercise_session_start")
     assert new_exercise_session
     assert new_exercise_session["id"]
+
+
+def test_exercise_session_captures_language_at_start(client):
+    """Streak attribution must survive a later learned_language toggle, so
+    the session captures the user's language at creation time."""
+    session_id = client.post("/exercise_session_start")["id"]
+
+    session = UserExerciseSession.find_by_id(session_id)
+    user = User.find(client.email)
+    assert session.language_id == user.learned_language_id
 
 
 def test_add_exercise_to_session(client):

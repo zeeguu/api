@@ -91,12 +91,16 @@ class SimplificationService:
         if self.anthropic_api_key:
             log(f"Using Anthropic for real-time simplification to {target_level}")
             try:
-                simplified_title, simplified_content = self._simplify_anthropic(
+                simplified_title, simplified_content, simplified_summary = self._simplify_anthropic(
                     title, content, target_level, language_code
                 )
                 if simplified_title and simplified_content:
-                    # Generate a simple summary
-                    simplified_summary = simplified_content[:200] + "..."
+                    if not simplified_summary:
+                        # Anthropic didn't produce a summary — strip HTML off the
+                        # content before slicing so we don't leak <p>/<strong> tags.
+                        from bs4 import BeautifulSoup
+                        plain = BeautifulSoup(simplified_content, "html.parser").get_text()
+                        simplified_summary = plain[:200] + ("..." if len(plain) > 200 else "")
                     return {
                         "title": simplified_title,
                         "content": simplified_content,
@@ -711,7 +715,7 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
 
     def _simplify_anthropic(
         self, title: str, content: str, target_level: str, language_code: str
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """Simplify text using Anthropic with ultra-strict constraints"""
         language_names = {
             "ro": "Romanian",
@@ -764,6 +768,7 @@ Original {language_name} Content: {content}
 
 Format your response EXACTLY like this (in {language_name.upper()}):
 SIMPLIFIED_TITLE: [your simplified title in {language_name}]
+SIMPLIFIED_SUMMARY: [a concise plain-text summary in {language_name}, maximum 25 words, NO Markdown or HTML]
 SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown formatting - preserve paragraph breaks with double newlines, use **bold**, *italics*, ## for headings, - for lists]"""
 
         try:
@@ -786,55 +791,49 @@ SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown f
             if response.status_code == 200:
                 result = response.json()["content"][0]["text"]
 
-                # Parse the response
                 lines = result.split("\n")
                 simplified_title = None
+                simplified_summary = None
                 simplified_content = []
                 current_section = None
 
                 for line in lines:
                     if line.startswith("SIMPLIFIED_TITLE:"):
                         simplified_title = line.split(":", 1)[1].strip()
+                        current_section = None
+                    elif line.startswith("SIMPLIFIED_SUMMARY:"):
+                        simplified_summary = line.split(":", 1)[1].strip()
+                        current_section = None
                     elif line.startswith("SIMPLIFIED_CONTENT:"):
                         current_section = "content"
                         content_start = line.split(":", 1)[1].strip()
                         if content_start:
                             simplified_content.append(content_start)
                     elif current_section == "content":
-                        # Preserve empty lines to maintain paragraph structure
-                        if line.strip():
-                            simplified_content.append(line.strip())
-                        else:
-                            simplified_content.append(
-                                ""
-                            )  # Keep empty lines for paragraph breaks
+                        simplified_content.append(line.strip() if line.strip() else "")
 
-                # Join with newlines, preserving paragraph structure
                 simplified_text = "\n".join(simplified_content)
-                # Clean up multiple consecutive empty lines, but preserve paragraph breaks
                 import re
-
                 simplified_text = re.sub(r"\n{3,}", "\n\n", simplified_text)
 
                 if simplified_title and simplified_text:
-                    # Convert markdown to HTML
                     import markdown2
                     simplified_html = markdown2.markdown(
                         simplified_text,
                         extras=['break-on-newline', 'fenced-code-blocks', 'tables']
                     )
-                    return simplified_title, simplified_html
+                    return simplified_title, simplified_html, simplified_summary
                 else:
                     log("Failed to parse Anthropic response")
-                    return None, None
+                    return None, None, None
 
             else:
                 log(f"Anthropic API error: {response.status_code}")
-                return None, None
+                return None, None, None
 
         except Exception as e:
             log(f"Error creating simplified version with Anthropic: {e}")
-            return None, None
+            return None, None, None
 
     def _simplify_deepseek(
         self, title: str, content: str, target_level: str, language_code: str

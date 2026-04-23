@@ -31,7 +31,6 @@ class AudioLessonMeaning(db.Model):
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
-    lesson_type = Column(String(50), default="contextual_examples")
     duration_seconds = Column(Integer)
     created_by = Column(String(255), nullable=False)  # e.g. Claude-v2-Opus-Promopt1
 
@@ -41,7 +40,6 @@ class AudioLessonMeaning(db.Model):
         script,
         created_by,
         difficulty_level=None,
-        lesson_type="contextual_examples",
         voice_config=None,
         duration_seconds=None,
         teacher_language=None,
@@ -50,7 +48,6 @@ class AudioLessonMeaning(db.Model):
         self.script = script
         self.created_by = created_by
         self.difficulty_level = difficulty_level
-        self.lesson_type = lesson_type
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         if teacher_language:
@@ -63,11 +60,11 @@ class AudioLessonMeaning(db.Model):
     def audio_file_path(self):
         """Returns the expected path for the audio file based on meaning ID and teacher language"""
         lang_code = self.teacher_language.code if self.teacher_language else "en"
-        return f"/audio/lessons/{self.meaning_id}-{lang_code}.mp3"
+        return f"/audio/lessons/meaning-{self.meaning_id}-{lang_code}.mp3"
 
     @classmethod
     def find(cls, meaning, teacher_language=None):
-        """Find audio lesson for a specific meaning and teacher language"""
+        """Find audio lesson for a specific meaning and teacher language."""
         query = cls.query.filter_by(meaning=meaning)
         if teacher_language:
             query = query.filter_by(teacher_language_id=teacher_language.id)

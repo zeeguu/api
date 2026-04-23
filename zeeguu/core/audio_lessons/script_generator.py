@@ -4,7 +4,11 @@ Script generator for audio lessons using unified LLM service.
 
 import os
 from zeeguu.core.llm_services import generate_audio_lesson_script
+from zeeguu.core.model.language import Language
 from zeeguu.logging import log
+
+THREE_WORDS_LESSON = "three_words_lesson"
+VALID_LESSON_TYPES = (THREE_WORDS_LESSON, "topic", "situation")
 
 
 # Load the prompt template
@@ -26,46 +30,12 @@ def generate_lesson_script(
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt",
 ) -> str:
     """
-    Generate a lesson script using Claude API.
-
-    Args:
-        origin_word: The word being learned
-        translation_word: The translation
-        origin_language: Language code of the word being learned (e.g., 'da')
-        translation_language: Language code of the translation (e.g., 'en')
-        cefr_level: Cefr level of the word being learned
-        generator_prompt_file: full filename
-
-    Returns:
-        Generated script text
-
-    Raises:
-        Exception: If API call fails or returns unexpected response
+    Generate a meaning lesson script for a single word (auto mode only).
     """
 
-    # Get language names for the prompt
-    language_names = {
-        "da": "Danish",
-        "es": "Spanish",
-        "en": "English",
-        "de": "German",
-        "fr": "French",
-        "ro": "Romanian",
-        "el": "Greek",
-        "it": "Italian",
-        "pt": "Portuguese",
-        "nl": "Dutch",
-        "sv": "Swedish",
-        "pl": "Polish",
-        "uk": "Ukrainian",
-    }
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    origin_lang_name = language_names.get(origin_language, origin_language)
-    translation_lang_name = language_names.get(
-        translation_language, translation_language
-    )
-
-    # Load and format the prompt
     prompt_template = get_prompt_template(generator_prompt_file)
     prompt = prompt_template.format(
         origin_word=origin_word,
@@ -86,3 +56,58 @@ def generate_lesson_script(
     except Exception as e:
         log(f"Failed to generate script for {origin_word}: {e}")
         raise Exception(f"Failed to generate script: {str(e)}")
+
+
+def generate_dialogue_script(
+    origin_language: str,
+    translation_language: str,
+    suggestion: str,
+    lesson_type: str,
+    cefr_level: str = "A1",
+    past_titles: list = None,
+) -> tuple:
+    """
+    Generate a single flowing dialogue script about a topic or situation.
+
+    Returns:
+        Tuple of (title, script) — title is a short description of the dialogue
+    """
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
+
+    if lesson_type == "situation":
+        prompt_file = "dialogue_lesson--situation-v1.txt"
+    else:
+        prompt_file = "dialogue_lesson--topic-v1.txt"
+
+    prompt_template = get_prompt_template(prompt_file)
+    prompt = prompt_template.format(
+        target_language=origin_lang_name,
+        source_language=translation_lang_name,
+        cefr_level=cefr_level,
+        suggestion=suggestion,
+    )
+
+    if past_titles:
+        titles_list = "\n".join([f"- {t}" for t in past_titles])
+        prompt += f"\n\nIMPORTANT: The following dialogues about this topic already exist. Create a DIFFERENT scenario:\n{titles_list}\n"
+
+    log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
+
+    try:
+        raw = generate_audio_lesson_script(prompt, max_tokens=8000)
+
+        # Parse title from first line
+        title = None
+        script = raw
+        lines = raw.strip().split("\n", 1)
+        if len(lines) == 2 and not lines[0].strip().startswith("Teacher:"):
+            title = lines[0].strip().lstrip("#").strip()[:200]
+            script = lines[1].strip()
+
+        log(f"Successfully generated dialogue script, title: '{title}'")
+        return title, script
+
+    except Exception as e:
+        log(f"Failed to generate dialogue script: {e}")
+        raise Exception(f"Failed to generate dialogue script: {str(e)}")

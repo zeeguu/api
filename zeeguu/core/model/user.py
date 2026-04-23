@@ -61,6 +61,7 @@ class User(db.Model):
     last_seen = db.Column(db.DateTime, nullable=True)
     creation_platform = db.Column(db.SmallInteger, nullable=True)
     daily_streak = db.Column(db.Integer, default=0)
+    timezone = db.Column(db.String(64), nullable=True)
 
     def __init__(
         self,
