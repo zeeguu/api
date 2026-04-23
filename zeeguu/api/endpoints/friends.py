@@ -22,7 +22,7 @@ def get_my_friends():
     """
         Get all friends for the current user.
     """
-    friend_details = Friend.get_friends_with_details(flask.g.user_id)
+    friend_details = Friendship.get_friends_of(flask.g.user_id)
     return json_result([
         _serialize_users_for_get_friends(fd, is_own_friends_list=True)
         for fd in friend_details
@@ -42,7 +42,7 @@ def get_friends_of(username):
         return []
     if target.id != flask.g.user_id and not Friendship.are_friends(flask.g.user_id, target.id):
         return make_error(403, "You can only view friends of yourself or your friends.")
-    friend_details = Friendship.get_friends_with_details(target.id)
+    friend_details = Friendship.get_friends_of(target.id)
     return json_result([
         _serialize_users_for_get_friends(fd, is_own_friends_list=False)
         for fd in friend_details
