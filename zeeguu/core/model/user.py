@@ -5,7 +5,7 @@ import random
 import re
 
 import sqlalchemy.orm
-from sqlalchemy import Column, Boolean, func
+from sqlalchemy import Column, Boolean, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -335,6 +335,15 @@ class User(db.Model):
         language.cefr_level = int(cefr_level)
         if session:
             session.add(language)
+
+    @property
+    def last_practiced(self):
+        """Most recent practice across all this user's languages, or None."""
+        from zeeguu.core.model.user_language import UserLanguage
+        return db.session.scalar(
+            select(func.max(UserLanguage.last_practiced))
+            .where(UserLanguage.user_id == self.id)
+        )
 
     # ************************************************************************
     # -------------------------------------------------------------------------

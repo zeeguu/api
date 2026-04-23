@@ -7,7 +7,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import User
 from zeeguu.core.model.badge_category import BadgeCategory
 from zeeguu.core.model.badge import Badge
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_badge import UserBadge
 from zeeguu.core.model.user_badge_progress import UserBadgeProgress
 from . import api, db_session
@@ -23,6 +23,7 @@ def count_unseen_badges():
     Return the number of UserBadge entries that the current user has achieved but have not seen.
     """
     return json_result(UserBadge.count_user_not_shown(flask.g.user_id))
+
 
 # ---------------------------------------------------------------------------
 @api.route("/my_badges", methods=["GET"])
@@ -85,7 +86,7 @@ def get_friend_badges(username):
     friend = User.find_by_username(username)
     if friend is None:
         return []
-    if friend.id != flask.g.user_id and not Friend.are_friends(flask.g.user_id, friend.id):
+    if friend.id != flask.g.user_id and not Friendship.are_friends(flask.g.user_id, friend.id):
         return make_error(403, "You can only view badges for yourself or your friends.")
     return json_result(_serialize_user_badges(friend.id))
 

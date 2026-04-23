@@ -1,6 +1,6 @@
--- friend table
+-- friendship table
 -- user_a_id always holds the smaller user id (canonical order enforced at application level)
-CREATE TABLE friend (
+CREATE TABLE friendship (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_a_id INT NOT NULL,
     user_b_id INT NOT NULL,

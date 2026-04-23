@@ -214,8 +214,8 @@ def get_friend_details(friend_username):
     with friend_request_status ('accepted', 'pending', or None).
     """
     user = User.find_by_id(flask.g.user_id)
-    from zeeguu.core.model.friend import Friend
-    friend_user, friend_user_avatar, friendship, friend_request = Friend.find_friend_details(user.id, friend_username)
+    from zeeguu.core.model.friendship import Friendship
+    friend_user, friend_user_avatar, friendship, friend_request = Friendship.find_friend_details(user.id, friend_username)
     if not friend_user:
         return make_error(401, "Not friends with this user or user not found.")
 

@@ -3,7 +3,7 @@ import flask
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.util.time import user_local_today
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from . import api
 from ...core.model import User
 from ...core.model.db import db
@@ -81,7 +81,7 @@ def get_friend_language_streak_history(username):
     friend = User.find_by_username(username)
     if friend is None:
         return []
-    is_self_or_friend = friend.id == flask.g.user_id or Friend.are_friends(flask.g.user_id, friend.id)
+    is_self_or_friend = friend.id == flask.g.user_id or Friendship.are_friends(flask.g.user_id, friend.id)
     return json_result(_serialize_language_streaks(friend.id, include_private=is_self_or_friend))
 
 
