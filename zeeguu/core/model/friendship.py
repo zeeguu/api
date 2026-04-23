@@ -60,14 +60,13 @@ class Friendship(db.Model):
         Uses the latest last_practiced date across all UserLanguage records for each user.
         Dates are evaluated in each user's local timezone so streaks are fair worldwide.
         """
-        from zeeguu.core.model.user_language import UserLanguage
         from zeeguu.core.util.time import user_local_today, to_user_local_date
 
         session = session or object_session(self) or db.session
 
         # Find last practice time for user_a and user_b across all languages
-        user_a_last_practiced = UserLanguage.last_practiced_by_user(self.user_a_id, session)
-        user_b_last_practiced = UserLanguage.last_practiced_by_user(self.user_b_id, session)
+        user_a_last_practiced = self.user_a.last_practiced
+        user_b_last_practiced = self.user_b.last_practiced
 
         # Convert each practice timestamp to the respective user's local date so that
         # a user who practices at 11 pm in their timezone is credited for that day,
