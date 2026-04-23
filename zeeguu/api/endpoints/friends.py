@@ -2,17 +2,18 @@ import flask
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
 
-from core.friends.friend_streak import compute_current_streak
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import User
 from zeeguu.core.model import UserLanguage
-from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.friend_request import FriendRequest
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.logging import log
 from . import api
+
 
 # ---------------------------------------------------------------------------
 @api.route("/my_friends", methods=["GET"])
