@@ -13,38 +13,40 @@ from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.logging import log
 from . import api
 
-
 # ---------------------------------------------------------------------------
-@api.route("/get_friends", methods=["GET"])
-@api.route("/get_friends/<username>", methods=["GET"])
+@api.route("/my_friends", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def get_friends(username: str = None):
+def get_my_friends():
     """
-    Get all friends for the current user, or for a friend by user_id.
+        Get all friends for the current user.
     """
-    requester_id = flask.g.user_id
-    if username is not None:
-        used_user = User.find_by_username(username)
-        if used_user is None:
-            return []
-        used_user_id = used_user.id
-        if requester_id != used_user_id and not Friendship.are_friends(requester_id, used_user_id):
-            return make_error(403, "You can only view friends for yourself or your friends.")
-    else:
-        used_user_id = requester_id
+    friend_details = Friendship.get_friends_of(flask.g.user_id)
+    return json_result([
+        _serialize_users_for_get_friends(fd, is_own_friends_list=True)
+        for fd in friend_details
+    ])
 
-    friend_details = Friendship.get_friends_of(used_user_id)
-    result = [
-        _serialize_users_for_get_friends(
-            friend_detail,
-            is_own_friends_list=(username is None),
-        )
-        for friend_detail in friend_details
-    ]
-    log(f"get_friends: requester_id={requester_id} requested friends for user_id={used_user_id}; count={len(result)}")
-    return json_result(result)
+# ---------------------------------------------------------------------------
+@api.route("/friends_of/<username>", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def get_friends_of(username):
+    """
+        Get all friends for the specified user_id.
+    """
+    target = User.find_by_username(username)
+    if target is None:
+        return []
+    if target.id != flask.g.user_id and not Friendship.are_friends(flask.g.user_id, target.id):
+        return make_error(403, "You can only view friends of yourself or your friends.")
+    friend_details = Friendship.get_friends_of(target.id)
+    return json_result([
+        _serialize_users_for_get_friends(fd, is_own_friends_list=False)
+        for fd in friend_details
+    ])
 
 
 # ---------------------------------------------------------------------------

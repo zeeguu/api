@@ -17,9 +17,9 @@ def _create_test_badge_category():
     db.session.commit()
 
 
-def test_get_badges_for_friend_user_id(client: LoggedInClient):
+def test_friend_badges_for_friend_user_id(client: LoggedInClient):
     """
-    Test /badges/<username> returns badge data when users are friends.
+    Test /friend_badges/<username> returns badge data when users are friends.
     """
     _create_test_badge_category()
 
@@ -44,7 +44,7 @@ def test_get_badges_for_friend_user_id(client: LoggedInClient):
         json={"sender_username": sender_user.username},
     )
 
-    response = client.get(f"/badges/{other_user.username}")
+    response = client.get(f"/friend_badges/{other_user.username}")
 
     assert isinstance(response, list)
     assert len(response) > 0
@@ -52,9 +52,9 @@ def test_get_badges_for_friend_user_id(client: LoggedInClient):
     assert "badges" in response[0]
 
 
-def test_get_badges_for_non_friend_user_denied(client: LoggedInClient):
+def test_friend_badges_for_non_friend_user_denied(client: LoggedInClient):
     """
-    Test /badges/<username> denies access when users are not friends.
+    Test /friend_badges/<username> denies access when users are not friends.
     """
     stranger_email = "badges-private@user.com"
     LoggedInClient(
@@ -66,7 +66,7 @@ def test_get_badges_for_non_friend_user_denied(client: LoggedInClient):
     )
     stranger_user = User.find(stranger_email)
 
-    response = client.get(f"/badges/{stranger_user.username}")
+    response = client.get(f"/friend_badges/{stranger_user.username}")
 
     assert isinstance(response, dict)
     assert response.get("message") == "You can only view badges for yourself or your friends."
