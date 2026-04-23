@@ -131,7 +131,7 @@ def test_verbal_flashcards_paginates_results(client):
 
 
 def test_sanitize_spoken_text_keeps_danish_letters_and_normalizes_spacing():
-    from zeeguu.api.endpoints.verbal_flashcards import sanitize_spoken_text
+    from zeeguu.core.verbal_flashcards.text_normalization import sanitize_spoken_text
 
     sanitized = sanitize_spoken_text("  MåDér!!!\n  er\t'FÅR'?  ")
 
@@ -139,7 +139,7 @@ def test_sanitize_spoken_text_keeps_danish_letters_and_normalizes_spacing():
 
 
 def test_canonical_danish_form_normalizes_to_stable_danish_spellings():
-    from zeeguu.api.endpoints.verbal_flashcards import canonical_danish_form
+    from zeeguu.core.verbal_flashcards.text_normalization import canonical_danish_form
 
     assert canonical_danish_form("Maade") == "måde"
     assert canonical_danish_form("OeL") == "øl"
@@ -147,7 +147,9 @@ def test_canonical_danish_form_normalizes_to_stable_danish_spellings():
 
 
 def test_asr_tolerant_danish_form_folds_danish_letters_for_transcript_matching():
-    from zeeguu.api.endpoints.verbal_flashcards import asr_tolerant_danish_form
+    from zeeguu.core.verbal_flashcards.text_normalization import (
+        asr_tolerant_danish_form,
+    )
 
     assert asr_tolerant_danish_form("træ") == "tre"
     assert asr_tolerant_danish_form("måde") == "made"
@@ -156,7 +158,7 @@ def test_asr_tolerant_danish_form_folds_danish_letters_for_transcript_matching()
 
 
 def test_score_word_match_accepts_common_danish_asr_variants():
-    from zeeguu.api.endpoints.verbal_flashcards import score_word_match
+    from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 
     aa_variant = score_word_match("maade", "måde")
     asr_variant = score_word_match("tre", "træ")
@@ -168,7 +170,7 @@ def test_score_word_match_accepts_common_danish_asr_variants():
 
 
 def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
-    from zeeguu.api.endpoints.verbal_flashcards import calculate_accuracy
+    from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
     result = calculate_accuracy("hund stor", "stor hund")
 
@@ -179,7 +181,7 @@ def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
 
 
 def test_calculate_accuracy_marks_close_but_incorrect_words():
-    from zeeguu.api.endpoints.verbal_flashcards import calculate_accuracy
+    from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
     result = calculate_accuracy("sok kat", "bog kat")
 
