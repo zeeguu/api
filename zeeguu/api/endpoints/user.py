@@ -1,3 +1,4 @@
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import flask
@@ -259,6 +260,8 @@ def user_settings():
             normalized_username = submitted_username.strip()
             if len(normalized_username) > User.MAX_USERNAME_LENGTH:
                 return make_error(400, f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
+            if not re.fullmatch(User.USERNAME_VALIDATION_REGEX, normalized_username):
+                return make_error(400, "Username can only contain letters, numbers, and underscores")
             # A user can change their username to the same username (case-insensitive)
             # E.g from "MYUSER99" to "myuser99"
             if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
