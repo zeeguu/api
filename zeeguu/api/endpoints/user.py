@@ -205,7 +205,7 @@ def get_user_details():
     return json_result(details_dict)
 
 
-@api.route("/get_user_details/<friend_username>", methods=["GET"])
+@api.route("/get_friend_details/<friend_username>", methods=["GET"])
 @cross_domain
 @requires_session
 def get_friend_details(friend_username):

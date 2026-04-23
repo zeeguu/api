@@ -168,17 +168,17 @@ def test_search_users(client: LoggedInClient):
     response = client.get("/search_users?query=test")
     assert isinstance(response, list)
 
-def test_get_friends(client: LoggedInClient):
+def test_my_friends(client: LoggedInClient):
     """
-    Test the /get_friends endpoint returns a list (empty or not).
+    Test the /my_friends endpoint returns a list (empty or not).
     """
-    response = client.get("/get_friends")
+    response = client.get("/my_friends")
     assert isinstance(response, list)
 
 
-def test_get_friends_for_friend_user_id(client: LoggedInClient):
+def test_friends_of_for_friend_user_id(client: LoggedInClient):
     """
-    Test /get_friends/<user_id> excludes the requester from the friend's friends list.
+    Test /friends_of/<user_id> excludes the requester from the friend's friends list.
     """
     other_email = "friends-list@user.com"
     other_client = LoggedInClient(
@@ -215,7 +215,7 @@ def test_get_friends_for_friend_user_id(client: LoggedInClient):
         "/accept_friend_request", json={"sender_username": third_user.username}
     )
 
-    response = client.get(f"/get_friends/{other_user.username}")
+    response = client.get(f"/friends_of/{other_user.username}")
 
     assert isinstance(response, list)
     friend_usernames = [entry["username"] for entry in response]
@@ -223,9 +223,9 @@ def test_get_friends_for_friend_user_id(client: LoggedInClient):
     assert third_user.username in friend_usernames
 
 
-def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
+def test_friends_of_for_non_friend_user_denied(client: LoggedInClient):
     """
-    Test /get_friends/<user_id> denies access when users are not friends.
+    Test /friends_of/<user_id> denies access when users are not friends.
     """
     stranger_email = "friends-private@user.com"
     LoggedInClient(
@@ -237,10 +237,10 @@ def test_get_friends_for_non_friend_user_denied(client: LoggedInClient):
     )
     stranger_user = User.find(stranger_email)
 
-    response = client.get(f"/get_friends/{stranger_user.username}")
+    response = client.get(f"/friends_of/{stranger_user.username}")
 
     assert isinstance(response, dict)
-    assert response.get("message") == "You can only view friends for yourself or your friends."
+    assert response.get("message") == "You can only view friends of yourself or your friends."
 
 
 def test_get_user_details_returns_current_user_data(client: LoggedInClient):
@@ -261,7 +261,7 @@ def test_get_user_details_returns_current_user_data(client: LoggedInClient):
 
 def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
     """
-    Test /get_user_details/<friend_user_id> returns details when users are friends.
+    Test /get_friend_details/<friend_user_id> returns details when users are friends.
     """
     other_email = "friend-details@user.com"
     other_client = LoggedInClient(
@@ -282,7 +282,7 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
         "/accept_friend_request", json={"sender_username": sender_user.username}
     )
 
-    response = client.get(f"/get_user_details/{other_user.username}")
+    response = client.get(f"/get_friend_details/{other_user.username}")
 
     assert isinstance(response, dict)
     assert response["name"] == other_user.name
@@ -297,7 +297,7 @@ def test_get_friend_details_returns_data_for_friend(client: LoggedInClient):
 
 def test_get_friend_details_pending_request_shows_is_accepted_false(client: LoggedInClient):
     """
-    Test /get_user_details/<friend_user_id> shows friendship.is_accepted=False
+    Test /get_friend_details/<friend_user_id> shows friendship.is_accepted=False
     when a friend request has been sent but not yet accepted.
     """
     pending_email = "pending-details@user.com"
@@ -314,7 +314,7 @@ def test_get_friend_details_pending_request_shows_is_accepted_false(client: Logg
         "/send_friend_request", json={"receiver_username": pending_user.username}
     )
 
-    response = client.get(f"/get_user_details/{pending_user.username}")
+    response = client.get(f"/get_friend_details/{pending_user.username}")
 
     assert isinstance(response, dict)
     assert response["friendship"]["is_accepted"] == False
@@ -322,7 +322,7 @@ def test_get_friend_details_pending_request_shows_is_accepted_false(client: Logg
 
 def test_get_friend_details_no_relationship_returns_none_friendship(client: LoggedInClient):
     """
-    Test /get_user_details/<friend_user_id> returns friendship=None when there is
+    Test /get_friend_details/<friend_user_id> returns friendship=None when there is
     no friendship or friend request between the users.
     """
     stranger_email = "no-relation@user.com"
@@ -335,7 +335,7 @@ def test_get_friend_details_no_relationship_returns_none_friendship(client: Logg
     )
     stranger_user = User.find(stranger_email)
 
-    response = client.get(f"/get_user_details/{stranger_user.username}")
+    response = client.get(f"/get_friend_details/{stranger_user.username}")
 
     assert isinstance(response, dict)
     assert response.get("friendship") is None
