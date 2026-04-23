@@ -80,15 +80,13 @@ class TestUsernameValidation:
     def test_username_with_accented_chars(self, app, client):
         lc = logged_in(client, "accented@zeeguu.test")
         response = set_username(lc, "ëlïté42")
-        assert response.status_code == 200
-        user = User.find("accented@zeeguu.test")
-        assert user.username == "ëlïté42"
+        assert response.status_code == 400
 
     def test_username_with_symbols(self, app, client):
         """No character whitelist — symbols are currently accepted."""
         lc = logged_in(client, "symbols@zeeguu.test")
         response = set_username(lc, "user@name!")
-        assert response.status_code == 200
+        assert response.status_code == 400
 
     def test_username_with_underscore_and_hyphen(self, app, client):
         lc = logged_in(client, "hyphenscore@zeeguu.test")
@@ -117,9 +115,7 @@ class TestUsernameValidation:
         """Internal spaces are accepted — only leading/trailing whitespace is stripped."""
         lc = logged_in(client, "internal@zeeguu.test")
         response = set_username(lc, "brave wolf")
-        assert response.status_code == 200
-        user = User.find("internal@zeeguu.test")
-        assert user.username == "brave wolf"
+        assert response.status_code == 400
 
     # --- Case sensitivity --------------------------------------------------
 
@@ -195,15 +191,6 @@ class TestUsernameSearch:
         lc = logged_in(client, "emptyq@zeeguu.test")
         results = lc.get("/search_users?query=")
         assert results == []
-
-    def test_search_users_special_chars_in_username(self, app, client):
-        lc_target = logged_in(client, "accentedsearch@zeeguu.test")
-        set_username(lc_target, "ëlïté99")
-
-        lc = logged_in(client, "accentsearcher@zeeguu.test")
-        results = lc.get("/search_users?query=ëlïté")
-        usernames = [r["username"] for r in results]
-        assert "ëlïté99" in usernames
 
     def test_search_users_exact_email_match(self, app, client):
         """Email search is not supported; searching by email returns no results."""
