@@ -4,11 +4,11 @@ import flask
 import sqlalchemy
 
 import zeeguu.core
-from core.friends.friend_streak import compute_current_streak
 from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
+from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
