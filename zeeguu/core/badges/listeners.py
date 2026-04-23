@@ -2,7 +2,7 @@ from zeeguu.core import events
 from zeeguu.core.badges.badge_progress import update_metric_and_award_badges
 from zeeguu.core.model import User, UserLanguage
 from zeeguu.core.model.badge_category import ActivityMetric
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 
 
 @events.word_translated.connect
@@ -71,7 +71,7 @@ def on_article_read(sender, user_id: int, db_session):
 
 @events.friendship_changed.connect
 def on_friendship_changed(sender, user_id: int, db_session):
-    current_value = Friend.count_active_friends(user_id, db_session)
+    current_value = Friendship.count_active_friends(user_id, db_session)
     update_metric_and_award_badges(
         db_session,
         ActivityMetric.FRIENDS,

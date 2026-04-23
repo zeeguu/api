@@ -1,5 +1,7 @@
-import flask
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import flask
 import sqlalchemy
 
 import zeeguu.core
@@ -7,10 +9,11 @@ from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
-from zeeguu.core.model.user_avatar import UserAvatar
+from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
+from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.user_feedback import UserFeedback
 from . import api
 from ...core.model import UserActivityData, UserArticle, Article
@@ -205,7 +208,7 @@ def get_user_details():
     return json_result(details_dict)
 
 
-@api.route("/get_user_details/<friend_username>", methods=["GET"])
+@api.route("/get_friend_details/<friend_username>", methods=["GET"])
 @cross_domain
 @requires_session
 def get_friend_details(friend_username):
@@ -214,8 +217,8 @@ def get_friend_details(friend_username):
     with friend_request_status ('accepted', 'pending', or None).
     """
     user = User.find_by_id(flask.g.user_id)
-    from zeeguu.core.model.friend import Friend
-    friend_user, friend_user_avatar, friendship, friend_request = Friend.find_friend_details(user.id, friend_username)
+    from zeeguu.core.model.friendship import Friendship
+    friend_user, friend_user_avatar, friendship, friend_request = Friendship.find_friend_details(user.id, friend_username)
     if not friend_user:
         return make_error(401, "Not friends with this user or user not found.")
 
@@ -255,11 +258,15 @@ def user_settings():
         submitted_username = data.get("username", None)
         if submitted_username:
             normalized_username = submitted_username.strip()
+            if len(normalized_username) > User.MAX_USERNAME_LENGTH:
+                return make_error(400, f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
+            if not re.fullmatch(User.USERNAME_VALIDATION_REGEX, normalized_username):
+                return make_error(400, "Username can only contain letters, numbers, and underscores")
             # A user can change their username to the same username (case-insensitive)
             # E.g from "MYUSER99" to "myuser99"
             if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
                 return make_error(400, "Username already in use")
-            user.username = submitted_username
+            user.username = normalized_username
 
         submitted_native_language_code = data.get("native_language", None)
         if submitted_native_language_code:
@@ -278,7 +285,7 @@ def user_settings():
             normalized_email = submitted_email.strip().lower()
             if normalized_email != user.email.lower() and User.email_exists(normalized_email):
                 return make_error(400, "Email already in use")
-            user.email = submitted_email
+            user.email = normalized_email
 
         submitted_password = data.get("password", None)
         if submitted_password:
@@ -360,7 +367,7 @@ def _serialize_friend_details(friend_user, friend_user_avatar, friendship, frien
     details = _serialize_friend_user(friend_user, friend_user_avatar)
     if friendship:
         details["friendship"] = {
-            "friend_streak": friendship.current_friend_streak,
+            "friend_streak": compute_current_streak(friendship),
             "friend_streak_last_updated": (
                 friendship.friend_streak_last_updated.isoformat()
                 if friendship.friend_streak_last_updated

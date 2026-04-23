@@ -7,7 +7,7 @@ from zeeguu.core.model import (
     UserPreference,
     UserCohortMap,
     UserWord,
-    Friend,
+    Friendship,
     FriendRequest,
     UserAvatar,
     UserBadge,
@@ -127,8 +127,8 @@ def delete_user_account(db_session, user_to_delete):
             db_session.delete(each)
         db_session.commit()
 
-        # Delete friends (they can reference a User in two different fields)
-        user_friends = Friend.get_friend_objects(user_to_delete.id)
+        # Delete friendships (they can reference a User in two different fields)
+        user_friends = Friendship.get_friend_objects(user_to_delete.id)
         print(f"friend: {len(user_friends)}")
         for each in user_friends:
             total_rows_affected += 1

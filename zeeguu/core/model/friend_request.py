@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from sqlalchemy.exc import NoResultFound
 
 class FriendRequest(db.Model):
@@ -195,7 +195,7 @@ class FriendRequest(db.Model):
             return None  # If the request was not found or could not be deleted, we cannot accept it
 
         # Create the friendship record in the database
-        friendship = Friend.add_friendship(sender_id, receiver_id)
+        friendship = Friendship.add(sender_id, receiver_id)
         return friendship
     
     @classmethod

@@ -4,7 +4,7 @@ from sqlalchemy import func, and_, case, or_, literal
 
 from zeeguu.core.model import User
 from zeeguu.core.model.db import db
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_avatar import UserAvatar
 
 
@@ -198,13 +198,13 @@ def friend_leaderboard_user_ids_subquery(user_id: int, to_date=None):
     return (
         db.session.query(
             case(
-                (Friend.user_a_id == user_id, Friend.user_b_id),
-                else_=Friend.user_a_id,
+                (Friendship.user_a_id == user_id, Friendship.user_b_id),
+                else_=Friendship.user_a_id,
             ).label("user_id")
         )
-        .filter(or_(Friend.user_a_id == user_id, Friend.user_b_id == user_id))
-        .filter(Friend.created_at <= to_date)
-        .filter(or_(Friend.deleted_at.is_(None), Friend.deleted_at >= to_date))
+        .filter(or_(Friendship.user_a_id == user_id, Friendship.user_b_id == user_id))
+        .filter(Friendship.created_at <= to_date)
+        .filter(or_(Friendship.deleted_at.is_(None), Friendship.deleted_at >= to_date))
         .union(
             db.session.query(literal(user_id).label("user_id"))
         )

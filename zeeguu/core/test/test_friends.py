@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 
 import zeeguu.core
 import zeeguu.core.friends.listeners  # noqa: F401
-from zeeguu.core.model.friend import Friend
+from zeeguu.core.friends.friend_streak import update_streak
+from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.user_rule import UserRule
@@ -15,7 +16,7 @@ class FriendTest(ModelTestMixIn):
       super().setUp()
       self.user = UserRule().user
       self.friend_user = UserRule().user
-      self.friendship = Friend(user_a_id=self.user.id, user_b_id=self.friend_user.id)
+      self.friendship = Friendship(user_a_id=self.user.id, user_b_id=self.friend_user.id)
       session.add(self.friendship)
       session.commit()
 
@@ -28,7 +29,7 @@ class FriendTest(ModelTestMixIn):
    def test_update_friend_streak_multiple_friends(self):
       from zeeguu.core.model.language import Language
       from zeeguu.core.model.user_language import UserLanguage
-      from zeeguu.core.model.friend import Friend
+      from zeeguu.core.model.friendship import Friendship
 
       # Create a language
       lang = Language.find_or_create("en")
@@ -39,8 +40,8 @@ class FriendTest(ModelTestMixIn):
       user3 = UserRule().user
 
       # Set up friendships: user1 ↔ user2, user1 ↔ user3
-      friendship1 = Friend(user_a_id=user1.id, user_b_id=user2.id)
-      friendship2 = Friend(user_a_id=user1.id, user_b_id=user3.id)
+      friendship1 = Friendship(user_a_id=user1.id, user_b_id=user2.id)
+      friendship2 = Friendship(user_a_id=user1.id, user_b_id=user3.id)
       session.add(friendship1)
       session.add(friendship2)
       session.commit()
@@ -74,7 +75,7 @@ class FriendTest(ModelTestMixIn):
       session.add(self.friendship)
       session.commit()
 
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 7
 
@@ -83,7 +84,7 @@ class FriendTest(ModelTestMixIn):
       self._set_last_practiced(self.user, now)
       self._set_last_practiced(self.friend_user, now)
 
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 1
 
@@ -91,7 +92,7 @@ class FriendTest(ModelTestMixIn):
       self._set_last_practiced(self.user, datetime.now())
       self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=1))
 
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 0
 
@@ -99,8 +100,8 @@ class FriendTest(ModelTestMixIn):
       self._set_last_practiced(self.user, datetime.now())
       self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=1))
 
-      self.friendship.update_friend_streak()
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
+      update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 0
 
@@ -113,7 +114,7 @@ class FriendTest(ModelTestMixIn):
       self._set_last_practiced(self.user, datetime.now())
       self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=2))
 
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 0
       assert self.friendship.friend_streak_last_updated is not None
@@ -153,7 +154,7 @@ class FriendTest(ModelTestMixIn):
       session.commit()
 
       # Act: update streak
-      self.friendship.update_friend_streak()
+      update_streak(friendship=self.friendship)
 
       # Assert: streak is 1, only learned_language practice is counted
       assert self.friendship.friend_streak == 1

@@ -5,7 +5,7 @@ import random
 import re
 
 import sqlalchemy.orm
-from sqlalchemy import Column, Boolean, func
+from sqlalchemy import Column, Boolean, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -39,6 +39,7 @@ class User(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     EMAIL_VALIDATION_REGEX = r"(^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$)"
+    USERNAME_VALIDATION_REGEX = r"^[A-Za-z0-9_.\-]+$"
     ANONYMOUS_EMAIL_DOMAIN = "@anon.zeeguu"
     MAX_USERNAME_LENGTH = 50
 
@@ -382,6 +383,15 @@ class User(db.Model):
         if session:
             session.add(language)
 
+    @property
+    def last_practiced(self):
+        """Most recent practice across all this user's languages, or None."""
+        from zeeguu.core.model.user_language import UserLanguage
+        return db.session.scalar(
+            select(func.max(UserLanguage.last_practiced))
+            .where(UserLanguage.user_id == self.id)
+        )
+
     # ************************************************************************
     # -------------------------------------------------------------------------
     #                                   Bookmarks
@@ -605,6 +615,9 @@ class User(db.Model):
             raise ValueError(
                 f"Username can be at most {self.MAX_USERNAME_LENGTH} characters"
             )
+
+        if not re.fullmatch(self.USERNAME_VALIDATION_REGEX, username):
+            raise ValueError("Username can only contain letters, numbers, and underscores")
 
         return username
 
