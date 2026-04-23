@@ -39,6 +39,7 @@ class User(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     EMAIL_VALIDATION_REGEX = r"(^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$)"
+    USERNAME_VALIDATION_REGEX = r"^[A-Za-z0-9_.\-]+$"
     ANONYMOUS_EMAIL_DOMAIN = "@anon.zeeguu"
     MAX_USERNAME_LENGTH = 50
 
@@ -568,6 +569,9 @@ class User(db.Model):
             raise ValueError(
                 f"Username can be at most {self.MAX_USERNAME_LENGTH} characters"
             )
+
+        if not re.fullmatch(self.USERNAME_VALIDATION_REGEX, username):
+            raise ValueError("Username can only contain letters, numbers, and underscores")
 
         return username
 
