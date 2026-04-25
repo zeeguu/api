@@ -10,6 +10,8 @@ def _create_test_badge_category():
         metric=ActivityMetric.TRANSLATED_WORDS,
         name="Translated Words",
         award_mechanism=AwardMechanism.COUNTER,
+        singular_default_description="Translate a word while reading.",
+        plural_default_description="Translate {threshold} words while reading."
     )
     db.session.add(at)
     db.session.flush()
