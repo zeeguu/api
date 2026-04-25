@@ -2,6 +2,7 @@ import json
 import traceback
 
 import flask
+import sentry_sdk
 from flask import request, Response
 
 from zeeguu.api.utils.json_result import json_result
@@ -246,6 +247,18 @@ def alternative_sentences(user_word_id):
             f"Saved {len(examples)} real-time generated examples to database for user_word {user_word_id}"
         )
 
+        # commit() expires all ORM attributes by default, so the downstream
+        # bookmark-building loop would lazy-reload user_word.meaning.*. If the
+        # row was deleted mid-request (parallel tab, session closed) that lazy
+        # reload raises ObjectDeletedError deep in the loop and surfaces as a
+        # 500. Refresh here so we fail fast with a clean 404 in that case.
+        try:
+            db_session.refresh(user_word)
+        except Exception:
+            return json_result(
+                {"error": "UserWord not found or unauthorized"}, status=404
+            )
+
         # Add IDs and pre-created bookmarks, skipping duplicates of current context
         filtered_examples = []
         for i, example in enumerate(examples):
@@ -274,6 +287,13 @@ def alternative_sentences(user_word_id):
 
     except Exception as e:
         log(f"Error generating examples for user_word {user_word_id}: {e}")
+        sentry_sdk.capture_exception(
+            e,
+            tags={
+                "endpoint": "alternative_sentences",
+                "user_word_id": str(user_word_id),
+            },
+        )
 
         resp = json_result(
             {

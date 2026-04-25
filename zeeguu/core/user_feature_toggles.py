@@ -30,6 +30,7 @@ def _feature_map():
         "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
+        "gamification": _gamification
     }
 
 
@@ -83,13 +84,14 @@ def _extension_experiment_1(user):
 
 
 def _show_non_simplified_articles(user):
-    """Show non-simplified (original) articles for legacy users.
+    """Show non-simplified (original) articles.
 
-    Most users only see simplified articles. These legacy users
-    were active before simplification was standard and still expect
-    to see original articles in their feed.
+    Transitional allowlist: the product direction is flipping so that
+    full articles (opened externally) become the default. This set holds
+    the pilots on the new flow while we validate it; eventually this will
+    be the behavior for everyone and the flag can go away.
     """
-    LEGACY_USER_IDS = {4607, 4626}
+    LEGACY_USER_IDS = {4607, 4626, 6083, 6250}
     return user.id in LEGACY_USER_IDS
 
 
@@ -101,12 +103,13 @@ def _always_open_externally(user):
     Click-through behavior is unchanged: the redirect-notification modal
     still appears unless the user has dismissed it with "don't show again".
 
-    Initial rollout: internal devs testing the external-first flow. Once
-    validated we'll likely expose this as a user-facing setting instead of a
-    hardcoded flag.
+    Rollout: the original pilot users, plus every user signed up from id
+    6367 onwards (i.e., all new users going forward). Existing users keep
+    the in-reader flow until we flip the default for them too.
     """
-    BETA_USER_IDS = {4607}
-    return user.id in BETA_USER_IDS
+    BETA_USER_IDS = {4607, 6083, 6250}
+    NEW_USER_THRESHOLD = 6367
+    return user.id in BETA_USER_IDS or user.id >= NEW_USER_THRESHOLD
 
 
 def _hide_recommendations(user):
@@ -137,3 +140,35 @@ def _verbal_flashcards(user):
 
     invitation_code = (getattr(user, "invitation_code", None) or "").strip().casefold()
     return invitation_code in allowed_invite_codes
+  
+# Gamification feature flag logic
+from sqlalchemy.exc import NoResultFound
+
+from .model.user import User
+from .model.cohort import Cohort
+def _gamification(user: User):
+    """
+    Enable general gamification features for users whose invitation with the gamification invite code,
+    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards.
+    """
+
+    GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
+    if user.is_dev:
+        return True
+
+    # Invitation code can be None
+    invitation_code = user.invitation_code or ""
+    if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
+        return True
+
+    # Find gamification cohort by invite code, if it exists.
+    try:
+        gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
+    except NoResultFound:
+        gamification_cohort = None
+
+    if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
+        return True
+
+    # Disabled for everyone else
+    return False

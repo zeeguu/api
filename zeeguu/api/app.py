@@ -26,6 +26,25 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(l
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+# newspaper3k probes `<site>/feed` and `<site>/feeds` on every crawl to
+# auto-discover RSS; sites that don't expose those paths (e.g. rtve.es)
+# return 404 and newspaper logs CRITICAL. The crawler then falls back to
+# HTML scraping and succeeds — so the 404 is expected, not a failure.
+# Drop only that exact probe shape; real 404s, 5xx, DNS errors still pass.
+_NEWSPAPER_AUTODISCOVERY_404 = re.compile(
+    r"\[REQUEST FAILED\] 404 .*url: .*/feeds?/?\s*$"
+)
+
+
+def _sentry_before_send(event, hint):
+    if event.get("logger") != "newspaper.network":
+        return event
+    msg = (event.get("logentry") or {}).get("message") or event.get("message") or ""
+    if _NEWSPAPER_AUTODISCOVERY_404.search(msg):
+        return None
+    return event
+
+
 if os.environ.get("SENTRY_DSN"):
     sentry_sdk.init(
         dsn=os.environ.get("SENTRY_DSN"),
@@ -34,6 +53,7 @@ if os.environ.get("SENTRY_DSN"):
         # of transactions for performance monitoring.
         # We recommend adjusting this value in production.
         traces_sample_rate=0.3,
+        before_send=_sentry_before_send,
     )
 
 logger.setLevel(logging.CRITICAL)
@@ -113,6 +133,10 @@ def create_app(testing=False):
     # And they are loaded above, in the import db... which implicitly loads the model package
     with app.app_context():
         db.create_all()
+
+    # Register event listeners for badges and friendship modules
+    import zeeguu.core.badges.listeners # noqa: F401
+    import zeeguu.core.friends.listeners # noqa: F401
 
     from .endpoints import api
 

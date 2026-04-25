@@ -4,6 +4,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timedelta
 
+import pytest
 from dateutil.utils import today
 
 from zeeguu.core.account_management.user_account_deletion import (
@@ -29,12 +30,14 @@ class UserTest(ModelTestMixIn):
         user_to_check = User.create_anonymous(
             str(self.user.id),
             new_password,
+            self.user.username,
             self.user.learned_language.code,
             self.user.native_language.code,
         )
 
         assert user_to_check.email == str(self.user.id) + User.ANONYMOUS_EMAIL_DOMAIN
         assert user_to_check.name == str(self.user.id)
+        assert user_to_check.username == self.user.username
         assert user_to_check.learned_language == self.user.learned_language
         assert user_to_check.native_language == self.user.native_language
 
@@ -69,6 +72,19 @@ class UserTest(ModelTestMixIn):
     def test_validate_name(self):
         random_name = self.faker.name()
         assert User.validate_name("", random_name)
+
+    def test_validate_username(self):
+        username = "x" * User.MAX_USERNAME_LENGTH
+        self.user.username = username
+        assert self.user.username == username
+
+    def test_validate_username_too_long(self):
+        with pytest.raises(ValueError, match=f"Username can be at most {User.MAX_USERNAME_LENGTH} characters"):
+            self.user.username = "x" * (User.MAX_USERNAME_LENGTH + 1)
+
+    def test_username_exists(self):
+        assert User.username_exists(self.user.username)
+        assert not User.username_exists("definitely_missing_username_12345")
 
     def test_update_password(self):
         password_before = self.user.password
@@ -143,7 +159,8 @@ class UserTest(ModelTestMixIn):
     def test_authorize_anonymous(self):
         random_uuid = str(uuid.uuid4())
         new_password = self.faker.password()
-        anonymous_user = User.create_anonymous(random_uuid, new_password)
+        random_username = self.faker.unique.user_name()
+        anonymous_user = User.create_anonymous(random_uuid, new_password, random_username)
         db.session.add(anonymous_user)
         db.session.commit()
 
@@ -157,7 +174,8 @@ class UserTest(ModelTestMixIn):
 
         # Anonymous user should be anonymous
         random_uuid = str(uuid.uuid4())
-        anonymous_user = User.create_anonymous(random_uuid, self.faker.password())
+        random_username = self.faker.unique.user_name()
+        anonymous_user = User.create_anonymous(random_uuid, self.faker.password(), random_username)
         db.session.add(anonymous_user)
         db.session.commit()
 
@@ -166,7 +184,8 @@ class UserTest(ModelTestMixIn):
     def test_upgrade_to_full_account(self):
         random_uuid = str(uuid.uuid4())
         original_password = self.faker.password()
-        anonymous_user = User.create_anonymous(random_uuid, original_password)
+        random_username = self.faker.unique.user_name()
+        anonymous_user = User.create_anonymous(random_uuid, original_password, random_username)
         db.session.add(anonymous_user)
         db.session.commit()
 
@@ -175,14 +194,15 @@ class UserTest(ModelTestMixIn):
 
         # Upgrade to full account
         new_email = self.faker.email().lower()
-        new_username = self.faker.name()
-        anonymous_user.upgrade_to_full_account(new_email, new_username)
+        new_name = self.faker.name()
+        anonymous_user.upgrade_to_full_account(new_email, new_name)
         db.session.commit()
 
         # Verify it's no longer anonymous
         assert not anonymous_user.is_anonymous()
         assert anonymous_user.email == new_email
-        assert anonymous_user.name == new_username
+        assert anonymous_user.name == new_name
+        assert anonymous_user.username == random_username
 
         # Verify can login with original password (since we didn't change it)
         result = User.authorize(new_email, original_password)
@@ -191,14 +211,15 @@ class UserTest(ModelTestMixIn):
     def test_upgrade_with_new_password(self):
         random_uuid = str(uuid.uuid4())
         original_password = self.faker.password()
-        anonymous_user = User.create_anonymous(random_uuid, original_password)
+        random_username = self.faker.unique.user_name()
+        anonymous_user = User.create_anonymous(random_uuid, original_password, random_username)
         db.session.add(anonymous_user)
         db.session.commit()
 
         new_email = self.faker.email().lower()
-        new_username = self.faker.name()
+        new_name = self.faker.name()
         new_password = self.faker.password()
-        anonymous_user.upgrade_to_full_account(new_email, new_username, new_password)
+        anonymous_user.upgrade_to_full_account(new_email, new_name, new_password)
         db.session.commit()
 
         # Original password should no longer work
@@ -222,7 +243,8 @@ class UserTest(ModelTestMixIn):
         import pytest
 
         random_uuid = str(uuid.uuid4())
-        anonymous_user = User.create_anonymous(random_uuid, self.faker.password())
+        random_username = self.faker.unique.user_name()
+        anonymous_user = User.create_anonymous(random_uuid, self.faker.password(), random_username)
         db.session.add(anonymous_user)
         db.session.commit()
 

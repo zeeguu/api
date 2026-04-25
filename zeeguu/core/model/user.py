@@ -5,7 +5,7 @@ import random
 import re
 
 import sqlalchemy.orm
-from sqlalchemy import Column, Boolean, func
+from sqlalchemy import Column, Boolean, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -39,11 +39,14 @@ class User(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
     EMAIL_VALIDATION_REGEX = r"(^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$)"
+    USERNAME_VALIDATION_REGEX = r"^[A-Za-z0-9_.\-]+$"
     ANONYMOUS_EMAIL_DOMAIN = "@anon.zeeguu"
+    MAX_USERNAME_LENGTH = 50
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     name = db.Column(db.String(255))
+    username = db.Column(db.String(MAX_USERNAME_LENGTH), unique=True, index=True)
     invitation_code = db.Column(db.String(255))
     password = db.Column(db.String(255))
     password_salt = db.Column(db.String(255))
@@ -68,6 +71,7 @@ class User(db.Model):
         email,
         name,
         password,
+        username,
         learned_language=None,
         native_language=None,
         invitation_code=None,
@@ -76,8 +80,9 @@ class User(db.Model):
     ):
         from datetime import datetime
 
-        self.email = email
-        self.name = name
+        self.email = email 
+        self.name = name # The name of the user
+        self.username = username # Username is custom name to display in UI
         self.update_password(password)
         self.learned_language = learned_language or Language.default_learned()
         self.native_language = native_language or Language.default_native_language()
@@ -86,11 +91,97 @@ class User(db.Model):
         self.created_at = datetime.now()
         self.creation_platform = creation_platform
 
+    ADJECTIVES = [
+        "brave", "clever", "curious", "silent", "rapid",
+        "happy", "bright", "playful", "bold", "calm",
+        "gentle", "keen", "witty", "daring", "serene",
+        "lively", "mighty", "patient", "vivid", "wise"
+    ]
+
+    ANIMALS = [
+        "elephant", "otter", "wolf", "fox", "owl", "panther",
+        "lion", "tiger", "bear", "eagle", "rabbit", "deer",
+        "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
+    ]
+
+    # Legacy ceiling, retained for backwards compat with callers that still
+    # read it (e.g. tests). The tiered generator below uses its own per-tier
+    # suffix ranges rather than a single flat cap.
+    MAX_NUMBER_USERNAME = 9999
+
+    # Suffix-width tiers tried, in order, when prefer_no_digit=True.
+    # None means "no suffix at all". Each numeric value is the inclusive
+    # upper bound for random.randint(0, value).
+    _USERNAME_TIERS_PRETTY = (None, 9, 99, 999, 9999)
+    # When prefer_no_digit=False, we skip straight to 4 digits — used for
+    # backfilling inactive accounts so we don't consume the small no-digit
+    # pool (see generate_unique_username docstring).
+    _USERNAME_TIERS_FALLBACK = (9999,)
+
+    @classmethod
+    def generate_unique_username(cls, exclude: set = None, prefer_no_digit: bool = True):
+        """
+        Generate a random unique username in the format 'adjective_animal[digits]'.
+
+        We try tiers in order from most-readable to least-readable:
+            tier 0: no digit       (e.g. 'clever_otter')     — 20 x 18 = 360 combos
+            tier 1: 1 digit  0..9  (e.g. 'clever_otter7')    — 3,600 combos
+            tier 2: 2 digits 0..99 (e.g. 'clever_otter42')   — 36,000 combos
+            tier 3: 3 digits       (e.g. 'clever_otter500')  — 360,000 combos
+            tier 4: 4 digits       (e.g. 'clever_otter5678') — 3,600,000 combos
+
+        When `prefer_no_digit=True` (the default), we start at tier 0 and only
+        escalate when a tier can't find a free slot. This keeps usernames short
+        and memorable for users who will actually see them in the UI.
+
+        When `prefer_no_digit=False`, we jump straight to tier 4 (4-digit suffix).
+        The backfill migration uses this for inactive accounts so that the small
+        no-digit pool (360 names) is reserved for MAUs and future signups rather
+        than being consumed by dormant users who may never log in again.
+
+        Args:
+            exclude: optional set of usernames already reserved in the current
+                     session but not yet committed — e.g. the bulk migration
+                     assigns usernames before the UNIQUE constraint exists, so
+                     mid-run picks aren't visible to DB checks yet.
+            prefer_no_digit: start at tier 0 (default) or skip to tier 4.
+
+        Returns:
+            (username, animal) tuple. The animal is returned separately so
+            callers can pick the matching avatar SVG.
+        """
+        exclude = exclude or set()
+        tiers = cls._USERNAME_TIERS_PRETTY if prefer_no_digit else cls._USERNAME_TIERS_FALLBACK
+        pair_count = len(cls.ADJECTIVES) * len(cls.ANIMALS)
+
+        for suffix_max in tiers:
+            # 4x pair_count attempts is overkill for tiers 1..4 (they have
+            # 10x..10000x more slots than pair_count) and gives tier 0 a
+            # reasonable chance to surface a free name even when the tier is
+            # nearly full. If we still can't find one, we fall through to
+            # the next tier rather than loop forever.
+            for _ in range(pair_count * 4):
+                adjective = random.choice(cls.ADJECTIVES)
+                animal = random.choice(cls.ANIMALS)
+                if suffix_max is None:
+                    username = f"{adjective}_{animal}"
+                else:
+                    username = f"{adjective}_{animal}{random.randint(0, suffix_max)}"
+                if username in exclude:
+                    continue
+                if not cls.query.filter_by(username=username).first():
+                    return username, animal
+
+        raise RuntimeError(
+            "Username space exhausted across all tiers — expand ADJECTIVES/ANIMALS."
+        )
+
     @classmethod
     def create_anonymous(
         cls,
         uuid,
         password,
+        username,
         learned_language_code=None,
         native_language_code=None,
         creation_platform=None,
@@ -99,6 +190,7 @@ class User(db.Model):
 
         :param uuid:
         :param password:
+        :param username:
         :param learned_language_code:
         :param native_language_code:
         :param creation_platform:
@@ -128,6 +220,7 @@ class User(db.Model):
             fake_email,
             uuid,
             password,
+            username,
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,
@@ -161,6 +254,7 @@ class User(db.Model):
         from datetime import datetime
         from zeeguu.core.model import UserLanguage
         from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.user_avatar import UserAvatar
         from zeeguu.core.model.user_word import UserWord
 
         # Only require email verification for users created after this date
@@ -184,9 +278,22 @@ class User(db.Model):
             and not self.email_verified
         )
 
+        # Get the corresponding avatar details
+        user_avatar = UserAvatar.find(self.id)
+        user_avatar_dict = (
+            dict(
+                image_name=user_avatar.image_name,
+                character_color=user_avatar.character_color,
+                background_color=user_avatar.background_color,
+            )
+            if user_avatar is not None
+            else None
+        )
+
         result = dict(
             email=self.email,
             name=self.name,
+            username=self.username,
             learned_language=self.learned_language.code,
             native_language=self.native_language.code,
             is_teacher=self.isTeacher(),
@@ -197,6 +304,8 @@ class User(db.Model):
             requires_email_verification=requires_email_verification,
             bookmark_count=bookmark_count,
             daily_audio_status=self.get_daily_audio_status(),
+            created_at=self.created_at.isoformat() if self.created_at else None,
+            user_avatar=user_avatar_dict,
         )
 
         for each in UserLanguage.query.filter_by(user=self):
@@ -273,6 +382,15 @@ class User(db.Model):
         language.cefr_level = int(cefr_level)
         if session:
             session.add(language)
+
+    @property
+    def last_practiced(self):
+        """Most recent practice across all this user's languages, or None."""
+        from zeeguu.core.model.user_language import UserLanguage
+        return db.session.scalar(
+            select(func.max(UserLanguage.last_practiced))
+            .where(UserLanguage.user_id == self.id)
+        )
 
     # ************************************************************************
     # -------------------------------------------------------------------------
@@ -482,6 +600,26 @@ class User(db.Model):
         if name is None or len(name) == 0:
             raise ValueError("Invalid username")
         return name
+
+    @sqlalchemy.orm.validates("username")
+    def validate_username(self, col, username):
+        if username is None:
+            return username
+
+        username = username.strip()
+
+        if len(username) == 0:
+            raise ValueError("Username cannot be empty")
+
+        if len(username) > self.MAX_USERNAME_LENGTH:
+            raise ValueError(
+                f"Username can be at most {self.MAX_USERNAME_LENGTH} characters"
+            )
+
+        if not re.fullmatch(self.USERNAME_VALIDATION_REGEX, username):
+            raise ValueError("Username can only contain letters, numbers, and underscores")
+
+        return username
 
     def update_password(self, password: str):
         """
@@ -1184,13 +1322,17 @@ class User(db.Model):
     @classmethod
     def find(cls, email):
         query = zeeguu.core.model.db.session.query(User)
-        return query.filter(func.lower(User.email) == email.lower()).one()
+        # NOTE: email is stored in lowercase and the collation is utf8mb4_unicode_ci
+        # This means that the database will handle case-insensitivity
+        return query.filter(User.email == email).one()
 
     @classmethod
     def email_exists(cls, email):
         query = zeeguu.core.model.db.session.query(User)
         try:
-            query.filter(func.lower(User.email) == email.lower()).one()
+            # NOTE: email is stored in lowercase and the collation is utf8mb4_unicode_ci
+            # This means that the database will handle case-insensitivity
+            query.filter(User.email == email).one()
             return True
         except sqlalchemy.orm.exc.NoResultFound:
             return False
@@ -1198,6 +1340,54 @@ class User(db.Model):
     @classmethod
     def find_by_id(cls, id):
         return User.query.filter(User.id == id).one()
+
+    @classmethod
+    def find_by_username(cls, username):
+        try:
+            return User.query.filter(User.username == username).one()
+        except NoResultFound:
+            return None
+
+    @classmethod
+    def search(cls, current_user_id: int, term: str, limit: int = 20):
+        """
+        Search users by username (partial match) or exact name.
+        Returns a list of (User, UserAvatar) tuples. Callers are responsible
+        for annotating results with friendship / friend-request data.
+        """
+        from sqlalchemy import or_
+        from zeeguu.core.model.user_avatar import UserAvatar
+
+        term = term.lower()
+        if not term:
+            return []
+
+        # The 'like()' acts just as 'ilike()' here due to the utf8mb4_unicode_ci collation.
+        # '%' and '_' are special in SQL LIKE patterns, so they are escaped first.
+        # '\' is escaped first to avoid double-escaping.
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filters = [
+            cls.username.like(f"%{escaped}%", escape="\\"),  # partial match for username
+            cls.name == term,                                  # exact match for name
+        ]
+
+        return (
+            db.session.query(cls, UserAvatar)
+            .select_from(cls)
+            .filter(or_(*filters), cls.id != current_user_id)
+            .outerjoin(UserAvatar, UserAvatar.user_id == cls.id)
+            .limit(limit)
+            .all()
+        )
+
+    @classmethod
+    def username_exists(cls, username: str):
+        try:
+            # Username are using utf8mb4_unicode_ci collation, so the database will handle case-insensitivity
+            cls.query.filter(cls.username == username).one()
+            return True
+        except NoResultFound:
+            return False
 
     @classmethod
     def all_recent_user_ids(cls, days=90):

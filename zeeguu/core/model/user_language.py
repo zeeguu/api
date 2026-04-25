@@ -49,6 +49,8 @@ class UserLanguage(db.Model):
 
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
+    max_streak = Column(Integer, default=0)
+    max_streak_date = Column(DateTime, nullable=True)
 
     @property
     def local_last_practiced(self):
@@ -127,7 +129,7 @@ class UserLanguage(db.Model):
         return cls.query.filter(cls.user == user).filter(cls.language_id == i).one()
 
     @classmethod
-    def all_for_user(cls, user):
+    def all_languages_for_user(cls, user):
         user_main_learned_language = user.learned_language
         user_languages = [
             language_id.language
@@ -139,11 +141,17 @@ class UserLanguage(db.Model):
 
         return user_languages
 
-    def update_streak_if_needed(self, session=None):
+    @classmethod
+    def all_user_languages_for_user(cls, user, db_session):
+        return db_session.query(cls).filter(cls.user == user).all()
+
+    def update_streak_if_needed(self, user, db_session):
         """
         Update last_practiced timestamp and daily_streak counter for this language.
         Only updates once per day to minimize database writes.
         """
+        from zeeguu.core import events
+
         today = user_local_today(self.user)
         last_local = self.local_last_practiced
 
@@ -153,8 +161,23 @@ class UserLanguage(db.Model):
             elif last_local == today - datetime.timedelta(days=1):
                 self.daily_streak = (self.daily_streak or 0) + 1
             else:
+                # Gap in practice - save max before resetting
+                self._update_max_streak_if_needed()
                 self.daily_streak = 1
 
             self.last_practiced = datetime.datetime.now()
-            if session:
-                session.add(self)
+            self._update_max_streak_if_needed()
+
+            db_session.add(self)
+            db_session.flush()
+
+            events.streak_changed.send(None, user_id=user.id, db_session=db_session)
+
+            # Update friend streaks for all friendships
+            events.friend_streak_changed.send(None, user_id=user.id, db_session=db_session)
+
+    def _update_max_streak_if_needed(self):
+        """Update max_streak if current streak exceeds it."""
+        if self.daily_streak > (self.max_streak or 0):
+            self.max_streak = self.daily_streak
+            self.max_streak_date = self.last_practiced

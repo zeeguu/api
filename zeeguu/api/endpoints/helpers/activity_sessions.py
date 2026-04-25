@@ -53,4 +53,4 @@ def _update_streak(db_session, session):
     language = _session_language(session) or user.learned_language
     if language is None:
         return
-    UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(db_session)
+    UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(user, db_session)

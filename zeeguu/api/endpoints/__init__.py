@@ -50,3 +50,6 @@ from . import user_stats
 from . import session_history
 from . import daily_streak
 from . import verbal_flashcards
+from . import badges
+from . import friends
+from . import leaderboards
