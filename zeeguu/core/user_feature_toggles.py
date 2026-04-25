@@ -6,6 +6,10 @@ are enabled for a user based on their cohort membership, invitation code, etc.
 """
 
 import os
+from sqlalchemy.exc import NoResultFound
+
+from .model.cohort import Cohort
+from .model.user import User
 
 
 def _csv_env_values(env_var_name):
@@ -131,21 +135,30 @@ def _hide_recommendations(user):
 
 def _verbal_flashcards(user):
     """
-    Enable verbal flashcards only for users whose own stored invitation code
-    is explicitly allow-listed.
+    Enable verbal flashcards for users invited with the dedicated verbal
+    flashcards invite code, or who belong to the cohort associated with
+    that code.
     """
-    allowed_invite_codes = _csv_env_values("VERBAL_FLASHCARDS_INVITE_CODES")
-    if not allowed_invite_codes:
-        return False
+    VERBAL_FLASHCARDS_INVITE_CODE = "VF7K2M9Q"
 
-    invitation_code = (getattr(user, "invitation_code", None) or "").strip().casefold()
-    return invitation_code in allowed_invite_codes
-  
-# Gamification feature flag logic
-from sqlalchemy.exc import NoResultFound
+    if user.is_dev:
+        return True
 
-from .model.user import User
-from .model.cohort import Cohort
+    invitation_code = (user.invitation_code or "").strip()
+    if invitation_code.lower() == VERBAL_FLASHCARDS_INVITE_CODE.lower():
+        return True
+
+    try:
+        verbal_flashcards_cohort = Cohort.find_by_code(VERBAL_FLASHCARDS_INVITE_CODE)
+    except NoResultFound:
+        verbal_flashcards_cohort = None
+
+    if verbal_flashcards_cohort and user.is_member_of_cohort(verbal_flashcards_cohort.id):
+        return True
+
+    return False
+
+
 def _gamification(user: User):
     """
     Enable general gamification features for users whose invitation with the gamification invite code,
