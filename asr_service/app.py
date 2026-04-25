@@ -35,6 +35,10 @@ class ASRAudioTooLarge(ValueError):
     pass
 
 
+class ASRModelUnavailable(RuntimeError):
+    pass
+
+
 def raise_if_audio_too_large(size):
     if size is not None and size > MAX_ASR_AUDIO_BYTES:
         raise ASRAudioTooLarge(
@@ -77,7 +81,7 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
         raise_if_audio_too_large(len(audio_bytes))
 
         if not ASR_AVAILABLE or asr_model is None:
-            raise RuntimeError("ASR model is not available in this worker")
+            raise ASRModelUnavailable("ASR model is not available in this worker")
 
         audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
         audio = audio.set_channels(1).set_frame_rate(16000)
@@ -145,6 +149,9 @@ def transcribe():
     requested_language_code = request.form.get("language_code")
 
     try:
+        if not ASR_AVAILABLE or asr_model is None:
+            raise ASRModelUnavailable("ASR model is not available in this worker")
+
         transcription = transcribe_audio_file(
             audio_file,
             requested_language_code=requested_language_code,
@@ -157,6 +164,8 @@ def transcribe():
         )
     except ASRAudioTooLarge as exc:
         return jsonify({"error": str(exc)}), 413
+    except ASRModelUnavailable as exc:
+        return jsonify({"error": str(exc)}), 503
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
