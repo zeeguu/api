@@ -1374,7 +1374,7 @@ class User(db.Model):
         return (
             db.session.query(cls, UserAvatar)
             .select_from(cls)
-            .filter(or_(*filters), cls.id != current_user_id)
+            .filter(or_(*filters), cls.id != current_user_id, ~cls.email.endswith(cls.ANONYMOUS_EMAIL_DOMAIN))
             .outerjoin(UserAvatar, UserAvatar.user_id == cls.id)
             .limit(limit)
             .all()
