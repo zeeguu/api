@@ -9,11 +9,11 @@ def _create_test_badge_category():
     at = BadgeCategory(
         metric=ActivityMetric.TRANSLATED_WORDS,
         name="Translated Words",
-        award_mechanism=AwardMechanism.COUNTER,
+        award_mechanism=AwardMechanism.COUNTER
     )
     db.session.add(at)
     db.session.flush()
-    db.session.add(Badge(badge_category_id=at.id, level=1, threshold=50, name="Word Explorer", description="Translate {threshold} words while reading.", icon_name="/badge1.svg"))
+    db.session.add(Badge(badge_category_id=at.id, level=1, threshold=50, name="Word Explorer", default_description="Translate 50 words while reading.", description="Translate 50 words while reading.", icon_name="/badge1.svg"))
     db.session.commit()
 
 
