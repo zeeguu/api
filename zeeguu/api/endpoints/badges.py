@@ -133,8 +133,6 @@ def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, 
     return {
         "name": badge_category.name,
         "badges": badges,
-        "singular_default_description": badge_category.singular_default_description,
-        "plural_default_description": badge_category.plural_default_description,
         "current_value": metric.value if metric else 0,
     }
 
@@ -143,6 +141,7 @@ def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "level": badge.level,
         "name": badge.name,
+        "default_description": badge.default_description,
         "description": badge.description,
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,

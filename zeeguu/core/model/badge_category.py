@@ -31,8 +31,6 @@ class BadgeCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     metric = db.Column(db.Enum(ActivityMetric), nullable=False, unique=True)
     name = db.Column(db.String(100), nullable=False)
-    singular_default_description = db.Column(db.Text, nullable=False)
-    plural_default_description = db.Column(db.Text, nullable=False)
     award_mechanism = db.Column(db.Enum(AwardMechanism), nullable=False)
 
     __table_args__ = (

@@ -1,42 +1,67 @@
--- Add default descriptions for badge categories (singular + plural forms)
--- These are used as fallback templates when a specific badge level
--- is not yet achieved. They support {threshold} substitution for progress display.
+-- Add default descriptions directly on badges.
+-- These are used as fallback descriptions before a badge is achieved.
+-- Each description already includes the correct threshold value.
 
-ALTER TABLE badge_category ADD COLUMN singular_default_description TEXT DEFAULT NULL;
-ALTER TABLE badge_category ADD COLUMN plural_default_description TEXT DEFAULT NULL;
+ALTER TABLE badge ADD COLUMN default_description TEXT;
 
-UPDATE badge_category
-SET
-  singular_default_description = CASE id
-    WHEN 1 THEN 'Translate a unique word while reading.'
-    WHEN 2 THEN 'Solve an exercise correctly.'
-    WHEN 3 THEN 'Complete an audio lesson.'
-    WHEN 4 THEN 'Maintain a streak for a day.'
-    WHEN 5 THEN 'Learn a new word.'
-    WHEN 6 THEN 'Read an article.'
-    WHEN 7 THEN 'Add a friend.'
-  END,
+UPDATE badge
+SET default_description = CASE id
+  -- Translated Words
+  WHEN 1 THEN 'Translate 10 unique words while reading.'
+  WHEN 2 THEN 'Translate 100 unique words while reading.'
+  WHEN 3 THEN 'Translate 500 unique words while reading.'
+  WHEN 4 THEN 'Translate 1000 unique words while reading.'
+  WHEN 5 THEN 'Translate 2500 unique words while reading.'
 
-  plural_default_description = CASE id
-    WHEN 1 THEN 'Translate {threshold} unique words while reading.'
-    WHEN 2 THEN 'Solve {threshold} exercises correctly.'
-    WHEN 3 THEN 'Complete {threshold} audio lessons.'
-    WHEN 4 THEN 'Maintain a streak for {threshold} days.'
-    WHEN 5 THEN 'Learn {threshold} new words.'
-    WHEN 6 THEN 'Read {threshold} articles.'
-    WHEN 7 THEN 'Add {threshold} friends.'
-  END
-WHERE id IN (1,2,3,4,5,6,7);
+  -- Correct Exercises
+  WHEN 6 THEN 'Solve 10 exercises correctly.'
+  WHEN 7 THEN 'Solve 250 exercises correctly.'
+  WHEN 8 THEN 'Solve 1000 exercises correctly.'
+  WHEN 9 THEN 'Solve 5000 exercises correctly.'
+  WHEN 10 THEN 'Solve 20000 exercises correctly.'
+
+  -- Completed Audio Lessons
+  WHEN 11 THEN 'Complete an audio lesson.'
+  WHEN 12 THEN 'Complete 25 audio lessons.'
+  WHEN 13 THEN 'Complete 50 audio lessons.'
+  WHEN 14 THEN 'Complete 150 audio lessons.'
+  WHEN 15 THEN 'Complete 300 audio lessons.'
+
+  -- Streak Count
+  WHEN 16 THEN 'Maintain a streak for 7 days.'
+  WHEN 17 THEN 'Maintain a streak for 30 days.'
+  WHEN 18 THEN 'Maintain a streak for 90 days.'
+  WHEN 19 THEN 'Maintain a streak for 180 days.'
+  WHEN 20 THEN 'Maintain a streak for 365 days.'
+
+  -- Learned Words
+  WHEN 21 THEN 'Learn a new word.'
+  WHEN 22 THEN 'Learn 10 new words.'
+  WHEN 23 THEN 'Learn 50 new words.'
+  WHEN 24 THEN 'Learn 250 new words.'
+  WHEN 25 THEN 'Learn 750 new words.'
+
+  -- Read Articles
+  WHEN 26 THEN 'Read 5 articles.'
+  WHEN 27 THEN 'Read 25 articles.'
+  WHEN 28 THEN 'Read 100 articles.'
+  WHEN 29 THEN 'Read 500 articles.'
+  WHEN 30 THEN 'Read 1000 articles.'
+
+  -- Number of Friends
+  WHEN 31 THEN 'Add a friend.'
+  WHEN 32 THEN 'Add 3 friends.'
+  WHEN 33 THEN 'Add 5 friends.'
+  WHEN 34 THEN 'Add 7 friends.'
+  WHEN 35 THEN 'Add 10 friends.'
+END
+WHERE id BETWEEN 1 AND 35;
 
 -- Enforce NOT NULL after data is populated
-ALTER TABLE badge_category
-  MODIFY singular_default_description TEXT NOT NULL,
-  MODIFY plural_default_description TEXT NOT NULL;
-
-
+ALTER TABLE badge MODIFY default_description TEXT NOT NULL;
 
 -- Update badge descriptions with funnier/playful ones
--- Once a badge is achieved, the corresponding description from here will be displayed
+-- Once a badge is achieved, the corresponding description will be displayed
 UPDATE badge
 SET
     description = CASE id
