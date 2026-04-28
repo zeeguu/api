@@ -467,6 +467,10 @@ def simplify_article(article_id):
         v for v in article.simplified_versions if v.cefr_level == user_level
     ]
     if existing_simplified:
+        # Tapping Simplify expresses interest in keeping this article — save it
+        # so it shows up as "Open" (not "Open Externally") on the user's feed.
+        if not PersonalCopy.exists_for(user, existing_simplified[0]):
+            PersonalCopy.make_for(user, existing_simplified[0], db_session)
         # Return all existing levels (original + simplified)
         all_levels = []
         # Add original
@@ -494,6 +498,10 @@ def simplify_article(article_id):
         )
 
         if simplified_article:
+            # Tapping Simplify expresses interest in keeping this article — save
+            # it so it shows up as "Open" (not "Open Externally") on the feed.
+            if not PersonalCopy.exists_for(user, simplified_article):
+                PersonalCopy.make_for(user, simplified_article, db_session)
             # Return all available levels (original + new simplified)
             all_levels = []
             # Add original
