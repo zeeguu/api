@@ -121,6 +121,7 @@ def detect_article_info():
             "title": existing.title,
             "url": canonical_url,
             "img_url": existing.img_url.as_string() if existing.img_url else None,
+            "cefr_level": existing.cefr_level,
             "exists": True,
         })
 
@@ -132,11 +133,39 @@ def detect_article_info():
         lang = np_article.meta_lang
         title = np_article.title
 
+        # Estimate CEFR for the language modal — ML preferred (per-language
+        # Random Forest), fk_to_cefr as fallback when no ML model exists for
+        # this language. Skip gracefully on error; the modal handles a null.
+        cefr_level = None
+        try:
+            from zeeguu.core.model.language import Language
+            from zeeguu.core.language.strategies.flesch_kincaid_difficulty_estimator import (
+                FleschKincaidDifficultyEstimator,
+            )
+            from zeeguu.core.language.ml_cefr_classifier import predict_cefr_level
+            from zeeguu.core.language.fk_to_cefr import fk_to_cefr
+
+            language = Language.find(lang) if lang else None
+            content = np_article.text or ""
+            if language and content:
+                fk_difficulty = (
+                    FleschKincaidDifficultyEstimator
+                    .flesch_kincaid_readability_index(content, language)
+                )
+                word_count = len(content.split())
+                cefr_level = (
+                    predict_cefr_level(content, lang, fk_difficulty, word_count)
+                    or fk_to_cefr(fk_difficulty)
+                )
+        except Exception as cefr_err:
+            log(f"detect_article_info CEFR estimation failed: {cefr_err}")
+
         return json_result({
             "language": lang,
             "title": title,
             "url": canonical_url,
             "img_url": np_article.top_image or None,
+            "cefr_level": cefr_level,
             "exists": False,
         })
     except Exception as e:
