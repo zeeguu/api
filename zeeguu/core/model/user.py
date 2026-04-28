@@ -673,7 +673,7 @@ class User(db.Model):
 
         self.email = email
         if name:
-         self.name = name
+            self.name = name
 
         if password:
             self.update_password(password)
