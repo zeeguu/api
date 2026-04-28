@@ -2,12 +2,51 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
-SERVER_HOUR_DIFFERENCE = 1  # Frankfurt is +1 from UTC
-
-# Pinned to Frankfurt to match the project's existing convention (see
-# normalize_to_server_time). IANA so DST is handled — a naive offset
-# would silently mis-bucket streaks twice a year.
-SERVER_TZ = ZoneInfo("Europe/Berlin")
+# ---------------------------------------------------------------------------
+# Server-time constants
+#
+# These describe the timezone in which the API CONTAINER's libc clock runs
+# — NOT the host's clock, NOT the project's "intended" timezone.
+#
+# Concretely: `datetime.now()` (and `time.time()`, MySQL `NOW()` from the
+# DB container, etc.) returns whatever the libc inside that container
+# thinks "local time" is. In `~/ops/running/api/docker-compose.yml` the
+# `zapi` service does not pass `TZ=...` and does not bind-mount
+# `/etc/localtime`, so libc defaults to UTC. The host (Hetzner box)
+# reports `Europe/Berlin` from `date`, but Docker does NOT propagate the
+# host's timezone into the container.
+#
+# As of 2026-04-29 the container is UTC, so SERVER_TZ = UTC and
+# SERVER_HOUR_DIFFERENCE = 0.
+#
+# Why this matters: every naive datetime this codebase writes to the DB
+# is a UTC clock reading. `to_user_local_date()` below stamps those
+# naive values with SERVER_TZ before converting to the user's timezone,
+# and `normalize_to_server_time()` writes new naive values at
+# SERVER_HOUR_DIFFERENCE offset from UTC. If either constant disagrees
+# with the container's libc, every user-facing date computation drifts
+# by the gap — silently.
+#
+# History (issue #587): before the commit that introduced this comment,
+# SERVER_TZ was `Europe/Berlin` while the container had been UTC the
+# whole time. For users east of Berlin who practiced during the late
+# UTC evening (their local post-midnight), `last_practiced` was misread
+# as "still yesterday" on every session-update ping, so the streak
+# incremented per-ping instead of once per day. Reproducer: a Bucharest
+# user's Danish streak jumped 3 → 32 inside a single 6-minute audio
+# lesson. The grayed "practiced today" indicator was the same bug.
+#
+# IMPORTANT — future ops changes:
+# If anyone ever passes `TZ=Europe/Berlin` (or any other zone) to the
+# `zapi` service, or bind-mounts `/etc/localtime` from the host, you
+# MUST update both constants below in lockstep AND run a one-shot
+# migration to translate every existing naive datetime column in the
+# DB by the new offset. The mismatch is silent and re-corrupts streak
+# math (and any other date arithmetic) the moment a container ships.
+# Leave a release note. Tell the next person.
+# ---------------------------------------------------------------------------
+SERVER_HOUR_DIFFERENCE = 0  # Container's libc clock is UTC, so offset from UTC is 0.
+SERVER_TZ = ZoneInfo("UTC")
 
 
 def user_zone(user):
