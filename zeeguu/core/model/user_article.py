@@ -359,9 +359,38 @@ class UserArticle(db.Model):
         cls, user: User, article: Article
     ) -> Article:
         """
-        Selects the appropriate article version for a user based on their CEFR level.
-        Used for recommendations, search results, and listings.
+        Selects the appropriate article version for a user.
+
+        For users on the new on-demand flow (`always_open_externally`),
+        the feed serves the original (parent) by default. The only time
+        we swap to a simplified version is when the user has previously
+        simplified-and-saved this article — i.e., a PersonalCopy exists
+        on one of the simplified versions. Simplification is no longer
+        pushed onto the feed at crawl time.
+
+        For everyone else, keep the historical behavior: pick the
+        version that matches the user's CEFR level.
         """
+        if user.has_feature("always_open_externally"):
+            from zeeguu.core.model.personal_copy import PersonalCopy
+
+            root = article
+            if article.parent_article_id:
+                parent = Article.query.get(article.parent_article_id)
+                if parent is not None:
+                    root = parent
+
+            saved_simplified = (
+                Article.query
+                .join(PersonalCopy, PersonalCopy.article_id == Article.id)
+                .filter(
+                    PersonalCopy.user_id == user.id,
+                    Article.parent_article_id == root.id,
+                )
+                .first()
+            )
+            return saved_simplified or root
+
         try:
             user_cefr_level = user.cefr_level_for_learned_language()
         except (AttributeError, IndexError, TypeError):
@@ -663,10 +692,18 @@ class UserArticle(db.Model):
                 article = cls.select_appropriate_article_for_user(user, article)
 
                 # Don't show original articles that aren't simplified —
-                # they'd open externally, which defeats the purpose
-                # (legacy users with the feature toggle can still see them)
+                # for default users this would open externally, defeating
+                # the in-reader purpose. Two flags let originals through:
+                # - show_non_simplified_articles: legacy opt-in for users
+                #   who want both originals and simplified in their feed.
+                # - always_open_externally: the new on-demand flow, where
+                #   originals are the feed default and simplified is only
+                #   used for articles the user has personal-copied.
                 if not article.parent_article_id and not article.uploader_id:
-                    if not user.has_feature("show_non_simplified_articles"):
+                    if not (
+                        user.has_feature("show_non_simplified_articles")
+                        or user.has_feature("always_open_externally")
+                    ):
                         continue
 
             if article.id in seen_ids:
