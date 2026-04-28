@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import flask
 from sqlalchemy.orm import joinedload
 
@@ -120,7 +122,22 @@ def _serialize_user_badges(user_id: int) -> list[dict]:
     achieved_map = {ub.badge_id: ub for ub in user_badges}
     user_badge_progress_list = UserBadgeProgress.find_all(user_id)
     progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
-    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in badge_categories]
+    sorted_categories = sorted(
+        badge_categories,
+        key=lambda bc: (
+            max(
+                (
+                    achieved_map[b.id].achieved_at
+                    for b in bc.badges
+                    if b.id in achieved_map and achieved_map[b.id].achieved_at is not None
+                ),
+                default=datetime.min
+            ),
+            -bc.id
+        ),
+        reverse=True
+    )
+    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in sorted_categories]
 
 
 def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, progress_map: dict) -> dict:
