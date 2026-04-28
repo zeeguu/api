@@ -480,10 +480,20 @@ class UserArticle(db.Model):
                     )
                 )
 
-        if PersonalCopy.exists_for(user, article):
-            returned_info["has_personal_copy"] = True
-        else:
-            returned_info["has_personal_copy"] = False
+        # The feed may swap an original article for its simplified version
+        # (select_appropriate_article_for_user). A PersonalCopy lives on a
+        # specific article id, so a save against the original wouldn't be
+        # detected when the simplified version is what's served. Check the
+        # parent too so saved-status survives the version swap.
+        has_pc = PersonalCopy.exists_for(user, article)
+        if not has_pc and article.parent_article_id:
+            has_pc = (
+                PersonalCopy.query.filter_by(
+                    user_id=user.id, article_id=article.parent_article_id
+                ).first()
+                is not None
+            )
+        returned_info["has_personal_copy"] = bool(has_pc)
 
         # Clear MWE metadata from tokens that user has disabled
         # This is done on backend to keep frontend simple (ADR 009)
