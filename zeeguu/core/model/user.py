@@ -676,11 +676,10 @@ class User(db.Model):
         if self.invitation_code:
             cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == self.invitation_code.lower()).first()
             if cohort and cohort.cohort_still_has_capacity():
-                self.add_user_to_cohort(cohort.name, db.session)
+                self.add_user_to_cohort(cohort, db.session)
             else:
-                raise Exception(
-                    "No more places in this class. Please contact us (zeeguu.team@gmail.com)."
-                )
+                log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
+                    f"{self.invitation_code} does not exist or does not have enough capacity")
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 
