@@ -121,6 +121,7 @@ def detect_article_info():
             "title": existing.title,
             "url": canonical_url,
             "img_url": existing.img_url.as_string() if existing.img_url else None,
+            "cefr_level": existing.cefr_level,
             "exists": True,
         })
 
@@ -132,11 +133,22 @@ def detect_article_info():
         lang = np_article.meta_lang
         title = np_article.title
 
+        # Estimate CEFR for the language modal. The helper tries ML first
+        # (per-language Random Forest) and falls back to fk_to_cefr; on
+        # error, cefr_level stays None and the modal omits the level.
+        cefr_level = None
+        try:
+            from zeeguu.core.language.cefr_estimator import estimate_cefr_for_text
+            cefr_level = estimate_cefr_for_text(np_article.text or "", lang)
+        except Exception as cefr_err:
+            log(f"detect_article_info CEFR estimation failed: {cefr_err}")
+
         return json_result({
             "language": lang,
             "title": title,
             "url": canonical_url,
             "img_url": np_article.top_image or None,
+            "cefr_level": cefr_level,
             "exists": False,
         })
     except Exception as e:

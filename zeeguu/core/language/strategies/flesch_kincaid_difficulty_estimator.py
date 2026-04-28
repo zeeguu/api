@@ -10,6 +10,21 @@ from zeeguu.core.model.language import Language
 from collections import Counter
 
 
+# pyphen.Pyphen(lang=code) re-parses the language's hyphenation dictionary
+# every call. Hoisting to a module-level cache turns thousands of repeated
+# instantiations (FK runs syllable counting once per unique word) into a
+# single load per language for the lifetime of the process.
+_PYPHEN_CACHE = {}
+
+
+def _get_pyphen(lang_code: str) -> "pyphen.Pyphen":
+    cached = _PYPHEN_CACHE.get(lang_code)
+    if cached is None:
+        cached = pyphen.Pyphen(lang=lang_code)
+        _PYPHEN_CACHE[lang_code] = cached
+    return cached
+
+
 class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
     """
     The Flesch-Kincaid readability index is a classic readability index.
@@ -110,7 +125,7 @@ class FleschKincaidDifficultyEstimator(DifficultyEstimatorStrategy):
         else:
             # pyphen can't hyphenate on 'no' - so we use 'nb' instead
             code = "nb" if language.code == "no" else language.code
-            dic = pyphen.Pyphen(lang=code)
+            dic = _get_pyphen(code)
             syllables = len(dic.positions(word)) + 1
             return syllables
 
