@@ -54,10 +54,16 @@ class UserAvatar(db.Model):
         Does not commit.
         """
         user_avatar = cls.find(user_id)
-        if user_avatar:
+        if not user_avatar: 
+            # Return new user avatar
+            return UserAvatar(user_id, image_name, character_color, background_color)
+        
+        # Update the current user avatar
+        if image_name:
             user_avatar.image_name = image_name
+        if character_color:
             user_avatar.character_color = character_color
+        if background_color:
             user_avatar.background_color = background_color
-        else:
-            user_avatar = UserAvatar(user_id, image_name, character_color, background_color)
+
         return user_avatar
