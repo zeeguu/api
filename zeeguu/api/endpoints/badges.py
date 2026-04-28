@@ -55,7 +55,7 @@ def get_my_badges():
                "current_value": 10
             }, ... ]
     """
-    return json_result(_serialize_user_badges(flask.g.user_id))
+    return json_result(_serialize_user_badges(flask.g.user_id, is_self=True))
 
 # ---------------------------------------------------------------------------
 @api.route("/friend_badges/<username>", methods=["GET"])
@@ -90,7 +90,7 @@ def get_friend_badges(username):
         return []
     if friend.id != flask.g.user_id and not Friendship.are_friends(flask.g.user_id, friend.id):
         return make_error(403, "You can only view badges for yourself or your friends.")
-    return json_result(_serialize_user_badges(friend.id))
+    return json_result(_serialize_user_badges(friend.id, is_self=False))
 
 # ---------------------------------------------------------------------------
 @api.route("/badges/mark_all_seen", methods=["POST"])
@@ -116,6 +116,31 @@ def mark_all_badges_as_seen():
     return json_result({"updated": True})
 
 
+def _serialize_user_badges(user_id: int, is_self: bool) -> list[dict]:
+    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
+    user_badges = UserBadge.find_all(user_id)
+    achieved_map = {ub.badge_id: ub for ub in user_badges}
+    sorted_categories = sorted(
+        badge_categories,
+        key=lambda bc: (_most_recent_achievement(bc, achieved_map), -bc.id),
+        reverse=True,
+    )
+
+    if is_self:
+        user_badge_progress_list = UserBadgeProgress.find_all(user_id)
+        progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
+        return [
+            _serialize_badge_category_for_self(bc, achieved_map, progress_map)
+            for bc in sorted_categories
+        ]
+
+    friend_categories = [
+        _serialize_badge_category_for_friend(bc, achieved_map)
+        for bc in sorted_categories
+    ]
+    return [category for category in friend_categories if category is not None]
+
+
 def _most_recent_achievement(badge_category: BadgeCategory, achieved_map: dict) -> datetime:
     return max(
         (
@@ -127,27 +152,16 @@ def _most_recent_achievement(badge_category: BadgeCategory, achieved_map: dict) 
     )
 
 
-def _serialize_user_badges(user_id: int) -> list[dict]:
-    badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
-    user_badges = UserBadge.find_all(user_id)
-    achieved_map = {ub.badge_id: ub for ub in user_badges}
-    user_badge_progress_list = UserBadgeProgress.find_all(user_id)
-    progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
-    sorted_categories = sorted(
-        badge_categories,
-        key=lambda bc: (_most_recent_achievement(bc, achieved_map), -bc.id),
-        reverse=True,
-    )
-    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in sorted_categories]
-
-
-def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, progress_map: dict) -> dict:
-    metric = progress_map.get(badge_category.id)
+def _serialize_badge_category_for_self(
+    badge_category: BadgeCategory,
+    achieved_map: dict,
+    progress_map: dict,
+) -> dict:
     badges = [
-        serialize_badge(badge, achieved_map.get(badge.id))
+        _serialize_badge(badge, achieved_map.get(badge.id))
         for badge in sorted(badge_category.badges, key=lambda b: b.level)
     ]
-
+    metric = progress_map.get(badge_category.id)
     return {
         "name": badge_category.name,
         "badges": badges,
@@ -155,7 +169,24 @@ def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, 
     }
 
 
-def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
+def _serialize_badge_category_for_friend(
+    badge_category: BadgeCategory,
+    achieved_map: dict,
+) -> dict | None:
+    badges = [
+        _serialize_badge(badge, achieved_map.get(badge.id))
+        for badge in sorted(badge_category.badges, key=lambda b: b.level)
+        if badge.id in achieved_map
+    ]
+    if len(badges) == 0:
+        return None
+    return {
+        "name": badge_category.name,
+        "badges": badges,
+    }
+
+
+def _serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "level": badge.level,
         "name": badge.name,
