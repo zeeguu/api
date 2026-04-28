@@ -1,5 +1,5 @@
-Create a language learning audio script with a single flowing conversation set in this real-world situation: "{suggestion}".
-The characters should be in roles appropriate to the situation (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway, etc). Choose realistic roles that fit the scenario naturally.
+Create a language learning audio script with a single flowing conversation set in this situation: "{suggestion}".
+Choose roles appropriate to the scenario. If the situation names a specific person — real, historical, fictional, or religious (e.g. "discussion with Einstein about gravity", "imaginary chat with St. Augustine", "imaginary discussion with Jesus about social media") — cast that person as one speaker and a curious modern conversation partner as the other; treat the dialogue as imaginary, framed as if such a meeting could happen. Otherwise, choose realistic roles that fit the scenario naturally (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway).
 Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
 
 CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
@@ -50,7 +50,7 @@ RULES:
 - TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
 - Include [X seconds] timing for pauses
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
-- Man and Woman must be adults. Never create child characters.
+- Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available, so even fictional or imagined children cannot speak.
 - Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
