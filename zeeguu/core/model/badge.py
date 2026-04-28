@@ -13,7 +13,8 @@ class Badge(db.Model):
     level = db.Column(db.Integer, nullable=False)
     threshold = db.Column(db.Integer, nullable=False)
     name = db.Column(db.String(100))
-    description = db.Column(db.Text)
+    unachieved_description = db.Column(db.Text, nullable=False)
+    achieved_description = db.Column(db.Text, nullable=False)
     icon_name = db.Column(db.String(255))
 
     __table_args__ = (
