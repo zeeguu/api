@@ -14,7 +14,7 @@ class Badge(db.Model):
     threshold = db.Column(db.Integer, nullable=False)
     name = db.Column(db.String(100))
     unachieved_description = db.Column(db.Text, nullable=False)
-    achieved_description = db.Column(db.Text)
+    achieved_description = db.Column(db.Text, nullable=False)
     icon_name = db.Column(db.String(255))
 
     __table_args__ = (

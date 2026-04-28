@@ -117,3 +117,6 @@ SET
       WHEN 35 THEN '10 friends. You''ve built a small community.'
     END
 WHERE ID BETWEEN 1 AND 35;
+
+-- Enforce NOT NULL after data is populated
+ALTER TABLE badge MODIFY achieved_description TEXT NOT NULL;
