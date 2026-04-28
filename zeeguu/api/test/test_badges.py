@@ -13,7 +13,7 @@ def _create_test_badge_category():
     )
     db.session.add(at)
     db.session.flush()
-    db.session.add(Badge(badge_category_id=at.isd, level=1, threshold=50, name="Word Explorer", unachieved_description="Translate 50 words while reading.", achieved_description="Translate 50 words while reading.", icon_name="/badge1.svg"))
+    db.session.add(Badge(badge_category_id=at.id, level=1, threshold=50, name="Word Explorer", unachieved_description="Translate 50 words while reading.", achieved_description="Translate 50 words while reading.", icon_name="/badge1.svg"))
     db.session.commit()
 
 
