@@ -192,6 +192,7 @@ def _serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
         "name": badge.name,
         "unachieved_description": badge.unachieved_description,
         "achieved_description": badge.achieved_description,
+        "description": badge.achieved_description,  # legacy alias for old mobile clients
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,
