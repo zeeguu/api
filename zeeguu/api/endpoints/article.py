@@ -133,30 +133,13 @@ def detect_article_info():
         lang = np_article.meta_lang
         title = np_article.title
 
-        # Estimate CEFR for the language modal — ML preferred (per-language
-        # Random Forest), fk_to_cefr as fallback when no ML model exists for
-        # this language. Skip gracefully on error; the modal handles a null.
+        # Estimate CEFR for the language modal. The helper tries ML first
+        # (per-language Random Forest) and falls back to fk_to_cefr; on
+        # error, cefr_level stays None and the modal omits the level.
         cefr_level = None
         try:
-            from zeeguu.core.model.language import Language
-            from zeeguu.core.language.strategies.flesch_kincaid_difficulty_estimator import (
-                FleschKincaidDifficultyEstimator,
-            )
-            from zeeguu.core.language.ml_cefr_classifier import predict_cefr_level
-            from zeeguu.core.language.fk_to_cefr import fk_to_cefr
-
-            language = Language.find(lang) if lang else None
-            content = np_article.text or ""
-            if language and content:
-                fk_difficulty = (
-                    FleschKincaidDifficultyEstimator
-                    .flesch_kincaid_readability_index(content, language)
-                )
-                word_count = len(content.split())
-                cefr_level = (
-                    predict_cefr_level(content, lang, fk_difficulty, word_count)
-                    or fk_to_cefr(fk_difficulty)
-                )
+            from zeeguu.core.language.cefr_estimator import estimate_cefr_for_text
+            cefr_level = estimate_cefr_for_text(np_article.text or "", lang)
         except Exception as cefr_err:
             log(f"detect_article_info CEFR estimation failed: {cefr_err}")
 
