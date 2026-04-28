@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import flask
 from sqlalchemy.orm import joinedload
 
@@ -114,13 +116,29 @@ def mark_all_badges_as_seen():
     return json_result({"updated": True})
 
 
+def _most_recent_achievement(badge_category: BadgeCategory, achieved_map: dict) -> datetime:
+    return max(
+        (
+            achieved_map[b.id].achieved_at
+            for b in badge_category.badges
+            if b.id in achieved_map and achieved_map[b.id].achieved_at is not None
+        ),
+        default=datetime.min,
+    )
+
+
 def _serialize_user_badges(user_id: int) -> list[dict]:
     badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
     user_badges = UserBadge.find_all(user_id)
     achieved_map = {ub.badge_id: ub for ub in user_badges}
     user_badge_progress_list = UserBadgeProgress.find_all(user_id)
     progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
-    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in badge_categories]
+    sorted_categories = sorted(
+        badge_categories,
+        key=lambda bc: (_most_recent_achievement(bc, achieved_map), -bc.id),
+        reverse=True,
+    )
+    return [serialize_badge_category(bc, achieved_map, progress_map) for bc in sorted_categories]
 
 
 def serialize_badge_category(badge_category: BadgeCategory, achieved_map: dict, progress_map: dict) -> dict:
