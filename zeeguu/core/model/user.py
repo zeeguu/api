@@ -647,12 +647,12 @@ class User(db.Model):
             f"UPDATE_PASSWORD SUCCESS: user_id={self.id}, email='{self.email}' - Password updated with bcrypt"
         )
 
-    def upgrade_to_full_account(self, email, username, password=None):
+    def upgrade_to_full_account(self, email, name=None, password=None):
         """
         Upgrade an anonymous account to a full account with real email/username.
 
         :param email: Real email address
-        :param username: Display name
+        :param name: Display name
         :param password: Optional new password (keeps existing if not provided)
         :raises ValueError: If user is not anonymous or email is invalid/taken
         """
@@ -684,7 +684,8 @@ class User(db.Model):
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 
         self.email = email
-        self.name = username
+        if name:
+            self.name = name
 
         if password:
             self.update_password(password)

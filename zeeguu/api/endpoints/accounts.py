@@ -273,7 +273,7 @@ def complete_account_upgrade():
 
     try:
         user = User.find_by_id(flask.g.user_id)
-        user.upgrade_to_full_account(email, email, password)
+        user.upgrade_to_full_account(email, password=password)
         user.email_verified = True  # Already verified via code
 
         # Clean up codes
