@@ -116,6 +116,17 @@ def mark_all_badges_as_seen():
     return json_result({"updated": True})
 
 
+def _most_recent_achievement(badge_category: BadgeCategory, achieved_map: dict) -> datetime:
+    return max(
+        (
+            achieved_map[b.id].achieved_at
+            for b in badge_category.badges
+            if b.id in achieved_map and achieved_map[b.id].achieved_at is not None
+        ),
+        default=datetime.min,
+    )
+
+
 def _serialize_user_badges(user_id: int) -> list[dict]:
     badge_categories = BadgeCategory.query.options(joinedload(BadgeCategory.badges)).all()
     user_badges = UserBadge.find_all(user_id)
@@ -124,18 +135,8 @@ def _serialize_user_badges(user_id: int) -> list[dict]:
     progress_map = {um.badge_category_id: um for um in user_badge_progress_list}
     sorted_categories = sorted(
         badge_categories,
-        key=lambda bc: (
-            max(
-                (
-                    achieved_map[b.id].achieved_at
-                    for b in bc.badges
-                    if b.id in achieved_map and achieved_map[b.id].achieved_at is not None
-                ),
-                default=datetime.min
-            ),
-            -bc.id
-        ),
-        reverse=True
+        key=lambda bc: (_most_recent_achievement(bc, achieved_map), -bc.id),
+        reverse=True,
     )
     return [serialize_badge_category(bc, achieved_map, progress_map) for bc in sorted_categories]
 
