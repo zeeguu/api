@@ -185,6 +185,7 @@ class User(db.Model):
         learned_language_code=None,
         native_language_code=None,
         creation_platform=None,
+        invite_code=None,
     ):
         """
 
@@ -224,6 +225,7 @@ class User(db.Model):
             learned_language=learned_language,
             native_language=native_language,
             creation_platform=creation_platform,
+            invitation_code=invite_code
         )
         new_user.email_verified = False
 
@@ -668,6 +670,16 @@ class User(db.Model):
         # Check email not already taken
         if User.email_exists(email):
             raise ValueError("Email already in use")
+
+        # Add anonymous user to cohort on account upgrade. 
+        from zeeguu.core.model import Cohort
+        if self.invitation_code:
+            cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == self.invitation_code.lower()).first()
+            if cohort and cohort.cohort_still_has_capacity():
+                self.add_user_to_cohort(cohort, db.session)
+            else:
+                log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
+                    f"{self.invitation_code} does not exist or does not have enough capacity")
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 

@@ -144,10 +144,19 @@ def add_anon_user():
     native_code = request.form.get("native_language_code", None)
     cefr_level = request.form.get("learned_cefr_level", None)
     platform = request.form.get("platform", None)
+    invite_code = request.form.get("invite_code", None)
 
     try:
         generated_username, animal = User.generate_unique_username()
-        new_user = User.create_anonymous(uuid, password, generated_username, language_code, native_code, creation_platform=platform)
+        new_user = User.create_anonymous(
+            uuid,
+            password,
+            generated_username,
+            language_code,
+            native_code,
+            creation_platform=platform,
+            invite_code=invite_code
+         )
         db_session.add(new_user)
         db_session.commit()
 
@@ -189,7 +198,7 @@ def upgrade_anon_user():
         user.upgrade_to_full_account(email, username, password)
         user.email_verified = False  # Requires confirmation
         db_session.commit()
-
+      
         # Send confirmation email
         code = UniqueCode(email)
         db_session.add(code)
