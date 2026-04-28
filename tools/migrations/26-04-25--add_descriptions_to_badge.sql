@@ -1,11 +1,11 @@
--- Add default descriptions directly on badges.
+-- Add unachieved descriptions directly on badges.
 -- These are used as fallback descriptions before a badge is achieved.
 -- Each description already includes the correct threshold value.
 
-ALTER TABLE badge ADD COLUMN default_description TEXT;
+ALTER TABLE badge ADD COLUMN unachieved_description TEXT;
 
 UPDATE badge
-SET default_description = CASE id
+SET unachieved_description = CASE id
   -- Translated Words
   WHEN 1 THEN 'Translate 10 unique words while reading.'
   WHEN 2 THEN 'Translate 100 unique words while reading.'
@@ -58,13 +58,15 @@ END
 WHERE id BETWEEN 1 AND 35;
 
 -- Enforce NOT NULL after data is populated
-ALTER TABLE badge MODIFY default_description TEXT NOT NULL;
+ALTER TABLE badge MODIFY unachieved_description TEXT NOT NULL;
+
+ALTER TABLE badge CHANGE description achieved_description TEXT;
 
 -- Update badge descriptions with funnier/playful ones
 -- Once a badge is achieved, the corresponding description will be displayed
 UPDATE badge
 SET
-    description = CASE id
+    achieved_description = CASE id
       -- Translated Words
       WHEN 1 THEN '10 words translated. Each tap, a tiny ''aha!''.'
       WHEN 2 THEN '100 words cracked open. Your future self is already impressed.'

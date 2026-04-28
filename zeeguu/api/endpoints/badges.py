@@ -141,8 +141,8 @@ def serialize_badge(badge: Badge, user_badge: UserBadge | None) -> dict:
     return {
         "level": badge.level,
         "name": badge.name,
-        "default_description": badge.default_description,
-        "description": badge.description,
+        "unachieved_description": badge.unachieved_description,
+        "achieved_description": badge.achieved_description,
         "threshold": badge.threshold,
         "icon_name": badge.icon_name,
         "achieved": user_badge is not None,
