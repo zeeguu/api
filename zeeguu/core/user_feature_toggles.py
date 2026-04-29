@@ -139,7 +139,7 @@ def _verbal_flashcards(user):
     flashcards invite code, or who belong to the cohort associated with
     that code.
     """
-    VERBAL_FLASHCARDS_INVITE_CODE = "VF7K2M9Q"
+    VERBAL_FLASHCARDS_INVITE_CODE = "spring2026"
 
     if user.is_dev:
         return True

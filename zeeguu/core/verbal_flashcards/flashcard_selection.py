@@ -45,8 +45,11 @@ def get_flashcard_collection(user):
     seen_words = set()
 
     for user_word in user_words:
-        if (user_word.level or 0) < 3:
-            continue
+        """
+        Disabled during experimentation, due to uncertainty of participants having level 3 words.
+        """
+        """if (user_word.level or 0) < 3:
+            continue"""
 
         word_text = user_word.meaning.origin.content.lower()
         if word_text in seen_words:
