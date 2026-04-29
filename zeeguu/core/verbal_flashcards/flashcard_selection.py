@@ -19,16 +19,8 @@ def _verbal_flashcard_from_bookmark(bookmark):
 
     return {
         "id": str(bookmark.id),
-        "bookmark_id": bookmark.id,
-        "user_word_id": user_word.id,
-        "level": user_word.level,
-        "from": user_word.meaning.origin.content,
-        "to": user_word.meaning.translation.content,
-        "origin": user_word.meaning.origin.content,
-        "translation": user_word.meaning.translation.content,
         "prompt": prompt,
         "answer": answer,
-        "expectedText": answer,
     }
 
 
@@ -38,7 +30,7 @@ def _verbal_flashcard_from_user_word(user_word):
 
 def get_flashcard_collection(user):
     """
-    Return level-3+ Zeeguu study words as minimal verbal flashcards.
+    Return Zeeguu study words as minimal verbal flashcards.
     """
     user_words = BasicSRSchedule.user_words_to_study(user)
     flashcards = []
@@ -68,16 +60,6 @@ def get_flashcard_collection(user):
     return flashcards
 
 
-def find_flashcard_for_user(user, flashcard_id):
-    if not flashcard_id:
-        return None
-
-    return next(
-        (card for card in get_flashcard_collection(user) if card["id"] == flashcard_id),
-        None,
-    )
-
-
 def find_flashcard_submission_target(user, flashcard_id):
     if not flashcard_id:
         return None
@@ -86,15 +68,12 @@ def find_flashcard_submission_target(user, flashcard_id):
     if not bookmark or not bookmark.user_word or bookmark.user_word.user_id != user.id:
         return None
 
-    if (bookmark.user_word.level or 0) < 3:
-        return None
-
-    return _verbal_flashcard_from_bookmark(bookmark)
+    return bookmark
 
 
 def ensure_schedule_for_verbal_flashcard(db_session, user_word):
     """
-    Verbal flashcards can target higher-level words that are not currently in the
+    Verbal flashcards can target words that are not currently in the
     standard exercise pipeline. Create a schedule row without resetting the level
     so the word appears in /words after it is practiced.
     """

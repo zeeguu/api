@@ -1,5 +1,4 @@
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
-from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.verbal_flashcards.flashcard_selection import (
     ensure_schedule_for_verbal_flashcard,
     find_flashcard_submission_target,
@@ -21,13 +20,15 @@ def record_flashcard_answer(
     session_id,
     language_code=None,
 ):
-    flashcard = find_flashcard_submission_target(user, flashcard_id)
-    if not flashcard:
+    bookmark = find_flashcard_submission_target(user, flashcard_id)
+    if not bookmark:
         return None
+
+    user_word = bookmark.user_word
 
     accuracy_analysis = None
     if user_answer:
-        expected_text = flashcard["expectedText"]
+        expected_text = user_word.meaning.origin.content
         accuracy_analysis = calculate_accuracy(
             user_answer,
             expected_text,
@@ -39,11 +40,6 @@ def record_flashcard_answer(
 
     exercise_outcome = ExerciseOutcome.CORRECT if is_correct else ExerciseOutcome.WRONG
     other_feedback = f"answer_source={answer_source}"
-    flashcard_user_word_id = flashcard["user_word_id"]
-
-    user_word = UserWord.query.get(flashcard_user_word_id)
-    if not user_word or user_word.user_id != user.id:
-        return None
 
     ensure_schedule_for_verbal_flashcard(db_session, user_word)
 
