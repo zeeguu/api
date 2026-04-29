@@ -207,7 +207,7 @@ def get_flashcards():
     except Exception as e:
         log(f"Get flashcards error: {e}")
         traceback.print_exc()
-        return json_result({"error": str(e)}), 500
+        return json_result({"error": "Get flashcards error"}), 500
 
 
 @api.route("/verbal_flashcards/submit", methods=["POST"])
@@ -282,7 +282,7 @@ def submit_answer():
     except Exception as e:
         log(f"Submit answer error: {e}")
         traceback.print_exc()
-        return json_result({"error": str(e)}), 500
+        return json_result({"error": "Submit answer error"}), 500
 
 
 @api.route("/verbal_flashcards/check_pronunciation", methods=["POST"])
@@ -329,4 +329,4 @@ def check_pronunciation():
     except Exception as e:
         log(f"Check pronunciation error: {e}")
         traceback.print_exc()
-        return json_result({"error": str(e)}), 500
+        return json_result({"error": "Check pronunciation error"}), 500
