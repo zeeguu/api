@@ -219,7 +219,7 @@ class User(db.Model):
 
         new_user = cls(
             fake_email,
-            uuid,
+            None,
             password,
             username,
             learned_language=learned_language,
