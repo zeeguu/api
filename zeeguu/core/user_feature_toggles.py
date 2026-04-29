@@ -91,13 +91,18 @@ def _always_open_externally(user):
     Click-through behavior is unchanged: the redirect-notification modal
     still appears unless the user has dismissed it with "don't show again".
 
-    Rollout: the original pilot users, plus every user signed up from id
-    6367 onwards (i.e., all new users going forward). Existing users keep
-    the in-reader flow until we flip the default for them too.
+    Rollout: the original pilot users, every user signed up from id 6367
+    onwards (i.e., all new users going forward), and all dev accounts so
+    the team dogfoods the on-demand flow. Existing non-dev users keep the
+    in-reader flow until we flip the default for them too.
     """
     BETA_USER_IDS = {4607, 6083, 6250}
     NEW_USER_THRESHOLD = 6367
-    return user.id in BETA_USER_IDS or user.id >= NEW_USER_THRESHOLD
+    return (
+        user.is_dev
+        or user.id in BETA_USER_IDS
+        or user.id >= NEW_USER_THRESHOLD
+    )
 
 
 def _hide_recommendations(user):
