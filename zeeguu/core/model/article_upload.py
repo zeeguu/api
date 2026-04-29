@@ -117,12 +117,15 @@ class ArticleUpload(db.Model):
         return upload
 
     def as_dictionary(self):
+        # Key is `img_url` to match /detect_article_info and the rest of the
+        # web client (article.img_url, ArticlePreview, etc.) — the share-flow
+        # consumer reads the same field regardless of which endpoint fed it.
         return {
             "id": self.id,
             "url": self.url.as_string() if self.url else None,
             "title": self.title,
             "language": self.language.code if self.language else None,
-            "image_url": self.image_url,
+            "img_url": self.image_url,
             "author": self.author,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

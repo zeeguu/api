@@ -101,9 +101,23 @@ def article_upload_create():
 @cross_domain
 @requires_session
 def article_upload_get(upload_id):
+    from zeeguu.core.language.cefr_estimator import estimate_cefr_for_text
+
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
-    return json_result(upload.as_dictionary())
+    payload = upload.as_dictionary()
+
+    # Mirror /detect_article_info: the share-flow modal renders the level
+    # when present. Estimation is a few-ms ML+FK pass over a 5KB sample.
+    try:
+        lang_code = upload.language.code if upload.language else None
+        payload["cefr_level"] = estimate_cefr_for_text(
+            upload.text_content or upload.raw_html or "", lang_code
+        )
+    except Exception:
+        payload["cefr_level"] = None
+
+    return json_result(payload)
 
 
 @api.route("/article_upload/<int:upload_id>/promote_to_article", methods=["POST"])
