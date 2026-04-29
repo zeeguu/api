@@ -36,7 +36,7 @@ class UserTest(ModelTestMixIn):
         )
 
         assert user_to_check.email == str(self.user.id) + User.ANONYMOUS_EMAIL_DOMAIN
-        assert user_to_check.name == str(self.user.id)
+        assert user_to_check.name is None
         assert user_to_check.username == self.user.username
         assert user_to_check.learned_language == self.user.learned_language
         assert user_to_check.native_language == self.user.native_language
