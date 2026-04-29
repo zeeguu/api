@@ -120,6 +120,10 @@ def transcribe_audio_endpoint():
     }
     """
     try:
+        user, feature_gate = _current_verbal_flashcards_user()
+        if feature_gate:
+            return feature_gate
+
         _ensure_request_audio_size_is_allowed()
 
         if "file" not in request.files:
@@ -128,10 +132,6 @@ def transcribe_audio_endpoint():
         audio_file = request.files["file"]
         if audio_file.filename == "":
             return json_result({"error": "Empty filename"}), 400
-
-        user, feature_gate = _current_verbal_flashcards_user()
-        if feature_gate:
-            return feature_gate
 
         learned_language_code = user.learned_language.code if user.learned_language else None
 
@@ -230,6 +230,10 @@ def submit_answer():
     Returns updated user progress and accuracy analysis.
     """
     try:
+        user, feature_gate = _current_verbal_flashcards_user()
+        if feature_gate:
+            return feature_gate
+
         data = request.get_json()
         if not data:
             return json_result({"error": "JSON body required"}), 400
@@ -244,9 +248,6 @@ def submit_answer():
         if not flashcard_id or is_correct is None:
             return json_result({"error": "flashcard_id and is_correct are required"}), 400
 
-        user, feature_gate = _current_verbal_flashcards_user()
-        if feature_gate:
-            return feature_gate
         learned_language_code = user.learned_language.code if user.learned_language else None
 
         try:
@@ -299,13 +300,13 @@ def check_pronunciation():
     }
     """
     try:
-        data = request.get_json()
-        if not data:
-            return json_result({"error": "JSON body required"}), 400
-
         user, feature_gate = _current_verbal_flashcards_user()
         if feature_gate:
             return feature_gate
+
+        data = request.get_json()
+        if not data:
+            return json_result({"error": "JSON body required"}), 400
 
         user_speech = data.get("user_speech", "")
         expected_text = data.get("expected_text", "")

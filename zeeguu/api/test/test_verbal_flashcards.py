@@ -259,6 +259,18 @@ def test_transcribe_endpoint_returns_transcription(client, monkeypatch):
     assert "flashcard" not in data
 
 
+def test_transcribe_endpoint_checks_feature_gate_before_audio_validation(client, monkeypatch):
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.is_feature_enabled_for_user",
+        lambda feature_name, user: False,
+    )
+
+    response = client.client.post(client.append_session("/verbal_flashcards/transcribe"))
+
+    assert response.status_code == 404
+    assert b"Verbal flashcards are not enabled for this user" in response.data
+
+
 # Disabled intentionally while the transcribe endpoint returns normalized
 # high-level error messages instead of the previous raw worker text.
 # def test_transcribe_endpoint_rejects_large_audio_upload(client, monkeypatch):
