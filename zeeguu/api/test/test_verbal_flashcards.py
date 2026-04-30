@@ -187,6 +187,7 @@ def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
     assert result["acceptedWordCount"] == 2
     assert result["acceptedAccuracy"] == 100
     assert result["accuracy"] == 100
+    assert result["feedback"] == "Success"
 
 
 def test_calculate_accuracy_marks_close_but_incorrect_words():
@@ -196,12 +197,23 @@ def test_calculate_accuracy_marks_close_but_incorrect_words():
 
     assert result["isAccepted"] is False
     assert result["acceptedWordCount"] == 1
+    assert result["feedback"] == "Very close, try again"
     assert result["wordMatches"][0]["word"] == "bog"
     assert result["wordMatches"][0]["isCorrect"] is False
     assert result["wordMatches"][0]["isClose"] is False
 
 
-def test_check_pronunciation_requires_both_fields(client):
+def test_calculate_accuracy_says_when_nothing_was_caught():
+    from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
+
+    result = calculate_accuracy("zzz yyy", "stor hund")
+
+    assert result["isAccepted"] is False
+    assert result["acceptedWordCount"] == 0
+    assert result["feedback"] == "Didn't catch that, try again"
+
+
+def test_check_pronunciation_requires_expected_text(client):
     _prepare_bookmark_support()
 
     response = client.client.post(
@@ -210,7 +222,20 @@ def test_check_pronunciation_requires_both_fields(client):
     )
 
     assert response.status_code == 400
-    assert b"user_speech and expected_text are required" in response.data
+    assert b"expected_text is required" in response.data
+
+
+def test_check_pronunciation_accepts_empty_speech_as_not_caught(client):
+    _prepare_bookmark_support()
+
+    response = client.post(
+        "/verbal_flashcards/check_pronunciation",
+        json={"user_speech": "", "expected_text": "stor hund"},
+    )
+
+    assert response["isAccepted"] is False
+    assert response["acceptedWordCount"] == 0
+    assert response["feedback"] == "Didn't catch that, try again"
 
 
 def test_check_pronunciation_returns_accuracy_analysis(client):

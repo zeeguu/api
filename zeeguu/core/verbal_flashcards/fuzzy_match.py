@@ -320,7 +320,11 @@ def calculate_accuracy(user_speech, expected_text, language_code=None):
 
 
 def get_feedback_message(accepted_words, total_words):
-    """Return one of the two simplified feedback outcomes for verbal flashcards."""
-    if total_words and accepted_words == total_words:
+    """Return one of the simplified feedback outcomes for verbal flashcards."""
+    if not total_words:
+        return ""
+    if accepted_words == total_words:
         return "Success"
+    if accepted_words == 0:
+        return "Didn't catch that, try again"
     return "Very close, try again"

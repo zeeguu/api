@@ -315,8 +315,8 @@ def check_pronunciation():
             or (user.learned_language.code if user.learned_language else None)
         )
 
-        if not user_speech or not expected_text:
-            return json_result({"error": "user_speech and expected_text are required"}), 400
+        if not expected_text:
+            return json_result({"error": "expected_text is required"}), 400
 
         accuracy_analysis = calculate_accuracy(
             user_speech,
