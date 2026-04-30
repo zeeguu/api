@@ -50,7 +50,7 @@ def _assign(users: list[User], *, prefer_no_digit: bool, assigned_in_session: se
     total = len(users)
     avatar_count = 0
     for i, user in enumerate(users, 1):
-        generated_username, animal = User.generate_unique_username(
+        generated_username, _, animal = User.generate_unique_username(
             exclude=assigned_in_session,
             prefer_no_digit=prefer_no_digit,
         )
