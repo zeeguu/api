@@ -160,7 +160,8 @@ def add_anon_user():
         db_session.add(new_user)
         db_session.commit()
 
-        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        character_color, background_color = UserAvatar.random_colors()
+        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
         db_session.commit()
 
