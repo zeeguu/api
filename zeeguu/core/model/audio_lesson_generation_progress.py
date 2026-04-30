@@ -56,12 +56,19 @@ class AudioLessonGenerationProgress(db.Model):
         return f"<AudioLessonGenerationProgress user={self.user_id} status={self.status}>"
 
     def _segment_prefix(self):
+        # Single-segment lessons are topic/situation dialogues, where the
+        # topic/situation already shows as the title on the generation
+        # screen — repeating it in the status message is redundant.
+        if self.total_segments == 1:
+            return None
         name = getattr(self, '_current_segment_name', None)
-        if self.total_segments == 1 and name:
-            return name
         if name:
             return f"Segment {self.current_segment}/{self.total_segments} ({name})"
         return f"Segment {self.current_segment}/{self.total_segments}"
+
+    def _format_message(self, suffix):
+        prefix = self._segment_prefix()
+        return f"{prefix}: {suffix}" if prefix else suffix
 
     def start_segment(self, segment_number, segment_name=None):
         """Called when starting to process a new segment."""
@@ -70,29 +77,31 @@ class AudioLessonGenerationProgress(db.Model):
         self.total_steps = 0
         self.status = "generating_script"
         self._current_segment_name = segment_name
-        self.message = f"{self._segment_prefix()}: Generating script..."
+        self.message = self._format_message("Generating script...")
         db.session.flush()
 
     def update_generating_script(self):
         self.status = "generating_script"
-        self.message = f"{self._segment_prefix()}: Generating script..."
+        self.message = self._format_message("Generating script...")
         db.session.flush()
 
     def update_script_done(self):
         self.status = "synthesizing_audio"
-        self.message = f"{self._segment_prefix()}: Synthesizing audio..."
+        self.message = self._format_message("Synthesizing audio...")
         db.session.flush()
 
     def update_segment(self, step_number, total_steps, voice_type):
         """Called when synthesizing each audio segment."""
         self.current_step = step_number
         self.total_steps = total_steps
-        self.message = f"{self._segment_prefix()}: Synthesizing {voice_type} voice ({step_number}/{total_steps})"
+        self.message = self._format_message(
+            f"Synthesizing {voice_type} voice ({step_number}/{total_steps})"
+        )
         db.session.flush()
 
     def update_combining(self):
         self.status = "combining_audio"
-        self.message = f"{self._segment_prefix()}: Combining audio..."
+        self.message = self._format_message("Combining audio...")
         db.session.flush()
 
     def mark_done(self):
