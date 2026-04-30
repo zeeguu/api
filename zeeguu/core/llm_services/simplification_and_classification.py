@@ -106,7 +106,7 @@ def simplify_article_adaptive_levels(
                 ...
             },
             'provider': str,  # 'deepseek' or 'anthropic'
-            'model_name': str  # e.g., 'deepseek-chat' or 'claude-3-haiku-20240307'
+            'model_name': str  # e.g., 'deepseek-chat' or 'claude-haiku-4-5-20251001'
         }
 
     Raises:
@@ -170,7 +170,7 @@ def simplify_article_adaptive_levels(
                 timeout=180,
             )
         else:  # anthropic
-            model_name = "claude-3-haiku-20240307"
+            model_name = "claude-haiku-4-5-20251001"
             headers = {
                 "x-api-key": api_key,
                 "anthropic-version": "2023-06-01",

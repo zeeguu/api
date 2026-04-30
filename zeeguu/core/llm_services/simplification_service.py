@@ -322,7 +322,7 @@ TOPIC: Business"""
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "claude-3-haiku-20240307",
+                    "model": "claude-haiku-4-5-20251001",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 30,
                     "temperature": 0.1,
@@ -544,7 +544,7 @@ IMPORTANT:
             
             # Create the payload with proper JSON encoding
             payload = {
-                "model": "claude-3-haiku-20240307",
+                "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 4000,
                 "temperature": 0.3,
                 "messages": [{"role": "user", "content": prompt}],
@@ -780,7 +780,7 @@ SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown f
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "claude-3-haiku-20240307",
+                    "model": "claude-haiku-4-5-20251001",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 2000,
                     "temperature": 0.2,  # Lower temperature for more consistent results

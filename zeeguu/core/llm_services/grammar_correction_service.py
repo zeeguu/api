@@ -13,7 +13,7 @@ from zeeguu.logging import log
 from .prompts.grammar_correction import get_full_article_correction_prompt
 
 # Model names for tracking
-ANTHROPIC_CORRECTION_MODEL = "claude-3-haiku-20240307"
+ANTHROPIC_CORRECTION_MODEL = "claude-haiku-4-5-20251001"
 DEEPSEEK_CORRECTION_MODEL = "deepseek-chat"
 
 
