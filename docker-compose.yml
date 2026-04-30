@@ -110,7 +110,7 @@ services:
     # Each worker loads all 15 language models (~8GB)
     mem_limit: 10g
 
-  asr_da:
+  asr:
     build:
       context: .
       dockerfile: ./asr_service/Dockerfile
@@ -119,17 +119,17 @@ services:
     environment:
       ASR_LANGUAGE_CODE: da
       ASR_MODEL_NAME: nvidia/parakeet-rnnt-110m-da-dk
-      ASR_WORKER_NAME: asr-da
+      ASR_WORKER_NAME: asr
     networks:
       - zeeguu_backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 300s
     restart: unless-stopped
-    # One model per language worker. Add more services like this for more languages.
+    # Generic ASR endpoint. Language routing is handled by ASR_SERVICE_URLS.
     mem_limit: 2g
 
   # yaml-anchors:
@@ -148,7 +148,7 @@ services:
         condition: service_started
       stanza:
         condition: service_healthy
-      asr_da:
+      asr:
         condition: service_healthy
     image: zeeguu/api:latest
     build: .
@@ -169,7 +169,7 @@ services:
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       ZEEGUU_RESOURCES_FOLDER: /zeeguu-data/
       STANZA_SERVICE_URL: http://stanza:5001
-      ASR_SERVICE_URLS: "${ASR_SERVICE_URLS:-da=http://asr_da:5002}"
+      ASR_SERVICE_URLS: "${ASR_SERVICE_URLS:-da=http://asr}"
       SENTRY_DSN: ${SENTRY_DSN}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg

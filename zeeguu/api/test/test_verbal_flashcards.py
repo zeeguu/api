@@ -226,17 +226,17 @@ def test_check_pronunciation_returns_accuracy_analysis(client):
     assert response["wordMatches"][0]["matchType"] == "normalized_exact"
 
 
-def test_parse_asr_service_urls_supports_multiple_language_workers():
+def test_parse_asr_service_urls_supports_multiple_language_entries():
     from zeeguu.core.audio_lessons.asr_service_client import parse_asr_service_urls
 
     mapping = parse_asr_service_urls(
-        "da=http://asr-da:5002, de=http://asr-de:5002;fr=http://asr-fr:5002"
+        "da=http://asr, de=http://asr;fr=http://asr"
     )
 
     assert mapping == {
-        "da": "http://asr-da:5002",
-        "de": "http://asr-de:5002",
-        "fr": "http://asr-fr:5002",
+        "da": "http://asr",
+        "de": "http://asr",
+        "fr": "http://asr",
     }
 
 

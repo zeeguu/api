@@ -26,7 +26,7 @@ def parse_asr_service_urls(raw_value):
     """
     Parse a mapping like:
 
-        da=http://asr-da:5002,de=http://asr-de:5002
+        da=http://asr,de=http://asr
 
     into a dict keyed by language code.
     """
