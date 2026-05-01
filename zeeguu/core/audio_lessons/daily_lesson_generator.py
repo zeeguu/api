@@ -598,6 +598,55 @@ class DailyLessonGenerator:
             "listened_count": lesson.listened_count,
             "canonical_suggestion": lesson.canonical_suggestion,
             "lesson_type": lesson.lesson_type,
+            "language_code": lesson.language.code if lesson.language else None,
+        }
+        if dialogue_title:
+            result["title"] = dialogue_title
+        return result
+
+    def get_shared_lesson_view(self, lesson_id):
+        """
+        Public-safe view of a lesson for share links: no per-user playback
+        state (pause position, completion, listen count) and no UserWord data.
+        Anyone with the lesson id can read this; tracking happens elsewhere
+        only for the owner's own playback.
+        """
+        try:
+            lesson_id = int(lesson_id)
+        except (TypeError, ValueError):
+            return {"error": "Invalid lesson_id parameter", "status_code": 400}
+
+        lesson = DailyAudioLesson.query.filter_by(id=lesson_id).first()
+        if not lesson:
+            return {"error": "Lesson not found", "status_code": 404}
+
+        audio_path = os.path.join(
+            ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
+        )
+        if not os.path.exists(audio_path):
+            return {"error": "Audio file not found for this lesson", "status_code": 404}
+
+        words = []
+        dialogue_title = None
+        for segment in lesson.segments:
+            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                meaning = segment.audio_lesson_meaning.meaning
+                words.append({
+                    "origin": meaning.origin.content,
+                    "translation": meaning.translation.content,
+                })
+            elif segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
+                dialogue_title = segment.audio_lesson_dialogue.title
+
+        result = {
+            "lesson_id": lesson.id,
+            "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
+            "duration_seconds": lesson.duration_seconds,
+            "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
+            "words": words,
+            "canonical_suggestion": lesson.canonical_suggestion,
+            "lesson_type": lesson.lesson_type,
+            "language_code": lesson.language.code if lesson.language else None,
         }
         if dialogue_title:
             result["title"] = dialogue_title
