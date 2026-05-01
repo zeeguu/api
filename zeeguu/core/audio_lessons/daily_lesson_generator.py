@@ -580,19 +580,12 @@ class DailyLessonGenerator:
                 })
         return words
 
-    def _dialogue_lesson_title(self, lesson):
-        """Title of the dialogue segment if the lesson has one, else None."""
-        for segment in lesson.segments:
-            if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
-                return segment.audio_lesson_dialogue.title
-        return None
-
     def _format_lesson_response(self, lesson):
         """Format a lesson into the standard (owner) response format."""
         if not os.path.exists(self._audio_path(lesson)):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        result = {
+        return {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
@@ -605,11 +598,8 @@ class DailyLessonGenerator:
             "canonical_suggestion": lesson.canonical_suggestion,
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
+            "title": lesson.display_title(),
         }
-        lesson_title = self._dialogue_lesson_title(lesson)
-        if lesson_title:
-            result["title"] = lesson_title
-        return result
 
     def get_shared_lesson_view(self, lesson_id):
         """Public-safe view for share links: no owner playback state, no UserWord rows."""
@@ -624,7 +614,7 @@ class DailyLessonGenerator:
         if not os.path.exists(self._audio_path(lesson)):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        result = {
+        return {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
@@ -633,11 +623,8 @@ class DailyLessonGenerator:
             "canonical_suggestion": lesson.canonical_suggestion,
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
+            "title": lesson.display_title(),
         }
-        lesson_title = self._dialogue_lesson_title(lesson)
-        if lesson_title:
-            result["title"] = lesson_title
-        return result
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
         """
