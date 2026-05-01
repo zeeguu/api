@@ -159,6 +159,21 @@ def get_daily_lesson():
     return json_result(result), status_code
 
 
+@api.route("/shared_audio_lesson/<int:lesson_id>", methods=["GET"])
+@cross_domain
+def get_shared_audio_lesson(lesson_id):
+    """
+    Read-only public view of an audio lesson for share links. Returns the
+    lesson metadata + audio URL, but no owner-specific state (pause position,
+    completion, listen count) and no UserWord data. No session required —
+    matches the static audio file's accessibility.
+    """
+    generator = DailyLessonGenerator()
+    result = generator.get_shared_lesson_view(lesson_id)
+    status_code = result.pop("status_code", 200)
+    return json_result(result), status_code
+
+
 @api.route("/get_todays_lesson", methods=["GET"])
 @cross_domain
 @requires_session
