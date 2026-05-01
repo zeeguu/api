@@ -80,28 +80,6 @@ def _words_for_audio_lesson(audio_lesson, language_id=None):
     return result
 
 
-def _audio_lesson_title(audio_lesson):
-    """
-    Best-effort title for an audio lesson, suitable for activity-history rows.
-
-    Picks the first available source: dialogue title → "Topic/Situation: X"
-    from canonical_suggestion → comma-joined word origins. Returns None for
-    a lesson with no segments at all (shouldn't happen but defensive).
-    """
-    if not audio_lesson:
-        return None
-    for segment in audio_lesson.segments:
-        if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
-            return segment.audio_lesson_dialogue.title
-    if audio_lesson.canonical_suggestion:
-        prefix = "Situation" if audio_lesson.lesson_type == "situation" else "Topic"
-        return f"{prefix}: {audio_lesson.canonical_suggestion}"
-    origins = [
-        segment.audio_lesson_meaning.meaning.origin.content
-        for segment in audio_lesson.segments
-        if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning
-    ]
-    return ", ".join(origins) if origins else None
 
 
 def _exercises_for_session(session_id, language_id=None):
@@ -353,7 +331,7 @@ def session_history():
                 "word_count": len(words),
                 "completed": is_completed,
                 "lesson_id": audio_lesson.id if audio_lesson else None,
-                "lesson_title": _audio_lesson_title(audio_lesson),
+                "lesson_title": audio_lesson.display_title() if audio_lesson else None,
             }
         )
 
