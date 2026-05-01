@@ -165,6 +165,29 @@ class DailyAudioLesson(db.Model):
         """Check if lesson is currently paused"""
         return self.pause_position_seconds > 0 and not self.is_completed
 
+    def display_title(self):
+        """
+        Best-effort human-readable title for this lesson.
+
+        Single source of truth used by every response that needs a label —
+        regular lesson endpoints, the shared-link endpoint, and activity
+        history rows. Picks the first available source: dialogue title →
+        "Topic/Situation: X" from canonical_suggestion → comma-joined
+        word origins. Returns None for a lesson with no segments.
+        """
+        for segment in self.segments:
+            if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
+                return segment.audio_lesson_dialogue.title
+        if self.canonical_suggestion:
+            prefix = "Situation" if self.lesson_type == "situation" else "Topic"
+            return f"{prefix}: {self.canonical_suggestion}"
+        origins = [
+            segment.audio_lesson_meaning.meaning.origin.content
+            for segment in self.segments
+            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning
+        ]
+        return ", ".join(origins) if origins else None
+
     @classmethod
     def find_canonical_for_raw_suggestion(cls, user, raw_suggestion):
         """Find the canonical form previously used for this raw suggestion by this user."""
