@@ -550,8 +550,8 @@ class DailyLessonGenerator:
             ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
         )
 
-    def _extract_segments(self, lesson, *, with_user_metadata):
-        """Walk lesson.segments and return (words, dialogue_title).
+    def _extract_segment_words(self, lesson, *, with_user_metadata):
+        """Words list from meaning_lesson segments.
 
         with_user_metadata=True attaches the owner's UserWord state
         (used by the owner's own playback view); False returns just
@@ -560,41 +560,44 @@ class DailyLessonGenerator:
         from zeeguu.core.model import UserWord
 
         words = []
-        dialogue_title = None
         for segment in lesson.segments:
-            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
-                meaning = segment.audio_lesson_meaning.meaning
-                user_word = (
-                    UserWord.query.filter_by(
-                        user_id=lesson.user_id, meaning_id=meaning.id
-                    ).first()
-                    if with_user_metadata
-                    else None
-                )
-                if user_word:
-                    words.append(user_word.as_dictionary())
-                else:
-                    words.append({
-                        "origin": meaning.origin.content,
-                        "translation": meaning.translation.content,
-                    })
-            elif segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
-                dialogue_title = segment.audio_lesson_dialogue.title
-        return words, dialogue_title
+            if not (segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning):
+                continue
+            meaning = segment.audio_lesson_meaning.meaning
+            user_word = (
+                UserWord.query.filter_by(
+                    user_id=lesson.user_id, meaning_id=meaning.id
+                ).first()
+                if with_user_metadata
+                else None
+            )
+            if user_word:
+                words.append(user_word.as_dictionary())
+            else:
+                words.append({
+                    "origin": meaning.origin.content,
+                    "translation": meaning.translation.content,
+                })
+        return words
+
+    def _dialogue_lesson_title(self, lesson):
+        """Title of the dialogue segment if the lesson has one, else None."""
+        for segment in lesson.segments:
+            if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
+                return segment.audio_lesson_dialogue.title
+        return None
 
     def _format_lesson_response(self, lesson):
         """Format a lesson into the standard (owner) response format."""
         if not os.path.exists(self._audio_path(lesson)):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        words, dialogue_title = self._extract_segments(lesson, with_user_metadata=True)
-
         result = {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
-            "words": words,
+            "words": self._extract_segment_words(lesson, with_user_metadata=True),
             "pause_position_seconds": lesson.pause_position_seconds,
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
@@ -603,8 +606,9 @@ class DailyLessonGenerator:
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
         }
-        if dialogue_title:
-            result["title"] = dialogue_title
+        lesson_title = self._dialogue_lesson_title(lesson)
+        if lesson_title:
+            result["title"] = lesson_title
         return result
 
     def get_shared_lesson_view(self, lesson_id):
@@ -620,20 +624,19 @@ class DailyLessonGenerator:
         if not os.path.exists(self._audio_path(lesson)):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        words, dialogue_title = self._extract_segments(lesson, with_user_metadata=False)
-
         result = {
             "lesson_id": lesson.id,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
-            "words": words,
+            "words": self._extract_segment_words(lesson, with_user_metadata=False),
             "canonical_suggestion": lesson.canonical_suggestion,
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
         }
-        if dialogue_title:
-            result["title"] = dialogue_title
+        lesson_title = self._dialogue_lesson_title(lesson)
+        if lesson_title:
+            result["title"] = lesson_title
         return result
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
