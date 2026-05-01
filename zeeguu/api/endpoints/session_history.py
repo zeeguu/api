@@ -80,6 +80,8 @@ def _words_for_audio_lesson(audio_lesson, language_id=None):
     return result
 
 
+
+
 def _exercises_for_session(session_id, language_id=None):
     """Get exercise summary for an exercise session."""
     exercises = (
@@ -328,6 +330,8 @@ def session_history():
                 "words": words,
                 "word_count": len(words),
                 "completed": is_completed,
+                "lesson_id": audio_lesson.id if audio_lesson else None,
+                "lesson_title": audio_lesson.display_title() if audio_lesson else None,
             }
         )
 
