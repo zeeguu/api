@@ -134,17 +134,17 @@ def _count_interruptions(user_id, start_time, end_time, event_type):
     return count
 
 
-def _calculate_focus_level(interruptions, duration_ms, word_count):
+def _calculate_focus_level(interruptions, duration_sec, word_count):
     """
     Calculate a focus level based on interruptions, duration, and engagement.
 
     Returns: 'focused', 'moderate', or 'distracted'
     """
-    if duration_ms is None or duration_ms == 0:
+    if duration_sec is None or duration_sec == 0:
         return None
 
     # Calculate words per minute as engagement metric
-    duration_min = duration_ms / 60000
+    duration_min = duration_sec / 60
     words_per_min = word_count / duration_min if duration_min > 0 else 0
 
     # Interruptions per 10 minutes
@@ -207,14 +207,13 @@ def session_history():
 
     sessions = []
 
-    def format_duration(duration_ms):
+    def format_duration(duration_sec):
         """Format duration showing seconds for short durations, minutes for longer ones."""
-        if duration_ms is None or duration_ms == 0:
+        if duration_sec is None or duration_sec == 0:
             return "0 sec"
-        seconds = duration_ms / 1000
-        if seconds < 60:
-            return f"{int(seconds)} sec"
-        minutes = seconds / 60
+        if duration_sec < 60:
+            return f"{int(duration_sec)} sec"
+        minutes = duration_sec / 60
         if minutes < 60:
             return f"{round(minutes, 1)} min"
         hours = minutes / 60
@@ -290,12 +289,13 @@ def session_history():
     for bs in browsing_sessions:
         bookmarks = _bookmarks_for_browsing_session(bs.id, learned_language.id)
         if bookmarks:  # Only include browsing sessions with translations in learned language
+            duration_sec = (bs.duration or 0) // 1000  # stored in ms, normalize to seconds
             sessions.append(
                 {
                     "session_type": "browsing",
                     "start_time": bs.start_time.isoformat(),
-                    "duration": bs.duration,
-                    "duration_readable": format_duration(bs.duration),
+                    "duration": duration_sec,
+                    "duration_readable": format_duration(duration_sec),
                     "words": bookmarks,
                     "word_count": len(bookmarks),
                 }
@@ -319,12 +319,13 @@ def session_history():
         else:
             words = []
 
+        duration_sec = (ls.duration or 0) // 1000  # stored in ms, normalize to seconds
         sessions.append(
             {
                 "session_type": "audio",
                 "start_time": ls.start_time.isoformat(),
-                "duration": ls.duration,  # Already in milliseconds
-                "duration_readable": format_duration(ls.duration),
+                "duration": duration_sec,
+                "duration_readable": format_duration(duration_sec),
                 "words": words,
                 "word_count": len(words),
                 "completed": is_completed,

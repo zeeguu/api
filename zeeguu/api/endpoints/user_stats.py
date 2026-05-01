@@ -123,7 +123,7 @@ def get_exercise_stats_for_user(user_id, start, end):
         .all()
     )
 
-    total_duration_ms = sum(s.duration or 0 for s in sessions)
+    total_duration_sec = sum(s.duration or 0 for s in sessions)
     session_count = len(sessions)
 
     # Get unique words practiced and language info
@@ -139,8 +139,8 @@ def get_exercise_stats_for_user(user_id, start, end):
 
     return {
         "session_count": session_count,
-        "duration_ms": total_duration_ms,
-        "duration_min": round(total_duration_ms / 60000, 1),
+        "duration_sec": total_duration_sec,
+        "duration_min": round(total_duration_sec / 60, 1),
         "words_by_language": {
             lang: len(words) for lang, words in words_by_language.items()
         },
@@ -157,7 +157,7 @@ def get_reading_stats_for_user(user_id, start, end):
         .all()
     )
 
-    total_duration_ms = sum(s.duration or 0 for s in sessions)
+    total_duration_sec = sum(s.duration or 0 for s in sessions)
 
     # Group by article and language
     articles_by_language = defaultdict(set)
@@ -169,8 +169,8 @@ def get_reading_stats_for_user(user_id, start, end):
 
     return {
         "session_count": len(sessions),
-        "duration_ms": total_duration_ms,
-        "duration_min": round(total_duration_ms / 60000, 1),
+        "duration_sec": total_duration_sec,
+        "duration_min": round(total_duration_sec / 60, 1),
         "articles_by_language": {
             lang: len(arts) for lang, arts in articles_by_language.items()
         },
@@ -506,7 +506,7 @@ def user_stats_individual(user_id):
             {
                 "id": session.id,
                 "start_time": session.start_time.isoformat(),
-                "duration_min": round((session.duration or 0) / 60000, 1),
+                "duration_min": round((session.duration or 0) / 60, 1),
                 "language": session_lang,
                 "word_count": len(words),
                 "words": words,
@@ -529,7 +529,7 @@ def user_stats_individual(user_id):
             {
                 "id": session.id,
                 "start_time": session.start_time.isoformat(),
-                "duration_min": round((session.duration or 0) / 60000, 1),
+                "duration_min": round((session.duration or 0) / 60, 1),
                 "article_id": session.article_id,
                 "article_title": article.title if article else "Unknown",
                 "article_language": (
@@ -949,8 +949,8 @@ def user_stats_individual_dashboard(user_id):
     )
 
     # Calculate totals
-    total_exercise_min = sum((s.duration or 0) / 60000 for s in exercise_sessions)
-    total_reading_min = sum((s.duration or 0) / 60000 for s in reading_sessions)
+    total_exercise_min = sum((s.duration or 0) / 60 for s in exercise_sessions)
+    total_reading_min = sum((s.duration or 0) / 60 for s in reading_sessions)
     total_audio_min = sum((l.duration_seconds or 0) / 60 for l in audio_lessons)
 
     html = f"""<!DOCTYPE html>
@@ -1078,7 +1078,7 @@ def user_stats_individual_dashboard(user_id):
     if exercise_sessions:
         for session in exercise_sessions:
             exercises = Exercise.query.filter(Exercise.session_id == session.id).all()
-            duration_min = (session.duration or 0) / 60000
+            duration_min = (session.duration or 0) / 60
 
             # Determine language from exercises
             session_lang = None
@@ -1126,7 +1126,7 @@ def user_stats_individual_dashboard(user_id):
 
     if reading_sessions:
         for session in reading_sessions:
-            duration_min = (session.duration or 0) / 60000
+            duration_min = (session.duration or 0) / 60
             article = session.article
             article_title = article.title if article else "Unknown article"
             article_lang = (
@@ -2245,7 +2245,7 @@ def _compute_activity_stats_for_month(month_start, month_end):
     from sqlalchemy import func
 
     # Exercise minutes
-    exercise_ms = (
+    exercise_sec = (
         db_session.query(func.sum(UserExerciseSession.duration))
         .filter(UserExerciseSession.start_time >= month_start)
         .filter(UserExerciseSession.start_time < month_end)
@@ -2253,7 +2253,7 @@ def _compute_activity_stats_for_month(month_start, month_end):
     ) or 0
 
     # Reading minutes
-    reading_ms = (
+    reading_sec = (
         db_session.query(func.sum(UserReadingSession.duration))
         .filter(UserReadingSession.start_time >= month_start)
         .filter(UserReadingSession.start_time < month_end)
@@ -2277,8 +2277,8 @@ def _compute_activity_stats_for_month(month_start, month_end):
     ) or 0
 
     return {
-        "exercise_minutes": round(exercise_ms / 60000),
-        "reading_minutes": round(reading_ms / 60000),
+        "exercise_minutes": round(exercise_sec / 60),
+        "reading_minutes": round(reading_sec / 60),
         "browsing_minutes": round(browsing_ms / 60000),
         "audio_minutes": round(audio_sec / 60),
     }
