@@ -545,46 +545,49 @@ class DailyLessonGenerator:
 
         return start_of_today_utc, end_of_today_utc
 
-    def _format_lesson_response(self, lesson):
-        """Format a lesson into the standard response format."""
-        from zeeguu.core.model import UserWord
-
-        # Check if audio file exists
-        audio_path = os.path.join(
+    def _audio_path(self, lesson):
+        return os.path.join(
             ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
         )
 
-        if not os.path.exists(audio_path):
-            return {"error": "Audio file not found for this lesson", "status_code": 404}
+    def _extract_segments(self, lesson, *, with_user_metadata):
+        """Walk lesson.segments and return (words, dialogue_title).
 
-        # Get lesson details including words with full metadata
+        with_user_metadata=True attaches the owner's UserWord state
+        (used by the owner's own playback view); False returns just
+        origin/translation strings (used by shared/public views).
+        """
+        from zeeguu.core.model import UserWord
+
         words = []
         dialogue_title = None
         for segment in lesson.segments:
-            if (
-                segment.segment_type == "meaning_lesson"
-                and segment.audio_lesson_meaning
-            ):
+            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
                 meaning = segment.audio_lesson_meaning.meaning
-                user_word = UserWord.query.filter_by(
-                    user_id=lesson.user_id,
-                    meaning_id=meaning.id
-                ).first()
-
+                user_word = (
+                    UserWord.query.filter_by(
+                        user_id=lesson.user_id, meaning_id=meaning.id
+                    ).first()
+                    if with_user_metadata
+                    else None
+                )
                 if user_word:
                     words.append(user_word.as_dictionary())
                 else:
-                    words.append(
-                        {
-                            "origin": meaning.origin.content,
-                            "translation": meaning.translation.content,
-                        }
-                    )
-            elif (
-                segment.segment_type == "dialogue_lesson"
-                and segment.audio_lesson_dialogue
-            ):
+                    words.append({
+                        "origin": meaning.origin.content,
+                        "translation": meaning.translation.content,
+                    })
+            elif segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
                 dialogue_title = segment.audio_lesson_dialogue.title
+        return words, dialogue_title
+
+    def _format_lesson_response(self, lesson):
+        """Format a lesson into the standard (owner) response format."""
+        if not os.path.exists(self._audio_path(lesson)):
+            return {"error": "Audio file not found for this lesson", "status_code": 404}
+
+        words, dialogue_title = self._extract_segments(lesson, with_user_metadata=True)
 
         result = {
             "lesson_id": lesson.id,
@@ -605,12 +608,7 @@ class DailyLessonGenerator:
         return result
 
     def get_shared_lesson_view(self, lesson_id):
-        """
-        Public-safe view of a lesson for share links: no per-user playback
-        state (pause position, completion, listen count) and no UserWord data.
-        Anyone with the lesson id can read this; tracking happens elsewhere
-        only for the owner's own playback.
-        """
+        """Public-safe view for share links: no owner playback state, no UserWord rows."""
         try:
             lesson_id = int(lesson_id)
         except (TypeError, ValueError):
@@ -619,24 +617,10 @@ class DailyLessonGenerator:
         lesson = DailyAudioLesson.query.filter_by(id=lesson_id).first()
         if not lesson:
             return {"error": "Lesson not found", "status_code": 404}
-
-        audio_path = os.path.join(
-            ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
-        )
-        if not os.path.exists(audio_path):
+        if not os.path.exists(self._audio_path(lesson)):
             return {"error": "Audio file not found for this lesson", "status_code": 404}
 
-        words = []
-        dialogue_title = None
-        for segment in lesson.segments:
-            if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
-                meaning = segment.audio_lesson_meaning.meaning
-                words.append({
-                    "origin": meaning.origin.content,
-                    "translation": meaning.translation.content,
-                })
-            elif segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
-                dialogue_title = segment.audio_lesson_dialogue.title
+        words, dialogue_title = self._extract_segments(lesson, with_user_metadata=False)
 
         result = {
             "lesson_id": lesson.id,
