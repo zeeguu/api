@@ -240,16 +240,17 @@ def submit_answer():
         if not data:
             return json_result({"error": "JSON body required"}), 400
 
-        flashcard_id = str(data.get("flashcard_id")) if data.get("flashcard_id") is not None else None
+        flashcard_id = data.get("flashcard_id")
         user_answer = data.get("user_answer", "")
         is_correct = data.get("is_correct")
         answer_source = data.get("answer_source", "unknown")
         response_time = data.get("response_time_ms", 0)
         session_id = data.get("session_id")
 
-        if not flashcard_id or is_correct is None:
+        if flashcard_id is None or is_correct is None:
             return json_result({"error": "flashcard_id and is_correct are required"}), 400
 
+        flashcard_id = str(flashcard_id)
         learned_language_code = user.learned_language.code if user.learned_language else None
 
         try:
