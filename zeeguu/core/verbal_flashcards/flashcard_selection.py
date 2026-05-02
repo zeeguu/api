@@ -31,6 +31,7 @@ def _verbal_flashcard_from_bookmark(bookmark):
 
     return {
         "id": str(bookmark.id),
+        # Prompt is the translated cue; answer is the learned-language word.
         "prompt": prompt,
         "answer": answer,
     }

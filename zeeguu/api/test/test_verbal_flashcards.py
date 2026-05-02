@@ -141,6 +141,22 @@ def test_verbal_flashcards_returns_lower_level_words_when_experiment_override_is
     assert flashcards["flashcards"][0]["answer"] == expected_answer
 
 
+def test_verbal_flashcard_prompt_is_translation_and_answer_is_learned_word(client):
+    _prepare_bookmark_support()
+
+    bookmark = _create_level_3_flashcard(client, word="moder", translation="mother")
+    bookmark_id = bookmark.id
+
+    flashcards = client.get("/verbal_flashcards")
+
+    assert flashcards["total"] == 1
+    assert flashcards["flashcards"][0] == {
+        "id": str(bookmark_id),
+        "prompt": "mother",
+        "answer": "moder",
+    }
+
+
 def test_verbal_flashcards_returns_404_when_feature_is_disabled(client, monkeypatch):
     _prepare_bookmark_support()
 
