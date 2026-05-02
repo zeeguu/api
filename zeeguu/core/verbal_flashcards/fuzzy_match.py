@@ -7,8 +7,13 @@ from zeeguu.core.verbal_flashcards.text_normalization import (
 FUZZY_ACCEPTANCE_BUFFER = 0.1
 
 
-def damerau_levenshtein_distance(source, target):
-    """Classic dynamic-programming Damerau-Levenshtein distance."""
+def optimal_string_alignment_distance(source, target):
+    """
+    Return optimal string alignment distance.
+
+    OSA is a restricted edit distance: adjacent transpositions count as one
+    edit, but the same substring cannot be edited more than once.
+    """
     if source == target:
         return 0
 
@@ -49,7 +54,7 @@ def damerau_levenshtein_distance(source, target):
     return distance[(source_length - 1, target_length - 1)]
 
 
-def normalized_damerau_levenshtein_similarity(source, target):
+def normalized_optimal_string_alignment_similarity(source, target):
     """Return a similarity score in the range [0, 1]."""
     if not source and not target:
         return 1.0
@@ -57,7 +62,7 @@ def normalized_damerau_levenshtein_similarity(source, target):
         return 0.0
 
     max_length = max(len(source), len(target))
-    distance = damerau_levenshtein_distance(source, target)
+    distance = optimal_string_alignment_distance(source, target)
     return max(0.0, 1.0 - (distance / max_length))
 
 
@@ -142,22 +147,42 @@ def boundary_aware_jaro_winkler_similarity(source, target):
     return max(forward_score, reversed_score)
 
 
-def fuzzy_match_threshold(expected_word, language_code=None):
-    """Length-aware thresholds tuned for short flashcard answers."""
+def allowed_optimal_string_alignment_distance(expected_word, language_code=None):
+    """
+    Return the maximum edit distance accepted for a spoken flashcard answer.
+
+    Acceptance is based on edit distance, not a blended similarity score:
+    after language-specific normalization, words of length >= 3 may differ by
+    one optimal string alignment edit. Jaro-Winkler is still returned as a
+    diagnostic signal for debugging and future analysis, but it does not decide
+    correctness.
+    """
     normalizer = normalizer_for(language_code)
     normalized_length = len(normalizer.canonical_form(expected_word))
+    return 0 if normalized_length <= 2 else 1
 
-    if normalized_length <= 2:
+
+def fuzzy_match_threshold(expected_word, language_code=None):
+    """
+    Return the normalized OSA similarity implied by the edit-distance rule.
+
+    Kept as a score field for compatibility and diagnostics; fuzzy acceptance
+    uses allowed_optimal_string_alignment_distance instead.
+    """
+    normalizer = normalizer_for(language_code)
+    normalized_length = len(normalizer.canonical_form(expected_word))
+    if normalized_length <= 0:
         return 1.0
-    if normalized_length == 3:
-        return 0.69
-    if normalized_length == 4:
-        return 0.76
-    return 0.79
+
+    allowed_distance = allowed_optimal_string_alignment_distance(
+        expected_word,
+        language_code,
+    )
+    return max(0.0, 1.0 - (allowed_distance / normalized_length))
 
 
 def score_word_match(user_word, expected_word, language_code=None):
-    """Compare two words using exact, normalized, and fuzzy similarity signals."""
+    """Compare two words using exact, normalized, and edit-distance signals."""
     user_word = user_word or ""
     expected_word = expected_word or ""
     normalizer = normalizer_for(language_code)
@@ -166,13 +191,19 @@ def score_word_match(user_word, expected_word, language_code=None):
     normalized_expected_word = normalizer.canonical_form(expected_word)
     asr_user_word = normalizer.asr_tolerant_form(user_word)
     asr_expected_word = normalizer.asr_tolerant_form(expected_word)
+    allowed_distance = allowed_optimal_string_alignment_distance(
+        expected_word,
+        language_code,
+    )
 
     if user_word == expected_word:
         return {
             "isMatch": True,
             "isExact": True,
             "matchType": "exact",
-            "normalizedDamerauLevenshtein": 1.0,
+            "optimalStringAlignmentDistance": 0,
+            "allowedOptimalStringAlignmentDistance": allowed_distance,
+            "normalizedOptimalStringAlignment": 1.0,
             "jaroWinkler": 1.0,
             "combinedScore": 1.0,
             "matchThreshold": 1.0,
@@ -186,19 +217,29 @@ def score_word_match(user_word, expected_word, language_code=None):
             "isMatch": True,
             "isExact": False,
             "matchType": "normalized_exact",
-            "normalizedDamerauLevenshtein": 1.0,
+            "optimalStringAlignmentDistance": 0,
+            "allowedOptimalStringAlignmentDistance": allowed_distance,
+            "normalizedOptimalStringAlignment": 1.0,
             "jaroWinkler": 1.0,
             "combinedScore": 1.0,
             "matchThreshold": 1.0,
         }
 
-    normalized_damerau_levenshtein = max(
-        normalized_damerau_levenshtein_similarity(user_word, expected_word),
-        normalized_damerau_levenshtein_similarity(
+    optimal_string_alignment = min(
+        optimal_string_alignment_distance(user_word, expected_word),
+        optimal_string_alignment_distance(
             normalized_user_word,
             normalized_expected_word,
         ),
-        normalized_damerau_levenshtein_similarity(asr_user_word, asr_expected_word),
+        optimal_string_alignment_distance(asr_user_word, asr_expected_word),
+    )
+    normalized_optimal_string_alignment = max(
+        normalized_optimal_string_alignment_similarity(user_word, expected_word),
+        normalized_optimal_string_alignment_similarity(
+            normalized_user_word,
+            normalized_expected_word,
+        ),
+        normalized_optimal_string_alignment_similarity(asr_user_word, asr_expected_word),
     )
     jaro_winkler = max(
         boundary_aware_jaro_winkler_similarity(user_word, expected_word),
@@ -209,19 +250,18 @@ def score_word_match(user_word, expected_word, language_code=None):
         boundary_aware_jaro_winkler_similarity(asr_user_word, asr_expected_word),
     )
 
-    combined_score = max(
-        normalized_damerau_levenshtein,
-        (normalized_damerau_levenshtein * 0.75) + (jaro_winkler * 0.25),
-    )
+    is_match = optimal_string_alignment <= allowed_distance
     match_threshold = fuzzy_match_threshold(expected_word, language_code)
 
     return {
-        "isMatch": combined_score >= match_threshold,
+        "isMatch": is_match,
         "isExact": False,
-        "matchType": "fuzzy" if combined_score >= match_threshold else "close",
-        "normalizedDamerauLevenshtein": round(normalized_damerau_levenshtein, 3),
+        "matchType": "fuzzy" if is_match else "close",
+        "optimalStringAlignmentDistance": optimal_string_alignment,
+        "allowedOptimalStringAlignmentDistance": allowed_distance,
+        "normalizedOptimalStringAlignment": round(normalized_optimal_string_alignment, 3),
         "jaroWinkler": round(jaro_winkler, 3),
-        "combinedScore": round(combined_score, 3),
+        "combinedScore": round(normalized_optimal_string_alignment, 3),
         "matchThreshold": round(match_threshold, 3),
     }
 
@@ -280,8 +320,21 @@ def calculate_accuracy(user_speech, expected_text, language_code=None):
                 "position": i,
                 "suggestedWord": best_candidate["userWord"] if best_candidate else "?",
                 "matchType": best_score["matchType"] if best_score else "missing",
-                "normalizedDamerauLevenshtein": (
-                    best_score["normalizedDamerauLevenshtein"] if best_score else 0.0
+                "normalizedOptimalStringAlignment": (
+                    best_score["normalizedOptimalStringAlignment"]
+                    if best_score
+                    else 0.0
+                ),
+                "optimalStringAlignmentDistance": (
+                    best_score["optimalStringAlignmentDistance"] if best_score else None
+                ),
+                "allowedOptimalStringAlignmentDistance": (
+                    best_score["allowedOptimalStringAlignmentDistance"]
+                    if best_score
+                    else allowed_optimal_string_alignment_distance(
+                        expected_word,
+                        language_code,
+                    )
                 ),
                 "jaroWinkler": best_score["jaroWinkler"] if best_score else 0.0,
                 "combinedScore": round(combined_score, 3),
@@ -292,6 +345,7 @@ def calculate_accuracy(user_speech, expected_text, language_code=None):
                 ),
                 "isClose": bool(
                     best_score
+                    and not is_match
                     and combined_score
                     >= (best_score["matchThreshold"] - FUZZY_ACCEPTANCE_BUFFER)
                 ),

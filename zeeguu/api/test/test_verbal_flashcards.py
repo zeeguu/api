@@ -206,6 +206,61 @@ def test_score_word_match_accepts_common_danish_asr_variants():
     assert asr_variant["matchType"] == "normalized_exact"
 
 
+@pytest.mark.parametrize(
+    "user_word, expected_word",
+    [
+        ("hat", "kat"),
+        ("hond", "hund"),
+        ("pange", "penge"),
+    ],
+)
+def test_score_word_match_accepts_one_optimal_string_alignment_edit(
+    user_word,
+    expected_word,
+):
+    from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
+
+    result = score_word_match(user_word, expected_word, language_code="da")
+
+    assert result["isMatch"] is True
+    assert result["matchType"] == "fuzzy"
+    assert result["optimalStringAlignmentDistance"] == 1
+    assert result["allowedOptimalStringAlignmentDistance"] == 1
+    assert result["jaroWinkler"] > 0
+
+
+@pytest.mark.parametrize(
+    "user_word, expected_word",
+    [
+        ("hot", "kat"),
+        ("hd", "hund"),
+        ("pen", "penge"),
+    ],
+)
+def test_score_word_match_rejects_multiple_optimal_string_alignment_edits(
+    user_word,
+    expected_word,
+):
+    from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
+
+    result = score_word_match(user_word, expected_word, language_code="da")
+
+    assert result["isMatch"] is False
+    assert result["matchType"] == "close"
+    assert result["optimalStringAlignmentDistance"] > 1
+    assert result["allowedOptimalStringAlignmentDistance"] == 1
+
+
+def test_score_word_match_requires_exact_match_for_two_letter_words():
+    from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
+
+    result = score_word_match("og", "ok", language_code="da")
+
+    assert result["isMatch"] is False
+    assert result["optimalStringAlignmentDistance"] == 1
+    assert result["allowedOptimalStringAlignmentDistance"] == 0
+
+
 def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
     from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
