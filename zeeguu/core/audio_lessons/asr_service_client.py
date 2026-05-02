@@ -62,8 +62,7 @@ def in_development_context():
     return os.environ.get("FLASK_DEBUG") == "1"
 
 
-def configured_asr_service_urls():
-    """Return configured worker URLs, using localhost fallback only in development."""
+def _asr_service_url_map_from_environment():
     raw_value = os.environ.get("ASR_SERVICE_URLS", "")
 
     if not raw_value and in_development_context():
@@ -72,11 +71,23 @@ def configured_asr_service_urls():
     return parse_asr_service_urls(raw_value)
 
 
+ASR_SERVICE_URL_MAP = _asr_service_url_map_from_environment()
+
+
+def configured_asr_service_urls():
+    """Return configured worker URLs captured at module import."""
+    return ASR_SERVICE_URL_MAP.copy()
+
+
 def get_asr_service_url(language_code, service_url_map=None):
     if not language_code:
         return None
 
-    service_url_map = service_url_map or configured_asr_service_urls()
+    service_url_map = (
+        ASR_SERVICE_URL_MAP
+        if service_url_map is None
+        else service_url_map
+    )
     return service_url_map.get(str(language_code).casefold())
 
 

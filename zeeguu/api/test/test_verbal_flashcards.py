@@ -1,4 +1,8 @@
+import importlib
 import io
+import os
+from contextlib import contextmanager
+
 import pytest
 from werkzeug.datastructures import FileStorage
 
@@ -30,6 +34,29 @@ def _set_client_learned_language(client, language_code):
     user = User.find(client.email)
     user.learned_language = Language.find_or_create(language_code)
     db.session.commit()
+
+
+@contextmanager
+def _asr_service_client_loaded_with_env(asr_service_urls=None, flask_debug=None):
+    from zeeguu.core.audio_lessons import asr_service_client
+
+    original_asr_service_urls = os.environ.get("ASR_SERVICE_URLS")
+    original_flask_debug = os.environ.get("FLASK_DEBUG")
+
+    def set_or_clear_env(name, value):
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+    try:
+        set_or_clear_env("ASR_SERVICE_URLS", asr_service_urls)
+        set_or_clear_env("FLASK_DEBUG", flask_debug)
+        yield importlib.reload(asr_service_client)
+    finally:
+        set_or_clear_env("ASR_SERVICE_URLS", original_asr_service_urls)
+        set_or_clear_env("FLASK_DEBUG", original_flask_debug)
+        importlib.reload(asr_service_client)
 
 
 def _set_bookmark_level(bookmark_id, level):
@@ -348,24 +375,31 @@ def test_parse_asr_service_urls_supports_multiple_language_entries():
     }
 
 
-def test_configured_asr_service_urls_has_no_production_localhost_fallback(monkeypatch):
-    from zeeguu.core.audio_lessons.asr_service_client import configured_asr_service_urls
-
-    monkeypatch.delenv("ASR_SERVICE_URLS", raising=False)
-    monkeypatch.delenv("FLASK_DEBUG", raising=False)
-
-    assert configured_asr_service_urls() == {}
+def test_asr_service_url_map_has_no_production_localhost_fallback():
+    with _asr_service_client_loaded_with_env() as asr_service_client:
+        assert asr_service_client.ASR_SERVICE_URL_MAP == {}
+        assert asr_service_client.configured_asr_service_urls() == {}
 
 
-def test_configured_asr_service_urls_uses_localhost_fallback_when_flask_debug_is_enabled(
-    monkeypatch,
-):
-    from zeeguu.core.audio_lessons.asr_service_client import configured_asr_service_urls
+def test_asr_service_url_map_uses_localhost_fallback_when_flask_debug_is_enabled():
+    with _asr_service_client_loaded_with_env(
+        asr_service_urls=None,
+        flask_debug="1",
+    ) as asr_service_client:
+        assert asr_service_client.ASR_SERVICE_URL_MAP == {
+            "da": "http://127.0.0.1:5002"
+        }
+        assert asr_service_client.configured_asr_service_urls() == {
+            "da": "http://127.0.0.1:5002"
+        }
 
-    monkeypatch.delenv("ASR_SERVICE_URLS", raising=False)
-    monkeypatch.setenv("FLASK_DEBUG", "1")
 
-    assert configured_asr_service_urls() == {"da": "http://127.0.0.1:5002"}
+def test_get_asr_service_url_uses_import_time_map_and_keeps_explicit_empty_override():
+    with _asr_service_client_loaded_with_env(
+        asr_service_urls="da=http://asr",
+    ) as asr_service_client:
+        assert asr_service_client.get_asr_service_url("da") == "http://asr"
+        assert asr_service_client.get_asr_service_url("da", service_url_map={}) is None
 
 
 def test_transcribe_endpoint_returns_transcription(client, monkeypatch):
@@ -482,10 +516,12 @@ def test_transcribe_audio_rejects_file_that_exceeds_read_limit(monkeypatch):
 
 
 def test_transcribe_endpoint_returns_503_when_worker_is_not_configured(client, monkeypatch):
-    from zeeguu.core.audio_lessons.asr_service_client import ASRServiceNotConfigured
+    from zeeguu.api.endpoints import verbal_flashcards
 
     def raise_not_configured(audio_file, language_code=None):
-        raise ASRServiceNotConfigured("No ASR worker configured for language 'de'")
+        raise verbal_flashcards.ASRServiceNotConfigured(
+            "No ASR worker configured for language 'de'"
+        )
 
     monkeypatch.setattr(
         "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
