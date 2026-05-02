@@ -310,30 +310,28 @@ def test_transcribe_endpoint_checks_feature_gate_before_audio_validation(client,
     assert b"Verbal flashcards are not enabled for this user" in response.data
 
 
-# Disabled intentionally while the transcribe endpoint returns normalized
-# high-level error messages instead of the previous raw worker text.
-# def test_transcribe_endpoint_rejects_large_audio_upload(client, monkeypatch):
-#     monkeypatch.setattr(
-#         "zeeguu.api.endpoints.verbal_flashcards.MAX_VERBAL_FLASHCARD_AUDIO_BYTES",
-#         512,
-#     )
-#
-#     def fail_if_called(audio_file, language_code=None):
-#         raise AssertionError("transcribe_audio should not run for oversized uploads")
-#
-#     monkeypatch.setattr(
-#         "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
-#         fail_if_called,
-#     )
-#
-#     response = client.client.post(
-#         client.append_session("/verbal_flashcards/transcribe"),
-#         data={"file": (io.BytesIO(b"x" * 1024), "sample.wav")},
-#         content_type="multipart/form-data",
-#     )
-#
-#     assert response.status_code == 413
-#     assert b"Audio upload is too large" in response.data
+def test_transcribe_endpoint_rejects_large_audio_upload(client, monkeypatch):
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.MAX_VERBAL_FLASHCARD_AUDIO_BYTES",
+        512,
+    )
+
+    def fail_if_called(audio_file, language_code=None):
+        raise AssertionError("transcribe_audio should not run for oversized uploads")
+
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
+        fail_if_called,
+    )
+
+    response = client.client.post(
+        client.append_session("/verbal_flashcards/transcribe"),
+        data={"file": (io.BytesIO(b"x" * 1024), "sample.wav")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 413
+    assert b"Transcription endpoint rejected large audio upload" in response.data
 
 
 def test_transcribe_audio_routes_to_language_worker(monkeypatch):
@@ -394,27 +392,25 @@ def test_transcribe_audio_rejects_file_that_exceeds_read_limit(monkeypatch):
         verbal_flashcards.transcribe_audio(audio_file, language_code="da")
 
 
-# Disabled intentionally while the transcribe endpoint returns normalized
-# high-level error messages instead of the previous raw worker text.
-# def test_transcribe_endpoint_returns_503_when_worker_is_not_configured(client, monkeypatch):
-#     from zeeguu.core.audio_lessons.asr_service_client import ASRServiceNotConfigured
-#
-#     def raise_not_configured(audio_file, language_code=None):
-#         raise ASRServiceNotConfigured("No ASR worker configured for language 'de'")
-#
-#     monkeypatch.setattr(
-#         "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
-#         raise_not_configured,
-#     )
-#
-#     response = client.client.post(
-#         client.append_session("/verbal_flashcards/transcribe"),
-#         data={"file": (io.BytesIO(b"fake audio"), "sample.wav")},
-#         content_type="multipart/form-data",
-#     )
-#
-#     assert response.status_code == 503
-#     assert b"No ASR worker configured for language 'de'" in response.data
+def test_transcribe_endpoint_returns_503_when_worker_is_not_configured(client, monkeypatch):
+    from zeeguu.core.audio_lessons.asr_service_client import ASRServiceNotConfigured
+
+    def raise_not_configured(audio_file, language_code=None):
+        raise ASRServiceNotConfigured("No ASR worker configured for language 'de'")
+
+    monkeypatch.setattr(
+        "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",
+        raise_not_configured,
+    )
+
+    response = client.client.post(
+        client.append_session("/verbal_flashcards/transcribe"),
+        data={"file": (io.BytesIO(b"fake audio"), "sample.wav")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 503
+    assert b"Transcription endpoint not configured" in response.data
 
 
 def test_verbal_flashcards_submit_reports_exercise_outcome(client):
