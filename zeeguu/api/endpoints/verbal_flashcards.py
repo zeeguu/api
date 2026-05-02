@@ -256,7 +256,8 @@ def submit_answer():
         try:
             session_id = _parse_optional_session_id(session_id)
         except ValueError as exc:
-            return json_result({"error": str(exc)}), 400
+            log(f"Submit answer rejected invalid session_id: {exc}")
+            return json_result({"error": "session_id must be an integer"}), 400
 
         response_time = _coerce_int(response_time, minimum=0)
 

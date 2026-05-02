@@ -7,11 +7,14 @@ from Docker, even while the current deployment only loads the Danish model.
 """
 
 import io
+import logging
 import os
 import tempfile
 
 from flask import Flask, jsonify, request
 
+
+logger = logging.getLogger(__name__)
 
 ASR_LANGUAGE_CODE = os.environ.get("ASR_LANGUAGE_CODE", "da").casefold()
 ASR_SUPPORTED_LANGUAGES = {
@@ -160,7 +163,8 @@ def transcribe():
     try:
         raise_if_audio_too_large(request.content_length)
     except ASRAudioTooLarge as exc:
-        return jsonify({"error": str(exc)}), 413
+        logger.info("ASR request rejected because audio was too large: %s", exc)
+        return jsonify({"error": "Audio upload is too large"}), 413
 
     if "file" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
@@ -186,13 +190,17 @@ def transcribe():
             }
         )
     except ASRAudioTooLarge as exc:
-        return jsonify({"error": str(exc)}), 413
+        logger.info("ASR request rejected because audio was too large: %s", exc)
+        return jsonify({"error": "Audio upload is too large"}), 413
     except ASRModelUnavailable as exc:
-        return jsonify({"error": str(exc)}), 503
+        logger.info("ASR model unavailable: %s", exc)
+        return jsonify({"error": "ASR model unavailable"}), 503
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        logger.info("ASR request rejected: %s", exc)
+        return jsonify({"error": "ASR request rejected"}), 400
+    except Exception:
+        logger.exception("ASR transcription failed")
+        return jsonify({"error": "ASR transcription failed"}), 500
 
 
 if __name__ == "__main__":
