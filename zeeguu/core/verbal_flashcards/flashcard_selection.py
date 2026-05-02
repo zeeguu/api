@@ -4,8 +4,6 @@ from datetime import datetime
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
-from zeeguu.logging import log
-
 VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV = "VERBAL_FLASHCARDS_REQUIRE_LEVEL_3"
 
 
@@ -23,8 +21,12 @@ def _verbal_flashcard_from_bookmark(bookmark):
         return None
 
     user_word = bookmark.user_word
-    prompt = user_word.meaning.translation.content
-    answer = user_word.meaning.origin.content
+    meaning = user_word.meaning
+    if not meaning or not meaning.translation or not meaning.origin:
+        return None
+
+    prompt = meaning.translation.content
+    answer = meaning.origin.content
 
     if not prompt or not answer:
         return None
@@ -56,12 +58,7 @@ def get_flashcard_collection(user):
         if word_text in seen_words:
             continue
 
-        try:
-            card = _verbal_flashcard_from_user_word(user_word)
-        except Exception as e:
-            log(f"Skipping verbal flashcard for user_word {user_word.id}: {e}")
-            continue
-
+        card = _verbal_flashcard_from_user_word(user_word)
         if card:
             seen_words.add(word_text)
             flashcards.append(card)
