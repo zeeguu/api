@@ -61,27 +61,41 @@ def _create_level_3_flashcard(client, word="hinter", translation="behind"):
     return bookmark_row
 
 
-# Disabled intentionally after removing the level-3 gate so participants
-# in the experiment still receive verbal flashcards.
-# def test_verbal_flashcards_only_returns_level_3_plus_words(client):
-#     _prepare_bookmark_support()
-#
-#     bookmark_id = add_one_bookmark(client)
-#     bookmark = _set_bookmark_level(bookmark_id, 2)
-#
-#     flashcards = client.get("/verbal_flashcards")
-#     assert flashcards["total"] == 0
-#
-#     bookmark = _set_bookmark_level(bookmark_id, 3)
-#     expected_prompt = bookmark.user_word.meaning.translation.content
-#     expected_answer = bookmark.user_word.meaning.origin.content
-#     flashcards = client.get("/verbal_flashcards")
-#
-#     assert flashcards["total"] == 1
-#     assert len(flashcards["flashcards"]) == 1
-#     assert flashcards["flashcards"][0]["id"] == str(bookmark_id)
-#     assert flashcards["flashcards"][0]["prompt"] == expected_prompt
-#     assert flashcards["flashcards"][0]["answer"] == expected_answer
+def test_verbal_flashcards_only_returns_level_3_plus_words_by_default(client, monkeypatch):
+    monkeypatch.delenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", raising=False)
+    _prepare_bookmark_support()
+
+    bookmark_id = add_one_bookmark(client)
+    bookmark = _set_bookmark_level(bookmark_id, 2)
+
+    flashcards = client.get("/verbal_flashcards")
+    assert flashcards["total"] == 0
+
+    bookmark = _set_bookmark_level(bookmark_id, 3)
+    expected_prompt = bookmark.user_word.meaning.translation.content
+    expected_answer = bookmark.user_word.meaning.origin.content
+    flashcards = client.get("/verbal_flashcards")
+
+    assert flashcards["total"] == 1
+    assert len(flashcards["flashcards"]) == 1
+    assert flashcards["flashcards"][0]["id"] == str(bookmark_id)
+    assert flashcards["flashcards"][0]["prompt"] == expected_prompt
+    assert flashcards["flashcards"][0]["answer"] == expected_answer
+
+
+def test_verbal_flashcards_returns_lower_level_words_when_experiment_override_is_set(client, monkeypatch):
+    monkeypatch.setenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", "false")
+    _prepare_bookmark_support()
+
+    bookmark_id = add_one_bookmark(client)
+    bookmark = _set_bookmark_level(bookmark_id, 1)
+    expected_answer = bookmark.user_word.meaning.origin.content
+
+    flashcards = client.get("/verbal_flashcards")
+
+    assert flashcards["total"] == 1
+    assert flashcards["flashcards"][0]["id"] == str(bookmark_id)
+    assert flashcards["flashcards"][0]["answer"] == expected_answer
 
 
 def test_verbal_flashcards_returns_404_when_feature_is_disabled(client, monkeypatch):
@@ -535,7 +549,28 @@ def test_submit_coerces_invalid_response_time_to_zero(client):
     assert exercise.solving_speed == 0
 
 
-def test_submit_accepts_lower_level_flashcard_during_experiment(client):
+def test_submit_rejects_lower_level_flashcard_by_default(client, monkeypatch):
+    monkeypatch.delenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", raising=False)
+    _prepare_bookmark_support()
+
+    bookmark_id = add_one_bookmark(client)
+    bookmark = _set_bookmark_level(bookmark_id, 1)
+
+    response = client.client.post(
+        client.append_session("/verbal_flashcards/submit"),
+        json={
+            "flashcard_id": str(bookmark_id),
+            "user_answer": bookmark.user_word.meaning.origin.content,
+            "is_correct": True,
+        },
+    )
+
+    assert response.status_code == 404
+    assert b"Flashcard not found" in response.data
+
+
+def test_submit_accepts_lower_level_flashcard_during_experiment(client, monkeypatch):
+    monkeypatch.setenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", "false")
     _prepare_bookmark_support()
 
     bookmark_id = add_one_bookmark(client)

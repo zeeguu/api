@@ -1,9 +1,21 @@
+import os
 from datetime import datetime
 
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
+
+VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV = "VERBAL_FLASHCARDS_REQUIRE_LEVEL_3"
+
+
+def requires_level_3_flashcards():
+    raw_value = os.environ.get(VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV, "true")
+    return raw_value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _user_word_has_required_level(user_word):
+    return not requires_level_3_flashcards() or (user_word.level or 0) >= 3
 
 
 def _verbal_flashcard_from_bookmark(bookmark):
@@ -37,11 +49,8 @@ def get_flashcard_collection(user):
     seen_words = set()
 
     for user_word in user_words:
-        """
-        Disabled during experimentation, due to uncertainty of participants having level 3 words.
-        """
-        """if (user_word.level or 0) < 3:
-            continue"""
+        if not _user_word_has_required_level(user_word):
+            continue
 
         word_text = user_word.meaning.origin.content.lower()
         if word_text in seen_words:
@@ -66,6 +75,8 @@ def find_flashcard_submission_target(user, flashcard_id):
 
     bookmark = Bookmark.find(flashcard_id)
     if not bookmark or not bookmark.user_word or bookmark.user_word.user_id != user.id:
+        return None
+    if not _user_word_has_required_level(bookmark.user_word):
         return None
 
     return bookmark
