@@ -23,6 +23,15 @@ def _prepare_bookmark_support():
     add_source_types()
 
 
+def _set_client_learned_language(client, language_code):
+    from zeeguu.core.model import Language, User
+    from zeeguu.core.model.db import db
+
+    user = User.find(client.email)
+    user.learned_language = Language.find_or_create(language_code)
+    db.session.commit()
+
+
 def _set_bookmark_level(bookmark_id, level):
     from zeeguu.core.model.bookmark import Bookmark
     from zeeguu.core.model.db import db
@@ -148,7 +157,7 @@ def test_verbal_flashcards_paginates_results(client):
 def test_sanitize_spoken_text_keeps_danish_letters_and_normalizes_spacing():
     from zeeguu.core.verbal_flashcards.text_normalization import sanitize_spoken_text
 
-    sanitized = sanitize_spoken_text("  MåDér!!!\n  er\t'FÅR'?  ")
+    sanitized = sanitize_spoken_text("  MåDér!!!\n  er\t'FÅR'?  ", language_code="da")
 
     assert sanitized == "mådér er 'får'"
 
@@ -172,19 +181,24 @@ def test_asr_tolerant_danish_form_folds_danish_letters_for_transcript_matching()
     assert asr_tolerant_danish_form("hvad") == "va"
 
 
-def test_normalizer_registry_defaults_to_danish_until_more_languages_exist():
-    from zeeguu.core.verbal_flashcards.text_normalization import normalizer_for
+def test_normalizer_registry_raises_for_unknown_languages():
+    from zeeguu.core.verbal_flashcards.text_normalization import (
+        UnsupportedLanguageError,
+        normalizer_for,
+    )
 
     assert normalizer_for("da").asr_tolerant_form("træ") == "tre"
     assert normalizer_for("da-DK").asr_tolerant_form("hvad") == "va"
-    assert normalizer_for("de").asr_tolerant_form("træ") == "tre"
+
+    with pytest.raises(UnsupportedLanguageError):
+        normalizer_for("de")
 
 
 def test_score_word_match_accepts_common_danish_asr_variants():
     from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 
-    aa_variant = score_word_match("maade", "måde")
-    asr_variant = score_word_match("tre", "træ")
+    aa_variant = score_word_match("maade", "måde", language_code="da")
+    asr_variant = score_word_match("tre", "træ", language_code="da")
 
     assert aa_variant["isMatch"] is True
     assert aa_variant["matchType"] == "normalized_exact"
@@ -195,7 +209,7 @@ def test_score_word_match_accepts_common_danish_asr_variants():
 def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
     from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
-    result = calculate_accuracy("hund stor", "stor hund")
+    result = calculate_accuracy("hund stor", "stor hund", language_code="da")
 
     assert result["isAccepted"] is True
     assert result["acceptedWordCount"] == 2
@@ -207,7 +221,7 @@ def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
 def test_calculate_accuracy_marks_close_but_incorrect_words():
     from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
-    result = calculate_accuracy("sok kat", "bog kat")
+    result = calculate_accuracy("sok kat", "bog kat", language_code="da")
 
     assert result["isAccepted"] is False
     assert result["acceptedWordCount"] == 1
@@ -220,7 +234,7 @@ def test_calculate_accuracy_marks_close_but_incorrect_words():
 def test_calculate_accuracy_says_when_nothing_was_caught():
     from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
 
-    result = calculate_accuracy("zzz yyy", "stor hund")
+    result = calculate_accuracy("zzz yyy", "stor hund", language_code="da")
 
     assert result["isAccepted"] is False
     assert result["acceptedWordCount"] == 0
@@ -244,7 +258,7 @@ def test_check_pronunciation_accepts_empty_speech_as_not_caught(client):
 
     response = client.post(
         "/verbal_flashcards/check_pronunciation",
-        json={"user_speech": "", "expected_text": "stor hund"},
+        json={"user_speech": "", "expected_text": "stor hund", "language_code": "da"},
     )
 
     assert response["isAccepted"] is False
@@ -257,7 +271,7 @@ def test_check_pronunciation_returns_accuracy_analysis(client):
 
     response = client.post(
         "/verbal_flashcards/check_pronunciation",
-        json={"user_speech": "tre", "expected_text": "tr\u00e6"},
+        json={"user_speech": "tre", "expected_text": "tr\u00e6", "language_code": "da"},
     )
 
     assert response["isAccepted"] is True
@@ -415,6 +429,7 @@ def test_transcribe_endpoint_returns_503_when_worker_is_not_configured(client, m
 
 def test_verbal_flashcards_submit_reports_exercise_outcome(client):
     _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
 
     bookmark_id = add_one_bookmark(client)
 
@@ -451,6 +466,7 @@ def test_verbal_flashcards_submit_reports_exercise_outcome(client):
 
 def test_submit_uses_fuzzy_acceptance_to_override_is_correct(client):
     _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
 
     bookmark_id = add_one_bookmark(client)
     _set_bookmark_level(bookmark_id, 3)
@@ -476,6 +492,7 @@ def test_submit_uses_fuzzy_acceptance_to_override_is_correct(client):
 
 def test_submit_uses_direct_bookmark_lookup_not_live_flashcard_collection(client, monkeypatch):
     _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
 
     bookmark_id = add_one_bookmark(client)
     bookmark = _set_bookmark_level(bookmark_id, 3)
@@ -522,6 +539,7 @@ def test_submit_rejects_non_integer_session_id(client):
 
 def test_submit_coerces_invalid_response_time_to_zero(client):
     _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
 
     bookmark_id = add_one_bookmark(client)
 
@@ -568,6 +586,7 @@ def test_submit_rejects_lower_level_flashcard_by_default(client, monkeypatch):
 def test_submit_accepts_lower_level_flashcard_during_experiment(client, monkeypatch):
     monkeypatch.setenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", "false")
     _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
 
     bookmark_id = add_one_bookmark(client)
     bookmark = _set_bookmark_level(bookmark_id, 1)

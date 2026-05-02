@@ -2,7 +2,6 @@ import re
 import unicodedata
 
 
-DEFAULT_NORMALIZER_LANGUAGE = "da"
 SANITIZED_SPOKEN_TEXT_PATTERN = re.compile(r"[^\w\sæøåÆØÅ']")
 MULTISPACE_PATTERN = re.compile(r"\s+")
 CANONICAL_DANISH_VARIANTS = (
@@ -66,6 +65,10 @@ class DanishTextNormalizer:
         return MULTISPACE_PATTERN.sub(" ", text).strip()
 
 
+class UnsupportedLanguageError(ValueError):
+    pass
+
+
 _DANISH_NORMALIZER = DanishTextNormalizer()
 _NORMALIZERS = {
     "da": _DANISH_NORMALIZER,
@@ -73,21 +76,19 @@ _NORMALIZERS = {
 }
 
 
-def normalizer_for(language_code=None):
+def normalizer_for(language_code):
     """
     Return the text normalizer for a learned-language code.
 
-    Danish is the current default and fallback because the existing verbal
-    flashcard scoring was Danish-specific before this registry existed.
+    Verbal flashcard normalization is language-specific. Unknown languages must
+    be registered deliberately.
     """
-    if not language_code:
-        return _NORMALIZERS[DEFAULT_NORMALIZER_LANGUAGE]
-
-    normalized_code = str(language_code).casefold()
-    return _NORMALIZERS.get(
-        normalized_code,
-        _NORMALIZERS[DEFAULT_NORMALIZER_LANGUAGE],
-    )
+    normalized_code = str(language_code or "").casefold()
+    if normalized_code not in _NORMALIZERS:
+        raise UnsupportedLanguageError(
+            f"No verbal-flashcard normalizer registered for {language_code!r}"
+        )
+    return _NORMALIZERS[normalized_code]
 
 
 def canonical_danish_form(word):
