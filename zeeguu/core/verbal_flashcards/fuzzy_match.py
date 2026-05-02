@@ -364,7 +364,6 @@ def calculate_accuracy(user_speech, expected_text, language_code=None):
 
     return {
         "accuracy": word_accuracy,
-        "wordAccuracy": word_accuracy,
         "acceptedAccuracy": accepted_accuracy,
         "acceptedWordCount": accepted_words,
         "isAccepted": is_accepted,
