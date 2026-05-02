@@ -348,6 +348,26 @@ def test_parse_asr_service_urls_supports_multiple_language_entries():
     }
 
 
+def test_configured_asr_service_urls_has_no_production_localhost_fallback(monkeypatch):
+    from zeeguu.core.audio_lessons.asr_service_client import configured_asr_service_urls
+
+    monkeypatch.delenv("ASR_SERVICE_URLS", raising=False)
+    monkeypatch.delenv("FLASK_DEBUG", raising=False)
+
+    assert configured_asr_service_urls() == {}
+
+
+def test_configured_asr_service_urls_uses_localhost_fallback_when_flask_debug_is_enabled(
+    monkeypatch,
+):
+    from zeeguu.core.audio_lessons.asr_service_client import configured_asr_service_urls
+
+    monkeypatch.delenv("ASR_SERVICE_URLS", raising=False)
+    monkeypatch.setenv("FLASK_DEBUG", "1")
+
+    assert configured_asr_service_urls() == {"da": "http://127.0.0.1:5002"}
+
+
 def test_transcribe_endpoint_returns_transcription(client, monkeypatch):
     monkeypatch.setattr(
         "zeeguu.api.endpoints.verbal_flashcards.transcribe_audio",

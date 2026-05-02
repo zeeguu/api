@@ -59,8 +59,7 @@ def parse_asr_service_urls(raw_value):
 
 def in_development_context():
     """Return True when local dev defaults should be enabled."""
-    flask_env = os.environ.get("FLASK_ENV", "").strip().casefold()
-    return flask_env == "development"
+    return os.environ.get("FLASK_DEBUG") == "1"
 
 
 def configured_asr_service_urls():
