@@ -46,6 +46,29 @@ def raise_if_audio_too_large(size):
         )
 
 
+def extract_transcription(transcript):
+    """
+    NeMo 2.7.3 with nvidia/parakeet-rnnt-110m-da-dk returns list[Hypothesis].
+
+    The Hypothesis object exposes the decoded transcription as `.text`. If a
+    future NeMo/model upgrade changes this shape, fail loudly.
+    """
+    if not isinstance(transcript, list) or len(transcript) != 1:
+        raise TypeError(
+            "Unexpected transcription output shape: "
+            f"expected one Hypothesis in a list, got {type(transcript).__name__}"
+        )
+
+    hypothesis = transcript[0]
+    if not hasattr(hypothesis, "text") or not isinstance(hypothesis.text, str):
+        raise TypeError(
+            "Unexpected transcription item shape: "
+            f"expected Hypothesis with string .text, got {type(hypothesis).__name__}"
+        )
+
+    return hypothesis.text
+
+
 try:
     import nemo.collections.asr as nemo_asr
     from pydub import AudioSegment
@@ -67,7 +90,6 @@ except Exception as exc:
 
 
 def transcribe_audio_file(audio_storage, requested_language_code=None):
-    transcription = None
     temp_path = None
 
     if requested_language_code and requested_language_code.casefold() != ASR_LANGUAGE_CODE:
@@ -91,26 +113,7 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
             audio.export(temp_path, format="wav")
 
         transcript = asr_model.transcribe([temp_path])
-
-        if isinstance(transcript, tuple) and len(transcript) == 2:
-            transcript = transcript[0]
-
-        first = transcript[0]
-        if hasattr(first, "text"):
-            transcription = first.text
-        elif isinstance(first, str):
-            transcription = first
-        elif isinstance(first, list) and first:
-            nested = first[0]
-            if hasattr(nested, "text"):
-                transcription = nested.text
-            elif isinstance(nested, str):
-                transcription = nested
-
-        if transcription is None:
-            raise TypeError(
-                f"Unexpected transcription output: {type(transcript)} / {type(first)}"
-            )
+        transcription = extract_transcription(transcript)
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -122,14 +125,14 @@ app = Flask(__name__)
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify(
-        {
-            "status": "ok" if ASR_AVAILABLE and asr_model is not None else "degraded",
-            "worker_name": ASR_WORKER_NAME,
-            "worker_language": ASR_LANGUAGE_CODE,
-            "model_loaded": asr_model is not None,
-        }
-    )
+    payload = {
+        "status": "ok" if ASR_AVAILABLE and asr_model is not None else "degraded",
+        "worker_name": ASR_WORKER_NAME,
+        "worker_language": ASR_LANGUAGE_CODE,
+        "model_loaded": asr_model is not None,
+    }
+    status_code = 200 if payload["status"] == "ok" else 503
+    return jsonify(payload), status_code
 
 
 @app.route("/transcribe", methods=["POST"])
