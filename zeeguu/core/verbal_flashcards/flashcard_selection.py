@@ -1,9 +1,7 @@
 import os
-from datetime import datetime
 
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV = "VERBAL_FLASHCARDS_REQUIRE_LEVEL_3"
 
 
@@ -77,22 +75,3 @@ def find_flashcard_submission_target(user, flashcard_id):
         return None
 
     return bookmark
-
-
-def ensure_schedule_for_verbal_flashcard(db_session, user_word):
-    """
-    Verbal flashcards can target words that are not currently in the
-    standard exercise pipeline. Create a schedule row without resetting the level
-    so the word appears in /words after it is practiced.
-    """
-    schedule = FourLevelsPerWord.find(user_word)
-    if schedule:
-        return schedule
-
-    schedule = FourLevelsPerWord(user_word=user_word)
-    schedule.next_practice_time = datetime.now()
-    schedule.consecutive_correct_answers = 0
-    schedule.cooling_interval = 0
-    db_session.add(schedule)
-    db_session.flush()
-    return schedule

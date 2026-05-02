@@ -1,6 +1,5 @@
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.verbal_flashcards.flashcard_selection import (
-    ensure_schedule_for_verbal_flashcard,
     find_flashcard_submission_target,
 )
 from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
@@ -40,8 +39,6 @@ def record_flashcard_answer(
 
     exercise_outcome = ExerciseOutcome.CORRECT if is_correct else ExerciseOutcome.WRONG
     other_feedback = f"answer_source={answer_source}"
-
-    ensure_schedule_for_verbal_flashcard(db_session, user_word)
 
     user_word.report_exercise_outcome(
         db_session,
