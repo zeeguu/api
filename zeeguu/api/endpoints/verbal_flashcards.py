@@ -41,8 +41,7 @@ def _ensure_verbal_flashcards_enabled(user):
 
 
 def _current_verbal_flashcards_user():
-    user = User.find_by_id(flask.g.user_id)
-    return user, _ensure_verbal_flashcards_enabled(user)
+    return User.find_by_id(flask.g.user_id)
 
 
 def _coerce_int(value, default=0, minimum=None):
@@ -120,7 +119,8 @@ def transcribe_audio_endpoint():
     }
     """
     try:
-        user, feature_gate = _current_verbal_flashcards_user()
+        user = _current_verbal_flashcards_user()
+        feature_gate = _ensure_verbal_flashcards_enabled(user)
         if feature_gate:
             return feature_gate
 
@@ -187,7 +187,8 @@ def get_flashcards():
             minimum=0,
         )
 
-        user, feature_gate = _current_verbal_flashcards_user()
+        user = _current_verbal_flashcards_user()
+        feature_gate = _ensure_verbal_flashcards_enabled(user)
         if feature_gate:
             return feature_gate
         flashcards = get_flashcard_collection(user)
@@ -230,7 +231,8 @@ def submit_answer():
     Returns updated user progress and accuracy analysis.
     """
     try:
-        user, feature_gate = _current_verbal_flashcards_user()
+        user = _current_verbal_flashcards_user()
+        feature_gate = _ensure_verbal_flashcards_enabled(user)
         if feature_gate:
             return feature_gate
 
@@ -300,7 +302,8 @@ def check_pronunciation():
     }
     """
     try:
-        user, feature_gate = _current_verbal_flashcards_user()
+        user = _current_verbal_flashcards_user()
+        feature_gate = _ensure_verbal_flashcards_enabled(user)
         if feature_gate:
             return feature_gate
 
