@@ -37,10 +37,15 @@ def _set_client_learned_language(client, language_code):
 
 
 @contextmanager
-def _asr_service_client_loaded_with_env(asr_service_urls=None, flask_debug=None):
+def _asr_service_client_loaded_with_env(
+    asr_service_url=None,
+    asr_language_overrides=None,
+    flask_debug=None,
+):
     from zeeguu.core.audio_lessons import asr_service_client
 
-    original_asr_service_urls = os.environ.get("ASR_SERVICE_URLS")
+    original_asr_service_url = os.environ.get("ASR_SERVICE_URL")
+    original_asr_language_overrides = os.environ.get("ASR_LANGUAGE_OVERRIDES")
     original_flask_debug = os.environ.get("FLASK_DEBUG")
 
     def set_or_clear_env(name, value):
@@ -50,11 +55,13 @@ def _asr_service_client_loaded_with_env(asr_service_urls=None, flask_debug=None)
             os.environ[name] = value
 
     try:
-        set_or_clear_env("ASR_SERVICE_URLS", asr_service_urls)
+        set_or_clear_env("ASR_SERVICE_URL", asr_service_url)
+        set_or_clear_env("ASR_LANGUAGE_OVERRIDES", asr_language_overrides)
         set_or_clear_env("FLASK_DEBUG", flask_debug)
         yield importlib.reload(asr_service_client)
     finally:
-        set_or_clear_env("ASR_SERVICE_URLS", original_asr_service_urls)
+        set_or_clear_env("ASR_SERVICE_URL", original_asr_service_url)
+        set_or_clear_env("ASR_LANGUAGE_OVERRIDES", original_asr_language_overrides)
         set_or_clear_env("FLASK_DEBUG", original_flask_debug)
         importlib.reload(asr_service_client)
 
@@ -361,45 +368,61 @@ def test_check_pronunciation_returns_accuracy_analysis(client):
     assert response["wordMatches"][0]["matchType"] == "normalized_exact"
 
 
-def test_parse_asr_service_urls_supports_multiple_language_entries():
-    from zeeguu.core.audio_lessons.asr_service_client import parse_asr_service_urls
+def test_parse_asr_language_overrides_supports_multiple_language_entries():
+    from zeeguu.core.audio_lessons.asr_service_client import parse_asr_language_overrides
 
-    mapping = parse_asr_service_urls(
-        "da=http://asr, de=http://asr;fr=http://asr"
+    mapping = parse_asr_language_overrides(
+        "da=http://asr-da, de=http://asr-de;fr=http://asr-fr"
     )
 
     assert mapping == {
-        "da": "http://asr",
-        "de": "http://asr",
-        "fr": "http://asr",
+        "da": "http://asr-da",
+        "de": "http://asr-de",
+        "fr": "http://asr-fr",
     }
 
 
-def test_asr_service_url_map_has_no_production_localhost_fallback():
+def test_asr_service_url_has_no_production_localhost_fallback():
     with _asr_service_client_loaded_with_env() as asr_service_client:
-        assert asr_service_client.ASR_SERVICE_URL_MAP == {}
+        assert asr_service_client.ASR_SERVICE_URL is None
+        assert asr_service_client.ASR_LANGUAGE_OVERRIDE_MAP == {}
         assert asr_service_client.configured_asr_service_urls() == {}
 
 
-def test_asr_service_url_map_uses_localhost_fallback_when_flask_debug_is_enabled():
+def test_asr_service_url_uses_localhost_fallback_when_flask_debug_is_enabled():
     with _asr_service_client_loaded_with_env(
-        asr_service_urls=None,
         flask_debug="1",
     ) as asr_service_client:
-        assert asr_service_client.ASR_SERVICE_URL_MAP == {
-            "da": "http://127.0.0.1:5002"
-        }
+        assert asr_service_client.ASR_SERVICE_URL == "http://127.0.0.1:5002"
+        assert asr_service_client.ASR_LANGUAGE_OVERRIDE_MAP == {}
         assert asr_service_client.configured_asr_service_urls() == {
-            "da": "http://127.0.0.1:5002"
+            "*": "http://127.0.0.1:5002"
         }
 
 
-def test_get_asr_service_url_uses_import_time_map_and_keeps_explicit_empty_override():
+def test_get_asr_service_url_uses_common_backend_and_language_overrides():
     with _asr_service_client_loaded_with_env(
-        asr_service_urls="da=http://asr",
+        asr_service_url="http://asr",
+        asr_language_overrides="da=http://asr-da",
     ) as asr_service_client:
-        assert asr_service_client.get_asr_service_url("da") == "http://asr"
-        assert asr_service_client.get_asr_service_url("da", service_url_map={}) is None
+        assert asr_service_client.get_asr_service_url("da") == "http://asr-da"
+        assert asr_service_client.get_asr_service_url("de") == "http://asr"
+        assert asr_service_client.get_asr_service_url(None) == "http://asr"
+
+
+def test_get_asr_service_url_keeps_explicit_empty_override_map():
+    with _asr_service_client_loaded_with_env(
+        asr_service_url="http://asr",
+        asr_language_overrides="da=http://asr-da",
+    ) as asr_service_client:
+        assert (
+            asr_service_client.get_asr_service_url(
+                "da",
+                service_url="http://asr",
+                language_overrides={},
+            )
+            == "http://asr"
+        )
 
 
 def test_transcribe_endpoint_returns_transcription(client, monkeypatch):
@@ -467,7 +490,8 @@ def test_transcribe_audio_routes_to_language_worker(monkeypatch):
         filename,
         content_type,
         language_code,
-        service_url_map=None,
+        service_url=None,
+        language_overrides=None,
         timeout=None,
     ):
         captured["audio_bytes"] = audio_bytes

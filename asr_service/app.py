@@ -14,6 +14,12 @@ from flask import Flask, jsonify, request
 
 
 ASR_LANGUAGE_CODE = os.environ.get("ASR_LANGUAGE_CODE", "da").casefold()
+ASR_SUPPORTED_LANGUAGES = {
+    code.strip().casefold()
+    for code in os.environ.get("ASR_SUPPORTED_LANGUAGES", ASR_LANGUAGE_CODE).split(",")
+    if code.strip()
+}
+ASR_SUPPORTS_ALL_LANGUAGES = "*" in ASR_SUPPORTED_LANGUAGES
 ASR_MODEL_NAME = os.environ.get(
     "ASR_MODEL_NAME",
     "nvidia/parakeet-rnnt-110m-da-dk",
@@ -69,6 +75,20 @@ def extract_transcription(transcript):
     return hypothesis.text
 
 
+def supports_language(language_code):
+    if not language_code:
+        return True
+    if ASR_SUPPORTS_ALL_LANGUAGES:
+        return True
+    return str(language_code).casefold() in ASR_SUPPORTED_LANGUAGES
+
+
+def supported_languages_for_response():
+    if ASR_SUPPORTS_ALL_LANGUAGES:
+        return ["*"]
+    return sorted(ASR_SUPPORTED_LANGUAGES)
+
+
 try:
     import nemo.collections.asr as nemo_asr
     from pydub import AudioSegment
@@ -76,7 +96,8 @@ try:
     ASR_AVAILABLE = True
     asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name=ASR_MODEL_NAME)
     print(
-        f"Loaded ASR worker {ASR_WORKER_NAME} for {ASR_LANGUAGE_CODE} "
+        f"Loaded ASR worker {ASR_WORKER_NAME} for "
+        f"{', '.join(supported_languages_for_response())} "
         f"with model {ASR_MODEL_NAME}"
     )
 except ImportError as exc:
@@ -92,10 +113,9 @@ except Exception as exc:
 def transcribe_audio_file(audio_storage, requested_language_code=None):
     temp_path = None
 
-    if requested_language_code and requested_language_code.casefold() != ASR_LANGUAGE_CODE:
+    if not supports_language(requested_language_code):
         raise ValueError(
-            f"Worker {ASR_WORKER_NAME} handles '{ASR_LANGUAGE_CODE}', "
-            f"not '{requested_language_code}'"
+            f"Worker {ASR_WORKER_NAME} does not support '{requested_language_code}'"
         )
 
     try:
@@ -128,7 +148,7 @@ def health():
     payload = {
         "status": "ok" if ASR_AVAILABLE and asr_model is not None else "degraded",
         "worker_name": ASR_WORKER_NAME,
-        "worker_language": ASR_LANGUAGE_CODE,
+        "worker_languages": supported_languages_for_response(),
         "model_loaded": asr_model is not None,
     }
     status_code = 200 if payload["status"] == "ok" else 503

@@ -118,6 +118,7 @@ services:
       - ${ZEEGUU_DATA_FOLDER}/asr_cache:/root/.cache/huggingface
     environment:
       ASR_LANGUAGE_CODE: da
+      ASR_SUPPORTED_LANGUAGES: da
       ASR_MODEL_NAME: nvidia/parakeet-rnnt-110m-da-dk
       ASR_WORKER_NAME: asr
     networks:
@@ -129,7 +130,7 @@ services:
       retries: 3
       start_period: 300s
     restart: unless-stopped
-    # Generic ASR endpoint. Language routing is handled by ASR_SERVICE_URLS.
+    # Generic ASR endpoint. Per-language routing is only needed for overrides.
     mem_limit: 2g
 
   # yaml-anchors:
@@ -169,7 +170,8 @@ services:
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       ZEEGUU_RESOURCES_FOLDER: /zeeguu-data/
       STANZA_SERVICE_URL: http://stanza:5001
-      ASR_SERVICE_URLS: "${ASR_SERVICE_URLS:-da=http://asr}"
+      ASR_SERVICE_URL: "${ASR_SERVICE_URL:-http://asr}"
+      ASR_LANGUAGE_OVERRIDES: "${ASR_LANGUAGE_OVERRIDES:-}"
       SENTRY_DSN: ${SENTRY_DSN}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg

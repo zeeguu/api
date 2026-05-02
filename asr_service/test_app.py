@@ -41,15 +41,33 @@ def test_extract_transcription_rejects_nested_list_shape():
     assert "expected Hypothesis with string .text" in str(exc_info.value)
 
 
+def test_supports_language_uses_worker_supported_languages(monkeypatch):
+    monkeypatch.setattr(asr_app, "ASR_SUPPORTS_ALL_LANGUAGES", False)
+    monkeypatch.setattr(asr_app, "ASR_SUPPORTED_LANGUAGES", {"da", "de"})
+
+    assert asr_app.supports_language("da") is True
+    assert asr_app.supports_language("DE") is True
+    assert asr_app.supports_language("fr") is False
+
+
+def test_supports_language_accepts_any_language_for_multilingual_worker(monkeypatch):
+    monkeypatch.setattr(asr_app, "ASR_SUPPORTS_ALL_LANGUAGES", True)
+
+    assert asr_app.supports_language("fr") is True
+
+
 def test_health_returns_503_when_model_is_unavailable(monkeypatch):
     monkeypatch.setattr(asr_app, "ASR_AVAILABLE", False)
     monkeypatch.setattr(asr_app, "asr_model", None)
+    monkeypatch.setattr(asr_app, "ASR_SUPPORTS_ALL_LANGUAGES", False)
+    monkeypatch.setattr(asr_app, "ASR_SUPPORTED_LANGUAGES", {"da"})
 
     response = asr_app.app.test_client().get("/health")
 
     assert response.status_code == 503
     assert response.get_json()["status"] == "degraded"
     assert response.get_json()["model_loaded"] is False
+    assert response.get_json()["worker_languages"] == ["da"]
 
 
 def test_health_returns_200_when_model_is_loaded(monkeypatch):
