@@ -30,6 +30,8 @@ DEFAULT_MAX_AUDIO_BYTES = 10 * 1024 * 1024
 MAX_VERBAL_FLASHCARD_AUDIO_BYTES = int(
     os.environ.get("VERBAL_FLASHCARD_MAX_AUDIO_BYTES", DEFAULT_MAX_AUDIO_BYTES)
 )
+SUPPORTED_VERBAL_FLASHCARD_LEARNED_LANGUAGES = {"da"}
+SUPPORTED_VERBAL_FLASHCARD_TRANSLATION_LANGUAGES = {"da", "en"}
 
 
 class VerbalFlashcardAudioTooLarge(ValueError):
@@ -40,10 +42,41 @@ def _verbal_flashcards_unavailable_response():
     return json_result({"error": "Verbal flashcards are not enabled for this user"}), 404
 
 
+def _verbal_flashcards_unsupported_translation_response():
+    return json_result({
+        "error": (
+            "Verbal flashcards require English or Danish translation language"
+        )
+    }), 403
+
+
+def _language_code(language):
+    if not language:
+        return None
+    return str(language.code or "").casefold()
+
+
 def _ensure_verbal_flashcards_enabled(user):
     if is_feature_enabled_for_user("verbal_flashcards", user):
         return None
     return _verbal_flashcards_unavailable_response()
+
+
+def _ensure_verbal_flashcards_languages_supported(user):
+    if _language_code(user.learned_language) not in SUPPORTED_VERBAL_FLASHCARD_LEARNED_LANGUAGES:
+        return _verbal_flashcards_unavailable_response()
+
+    if _language_code(user.native_language) not in SUPPORTED_VERBAL_FLASHCARD_TRANSLATION_LANGUAGES:
+        return _verbal_flashcards_unsupported_translation_response()
+
+    return None
+
+
+def _ensure_verbal_flashcards_available(user):
+    feature_gate = _ensure_verbal_flashcards_enabled(user)
+    if feature_gate:
+        return feature_gate
+    return _ensure_verbal_flashcards_languages_supported(user)
 
 
 def _current_verbal_flashcards_user():
@@ -142,7 +175,7 @@ def transcribe_audio_endpoint():
     """
     try:
         user = _current_verbal_flashcards_user()
-        feature_gate = _ensure_verbal_flashcards_enabled(user)
+        feature_gate = _ensure_verbal_flashcards_available(user)
         if feature_gate:
             return feature_gate
 
@@ -210,7 +243,7 @@ def get_flashcards():
         )
 
         user = _current_verbal_flashcards_user()
-        feature_gate = _ensure_verbal_flashcards_enabled(user)
+        feature_gate = _ensure_verbal_flashcards_available(user)
         if feature_gate:
             return feature_gate
         flashcards = get_flashcard_collection(user)
@@ -254,7 +287,7 @@ def submit_answer():
     """
     try:
         user = _current_verbal_flashcards_user()
-        feature_gate = _ensure_verbal_flashcards_enabled(user)
+        feature_gate = _ensure_verbal_flashcards_available(user)
         if feature_gate:
             return feature_gate
 
@@ -328,7 +361,7 @@ def check_pronunciation():
     """
     try:
         user = _current_verbal_flashcards_user()
-        feature_gate = _ensure_verbal_flashcards_enabled(user)
+        feature_gate = _ensure_verbal_flashcards_available(user)
         if feature_gate:
             return feature_gate
 

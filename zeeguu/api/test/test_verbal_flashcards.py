@@ -36,6 +36,25 @@ def _set_client_learned_language(client, language_code):
     db.session.commit()
 
 
+def _set_client_native_language(client, language_code):
+    from zeeguu.core.model import Language, User
+    from zeeguu.core.model.db import db
+
+    user = User.find(client.email)
+    user.native_language = Language.find_or_create(language_code)
+    db.session.commit()
+
+
+@pytest.fixture(autouse=True)
+def _use_supported_languages_for_verbal_flashcard_endpoint_tests(request):
+    if "client" not in request.fixturenames:
+        return
+
+    client_fixture = request.getfixturevalue("client")
+    _set_client_learned_language(client_fixture, "da")
+    _set_client_native_language(client_fixture, "en")
+
+
 @contextmanager
 def _asr_service_client_loaded_with_env(
     asr_service_url=None,
@@ -78,9 +97,9 @@ def _set_bookmark_level(bookmark_id, level):
 
 def _create_level_3_flashcard(
     client,
-    word="hinter",
-    translation="behind",
-    from_lang="de",
+    word="moder",
+    translation="mother",
+    from_lang="da",
     to_lang="en",
 ):
     from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -114,7 +133,8 @@ def test_verbal_flashcards_only_returns_level_3_plus_words_by_default(client, mo
     monkeypatch.delenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", raising=False)
     _prepare_bookmark_support()
 
-    bookmark_id = add_one_bookmark(client)
+    bookmark = _create_level_3_flashcard(client)
+    bookmark_id = bookmark.id
     bookmark = _set_bookmark_level(bookmark_id, 2)
 
     flashcards = client.get("/verbal_flashcards")
@@ -136,7 +156,8 @@ def test_verbal_flashcards_returns_lower_level_words_when_experiment_override_is
     monkeypatch.setenv("VERBAL_FLASHCARDS_REQUIRE_LEVEL_3", "false")
     _prepare_bookmark_support()
 
-    bookmark_id = add_one_bookmark(client)
+    bookmark = _create_level_3_flashcard(client)
+    bookmark_id = bookmark.id
     bookmark = _set_bookmark_level(bookmark_id, 1)
     expected_answer = bookmark.user_word.meaning.origin.content
 
@@ -177,23 +198,42 @@ def test_verbal_flashcards_returns_404_when_feature_is_disabled(client, monkeypa
     assert b"Verbal flashcards are not enabled for this user" in response.data
 
 
+def test_verbal_flashcards_returns_404_when_learned_language_is_not_danish(client):
+    _set_client_learned_language(client, "de")
+
+    response = client.client.get(client.append_session("/verbal_flashcards"))
+
+    assert response.status_code == 404
+    assert b"Verbal flashcards are not enabled for this user" in response.data
+
+
+def test_verbal_flashcards_rejects_unsupported_translation_language(client):
+    _set_client_learned_language(client, "da")
+    _set_client_native_language(client, "de")
+
+    response = client.client.get(client.append_session("/verbal_flashcards"))
+
+    assert response.status_code == 403
+    assert b"Verbal flashcards require English or Danish translation language" in response.data
+
+
 def test_verbal_flashcards_deduplicate_same_origin_word(client):
     _prepare_bookmark_support()
 
-    _create_level_3_flashcard(client, word="hinter", translation="behind")
-    _create_level_3_flashcard(client, word="hinter", translation="at the back of")
+    _create_level_3_flashcard(client, word="moder", translation="mother")
+    _create_level_3_flashcard(client, word="moder", translation="mom")
 
     flashcards = client.get("/verbal_flashcards")
 
     assert flashcards["total"] == 1
-    assert flashcards["flashcards"][0]["answer"] == "hinter"
+    assert flashcards["flashcards"][0]["answer"] == "moder"
 
 
 def test_verbal_flashcards_paginates_results(client):
     _prepare_bookmark_support()
 
-    _create_level_3_flashcard(client, word="hinter", translation="behind")
-    _create_level_3_flashcard(client, word="gehen", translation="go")
+    _create_level_3_flashcard(client, word="moder", translation="mother")
+    _create_level_3_flashcard(client, word="penge", translation="money")
 
     first_page = client.get("/verbal_flashcards?limit=1&offset=0")
     second_page = client.get("/verbal_flashcards?limit=1&offset=1")

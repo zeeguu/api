@@ -140,6 +140,10 @@ def _verbal_flashcards(user):
     that code.
     """
     VERBAL_FLASHCARDS_INVITE_CODE = "spring2026"
+    learned_language = getattr(user, "learned_language", None)
+    learned_language_code = str(getattr(learned_language, "code", "") or "").casefold()
+    if learned_language_code != "da":
+        return False
 
     if user.is_dev:
         return True

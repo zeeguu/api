@@ -3,11 +3,12 @@ from types import SimpleNamespace
 from sqlalchemy.exc import NoResultFound
 
 
-def _stub_user(invitation_code=None, cohorts=None, is_dev=False):
+def _stub_user(invitation_code=None, cohorts=None, is_dev=False, learned_language_code="da"):
     return SimpleNamespace(
         id=1,
         is_admin=False,
         is_dev=is_dev,
+        learned_language=SimpleNamespace(code=learned_language_code),
         invitation_code=invitation_code,
         cohorts=cohorts or [],
         is_member_of_cohort=lambda cohort_id: False,
@@ -52,6 +53,7 @@ def test_verbal_flashcards_feature_uses_matching_cohort(monkeypatch):
         id=1,
         is_admin=False,
         is_dev=False,
+        learned_language=SimpleNamespace(code="da"),
         invitation_code="other-code",
         cohorts=[],
         is_member_of_cohort=lambda cohort_id: cohort_id == 42,
@@ -75,3 +77,14 @@ def test_verbal_flashcards_feature_is_enabled_for_dev_users(monkeypatch):
     )
 
     assert _verbal_flashcards(_stub_user(is_dev=True)) is True
+
+
+def test_verbal_flashcards_feature_is_disabled_for_non_danish_learners(monkeypatch):
+    from zeeguu.core.user_feature_toggles import _verbal_flashcards
+
+    monkeypatch.setattr(
+        "zeeguu.core.user_feature_toggles.Cohort.find_by_code",
+        lambda code: (_ for _ in ()).throw(NoResultFound()),
+    )
+
+    assert _verbal_flashcards(_stub_user(is_dev=True, learned_language_code="de")) is False
