@@ -110,16 +110,47 @@ services:
     # Each worker loads all 15 language models (~8GB)
     mem_limit: 10g
 
+  asr:
+    build:
+      context: .
+      dockerfile: ./asr_service/Dockerfile
+    volumes:
+      - ${ZEEGUU_DATA_FOLDER}/asr_cache:/root/.cache/huggingface
+    environment:
+      ASR_LANGUAGE_CODE: da
+      ASR_SUPPORTED_LANGUAGES: da
+      ASR_MODEL_NAME: nvidia/parakeet-rnnt-110m-da-dk
+      ASR_WORKER_NAME: asr
+    networks:
+      - zeeguu_backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 300s
+    restart: unless-stopped
+    # Generic ASR endpoint. Per-language routing is only needed for overrides.
+    mem_limit: 2g
+
   # yaml-anchors:
   # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
   zapi: &zapi_default
     depends_on:
-      - mysql
-      - fmd_mysql
-      - elasticsearch_v8
-      - readability_server
-      - embedding_api
-      - stanza
+      mysql:
+        condition: service_started
+      fmd_mysql:
+        condition: service_started
+      elasticsearch_v8:
+        condition: service_started
+      readability_server:
+        condition: service_healthy
+      embedding_api:
+        condition: service_started
+      stanza:
+        condition: service_healthy
+      asr:
+        condition: service_healthy
     image: zeeguu/api:latest
     build: .
     ports:
@@ -139,6 +170,8 @@ services:
       ZEEGUU_DATA_FOLDER: /zeeguu-data/
       ZEEGUU_RESOURCES_FOLDER: /zeeguu-data/
       STANZA_SERVICE_URL: http://stanza:5001
+      ASR_SERVICE_URL: "${ASR_SERVICE_URL:-http://asr}"
+      ASR_LANGUAGE_OVERRIDES: "${ASR_LANGUAGE_OVERRIDES:-}"
       SENTRY_DSN: ${SENTRY_DSN}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       FLASK_MONITORING_DASHBOARD_CONFIG: /Zeeguu-API/fmd.cfg

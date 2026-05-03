@@ -5,6 +5,21 @@ This module contains the core logic for determining which features
 are enabled for a user based on their cohort membership, invitation code, etc.
 """
 
+import os
+from sqlalchemy.exc import NoResultFound
+
+from .model.cohort import Cohort
+from .model.user import User
+
+
+def _csv_env_values(env_var_name):
+    raw_value = os.environ.get(env_var_name, "")
+    return {
+        token.strip().casefold()
+        for token in raw_value.split(",")
+        if token.strip()
+    }
+
 
 def _feature_map():
     return {
@@ -16,6 +31,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "hide_recommendations": _hide_recommendations,
+        "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
         "gamification": _gamification
@@ -121,11 +137,37 @@ def _hide_recommendations(user):
             return True
     return False
 
-# Gamification feature flag logic
-from sqlalchemy.exc import NoResultFound
 
-from .model.user import User
-from .model.cohort import Cohort
+def _verbal_flashcards(user):
+    """
+    Enable verbal flashcards for users invited with the dedicated verbal
+    flashcards invite code, or who belong to the cohort associated with
+    that code.
+    """
+    VERBAL_FLASHCARDS_INVITE_CODE = "spring2026"
+    learned_language = getattr(user, "learned_language", None)
+    learned_language_code = str(getattr(learned_language, "code", "") or "").casefold()
+    if learned_language_code != "da":
+        return False
+
+    if user.is_dev:
+        return True
+
+    invitation_code = (user.invitation_code or "").strip()
+    if invitation_code.lower() == VERBAL_FLASHCARDS_INVITE_CODE.lower():
+        return True
+
+    try:
+        verbal_flashcards_cohort = Cohort.find_by_code(VERBAL_FLASHCARDS_INVITE_CODE)
+    except NoResultFound:
+        verbal_flashcards_cohort = None
+
+    if verbal_flashcards_cohort and user.is_member_of_cohort(verbal_flashcards_cohort.id):
+        return True
+
+    return False
+
+
 def _gamification(user: User):
     """
     Enable general gamification features for users whose invitation with the gamification invite code,
