@@ -1,0 +1,26 @@
+Polyglot Gathering 2026: a small ask from Zeeguu
+
+{hello} {first_name},
+
+I'm Mircea, one of the researchers behind Zeeguu — the open-source platform that helps you learn languages through authentic content. I'm writing because the next Polyglot Gathering is coming up (27 May) and I'd love your help with something.
+
+You created a Zeeguu account one year ago, during the Gathering — some of you I met in person, some came to the presentation, some I haven't met yet. Either way, that's how you ended up on this short list.
+
+A lot has changed since then: there's now a mobile app (iOS + Android), audio lessons on any topic you choose, and LLM-based simplification that takes any article in any language and adapts it to *your* level in one of your target languages.
+
+Even with all these additions, Zeeguu still aims to be a humble top-up rather than a replacement for your other ways of learning. If you were going to read an article anyway, why not read it in your target language? If you have a 10-minute bike ride, why not spend it on an audio lesson about something you actually care about?
+
+The ask is light:
+
+1. Try Zeeguu for a few days in any of your languages — a good chance to chisel the less advanced ones before the Gathering.
+2. Confirm you're up for a 25-minute conversation — at the Gathering or by video call afterwards — via this short form: https://forms.gle/6KCEwihWnkdWKVuG6
+
+Findings will feed Zeeguu's roadmap and possibly a talk/paper on how polyglots use comprehensible input tools across multiple languages.
+
+If you'd rather not hear from me again, just reply "unsubscribe."
+
+Thanks,
+
+Mircea Lungu
+Associate Professor, IT University of Copenhagen
+zeeguu.org
