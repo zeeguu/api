@@ -127,8 +127,14 @@ def validate_single_occurrence(target_word, context_text, from_lang):
             'position_data': {
                 'sentence_i': position['sentence_i'],
                 'token_i': position['token_i'],
-                'c_sentence_i': position['sentence_i'],  # Context sentence same as word sentence
-                'c_token_i': position['token_i'],        # Context token same as word token  
+                # Standalone-sentence contexts (translate tab, USER_EDITED_TEXT)
+                # start at their own first token — the offset is 0, not the
+                # target word's position. Setting these equal made the
+                # downstream tokenization cache start at start_token_i=token_i,
+                # which then numbered the FIRST token with the target's index
+                # and broke the highlight in WordInContext exercises.
+                'c_sentence_i': 0,
+                'c_token_i': 0,
                 'total_tokens': position['tokens_matched']
             }
         }
@@ -249,8 +255,11 @@ def find_first_occurrence(target_word, context_text, from_lang):
             'position_data': {
                 'sentence_i': position['sentence_i'],
                 'token_i': position['token_i'],
-                'c_sentence_i': position['sentence_i'],
-                'c_token_i': position['token_i'],
+                # See validate_single_occurrence above — these are the
+                # context's first-token offset, which is 0 for standalone
+                # sentences (ExampleSentence, alternative_sentences path).
+                'c_sentence_i': 0,
+                'c_token_i': 0,
                 'total_tokens': position['tokens_matched']
             },
             'error_message': None
