@@ -2,8 +2,10 @@ import traceback
 import flask
 import os
 from flask import request
+from datetime import datetime
 
 from zeeguu.core.model.user import User
+from zeeguu.core.model import UserExerciseSession
 from zeeguu.core.audio_lessons.asr_service_client import (
     ASRServiceNotConfigured,
     ASRServiceRequestError,
@@ -64,6 +66,22 @@ def _parse_optional_session_id(value):
         return int(value)
     except (TypeError, ValueError):
         raise ValueError("session_id must be an integer")
+
+
+def _ensure_exercise_session_id(user, session_id, duration_ms=0):
+    if session_id is not None:
+        return session_id
+
+    session = UserExerciseSession(
+        user.id,
+        datetime.now(),
+        platform=None,
+        language_id=user.learned_language_id,
+    )
+    session.duration = max(_coerce_int(duration_ms, minimum=0), 1000)
+    db_session.add(session)
+    db_session.flush()
+    return session.id
 
 
 def _raise_if_audio_too_large(size):
@@ -260,6 +278,7 @@ def submit_answer():
             return json_result({"error": "session_id must be an integer"}), 400
 
         response_time = _coerce_int(response_time, minimum=0)
+        session_id = _ensure_exercise_session_id(user, session_id, response_time)
 
         response_data = record_flashcard_answer(
             db_session,
