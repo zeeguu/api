@@ -12,7 +12,7 @@ Usage:
     python -m tools.email_cohort_users --cohort pg25 --template tools/polyglots-2026.txt
 
 Template format: first non-empty line is the subject, blank line, then the body.
-Placeholders available in subject and body: {first_name}, {hello}.
+Placeholder available in subject and body: {first_name}.
 
 Sends via Gmail SMTP with the configured MAIL_FROM as both envelope sender
 and From: header — replies come back to that address. App Passwords:
@@ -34,14 +34,6 @@ app = create_app()
 app.app_context().push()
 
 
-HELLO = {
-    "da": "Hej", "en": "Hi", "fr": "Bonjour", "nl": "Hallo", "pl": "Cześć",
-    "ro": "Salut", "zh-CN": "你好", "tr": "Merhaba", "ku": "Silav", "ar": "مرحبا",
-    "so": "Salaan", "de": "Hallo", "sv": "Hej", "sq": "Përshëndetje", "es": "Hola",
-    "it": "Ciao", "ja": "こんにちは", "sr": "Здраво", "pt": "Olá", "ru": "Привет",
-    "uk": "Привіт", "vi": "Xin chào", "hu": "Szia", "lv": "Sveiki", "ind": "Halo",
-    "ur": "ہیلو", "ta": "வணக்கம்", "bn": "হ্যালო", "el": "Γεια",
-}
 
 
 def load_template(path):
@@ -49,7 +41,7 @@ def load_template(path):
     if not os.path.exists(path):
         print(f"Template file not found: {path}")
         print("Format: subject on first line, blank line, then body.")
-        print("Placeholders: {first_name}, {hello}")
+        print("Placeholder: {first_name}")
         sys.exit(1)
     with open(path) as f:
         lines = f.read().splitlines()
@@ -98,12 +90,10 @@ def derive_first_name(user):
     return parts[0].title() if parts else "there"
 
 
-def render(user, first_name, subject_tpl, body_tpl):
-    lang_code = user.native_language.code if user.native_language else "en"
-    hello = HELLO.get(lang_code, "Hello")
+def render(first_name, subject_tpl, body_tpl):
     return (
-        subject_tpl.format(first_name=first_name, hello=hello),
-        body_tpl.format(first_name=first_name, hello=hello),
+        subject_tpl.format(first_name=first_name),
+        body_tpl.format(first_name=first_name),
     )
 
 
@@ -201,7 +191,7 @@ def main():
             skipped += 1
             continue
 
-        subject, body = render(user, first_name, subject_tpl, body_tpl)
+        subject, body = render(first_name, subject_tpl, body_tpl)
         print(f"Subject: {subject}")
         print("-" * 70)
         print(body)
