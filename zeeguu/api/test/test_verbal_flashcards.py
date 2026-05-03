@@ -76,7 +76,13 @@ def _set_bookmark_level(bookmark_id, level):
     return bookmark
 
 
-def _create_level_3_flashcard(client, word="hinter", translation="behind"):
+def _create_level_3_flashcard(
+    client,
+    word="hinter",
+    translation="behind",
+    from_lang="de",
+    to_lang="en",
+):
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
     from zeeguu.core.model.bookmark import Bookmark
@@ -87,7 +93,7 @@ def _create_level_3_flashcard(client, word="hinter", translation="behind"):
     article = create_and_get_article(client)
     context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     bookmark = client.post(
-        "/contribute_translation/de/en",
+        f"/contribute_translation/{from_lang}/{to_lang}",
         json={
             "word": word,
             "translation": translation,
@@ -384,6 +390,39 @@ def test_check_pronunciation_returns_accuracy_analysis(client):
     assert response["wordMatches"][0]["matchType"] == "normalized_exact"
 
 
+def test_check_pronunciation_accepts_database_answer_variant_for_same_prompt(client):
+    _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
+
+    selected_bookmark = _create_level_3_flashcard(
+        client,
+        word="landet",
+        translation="country",
+        from_lang="da",
+    )
+    selected_bookmark_id = str(selected_bookmark.id)
+    _create_level_3_flashcard(
+        client,
+        word="land",
+        translation="country",
+        from_lang="da",
+    )
+
+    response = client.post(
+        "/verbal_flashcards/check_pronunciation",
+        json={
+            "flashcard_id": selected_bookmark_id,
+            "user_speech": "land",
+            "expected_text": "landet",
+        },
+    )
+
+    assert response["isAccepted"] is True
+    assert response["acceptedAccuracy"] == 100
+    assert response["matchedExpectedText"] == "land"
+    assert response["expectedTextVariants"] == ["landet", "land"]
+
+
 def test_parse_asr_language_overrides_supports_multiple_language_entries():
     from zeeguu.core.audio_lessons.asr_service_client import parse_asr_language_overrides
 
@@ -639,6 +678,40 @@ def test_submit_uses_fuzzy_acceptance_to_override_is_correct(client):
     assert response["accuracy_analysis"]["isAccepted"] is True
     assert response["accuracy_analysis"]["wordMatches"][0]["matchType"] in {"fuzzy", "normalized_exact"}
     assert response["flashcard_id"] == str(bookmark_id)
+
+
+def test_submit_accepts_database_answer_variant_for_same_prompt(client):
+    _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
+
+    selected_bookmark = _create_level_3_flashcard(
+        client,
+        word="landet",
+        translation="country",
+        from_lang="da",
+    )
+    selected_bookmark_id = str(selected_bookmark.id)
+    _create_level_3_flashcard(
+        client,
+        word="land",
+        translation="country",
+        from_lang="da",
+    )
+
+    response = client.post(
+        "/verbal_flashcards/submit",
+        json={
+            "flashcard_id": selected_bookmark_id,
+            "user_answer": "land",
+            "is_correct": False,
+            "answer_source": "speech",
+        },
+    )
+
+    assert response["success"] is True
+    assert response["is_correct"] is True
+    assert response["exercise_outcome"] == "C"
+    assert response["accuracy_analysis"]["matchedExpectedText"] == "land"
 
 
 def test_submit_uses_direct_bookmark_lookup_not_live_flashcard_collection(client, monkeypatch):

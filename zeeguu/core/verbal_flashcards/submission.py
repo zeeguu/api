@@ -1,8 +1,9 @@
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.verbal_flashcards.flashcard_selection import (
+    answer_variants_for_bookmark,
     find_flashcard_submission_target,
 )
-from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
+from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy_against_variants
 
 
 VERBAL_FLASHCARD_EXERCISE_SOURCE = "Verbal Flashcards"
@@ -27,10 +28,10 @@ def record_flashcard_answer(
 
     accuracy_analysis = None
     if user_answer:
-        expected_text = user_word.meaning.origin.content
-        accuracy_analysis = calculate_accuracy(
+        expected_texts = answer_variants_for_bookmark(bookmark)
+        accuracy_analysis = calculate_accuracy_against_variants(
             user_answer,
-            expected_text,
+            expected_texts,
             language_code=language_code,
         )
 

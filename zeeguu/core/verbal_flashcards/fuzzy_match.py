@@ -372,6 +372,54 @@ def calculate_accuracy(user_speech, expected_text, language_code=None):
     }
 
 
+def calculate_accuracy_against_variants(user_speech, expected_texts, language_code=None):
+    """
+    Score speech against multiple accepted expected texts and return the best one.
+
+    Verbal flashcards show one cue, but Zeeguu can have multiple learned-language
+    forms for the same translated cue. Keep the learner-facing card stable while
+    accepting the best database-backed variant during pronunciation scoring.
+    """
+    variants = []
+    seen = set()
+    for expected_text in expected_texts or []:
+        cleaned_text = str(expected_text or "").strip()
+        key = cleaned_text.casefold()
+        if cleaned_text and key not in seen:
+            variants.append(cleaned_text)
+            seen.add(key)
+
+    if not variants:
+        variants = [""]
+
+    scored_variants = [
+        calculate_accuracy(user_speech, expected_text, language_code=language_code)
+        for expected_text in variants
+    ]
+
+    def variant_rank(result):
+        return (
+            1 if result["isAccepted"] else 0,
+            result["acceptedWordCount"],
+            result["acceptedAccuracy"],
+            result["accuracy"],
+        )
+
+    best_index, best_result = max(
+        enumerate(scored_variants),
+        key=lambda indexed_result: variant_rank(indexed_result[1]),
+    )
+
+    best_result = {
+        **best_result,
+        "matchedExpectedText": variants[best_index],
+    }
+    if len(variants) > 1:
+        best_result["expectedTextVariants"] = variants
+
+    return best_result
+
+
 def get_feedback_message(accepted_words, total_words):
     """Return one of the simplified feedback outcomes for verbal flashcards."""
     if not total_words:

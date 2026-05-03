@@ -12,8 +12,12 @@ from zeeguu.core.audio_lessons.asr_service_client import (
     transcribe_with_asr_worker,
 )
 from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
-from zeeguu.core.verbal_flashcards.flashcard_selection import get_flashcard_collection
-from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy
+from zeeguu.core.verbal_flashcards.flashcard_selection import (
+    answer_variants_for_bookmark,
+    find_flashcard_submission_target,
+    get_flashcard_collection,
+)
+from zeeguu.core.verbal_flashcards.fuzzy_match import calculate_accuracy_against_variants
 from zeeguu.core.verbal_flashcards.submission import record_flashcard_answer
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -334,17 +338,25 @@ def check_pronunciation():
 
         user_speech = data.get("user_speech", "")
         expected_text = data.get("expected_text", "")
+        flashcard_id = data.get("flashcard_id")
         language_code = (
             data.get("language_code")
             or (user.learned_language.code if user.learned_language else None)
         )
 
-        if not expected_text:
+        expected_texts = [expected_text] if expected_text else []
+        if flashcard_id is not None:
+            bookmark = find_flashcard_submission_target(user, str(flashcard_id))
+            if not bookmark:
+                return json_result({"error": "Flashcard not found"}), 404
+            expected_texts = answer_variants_for_bookmark(bookmark)
+
+        if not expected_texts:
             return json_result({"error": "expected_text is required"}), 400
 
-        accuracy_analysis = calculate_accuracy(
+        accuracy_analysis = calculate_accuracy_against_variants(
             user_speech,
-            expected_text,
+            expected_texts,
             language_code=language_code,
         )
 
