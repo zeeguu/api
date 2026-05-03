@@ -2,11 +2,11 @@ A small ask before this year's Polyglot Gathering
 
 Hello {first_name},
 
-You might remember Zeeguu — the app I presented at last year's Polyglot Gathering. You signed up for an account back then, which is how you ended up on this short list. The next Gathering is on 27 May, and I'd love your help with something.
+You might remember Zeeguu — the app I presented at last year's Polyglot Gathering. You signed up for an account back then, which is how you ended up on this short list. I'd love your help with a study — one that might help you too.
 
-A lot has changed since then: there's a mobile app now (iOS + Android), audio lessons on any topic you choose, and LLM-based simplification that adapts any article to your level in one of your target languages.
+Zeeguu has changed a lot since then: there's a mobile app now (iOS + Android), audio lessons on any topic you choose, and LLM-based simplification that adapts any article to your level in one of your target languages.
 
-It's still meant as a humble top-up — if you were going to read an article anyway, why not read it in your target language? If you have a 10-minute bike ride, why not spend it on an audio lesson?
+It's still meant as a humble extra tool alongside your other ways of learning. If you were going to read an article anyway, why not read it in your target language at your current level? If you have a 10-minute bike ride or walk, why not spend it on an audio lesson?
 
 The ask is light:
 
@@ -20,4 +20,4 @@ Thanks,
 Mircea Lungu
 Associate Professor
 IT University of Copenhagen
-mircealungu.com
+mircealungu.com  •  zeeguu.org
