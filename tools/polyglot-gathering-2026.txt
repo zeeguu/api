@@ -17,10 +17,9 @@ The ask is light:
 
 Findings will feed Zeeguu's roadmap and possibly a talk/paper on how polyglots use comprehensible input tools across multiple languages.
 
-If you'd rather not hear from me again, just reply "unsubscribe."
-
 Thanks,
 
 Mircea Lungu
-Associate Professor, IT University of Copenhagen
-zeeguu.org
+Associate Professor
+IT University of Copenhagen
+mircealungu.com

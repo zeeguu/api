@@ -6,14 +6,17 @@ Idempotent: every send / skip-forever is appended to <template>.sent.log;
 re-runs skip any user already logged for the same SUBJECT.
 
 Usage:
+    export MAIL_FROM=mircea.lungu@gmail.com
+    export MAIL_PASSWORD='<gmail app password>'
     source $GH_FOLDER/zeeguu/api/.venv/bin/activate
     python -m tools.email_cohort_users --cohort pg25 --template tools/polyglots-2026.txt
 
 Template format: first non-empty line is the subject, blank line, then the body.
 Placeholders available in subject and body: {first_name}, {hello}.
 
-Note: ZeeguuMailer silently no-ops unless SEND_NOTIFICATION_EMAILS is True
-in the active config. The script prints which mode it is in at startup.
+Sends via Gmail SMTP with the configured MAIL_FROM as both envelope sender
+and From: header — replies come back to that address. App Passwords:
+https://myaccount.google.com/apppasswords (2FA must be on).
 """
 
 import argparse
@@ -22,8 +25,9 @@ import os
 import sys
 from datetime import datetime
 
+import yagmail
+
 from zeeguu.api.app import create_app
-from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.cohort import Cohort
 
 app = create_app()
@@ -139,19 +143,25 @@ def parse_args():
 
 
 def main():
-    import zeeguu
-
     args = parse_args()
     template_path = os.path.abspath(args.template)
     log_path = template_path + ".sent.log"
     cohort_code = args.cohort
 
+    mail_from = os.getenv("MAIL_FROM")
+    mail_password = os.getenv("MAIL_PASSWORD")
+    if not mail_from or not mail_password:
+        print("ERROR: set MAIL_FROM and MAIL_PASSWORD env vars before running.")
+        print("  MAIL_FROM       = your gmail address (e.g. mircea.lungu@gmail.com)")
+        print("  MAIL_PASSWORD   = a Gmail App Password (https://myaccount.google.com/apppasswords)")
+        sys.exit(2)
+
     subject_tpl, body_tpl = load_template(template_path)
     locked_ids, counts = load_sent_log(log_path, subject_tpl)
 
-    live = zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False)
-    print(f"Mode: {'LIVE — emails will be sent' if live else 'SIMULATED (SEND_NOTIFICATION_EMAILS=False) — nothing will go out'}")
-    print(f"From: {zeeguu.core.app.config.get('SMTP_EMAIL')}")
+    yag = yagmail.SMTP(mail_from, mail_password)
+
+    print(f"From: {mail_from}  (via Gmail SMTP — replies go here)")
     print(f"Template: {template_path}")
     print(f"Sent log: {log_path}  "
           f"(prior for this subject: sent={counts['sent']}, skipped_forever={counts['skipped_forever']})")
@@ -219,7 +229,7 @@ def main():
             skipped += 1
             continue
 
-        ZeeguuMailer(subject, body, user.email).send()
+        yag.send(to=user.email, subject=subject, contents=body)
         append_sent_log(log_path, {
             "status": "sent",
             "user_id": user.id,
@@ -229,7 +239,7 @@ def main():
             "cohort_code": cohort_code,
             "subject": subject_tpl,
             "rendered_subject": subject,
-            "live": bool(live),
+            "from": mail_from,
             "ts": datetime.utcnow().isoformat() + "Z",
         })
         print(f"Sent to {user.email}.\n")
