@@ -38,6 +38,8 @@ MAX_ASR_AUDIO_BYTES = int(
         os.environ.get("VERBAL_FLASHCARD_MAX_AUDIO_BYTES", DEFAULT_MAX_AUDIO_BYTES),
     )
 )
+ASR_LEADING_SILENCE_MS = int(os.environ.get("ASR_LEADING_SILENCE_MS", "250"))
+ASR_TRAILING_SILENCE_MS = int(os.environ.get("ASR_TRAILING_SILENCE_MS", "250"))
 
 
 class ASRAudioTooLarge(ValueError):
@@ -92,6 +94,36 @@ def supported_languages_for_response():
     return sorted(ASR_SUPPORTED_LANGUAGES)
 
 
+def add_asr_padding(audio):
+    """
+    Add a small silence cushion around very short learner recordings.
+
+    Short one-word clips can begin at the exact first phoneme, which is brittle
+    for browser microphones and autoregressive ASR. Silence padding gives the
+    model stable acoustic lead-in/out without injecting fake spoken tokens.
+    """
+    leading_ms = max(0, ASR_LEADING_SILENCE_MS)
+    trailing_ms = max(0, ASR_TRAILING_SILENCE_MS)
+
+    if leading_ms:
+        leading_silence = (
+            AudioSegment.silent(duration=leading_ms, frame_rate=audio.frame_rate)
+            .set_channels(audio.channels)
+            .set_sample_width(audio.sample_width)
+        )
+        audio = leading_silence + audio
+
+    if trailing_ms:
+        trailing_silence = (
+            AudioSegment.silent(duration=trailing_ms, frame_rate=audio.frame_rate)
+            .set_channels(audio.channels)
+            .set_sample_width(audio.sample_width)
+        )
+        audio = audio + trailing_silence
+
+    return audio
+
+
 try:
     import nemo.collections.asr as nemo_asr
     from pydub import AudioSegment
@@ -130,6 +162,7 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
 
         audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
         audio = audio.set_channels(1).set_frame_rate(16000)
+        audio = add_asr_padding(audio)
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             temp_path = temp_file.name

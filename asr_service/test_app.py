@@ -56,6 +56,21 @@ def test_supports_language_accepts_any_language_for_multilingual_worker(monkeypa
     assert asr_app.supports_language("fr") is True
 
 
+def test_add_asr_padding_adds_configured_silence(monkeypatch):
+    if not hasattr(asr_app, "AudioSegment"):
+        pytest.skip("pydub is not available in this environment")
+
+    monkeypatch.setattr(asr_app, "ASR_LEADING_SILENCE_MS", 250)
+    monkeypatch.setattr(asr_app, "ASR_TRAILING_SILENCE_MS", 350)
+
+    audio = asr_app.AudioSegment.silent(duration=100, frame_rate=16000).set_channels(1)
+    padded = asr_app.add_asr_padding(audio)
+
+    assert len(padded) == 700
+    assert padded.frame_rate == 16000
+    assert padded.channels == 1
+
+
 def test_health_returns_503_when_model_is_unavailable(monkeypatch):
     monkeypatch.setattr(asr_app, "ASR_AVAILABLE", False)
     monkeypatch.setattr(asr_app, "asr_model", None)
