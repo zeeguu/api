@@ -7,6 +7,7 @@ from zeeguu.core.emailer.user_activity import send_new_user_account_email
 from zeeguu.core.emailer.email_confirmation import send_email_confirmation
 from zeeguu.core.model import Cohort, User, Teacher, Language, UserLanguage
 from zeeguu.core.model.unique_code import UniqueCode
+from zeeguu.core.model.user_onboarding_message import UserOnboardingMessage
 from zeeguu.logging import log
 
 
@@ -163,6 +164,11 @@ def create_account(
             db_session.add(user_language)
             if cohort and cohort.is_cohort_of_teachers:
                 db_session.add(Teacher(user))
+            # Initialize onboarding messages for the new user (idempotent)
+            for msg_id in range(1, 8):
+                UserOnboardingMessage.find_or_create_for_user_and_message(
+                    db_session, user.id, msg_id
+                )
 
         new_user, animal = _commit_new_user_with_retry(db_session, build_user, add_siblings)
 
@@ -235,6 +241,11 @@ def create_basic_account(
         def add_siblings(user):
             if cohort and cohort.is_cohort_of_teachers:
                 db_session.add(Teacher(user))
+            # Initialize onboarding messages for the new user (idempotent)
+            for msg_id in range(1, 8):
+                UserOnboardingMessage.find_or_create_for_user_and_message(
+                    db_session, user.id, msg_id
+                )
 
         new_user, animal = _commit_new_user_with_retry(db_session, build_user, add_siblings)
 
