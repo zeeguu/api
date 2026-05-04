@@ -33,6 +33,7 @@ from . import accounts
 from . import speech
 from . import own_texts
 from . import user_notifications
+from . import user_onboarding_message
 from .student import *
 from .nlp import *
 from .reading_sessions import *

@@ -21,6 +21,8 @@ from .bookmark import Bookmark
 from .user_preference import UserPreference
 from .session import Session
 from .unique_code import UniqueCode
+from .onboarding_message import OnboardingMessage
+from .user_onboarding_message import UserOnboardingMessage
 
 
 from .article_broken_code_map import ArticleBrokenMap, LowQualityTypes
