@@ -147,20 +147,23 @@ def add_anon_user():
     invite_code = request.form.get("invite_code", None)
 
     try:
-        generated_username, animal = User.generate_unique_username()
+        generated_username, adjective, animal = User.generate_unique_username()
+        generated_display_name = f"{adjective.capitalize()} {animal.capitalize()}"
         new_user = User.create_anonymous(
             uuid,
             password,
             generated_username,
-            language_code,
-            native_code,
+            name=generated_display_name,
+            learned_language_code=language_code,
+            native_language_code=native_code,
             creation_platform=platform,
             invite_code=invite_code
          )
         db_session.add(new_user)
         db_session.commit()
 
-        user_avatar = UserAvatar(new_user.id, animal, None, None)
+        character_color, background_color = UserAvatar.random_colors()
+        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
         db_session.commit()
 
