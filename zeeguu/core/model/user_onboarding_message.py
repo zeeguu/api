@@ -85,6 +85,9 @@ class UserOnboardingMessage(db.Model):
     def update_user_onboarding_message_time(cls, user_onboarding_message_id, db_session):
         """Set the time when the user clicked/dismissed the message."""
         user_onboarding_message = cls.find_by_id(user_onboarding_message_id)
+        if not user_onboarding_message:
+            return None
+
         user_onboarding_message.message_click_time = datetime.now()
         db_session.add(user_onboarding_message)
         return user_onboarding_message
