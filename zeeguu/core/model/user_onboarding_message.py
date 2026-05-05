@@ -101,5 +101,13 @@ class UserOnboardingMessage(db.Model):
         
         new_record = cls(user_id, onboarding_message_id)
         session.add(new_record)
-        log("Created new user onboarding message record (pending commit)")
-        return new_record
+        try:
+            session.flush()
+            log("Created new user onboarding message record (pending commit)")
+            return new_record
+        except sqlalchemy.exc.IntegrityError:
+            session.rollback()
+            return cls.query.filter_by(
+                user_id=user_id,
+                onboarding_message_id=onboarding_message_id,
+            ).first()

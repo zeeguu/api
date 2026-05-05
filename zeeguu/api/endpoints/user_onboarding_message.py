@@ -34,8 +34,8 @@ def mark_onboarding_message_shown():
     """
     Records that an onboarding message was shown to the user.
     Frontend calls this when the message appears on screen.
-    Uses the find_or_create pattern: row was pre-created for user,
-    now just mark when it was shown.
+    Uses lazy creation: if the user/message row does not exist yet,
+    it is created now and marked with a shown timestamp.
     """
     data = flask.request.form
     onboarding_message_id = data.get("onboarding_message_id", None)

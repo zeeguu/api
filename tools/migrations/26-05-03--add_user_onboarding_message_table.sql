@@ -1,7 +1,7 @@
 CREATE TABLE `zeeguu_test`.`user_onboarding_message` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `user_id` INT NULL,
-    `onboarding_message_id` INT NULL,
+    `user_id` INT NOT NULL,
+    `onboarding_message_id` INT NOT NULL,
     `message_shown_time` DATETIME NULL,
     `message_click_time` DATETIME NULL,
     PRIMARY KEY (`id`),
