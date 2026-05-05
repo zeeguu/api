@@ -9,7 +9,7 @@ Usage:
     export MAIL_FROM=mircea.lungu@gmail.com
     export MAIL_PASSWORD='<gmail app password>'
     source $GH_FOLDER/zeeguu/api/.venv/bin/activate
-    python -m tools.email_cohort_users --cohort pg25 --template tools/polyglots-2026.txt
+    python -m tools.outreach.email_cohort_users --cohort pg25 --template tools/outreach/polyglot-gathering-2026.txt
 
 Template format: first non-empty line is the subject, blank line, then the body.
 Placeholder available in subject and body: {first_name}.
