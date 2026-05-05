@@ -71,6 +71,17 @@ class UserOnboardingMessage(db.Model):
         ).first()
 
     @classmethod
+    def has_message_shown_time(cls, user_id, onboarding_message_id):
+        """Return True if a shown timestamp exists for the given user/message."""
+        user_onboarding_message = cls.find_by_user_and_message(
+            user_id, onboarding_message_id
+        )
+        return bool(
+            user_onboarding_message
+            and user_onboarding_message.message_shown_time is not None
+        )
+
+    @classmethod
     def update_user_onboarding_message_time(cls, user_onboarding_message_id, db_session):
         """Set the time when the user clicked/dismissed the message."""
         user_onboarding_message = cls.find_by_id(user_onboarding_message_id)
