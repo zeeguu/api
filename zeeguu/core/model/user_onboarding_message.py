@@ -105,7 +105,6 @@ class UserOnboardingMessage(db.Model):
         
         new_record = cls(user_id, onboarding_message_id)
         session.add(new_record)
-        session.commit()
-        log("Created new user onboarding message record")
+        log("Created new user onboarding message record (pending commit)")
         return new_record
     
