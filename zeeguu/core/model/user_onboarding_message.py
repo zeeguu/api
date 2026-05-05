@@ -42,11 +42,7 @@ class UserOnboardingMessage(db.Model):
     
     @classmethod
     def get_all_onboarding_messages_for_user(cls, user_id):
-        try:
-            user_onboarding_message = cls.query.filter(cls.user_id == user_id).all()
-            return user_onboarding_message
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
+        return cls.query.filter(cls.user_id == user_id).all()
     
     @classmethod
     def create_user_onboarding_message(cls, user_id, onboarding_message_id, db_session):
@@ -107,4 +103,3 @@ class UserOnboardingMessage(db.Model):
         session.add(new_record)
         log("Created new user onboarding message record (pending commit)")
         return new_record
-    
