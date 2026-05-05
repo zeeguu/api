@@ -65,9 +65,20 @@ def get_onboarding_message_for_user():
 @requires_session
 def set_onboarding_message_click_time():
     data = flask.request.form
-    # user = User.find_by_id(flask.g.user_id)
-    user_onboarding_message_id = data.get("user_onboarding_message_id", None)
-    UserOnboardingMessage.update_user_onboarding_message_time(user_onboarding_message_id, db_session)
+    onboarding_message_id = data.get("onboarding_message_id", None)
+
+    if not onboarding_message_id:
+        return json_result({"error": "onboarding_message_id required"}, status=400)
+
+
+    user_onboarding_message = UserOnboardingMessage.find_by_user_and_message(
+        flask.g.user_id, int(onboarding_message_id)
+    )
+
+    if not user_onboarding_message:
+        return json_result({"error": "not found"}, status=404)
+
+    UserOnboardingMessage.update_user_onboarding_message_time(user_onboarding_message.id, db_session)
     db_session.commit()
 
     return "OK"
