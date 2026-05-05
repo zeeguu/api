@@ -29,10 +29,10 @@ def get_onboarding_message_status():
     )
 
 
-@api.route("/get_onboarding_message_for_user", methods=["POST"])
+@api.route("/mark_onboarding_message_shown", methods=["POST"])  # canonical name
 @cross_domain
 @requires_session
-def get_onboarding_message_for_user():
+def mark_onboarding_message_shown():
     """
     Records that an onboarding message was shown to the user.
     Frontend calls this when the message appears on screen.
@@ -51,12 +51,12 @@ def get_onboarding_message_for_user():
     )
     UserOnboardingMessage.set_message_shown_time(user_onboarding_message.id, db_session)
     db_session.commit()
-    
+
     onboarding_data = {
         "user_onboarding_message_id": user_onboarding_message.id,
-        "onboarding_message_id": int(onboarding_message_id)
+        "onboarding_message_id": int(onboarding_message_id),
     }
-    
+
     return json_result(onboarding_data)
 
 
