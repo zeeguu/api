@@ -7,10 +7,18 @@ from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.phrase import Phrase
+from zeeguu.core.verbal_flashcards.fuzzy_match import (
+    optimal_string_alignment_distance,
+)
+from zeeguu.core.verbal_flashcards.text_normalization import (
+    UnsupportedLanguageError,
+    normalizer_for,
+)
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV = "VERBAL_FLASHCARDS_REQUIRE_LEVEL_3"
 MAX_ANSWER_VARIANTS = 20
+MAX_ANSWER_VARIANT_EDIT_DISTANCE = 2
 
 
 def requires_level_3_flashcards():
@@ -55,15 +63,38 @@ def _add_unique_text(texts, text):
         texts.append(cleaned_text)
 
 
+def _is_close_answer_variant(primary_answer, candidate_answer, language_code):
+    """
+    Keep database variants scoped to likely surface-form relatives.
+
+    Matching only on translated cue text over-accepts homonyms: Danish
+    "forår", "fjeder", and "kilde" can all translate to English "spring",
+    but they are unrelated answers. Until Zeeguu has a meaning-family or
+    inflection-group model, only accept variants that are at most two edits
+    away from the scheduled answer, which keeps cases like "bold" / "bolden".
+    """
+    try:
+        normalizer = normalizer_for(language_code)
+    except UnsupportedLanguageError:
+        return False
+
+    primary_form = normalizer.canonical_form(primary_answer)
+    candidate_form = normalizer.canonical_form(candidate_answer)
+
+    return (
+        optimal_string_alignment_distance(primary_form, candidate_form)
+        <= MAX_ANSWER_VARIANT_EDIT_DISTANCE
+    )
+
+
 def answer_variants_for_bookmark(bookmark):
     """
     Return learned-language answers accepted for a verbal flashcard.
 
-    Zeeguu stores each translation pair as a Meaning. That lets the database hold
-    several learned-language forms for the same translated cue, e.g. different
-    inflections or article forms. The scheduled bookmark remains the primary
-    answer, while scoring can accept other non-invalid meanings with the same
-    prompt language and cue text.
+    The scheduled bookmark remains the primary answer. Other database meanings
+    with the same translated cue are accepted only when their learned-language
+    form is close to that primary answer, preventing unrelated homonyms from
+    being accepted for the same English cue.
     """
     if not bookmark or not bookmark.user_word or not bookmark.user_word.meaning:
         return []
@@ -72,10 +103,12 @@ def answer_variants_for_bookmark(bookmark):
     if not meaning.origin or not meaning.translation:
         return []
 
+    primary_answer = meaning.origin.content
     variants = []
-    _add_unique_text(variants, meaning.origin.content)
+    _add_unique_text(variants, primary_answer)
 
     origin_language_id = meaning.origin.language_id
+    origin_language_code = meaning.origin.language.code
     translation_language_id = meaning.translation.language_id
     prompt_key = meaning.translation.content.lower().strip()
 
@@ -100,7 +133,13 @@ def answer_variants_for_bookmark(bookmark):
     )
 
     for candidate_meaning in candidate_meanings:
-        _add_unique_text(variants, candidate_meaning.origin.content)
+        candidate_answer = candidate_meaning.origin.content
+        if _is_close_answer_variant(
+            primary_answer,
+            candidate_answer,
+            origin_language_code,
+        ):
+            _add_unique_text(variants, candidate_answer)
 
     return variants
 

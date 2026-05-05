@@ -237,6 +237,10 @@ def transcribe():
 
 
 if __name__ == "__main__":
-    # TODO: Temporary local-dev override. Remove this when local ASR no longer
-    # needs to run beside `python start.py` on http://127.0.0.1:5002.
-    app.run(host="0.0.0.0", port=int(os.environ.get("ASR_SERVICE_PORT", "5002")))
+    # Direct `python app.py` entrypoint for local development. Production uses
+    # gunicorn (`gunicorn.conf.py`) and never enters this block.
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("ASR_SERVICE_PORT", "5002")),
+        debug=os.environ.get("FLASK_DEBUG") == "1",
+    )

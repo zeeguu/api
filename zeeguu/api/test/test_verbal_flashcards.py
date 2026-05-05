@@ -463,6 +463,44 @@ def test_check_pronunciation_accepts_database_answer_variant_for_same_prompt(cli
     assert response["expectedTextVariants"] == ["landet", "land"]
 
 
+def test_check_pronunciation_rejects_distant_homonym_variant_for_same_prompt(client):
+    _prepare_bookmark_support()
+    _set_client_learned_language(client, "da")
+
+    selected_bookmark = _create_level_3_flashcard(
+        client,
+        word="fjeder",
+        translation="spring",
+        from_lang="da",
+    )
+    selected_bookmark_id = str(selected_bookmark.id)
+    _create_level_3_flashcard(
+        client,
+        word="kilde",
+        translation="spring",
+        from_lang="da",
+    )
+    _create_level_3_flashcard(
+        client,
+        word="forår",
+        translation="spring",
+        from_lang="da",
+    )
+
+    response = client.post(
+        "/verbal_flashcards/check_pronunciation",
+        json={
+            "flashcard_id": selected_bookmark_id,
+            "user_speech": "kilde",
+            "expected_text": "fjeder",
+        },
+    )
+
+    assert response["isAccepted"] is False
+    assert response["matchedExpectedText"] == "fjeder"
+    assert "expectedTextVariants" not in response
+
+
 def test_parse_asr_language_overrides_supports_multiple_language_entries():
     from zeeguu.core.audio_lessons.asr_service_client import parse_asr_language_overrides
 
