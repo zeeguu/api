@@ -2,7 +2,7 @@ A small ask for your polyglot expertise
 
 Hello {first_name},
 
-You might remember Zeeguu — the app I presented at last year's Polyglot Gathering. You signed up for an account back then, which is how you ended up on this short list. I'd love your help with a study.
+You might remember Zeeguu — the app I presented at last year's Polyglot Gathering. You signed up for an account back then, which is how you ended up on this short list. I'd love your help with a study — and I'll owe you a coffee or cake or beer?
 
 Zeeguu has changed a lot since then: there's a mobile app now (iOS + Android), audio lessons on any topic you choose, and LLM-based simplification and adaptation that can transform any article you send to Zeeguu into a lesson in your target language at your level (even an English one).
 
