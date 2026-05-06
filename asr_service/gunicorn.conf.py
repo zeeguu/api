@@ -7,7 +7,7 @@ workers = int(os.environ.get("GUNICORN_WORKERS", "1"))
 threads = 1
 preload_app = True
 
-timeout = 120
+timeout = int(os.environ.get("GUNICORN_TIMEOUT", "300"))
 graceful_timeout = 30
 
 accesslog = "-"
