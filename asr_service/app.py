@@ -165,8 +165,11 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
     if not ASR_AVAILABLE or asr_model is None:
         raise ASRModelUnavailable("ASR model is not available in this worker")
 
+    # Force 16-bit so the /32768 normalization below is correct. Source
+    # files (e.g. .ogg) commonly decode to 32-bit, in which case dividing
+    # by 32768 leaves samples ~65000x too large and the model emits nothing.
     audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
-    audio = audio.set_channels(1).set_frame_rate(16000)
+    audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
     audio = add_asr_padding(audio)
 
     # Pass a float32 numpy array directly to the model. The file-path API
