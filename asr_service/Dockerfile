@@ -12,10 +12,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY asr_service/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY asr_service/app.py asr_service/gunicorn.conf.py ./
+COPY app.py gunicorn.conf.py ./
 
 EXPOSE ${ASR_SERVICE_PORT}
 

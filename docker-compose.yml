@@ -111,9 +111,7 @@ services:
     mem_limit: 10g
 
   asr:
-    build:
-      context: .
-      dockerfile: ./asr_service/Dockerfile
+    build: ./asr_service
     volumes:
       - ${ZEEGUU_DATA_FOLDER}/asr_cache:/root/.cache/huggingface
     environment:
