@@ -22,7 +22,7 @@ MAX_ANSWER_VARIANT_EDIT_DISTANCE = 2
 
 
 def requires_level_3_flashcards():
-    raw_value = os.environ.get(VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV, "true")
+    raw_value = os.environ.get(VERBAL_FLASHCARDS_REQUIRE_LEVEL_3_ENV, "false")
     return raw_value.strip().lower() not in {"0", "false", "no", "off"}
 
 
