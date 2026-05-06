@@ -135,6 +135,14 @@ try:
         f"{', '.join(supported_languages_for_response())} "
         f"with model {ASR_MODEL_NAME}"
     )
+
+    # Pre-warm in the master so Numba JIT compilation and NeMo's lazy init
+    # happen ONCE here. With gunicorn preload_app=True, all forked workers
+    # inherit the warmed state and serve their first user request fast.
+    print("ASR warmup: running dummy inference...")
+    _warmup_samples = np.zeros(16000, dtype=np.float32)  # 1s of silence at 16kHz
+    asr_model.transcribe([_warmup_samples], batch_size=1)
+    print("ASR warmup complete")
 except ImportError as exc:
     ASR_AVAILABLE = False
     asr_model = None
