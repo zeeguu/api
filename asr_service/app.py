@@ -168,7 +168,7 @@ def transcribe_audio_file(audio_storage, requested_language_code=None):
             temp_path = temp_file.name
             audio.export(temp_path, format="wav")
 
-        transcript = asr_model.transcribe([temp_path])
+        transcript = asr_model.transcribe([temp_path], batch_size=1, num_workers=0)
         transcription = extract_transcription(transcript)
     finally:
         if temp_path and os.path.exists(temp_path):
