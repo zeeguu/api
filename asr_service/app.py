@@ -9,8 +9,8 @@ from Docker, even while the current deployment only loads the Danish model.
 import io
 import logging
 import os
-import tempfile
 
+import numpy as np
 from flask import Flask, jsonify, request
 
 
@@ -146,34 +146,27 @@ except Exception as exc:
 
 
 def transcribe_audio_file(audio_storage, requested_language_code=None):
-    temp_path = None
-
     if not supports_language(requested_language_code):
         raise ValueError(
             f"Worker {ASR_WORKER_NAME} does not support '{requested_language_code}'"
         )
 
-    try:
-        audio_bytes = audio_storage.read(MAX_ASR_AUDIO_BYTES + 1)
-        raise_if_audio_too_large(len(audio_bytes))
+    audio_bytes = audio_storage.read(MAX_ASR_AUDIO_BYTES + 1)
+    raise_if_audio_too_large(len(audio_bytes))
 
-        if not ASR_AVAILABLE or asr_model is None:
-            raise ASRModelUnavailable("ASR model is not available in this worker")
+    if not ASR_AVAILABLE or asr_model is None:
+        raise ASRModelUnavailable("ASR model is not available in this worker")
 
-        audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
-        audio = audio.set_channels(1).set_frame_rate(16000)
-        audio = add_asr_padding(audio)
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+    audio = audio.set_channels(1).set_frame_rate(16000)
+    audio = add_asr_padding(audio)
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-            temp_path = temp_file.name
-            audio.export(temp_path, format="wav")
-
-        transcript = asr_model.transcribe([temp_path], batch_size=1, num_workers=0)
-        transcription = extract_transcription(transcript)
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
-    return transcription
+    # Pass a float32 numpy array directly to the model. The file-path API
+    # routes through Lhotse's dataloader which dominates inference time on
+    # CPU even with num_workers=0; the array path skips that pipeline.
+    samples = np.array(audio.get_array_of_samples(), dtype=np.float32) / 32768.0
+    transcript = asr_model.transcribe([samples], batch_size=1)
+    return extract_transcription(transcript)
 
 
 app = Flask(__name__)
