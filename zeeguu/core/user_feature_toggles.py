@@ -143,13 +143,7 @@ def _verbal_flashcards(user):
     Enable verbal flashcards for users invited with the dedicated verbal
     flashcards invite code, or who belong to the cohort associated with
     that code.
-
-    TEMPORARILY DISABLED 2026-05-06 — Parakeet RNNT inference on CPU
-    without CUDA graphs is too slow for production use; switching ASR
-    backend to faster-whisper as a follow-up. Re-enable by removing the
-    early return below once the new backend is in place.
     """
-    return False
     VERBAL_FLASHCARDS_INVITE_CODE = "spring2026"
     learned_language = getattr(user, "learned_language", None)
     learned_language_code = str(getattr(learned_language, "code", "") or "").casefold()
