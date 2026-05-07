@@ -331,7 +331,7 @@ def test_score_word_match_accepts_words_within_length_based_edit_budget(
     "user_word, expected_word, expected_allowed_distance",
     [
         ("hot", "kat", 1),
-        ("zzzz", "hund", 2),
+        ("zzzz", "hund", 1),
         ("xxxxx", "penge", 2),
     ],
 )
@@ -358,9 +358,9 @@ def test_score_word_match_allows_one_edit_for_two_letter_words():
 
     result = score_word_match("og", "ok", language_code="da")
 
-    assert result["isMatch"] is True
+    assert result["isMatch"] is False
     assert result["optimalStringAlignmentDistance"] == 1
-    assert result["allowedOptimalStringAlignmentDistance"] == 1
+    assert result["allowedOptimalStringAlignmentDistance"] == 0
 
 
 def test_calculate_accuracy_ignores_word_order_and_matches_fuzzily():
