@@ -152,14 +152,22 @@ def allowed_optimal_string_alignment_distance(expected_word, language_code=None)
     Return the maximum edit distance accepted for a spoken flashcard answer.
 
     Acceptance is based on edit distance, not a blended similarity score:
-    after language-specific normalization, words of length >= 3 may differ by
-    one optimal string alignment edit. Jaro-Winkler is still returned as a
-    diagnostic signal for debugging and future analysis, but it does not decide
-    correctness.
+    after language-specific normalization, longer words get a larger edit
+    budget because ASR approximations often drift more on longer Danish words.
+    Jaro-Winkler is still returned as a diagnostic signal for debugging and
+    future analysis, but it does not decide correctness.
     """
     normalizer = normalizer_for(language_code)
     normalized_length = len(normalizer.canonical_form(expected_word))
-    return 0 if normalized_length <= 2 else 1
+    if normalized_length <= 1:
+        return 0
+    if normalized_length <= 3:
+        return 1
+    if normalized_length <= 5:
+        return 2
+    if normalized_length <= 7:
+        return 3
+    return 4
 
 
 def fuzzy_match_threshold(expected_word, language_code=None):
