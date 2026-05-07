@@ -130,14 +130,14 @@ def prompt_first_name(default):
 def prompt_send():
     """Returns 'send' | 'skip' | 'skip_forever' | 'quit'."""
     while True:
-        ans = input("Send? [y/N/f/q] (f=skip forever): ").strip().lower()
-        if ans == "y":
+        ans = input("Send? [Y/n/f/q] (f=skip forever): ").strip().lower()
+        if ans in ("y", ""):
             return "send"
         if ans == "f":
             return "skip_forever"
         if ans == "q":
             return "quit"
-        if ans in ("n", ""):
+        if ans == "n":
             return "skip"
 
 
