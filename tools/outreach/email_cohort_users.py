@@ -35,10 +35,10 @@ from datetime import datetime
 
 import yagmail
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model.cohort import Cohort
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 
