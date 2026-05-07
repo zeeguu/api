@@ -161,11 +161,11 @@ def allowed_optimal_string_alignment_distance(expected_word, language_code=None)
     normalized_length = len(normalizer.canonical_form(expected_word))
     if normalized_length <= 1:
         return 0
-    if normalized_length <= 3:
+    if normalized_length <= 4:
         return 1
-    if normalized_length <= 5:
+    if normalized_length <= 6:
         return 2
-    if normalized_length <= 7:
+    if normalized_length <= 8:
         return 3
     return 4
 
