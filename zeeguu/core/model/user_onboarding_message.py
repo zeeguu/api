@@ -32,13 +32,14 @@ class UserOnboardingMessage(db.Model):
     @classmethod
     def find_by_id(cls, i):
         try:
-            onboarding_message = cls.query.filter(cls.id == i).one()
-            return onboarding_message
+            return cls.query.filter(cls.id == i).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
         except Exception as e:
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            return None
+            raise
     
     @classmethod
     def get_all_onboarding_messages_for_user(cls, user_id):
