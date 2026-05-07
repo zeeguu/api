@@ -11,6 +11,14 @@ Usage:
     source $GH_FOLDER/zeeguu/api/.venv/bin/activate
     python -m tools.outreach.email_cohort_users --cohort pg25 --template tools/outreach/polyglot-gathering-2026.txt
 
+If you rename the subject of an in-flight campaign, pass the prior subject so
+recipients of the old subject stay locked under the new one:
+
+    python -m tools.outreach.email_cohort_users \
+        --cohort pg25 \
+        --template tools/outreach/polyglot-gathering-2026.txt \
+        --also-lock-from-subject "A small ask for your polyglot expertise"
+
 Template format: first non-empty line is the subject, blank line, then the body.
 Placeholder available in subject and body: {first_name}.
 
@@ -56,10 +64,16 @@ def load_template(path):
     return subject, body
 
 
-def load_sent_log(log_path, subject):
-    """Return user_ids to skip and counts per status, scoped to this subject."""
+def load_sent_log(log_path, subject, also_lock_subjects=()):
+    """Return user_ids to skip and counts per status.
+
+    A user_id is locked if logged under `subject` OR any of `also_lock_subjects`
+    (use the latter to carry forward locks across a renamed subject).
+    Counts only reflect the current `subject` so progress reads cleanly.
+    """
     locked_ids = set()
     counts = {"sent": 0, "skipped_forever": 0}
+    lock_set = {subject, *also_lock_subjects}
     if not os.path.exists(log_path):
         return locked_ids, counts
     with open(log_path) as f:
@@ -71,9 +85,11 @@ def load_sent_log(log_path, subject):
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if rec.get("subject") != subject:
+            if rec.get("subject") not in lock_set:
                 continue
             locked_ids.add(rec.get("user_id"))
+            if rec.get("subject") != subject:
+                continue
             status = rec.get("status", "sent")
             if status in counts:
                 counts[status] += 1
@@ -129,6 +145,15 @@ def parse_args():
     p = argparse.ArgumentParser(description="Send a personalized email to every user in a cohort.")
     p.add_argument("--cohort", required=True, help="Cohort invitation code (e.g. pg25)")
     p.add_argument("--template", required=True, help="Path to the template file")
+    p.add_argument(
+        "--also-lock-from-subject",
+        action="append",
+        default=[],
+        metavar="SUBJECT",
+        help="Treat any user_id previously logged under this subject as already-locked "
+             "for the current run. Repeatable. Use when renaming a subject mid-campaign "
+             "to avoid re-emailing recipients of the prior subject.",
+    )
     return p.parse_args()
 
 
@@ -147,7 +172,7 @@ def main():
         sys.exit(2)
 
     subject_tpl, body_tpl = load_template(template_path)
-    locked_ids, counts = load_sent_log(log_path, subject_tpl)
+    locked_ids, counts = load_sent_log(log_path, subject_tpl, args.also_lock_from_subject)
 
     yag = yagmail.SMTP(mail_from, mail_password)
 
