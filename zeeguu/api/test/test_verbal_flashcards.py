@@ -307,7 +307,7 @@ def test_score_word_match_accepts_common_danish_asr_variants():
     "user_word, expected_word, expected_allowed_distance",
     [
         ("hat", "kat", 1),
-        ("hond", "hund", 2),
+        ("hond", "hund", 1),
         ("pange", "penge", 2),
     ],
 )
