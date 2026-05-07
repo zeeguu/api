@@ -4,7 +4,7 @@ Hello {first_name},
 
 You might remember Zeeguu — the app I presented at last year's Polyglot Gathering. You signed up for an account back then, which is how you ended up on this short list. I'd love your help with a study — and if we meet at the Gathering, coffee, cake, or beer on me as a thank-you.
 
-Zeeguu has changed a lot since I presented it last year: there's a mobile app now (iOS + Android), audio lessons on any topic you choose, and LLM-based simplification and adaptation that can transform any article you send to Zeeguu into a lesson in your target language at your level — even an article in a different language than the one you're learning will be translated and adapted.
+Zeeguu has changed a lot since I presented it last year: there's a mobile app now (iOS + Android), and audio lessons on any topic you choose. With LLM-based simplification, you can send any article to Zeeguu and read it at your level in your target language. Even articles originally in a different language get translated and adapted.
 
 It's still meant as a humble extra tool alongside your other ways of learning. If you were going to read an article anyway, why not read it in your target language at your current level? If you have a 10-minute bike ride or walk, why not spend it on an audio lesson?
 
