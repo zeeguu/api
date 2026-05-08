@@ -304,16 +304,17 @@ def test_score_word_match_accepts_common_danish_asr_variants():
 
 
 @pytest.mark.parametrize(
-    "user_word, expected_word",
+    "user_word, expected_word, expected_allowed_distance",
     [
-        ("hat", "kat"),
-        ("hond", "hund"),
-        ("pange", "penge"),
+        ("hat", "kat", 1),
+        ("hond", "hund", 1),
+        ("pange", "penge", 2),
     ],
 )
-def test_score_word_match_accepts_one_optimal_string_alignment_edit(
+def test_score_word_match_accepts_words_within_length_based_edit_budget(
     user_word,
     expected_word,
+    expected_allowed_distance,
 ):
     from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 
@@ -322,21 +323,22 @@ def test_score_word_match_accepts_one_optimal_string_alignment_edit(
     assert result["isMatch"] is True
     assert result["matchType"] == "fuzzy"
     assert result["optimalStringAlignmentDistance"] == 1
-    assert result["allowedOptimalStringAlignmentDistance"] == 1
+    assert result["allowedOptimalStringAlignmentDistance"] == expected_allowed_distance
     assert result["jaroWinkler"] > 0
 
 
 @pytest.mark.parametrize(
-    "user_word, expected_word",
+    "user_word, expected_word, expected_allowed_distance",
     [
-        ("hot", "kat"),
-        ("hd", "hund"),
-        ("pen", "penge"),
+        ("hot", "kat", 1),
+        ("zzzz", "hund", 1),
+        ("xxxxx", "penge", 2),
     ],
 )
-def test_score_word_match_rejects_multiple_optimal_string_alignment_edits(
+def test_score_word_match_rejects_words_outside_length_based_edit_budget(
     user_word,
     expected_word,
+    expected_allowed_distance,
 ):
     from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 
@@ -344,11 +346,14 @@ def test_score_word_match_rejects_multiple_optimal_string_alignment_edits(
 
     assert result["isMatch"] is False
     assert result["matchType"] == "close"
-    assert result["optimalStringAlignmentDistance"] > 1
-    assert result["allowedOptimalStringAlignmentDistance"] == 1
+    assert (
+        result["optimalStringAlignmentDistance"]
+        > result["allowedOptimalStringAlignmentDistance"]
+    )
+    assert result["allowedOptimalStringAlignmentDistance"] == expected_allowed_distance
 
 
-def test_score_word_match_requires_exact_match_for_two_letter_words():
+def test_score_word_match_allows_one_edit_for_two_letter_words():
     from zeeguu.core.verbal_flashcards.fuzzy_match import score_word_match
 
     result = score_word_match("og", "ok", language_code="da")
