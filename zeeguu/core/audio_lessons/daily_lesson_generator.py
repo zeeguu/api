@@ -904,8 +904,6 @@ class DailyLessonGenerator:
                 if lesson.pause_position_seconds < 1:
                     lesson.listened_count += 1
 
-                lesson.resume()
-
             elif action == "complete":
                 # Mark lesson as completed
                 lesson.mark_completed()

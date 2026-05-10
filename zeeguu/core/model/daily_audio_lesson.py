@@ -149,12 +149,6 @@ class DailyAudioLesson(db.Model):
         else:
             self.pause_position_seconds = position_seconds
 
-    def resume(self):
-        """Clear pause state when resuming (don't increment listen count)"""
-        # Only clear the pause state, don't increment listened_count
-        # The listen count should only increment on initial play, not on resume
-        pass
-
     @property
     def is_completed(self):
         """Check if lesson has been completed (sticky once true)."""
@@ -162,8 +156,9 @@ class DailyAudioLesson(db.Model):
 
     @property
     def is_paused(self):
-        """Check if lesson is currently paused"""
-        return self.pause_position_seconds > 0 and not self.is_completed
+        """True when there's a saved playhead mid-lesson — independent of
+        completion, since a completed lesson can be replayed and paused."""
+        return self.pause_position_seconds > 0
 
     def display_title(self):
         """
