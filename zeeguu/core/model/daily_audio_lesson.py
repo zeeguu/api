@@ -33,7 +33,7 @@ class DailyAudioLesson(db.Model):
 
     # User interaction tracking
     recommended_at = Column(TIMESTAMP, default=datetime.utcnow)
-    completed_at = Column(TIMESTAMP)
+    last_completed_at = Column(TIMESTAMP)
     listened_count = Column(Integer, default=0)
 
     # Pause/resume tracking
@@ -133,8 +133,8 @@ class DailyAudioLesson(db.Model):
         return sum(1 for s in self.segments if s.segment_type == "meaning_lesson")
 
     def mark_completed(self):
-        """Mark this lesson as completed"""
-        self.completed_at = datetime.utcnow()
+        """Mark this lesson as completed (sets/updates last_completed_at)."""
+        self.last_completed_at = datetime.utcnow()
         # Only count as a listen if it hasn't been counted yet
         if self.listened_count == 0:
             self.listened_count = 1
@@ -149,21 +149,16 @@ class DailyAudioLesson(db.Model):
         else:
             self.pause_position_seconds = position_seconds
 
-    def resume(self):
-        """Clear pause state when resuming (don't increment listen count)"""
-        # Only clear the pause state, don't increment listened_count
-        # The listen count should only increment on initial play, not on resume
-        pass
-
     @property
     def is_completed(self):
-        """Check if lesson has been completed"""
-        return self.completed_at is not None
+        """Check if lesson has been completed (sticky once true)."""
+        return self.last_completed_at is not None
 
     @property
     def is_paused(self):
-        """Check if lesson is currently paused"""
-        return self.pause_position_seconds > 0 and not self.is_completed
+        """True when there's a saved playhead mid-lesson — independent of
+        completion, since a completed lesson can be replayed and paused."""
+        return self.pause_position_seconds > 0
 
     def display_title(self):
         """
@@ -204,6 +199,6 @@ class DailyAudioLesson(db.Model):
         """Find the most recent audio lesson for a user"""
         query = cls.query.filter_by(user=user)
         if not include_completed:
-            query = query.filter(cls.completed_at.is_(None))
+            query = query.filter(cls.last_completed_at.is_(None))
         return query.order_by(cls.recommended_at.desc()).first()
 

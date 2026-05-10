@@ -833,9 +833,9 @@ class DailyLessonGenerator:
                         "created_at": (
                             lesson.created_at.isoformat() if lesson.created_at else None
                         ),
-                        "completed_at": (
-                            lesson.completed_at.isoformat()
-                            if lesson.completed_at
+                        "last_completed_at": (
+                            lesson.last_completed_at.isoformat()
+                            if lesson.last_completed_at
                             else None
                         ),
                         "is_completed": lesson.is_completed,
@@ -897,18 +897,12 @@ class DailyLessonGenerator:
                 lesson.pause_at(position_seconds)
 
             elif action == "resume":
-                # Resume from pause or start new play
-
-                # Check if this is a replay from the beginning
-                # If already listened and starting from beginning, it's a new listen
+                # Resume from pause or start a new play. Completion is sticky
+                # — replaying a completed lesson does NOT clear last_completed_at,
+                # only bumps the listen counter so we can show how many times
+                # the user has come back to it.
                 if lesson.pause_position_seconds < 1:
-                    # Starting a new play from beginning - increment counter
                     lesson.listened_count += 1
-                    # Clear completion status if it was completed
-                    if lesson.is_completed:
-                        lesson.completed_at = None
-
-                lesson.resume()
 
             elif action == "complete":
                 # Mark lesson as completed
@@ -1039,7 +1033,7 @@ User: {user.name} ({user.email})
 User ID: {user.id}
 Lesson ID: {lesson.id}
 Language: {lesson.language.name}
-Completion Time: {lesson.completed_at.strftime('%Y-%m-%d %H:%M:%S') if lesson.completed_at else 'Unknown'}
+Completion Time: {lesson.last_completed_at.strftime('%Y-%m-%d %H:%M:%S') if lesson.last_completed_at else 'Unknown'}
 Duration: {lesson.duration_seconds}s
 Words Practiced: {len(lesson_words)}
 
