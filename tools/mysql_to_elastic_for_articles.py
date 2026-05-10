@@ -8,7 +8,7 @@ import zeeguu.core
 from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import ArticleTopicMap
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -16,7 +16,7 @@ import numpy as np
 from tqdm import tqdm
 import time
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 # First we should only index with topics so we can do
 # inference based on the articles that have topics.

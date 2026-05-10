@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 
 from pprint import pprint
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
 """
     Script to evaluate the Inference of topics using a random sample of TOTAL_EXAMPLES.
@@ -25,7 +25,7 @@ np.random.seed(0)
 TOTAL_EXAMPLES = 5000
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 es = Elasticsearch(ES_CONN_STRING)

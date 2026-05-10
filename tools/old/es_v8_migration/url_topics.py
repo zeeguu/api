@@ -1,7 +1,7 @@
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.util import remove_duplicates_keeping_order
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 import zeeguu.core
 
 from time import time
@@ -18,7 +18,7 @@ import numpy as np
     assinged to each keyword.
 """
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

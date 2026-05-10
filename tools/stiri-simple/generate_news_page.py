@@ -11,11 +11,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../api"))
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, Article, Language
 from sqlalchemy import and_, desc
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

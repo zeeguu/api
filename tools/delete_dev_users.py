@@ -1,9 +1,9 @@
 import zeeguu.core
 from zeeguu.core.model import User
 from zeeguu.core.account_management.user_account_deletion import delete_user_account
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

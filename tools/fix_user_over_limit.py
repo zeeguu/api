@@ -13,9 +13,9 @@ sys.path.insert(0, '/Users/gh/zeeguu/api')
 from zeeguu.core.model import User, UserPreference, UserWord, Meaning, Phrase
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.model import db
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 
 def fix_user_over_limit(email):
     with app.app_context():

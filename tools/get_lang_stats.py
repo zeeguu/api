@@ -3,7 +3,7 @@
 import zeeguu.core
 from zeeguu.core.model import Article, Language
 import stanza
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 import numpy as np
 from tqdm import tqdm
 import os
@@ -12,7 +12,7 @@ import pyphen
 import copy
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

@@ -27,13 +27,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, Article, Language
 from zeeguu.core.language.ml_cefr_classifier import extract_features
 from zeeguu.logging import log
 
 # Create Flask app and push context
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = db.session

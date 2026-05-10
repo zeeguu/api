@@ -36,9 +36,9 @@ DAYS_SINCE_ACTIVE = args.days
 SHOW_DETAILS = True
 DRY_RUN = args.dry_run
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 import time

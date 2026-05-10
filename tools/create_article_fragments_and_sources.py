@@ -1,14 +1,14 @@
 # coding=utf-8
 import zeeguu.core
 from datetime import datetime
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
 from tqdm import tqdm
 from sqlalchemy import asc
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

@@ -13,12 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from zeeguu.core.model import db
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.language import Language
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
 
 def delete_portuguese_audio_lessons():
     """Delete all audio lessons for Portuguese language."""
-    app = create_app()
+    app = create_app_for_scripts()
 
     with app.app_context():
         # Find Portuguese language

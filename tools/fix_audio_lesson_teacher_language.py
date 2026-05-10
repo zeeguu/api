@@ -19,14 +19,14 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.language import Language
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 DRY_RUN = "--dry-run" in sys.argv

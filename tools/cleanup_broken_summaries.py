@@ -17,7 +17,7 @@ import argparse
 
 sys.path.insert(0, "/Users/gh/zeeguu/api")
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.user_article import UserArticle
@@ -96,7 +96,7 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Limit number of articles to process")
     args = parser.parse_args()
 
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
 
     # Find articles with summaries

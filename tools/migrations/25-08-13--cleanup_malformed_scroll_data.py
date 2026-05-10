@@ -15,8 +15,8 @@ from zeeguu.core.model import db
 from datetime import datetime
 
 def main():
-    from zeeguu.api.app import create_app
-    app = create_app()
+    from zeeguu.api.app import create_app_for_scripts
+    app = create_app_for_scripts()
     app.app_context().push()
 
     print("=== Scroll Data Cleanup Migration ===")

@@ -15,11 +15,11 @@ Usage:
 """
 
 import argparse
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article, db
 from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

@@ -1,4 +1,4 @@
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model.db import db
 from zeeguu.core.model.video import Video
 from zeeguu.core.model.language import Language
@@ -10,7 +10,7 @@ from zeeguu.core.youtube_api.youtube_api import (
     CAPTIONS_TOO_SHORT,
 )
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 videos = Video.query.all()

@@ -14,11 +14,11 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

@@ -1,6 +1,6 @@
 from zeeguu.core.model.language import Language
 from zeeguu.core.tokenization import TokenizerModel, get_tokenizer
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
 
 from pprint import pprint
@@ -15,7 +15,7 @@ def clear_terminal():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

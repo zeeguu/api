@@ -18,17 +18,19 @@ source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python <command>
 
 ## Tool Scripts Structure
 - **All tool scripts that access the database MUST initialize Flask app context**
+- **Use `create_app_for_scripts()`, NOT `create_app()`** — the full factory loads endpoints, the Flask Monitoring Dashboard (APScheduler), preloads Stanza tokenizers and wordstats. That adds several seconds to every tool startup. The lightweight factory only sets up DB/config.
+- Use `create_app()` only if a tool genuinely needs the registered API blueprint (e.g. `app.test_client()`).
 - **Required boilerplate at the top of every tool file** (after imports, before any database operations):
 
 ```python
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 ```
 
-- **Why**: SQLAlchemy requires Flask application context to perform database operations
+- **Why app context**: SQLAlchemy requires Flask application context to perform database operations
 - **When**: Any script in `tools/` that queries or modifies database models needs this
 - **Where**: Place after all imports, before any code that uses `db.session` or model queries
 
@@ -42,10 +44,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # REQUIRED: Initialize Flask app context for database access
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 # Now safe to import and use models

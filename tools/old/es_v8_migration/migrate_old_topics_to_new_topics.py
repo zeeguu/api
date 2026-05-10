@@ -6,11 +6,11 @@
 """
 
 import zeeguu.core
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import TopicSubscription, NewTopicSubscription, NewTopic
 from tqdm import tqdm
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

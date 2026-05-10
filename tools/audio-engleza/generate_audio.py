@@ -16,7 +16,7 @@ import shutil
 import json
 import re
 from datetime import datetime
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 
 # Configuration
@@ -126,7 +126,7 @@ def generate_audio_from_script(script_file, lesson_id=None):
     print(f"Script length: {len(script_content)} characters")
     
     # Generate audio
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         print("\\nGenerating TTS audio...")
         voice_synthesizer = VoiceSynthesizer()

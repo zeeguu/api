@@ -24,7 +24,7 @@ from zeeguu.core.content_recommender.elastic_recommender import (
     video_recommendations_for_user,
     _prepare_user_constraints,
 )
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
 
 def print_separator(title=""):
@@ -58,7 +58,7 @@ def get_user_cohorts(user):
 def analyze_user_recommendations(user_email, show_details=True, count=20):
     """Test recommendations for a specific user."""
 
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
 
     try:

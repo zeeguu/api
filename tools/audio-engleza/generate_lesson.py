@@ -17,7 +17,7 @@ import os
 import json
 import shutil
 from datetime import datetime
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 
@@ -142,7 +142,7 @@ def main():
     print("STAGE 1: GENERATING LESSON SCRIPT")
     print("-"*40)
     
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         try:
             script = generate_script(english_phrase, romanian_translation)

@@ -10,9 +10,9 @@ DAYS_SINCE_ACTIVE = 30
 SHOW_TEACHER_NAMES = True
 SHOW_STUDENT_NAMES = True
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 from collections import defaultdict

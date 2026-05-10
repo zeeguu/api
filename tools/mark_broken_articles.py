@@ -32,7 +32,7 @@ import argparse
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article, Language, db
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes, ArticleBrokenMap
 from zeeguu.core.content_quality.quality_filter import sufficient_quality_html, sufficient_quality_plain_text
@@ -291,7 +291,7 @@ def main():
     args = parser.parse_args()
 
     # Create Flask app context
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         tag_low_quality_articles(
             dry_run=args.dry_run,

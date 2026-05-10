@@ -8,11 +8,11 @@ import zeeguu.core
 from zeeguu.core.model import Article
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 from tqdm import tqdm
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 ITERATION_STEP = 1000

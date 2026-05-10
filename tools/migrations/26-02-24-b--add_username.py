@@ -131,10 +131,10 @@ def populate_usernames():
 
 
 if __name__ == "__main__":
-    from zeeguu.api.app import create_app
+    from zeeguu.api.app import create_app_for_scripts
     from zeeguu.core.model import db
 
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
     start_time = _now_str()
     print(f"{start_time} {'='*60}")

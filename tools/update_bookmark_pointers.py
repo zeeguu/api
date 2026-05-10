@@ -1,6 +1,6 @@
 import zeeguu
 from zeeguu.core.model.bookmark import Bookmark, Article
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from tqdm import tqdm
 from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 from zeeguu.core.tokenization import Token
@@ -197,7 +197,7 @@ def bookmark_has_coordinates(b):
     )
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

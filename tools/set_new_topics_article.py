@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import zeeguu.core
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.content_retriever.article_downloader import add_topics
 from zeeguu.core.model import Article
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from tqdm import tqdm
     add_new_topics, assigning topics based on url_keywords, hardcoded or inferred.
 """
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

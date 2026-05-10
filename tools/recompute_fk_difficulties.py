@@ -1,12 +1,12 @@
 import zeeguu.core
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article, Language
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 
 VERBOSE = False
 CHECKPOINT_STEP = 10000
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 print("starting...")

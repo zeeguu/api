@@ -30,7 +30,7 @@ import sys
 import argparse
 from collections import defaultdict
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.feed import Feed
@@ -201,7 +201,7 @@ def main():
 
     args = parser.parse_args()
 
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
 
     cleanup_empty_broken_articles(

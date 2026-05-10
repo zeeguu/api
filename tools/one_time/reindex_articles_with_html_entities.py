@@ -10,10 +10,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 from elasticsearch import Elasticsearch

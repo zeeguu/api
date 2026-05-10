@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import argparse
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Feed, Url, Language
 from zeeguu.core.feed_handler import FEED_TYPE
 import zeeguu.core
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

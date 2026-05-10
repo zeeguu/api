@@ -1,9 +1,9 @@
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.feed_handler import FEED_TYPE, FEED_TYPE_TO_FEED_HANDLER
 
 from zeeguu.core.model import Language, Feed
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from wordstats import Word
 
 import zeeguu
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.content_retriever.parse_with_readability_server import (
     download_and_parse,
 )
@@ -13,7 +13,7 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import (
     DEFAULT_MAX_WORDS_TO_SCHEDULE,
 )
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

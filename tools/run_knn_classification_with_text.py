@@ -3,9 +3,9 @@ from zeeguu.core.semantic_search import (
 )
 
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 # https://en.wikipedia.org/wiki/Computer

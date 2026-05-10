@@ -1,5 +1,5 @@
 from zeeguu.core.model.language import Language
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.tokenization import get_tokenizer, TokenizerModel
 import os
 import time
@@ -14,7 +14,7 @@ def clear_terminal():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 language = Language.find("es")

@@ -14,13 +14,13 @@ import sqlalchemy
 
 import zeeguu.core
 from faker import Faker
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import User, Article
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

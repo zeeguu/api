@@ -1,6 +1,6 @@
 # coding=utf-8
 import zeeguu.core
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Text
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.article_fragment import ArticleFragment
@@ -10,7 +10,7 @@ from zeeguu.core.model.article_title_context import ArticleTitleContext
 from tqdm import tqdm
 from sqlalchemy import asc
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

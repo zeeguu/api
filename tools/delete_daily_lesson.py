@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, User
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.language import Language
@@ -29,7 +29,7 @@ def main():
     user_id = int(sys.argv[1])
     lang_filter = sys.argv[2] if len(sys.argv) > 2 else None
 
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         user = User.find_by_id(user_id)
         if not user:

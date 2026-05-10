@@ -24,10 +24,10 @@ from datetime import datetime, timedelta
 from simhash import Simhash
 import zeeguu.core
 from zeeguu.core.model import Article, Language, Bookmark, UserArticle
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.logging import log
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 db_session = zeeguu.core.model.db.session

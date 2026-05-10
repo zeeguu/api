@@ -1,7 +1,7 @@
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 import newspaper
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 import zeeguu.core
 
 from time import time
@@ -13,7 +13,7 @@ from tqdm import tqdm
     when searching the DB.
 """
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

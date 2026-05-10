@@ -9,7 +9,7 @@ from zeeguu.core.model.article import Article
 from zeeguu.core.model.url_keyword import UrlKeyword
 from collections import Counter
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 import argparse
 
 """
@@ -26,7 +26,7 @@ parser.add_argument("-k", "--keyword", type=str, help="keyword to search with")
 
 
 def search_similar_to_article(article_id):
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
     doc_to_search = article_id
     article_to_search = Article.find_by_id(doc_to_search)
@@ -86,7 +86,7 @@ def search_similar_to_article(article_id):
 
 
 def search_similar_to_keyword(keyword):
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
 
     a_found, hits = find_articles_based_on_text(keyword)

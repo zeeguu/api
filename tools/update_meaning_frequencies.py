@@ -12,7 +12,7 @@ import argparse
 import sys
 import time
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, Meaning
 from zeeguu.core.model.meaning_frequency_classifier import MeaningFrequencyClassifier
 from zeeguu.logging import log
@@ -101,7 +101,7 @@ def main():
     args = parse_arguments()
 
     # Initialize app context
-    app = create_app()
+    app = create_app_for_scripts()
     app.app_context().push()
 
     # Initialize classifier

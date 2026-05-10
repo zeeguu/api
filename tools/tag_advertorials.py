@@ -35,7 +35,7 @@ import argparse
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article, Language, Url, db
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes, ArticleBrokenMap
 from zeeguu.core.content_quality.advertorial_detection import is_advertorial
@@ -253,7 +253,7 @@ def main():
     args = parser.parse_args()
 
     # Create Flask app context
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         tag_existing_advertorials(
             dry_run=args.dry_run,

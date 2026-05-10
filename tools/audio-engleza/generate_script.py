@@ -13,7 +13,7 @@ import sys
 import os
 import argparse
 from datetime import datetime
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
 
 # Configuration
@@ -36,7 +36,7 @@ def generate_script_file(english_phrase, romanian_translation, output_file=None)
     if not output_file:
         output_file = os.path.join(SCRIPTS_DIR, create_semantic_filename(english_phrase))
     
-    app = create_app()
+    app = create_app_for_scripts()
     with app.app_context():
         try:
             print(f"Generating script for '{english_phrase}' -> '{romanian_translation}'...")

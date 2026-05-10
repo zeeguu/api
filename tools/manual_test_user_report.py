@@ -3,12 +3,12 @@
 Quick test script for user article broken reporting system.
 """
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Article, User, UserArticleBrokenReport, db
 from zeeguu.core.model.article_broken_code_map import ArticleBrokenMap, LowQualityTypes
 
 # Create Flask app context
-app = create_app()
+app = create_app_for_scripts()
 
 with app.app_context():
     print("=" * 80)

@@ -56,8 +56,8 @@ def convert_viewport_format(old_viewport):
         return old_viewport
 
 def main():
-    from zeeguu.api.app import create_app
-    app = create_app()
+    from zeeguu.api.app import create_app_for_scripts
+    app = create_app_for_scripts()
     app.app_context().push()
 
     print("=== Viewport Data Format Optimization ===")

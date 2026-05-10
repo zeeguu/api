@@ -3,9 +3,9 @@ from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.model.new_topic import NewTopic
 import zeeguu.core
 from tqdm import tqdm
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = zeeguu.core.model.db.session
 

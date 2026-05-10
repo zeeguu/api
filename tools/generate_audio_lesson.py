@@ -1,8 +1,8 @@
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 
-# app = create_app()
+# app = create_app_for_scripts()
 # app.app_context().push()
 
 target_language = "es"

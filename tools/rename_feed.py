@@ -1,10 +1,10 @@
 from zeeguu.core.model import Feed, Url
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 import zeeguu
 
 db_session = zeeguu.core.model.db.session
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 feed_id = int(input("Current Feed ID: "))

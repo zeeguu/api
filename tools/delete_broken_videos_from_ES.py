@@ -1,4 +1,4 @@
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.elastic.basic_ops import (
     es_update,
     es_delete,
@@ -7,7 +7,7 @@ from zeeguu.core.elastic.basic_ops import (
 from zeeguu.core.model.video import Video
 import zeeguu
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 session = zeeguu.core.model.db.session

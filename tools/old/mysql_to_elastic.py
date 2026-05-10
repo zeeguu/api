@@ -1,6 +1,6 @@
 # coding=utf-8
 import sqlalchemy as database
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.elastic.indexing import create_or_update_article, document_from_article
 from sqlalchemy import func
 from elasticsearch import Elasticsearch
@@ -13,7 +13,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.elastic.settings import ES_ZINDEX, ES_CONN_STRING
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 es = Elasticsearch([ES_CONN_STRING])

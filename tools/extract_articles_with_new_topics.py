@@ -1,5 +1,5 @@
 from zeeguu.core.model import Article
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
 import numpy as np
 from tqdm import tqdm
@@ -13,7 +13,7 @@ import json
 """
 
 db_session = zeeguu.core.model.db.session
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 articles = (
