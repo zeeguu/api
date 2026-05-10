@@ -245,8 +245,8 @@ def get_audio_lesson_stats_for_user(user_id, start, end):
     # Get lessons completed in this period
     lessons = (
         DailyAudioLesson.query.filter(DailyAudioLesson.user_id == user_id)
-        .filter(DailyAudioLesson.completed_at >= start)
-        .filter(DailyAudioLesson.completed_at < end)
+        .filter(DailyAudioLesson.last_completed_at >= start)
+        .filter(DailyAudioLesson.last_completed_at < end)
         .all()
     )
 
@@ -308,8 +308,8 @@ def collect_user_activity(start, end):
     # Find all users with completed audio lessons in this period
     audio_lesson_user_ids = (
         db_session.query(DailyAudioLesson.user_id)
-        .filter(DailyAudioLesson.completed_at >= start)
-        .filter(DailyAudioLesson.completed_at < end)
+        .filter(DailyAudioLesson.last_completed_at >= start)
+        .filter(DailyAudioLesson.last_completed_at < end)
         .distinct()
         .all()
     )
@@ -942,9 +942,9 @@ def user_stats_individual_dashboard(user_id):
     # Get audio lessons
     audio_lessons = (
         DailyAudioLesson.query.filter(DailyAudioLesson.user_id == user_id)
-        .filter(DailyAudioLesson.completed_at >= start)
-        .filter(DailyAudioLesson.completed_at < end)
-        .order_by(DailyAudioLesson.completed_at.desc())
+        .filter(DailyAudioLesson.last_completed_at >= start)
+        .filter(DailyAudioLesson.last_completed_at < end)
+        .order_by(DailyAudioLesson.last_completed_at.desc())
         .all()
     )
 
@@ -1194,7 +1194,7 @@ def user_stats_individual_dashboard(user_id):
             duration_min = (lesson.duration_seconds or 0) / 60
             lesson_lang = lesson.language.code.upper() if lesson.language else "?"
             completed_time = (
-                lesson.completed_at.strftime("%H:%M") if lesson.completed_at else "?"
+                lesson.last_completed_at.strftime("%H:%M") if lesson.last_completed_at else "?"
             )
 
             html += f"""
@@ -1842,8 +1842,8 @@ def _compute_active_users_for_month(month_start, month_end):
 
     audio_users = (
         db_session.query(distinct(DailyAudioLesson.user_id))
-        .filter(DailyAudioLesson.completed_at >= month_start)
-        .filter(DailyAudioLesson.completed_at < month_end)
+        .filter(DailyAudioLesson.last_completed_at >= month_start)
+        .filter(DailyAudioLesson.last_completed_at < month_end)
     )
 
     bookmark_users = (
@@ -2271,8 +2271,8 @@ def _compute_activity_stats_for_month(month_start, month_end):
     # Audio minutes (stored in seconds)
     audio_sec = (
         db_session.query(func.sum(DailyAudioLesson.duration_seconds))
-        .filter(DailyAudioLesson.completed_at >= month_start)
-        .filter(DailyAudioLesson.completed_at < month_end)
+        .filter(DailyAudioLesson.last_completed_at >= month_start)
+        .filter(DailyAudioLesson.last_completed_at < month_end)
         .scalar()
     ) or 0
 
