@@ -106,6 +106,40 @@ def _find_word_positions(sentence: str, word: str) -> List[Tuple[int, int]]:
         return [pos] if pos else []
 
 
+def _target_shared_with_longer_source(
+    word_positions: List[Tuple[int, int]],
+    our_target_spans: List[Tuple[int, int]],
+    mappings: list,
+) -> bool:
+    """
+    True if any of our target spans is also reached by a strictly longer
+    source word — i.e., the tapped word is the shorter half of an N:1 merge
+    and its target text actually belongs to a neighboring content word.
+
+    Length comparison (rather than always-suppress on any shared target) keeps
+    the content-word case correct: tap "kikkert" in "en kikkert" -> "binoculars"
+    should still return "binoculars"; only tap "en" should be suppressed.
+    """
+    if not word_positions or not our_target_spans:
+        return False
+
+    tapped_max_len = max(end - start for start, end in word_positions)
+
+    for (s_start, s_end), (mt_start, mt_end) in mappings:
+        # Skip mappings that belong to the tapped word itself.
+        if any(
+            s_start <= ws_end and s_end >= ws_start
+            for ws_start, ws_end in word_positions
+        ):
+            continue
+        if (s_end - s_start) <= tapped_max_len:
+            continue
+        for t_start, t_end in our_target_spans:
+            if mt_start <= t_end and mt_end >= t_start:
+                return True
+    return False
+
+
 def translate_word_with_alignment(
     sentence: str,
     word: str,
@@ -171,14 +205,24 @@ def translate_word_with_alignment(
 
         # Find all mappings that overlap with any of our word positions
         word_translations = []
+        our_target_spans = []
         for src_start, src_end in word_positions:
             for (s_start, s_end), (t_start, t_end) in mappings:
                 if s_start <= src_end and s_end >= src_start:
                     target_word = translated_sentence[t_start:t_end + 1]
                     word_translations.append((t_start, target_word))
+                    our_target_spans.append((t_start, t_end))
 
         if not word_translations:
             logger.debug(f"No alignment found for word positions {word_positions}")
+            return None
+
+        # Bail on N:1 merges so the pipeline falls back to a contextless
+        # translator (see helper docstring).
+        if _target_shared_with_longer_source(word_positions, our_target_spans, mappings):
+            logger.debug(
+                f"Alignment suppressed: '{word}' is fused with a longer source word"
+            )
             return None
 
         # Sort by position and join (in case of multi-word translation)
