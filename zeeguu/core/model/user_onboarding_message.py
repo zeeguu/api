@@ -9,8 +9,8 @@ from datetime import datetime
 class UserOnboardingMessage(db.Model):
     """
     An onboarding message that was sent to the user.
-    If the user clicks it, the message_click_time will have the datetime
-    when that click was performed. IF not, this field will be null
+    If the user dismisses it, the `message_dismissed_time` will have the datetime
+    when that dismissal was performed. If not, this field will be null
 
     """
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -20,7 +20,7 @@ class UserOnboardingMessage(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     onboarding_message_id = db.Column(db.Integer, db.ForeignKey(OnboardingMessage.id))
     message_shown_time = db.Column(db.DateTime)
-    message_click_time = db.Column(db.DateTime, nullable=True)
+    message_dismissed_time = db.Column(db.DateTime, nullable=True)
 
     def __init__(self, user_id, onboarding_message_id):
         self.user_id = user_id
@@ -80,12 +80,12 @@ class UserOnboardingMessage(db.Model):
 
     @classmethod
     def update_user_onboarding_message_time(cls, user_onboarding_message_id, db_session):
-        """Set the time when the user clicked/dismissed the message."""
+        """Set the time when the user dismissed the message."""
         user_onboarding_message = cls.find_by_id(user_onboarding_message_id)
         if not user_onboarding_message:
             return None
 
-        user_onboarding_message.message_click_time = datetime.now()
+        user_onboarding_message.message_dismissed_time = datetime.now()
         db_session.add(user_onboarding_message)
         return user_onboarding_message
     

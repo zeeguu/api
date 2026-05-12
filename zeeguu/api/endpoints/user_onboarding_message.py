@@ -62,10 +62,10 @@ def mark_onboarding_message_shown():
     return json_result(onboarding_data)
 
 
-@api.route("/set_onboarding_message_click_time", methods=["POST"])
+@api.route("/mark_onboarding_message_dismissed", methods=["POST"])
 @cross_domain
 @requires_session
-def set_onboarding_message_click_time():
+def mark_onboarding_message_dismissed():
     data = flask.request.form
     onboarding_message_id = data.get("onboarding_message_id", None)
 
