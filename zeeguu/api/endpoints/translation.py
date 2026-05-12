@@ -112,7 +112,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         else:
             log(f"[TRANSLATION] Word: '{word_str}', separated_mwe={is_separated_mwe}")
             start_time = time.time()
-            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
+            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context, w_token_i=w_token_i)
             elapsed = time.time() - start_time
             log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
@@ -188,8 +188,13 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
+    w_token_i_raw = request.form.get("w_token_i", None)
+    try:
+        w_token_i = int(w_token_i_raw) if w_token_i_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        w_token_i = None
 
-    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
+    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context, w_token_i=w_token_i)
 
     # Save meanings for each translation
     for t in translations:
@@ -272,11 +277,16 @@ def get_translations_stream(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
+    w_token_i_raw = request.form.get("w_token_i", None)
+    try:
+        w_token_i = int(w_token_i_raw) if w_token_i_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        w_token_i = None
 
     def generate():
         for translation in get_translations_streaming(
             word_str, context, from_lang_code, to_lang_code,
-            is_separated_mwe, full_sentence_context
+            is_separated_mwe, full_sentence_context, w_token_i=w_token_i
         ):
             yield f"data: {json.dumps(translation)}\n\n"
         yield "data: [DONE]\n\n"

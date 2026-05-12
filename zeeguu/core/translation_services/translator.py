@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from functools import lru_cache
 
 from zeeguu.core.utils.caching import cache_on_data_keys
@@ -327,6 +328,54 @@ def translate_mwe_phrase(word, from_lang, to_lang):
     return None
 
 
+def _disambiguate_context(word, context, w_token_i):
+    """
+    When `word` appears multiple times in `context`, trim `context` so only the
+    occurrence the user actually tapped is visible to downstream translators.
+
+    Why: Azure alignment and python_translators' `for_word_occurrence` both find
+    the target with `\\b<word>\\b` and take the *first* match. If the user
+    tapped a later occurrence, alignment can latch onto a misleading earlier
+    one — e.g. the Danish article "en" before "kikkert" aligns to English
+    "binoculars" (Danish needs the article, English doesn't), so a tap on a
+    later "en" returns "binoculars".
+
+    `w_token_i` is the tapped token's index relative to the start of `context`
+    (the frontend computes `word.token.token_i - cToken_i`). We don't have a
+    matching tokenizer here, but the closest whitespace-token-position to
+    `w_token_i` reliably picks the right match — any off-by-one from punctuation
+    is smaller than the gap to a different occurrence.
+    """
+    if not context or w_token_i is None or not word:
+        return context
+
+    try:
+        pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+    except re.error:
+        return context
+
+    matches = list(pattern.finditer(context))
+    if len(matches) < 2:
+        return context
+
+    def whitespace_token_pos(char_idx):
+        return len(context[:char_idx].split())
+
+    target_idx = min(
+        range(len(matches)),
+        key=lambda i: abs(whitespace_token_pos(matches[i].start()) - w_token_i),
+    )
+
+    left = matches[target_idx - 1].end() if target_idx > 0 else 0
+    right = (
+        matches[target_idx + 1].start()
+        if target_idx + 1 < len(matches)
+        else len(context)
+    )
+
+    return context[left:right]
+
+
 @lru_cache(maxsize=1000)
 def translate_in_context(word, context, from_lang, to_lang):
     """
@@ -444,7 +493,7 @@ def translate_with_llm(word, sentence, from_lang, to_lang):
     return None
 
 
-def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None):
+def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None, w_token_i=None):
     """
     Get the best translation for a word or MWE.
 
@@ -455,6 +504,8 @@ def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=Fal
         to_lang: Target language code
         is_separated_mwe: True if word is a separated MWE like "rufe ... an"
         full_sentence_context: Full untruncated sentence for separated MWEs
+        w_token_i: Tapped token index relative to context start; used to pick
+            the right occurrence of `word` when it appears multiple times.
 
     Returns:
         dict with 'translation', 'source', 'likelihood' keys, or None
@@ -462,10 +513,11 @@ def get_best_translation(word, context, from_lang, to_lang, is_separated_mwe=Fal
     if is_separated_mwe and full_sentence_context:
         return translate_separated_mwe(word, full_sentence_context, from_lang, to_lang)
     else:
+        context = _disambiguate_context(word, context, w_token_i)
         return translate_in_context(word, context, from_lang, to_lang)
 
 
-def get_translations_streaming(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None):
+def get_translations_streaming(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None, w_token_i=None):
     """
     Generator that yields translations as they arrive (for SSE streaming).
 
@@ -473,6 +525,9 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
     """
     from python_translators.translation_query import TranslationQuery
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    if not (is_separated_mwe and full_sentence_context) and " " not in word:
+        context = _disambiguate_context(word, context, w_token_i)
 
     seen_translations = set()
 
@@ -590,7 +645,7 @@ def _remove_duplicate_translations(translations):
     return unique
 
 
-def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None):
+def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=False, full_sentence_context=None, w_token_i=None):
     """
     Get translations from all available services.
 
@@ -601,11 +656,16 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         to_lang: Target language code
         is_separated_mwe: True if word is a separated MWE like "rufe ... an"
         full_sentence_context: Full untruncated sentence for separated MWEs
+        w_token_i: Tapped token index relative to context start; used to pick
+            the right occurrence of `word` when it appears multiple times.
 
     Returns:
         List of translation dicts (duplicates removed)
     """
     from python_translators.translation_query import TranslationQuery
+
+    if not (is_separated_mwe and full_sentence_context) and " " not in word:
+        context = _disambiguate_context(word, context, w_token_i)
 
     if is_separated_mwe and full_sentence_context:
         # Azure alignment finds each part separately
