@@ -8,7 +8,6 @@ from python_translators.translation_query import TranslationQuery
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
-from zeeguu.api.utils.parse_optional_int import parse_optional_int
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.translation_services.translator import (
     get_next_results,
@@ -113,7 +112,7 @@ def get_one_translation(from_lang_code, to_lang_code):
         else:
             log(f"[TRANSLATION] Word: '{word_str}', separated_mwe={is_separated_mwe}")
             start_time = time.time()
-            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context, w_token_i=w_token_i)
+            t1 = get_best_translation(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
             elapsed = time.time() - start_time
             log(f"[TRANSLATION] Completed in {elapsed:.3f}s: '{t1.get('translation') if t1 else 'FAILED'}'")
 
@@ -189,9 +188,8 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
-    w_token_i = parse_optional_int(request.form.get("w_token_i"))
 
-    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context, w_token_i=w_token_i)
+    translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
     # Save meanings for each translation
     for t in translations:
@@ -274,12 +272,11 @@ def get_translations_stream(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
-    w_token_i = parse_optional_int(request.form.get("w_token_i"))
 
     def generate():
         for translation in get_translations_streaming(
             word_str, context, from_lang_code, to_lang_code,
-            is_separated_mwe, full_sentence_context, w_token_i=w_token_i
+            is_separated_mwe, full_sentence_context
         ):
             yield f"data: {json.dumps(translation)}\n\n"
         yield "data: [DONE]\n\n"
