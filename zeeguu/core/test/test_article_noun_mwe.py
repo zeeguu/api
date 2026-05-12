@@ -1,6 +1,10 @@
 from unittest import TestCase
 
-from zeeguu.core.mwe.stanza_mwe_detector import GermanicStrategy
+from zeeguu.core.mwe.stanza_mwe_detector import (
+    AuxOnlyStrategy,
+    GermanicStrategy,
+    GreekStrategy,
+)
 
 
 def tok(text, pos, dep=None, head=None):
@@ -56,6 +60,56 @@ class ArticleNounMWETest(TestCase):
         tokens = [
             tok("Venus", "PROPN", dep="nsubj", head=2),
             tok("lyser", "VERB", dep="root", head=0),
+        ]
+        groups = self.strategy.detect(tokens)
+        self.assertEqual([g for g in groups if g["type"] == "article_noun"], [])
+
+
+class ArticleNounMWEGreekTest(TestCase):
+    """Greek inherits the base StanzaMWEStrategy.detect(), so this verifies
+    the shared `match_article_noun` helper fires for non-Germanic strategies
+    too."""
+
+    def setUp(self):
+        self.strategy = GreekStrategy()
+
+    def test_greek_article_noun(self):
+        # "Ο ηθοποιός" (the actor): "Ο" is DET head=2 (1-based) -> "ηθοποιός" NOUN
+        tokens = [
+            tok("Ο", "DET", dep="det", head=2),
+            tok("ηθοποιός", "NOUN", dep="root", head=0),
+        ]
+        groups = self.strategy.detect(tokens)
+        article_groups = [g for g in groups if g["type"] == "article_noun"]
+        self.assertEqual(len(article_groups), 1)
+        self.assertEqual(article_groups[0]["head_idx"], 1)
+        self.assertIn(0, article_groups[0]["dependent_indices"])
+
+
+class ArticleNounMWERomanceTest(TestCase):
+    """AuxOnlyStrategy is a separate hierarchy (Romance + Romanian).
+    This verifies the article+noun branch fires there too."""
+
+    def setUp(self):
+        self.strategy = AuxOnlyStrategy()
+
+    def test_french_le_chat(self):
+        # "le chat" (the cat): "le" DET head=2 (1-based) -> "chat" NOUN
+        tokens = [
+            tok("le", "DET", dep="det", head=2),
+            tok("chat", "NOUN", dep="root", head=0),
+        ]
+        groups = self.strategy.detect(tokens)
+        article_groups = [g for g in groups if g["type"] == "article_noun"]
+        self.assertEqual(len(article_groups), 1)
+        self.assertEqual(article_groups[0]["head_idx"], 1)
+        self.assertIn(0, article_groups[0]["dependent_indices"])
+
+    def test_no_article_noun_for_det_at_non_noun(self):
+        # DET pointing at a verb (unusual but exercises the guard).
+        tokens = [
+            tok("le", "DET", dep="det", head=2),
+            tok("court", "VERB", dep="root", head=0),
         ]
         groups = self.strategy.detect(tokens)
         self.assertEqual([g for g in groups if g["type"] == "article_noun"], [])

@@ -26,6 +26,26 @@ from typing import List, Dict, Any
 from abc import ABC, abstractmethod
 
 
+def match_article_noun(tokens: List[Dict], head):
+    """
+    DET pointing at a NOUN/PROPN. Tapping the article alone returns nonsense
+    because alignment fuses it into the noun's translation
+    (e.g. da "en kikkert" -> "binoculars", el "ο ηθοποιός" -> "actor",
+    fr "le chocolat" -> often dropped to "chocolate").
+    Returns (mwe_type, head_idx) or (None, None). `head` is the 1-based
+    Stanza head value; 0 means ROOT.
+    """
+    if head is None or head == 0:
+        return None, None
+    candidate = head - 1
+    if (
+        0 <= candidate < len(tokens)
+        and tokens[candidate].get("pos") in ("NOUN", "PROPN")
+    ):
+        return "article_noun", candidate
+    return None, None
+
+
 class MWEStrategy(ABC):
     """Base class for MWE detection strategies."""
 
@@ -94,6 +114,10 @@ class StanzaMWEStrategy(MWEStrategy):
             elif pos == "PART" and dep == "advmod":
                 mwe_type = "negation"
                 head_idx = self._convert_head_to_index(head)
+
+            # Article + noun
+            elif dep == "det":
+                mwe_type, head_idx = match_article_noun(tokens, head)
 
             if mwe_type and head_idx is not None and head_idx != i:
                 # Validate head_idx is within bounds
@@ -209,18 +233,9 @@ class GermanicStrategy(StanzaMWEStrategy):
                     mwe_type = "grammatical"
                     head_idx = self._convert_head_to_index(head)
 
-            # Article + noun: tapping the article alone returns nonsense
-            # because alignment fuses it into the noun's translation
-            # (e.g. da "en kikkert" -> "binoculars").
+            # Article + noun
             elif dep == "det":
-                candidate = self._convert_head_to_index(head)
-                if (
-                    candidate is not None
-                    and 0 <= candidate < len(tokens)
-                    and tokens[candidate].get("pos") in ("NOUN", "PROPN")
-                ):
-                    mwe_type = "article_noun"
-                    head_idx = candidate
+                mwe_type, head_idx = match_article_noun(tokens, head)
 
             if mwe_type and head_idx is not None and head_idx != i:
                 if not (0 <= head_idx < len(tokens)):
@@ -318,7 +333,7 @@ class AuxOnlyStrategy(MWEStrategy):
     VERB_DEPS = {"aux", "expl", "expl:pv", "expl:pass"}
 
     def detect(self, tokens: List[Dict]) -> List[Dict]:
-        """Detect aux+verb and clitic+verb groups."""
+        """Detect aux+verb, clitic+verb, and article+noun groups."""
         mwe_groups = []
         processed_indices = set()
 
@@ -329,39 +344,42 @@ class AuxOnlyStrategy(MWEStrategy):
             dep = token.get("dep") or ""
             head = token.get("head")  # 1-based index, 0 = ROOT
 
+            mwe_type = None
+            head_idx = None
+
             # Detect aux and reflexive clitic relationships
-            should_group = (
-                dep in self.VERB_DEPS or
-                dep.startswith("aux:") or
-                dep.startswith("expl:")
-            )
+            if (
+                dep in self.VERB_DEPS
+                or dep.startswith("aux:")
+                or dep.startswith("expl:")
+            ):
+                candidate = self._convert_head_to_index(head)
+                if (
+                    candidate is not None
+                    and 0 <= candidate < len(tokens)
+                    and tokens[candidate].get("pos") in ("VERB", "AUX")
+                ):
+                    mwe_type = "aux_verb"
+                    head_idx = candidate
 
-            if should_group:
-                head_idx = self._convert_head_to_index(head)
+            # Article + noun (Romance / Romanian indefinite "un"/"o")
+            elif dep == "det":
+                mwe_type, head_idx = match_article_noun(tokens, head)
 
-                if head_idx is not None and head_idx != i:
-                    if not (0 <= head_idx < len(tokens)):
-                        continue
+            if mwe_type and head_idx is not None and head_idx != i:
+                existing_group = self._find_group_by_head(mwe_groups, head_idx)
 
-                    # Check if head is actually a verb
-                    head_pos = tokens[head_idx].get("pos", "")
-                    if head_pos not in ("VERB", "AUX"):
-                        continue
+                if existing_group:
+                    if i not in existing_group["dependent_indices"]:
+                        existing_group["dependent_indices"].append(i)
+                else:
+                    mwe_groups.append({
+                        "head_idx": head_idx,
+                        "dependent_indices": [i],
+                        "type": mwe_type,
+                    })
 
-                    # Check if we already have a group for this head
-                    existing_group = self._find_group_by_head(mwe_groups, head_idx)
-
-                    if existing_group:
-                        if i not in existing_group["dependent_indices"]:
-                            existing_group["dependent_indices"].append(i)
-                    else:
-                        mwe_groups.append({
-                            "head_idx": head_idx,
-                            "dependent_indices": [i],
-                            "type": "aux_verb"  # New type for aux+verb
-                        })
-
-                    processed_indices.add(i)
+                processed_indices.add(i)
 
         return mwe_groups
 
