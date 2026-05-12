@@ -209,6 +209,19 @@ class GermanicStrategy(StanzaMWEStrategy):
                     mwe_type = "grammatical"
                     head_idx = self._convert_head_to_index(head)
 
+            # Article + noun: tapping the article alone returns nonsense
+            # because alignment fuses it into the noun's translation
+            # (e.g. da "en kikkert" -> "binoculars").
+            elif dep == "det":
+                candidate = self._convert_head_to_index(head)
+                if (
+                    candidate is not None
+                    and 0 <= candidate < len(tokens)
+                    and tokens[candidate].get("pos") in ("NOUN", "PROPN")
+                ):
+                    mwe_type = "article_noun"
+                    head_idx = candidate
+
             if mwe_type and head_idx is not None and head_idx != i:
                 if not (0 <= head_idx < len(tokens)):
                     continue
