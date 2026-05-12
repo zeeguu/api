@@ -693,16 +693,20 @@ class UserArticle(db.Model):
 
                 # Don't show original articles that aren't simplified —
                 # for default users this would open externally, defeating
-                # the in-reader purpose. Two flags let originals through:
+                # the in-reader purpose. Three escape hatches let originals through:
                 # - show_non_simplified_articles: legacy opt-in for users
                 #   who want both originals and simplified in their feed.
                 # - always_open_externally: the new on-demand flow, where
                 #   originals are the feed default and simplified is only
                 #   used for articles the user has personal-copied.
+                # - B2+ level: simplified inventory tapers off (B2) or
+                #   doesn't exist (C1+), so simplified-only filtering would
+                #   leave the feed empty.
                 if not article.parent_article_id and not article.uploader_id:
                     if not (
                         user.has_feature("show_non_simplified_articles")
                         or user.has_feature("always_open_externally")
+                        or user.is_b2_or_higher_for_learned_language()
                     ):
                         continue
 
