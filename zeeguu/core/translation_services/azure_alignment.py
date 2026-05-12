@@ -217,13 +217,8 @@ def translate_word_with_alignment(
             logger.debug(f"No alignment found for word positions {word_positions}")
             return None
 
-        # If our target span is also reached by a *longer* source word in the
-        # same sentence, the tapped word is the function-word half of an N:1
-        # merge (e.g., Danish "en kikkert" -> "binoculars" — the article got
-        # absorbed into the noun). Reporting the merged target as our own
-        # translation is wrong; bail so the pipeline falls back to a
-        # contextless translator that can give a sensible answer for the
-        # function word in isolation.
+        # Bail on N:1 merges so the pipeline falls back to a contextless
+        # translator (see helper docstring).
         if _target_shared_with_longer_source(word_positions, our_target_spans, mappings):
             logger.debug(
                 f"Alignment suppressed: '{word}' is fused with a longer source word"

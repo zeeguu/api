@@ -8,6 +8,7 @@ from python_translators.translation_query import TranslationQuery
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.parse_optional_int import parse_optional_int
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.translation_services.translator import (
     get_next_results,
@@ -188,11 +189,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
-    w_token_i_raw = request.form.get("w_token_i", None)
-    try:
-        w_token_i = int(w_token_i_raw) if w_token_i_raw not in (None, "") else None
-    except (TypeError, ValueError):
-        w_token_i = None
+    w_token_i = parse_optional_int(request.form.get("w_token_i"))
 
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context, w_token_i=w_token_i)
 
@@ -277,11 +274,7 @@ def get_translations_stream(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
-    w_token_i_raw = request.form.get("w_token_i", None)
-    try:
-        w_token_i = int(w_token_i_raw) if w_token_i_raw not in (None, "") else None
-    except (TypeError, ValueError):
-        w_token_i = None
+    w_token_i = parse_optional_int(request.form.get("w_token_i"))
 
     def generate():
         for translation in get_translations_streaming(

@@ -1,11 +1,11 @@
-import unittest
+from unittest import TestCase
 
 from zeeguu.core.translation_services.azure_alignment import (
     _target_shared_with_longer_source,
 )
 
 
-class TargetSharedWithLongerSourceTest(unittest.TestCase):
+class TargetSharedWithLongerSourceTest(TestCase):
     """
     Smoke-tests for the N:1 alignment-merge detector that suppresses bad
     function-word translations like Danish "en" -> "binoculars".
@@ -101,7 +101,3 @@ class TargetSharedWithLongerSourceTest(unittest.TestCase):
 
     def test_no_target_spans_returns_false(self):
         self.assertFalse(_target_shared_with_longer_source([(0, 2)], [], []))
-
-
-if __name__ == "__main__":
-    unittest.main()

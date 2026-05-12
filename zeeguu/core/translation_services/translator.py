@@ -341,10 +341,8 @@ def _disambiguate_context(word, context, w_token_i):
     later "en" returns "binoculars".
 
     `w_token_i` is the tapped token's index relative to the start of `context`
-    (the frontend computes `word.token.token_i - cToken_i`). We don't have a
-    matching tokenizer here, but the closest whitespace-token-position to
-    `w_token_i` reliably picks the right match — any off-by-one from punctuation
-    is smaller than the gap to a different occurrence.
+    (the frontend computes `word.token.token_i - cToken_i`). We use
+    whitespace-token position as a proxy for the real tokenizer position.
     """
     if not context or w_token_i is None or not word:
         return context

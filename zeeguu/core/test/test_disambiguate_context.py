@@ -1,9 +1,9 @@
-import unittest
+from unittest import TestCase
 
 from zeeguu.core.translation_services.translator import _disambiguate_context
 
 
-class DisambiguateContextTest(unittest.TestCase):
+class DisambiguateContextTest(TestCase):
     def test_single_occurrence_unchanged(self):
         ctx = "Solen lyser en del af Venus op"
         self.assertEqual(_disambiguate_context("en", ctx, 2), ctx)
@@ -70,7 +70,3 @@ class DisambiguateContextTest(unittest.TestCase):
         # sentence start) should be excluded.
         self.assertIn("en del af Mars", trimmed)
         self.assertNotIn("En del af Venus", trimmed)
-
-
-if __name__ == "__main__":
-    unittest.main()
