@@ -175,7 +175,7 @@ def _gamification(user: User):
     """
 
     GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
-    if user.is_dev:
+    if user.is_dev or user.id == 4022:  # Tiago
         return True
 
     # Invitation code can be None
