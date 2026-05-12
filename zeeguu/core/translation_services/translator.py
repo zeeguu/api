@@ -359,11 +359,19 @@ def _disambiguate_context(word, context, w_token_i):
     def whitespace_token_pos(char_idx):
         return len(context[:char_idx].split())
 
+    # Pick the match whose whitespace-token position is closest to `w_token_i`.
+    # An off-by-one from punctuation (Stanza counts "," as its own token; we
+    # don't) is far smaller than the gap to a different occurrence, so absolute
+    # distance reliably picks the right match.
     target_idx = min(
         range(len(matches)),
         key=lambda i: abs(whitespace_token_pos(matches[i].start()) - w_token_i),
     )
 
+    # Trim just enough to make the target the only `\b<word>\b` match left:
+    # drop everything up through the previous match and back from the next one.
+    # We keep as much surrounding context as possible — translators do better
+    # with a full clause than a tight three-word window.
     left = matches[target_idx - 1].end() if target_idx > 0 else 0
     right = (
         matches[target_idx + 1].start()
