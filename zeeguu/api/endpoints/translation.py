@@ -161,14 +161,21 @@ def get_one_translation(from_lang_code, to_lang_code):
         events.word_translated.send(None, user_id=user.id, db_session=db_session)
         db_session.commit()
 
-    return json_result(
-        {
-            "translation": t1["translation"],
-            "bookmark_id": bookmark.id,
-            "source": t1["source"],
-            "likelihood": t1["likelihood"],
-        }
-    )
+    response_payload = {
+        "translation": t1["translation"],
+        "bookmark_id": bookmark.id,
+        "source": t1["source"],
+        "likelihood": t1["likelihood"],
+    }
+    # Optional disagreement markers from the 3-way parallel voter
+    # (translate_in_context). The frontend uses these to surface alternative
+    # provider opinions inline / auto-open the alternatives menu.
+    if t1.get("competing_translations"):
+        response_payload["competing_translations"] = t1["competing_translations"]
+    if t1.get("disagreement"):
+        response_payload["disagreement"] = True
+
+    return json_result(response_payload)
 
 
 @api.route(

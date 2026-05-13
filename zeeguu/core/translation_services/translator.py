@@ -279,6 +279,14 @@ def azure_alignment_contextual_translate(data):
     return result
 
 
+@cache_on_data_keys("source_language", "target_language", "word", "context")
+def deepl_contextual_translate_cached(data):
+    """Cache-wrapped DeepL contextual translation."""
+    from zeeguu.core.translation_services.deepl_translate import deepl_contextual_translate
+
+    return deepl_contextual_translate(data)
+
+
 @lru_cache(maxsize=1000)
 def translate_mwe_phrase(word, from_lang, to_lang):
     """
@@ -327,19 +335,133 @@ def translate_mwe_phrase(word, from_lang, to_lang):
     return None
 
 
+_PUNCTUATION_STRIP = '.,;:!?"\'`´()[]{}<>«»…—–-'
+
+
+def _translation_key(text):
+    """Normalised key for comparing/deduping translation strings: lowercased
+    and stripped of surrounding whitespace + punctuation."""
+    if not text:
+        return ""
+    return text.strip().strip(_PUNCTUATION_STRIP).lower()
+
+
+# Preference order used both for picking a bucket's representative dict and
+# for breaking ties between equally-sized buckets: Google > DeepL > Azure.
+_PROVIDER_PREFERENCE = {"google": 0, "deepl": 1, "azure": 2}
+
+
+def _vote_single_word_translation(data):
+    """
+    Run Azure alignment, Google contextual, and DeepL contextual in parallel
+    and pick a primary translation by majority-of-3 voting.
+
+    Returns the chosen result dict with two extra optional keys:
+      - ``competing_translations``: list of {translation, source} when the
+        primary doesn't have unanimous support, so the UI can surface what
+        the other providers said.
+      - ``disagreement``: True when no majority emerged (all 3 distinct, or
+        only 2 of 3 succeeded and they disagreed). The frontend keys on this
+        to auto-open the alternatives menu.
+
+    Falls back to Microsoft contextual if all three contextual providers fail.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    funcs = {
+        "azure": lambda: azure_alignment_contextual_translate(data),
+        "google": lambda: google_contextual_translate(data),
+        "deepl": lambda: deepl_contextual_translate_cached(data),
+    }
+
+    results = {name: None for name in funcs}
+    with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
+        futures = {executor.submit(fn): name for name, fn in funcs.items()}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                results[name] = future.result()
+            except Exception as e:
+                log(f"[TRANSLATION-VOTE] {name} failed: {e}")
+
+    succeeded = [(name, r) for name, r in results.items() if r and r.get("translation")]
+
+    if not succeeded:
+        return microsoft_contextual_translate(data)
+
+    if len(succeeded) == 1:
+        return succeeded[0][1]
+
+    buckets = {}
+    for name, r in succeeded:
+        key = _translation_key(r["translation"])
+        buckets.setdefault(key, []).append((name, r))
+
+    def pick_representative(entries):
+        return min(entries, key=lambda e: _PROVIDER_PREFERENCE[e[0]])[1]
+
+    if len(buckets) == 1:
+        return pick_representative(succeeded)
+
+    # (representative_dict, vote_count) per bucket, sorted by votes desc then
+    # by representative provider's preference.
+    bucket_picks = [(pick_representative(entries), len(entries)) for entries in buckets.values()]
+    bucket_picks.sort(
+        key=lambda pair: (-pair[1], _PROVIDER_PREFERENCE[_source_to_provider(pair[0])])
+    )
+    winner_dict, winner_votes = bucket_picks[0]
+
+    competing = [
+        {"translation": rep["translation"], "source": rep.get("source", rep.get("service_name", "unknown"))}
+        for rep, _ in bucket_picks[1:]
+    ]
+
+    winner = dict(winner_dict)
+    winner["competing_translations"] = competing
+    if winner_votes < 2:
+        winner["disagreement"] = True
+
+    providers_summary = ", ".join(
+        f"{name}={r.get('translation') if r else 'None'}"
+        for name, r in results.items()
+    )
+    log(
+        f"[TRANSLATION-DISAGREE] word='{data.get('word')}' "
+        f"{data.get('source_language')}->{data.get('target_language')} "
+        f"winner='{winner['translation']}' ({winner.get('source')}) "
+        f"providers=[{providers_summary}] "
+        f"disagreement={winner.get('disagreement', False)}"
+    )
+    return winner
+
+
+def _source_to_provider(result_dict):
+    """Map a result dict's ``source`` label back to a provider key for tie-breaks."""
+    source = (result_dict.get("source") or "").lower()
+    if "google" in source:
+        return "google"
+    if "deepl" in source:
+        return "deepl"
+    return "azure"
+
+
 @lru_cache(maxsize=1000)
 def translate_in_context(word, context, from_lang, to_lang):
     """
     Translate a word or adjacent MWE using context.
 
-    This is the standard translation path for:
-    - Single words: "altså"
-    - Adjacent MWEs: "kom op", "il y a"
+    Single words: runs Azure alignment, Google contextual, and DeepL
+    contextual in parallel and picks the primary by majority-of-3 vote
+    (see ``_vote_single_word_translation``).
 
-    Uses Azure alignment (most reliable), falls back to Microsoft/Google span-tag.
+    Contiguous MWEs (e.g. "kom op", "il y a"): use phrase-only translation
+    via Google contextless, which handles grammatical MWEs better than
+    full-sentence contextual translation.
 
     Returns:
-        dict with 'translation', 'source', 'likelihood' keys, or None
+        dict with 'translation', 'source', 'likelihood' keys (plus optional
+        'competing_translations' / 'disagreement' for single-word disagreements),
+        or None if all providers failed.
     """
     from python_translators.translation_query import TranslationQuery
 
@@ -363,6 +485,9 @@ def translate_in_context(word, context, from_lang, to_lang):
         "query": query,
         "context": context,
     }
+
+    if " " not in word:
+        return _vote_single_word_translation(data)
 
     result = azure_alignment_contextual_translate(data)
     if not result:
@@ -480,9 +605,9 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
         """Yield translation if not a duplicate."""
         if t is None:
             return None
-        text = t.get("translation", "").lower().strip()
-        if text and text not in seen_translations:
-            seen_translations.add(text)
+        key = _translation_key(t.get("translation", ""))
+        if key and key not in seen_translations:
+            seen_translations.add(key)
             return t
         return None
 
@@ -497,28 +622,18 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
 
         # Then try other services in parallel - they might give different results
         # Also include LLM for contextual alternatives
+        mwe_data = {
+            "source_language": from_lang,
+            "target_language": to_lang,
+            "word": word,
+            "query": TranslationQuery(word, "", "", 1),
+            "context": context,
+        }
         funcs = [
-            lambda: azure_alignment_contextual_translate({
-                "source_language": from_lang,
-                "target_language": to_lang,
-                "word": word,
-                "query": TranslationQuery(word, "", "", 1),
-                "context": context,
-            }),
-            lambda: microsoft_contextual_translate({
-                "source_language": from_lang,
-                "target_language": to_lang,
-                "word": word,
-                "query": TranslationQuery(word, "", "", 1),
-                "context": context,
-            }),
-            lambda: google_contextual_translate({
-                "source_language": from_lang,
-                "target_language": to_lang,
-                "word": word,
-                "query": TranslationQuery(word, "", "", 1),
-                "context": context,
-            }),
+            lambda d=mwe_data: azure_alignment_contextual_translate(d),
+            lambda d=mwe_data: microsoft_contextual_translate(d),
+            lambda d=mwe_data: google_contextual_translate(d),
+            lambda d=mwe_data: deepl_contextual_translate_cached(d),
             lambda: translate_with_llm(word, context, from_lang, to_lang),
         ]
 
@@ -558,6 +673,7 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
             lambda d=data: azure_alignment_contextual_translate(d),
             lambda d=data: microsoft_contextual_translate(d),
             lambda d=data: google_contextual_translate(d),
+            lambda d=data: deepl_contextual_translate_cached(d),
         ]
 
     # Run in parallel and yield as they complete
@@ -576,16 +692,17 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
 def _remove_duplicate_translations(translations):
     """
     Remove duplicate translations, keeping the first occurrence.
-    Duplicates are determined by lowercase translation text.
+    Duplicates are determined by translation text after normalisation
+    (lowercase + stripped of surrounding whitespace and punctuation).
     """
     seen = set()
     unique = []
     for t in translations:
         if t is None:
             continue
-        text = t.get("translation", "").lower().strip()
-        if text and text not in seen:
-            seen.add(text)
+        key = _translation_key(t.get("translation", ""))
+        if key and key not in seen:
+            seen.add(key)
             unique.append(t)
     return unique
 
@@ -643,6 +760,7 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
                 lambda d=data: azure_alignment_contextual_translate(d),
                 lambda d=data: microsoft_contextual_translate(d),
                 lambda d=data: google_contextual_translate(d),
+                lambda d=data: deepl_contextual_translate_cached(d),
                 lambda: translate_with_llm(word, context, from_lang, to_lang),
             ]
 
@@ -686,12 +804,16 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         def get_google():
             return google_contextual_translate(data)
 
-        results = {"azure": None, "msft": None, "google": None}
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        def get_deepl():
+            return deepl_contextual_translate_cached(data)
+
+        results = {"azure": None, "msft": None, "google": None, "deepl": None}
+        with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
                 executor.submit(get_azure): "azure",
                 executor.submit(get_msft): "msft",
                 executor.submit(get_google): "google",
+                executor.submit(get_deepl): "deepl",
             }
             for future in as_completed(futures):
                 key = futures[future]
@@ -702,6 +824,6 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
 
         # Romanian: Azure alignment confuses "a" (perfect tense auxiliary) with "the"
         if from_lang == "ro":
-            return _remove_duplicate_translations([results["google"], results["msft"], results["azure"]])
+            return _remove_duplicate_translations([results["google"], results["deepl"], results["msft"], results["azure"]])
         else:
-            return _remove_duplicate_translations([results["azure"], results["msft"], results["google"]])
+            return _remove_duplicate_translations([results["azure"], results["google"], results["deepl"], results["msft"]])

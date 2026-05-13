@@ -67,6 +67,7 @@ regex
 requests
 requests_mock
 anthropic>=0.40.0
+deepl>=1.18.0
 
 # Utilities
 markupsafe
