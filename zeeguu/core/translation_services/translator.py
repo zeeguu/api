@@ -368,8 +368,14 @@ def _vote_single_word_translation(data):
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    def azure_with_fallback():
+        # Azure alignment doesn't support every language pair (e.g. fr→nl
+        # returns no alignment data). When it returns None, fall back to
+        # Microsoft's span-tag contextual call so this slot still votes.
+        return azure_alignment_contextual_translate(data) or microsoft_contextual_translate(data)
+
     funcs = {
-        "azure": lambda: azure_alignment_contextual_translate(data),
+        "azure": azure_with_fallback,
         "google": lambda: google_contextual_translate(data),
         "deepl": lambda: deepl_contextual_translate_cached(data),
     }
@@ -422,8 +428,7 @@ def _vote_single_word_translation(data):
         winner["disagreement"] = True
 
     providers_summary = ", ".join(
-        f"{name}={r.get('translation') if r else 'None'}"
-        for name, r in results.items()
+        _format_provider_summary(name, r) for name, r in results.items()
     )
     log(
         f"[TRANSLATION-DISAGREE] word='{data.get('word')}' "
@@ -433,6 +438,13 @@ def _vote_single_word_translation(data):
         f"disagreement={winner.get('disagreement', False)}"
     )
     return winner
+
+
+def _format_provider_summary(name, result):
+    """Render one provider's vote for the [TRANSLATION-DISAGREE] log line."""
+    if not result:
+        return f"{name}=None"
+    return f"{name}={result.get('translation')!r}[{result.get('source', '?')}]"
 
 
 def _source_to_provider(result_dict):
