@@ -427,13 +427,8 @@ def _vote_single_word_translation(data):
     if winner_votes < 2:
         winner["disagreement"] = True
 
-    def _format_provider(name, r):
-        if not r:
-            return f"{name}=None"
-        return f"{name}={r.get('translation')!r}[{r.get('source', '?')}]"
-
     providers_summary = ", ".join(
-        _format_provider(name, r) for name, r in results.items()
+        _format_provider_summary(name, r) for name, r in results.items()
     )
     log(
         f"[TRANSLATION-DISAGREE] word='{data.get('word')}' "
@@ -443,6 +438,13 @@ def _vote_single_word_translation(data):
         f"disagreement={winner.get('disagreement', False)}"
     )
     return winner
+
+
+def _format_provider_summary(name, result):
+    """Render one provider's vote for the [TRANSLATION-DISAGREE] log line."""
+    if not result:
+        return f"{name}=None"
+    return f"{name}={result.get('translation')!r}[{result.get('source', '?')}]"
 
 
 def _source_to_provider(result_dict):
