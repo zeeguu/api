@@ -82,7 +82,7 @@ def mark_onboarding_message_dismissed():
     if not user_onboarding_message:
         return json_result({"error": "not found"}, status=404)
 
-    UserOnboardingMessage.update_user_onboarding_message_time(user_onboarding_message.id, db_session)
+    UserOnboardingMessage.set_message_dismissed_time(user_onboarding_message.id, db_session)
     db_session.commit()
 
     return "OK"

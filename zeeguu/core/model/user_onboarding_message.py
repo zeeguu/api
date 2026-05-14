@@ -79,7 +79,7 @@ class UserOnboardingMessage(db.Model):
         )
 
     @classmethod
-    def update_user_onboarding_message_time(cls, user_onboarding_message_id, db_session):
+    def set_message_dismissed_time(cls, user_onboarding_message_id, db_session):
         """Set the time when the user dismissed the message."""
         user_onboarding_message = cls.find_by_id(user_onboarding_message_id)
         if not user_onboarding_message:
