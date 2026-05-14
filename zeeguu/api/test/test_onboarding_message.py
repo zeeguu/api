@@ -45,7 +45,7 @@ def test_click_endpoint_refuses_cross_user_update(app, client):
     
     # User 2 tries to click it via a direct DB manipulation attack
     response = other_logged_in.response_from_post(
-        "/set_onboarding_message_click_time",
+        "/mark_onboarding_message_dismissed",
         data={"onboarding_message_id": 2}
     )
     assert response.status_code == 404  # User 2 doesn't have this message
@@ -54,7 +54,7 @@ def test_click_endpoint_refuses_cross_user_update(app, client):
     from zeeguu.core.model import User
     user1 = User.find(client.email)
     user_msg = UserOnboardingMessage.find_by_user_and_message(user1.id, 2)
-    assert user_msg.message_click_time is None
+    assert user_msg.message_dismissed_time is None
 
 
 def test_find_or_create_idempotency(app):

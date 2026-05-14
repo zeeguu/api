@@ -62,10 +62,10 @@ def mark_onboarding_message_shown():
     return json_result(onboarding_data)
 
 
-@api.route("/set_onboarding_message_click_time", methods=["POST"])
+@api.route("/mark_onboarding_message_dismissed", methods=["POST"])
 @cross_domain
 @requires_session
-def set_onboarding_message_click_time():
+def mark_onboarding_message_dismissed():
     data = flask.request.form
     onboarding_message_id = data.get("onboarding_message_id", None)
 
@@ -82,7 +82,7 @@ def set_onboarding_message_click_time():
     if not user_onboarding_message:
         return json_result({"error": "not found"}, status=404)
 
-    UserOnboardingMessage.update_user_onboarding_message_time(user_onboarding_message.id, db_session)
+    UserOnboardingMessage.set_message_dismissed_time(user_onboarding_message.id, db_session)
     db_session.commit()
 
     return "OK"
