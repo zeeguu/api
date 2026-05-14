@@ -25,6 +25,8 @@ Detection relies on Stanza dependency relations:
 from typing import List, Dict, Any
 from abc import ABC, abstractmethod
 
+from .lexicon_matcher import LexiconMatcher, merge_lexicon_with_stanza
+
 
 def match_article_noun(tokens: List[Dict], head):
     """
@@ -626,6 +628,26 @@ class NoOpStrategy(MWEStrategy):
         return []
 
 
+class LexiconOverlayStrategy(MWEStrategy):
+    """
+    Wraps an inner MWE strategy and overlays a per-language lexicon
+    of fixed idioms ("på jagt efter", "in spite of", ...) that the
+    dependency-parser-based strategies cannot reliably detect.
+
+    Lexicon matches WIN: any inner-strategy group whose tokens fall
+    inside a lexicon span is dropped before lexicon groups are added.
+    """
+
+    def __init__(self, inner: MWEStrategy, language_code: str):
+        self.inner = inner
+        self.lexicon_matcher = LexiconMatcher(language_code)
+
+    def detect(self, tokens: List[Dict]) -> List[Dict]:
+        inner_groups = self.inner.detect(tokens)
+        lexicon_groups = self.lexicon_matcher.detect(tokens)
+        return merge_lexicon_with_stanza(inner_groups, lexicon_groups)
+
+
 # Language to strategy mapping
 # NOTE: Only enable MWE detection for languages where Stanza works reliably.
 # Romance/Slavic/Turkic languages have too many false positives with Stanza.
@@ -677,10 +699,12 @@ def get_strategy_for_language(language_code: str, mode: str = "stanza") -> MWESt
     """
     if mode == "llm":
         from .llm_mwe_detector import LLMMWEStrategy
-        return LLMMWEStrategy(language_code)
+        inner = LLMMWEStrategy(language_code)
     elif mode == "hybrid":
         from .llm_mwe_detector import HybridMWEStrategy
-        return HybridMWEStrategy(language_code)
+        inner = HybridMWEStrategy(language_code)
     else:  # "stanza" (default)
         strategy_class = LANGUAGE_STRATEGIES.get(language_code, NoOpStrategy)
-        return strategy_class()
+        inner = strategy_class()
+
+    return LexiconOverlayStrategy(inner, language_code)
