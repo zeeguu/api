@@ -3,7 +3,7 @@ CREATE TABLE `zeeguu_test`.`user_onboarding_message` (
     `user_id` INT NOT NULL,
     `onboarding_message_id` INT NOT NULL,
     `message_shown_time` DATETIME NULL,
-    `message_dismissed_time` DATETIME NULL,
+    `message_click_time` DATETIME NULL,
     PRIMARY KEY (`id`),
     UNIQUE INDEX `ux_user_onboarding_message_user_message` (`user_id`, `onboarding_message_id`),
     INDEX `user_onboarding_message_ibfk_1_idx` (`user_id` ASC),
