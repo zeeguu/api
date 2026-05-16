@@ -178,6 +178,19 @@ class DailyLessonGenerator:
             meaning=meaning, teacher_language=teacher_lang
         )
         if existing_lesson:
+            fs_path = ZEEGUU_DATA_FOLDER + existing_lesson.audio_file_path
+            if os.path.exists(fs_path):
+                return existing_lesson
+            log(
+                f"[generate_audio_lesson_meaning] DB row {existing_lesson.id} exists but audio file missing at {fs_path}; re-synthesizing from stored script"
+            )
+            self.voice_synthesizer.generate_lesson_audio(
+                meaning_id=meaning.id,
+                teacher_language_code=translation_language,
+                script=existing_lesson.script,
+                language_code=origin_language,
+                cefr_level=cefr_level,
+            )
             return existing_lesson
 
         # Update progress: generating script
