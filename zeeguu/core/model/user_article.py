@@ -278,6 +278,13 @@ class UserArticle(db.Model):
             if each.last_interaction() is not None
         ]
 
+        # Hide the original when the user also has a simplified child of it
+        # in this list — the simplified version is the one they want to read.
+        parent_ids_with_saved_simpl = {
+            a.parent_article_id for a in articles if a.parent_article_id is not None
+        }
+        articles = [a for a in articles if a.id not in parent_ids_with_saved_simpl]
+
         return cls.article_infos(user, articles, select_appropriate=False)
 
     @classmethod
@@ -523,6 +530,21 @@ class UserArticle(db.Model):
                 is not None
             )
         returned_info["has_personal_copy"] = bool(has_pc)
+
+        # If this is an original article and the user has already saved a
+        # simplified child of it (auto-saved when they tap Simplify), expose
+        # that id so the feed/saved-list can route the Open button to the
+        # in-app readable version instead of the external original.
+        if not article.parent_article_id:
+            simplified_pc = (
+                PersonalCopy.query
+                .join(Article, PersonalCopy.article_id == Article.id)
+                .filter(Article.parent_article_id == article.id)
+                .filter(PersonalCopy.user_id == user.id)
+                .first()
+            )
+            if simplified_pc:
+                returned_info["user_simplified_article_id"] = simplified_pc.article_id
 
         # Clear MWE metadata from tokens that user has disabled
         # This is done on backend to keep frontend simple (ADR 009)

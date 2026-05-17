@@ -56,18 +56,18 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     # Collect article IDs to exclude
     articles_to_exclude = []
 
+    # Always exclude originals when the user has saved a simplified child of
+    # them — the user moved past the original, recycling it is noise.
+    saved_for_user = PersonalCopy.all_for(user)
+    for article in saved_for_user:
+        if article.parent_article_id:
+            articles_to_exclude.append(article.parent_article_id)
+
     if exclude_saved:
-        # Get all saved articles for the user
-        saved_articles = PersonalCopy.all_for(user)
-
-        # Exclude both the PersonalCopy article IDs and their parent article IDs
-        for article in saved_articles:
-            # Add the PersonalCopy article ID
+        # Also exclude the saved articles themselves (and their parents,
+        # already covered above for simplifications).
+        for article in saved_for_user:
             articles_to_exclude.append(article.id)
-
-            # If this is a simplified version, also exclude the original article
-            if article.parent_article_id:
-                articles_to_exclude.append(article.parent_article_id)
 
     # Always exclude hidden articles from recommendations
     hidden_user_articles = (
@@ -139,6 +139,13 @@ def saved_articles(page: int = None):
         saves = PersonalCopy.get_page_for(user, page)
     else:
         saves = PersonalCopy.all_for(user)
+
+    # Hide the original when the user has also saved a simplified child of
+    # it — the simplified version is the one they actually want to read.
+    parent_ids_with_saved_simpl = {
+        a.parent_article_id for a in saves if a.parent_article_id is not None
+    }
+    saves = [a for a in saves if a.id not in parent_ids_with_saved_simpl]
 
     article_infos = UserArticle.article_infos(user, saves, select_appropriate=True)
 
