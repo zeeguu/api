@@ -407,7 +407,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None
+        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None, simplified_pc_by_parent=None
     ):
         """
         Returns user-specific article information for the given article.
@@ -535,16 +535,22 @@ class UserArticle(db.Model):
         # simplified child of it (auto-saved when they tap Simplify), expose
         # that id so the feed/saved-list can route the Open button to the
         # in-app readable version instead of the external original.
+        # Prefer the precomputed dict (batched by article_infos) over a
+        # per-article query — list endpoints would otherwise N+1 here.
         if not article.parent_article_id:
-            simplified_pc = (
-                PersonalCopy.query
-                .join(Article, PersonalCopy.article_id == Article.id)
-                .filter(Article.parent_article_id == article.id)
-                .filter(PersonalCopy.user_id == user.id)
-                .first()
-            )
-            if simplified_pc:
-                returned_info["user_simplified_article_id"] = simplified_pc.article_id
+            if simplified_pc_by_parent is not None:
+                simplified_id = simplified_pc_by_parent.get(article.id)
+            else:
+                simplified_pc = (
+                    PersonalCopy.query
+                    .join(Article, PersonalCopy.article_id == Article.id)
+                    .filter(Article.parent_article_id == article.id)
+                    .filter(PersonalCopy.user_id == user.id)
+                    .first()
+                )
+                simplified_id = simplified_pc.article_id if simplified_pc else None
+            if simplified_id:
+                returned_info["user_simplified_article_id"] = simplified_id
 
         # Clear MWE metadata from tokens that user has disabled
         # This is done on backend to keep frontend simple (ADR 009)
@@ -758,8 +764,27 @@ class UserArticle(db.Model):
         # Step 4: Commit all cache writes
         db.session.commit()
 
+        # Batch-fetch simplified-child PersonalCopies for any originals in
+        # this list so user_article_info doesn't run a per-article query
+        # (N+1 on every feed/saved page load).
+        simplified_pc_by_parent = {}
+        rows = (
+            db.session.query(Article.parent_article_id, PersonalCopy.article_id)
+            .join(PersonalCopy, PersonalCopy.article_id == Article.id)
+            .filter(Article.parent_article_id.in_(article_ids))
+            .filter(PersonalCopy.user_id == user.id)
+            .all()
+        )
+        for parent_id, simplified_article_id in rows:
+            simplified_pc_by_parent[parent_id] = simplified_article_id
+
         # Step 5: Build response infos (pure reads, using pre-fetched caches)
         return [
-            cls.user_article_info(user, article, tokenization_cache=existing_caches.get(article.id))
+            cls.user_article_info(
+                user,
+                article,
+                tokenization_cache=existing_caches.get(article.id),
+                simplified_pc_by_parent=simplified_pc_by_parent,
+            )
             for article in articles_to_process
         ]
