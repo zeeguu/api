@@ -638,6 +638,12 @@ class Article(db.Model):
             ),
         )
 
+        # Flag any AI-simplified article, even those without a linkable parent
+        # (e.g. simplifications produced from an upload rather than a crawled
+        # parent article). Frontend uses this to render the "simplified" badge.
+        if self.simplification_ai_generator_id:
+            result_dict["is_simplified"] = True
+
         # Add simplified article metadata if this is a simplified version
         if self.parent_article_id:
             result_dict["parent_article_id"] = self.parent_article_id
