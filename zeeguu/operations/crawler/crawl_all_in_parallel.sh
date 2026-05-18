@@ -1,5 +1,9 @@
 #!/bin/bash
-# Crawl script that runs a separate docker container for each language in parallel
+# Crawl script that runs a separate docker container for each language, one at a time.
+# Languages are crawled sequentially to avoid pegging the shared Stanza service while
+# the live API also needs it (My Articles, opening articles, etc.). Wrap the cron
+# invocation with `flock -n /tmp/zeeguu-crawl.lock ...` so a slow run doesn't collide
+# with the next scheduled one.
 #
 # Usage:
 #   ./crawl_all_in_parallel.sh                           # Crawl default languages
@@ -76,7 +80,8 @@ for lang in $LANGUAGES; do
     docker rm crawler_${lang} 2>/dev/null || true
 done
 
-# Start a crawler container for each language
+# Run one crawler container at a time, in the order languages were given.
+# Sequential by design — parallel crawls saturate Stanza and slow the live API.
 for lang in $LANGUAGES; do
     # Get per-language config
     config_var="LANG_CONFIG_${lang}"
@@ -92,12 +97,8 @@ for lang in $LANGUAGES; do
     max_time_seconds=$((max_time_minutes * 60))
 
     LOG_FILE="/var/log/zeeguu/crawler/crawler-${lang}-${TIMESTAMP}.log"
-    # echo "Starting crawler for $lang (max_articles=$max_articles, max_time=${max_time_minutes}min) -> $LOG_FILE"
-    $DOCKER_COMPOSE run --rm --name crawler_${lang} run_task python zeeguu/operations/crawler/crawl.py $lang --provider $PROVIDER --max-articles $max_articles --max-time $max_time_seconds >> "$LOG_FILE" 2>&1 &
+    $DOCKER_COMPOSE run --rm --name crawler_${lang} run_task python zeeguu/operations/crawler/crawl.py $lang --provider $PROVIDER --max-articles $max_articles --max-time $max_time_seconds >> "$LOG_FILE" 2>&1
 done
-
-# Wait for all to complete
-wait
 
 # echo ""
 # echo "=== Parallel Crawl completed at $(date) ==="
