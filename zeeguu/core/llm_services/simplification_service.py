@@ -6,6 +6,7 @@ import os
 import requests
 from typing import Dict, Optional, Tuple
 from zeeguu.logging import log
+from zeeguu.core.llm_services.haiku_client import haiku_completion
 
 
 class SimplificationService:
@@ -313,58 +314,31 @@ Example response:
 CEFR: B2
 TOPIC: Business"""
 
-        try:
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": self.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "claude-haiku-4-5-20251001",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 30,
-                    "temperature": 0.1,
-                },
-                timeout=30,
-            )
+        raw = haiku_completion(prompt, max_tokens=30, temperature=0.1)
+        if not raw:
+            return None
+        result = raw.strip()
 
-            if response.status_code == 200:
-                result = response.json()["content"][0]["text"].strip()
-                # Parse the response to extract CEFR and topic
-                lines = result.split('\n')
-                cefr_level = None
-                topic = None
-                
-                for line in lines:
-                    if line.startswith("CEFR:"):
-                        cefr_level = line.replace("CEFR:", "").strip()
-                    elif line.startswith("TOPIC:"):
-                        topic = line.replace("TOPIC:", "").strip()
-                
-                # Validate CEFR level
-                cefr_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-                if cefr_level not in cefr_levels:
-                    # Fallback: try to extract from anywhere in the response
-                    for level in cefr_levels:
-                        if level in result.upper():
-                            cefr_level = level
-                            break
-                    if not cefr_level:
-                        # Can't parse response - return None
-                        log(f"Could not extract valid CEFR level from Anthropic response: {result}")
-                        return None
+        cefr_level = None
+        topic = None
+        for line in result.split("\n"):
+            if line.startswith("CEFR:"):
+                cefr_level = line.replace("CEFR:", "").strip()
+            elif line.startswith("TOPIC:"):
+                topic = line.replace("TOPIC:", "").strip()
 
-                # For now, return a tuple with both values
-                return (cefr_level, topic)
-            else:
-                log(f"Anthropic API error: {response.status_code}")
+        cefr_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
+        if cefr_level not in cefr_levels:
+            # Last-ditch: grep the level out of unstructured output before giving up.
+            for level in cefr_levels:
+                if level in result.upper():
+                    cefr_level = level
+                    break
+            if cefr_level not in cefr_levels:
+                log(f"Could not extract valid CEFR level from Anthropic response: {result}")
                 return None
 
-        except Exception as e:
-            log(f"Error in Anthropic CEFR assessment: {e}")
-            return None
+        return (cefr_level, topic)
 
     def _assess_cefr_deepseek(
         self, title: str, content: str, language_code: str
@@ -771,69 +745,44 @@ SIMPLIFIED_TITLE: [your simplified title in {language_name}]
 SIMPLIFIED_SUMMARY: [a concise plain-text summary in {language_name}, maximum 25 words, NO Markdown or HTML]
 SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown formatting - preserve paragraph breaks with double newlines, use **bold**, *italics*, ## for headings, - for lists]"""
 
-        try:
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": self.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "claude-haiku-4-5-20251001",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 2000,
-                    "temperature": 0.2,  # Lower temperature for more consistent results
-                },
-                timeout=60,
-            )
-
-            if response.status_code == 200:
-                result = response.json()["content"][0]["text"]
-
-                lines = result.split("\n")
-                simplified_title = None
-                simplified_summary = None
-                simplified_content = []
-                current_section = None
-
-                for line in lines:
-                    if line.startswith("SIMPLIFIED_TITLE:"):
-                        simplified_title = line.split(":", 1)[1].strip()
-                        current_section = None
-                    elif line.startswith("SIMPLIFIED_SUMMARY:"):
-                        simplified_summary = line.split(":", 1)[1].strip()
-                        current_section = None
-                    elif line.startswith("SIMPLIFIED_CONTENT:"):
-                        current_section = "content"
-                        content_start = line.split(":", 1)[1].strip()
-                        if content_start:
-                            simplified_content.append(content_start)
-                    elif current_section == "content":
-                        simplified_content.append(line.strip() if line.strip() else "")
-
-                simplified_text = "\n".join(simplified_content)
-                import re
-                simplified_text = re.sub(r"\n{3,}", "\n\n", simplified_text)
-
-                if simplified_title and simplified_text:
-                    import markdown2
-                    simplified_html = markdown2.markdown(
-                        simplified_text,
-                        extras=['break-on-newline', 'fenced-code-blocks', 'tables']
-                    )
-                    return simplified_title, simplified_html, simplified_summary
-                else:
-                    log("Failed to parse Anthropic response")
-                    return None, None, None
-
-            else:
-                log(f"Anthropic API error: {response.status_code}")
-                return None, None, None
-
-        except Exception as e:
-            log(f"Error creating simplified version with Anthropic: {e}")
+        result = haiku_completion(
+            prompt, max_tokens=2000, temperature=0.2, timeout=60
+        )
+        if not result:
             return None, None, None
+
+        simplified_title = None
+        simplified_summary = None
+        simplified_content = []
+        current_section = None
+        for line in result.split("\n"):
+            if line.startswith("SIMPLIFIED_TITLE:"):
+                simplified_title = line.split(":", 1)[1].strip()
+                current_section = None
+            elif line.startswith("SIMPLIFIED_SUMMARY:"):
+                simplified_summary = line.split(":", 1)[1].strip()
+                current_section = None
+            elif line.startswith("SIMPLIFIED_CONTENT:"):
+                current_section = "content"
+                content_start = line.split(":", 1)[1].strip()
+                if content_start:
+                    simplified_content.append(content_start)
+            elif current_section == "content":
+                simplified_content.append(line.strip() if line.strip() else "")
+
+        import re
+        simplified_text = re.sub(r"\n{3,}", "\n\n", "\n".join(simplified_content))
+
+        if not (simplified_title and simplified_text):
+            log("Failed to parse Anthropic response")
+            return None, None, None
+
+        import markdown2
+        simplified_html = markdown2.markdown(
+            simplified_text,
+            extras=["break-on-newline", "fenced-code-blocks", "tables"],
+        )
+        return simplified_title, simplified_html, simplified_summary
 
     def _simplify_deepseek(
         self, title: str, content: str, target_level: str, language_code: str
