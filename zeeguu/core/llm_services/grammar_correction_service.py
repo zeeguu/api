@@ -10,10 +10,11 @@ import re
 import requests
 import time
 from zeeguu.logging import log
+from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.grammar_correction import get_full_article_correction_prompt
 
 # Model names for tracking
-ANTHROPIC_CORRECTION_MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_CORRECTION_MODEL = HAIKU_MODEL
 DEEPSEEK_CORRECTION_MODEL = "deepseek-chat"
 
 
@@ -137,36 +138,11 @@ class GrammarCorrectionService:
         log(f"Correcting article with Anthropic (single request)...")
         start_time = time.time()
 
-        headers = {
-            "x-api-key": self.anthropic_api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
+        result = haiku_completion_or_raise(
+            prompt, max_tokens=8000, temperature=0, timeout=90
+        ).strip()
 
-        data = {
-            "model": ANTHROPIC_CORRECTION_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 8000,
-            "temperature": 0,  # Deterministic for corrections
-        }
-
-        response = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers=headers,
-            json=data,
-            timeout=90,
-        )
-
-        duration = time.time() - start_time
-
-        if response.status_code != 200:
-            raise Exception(
-                f"Anthropic API error: {response.status_code} - {response.text}"
-            )
-
-        result = response.json()["content"][0]["text"].strip()
-        log(f"Anthropic correction completed in {duration:.2f}s")
-
+        log(f"Anthropic correction completed in {time.time() - start_time:.2f}s")
         return result
 
     def _correct_with_deepseek(self, prompt: str) -> str:

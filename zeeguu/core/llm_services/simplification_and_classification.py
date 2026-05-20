@@ -15,6 +15,7 @@ from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
+from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.article_simplification import get_adaptive_simplification_prompt
 
 
@@ -152,62 +153,39 @@ def simplify_article_adaptive_levels(
 
         if provider == "deepseek":
             model_name = "deepseek-chat"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            data = {
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 6000,
-                "temperature": 0.1,
-            }
             log(f"  Sending request to DeepSeek API...")
             response = requests.post(
                 "https://api.deepseek.com/v1/chat/completions",
-                headers=headers,
-                json=data,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 6000,
+                    "temperature": 0.1,
+                },
                 timeout=180,
             )
+            api_duration = time.time() - api_start_time
+            log(
+                f"  DEEPSEEK API responded with status: {response.status_code} (took {api_duration:.2f} seconds)"
+            )
+            if response.status_code != 200:
+                raise Exception(
+                    f"DEEPSEEK API error: {response.status_code} - {response.text}"
+                )
+            result = response.json()["choices"][0]["message"]["content"].strip()
         else:  # anthropic
-            model_name = "claude-haiku-4-5-20251001"
-            headers = {
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            }
-            data = {
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 4000,
-                "temperature": 0.1,
-            }
+            model_name = HAIKU_MODEL
             log(f"  Sending request to Anthropic API...")
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers=headers,
-                json=data,
-                timeout=180,
-            )
+            result = haiku_completion_or_raise(
+                prompt, max_tokens=4000, temperature=0.1, timeout=180
+            ).strip()
+            api_duration = time.time() - api_start_time
+            log(f"  ANTHROPIC API completed (took {api_duration:.2f} seconds)")
 
-        api_duration = time.time() - api_start_time
-        log(
-            f"  {provider.upper()} API responded with status: {response.status_code} (took {api_duration:.2f} seconds)"
-        )
-
-        if response.status_code != 200:
-            raise Exception(
-                f"{provider.upper()} API error: {response.status_code} - {response.text}"
-            )
-
-        log(f"  Parsing {provider.upper()} API response...")
-        response_json = response.json()
-
-        # Extract result based on provider
-        if provider == "deepseek":
-            result = response_json["choices"][0]["message"]["content"].strip()
-        else:  # anthropic
-            result = response_json["content"][0]["text"].strip()
         log(f"  Response length: {len(result)} characters")
 
         # Check if article is unfinished due to paywall
