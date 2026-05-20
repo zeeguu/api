@@ -32,12 +32,21 @@ class UserArticleTest(ModelTestMixIn, TestCase):
         self.article.star_for_user(db_session, self.user)
         assert 1 == len(UserArticle.all_starred_or_liked_articles_of_user(self.user))
 
-    def test_merely_opened_article_does_not_appear_in_my_articles(self):
-        # A UserArticle row with default liked=None and no star should NOT
-        # appear in the My Articles list — that tab is for explicit saves,
-        # not reading history.
-        assert 0 == len(UserArticle.all_starred_or_liked_articles_of_user(self.user))
-
-    def test_personal_copy_makes_article_appear_in_my_articles(self):
+    def test_my_articles_returns_personal_copies(self):
+        # A PersonalCopy is enough to appear in My Articles — even without
+        # a UserArticle row (i.e. user saved via Send-to-Zeeguu but hasn't
+        # opened it yet). PersonalCopy.all_for() filters by learned_language,
+        # so align the article's language with the user's.
+        self.article.language = self.user.learned_language
+        db_session.add(self.article)
+        db_session.commit()
         PersonalCopy.make_for(self.user, self.article, db_session)
-        assert 1 == len(UserArticle.all_starred_or_liked_articles_of_user(self.user))
+        infos = UserArticle.my_articles_info(self.user)
+        assert 1 == len(infos)
+        assert self.article.id == infos[0]["id"]
+
+    def test_my_articles_is_empty_without_personal_copies(self):
+        # Stars and likes are NOT in scope for My Articles — this tab is
+        # for explicit saves only.
+        self.article.star_for_user(db_session, self.user)
+        assert [] == UserArticle.my_articles_info(self.user)

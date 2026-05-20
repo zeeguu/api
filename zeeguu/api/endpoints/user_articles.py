@@ -238,6 +238,19 @@ def user_articles_starred_and_liked():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/user_articles/my_articles", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def user_articles_my_articles():
+    """My Articles = the user's saves (PersonalCopy). Distinct from
+    /user_articles/starred_or_liked, which keys off UserArticle rows and
+    misses saves the user hasn't opened yet."""
+    user = User.find_by_id(flask.g.user_id)
+    return json_result(UserArticle.my_articles_info(user))
+
+
+# ---------------------------------------------------------------------------
 @api.route("/cohort_articles", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
