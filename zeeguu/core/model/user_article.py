@@ -226,10 +226,24 @@ class UserArticle(db.Model):
 
     @classmethod
     def all_starred_or_liked_articles_of_user(cls, user, limit=30):
+        # ``liked.isnot(False)`` matched both True AND the default None, so
+        # this query was returning every UserArticle row the user hadn't
+        # explicitly disliked — i.e. every opened article — turning the
+        # My Articles tab into a reading history. Require explicit True,
+        # and union in saved-via-PersonalCopy so saves still show up.
+        saved_article_ids = (
+            db.session.query(PersonalCopy.article_id)
+            .filter(PersonalCopy.user_id == user.id)
+            .subquery()
+        )
         return (
             cls.query.filter_by(user=user)
             .filter(
-                or_(UserArticle.starred.isnot(None), UserArticle.liked.isnot(False))
+                or_(
+                    UserArticle.starred.isnot(None),
+                    UserArticle.liked.is_(True),
+                    UserArticle.article_id.in_(saved_article_ids),
+                )
             )
             .filter(UserArticle.hidden.is_(None))  # Exclude hidden articles
             .order_by(UserArticle.article_id.desc())
@@ -271,19 +285,52 @@ class UserArticle(db.Model):
         """
         user_articles = cls.all_starred_or_liked_articles_of_user(user)
 
-        # Filter first, then use helper for proper cache handling
-        articles = [
-            each.article
+        # PC saved_at beats open/star timestamps as a "when did I engage"
+        # signal — and the underlying SQL `ORDER BY article_id` is wrong
+        # for ranking (article_id reflects crawl order, not user order).
+        pcs_by_article_id = {
+            pc.article_id: pc.saved_at
+            for pc in PersonalCopy.query.filter_by(user_id=user.id).all()
+        }
+
+        def engagement_ts(ua):
+            return pcs_by_article_id.get(ua.article_id) or ua.last_interaction()
+
+        articles_with_ts = [
+            (each.article, engagement_ts(each))
             for each in user_articles
-            if each.last_interaction() is not None
+            if engagement_ts(each) is not None
         ]
 
         # Hide the original when the user also has a simplified child of it
         # in this list — the simplified version is the one they want to read.
         parent_ids_with_saved_simpl = {
-            a.parent_article_id for a in articles if a.parent_article_id is not None
+            a.parent_article_id
+            for a, _ in articles_with_ts
+            if a.parent_article_id is not None
         }
-        articles = [a for a in articles if a.id not in parent_ids_with_saved_simpl]
+        articles_with_ts = [
+            (a, ts)
+            for a, ts in articles_with_ts
+            if a.id not in parent_ids_with_saved_simpl
+        ]
+
+        # Collapse sibling simplifications: when the user has touched more
+        # than one CEFR level of the same source (e.g. simplified once at A1
+        # and again at A2), keep just the most recently used sibling. From
+        # the user's point of view it's one article, not two.
+        best_by_family = {}
+        for a, ts in articles_with_ts:
+            family_key = a.parent_article_id or a.id
+            existing = best_by_family.get(family_key)
+            if existing is None or ts > existing[1]:
+                best_by_family[family_key] = (a, ts)
+
+        # Most recently engaged first.
+        sorted_articles = sorted(
+            best_by_family.values(), key=lambda x: x[1], reverse=True
+        )
+        articles = [a for a, _ in sorted_articles]
 
         return cls.article_infos(user, articles, select_appropriate=False)
 
