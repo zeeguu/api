@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.user import User
-from sqlalchemy import Column, Integer, ForeignKey, desc
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, desc
 from sqlalchemy.orm import relationship
 
 import zeeguu
@@ -21,10 +23,13 @@ class PersonalCopy(db.Model):
     article_id = Column(Integer, ForeignKey(Article.id))
     article = relationship(Article)
 
+    saved_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
     def __init__(self, user, article):
 
         self.user = user
         self.article = article
+        self.saved_at = datetime.utcnow()
 
     @classmethod
     def exists_for(cls, user, article):
