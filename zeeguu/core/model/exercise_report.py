@@ -26,6 +26,7 @@ class ExerciseReport(db.Model):
             "context_confusing",
             "wrong_translation",
             "context_wrong",
+            "audio_broken",
             "other",
         ),
         nullable=False,
