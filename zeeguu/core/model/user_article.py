@@ -521,15 +521,16 @@ class UserArticle(db.Model):
         # specific article id, so a save against the original wouldn't be
         # detected when the simplified version is what's served. Check the
         # parent too so saved-status survives the version swap.
-        has_pc = PersonalCopy.exists_for(user, article)
-        if not has_pc and article.parent_article_id:
-            has_pc = (
-                PersonalCopy.query.filter_by(
-                    user_id=user.id, article_id=article.parent_article_id
-                ).first()
-                is not None
-            )
-        returned_info["has_personal_copy"] = bool(has_pc)
+        pc = PersonalCopy.query.filter_by(
+            user_id=user.id, article_id=article.id
+        ).first()
+        if not pc and article.parent_article_id:
+            pc = PersonalCopy.query.filter_by(
+                user_id=user.id, article_id=article.parent_article_id
+            ).first()
+        returned_info["has_personal_copy"] = pc is not None
+        if pc is not None and pc.saved_at is not None:
+            returned_info["personal_copy_saved_at"] = datetime_to_json(pc.saved_at)
 
         # If this is an original article and the user has already saved a
         # simplified child of it (auto-saved when they tap Simplify), expose
