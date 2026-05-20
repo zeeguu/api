@@ -239,15 +239,21 @@ def user_articles_starred_and_liked():
 
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/my_articles", methods=("GET",))
+@api.route("/user_articles/my_articles/<int:count>", methods=("GET",))
+@api.route("/user_articles/my_articles/<int:count>/<int:page>", methods=("GET",))
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def user_articles_my_articles():
+def user_articles_my_articles(count: int = None, page: int = 0):
     """My Articles = the user's saves (PersonalCopy). Distinct from
     /user_articles/starred_or_liked, which keys off UserArticle rows and
-    misses saves the user hasn't opened yet."""
+    misses saves the user hasn't opened yet.
+
+    Paginated when count is provided — sort + family-collapse happens over
+    all saves first, then the slice is fed through article_infos (which
+    tokenizes / fills caches and is the expensive bit)."""
     user = User.find_by_id(flask.g.user_id)
-    return json_result(UserArticle.my_articles_info(user))
+    return json_result(UserArticle.my_articles_info(user, count=count, page=page))
 
 
 # ---------------------------------------------------------------------------
