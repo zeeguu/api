@@ -52,6 +52,19 @@ INSTRUCTIONS:
 7. If original is C1, create A1, A2, B1, and B2
 8. If original is C2, create A1, A2, B1, B2, and C1
 
+CONTENT CLEANUP (apply BEFORE simplifying — these elements must NOT appear in any simplified version):
+- Section/category breadcrumb headers that aren't the article's own heading (e.g. a standalone "Cannes 2026", "Sport", "Kultur", "Politik" line at the top)
+- Publication metadata: standalone dates, timestamps, byline-only date lines ("maj 2026 | 14:01", "Updated 14:30", "Published yesterday")
+- Photo / video / image credits ("Foto | X", "Photo: Y", "© Z", "Photo credit:", "Image:")
+- Audio / share / save / bookmark widget labels ("Lyt til artiklen", "Listen to the article", "Share", "Save", "Print")
+- "Related articles" / "Read more" / "You might also like" link lists (top OR bottom)
+- Newsletter signup blurbs, app-promo lines, paywall teasers
+- Cookie/consent banners, comment-section headers, social handles
+- Author bio boxes and "About the author" footers
+- Ad text and sponsored-content markers
+
+The article body proper begins at the first substantive paragraph. Discard everything above it that matches the categories above. Discard the same categories at the end. Keep the actual article heading, dek/standfirst, body paragraphs, pull quotes, in-body lists, and bylines that appear inside the running text.
+
 SIMPLIFICATION RULES:
 - PRESERVE ALL MAIN IDEAS: Every important concept from the original must appear in simplified versions
 - PRESERVE PARAGRAPH STRUCTURE: Transform each paragraph of the original into a paragraph in the simplified version
