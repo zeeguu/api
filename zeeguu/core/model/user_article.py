@@ -288,7 +288,7 @@ class UserArticle(db.Model):
         return cls.article_infos(user, articles, select_appropriate=False)
 
     @classmethod
-    def my_articles_info(cls, user):
+    def my_articles_info(cls, user, count=None, page=0):
         """Articles the user has explicitly saved (PersonalCopy).
 
         Skips the UserArticle table entirely: a save (Simplify / Send to
@@ -298,6 +298,11 @@ class UserArticle(db.Model):
 
         Family-collapsed (one card per parent_article_id family, most
         recently saved sibling wins) and sorted by save time descending.
+
+        When `count` is provided, the sorted+collapsed list is sliced to
+        the requested page before article_infos runs — article_infos is
+        the expensive step (tokenization caches per article), and a user
+        with hundreds of saves would otherwise pay it on every load.
         """
         saved_articles = PersonalCopy.all_for(user)
         if not saved_articles:
@@ -346,6 +351,9 @@ class UserArticle(db.Model):
             best_by_family.values(), key=lambda x: x[1], reverse=True
         )
         articles = [a for a, _ in sorted_articles]
+
+        if count is not None:
+            articles = articles[page * count : (page + 1) * count]
 
         return cls.article_infos(user, articles, select_appropriate=False)
 
