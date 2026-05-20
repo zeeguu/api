@@ -1390,6 +1390,23 @@ class Article(db.Model):
             print(f"-- detected language '{lang}' is not supported in Zeeguu")
             raise  # Re-raise to be caught as NoResultFound in endpoint
 
+        # LLM cleanup of leftover scraper noise (ads, "Listen to the article"
+        # buttons, related-article links). Gated to the send-to-Zeeguu path
+        # only — crawler ingestion is being phased out and shouldn't pay the
+        # per-article Haiku cost.
+        if source_upload_id is not None and html_content:
+            from zeeguu.core.llm_services.simplification_service import (
+                get_simplification_service,
+            )
+
+            cleaned = get_simplification_service().cleanup_article_content(
+                html_content=html_content,
+                title=title or "",
+            )
+            if cleaned:
+                html_content = cleaned["html"]
+                article_text = cleaned["text"]
+
         # Create new article and save it to DB
         url_object = Url.find_or_create(session, canonical_url)
         source_type = SourceType.find_by_type(SourceType.ARTICLE)

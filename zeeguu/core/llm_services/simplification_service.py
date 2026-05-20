@@ -8,6 +8,11 @@ from typing import Dict, Optional, Tuple
 from zeeguu.logging import log
 from zeeguu.core.llm_services.haiku_client import haiku_completion
 
+# Cleanup-pass guardrails (see cleanup_article_content)
+CLEANUP_MIN_BODY_CHARS = 500
+CLEANUP_MAX_GROWTH = 1.1
+CLEANUP_MIN_RETENTION = 0.5
+
 
 class SimplificationService:
     """Service for text simplification using LLM fallback chain (Anthropic → DeepSeek)"""
@@ -339,6 +344,76 @@ TOPIC: Business"""
                 return None
 
         return (cefr_level, topic)
+
+    def cleanup_article_content(
+        self,
+        html_content: str,
+        title: str,
+    ) -> Optional[Dict[str, str]]:
+        """
+        Strip leftover noise from a scraped article (audio/share widgets,
+        related-article link lists, ad text, etc.) and return cleaned
+        HTML plus a plain-text version derived from it.
+
+        Returns None on any failure — callers MUST fall back to the
+        original content so a flaky LLM never blocks article ingestion.
+        """
+        from bs4 import BeautifulSoup
+
+        if len(html_content or "") < CLEANUP_MIN_BODY_CHARS:
+            return None
+
+        original_text_len = len(BeautifulSoup(html_content, "html.parser").get_text())
+
+        prompt = f"""You are cleaning a scraped article before it is shown to a language learner.
+
+Remove ONLY clearly non-article material:
+- Audio/share/save/bookmark widget labels ("Listen to the article", "Share", "Save", "Print")
+- Newsletter signup blurbs, app-promo lines, paywall teasers
+- "Related articles" / "Read more" / "You might also like" link lists
+- Author bio boxes and "About the author" footers
+- Comment-section headers, social handles, cookie/consent banners
+- Image/video captions that are NOT integral to the body (UI labels, photographer credits)
+- Ad text and sponsored-content markers
+
+Keep ALL real article content: headlines, dek/standfirst, body paragraphs, pull quotes, in-body lists, integral captions, bylines that appear inside the body.
+
+Do NOT translate, simplify, summarize, paraphrase, or reorder. Only remove non-article fragments. Preserve paragraph breaks and the existing HTML structure.
+
+Title: {title}
+
+HTML:
+{html_content}
+
+Respond ONLY with the cleaned HTML — no prose, no markdown fences, no JSON wrapper."""
+
+        raw = haiku_completion(prompt, max_tokens=8000)
+        if not raw:
+            return None
+
+        cleaned_html = (
+            raw.strip()
+            .removeprefix("```html")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
+        )
+        if not cleaned_html:
+            log("Anthropic cleanup returned empty payload")
+            return None
+
+        cleaned_text = BeautifulSoup(cleaned_html, "html.parser").get_text()
+        if (
+            len(cleaned_text) > original_text_len * CLEANUP_MAX_GROWTH
+            or len(cleaned_text) < original_text_len * CLEANUP_MIN_RETENTION
+        ):
+            log(
+                f"Anthropic cleanup length out of bounds "
+                f"({original_text_len} -> {len(cleaned_text)}); keeping original"
+            )
+            return None
+
+        return {"html": cleaned_html, "text": cleaned_text}
 
     def _assess_cefr_deepseek(
         self, title: str, content: str, language_code: str
