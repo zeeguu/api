@@ -308,6 +308,45 @@ def test_as_dictionary_marks_unanchorable_when_phrase_missing(client):
     )
 
 
+def test_as_dictionary_serves_relative_anchor_when_context_offset_nonzero(client):
+    """
+    Regression: served `t_sentence_i` / `t_token_i` are RELATIVE to the
+    bookmark's context (the frontend does `context_sent + t_sentence_i`
+    to recover an absolute lookup key). When `context.sentence_i > 0`
+    the correction must NOT serve the absolute sent_i from
+    context_tokenized — that double-shifts on the frontend and the
+    highlight disappears (bookmark 743773 prod symptom).
+    """
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    from zeeguu.core.model.db import db as _db
+    bookmark = Bookmark.find(bookmark_id)
+    # Force the bookmark's context to start at sent_i=2 of its article.
+    # tokenize_for_reading will then emit tokens with sent_i=2.
+    bookmark.context.sentence_i = 2
+    _db.session.add(bookmark.context)
+    _db.session.commit()
+
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    # The stored anchor (sentence_i=0, token_i=1) was already correct in
+    # the relative frame, so the served values must match — NOT 2 (the
+    # absolute sent_i in context_tokenized).
+    assert served["t_sentence_i"] == 0, (
+        f"Expected relative t_sentence_i=0, got {served['t_sentence_i']} "
+        f"(symptom: frontend would double-shift via context_sent)"
+    )
+    assert served["t_token_i"] == 1
+    assert served["t_total_token"] == 1
+    assert served["context_sent"] == 2  # context's own offset, unchanged
+
+
 def test_as_dictionary_rotates_preferred_when_sibling_is_anchorable(client):
     """
     Preferred bookmark is unanchorable, but the user_word has another

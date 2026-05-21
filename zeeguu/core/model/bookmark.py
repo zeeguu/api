@@ -255,11 +255,27 @@ class Bookmark(db.Model):
 
             from zeeguu.logging import log
 
+            # The token dicts in context_tokenized carry ABSOLUTE article-level
+            # (sent_i, token_i) — because tokenize_for_reading is called with
+            # start_sentence_i=context.sentence_i / start_token_i=context.token_i.
+            # But the bookmark's stored (sentence_i, token_i) — and the served
+            # t_sentence_i / t_token_i contract the frontend consumes — are
+            # RELATIVE to the context (frontend does context_sent + t_sentence_i
+            # to recover absolute). So we convert relative ↔ absolute around
+            # the helper, which operates in the absolute frame of the tokens.
+            ctx_sent_i = self.context.sentence_i or 0
+            ctx_token_i = self.context.token_i or 0
+            abs_anchor = (
+                (self.sentence_i or 0) + ctx_sent_i,
+                (self.token_i or 0) + ctx_token_i,
+                self.total_tokens or 1,
+            )
+
             corrected = find_target_in_tokenized_context(
                 self.user_word.meaning.origin.content,
                 result["context_tokenized"],
                 self.user_word.meaning.origin.language,
-                current_anchor=(self.sentence_i, self.token_i, self.total_tokens or 1),
+                current_anchor=abs_anchor,
             )
             if corrected is None:
                 # Phrase doesn't appear contiguously in the tokenized context
@@ -274,17 +290,24 @@ class Bookmark(db.Model):
                 )
                 result["_unanchorable"] = True
                 self._self_heal_unanchorable_preferred()
-            elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
-                new_sent_i, new_token_i, new_total = corrected
-                log(
-                    f"[BOOKMARK-ANCHOR] Serving corrected anchor for bookmark id={self.id}: "
-                    f"({self.sentence_i},{self.token_i},{self.total_tokens}) -> "
-                    f"({new_sent_i},{new_token_i},{new_total}) "
-                    f"for word='{self.user_word.meaning.origin.content}'"
-                )
-                result["t_sentence_i"] = new_sent_i
-                result["t_token_i"] = new_token_i
-                result["t_total_token"] = new_total
+            else:
+                abs_sent, abs_tok, total = corrected
+                rel_sent = abs_sent - ctx_sent_i
+                rel_tok = abs_tok - ctx_token_i
+                if (rel_sent, rel_tok, total) != (
+                    self.sentence_i,
+                    self.token_i,
+                    self.total_tokens,
+                ):
+                    log(
+                        f"[BOOKMARK-ANCHOR] Serving corrected anchor for bookmark id={self.id}: "
+                        f"({self.sentence_i},{self.token_i},{self.total_tokens}) -> "
+                        f"({rel_sent},{rel_tok},{total}) "
+                        f"for word='{self.user_word.meaning.origin.content}'"
+                    )
+                    result["t_sentence_i"] = rel_sent
+                    result["t_token_i"] = rel_tok
+                    result["t_total_token"] = total
 
         return result
 
