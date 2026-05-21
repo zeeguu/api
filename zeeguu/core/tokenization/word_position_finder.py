@@ -257,43 +257,35 @@ def find_target_in_tokenized_context(target_word, context_tokenized, from_lang, 
 
     target_normalized = [_normalize_token(t.text) for t in target_tokens]
     target_len = len(target_normalized)
-    if target_len == 0 or all(t == "" for t in target_normalized):
+    if target_len == 0:
         return None
 
-    flat = []
-    for paragraph in context_tokenized:
-        for sentence in paragraph:
-            for tok in sentence:
-                flat.append(tok)
-
-    def _text(tok):
-        return tok["text"] if isinstance(tok, dict) else tok.text
-
-    def _coords(tok):
-        if isinstance(tok, dict):
-            return tok.get("sent_i"), tok.get("token_i")
-        return tok.sent_i, tok.token_i
-
-    def _slice_normalized(start, length):
-        return [_normalize_token(_text(flat[start + j])) for j in range(length)]
+    # context_tokenized comes from tokenize_for_reading with the default
+    # as_serializable_dictionary=True, so tokens are always dicts here.
+    flat = [
+        tok
+        for paragraph in context_tokenized
+        for sentence in paragraph
+        for tok in sentence
+    ]
+    context_normalized = [_normalize_token(t["text"]) for t in flat]
 
     # 1. Preserve current_anchor if it already matches (handles repeated words).
-    if current_anchor is not None and current_anchor[1] is not None:
+    if current_anchor and current_anchor[1] is not None:
         anc_sent_i, anc_token_i, anc_total = current_anchor
         anc_total = anc_total or 1
-        for idx, tok in enumerate(flat):
-            s_i, t_i = _coords(tok)
-            if s_i == anc_sent_i and t_i == anc_token_i:
-                if idx + anc_total <= len(flat) and anc_total == target_len:
-                    if _slice_normalized(idx, anc_total) == target_normalized:
+        if anc_total == target_len:
+            for idx, tok in enumerate(flat):
+                if tok.get("sent_i") == anc_sent_i and tok.get("token_i") == anc_token_i:
+                    if context_normalized[idx : idx + anc_total] == target_normalized:
                         return current_anchor
-                break
+                    break
 
     # 2. Fall back to first contiguous match anywhere in the context.
-    for i in range(len(flat) - target_len + 1):
-        if _slice_normalized(i, target_len) == target_normalized:
-            s_i, t_i = _coords(flat[i])
-            return (s_i, t_i, target_len)
+    for i in range(len(context_normalized) - target_len + 1):
+        if context_normalized[i : i + target_len] == target_normalized:
+            tok = flat[i]
+            return (tok.get("sent_i"), tok.get("token_i"), target_len)
 
     return None
 
