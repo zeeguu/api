@@ -241,6 +241,41 @@ class Bookmark(db.Model):
                     start_sentence_i=self.context.sentence_i,
                 )
 
+            # Serialization-time anchor correction (issue #618):
+            # stored (sentence_i, token_i, total_tokens) can drift out of sync
+            # with the tokens that ship in context_tokenized — e.g. tokenizer
+            # version changed since the bookmark was written, or the position
+            # was computed by a different tokenizer than the one used here.
+            # If the stored span doesn't actually cover `from`, override the
+            # served anchor to point at the first contiguous match. The DB is
+            # not modified — this is response-shaping only.
+            from zeeguu.core.tokenization.word_position_finder import (
+                find_target_in_tokenized_context,
+            )
+
+            corrected = find_target_in_tokenized_context(
+                self.user_word.meaning.origin.content,
+                result["context_tokenized"],
+                self.user_word.meaning.origin.language,
+                current_anchor=(self.sentence_i, self.token_i, self.total_tokens or 1),
+            )
+            if corrected is not None and corrected != (
+                self.sentence_i,
+                self.token_i,
+                self.total_tokens,
+            ):
+                from zeeguu.logging import log
+                new_sent_i, new_token_i, new_total = corrected
+                log(
+                    f"[BOOKMARK-ANCHOR] Serving corrected anchor for bookmark id={self.id}: "
+                    f"({self.sentence_i},{self.token_i},{self.total_tokens}) -> "
+                    f"({new_sent_i},{new_token_i},{new_total}) "
+                    f"for word='{self.user_word.meaning.origin.content}'"
+                )
+                result["t_sentence_i"] = new_sent_i
+                result["t_token_i"] = new_token_i
+                result["t_total_token"] = new_total
+
         return result
 
     def add_new_exercise(self, exercise):

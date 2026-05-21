@@ -215,6 +215,63 @@ def test_no_null_positions_for_new_bookmarks(client):
         assert bookmark.total_tokens >= 1, f"Bookmark {bid}: total_tokens should be >= 1"
 
 
+def test_as_dictionary_corrects_stale_anchor(client):
+    """
+    Issue #618 family: the stored (token_i, total_tokens) drifted out of sync
+    with the tokenizer used to ship `context_tokenized` (different tokenizer
+    version, or tokens were computed against an earlier text revision). The
+    serialization-time correction in Bookmark.as_dictionary should detect the
+    mismatch and serve a corrected anchor.
+    """
+    # Deliberately store a wrong token_i: word is "Hund" (position 1) but we
+    # pretend the client claimed it was at position 0 ("Der").
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=0,  # WRONG — "Hund" is at index 1, not 0
+        total_tokens=1,
+    )
+
+    bookmark = Bookmark.find(bookmark_id)
+    # DB row keeps the stored (wrong) values — fix is response-shaping only.
+    assert bookmark.token_i == 0
+
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    # Response should carry the corrected position so the frontend can
+    # highlight the right token.
+    assert served["t_token_i"] == 1, (
+        f"Served anchor should be corrected to point at 'Hund' (token 1), "
+        f"got {served['t_token_i']}"
+    )
+    assert served["t_total_token"] == 1
+
+
+def test_as_dictionary_preserves_correct_anchor_when_word_repeats(client):
+    """
+    When the same word appears multiple times in the context, the user's
+    actual click position must be preserved — the correction must NOT
+    indiscriminately snap to the first occurrence.
+    """
+    # "Hund" appears at positions 1 and 4 — the user clicked the second one.
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund sah einen Hund",
+        sentence_i=0,
+        token_i=4,
+        total_tokens=1,
+    )
+
+    bookmark = Bookmark.find(bookmark_id)
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    assert served["t_token_i"] == 4, (
+        f"Correct anchor should be preserved when word repeats; "
+        f"got {served['t_token_i']}"
+    )
+
+
 def test_word_expansion_workflow(client):
     """
     Test the frontend word expansion workflow:
