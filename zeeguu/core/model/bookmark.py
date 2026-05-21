@@ -253,18 +253,27 @@ class Bookmark(db.Model):
                 find_target_in_tokenized_context,
             )
 
+            from zeeguu.logging import log
+
             corrected = find_target_in_tokenized_context(
                 self.user_word.meaning.origin.content,
                 result["context_tokenized"],
                 self.user_word.meaning.origin.language,
                 current_anchor=(self.sentence_i, self.token_i, self.total_tokens or 1),
             )
-            if corrected is not None and corrected != (
-                self.sentence_i,
-                self.token_i,
-                self.total_tokens,
-            ):
-                from zeeguu.logging import log
+            if corrected is None:
+                # Phrase doesn't appear contiguously in the tokenized context
+                # at all — typically a discontiguous IDIOM (see issue #618,
+                # bookmark 703020 family). Mark so callers can drop these
+                # before sending to the frontend; the anchor we'd otherwise
+                # serve is unreliable.
+                log(
+                    f"[BOOKMARK-ANCHOR] Unanchorable bookmark id={self.id}: "
+                    f"word='{self.user_word.meaning.origin.content}' cannot be "
+                    f"located contiguously in context_tokenized"
+                )
+                result["_unanchorable"] = True
+            elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
                 new_sent_i, new_token_i, new_total = corrected
                 log(
                     f"[BOOKMARK-ANCHOR] Serving corrected anchor for bookmark id={self.id}: "

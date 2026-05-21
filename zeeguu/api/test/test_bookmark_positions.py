@@ -272,6 +272,42 @@ def test_as_dictionary_preserves_correct_anchor_when_word_repeats(client):
     )
 
 
+def test_as_dictionary_marks_unanchorable_when_phrase_missing(client):
+    """
+    When `from` cannot be located contiguously in the tokenized context
+    (e.g. discontiguous IDIOM — issue #618 bookmark 703020 family), the
+    served bookmark dict is flagged `_unanchorable: True` so list-returning
+    endpoints can drop it before sending to the frontend.
+    """
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    # Re-point this bookmark to a meaning whose origin phrase is
+    # non-contiguous in the context (mirrors the production
+    # discontiguous-idiom shape).
+    from zeeguu.core.model import Meaning
+    from zeeguu.core.model.db import db as _db
+    bookmark = Bookmark.find(bookmark_id)
+    new_meaning = Meaning.find_or_create(
+        _db.session, "Hund laut bellt", "de", "loud-dog-barks", "en"
+    )
+    _db.session.commit()
+    bookmark.user_word.meaning_id = new_meaning.id
+    _db.session.add(bookmark.user_word)
+    _db.session.commit()
+
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    assert served.get("_unanchorable") is True, (
+        "Bookmark with non-contiguous from-phrase should be marked unanchorable"
+    )
+
+
 def test_word_expansion_workflow(client):
     """
     Test the frontend word expansion workflow:
