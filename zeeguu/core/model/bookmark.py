@@ -274,25 +274,38 @@ class Bookmark(db.Model):
                 )
                 result["_unanchorable"] = True
 
-                # If this is the user_word's study context, take it out of
-                # rotation: cloze/spell-what-you-hear can't work without a
-                # reliable anchor. Self-heals existing broken rows as they
-                # surface, without needing a separate sweep job.
+                # If this is the user_word's study context, try to rotate to
+                # a sibling bookmark whose `from` IS anchorable, so the word
+                # stays in study with a usable context. Fall back to taking
+                # it out of rotation only when no sibling works. Self-heals
+                # existing broken rows as they surface, without a sweep job.
                 if (
                     self.user_word.preferred_bookmark_id == self.id
                     and self.user_word.fit_for_study
                 ):
                     try:
                         from zeeguu.core.model.db import db
-                        self.user_word.set_unfit_for_study(db.session)
-                        db.session.commit()
-                        log(
-                            f"[BOOKMARK-ANCHOR] Unscheduled user_word id={self.user_word_id} "
-                            f"(preferred bookmark {self.id} is unanchorable)"
-                        )
+                        replacement = self._find_anchorable_sibling()
+                        if replacement is not None:
+                            self.user_word.preferred_bookmark = replacement
+                            db.session.add(self.user_word)
+                            db.session.commit()
+                            log(
+                                f"[BOOKMARK-ANCHOR] Rotated preferred bookmark for "
+                                f"user_word id={self.user_word_id}: "
+                                f"{self.id} -> {replacement.id}"
+                            )
+                        else:
+                            self.user_word.set_unfit_for_study(db.session)
+                            db.session.commit()
+                            log(
+                                f"[BOOKMARK-ANCHOR] Unscheduled user_word "
+                                f"id={self.user_word_id} (preferred bookmark "
+                                f"{self.id} unanchorable, no usable sibling)"
+                            )
                     except Exception as e:
                         # Don't let a side-effect failure break serialization.
-                        log(f"[BOOKMARK-ANCHOR] Failed to unschedule user_word "
+                        log(f"[BOOKMARK-ANCHOR] Failed to self-heal user_word "
                             f"id={self.user_word_id}: {e}")
             elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
                 new_sent_i, new_token_i, new_total = corrected
@@ -307,6 +320,37 @@ class Bookmark(db.Model):
                 result["t_total_token"] = new_total
 
         return result
+
+    # Cap for the sibling search in self-heal; user_words rarely have many
+    # bookmarks, but a pathological user with 100s shouldn't trigger a 100x
+    # tokenizer storm on a single read.
+    _SIBLING_SEARCH_LIMIT = 10
+
+    def _find_anchorable_sibling(self):
+        """
+        Look for another bookmark on the same user_word whose `from` can be
+        located contiguously in its own context. Used by the self-heal path
+        in as_dictionary when the preferred bookmark is unanchorable.
+        Returns the sibling Bookmark or None.
+        """
+        from zeeguu.core.tokenization.word_position_finder import (
+            find_word_positions_in_text,
+        )
+
+        target = self.user_word.meaning.origin.content
+        lang = self.user_word.meaning.origin.language
+
+        siblings = [b for b in self.user_word.bookmarks() if b.id != self.id]
+        for candidate in siblings[: self._SIBLING_SEARCH_LIMIT]:
+            try:
+                result = find_word_positions_in_text(
+                    target, candidate.context.get_content(), lang, strict_matching=False
+                )
+                if result["found_positions"]:
+                    return candidate
+            except Exception:
+                continue
+        return None
 
     def add_new_exercise(self, exercise):
         # delegates to the usr_meaning for backwards compat with tests

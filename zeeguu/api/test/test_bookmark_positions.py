@@ -308,6 +308,50 @@ def test_as_dictionary_marks_unanchorable_when_phrase_missing(client):
     )
 
 
+def test_as_dictionary_rotates_preferred_when_sibling_is_anchorable(client):
+    """
+    Preferred bookmark is unanchorable, but the user_word has another
+    bookmark whose `from` IS locatable in its context. Self-heal should
+    rotate preferred_bookmark to the sibling and KEEP the user_word fit
+    for study.
+    """
+    # Bookmark A: word "Hund" but context doesn't contain it — unanchorable.
+    bid_a = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Die Katze schläft.",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+    # Bookmark B: same word, context that DOES contain it — anchorable.
+    bid_b = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    from zeeguu.core.model.db import db as _db
+    bookmark_a = Bookmark.find(bid_a)
+    # Sanity: both bookmarks land on the same user_word and A is preferred
+    # (it was created first, so find_or_create picked it).
+    assert bookmark_a.user_word.preferred_bookmark_id == bid_a
+    assert Bookmark.find(bid_b).user_word_id == bookmark_a.user_word_id
+
+    bookmark_a.as_dictionary(with_context=True, with_context_tokenized=True)
+
+    _db.session.refresh(bookmark_a.user_word)
+    assert bookmark_a.user_word.preferred_bookmark_id == bid_b, (
+        "preferred_bookmark should rotate to the anchorable sibling"
+    )
+    assert bookmark_a.user_word.fit_for_study, (
+        "user_word should stay fit_for_study after a successful rotation"
+    )
+
+
 def test_as_dictionary_unschedules_preferred_when_unanchorable(client):
     """
     When the user_word's PREFERRED bookmark can't be anchored, set the
