@@ -241,7 +241,125 @@ class Bookmark(db.Model):
                     start_sentence_i=self.context.sentence_i,
                 )
 
+            # Serialization-time anchor correction (issue #618):
+            # stored (sentence_i, token_i, total_tokens) can drift out of sync
+            # with the tokens that ship in context_tokenized — e.g. tokenizer
+            # version changed since the bookmark was written, or the position
+            # was computed by a different tokenizer than the one used here.
+            # If the stored span doesn't actually cover `from`, override the
+            # served anchor to point at the first contiguous match. The DB is
+            # not modified — this is response-shaping only.
+            from zeeguu.core.tokenization.word_position_finder import (
+                find_target_in_tokenized_context,
+            )
+
+            from zeeguu.logging import log
+
+            corrected = find_target_in_tokenized_context(
+                self.user_word.meaning.origin.content,
+                result["context_tokenized"],
+                self.user_word.meaning.origin.language,
+                current_anchor=(self.sentence_i, self.token_i, self.total_tokens or 1),
+            )
+            if corrected is None:
+                # Phrase doesn't appear contiguously in the tokenized context
+                # at all — typically a discontiguous IDIOM (see issue #618,
+                # bookmark 703020 family). Mark so callers can drop these
+                # before sending to the frontend; the anchor we'd otherwise
+                # serve is unreliable.
+                log(
+                    f"[BOOKMARK-ANCHOR] Unanchorable bookmark id={self.id}: "
+                    f"word='{self.user_word.meaning.origin.content}' cannot be "
+                    f"located contiguously in context_tokenized"
+                )
+                result["_unanchorable"] = True
+                self._self_heal_unanchorable_preferred()
+            elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
+                new_sent_i, new_token_i, new_total = corrected
+                log(
+                    f"[BOOKMARK-ANCHOR] Serving corrected anchor for bookmark id={self.id}: "
+                    f"({self.sentence_i},{self.token_i},{self.total_tokens}) -> "
+                    f"({new_sent_i},{new_token_i},{new_total}) "
+                    f"for word='{self.user_word.meaning.origin.content}'"
+                )
+                result["t_sentence_i"] = new_sent_i
+                result["t_token_i"] = new_token_i
+                result["t_total_token"] = new_total
+
         return result
+
+    # Cap for the sibling search in self-heal; user_words rarely have many
+    # bookmarks, but a pathological user with 100s shouldn't trigger a 100x
+    # tokenizer storm on a single read.
+    _SIBLING_SEARCH_LIMIT = 10
+
+    def _self_heal_unanchorable_preferred(self):
+        """
+        Called from as_dictionary after detecting this bookmark is
+        unanchorable. If it's the user_word's preferred study context,
+        rotate to a usable sibling, or fall back to taking the user_word
+        out of rotation. Idempotent — safe to call when the preconditions
+        don't hold (it checks them).
+        """
+        if not (
+            self.user_word.preferred_bookmark_id == self.id
+            and self.user_word.fit_for_study
+        ):
+            return
+
+        from zeeguu.core.model.db import db
+        from zeeguu.logging import log
+
+        try:
+            replacement = self._find_anchorable_sibling()
+            if replacement is not None:
+                self.user_word.preferred_bookmark = replacement
+                db.session.commit()
+                log(
+                    f"[BOOKMARK-ANCHOR] Rotated preferred bookmark for "
+                    f"user_word id={self.user_word_id}: "
+                    f"{self.id} -> {replacement.id}"
+                )
+            else:
+                self.user_word.set_unfit_for_study(db.session)
+                db.session.commit()
+                log(
+                    f"[BOOKMARK-ANCHOR] Unscheduled user_word "
+                    f"id={self.user_word_id} (preferred bookmark "
+                    f"{self.id} unanchorable, no usable sibling)"
+                )
+        except Exception as e:
+            # Don't let a side-effect failure break serialization.
+            log(
+                f"[BOOKMARK-ANCHOR] Failed to self-heal user_word "
+                f"id={self.user_word_id}: {e}"
+            )
+
+    def _find_anchorable_sibling(self):
+        """
+        Look for another bookmark on the same user_word whose `from` can be
+        located contiguously in its own context. Used by the self-heal path
+        in as_dictionary when the preferred bookmark is unanchorable.
+        Returns the sibling Bookmark or None.
+        """
+        from zeeguu.core.tokenization.word_position_finder import (
+            find_word_positions_in_text,
+        )
+
+        target = self.user_word.meaning.origin.content
+        lang = self.user_word.meaning.origin.language
+
+        siblings = [b for b in self.user_word.bookmarks() if b.id != self.id]
+        for candidate in siblings[: self._SIBLING_SEARCH_LIMIT]:
+            try:
+                result = find_word_positions_in_text(
+                    target, candidate.context.get_content(), lang, strict_matching=False
+                )
+                if result["found_positions"]:
+                    return candidate
+            except Exception:
+                continue
+        return None
 
     def add_new_exercise(self, exercise):
         # delegates to the usr_meaning for backwards compat with tests

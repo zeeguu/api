@@ -219,6 +219,77 @@ def word_appears_standalone(target_word, context_text, from_lang):
         }
 
 
+def find_target_in_tokenized_context(target_word, context_tokenized, from_lang, current_anchor=None):
+    """
+    Locate target_word in an already-tokenized paragraph -> sentence -> token
+    structure (as produced by `tokenize_for_reading`).
+
+    Re-uses the same tokenizer to tokenize `target_word` so the comparison
+    happens against the exact tokens the client will receive in
+    `context_tokenized`. This is the inverse of `find_word_positions_in_text`,
+    which re-tokenizes the context every call — here the context tokens are
+    already available, so we avoid the extra Stanza pass.
+
+    Args:
+        target_word: phrase to locate (e.g. `bookmark.from`).
+        context_tokenized: 3-level list (paragraphs -> sentences -> token dicts).
+        from_lang: Language of target/context.
+        current_anchor: optional `(sent_i, token_i, total_tokens)`. If the
+            tokens at that position already match `target_word`, the anchor is
+            returned unchanged — this preserves the user's actual click when
+            the same phrase appears multiple times in the context.
+
+    Returns:
+        `(sent_i, token_i, total_tokens)` of a contiguous match, or None if
+        no contiguous run of tokens equals `target_word`.
+    """
+    if not target_word or not context_tokenized:
+        return None
+
+    try:
+        tokenizer = _get_tokenizer(from_lang)
+        target_tokens = list(
+            tokenizer.tokenize_text(target_word, as_serializable_dictionary=False, flatten=True)
+        )
+    except Exception as e:
+        log(f"find_target_in_tokenized_context: tokenization failed for '{target_word}': {e}")
+        return None
+
+    target_normalized = [_normalize_token(t.text) for t in target_tokens]
+    target_len = len(target_normalized)
+    if target_len == 0:
+        return None
+
+    # context_tokenized comes from tokenize_for_reading with the default
+    # as_serializable_dictionary=True, so tokens are always dicts here.
+    flat = [
+        tok
+        for paragraph in context_tokenized
+        for sentence in paragraph
+        for tok in sentence
+    ]
+    context_normalized = [_normalize_token(t["text"]) for t in flat]
+
+    # 1. Preserve current_anchor if it already matches (handles repeated words).
+    if current_anchor and current_anchor[1] is not None:
+        anc_sent_i, anc_token_i, anc_total = current_anchor
+        anc_total = anc_total or 1
+        if anc_total == target_len:
+            for idx, tok in enumerate(flat):
+                if tok.get("sent_i") == anc_sent_i and tok.get("token_i") == anc_token_i:
+                    if context_normalized[idx : idx + anc_total] == target_normalized:
+                        return current_anchor
+                    break
+
+    # 2. Fall back to first contiguous match anywhere in the context.
+    for i in range(len(context_normalized) - target_len + 1):
+        if context_normalized[i : i + target_len] == target_normalized:
+            tok = flat[i]
+            return (tok.get("sent_i"), tok.get("token_i"), target_len)
+
+    return None
+
+
 def find_first_occurrence(target_word, context_text, from_lang):
     """
     Find the first occurrence of a word in context text (fuzzy matching).

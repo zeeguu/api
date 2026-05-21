@@ -215,6 +215,185 @@ def test_no_null_positions_for_new_bookmarks(client):
         assert bookmark.total_tokens >= 1, f"Bookmark {bid}: total_tokens should be >= 1"
 
 
+def test_as_dictionary_corrects_stale_anchor(client):
+    """
+    Issue #618 family: the stored (token_i, total_tokens) drifted out of sync
+    with the tokenizer used to ship `context_tokenized` (different tokenizer
+    version, or tokens were computed against an earlier text revision). The
+    serialization-time correction in Bookmark.as_dictionary should detect the
+    mismatch and serve a corrected anchor.
+    """
+    # Deliberately store a wrong token_i: word is "Hund" (position 1) but we
+    # pretend the client claimed it was at position 0 ("Der").
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=0,  # WRONG — "Hund" is at index 1, not 0
+        total_tokens=1,
+    )
+
+    bookmark = Bookmark.find(bookmark_id)
+    # DB row keeps the stored (wrong) values — fix is response-shaping only.
+    assert bookmark.token_i == 0
+
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    # Response should carry the corrected position so the frontend can
+    # highlight the right token.
+    assert served["t_token_i"] == 1, (
+        f"Served anchor should be corrected to point at 'Hund' (token 1), "
+        f"got {served['t_token_i']}"
+    )
+    assert served["t_total_token"] == 1
+
+
+def test_as_dictionary_preserves_correct_anchor_when_word_repeats(client):
+    """
+    When the same word appears multiple times in the context, the user's
+    actual click position must be preserved — the correction must NOT
+    indiscriminately snap to the first occurrence.
+    """
+    # "Hund" appears at positions 1 and 4 — the user clicked the second one.
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund sah einen Hund",
+        sentence_i=0,
+        token_i=4,
+        total_tokens=1,
+    )
+
+    bookmark = Bookmark.find(bookmark_id)
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    assert served["t_token_i"] == 4, (
+        f"Correct anchor should be preserved when word repeats; "
+        f"got {served['t_token_i']}"
+    )
+
+
+def test_as_dictionary_marks_unanchorable_when_phrase_missing(client):
+    """
+    When `from` cannot be located contiguously in the tokenized context
+    (e.g. discontiguous IDIOM — issue #618 bookmark 703020 family), the
+    served bookmark dict is flagged `_unanchorable: True` so list-returning
+    endpoints can drop it before sending to the frontend.
+    """
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    # Re-point this bookmark to a meaning whose origin phrase is
+    # non-contiguous in the context (mirrors the production
+    # discontiguous-idiom shape).
+    from zeeguu.core.model import Meaning
+    from zeeguu.core.model.db import db as _db
+    bookmark = Bookmark.find(bookmark_id)
+    new_meaning = Meaning.find_or_create(
+        _db.session, "Hund laut bellt", "de", "loud-dog-barks", "en"
+    )
+    _db.session.commit()
+    bookmark.user_word.meaning_id = new_meaning.id
+    _db.session.add(bookmark.user_word)
+    _db.session.commit()
+
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    assert served.get("_unanchorable") is True, (
+        "Bookmark with non-contiguous from-phrase should be marked unanchorable"
+    )
+
+
+def test_as_dictionary_rotates_preferred_when_sibling_is_anchorable(client):
+    """
+    Preferred bookmark is unanchorable, but the user_word has another
+    bookmark whose `from` IS locatable in its context. Self-heal should
+    rotate preferred_bookmark to the sibling and KEEP the user_word fit
+    for study.
+    """
+    # Bookmark A: word "Hund" but context doesn't contain it — unanchorable.
+    bid_a = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Die Katze schläft.",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+    # Bookmark B: same word, context that DOES contain it — anchorable.
+    bid_b = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    from zeeguu.core.model.db import db as _db
+    bookmark_a = Bookmark.find(bid_a)
+    # Sanity: both bookmarks land on the same user_word and A is preferred
+    # (it was created first, so find_or_create picked it).
+    assert bookmark_a.user_word.preferred_bookmark_id == bid_a
+    assert Bookmark.find(bid_b).user_word_id == bookmark_a.user_word_id
+
+    bookmark_a.as_dictionary(with_context=True, with_context_tokenized=True)
+
+    _db.session.refresh(bookmark_a.user_word)
+    assert bookmark_a.user_word.preferred_bookmark_id == bid_b, (
+        "preferred_bookmark should rotate to the anchorable sibling"
+    )
+    assert bookmark_a.user_word.fit_for_study, (
+        "user_word should stay fit_for_study after a successful rotation"
+    )
+
+
+def test_as_dictionary_unschedules_preferred_when_unanchorable(client):
+    """
+    When the user_word's PREFERRED bookmark can't be anchored, set the
+    user_word not_fit_for_study so it stops being served into exercises.
+    Self-heals existing broken rows without a separate sweep job.
+    """
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    from zeeguu.core.model import Meaning
+    from zeeguu.core.model.db import db as _db
+    bookmark = Bookmark.find(bookmark_id)
+    # Pre-condition: this bookmark IS the preferred one for its user_word
+    # and the user_word is fit for study.
+    assert bookmark.user_word.preferred_bookmark_id == bookmark.id
+    assert bookmark.user_word.fit_for_study
+
+    # Promote the meaning to a phrase that doesn't fit contiguously.
+    new_meaning = Meaning.find_or_create(
+        _db.session, "Hund laut bellt", "de", "loud-dog-barks", "en"
+    )
+    _db.session.commit()
+    bookmark.user_word.meaning_id = new_meaning.id
+    _db.session.add(bookmark.user_word)
+    _db.session.commit()
+
+    # Serving with context_tokenized triggers the unschedule side-effect.
+    bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+
+    _db.session.refresh(bookmark.user_word)
+    assert bookmark.user_word.fit_for_study is False, (
+        "user_word should be marked not_fit_for_study after serving an "
+        "unanchorable preferred bookmark"
+    )
+
+
 def test_word_expansion_workflow(client):
     """
     Test the frontend word expansion workflow:
