@@ -147,8 +147,9 @@ class User(db.Model):
             prefer_no_digit: start at tier 0 (default) or skip to tier 4.
 
         Returns:
-            (username, animal) tuple. The animal is returned separately so
-            callers can pick the matching avatar SVG.
+            (username, adjective, animal) tuple where adjective/animal are the
+            selected words used to build the username. Callers can use these
+            to derive a display name and choose a matching avatar.
         """
         exclude = exclude or set()
         tiers = cls._USERNAME_TIERS_PRETTY if prefer_no_digit else cls._USERNAME_TIERS_FALLBACK
@@ -170,7 +171,7 @@ class User(db.Model):
                 if username in exclude:
                     continue
                 if not cls.query.filter_by(username=username).first():
-                    return username, animal
+                    return username, adjective, animal
 
         raise RuntimeError(
             "Username space exhausted across all tiers — expand ADJECTIVES/ANIMALS."
@@ -182,6 +183,7 @@ class User(db.Model):
         uuid,
         password,
         username,
+        name=None,
         learned_language_code=None,
         native_language_code=None,
         creation_platform=None,
@@ -192,6 +194,7 @@ class User(db.Model):
         :param uuid:
         :param password:
         :param username:
+        :param name:
         :param learned_language_code:
         :param native_language_code:
         :param creation_platform:
@@ -219,7 +222,7 @@ class User(db.Model):
 
         new_user = cls(
             fake_email,
-            None,
+            name,
             password,
             username,
             learned_language=learned_language,

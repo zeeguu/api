@@ -138,7 +138,7 @@ def create_account(
         native_language = Language.find_or_create(native_language_code)
 
         def build_user():
-            generated_username, animal = User.generate_unique_username()
+            generated_username, _, animal = User.generate_unique_username()
             user = User(
                 email,
                 username,
@@ -220,7 +220,7 @@ def create_basic_account(
             )
     try:
         def build_user():
-            generated_username, animal = User.generate_unique_username()
+            generated_username, _, animal = User.generate_unique_username()
             user = User(
                 email,
                 username,
