@@ -192,5 +192,8 @@ def _gamification(user: User):
     if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
         return True
 
+    if user.id>6479:
+        return True
+
     # Disabled for everyone else
     return False
