@@ -273,40 +273,7 @@ class Bookmark(db.Model):
                     f"located contiguously in context_tokenized"
                 )
                 result["_unanchorable"] = True
-
-                # If this is the user_word's study context, try to rotate to
-                # a sibling bookmark whose `from` IS anchorable, so the word
-                # stays in study with a usable context. Fall back to taking
-                # it out of rotation only when no sibling works. Self-heals
-                # existing broken rows as they surface, without a sweep job.
-                if (
-                    self.user_word.preferred_bookmark_id == self.id
-                    and self.user_word.fit_for_study
-                ):
-                    try:
-                        from zeeguu.core.model.db import db
-                        replacement = self._find_anchorable_sibling()
-                        if replacement is not None:
-                            self.user_word.preferred_bookmark = replacement
-                            db.session.add(self.user_word)
-                            db.session.commit()
-                            log(
-                                f"[BOOKMARK-ANCHOR] Rotated preferred bookmark for "
-                                f"user_word id={self.user_word_id}: "
-                                f"{self.id} -> {replacement.id}"
-                            )
-                        else:
-                            self.user_word.set_unfit_for_study(db.session)
-                            db.session.commit()
-                            log(
-                                f"[BOOKMARK-ANCHOR] Unscheduled user_word "
-                                f"id={self.user_word_id} (preferred bookmark "
-                                f"{self.id} unanchorable, no usable sibling)"
-                            )
-                    except Exception as e:
-                        # Don't let a side-effect failure break serialization.
-                        log(f"[BOOKMARK-ANCHOR] Failed to self-heal user_word "
-                            f"id={self.user_word_id}: {e}")
+                self._self_heal_unanchorable_preferred()
             elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
                 new_sent_i, new_token_i, new_total = corrected
                 log(
@@ -325,6 +292,48 @@ class Bookmark(db.Model):
     # bookmarks, but a pathological user with 100s shouldn't trigger a 100x
     # tokenizer storm on a single read.
     _SIBLING_SEARCH_LIMIT = 10
+
+    def _self_heal_unanchorable_preferred(self):
+        """
+        Called from as_dictionary after detecting this bookmark is
+        unanchorable. If it's the user_word's preferred study context,
+        rotate to a usable sibling, or fall back to taking the user_word
+        out of rotation. Idempotent — safe to call when the preconditions
+        don't hold (it checks them).
+        """
+        if not (
+            self.user_word.preferred_bookmark_id == self.id
+            and self.user_word.fit_for_study
+        ):
+            return
+
+        from zeeguu.core.model.db import db
+        from zeeguu.logging import log
+
+        try:
+            replacement = self._find_anchorable_sibling()
+            if replacement is not None:
+                self.user_word.preferred_bookmark = replacement
+                db.session.commit()
+                log(
+                    f"[BOOKMARK-ANCHOR] Rotated preferred bookmark for "
+                    f"user_word id={self.user_word_id}: "
+                    f"{self.id} -> {replacement.id}"
+                )
+            else:
+                self.user_word.set_unfit_for_study(db.session)
+                db.session.commit()
+                log(
+                    f"[BOOKMARK-ANCHOR] Unscheduled user_word "
+                    f"id={self.user_word_id} (preferred bookmark "
+                    f"{self.id} unanchorable, no usable sibling)"
+                )
+        except Exception as e:
+            # Don't let a side-effect failure break serialization.
+            log(
+                f"[BOOKMARK-ANCHOR] Failed to self-heal user_word "
+                f"id={self.user_word_id}: {e}"
+            )
 
     def _find_anchorable_sibling(self):
         """
