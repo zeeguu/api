@@ -127,31 +127,40 @@ def get_one_translation(from_lang_code, to_lang_code):
         browsing_session_id = request.json.get("browsing_session_id", None)
         reading_session_id = request.json.get("reading_session_id", None)
 
-        bookmark = Bookmark.find_or_create(
-            db_session,
-            user,
-            word_str,
-            from_lang_code,
-            t1["translation"],
-            to_lang_code,
-            context,
-            article_id,
-            source_id,
-            c_paragraph_i=c_paragraph_i,
-            c_sentence_i=c_sent_i,
-            c_token_i=c_token_i,
-            left_ellipsis=left_ellipsis,
-            right_ellipsis=right_ellipsis,
-            sentence_i=w_sent_i,
-            token_i=w_token_i,
-            total_tokens=w_total_tokens,
-            context_identifier=context_identifier,
-            translation_source=translation_source,
-            browsing_session_id=browsing_session_id,
-            reading_session_id=reading_session_id,
-            is_mwe=is_mwe_expression,
-            mwe_partner_token_i=mwe_partner_token_i,
-        )
+        bookmark = None
+        if is_separated_mwe:
+            # Temporary measure (#618 follow-up): the (token_i, total_tokens)
+            # span model can't represent a non-contiguous MWE, so the saved
+            # anchor would highlight only the contiguous half. Until we have
+            # a richer span representation, return the translation without
+            # persisting a Bookmark for the separated case.
+            log(f"[TRANSLATION] Skipping bookmark save for separated MWE word='{word_str}'")
+        else:
+            bookmark = Bookmark.find_or_create(
+                db_session,
+                user,
+                word_str,
+                from_lang_code,
+                t1["translation"],
+                to_lang_code,
+                context,
+                article_id,
+                source_id,
+                c_paragraph_i=c_paragraph_i,
+                c_sentence_i=c_sent_i,
+                c_token_i=c_token_i,
+                left_ellipsis=left_ellipsis,
+                right_ellipsis=right_ellipsis,
+                sentence_i=w_sent_i,
+                token_i=w_token_i,
+                total_tokens=w_total_tokens,
+                context_identifier=context_identifier,
+                translation_source=translation_source,
+                browsing_session_id=browsing_session_id,
+                reading_session_id=reading_session_id,
+                is_mwe=is_mwe_expression,
+                mwe_partner_token_i=mwe_partner_token_i,
+            )
 
         bookmark_elapsed = time.time() - bookmark_start
         log(
@@ -163,7 +172,7 @@ def get_one_translation(from_lang_code, to_lang_code):
 
     response_payload = {
         "translation": t1["translation"],
-        "bookmark_id": bookmark.id,
+        "bookmark_id": bookmark.id if bookmark else None,
         "source": t1["source"],
         "likelihood": t1["likelihood"],
     }
