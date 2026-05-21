@@ -251,6 +251,9 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
         )
         for b in bookmarks
     ]
+    # Drop bookmarks whose `from` couldn't be located in their context
+    # (#618 discontiguous-idiom family) — the anchor would be unreliable.
+    bookmark_dicts = [b for b in bookmark_dicts if not b.get("_unanchorable")]
     return json_result(bookmark_dicts)
 
 
@@ -329,6 +332,12 @@ def _user_words_as_json_result(user_words):
             # Log any other unexpected errors and skip
             log(f"Unexpected error processing UserWord {user_word.id}: {str(e)}")
             continue
+
+    # Drop entries whose preferred_bookmark anchor can't be located in
+    # context_tokenized — exercises can't run without a reliable highlight.
+    # (#618 discontiguous-idiom family; as_dictionary also marks the
+    # user_word not_fit_for_study so it self-heals on next read.)
+    dicts = [d for d in dicts if not d.get("_unanchorable")]
 
     # Delete UserWords that couldn't be repaired
     if words_to_delete:

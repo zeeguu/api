@@ -527,6 +527,10 @@ def get_past_contexts(user_word_id):
             bookmark_dict = bookmark.as_dictionary(
                 with_context=True, with_context_tokenized=True
             )
+            # Skip past contexts where the word can't be located in the
+            # tokenized sentence — the frontend can't highlight it (#618).
+            if bookmark_dict.get("_unanchorable"):
+                continue
             bookmark_dict["from_lang"] = user_word.meaning.origin.language.code
             bookmark_dict["to_lang"] = user_word.meaning.translation.language.code
             context_data["bookmark"] = bookmark_dict

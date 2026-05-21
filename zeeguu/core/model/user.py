@@ -1029,13 +1029,17 @@ class User(db.Model):
             return bookmarks
 
         for each in bookmarks:
-            json_bookmarks.append(
-                each.as_dictionary(
-                    with_exercise_info=with_exercise_info,
-                    with_title=with_title,
-                    with_context_tokenized=with_tokens,
-                )
+            bd = each.as_dictionary(
+                with_exercise_info=with_exercise_info,
+                with_title=with_title,
+                with_context_tokenized=with_tokens,
             )
+            # Skip bookmarks whose `from` can't be located in the tokenized
+            # context (#618). When with_tokens=False the flag isn't set and
+            # everything passes through.
+            if bd.get("_unanchorable"):
+                continue
+            json_bookmarks.append(bd)
 
         return json_bookmarks
 

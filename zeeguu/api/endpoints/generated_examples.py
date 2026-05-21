@@ -80,6 +80,14 @@ def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
     bookmark_dict = bookmark.as_dictionary(
         with_context=True, with_context_tokenized=True
     )
+    # Drop examples where the target word can't be anchored in the generated
+    # sentence's tokens — caller treats None as "skip this example" (#618).
+    if bookmark_dict.get("_unanchorable"):
+        log(
+            f"Skipping example {example_sentence_obj.id}: word "
+            f"'{target_word}' is unanchorable in the generated tokenization"
+        )
+        return None
     bookmark_dict["from_lang"] = user_word.meaning.origin.language.code
     bookmark_dict["to_lang"] = user_word.meaning.translation.language.code
     return bookmark_dict

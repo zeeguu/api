@@ -273,6 +273,27 @@ class Bookmark(db.Model):
                     f"located contiguously in context_tokenized"
                 )
                 result["_unanchorable"] = True
+
+                # If this is the user_word's study context, take it out of
+                # rotation: cloze/spell-what-you-hear can't work without a
+                # reliable anchor. Self-heals existing broken rows as they
+                # surface, without needing a separate sweep job.
+                if (
+                    self.user_word.preferred_bookmark_id == self.id
+                    and self.user_word.fit_for_study
+                ):
+                    try:
+                        from zeeguu.core.model.db import db
+                        self.user_word.set_unfit_for_study(db.session)
+                        db.session.commit()
+                        log(
+                            f"[BOOKMARK-ANCHOR] Unscheduled user_word id={self.user_word_id} "
+                            f"(preferred bookmark {self.id} is unanchorable)"
+                        )
+                    except Exception as e:
+                        # Don't let a side-effect failure break serialization.
+                        log(f"[BOOKMARK-ANCHOR] Failed to unschedule user_word "
+                            f"id={self.user_word_id}: {e}")
             elif corrected != (self.sentence_i, self.token_i, self.total_tokens):
                 new_sent_i, new_token_i, new_total = corrected
                 log(

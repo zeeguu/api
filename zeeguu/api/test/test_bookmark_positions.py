@@ -308,6 +308,48 @@ def test_as_dictionary_marks_unanchorable_when_phrase_missing(client):
     )
 
 
+def test_as_dictionary_unschedules_preferred_when_unanchorable(client):
+    """
+    When the user_word's PREFERRED bookmark can't be anchored, set the
+    user_word not_fit_for_study so it stops being served into exercises.
+    Self-heals existing broken rows without a separate sweep job.
+    """
+    bookmark_id = _create_bookmark_with_positions(
+        client,
+        word="Hund",
+        context="Der Hund bellt laut",
+        sentence_i=0,
+        token_i=1,
+        total_tokens=1,
+    )
+
+    from zeeguu.core.model import Meaning
+    from zeeguu.core.model.db import db as _db
+    bookmark = Bookmark.find(bookmark_id)
+    # Pre-condition: this bookmark IS the preferred one for its user_word
+    # and the user_word is fit for study.
+    assert bookmark.user_word.preferred_bookmark_id == bookmark.id
+    assert bookmark.user_word.fit_for_study
+
+    # Promote the meaning to a phrase that doesn't fit contiguously.
+    new_meaning = Meaning.find_or_create(
+        _db.session, "Hund laut bellt", "de", "loud-dog-barks", "en"
+    )
+    _db.session.commit()
+    bookmark.user_word.meaning_id = new_meaning.id
+    _db.session.add(bookmark.user_word)
+    _db.session.commit()
+
+    # Serving with context_tokenized triggers the unschedule side-effect.
+    bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+
+    _db.session.refresh(bookmark.user_word)
+    assert bookmark.user_word.fit_for_study is False, (
+        "user_word should be marked not_fit_for_study after serving an "
+        "unanchorable preferred bookmark"
+    )
+
+
 def test_word_expansion_workflow(client):
     """
     Test the frontend word expansion workflow:
