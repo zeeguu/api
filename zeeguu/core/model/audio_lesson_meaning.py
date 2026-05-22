@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
@@ -34,6 +34,10 @@ class AudioLessonMeaning(db.Model):
     duration_seconds = Column(Integer)
     created_by = Column(String(255), nullable=False)  # e.g. Claude-v2-Opus-Promopt1
 
+    # When set, cache lookups skip this row and force regeneration. Existing
+    # daily lesson segments that already reference it keep playing as before.
+    deprecated_at = Column(DateTime, nullable=True)
+
     def __init__(
         self,
         meaning,
@@ -64,8 +68,8 @@ class AudioLessonMeaning(db.Model):
 
     @classmethod
     def find(cls, meaning, teacher_language=None):
-        """Find audio lesson for a specific meaning and teacher language."""
-        query = cls.query.filter_by(meaning=meaning)
+        """Find a non-deprecated audio lesson for a specific meaning and teacher language."""
+        query = cls.query.filter_by(meaning=meaning).filter(cls.deprecated_at.is_(None))
         if teacher_language:
             query = query.filter_by(teacher_language_id=teacher_language.id)
         return query.first()

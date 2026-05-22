@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
@@ -36,6 +36,10 @@ class AudioLessonDialogue(db.Model):
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
     created_by = Column(String(255), nullable=False)
+
+    # When set, cache lookups skip this row and force regeneration. Existing
+    # daily lesson segments that already reference it keep playing as before.
+    deprecated_at = Column(DateTime, nullable=True)
 
     def __init__(
         self,
@@ -112,7 +116,8 @@ class AudioLessonDialogue(db.Model):
             teacher_language_id=teacher_language.id,
             difficulty_level=difficulty_level,
         ).filter(
-            cls.id.notin_(heard_ids)
+            cls.id.notin_(heard_ids),
+            cls.deprecated_at.is_(None),
         )
 
         if only_general:
