@@ -291,9 +291,9 @@ class VoiceSynthesizer:
         log(f"Generated audio: {output_path}")
         return output_path
 
-    def generate_lesson_audio(self, meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
-        """Generate audio for a meaning lesson."""
-        output_path = os.path.join(self.lessons_dir, f"meaning-{meaning_id}-{teacher_language_code}.mp3")
+    def generate_lesson_audio(self, audio_lesson_meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
+        """Generate audio for a meaning lesson. Path is keyed on the AudioLessonMeaning row id so distinct rows (e.g. regenerated under a newer prompt) don't overwrite each other's file."""
+        output_path = os.path.join(self.lessons_dir, f"meaning-{audio_lesson_meaning_id}-{teacher_language_code}.mp3")
         return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
 
     def generate_dialogue_audio(self, dialogue_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):

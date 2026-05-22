@@ -185,7 +185,7 @@ class DailyLessonGenerator:
                 f"[generate_audio_lesson_meaning] DB row {existing_lesson.id} exists but audio file missing at {fs_path}; re-synthesizing from stored script"
             )
             self.voice_synthesizer.generate_lesson_audio(
-                meaning_id=meaning.id,
+                audio_lesson_meaning_id=existing_lesson.id,
                 teacher_language_code=translation_language,
                 script=existing_lesson.script,
                 language_code=origin_language,
@@ -229,7 +229,7 @@ class DailyLessonGenerator:
 
         # Generate MP3 from script
         mp3_path = self.voice_synthesizer.generate_lesson_audio(
-            meaning_id=meaning.id,
+            audio_lesson_meaning_id=audio_lesson_meaning.id,
             teacher_language_code=translation_language,
             script=script,
             language_code=origin_language,
