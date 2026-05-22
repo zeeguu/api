@@ -30,7 +30,7 @@ def _create_bookmark_with_positions(client, word, context, sentence_i=0, token_i
 
     # Create bookmark via translation endpoint
     response = client.post(
-        "/get_one_translation/de/en",
+        "/translate_word/de/en",
         json={
             "word": word,
             "context": context,
@@ -457,7 +457,7 @@ def test_word_expansion_workflow(client):
 
     # Step 1: User translates "nicht" (single word at position 2)
     response1 = client.post(
-        "/get_one_translation/de/en",
+        "/translate_word/de/en",
         json={
             "word": "nicht",
             "context": context_text,
@@ -485,7 +485,7 @@ def test_word_expansion_workflow(client):
     # doesn't handle empty responses well, so we'll just verify the new one works
 
     response2 = client.post(
-        "/get_one_translation/de/en",
+        "/translate_word/de/en",
         json={
             "word": "nicht mehr",
             "context": context_text,

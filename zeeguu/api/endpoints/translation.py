@@ -30,12 +30,17 @@ punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
+# ADR 022: canonical route is /translate_word — the response now carries the
+# 3-way voter's full `alternatives` list, so the legacy "one translation"
+# framing is misleading. The old /get_one_translation path is kept as an
+# alias for one release so the frozen extension bundle keeps working.
+@api.route("/translate_word/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session
-def get_one_translation(from_lang_code, to_lang_code):
+def translate_word(from_lang_code, to_lang_code):
     zeeguu_log(
-        f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED get_one_translation function: from={from_lang_code}, to={to_lang_code}"
+        f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED translate_word function: from={from_lang_code}, to={to_lang_code}"
     )
     """
     :return: json array with translations
@@ -43,7 +48,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     from zeeguu.logging import log
 
     log(
-        f"[TRANSLATION-ENTRY] get_one_translation CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}"
+        f"[TRANSLATION-ENTRY] translate_word CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}"
     )
 
     word_str = request.json["word"].strip(punctuation_extended)
