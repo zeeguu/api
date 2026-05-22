@@ -573,23 +573,27 @@ def translate_separated_mwe(word, sentence, from_lang, to_lang):
 @lru_cache(maxsize=1000)
 def translate_with_llm(word, sentence, from_lang, to_lang):
     """
-    Translate a word or MWE using an LLM.
+    Translate a word or phrase using an LLM. Used by the "Ask LLM" action
+    in the reader (ADR 022) — gating it behind an explicit click means we
+    only pay the LLM cost when a learner actually asks for it.
 
-    Useful for separated MWEs where the LLM understands grammar better.
+    Routes single words and contiguous phrases through the general
+    word-in-context prompt; routes separated MWEs through the MWE-aware
+    prompt that knows how to handle the "rufe...an" shape.
 
-    Args:
-        word: The word/MWE to translate (e.g., "rufe ... an")
-        sentence: The sentence containing the word
-        from_lang: Source language code
-        to_lang: Target language code
-
-    Returns:
-        dict with 'translation', 'source', 'likelihood' keys, or None
+    Returns ``{translation, source, likelihood}`` or None if the LLM call
+    failed (missing API key, network error, etc.).
     """
     try:
-        from zeeguu.core.llm_services.mwe_translation_service import translate_separated_mwe as llm_translate
+        from zeeguu.core.llm_services.mwe_translation_service import (
+            translate_separated_mwe,
+            translate_word_in_context,
+        )
 
-        translation = llm_translate(word, sentence, from_lang, to_lang)
+        if "..." in word:
+            translation = translate_separated_mwe(word, sentence, from_lang, to_lang)
+        else:
+            translation = translate_word_in_context(word, sentence, from_lang, to_lang)
 
         if translation:
             return {
