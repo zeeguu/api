@@ -28,7 +28,7 @@ app.app_context().push()
 from sqlalchemy import text
 
 
-AMBIGUOUS_REGEX = r"(how|could) you say you[' ]?(re| are| ll| ve)"
+AMBIGUOUS_REGEX = r"(how (do|would)|could) you say (that )?you[ ']"
 
 
 def main(apply: bool):
