@@ -527,11 +527,9 @@ def _apply_simplified_display_overlay(user, results):
     """
     Overlay the simplified *title* and *summary* onto result dicts that
     point at an original article, when a CEFR-matched simplified child
-    exists. The publisher's original title is preserved on the result
-    as `original_title` so the card can display it as a small subtitle
-    underneath — this way the user sees both the readable simplified
-    headline and the actual publisher headline they'll land on when
-    they click through (copyright forces external open).
+    exists. The publisher's headline is reachable via the article's
+    source/url at the publisher itself — no need to surface it on the
+    card.
 
     Result ids, urls, and parent linkage are untouched, so the
     "Simplified" badge, save state, and external-open routing in
@@ -620,11 +618,6 @@ def _apply_simplified_display_overlay(user, results):
         if not display:
             continue
 
-        # Keep the publisher's title accessible to the frontend so the
-        # card can render it as a small subtitle under the simplified
-        # one — that way clicking through to the publisher isn't a
-        # surprise.
-        result["original_title"] = result["title"]
         result["title"] = display.title
 
         if display.summary and len(display.summary.strip()) > 10:
