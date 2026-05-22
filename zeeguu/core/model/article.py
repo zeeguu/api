@@ -36,6 +36,62 @@ HTML_TAG_CLEANR = re.compile("<[^>]*>")
 
 MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
 
+# Matches a trailing Unicode ellipsis (…), 2+ ASCII dots, or any mix of the
+# two, optionally with surrounding whitespace, at end of string. Preserves a
+# single sentence-ending period. The LLM-simplification prompt and most RSS
+# publishers both pin a teaser ellipsis onto summaries; on the home card
+# that reads as "every sentence is unfinished" — see ~60k Danish simplified
+# summaries with trailing …. (Stripped at serve time, not on the row, so
+# nothing about the underlying article is mutated.)
+_TRAILING_ELLIPSIS_RE = re.compile(r"\s*(?:[…\.]{2,}|…)\s*$")
+
+
+def strip_trailing_ellipsis(text):
+    """Strip a trailing Unicode … or ≥2 ASCII dots from `text`. Single
+    sentence-ending period preserved."""
+    if not text:
+        return text
+    return _TRAILING_ELLIPSIS_RE.sub("", text).rstrip()
+
+
+def _token_text_is_ellipsis(text):
+    text = (text or "").strip()
+    if not text:
+        return False
+    if text == "…":
+        return True
+    return bool(re.fullmatch(r"[.…]{2,}", text))
+
+
+def strip_trailing_ellipsis_tokens_json(tokens_json):
+    """Given a JSON string of tokenized paragraphs/sentences/tokens (as
+    cached in ArticleTokenizationCache), drop trailing ellipsis tokens
+    from the very end. Returns the cleaned JSON string (unchanged if
+    parsing fails or no trailing ellipsis token is found)."""
+    if not tokens_json:
+        return tokens_json
+    import json
+
+    try:
+        sentences = json.loads(tokens_json)
+    except (json.JSONDecodeError, TypeError):
+        return tokens_json
+    if not isinstance(sentences, list):
+        return tokens_json
+
+    changed = False
+    for sentence in reversed(sentences):
+        if not isinstance(sentence, list):
+            continue
+        while sentence and isinstance(sentence[-1], dict) and _token_text_is_ellipsis(
+            sentence[-1].get("text")
+        ):
+            sentence.pop()
+            changed = True
+        if sentence:
+            break
+    return json.dumps(sentences) if changed else tokens_json
+
 
 class UnsignedBigInteger(TypeDecorator):
     """Handles unsigned 64-bit integers for both MySQL and SQLite."""
@@ -612,6 +668,7 @@ class Article(db.Model):
             summary = self.summary
         else:
             summary = self.get_content()[:MAX_CHAR_COUNT_IN_SUMMARY]
+        summary = strip_trailing_ellipsis(summary)
         fk_difficulty = self.get_fk_difficulty()
 
         # Use effective_cefr_level from assessment table (SINGLE SOURCE OF TRUTH)

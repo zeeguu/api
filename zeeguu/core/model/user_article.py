@@ -726,7 +726,10 @@ class UserArticle(db.Model):
         # Build summary response
         if article.summary and cache.tokenized_summary:
             try:
-                tokenized_summary = json.loads(cache.tokenized_summary)
+                from zeeguu.core.model.article import strip_trailing_ellipsis_tokens_json
+                tokenized_summary = json.loads(
+                    strip_trailing_ellipsis_tokens_json(cache.tokenized_summary)
+                )
                 summary_context_id = ContextIdentifier(
                     ContextType.ARTICLE_SUMMARY, article_id=article.id
                 )
