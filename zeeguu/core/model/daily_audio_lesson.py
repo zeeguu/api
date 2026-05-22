@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from sqlalchemy import Column, Integer, JSON, ForeignKey, TIMESTAMP
 from sqlalchemy.orm import relationship
@@ -43,6 +44,9 @@ class DailyAudioLesson(db.Model):
     raw_suggestion = Column(db.String(100), nullable=True)
     canonical_suggestion = Column(db.String(100), nullable=True)
     lesson_type = Column(db.String(20), nullable=True)
+
+    # NULL until the owner first generates a share link.
+    share_uuid = Column(db.String(36), unique=True, nullable=True)
 
     # Relationship to segments (individual meaning lessons)
     segments = relationship(
@@ -182,6 +186,11 @@ class DailyAudioLesson(db.Model):
             if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning
         ]
         return ", ".join(origins) if origins else None
+
+    def ensure_share_uuid(self):
+        if not self.share_uuid:
+            self.share_uuid = str(uuid.uuid4())
+        return self.share_uuid
 
     @classmethod
     def find_canonical_for_raw_suggestion(cls, user, raw_suggestion):
