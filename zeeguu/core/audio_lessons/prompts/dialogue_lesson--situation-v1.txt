@@ -26,10 +26,25 @@ Use this exact format:
     but in {source_language}).
 
     Go through the dialogue and for each interesting phrase, have the teacher add
-    a challenge for the listener IN {source_language}. The challenge asks the listener to say
-    a phrase (diversify how the teacher formulates this):
+    a challenge for the listener IN {source_language}. The challenge asks the listener to
+    produce a target-language phrase, and MUST make explicit (a) WHO is the subject of the
+    sentence the listener will speak, and (b) WHO they are addressing, when there is an
+    addressee. Rotate between patterns such as:
 
-    Teacher: [Challenge in {source_language} asking "Could you say...?" or similar] [5 seconds]
+      Listener speaks ABOUT themselves (first-person sentence):
+        - "How would you tell someone you're [doing X]?"
+        - "Tell your friend that you [verb]."
+        - "Say that you [verb]."
+
+      Listener speaks TO another person (question or request):
+        - "Ask your friend to open the window."
+        - "Ask the waiter for the bill."
+        - "Ask whether the shop is open."
+
+    The listener must never have to guess whether "you" in the challenge refers to themselves
+    or to someone else.
+
+    Teacher: [Challenge in {source_language}, following the patterns above] [5 seconds]
     Man: <target language phrase> [3 seconds]
     Man: <repeat same phrase> [3 seconds]
 
@@ -51,6 +66,7 @@ RULES:
 - Include [X seconds] timing for pauses
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
 - Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available, so even fictional or imagined children cannot speak.
+- Every dialogue is between exactly one man ("Man:") and one woman ("Woman:") — we have only one male and one female TTS voice available for dialogue speakers. Names and gender-marked titles MUST reflect this pairing: the "Man:" character takes a male name/title (e.g. Herr Schmidt, Mr Jones, Señor García, Monsieur Dupont), the "Woman:" character takes a female name/title (e.g. Frau Jensen, Mrs Smith, Señora García, Madame Dupont). Keep each name attached to the same speaker label throughout.
 - Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
 - For student response pauses, use [5 seconds] after teacher questions
 - For repetitions, use [3 seconds] between repeats
