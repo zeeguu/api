@@ -30,12 +30,17 @@ punctuation_extended = "»«" + punctuation
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
+# ADR 022: canonical route is /translate_word — the response now carries the
+# 3-way voter's full `alternatives` list, so the legacy "one translation"
+# framing is misleading. The old /get_one_translation path is kept as an
+# alias for one release so the frozen extension bundle keeps working.
+@api.route("/translate_word/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @api.route("/get_one_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session
-def get_one_translation(from_lang_code, to_lang_code):
+def translate_word(from_lang_code, to_lang_code):
     zeeguu_log(
-        f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED get_one_translation function: from={from_lang_code}, to={to_lang_code}"
+        f"[TRANSLATION-ENTRY-IMMEDIATE] ENTERED translate_word function: from={from_lang_code}, to={to_lang_code}"
     )
     """
     :return: json array with translations
@@ -43,7 +48,7 @@ def get_one_translation(from_lang_code, to_lang_code):
     from zeeguu.logging import log
 
     log(
-        f"[TRANSLATION-ENTRY] get_one_translation CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}"
+        f"[TRANSLATION-ENTRY] translate_word CALLED: from={from_lang_code}, to={to_lang_code}, user={flask.g.user_id}"
     )
 
     word_str = request.json["word"].strip(punctuation_extended)
@@ -176,9 +181,13 @@ def get_one_translation(from_lang_code, to_lang_code):
         "source": t1["source"],
         "likelihood": t1["likelihood"],
     }
-    # Optional disagreement markers from the 3-way parallel voter
-    # (translate_in_context). The frontend uses these to surface alternative
-    # provider opinions inline / auto-open the alternatives menu.
+    # ADR 022: the 3-way voter attaches the full deduped, vote-ordered list
+    # of provider results. Clients render the alternatives menu directly from
+    # this — no second round of SSE calls needed for the menu's stable rows.
+    if t1.get("alternatives"):
+        response_payload["alternatives"] = t1["alternatives"]
+    # Legacy fields kept during ADR 022's deprecation window; clients should
+    # migrate to `alternatives` and stop reading these.
     if t1.get("competing_translations"):
         response_payload["competing_translations"] = t1["competing_translations"]
     if t1.get("disagreement"):
@@ -306,6 +315,39 @@ def get_translations_stream(from_lang_code, to_lang_code):
             'X-Accel-Buffering': 'no',  # Disable nginx buffering
         }
     )
+
+
+@api.route("/ask_llm_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@requires_session
+def ask_llm_translation(from_lang_code, to_lang_code):
+    """
+    ADR 022: explicit on-demand LLM translation.
+
+    The LLM is the most expensive translator in the bag, and the streaming
+    menu (`/get_translations_stream`) used to call it on every menu open even
+    though the result was rarely consulted. This endpoint moves the LLM call
+    behind a user-initiated "Ask LLM" button in the reader's alternatives
+    menu, so the cost is paid only when a learner explicitly asks for it.
+
+    Request body: ``{ "word": str, "context": str }``
+    Response: ``{ "translation": str, "source": "LLM" }`` or 404 on failure.
+    """
+    from zeeguu.core.translation_services.translator import translate_with_llm
+
+    word_str = request.json.get("word", "").strip(punctuation_extended)
+    context = request.json.get("context", "").strip()
+    if not word_str:
+        return "word required", 400
+
+    result = translate_with_llm(word_str, context, from_lang_code, to_lang_code)
+    if not result:
+        return "LLM translation failed", 404
+
+    return json_result({
+        "translation": result["translation"],
+        "source": result.get("source", "LLM"),
+    })
 
 
 @api.route("/update_bookmark_translation/<bookmark_id>", methods=["POST"])

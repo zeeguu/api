@@ -351,18 +351,31 @@ def _translation_key(text):
 _PROVIDER_PREFERENCE = {"google": 0, "deepl": 1, "azure": 2}
 
 
+def _alternative_entry(result_dict, votes):
+    """Render a provider result as an ``alternatives`` list entry."""
+    return {
+        "translation": result_dict["translation"],
+        "source": result_dict.get("source", result_dict.get("service_name", "unknown")),
+        "votes": votes,
+    }
+
+
 def _vote_single_word_translation(data):
     """
     Run Azure alignment, Google contextual, and DeepL contextual in parallel
     and pick a primary translation by majority-of-3 voting.
 
-    Returns the chosen result dict with two extra optional keys:
-      - ``competing_translations``: list of {translation, source} when the
-        primary doesn't have unanimous support, so the UI can surface what
-        the other providers said.
+    Returns the chosen result dict with three extra optional keys:
+      - ``alternatives``: list of {translation, source, votes} for every
+        unique provider result, winner first, sorted by votes desc then by
+        provider preference. Always populated when at least one provider
+        succeeded. See ADR 022 — clients render the menu directly from this.
+      - ``competing_translations``: legacy subset of ``alternatives`` that
+        excludes the winner and is only present when more than one bucket
+        existed. Kept during ADR 022's deprecation window.
       - ``disagreement``: True when no majority emerged (all 3 distinct, or
-        only 2 of 3 succeeded and they disagreed). The frontend keys on this
-        to auto-open the alternatives menu.
+        only 2 of 3 succeeded and they disagreed). Kept during ADR 022's
+        deprecation window; derivable from ``alternatives[0]["votes"] < 2``.
 
     Falls back to Microsoft contextual if all three contextual providers fail.
     """
@@ -393,10 +406,16 @@ def _vote_single_word_translation(data):
     succeeded = [(name, r) for name, r in results.items() if r and r.get("translation")]
 
     if not succeeded:
-        return microsoft_contextual_translate(data)
+        fallback = microsoft_contextual_translate(data)
+        if fallback:
+            fallback = dict(fallback)
+            fallback["alternatives"] = [_alternative_entry(fallback, 1)]
+        return fallback
 
     if len(succeeded) == 1:
-        return succeeded[0][1]
+        winner = dict(succeeded[0][1])
+        winner["alternatives"] = [_alternative_entry(winner, 1)]
+        return winner
 
     buckets = {}
     for name, r in succeeded:
@@ -407,7 +426,9 @@ def _vote_single_word_translation(data):
         return min(entries, key=lambda e: _PROVIDER_PREFERENCE[e[0]])[1]
 
     if len(buckets) == 1:
-        return pick_representative(succeeded)
+        winner = dict(pick_representative(succeeded))
+        winner["alternatives"] = [_alternative_entry(winner, len(succeeded))]
+        return winner
 
     # (representative_dict, vote_count) per bucket, sorted by votes desc then
     # by representative provider's preference.
@@ -423,6 +444,7 @@ def _vote_single_word_translation(data):
     ]
 
     winner = dict(winner_dict)
+    winner["alternatives"] = [_alternative_entry(rep, votes) for rep, votes in bucket_picks]
     winner["competing_translations"] = competing
     if winner_votes < 2:
         winner["disagreement"] = True
