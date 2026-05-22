@@ -617,10 +617,7 @@ class DailyLessonGenerator:
     def get_shared_lesson_view(self, share_uuid):
         """Public-safe view for share links: no owner playback state, no UserWord rows.
         Looked up by share_uuid (not integer id) to prevent enumeration."""
-        if not share_uuid or not isinstance(share_uuid, str):
-            return {"error": "Invalid share token", "status_code": 400}
-
-        lesson = DailyAudioLesson.find_by_share_uuid(share_uuid)
+        lesson = DailyAudioLesson.query.filter_by(share_uuid=share_uuid).first()
         if not lesson:
             return {"error": "Lesson not found", "status_code": 404}
         if not os.path.exists(self._audio_path(lesson)):

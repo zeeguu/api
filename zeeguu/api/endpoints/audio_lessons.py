@@ -162,14 +162,9 @@ def get_daily_lesson():
 @api.route("/shared_audio_lesson/<string:share_uuid>", methods=["GET"])
 @cross_domain
 def get_shared_audio_lesson(share_uuid):
-    """
-    Read-only public view of an audio lesson for share links. Looked up by
-    share_uuid so integer lesson IDs can't be enumerated. Returns lesson
-    metadata + audio URL, but no owner-specific state (pause position,
-    completion, listen count) and no UserWord data. No session required.
-    """
-    generator = DailyLessonGenerator()
-    result = generator.get_shared_lesson_view(share_uuid)
+    """Public read-only view of a shared lesson. Keyed on share_uuid so
+    integer lesson IDs can't be enumerated."""
+    result = DailyLessonGenerator().get_shared_lesson_view(share_uuid)
     status_code = result.pop("status_code", 200)
     return json_result(result), status_code
 
@@ -178,10 +173,7 @@ def get_shared_audio_lesson(share_uuid):
 @cross_domain
 @requires_session
 def create_lesson_share_link(lesson_id):
-    """
-    Owner-only: mint (or return existing) share_uuid for this lesson.
-    Returns {"share_uuid": "..."} for the frontend to build the share URL.
-    """
+    """Owner-only: mint (or return existing) share_uuid for this lesson."""
     lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=flask.g.user_id).first()
     if not lesson:
         return json_result({"error": "Lesson not found"}), 404
