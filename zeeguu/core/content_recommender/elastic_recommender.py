@@ -538,15 +538,17 @@ def _apply_simplified_display_overlay(user, results):
 
     Batched: one IN-query for simplified children (+ joined CEFR
     assessments), one for their tokenization caches. past_bookmarks
-    for the overlay are intentionally [] on the card — they live
-    against the simplified article id, not the original behind the
-    Open link, and the reader surfaces them again when the user
-    opens the simplified version explicitly.
+    are populated against the simplified article's id — the card lives
+    over the simplified content (title/summary come from there), so
+    the bookmarks the user made while reading that simplified article
+    are the right ones to highlight.
     """
     import json
     from sqlalchemy.orm import joinedload
     from zeeguu.core.model import db
     from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+    from zeeguu.core.model.article_title_context import ArticleTitleContext
+    from zeeguu.core.model.article_summary_context import ArticleSummaryContext
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
 
@@ -633,7 +635,9 @@ def _apply_simplified_display_overlay(user, results):
                 result["interactiveTitle"] = {
                     "tokens": tokens,
                     "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": [],
+                    "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
+                        user.id, display.id
+                    ),
                 }
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -644,7 +648,9 @@ def _apply_simplified_display_overlay(user, results):
                 result["interactiveSummary"] = {
                     "tokens": tokens,
                     "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": [],
+                    "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
+                        user.id, display.id
+                    ),
                 }
             except (json.JSONDecodeError, TypeError):
                 pass
