@@ -525,25 +525,25 @@ def get_user_info_from_content_recommendations(user, content_list):
 
 def _apply_simplified_display_overlay(user, results):
     """
-    Overlay the simplified *summary* onto result dicts that point at an
-    original article, when a CEFR-matched simplified child exists. The
-    title is intentionally left as the original's — when the user clicks
-    through to the publisher (copyright forces external open) they must
-    see the same headline they tapped, so swapping the title would feel
-    like a bait-and-switch. Summary is more "preview blurb" than headline
-    and the publisher's article body doesn't compete with it.
+    Overlay the simplified *title* and *summary* onto result dicts that
+    point at an original article, when a CEFR-matched simplified child
+    exists. The publisher's original title is preserved on the result
+    as `original_title` so the card can display it as a small subtitle
+    underneath — this way the user sees both the readable simplified
+    headline and the actual publisher headline they'll land on when
+    they click through (copyright forces external open).
 
-    Result ids, urls, and parent linkage are untouched, so the "Simplified"
-    badge, save state, and external-open routing in ArticlePreview are
-    unchanged. Falls back silently to the original summary when no level
-    match exists.
+    Result ids, urls, and parent linkage are untouched, so the
+    "Simplified" badge, save state, and external-open routing in
+    ArticlePreview are unchanged. Falls back silently to the original
+    title/summary when no level match exists.
 
     Batched: one IN-query for simplified children (+ joined CEFR
-    assessments), one for their tokenization caches. past_bookmarks for
-    the overlay summary are intentionally [] on the card — they live
-    against the simplified article id, not the original behind the Open
-    link, and the reader surfaces them again when the user opens the
-    simplified version explicitly.
+    assessments), one for their tokenization caches. past_bookmarks
+    for the overlay are intentionally [] on the card — they live
+    against the simplified article id, not the original behind the
+    Open link, and the reader surfaces them again when the user
+    opens the simplified version explicitly.
     """
     import json
     from sqlalchemy.orm import joinedload
@@ -619,20 +619,39 @@ def _apply_simplified_display_overlay(user, results):
         display = overlays.get(result["id"])
         if not display:
             continue
-        if not display.summary or len(display.summary.strip()) <= 10:
-            continue
-        result["summary"] = display.summary
+
+        # Keep the publisher's title accessible to the frontend so the
+        # card can render it as a small subtitle under the simplified
+        # one — that way clicking through to the publisher isn't a
+        # surprise.
+        result["original_title"] = result["title"]
+        result["title"] = display.title
+
+        if display.summary and len(display.summary.strip()) > 10:
+            result["summary"] = display.summary
 
         cache = caches.get(display.id)
-        if not cache or not cache.tokenized_summary:
+        if not cache:
             continue
-        try:
-            tokens = json.loads(cache.tokenized_summary)
-            ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
-            result["interactiveSummary"] = {
-                "tokens": tokens,
-                "context_identifier": ctx.as_dictionary(),
-                "past_bookmarks": [],
-            }
-        except (json.JSONDecodeError, TypeError):
-            pass
+        if cache.tokenized_title:
+            try:
+                tokens = json.loads(cache.tokenized_title)
+                ctx = ContextIdentifier(ContextType.ARTICLE_TITLE, article_id=display.id)
+                result["interactiveTitle"] = {
+                    "tokens": tokens,
+                    "context_identifier": ctx.as_dictionary(),
+                    "past_bookmarks": [],
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if display.summary and cache.tokenized_summary:
+            try:
+                tokens = json.loads(cache.tokenized_summary)
+                ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
+                result["interactiveSummary"] = {
+                    "tokens": tokens,
+                    "context_identifier": ctx.as_dictionary(),
+                    "past_bookmarks": [],
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
