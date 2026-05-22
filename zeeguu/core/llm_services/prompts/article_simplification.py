@@ -94,7 +94,7 @@ ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (
 
 ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
 
-ORIGINAL_SUMMARY: [concise plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>>, maximum 25 words. State the article's key facts/claims directly. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself.]
+ORIGINAL_SUMMARY: [concise plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>>, maximum 25 words. State the article's key facts/claims directly. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself. End with a complete sentence and a single period — DO NOT end with an ellipsis (… or ...) or trailing dots.]
 
 SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1" - leave empty if original is A1]
 
@@ -104,7 +104,7 @@ SIMPLIFIED_LEVELS: [list the levels you will create, e.g., "A1,A2" or "A1,A2,B1"
 
 [LEVEL]_CONTENT: [write simplified content in <<LANGUAGE_NAME>> using Markdown formatting]
 
-[LEVEL]_SUMMARY: [concise plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>> using vocabulary appropriate for this level, maximum 25 words. State the article's key facts/claims directly. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself.]
+[LEVEL]_SUMMARY: [concise plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>> using vocabulary appropriate for this level, maximum 25 words. State the article's key facts/claims directly. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself. End with a complete sentence and a single period — DO NOT end with an ellipsis (… or ...) or trailing dots.]
 
 <<LANGUAGE_NAME>> = {language_name}
 

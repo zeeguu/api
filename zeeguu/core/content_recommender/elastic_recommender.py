@@ -546,6 +546,10 @@ def _apply_simplified_display_overlay(user, results):
     import json
     from sqlalchemy.orm import joinedload
     from zeeguu.core.model import db
+    from zeeguu.core.model.article import (
+        strip_trailing_ellipsis,
+        strip_trailing_ellipsis_tokens_json,
+    )
     from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
     from zeeguu.core.model.article_title_context import ArticleTitleContext
     from zeeguu.core.model.article_summary_context import ArticleSummaryContext
@@ -623,7 +627,7 @@ def _apply_simplified_display_overlay(user, results):
         result["title"] = display.title
 
         if display.summary and len(display.summary.strip()) > 10:
-            result["summary"] = display.summary
+            result["summary"] = strip_trailing_ellipsis(display.summary)
 
         cache = caches.get(display.id)
         if not cache:
@@ -643,7 +647,9 @@ def _apply_simplified_display_overlay(user, results):
                 pass
         if display.summary and cache.tokenized_summary:
             try:
-                tokens = json.loads(cache.tokenized_summary)
+                tokens = json.loads(
+                    strip_trailing_ellipsis_tokens_json(cache.tokenized_summary)
+                )
                 ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
                 result["interactiveSummary"] = {
                     "tokens": tokens,
