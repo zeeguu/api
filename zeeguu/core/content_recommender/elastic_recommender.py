@@ -512,6 +512,132 @@ def get_user_info_from_content_recommendations(user, content_list):
         if root_id and root_id in matched_searches_by_root:
             result['matched_searches'] = matched_searches_by_root[root_id]
 
+    # Home-page display overlay: always_open_externally users get originals
+    # in their feed (link target stays external), but the card should still
+    # preview the level-matched simplified title/summary when one exists.
+    if user.has_feature("always_open_externally"):
+        _apply_simplified_display_overlay(user, results)
+
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
     return results
+
+
+def _apply_simplified_display_overlay(user, results):
+    """
+    Overlay simplified title/summary (and tokenized variants) onto result
+    dicts that point at an original article, when a CEFR-matched simplified
+    child exists. Result ids, urls, and parent linkage are untouched — only
+    the displayed text changes, so external-open routing is preserved.
+    Falls back silently to the original when no level match exists.
+
+    Batched: at most three round-trips regardless of feed size —
+    one for simplified children (+ joined CEFR assessments), one for
+    their tokenization caches, and any commits needed to populate
+    missing caches. past_bookmarks for the overlay are intentionally
+    skipped on the card (the simplified text isn't what's behind the
+    Open link); they're surfaced again inside the reader itself.
+    """
+    import json
+    from sqlalchemy.orm import joinedload
+    from zeeguu.core.model import db
+    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+    from zeeguu.core.model.context_identifier import ContextIdentifier
+    from zeeguu.core.model.context_type import ContextType
+
+    try:
+        user_cefr_level = user.cefr_level_for_learned_language()
+    except (AttributeError, IndexError, TypeError):
+        return
+    if not user_cefr_level:
+        return
+
+    candidate_ids = [
+        r["id"] for r in results
+        if not r.get("parent_article_id") and not r.get("has_uploader")
+    ]
+    if not candidate_ids:
+        return
+
+    children = (
+        Article.query
+        .options(joinedload(Article.cefr_assessment))
+        .filter(Article.parent_article_id.in_(candidate_ids))
+        .all()
+    )
+    if not children:
+        return
+
+    def matches(child):
+        level = (
+            child.cefr_assessment.effective_cefr_level
+            if child.cefr_assessment and child.cefr_assessment.effective_cefr_level
+            else child.cefr_level
+        )
+        if not level:
+            return False
+        if level == user_cefr_level:
+            return True
+        if "/" in level:
+            lo, hi = level.split("/")
+            return user_cefr_level in (lo, hi)
+        return False
+
+    # First level-matching child wins, mirroring get_appropriate_version_for_user_level
+    overlays = {}  # original_id -> simplified Article
+    for child in children:
+        if child.parent_article_id in overlays:
+            continue
+        if matches(child):
+            overlays[child.parent_article_id] = child
+
+    if not overlays:
+        return
+
+    display_articles = list(overlays.values())
+    display_ids = [a.id for a in display_articles]
+    caches = {
+        c.article_id: c
+        for c in db.session.query(ArticleTokenizationCache)
+        .filter(ArticleTokenizationCache.article_id.in_(display_ids))
+        .all()
+    }
+    for article in display_articles:
+        if article.id not in caches:
+            cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
+            caches[article.id] = cache
+    db.session.commit()
+
+    for result in results:
+        display = overlays.get(result["id"])
+        if not display:
+            continue
+        result["title"] = display.title
+        if display.summary and len(display.summary.strip()) > 10:
+            result["summary"] = display.summary
+
+        cache = caches.get(display.id)
+        if not cache:
+            continue
+        if cache.tokenized_title:
+            try:
+                tokens = json.loads(cache.tokenized_title)
+                ctx = ContextIdentifier(ContextType.ARTICLE_TITLE, article_id=display.id)
+                result["interactiveTitle"] = {
+                    "tokens": tokens,
+                    "context_identifier": ctx.as_dictionary(),
+                    "past_bookmarks": [],
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if display.summary and cache.tokenized_summary:
+            try:
+                tokens = json.loads(cache.tokenized_summary)
+                ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
+                result["interactiveSummary"] = {
+                    "tokens": tokens,
+                    "context_identifier": ctx.as_dictionary(),
+                    "past_bookmarks": [],
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
