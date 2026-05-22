@@ -525,18 +525,25 @@ def get_user_info_from_content_recommendations(user, content_list):
 
 def _apply_simplified_display_overlay(user, results):
     """
-    Overlay simplified title/summary (and tokenized variants) onto result
-    dicts that point at an original article, when a CEFR-matched simplified
-    child exists. Result ids, urls, and parent linkage are untouched — only
-    the displayed text changes, so external-open routing is preserved.
-    Falls back silently to the original when no level match exists.
+    Overlay the simplified *summary* onto result dicts that point at an
+    original article, when a CEFR-matched simplified child exists. The
+    title is intentionally left as the original's — when the user clicks
+    through to the publisher (copyright forces external open) they must
+    see the same headline they tapped, so swapping the title would feel
+    like a bait-and-switch. Summary is more "preview blurb" than headline
+    and the publisher's article body doesn't compete with it.
 
-    Batched: at most three round-trips regardless of feed size —
-    one for simplified children (+ joined CEFR assessments), one for
-    their tokenization caches, and any commits needed to populate
-    missing caches. past_bookmarks for the overlay are intentionally
-    skipped on the card (the simplified text isn't what's behind the
-    Open link); they're surfaced again inside the reader itself.
+    Result ids, urls, and parent linkage are untouched, so the "Simplified"
+    badge, save state, and external-open routing in ArticlePreview are
+    unchanged. Falls back silently to the original summary when no level
+    match exists.
+
+    Batched: one IN-query for simplified children (+ joined CEFR
+    assessments), one for their tokenization caches. past_bookmarks for
+    the overlay summary are intentionally [] on the card — they live
+    against the simplified article id, not the original behind the Open
+    link, and the reader surfaces them again when the user opens the
+    simplified version explicitly.
     """
     import json
     from sqlalchemy.orm import joinedload
@@ -612,32 +619,20 @@ def _apply_simplified_display_overlay(user, results):
         display = overlays.get(result["id"])
         if not display:
             continue
-        result["title"] = display.title
-        if display.summary and len(display.summary.strip()) > 10:
-            result["summary"] = display.summary
+        if not display.summary or len(display.summary.strip()) <= 10:
+            continue
+        result["summary"] = display.summary
 
         cache = caches.get(display.id)
-        if not cache:
+        if not cache or not cache.tokenized_summary:
             continue
-        if cache.tokenized_title:
-            try:
-                tokens = json.loads(cache.tokenized_title)
-                ctx = ContextIdentifier(ContextType.ARTICLE_TITLE, article_id=display.id)
-                result["interactiveTitle"] = {
-                    "tokens": tokens,
-                    "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": [],
-                }
-            except (json.JSONDecodeError, TypeError):
-                pass
-        if display.summary and cache.tokenized_summary:
-            try:
-                tokens = json.loads(cache.tokenized_summary)
-                ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
-                result["interactiveSummary"] = {
-                    "tokens": tokens,
-                    "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": [],
-                }
-            except (json.JSONDecodeError, TypeError):
-                pass
+        try:
+            tokens = json.loads(cache.tokenized_summary)
+            ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
+            result["interactiveSummary"] = {
+                "tokens": tokens,
+                "context_identifier": ctx.as_dictionary(),
+                "past_bookmarks": [],
+            }
+        except (json.JSONDecodeError, TypeError):
+            pass
