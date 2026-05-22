@@ -317,6 +317,38 @@ def get_translations_stream(from_lang_code, to_lang_code):
     )
 
 
+@api.route("/translation_alternatives/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@requires_session
+def translation_alternatives(from_lang_code, to_lang_code):
+    """
+    ADR 022 follow-up: lazy-fetch the 3-way voter's alternatives list for a
+    word whose /translate_word response didn't include them.
+
+    This happens when the response came from the own-past-translation
+    early-return path — we hand the user their prior translation instantly
+    and skip the voter's three parallel provider calls. If they then open
+    the AlterMenu, they want to see other options; this endpoint pays the
+    voter's cost on that explicit signal instead of on every word tap.
+
+    Request body: ``{ "word": str, "context": str }``
+    Response: ``{ "alternatives": [{translation, source, votes}, ...] }``,
+    deduped and vote-ordered with the winner at index 0 (matching the
+    shape of /translate_word's `alternatives` field). Empty list if every
+    provider failed.
+    """
+    from zeeguu.core.translation_services.translator import translate_in_context
+
+    word_str = request.json.get("word", "").strip(punctuation_extended)
+    context = request.json.get("context", "").strip()
+    if not word_str:
+        return "word required", 400
+
+    result = translate_in_context(word_str, context, from_lang_code, to_lang_code)
+    alternatives = (result or {}).get("alternatives") or []
+    return json_result({"alternatives": alternatives})
+
+
 @api.route("/ask_llm_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
 @cross_domain
 @requires_session
