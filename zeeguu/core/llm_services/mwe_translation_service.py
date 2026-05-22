@@ -46,6 +46,79 @@ Return ONLY the translation, nothing else.
 Translation:"""
 
 
+# Used by the explicit "Ask LLM" action in the reader's AlterMenu (ADR 022).
+# The reader passes any word the learner clicks on — single words, contiguous
+# phrases, names, etc. — so this prompt cannot assume MWE structure; it just
+# asks for a concise translation of the highlighted span.
+GENERAL_WORD_TRANSLATION_PROMPT = """Translate the word or phrase "{word}" in context.
+
+It appears in this {source_lang} sentence:
+"{sentence}"
+
+Translate "{word}" to {target_lang}.
+- Give a concise translation (1-3 words)
+- Match the sense the word carries in this sentence
+- If the word is a single word, return its meaning here (not a paraphrase of the whole sentence)
+
+Return ONLY the translation, nothing else.
+
+Translation:"""
+
+
+def translate_word_in_context(
+    word: str,
+    sentence: str,
+    source_lang: str,
+    target_lang: str = "en",
+    timeout: int = 30,
+) -> Optional[str]:
+    """
+    General-purpose LLM translation for a single word or phrase, given the
+    sentence it appears in. Used by the "Ask LLM" action in the reader.
+
+    Unlike ``translate_separated_mwe``, this does not frame the input as an
+    MWE — it works equally well for single words, contiguous phrases, and
+    names. Returns the translated string, or None if the LLM call failed
+    (missing API key, network error, etc.).
+    """
+    source_name = LANG_NAMES.get(source_lang, source_lang)
+    target_name = LANG_NAMES.get(target_lang, target_lang)
+
+    prompt = GENERAL_WORD_TRANSLATION_PROMPT.format(
+        word=word,
+        sentence=sentence,
+        source_lang=source_name,
+        target_lang=target_name,
+    )
+
+    try:
+        import anthropic
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            logger.warning("ANTHROPIC_API_KEY not set, cannot ask LLM for translation")
+            return None
+
+        client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=50,
+            temperature=0.1,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        translation = response.content[0].text.strip().strip('"\'.')
+        logger.debug(f"LLM translated '{word}' -> '{translation}'")
+        return translation or None
+    except ImportError:
+        logger.error("anthropic package not installed")
+        return None
+    except Exception as e:
+        logger.error(f"LLM word translation failed for '{word}': {e}")
+        return None
+
+
 def translate_separated_mwe(
     mwe_text: str,
     sentence: str,
