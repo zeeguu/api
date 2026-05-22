@@ -337,14 +337,34 @@ def translation_alternatives(from_lang_code, to_lang_code):
     shape of /translate_word's `alternatives` field). Empty list if every
     provider failed.
     """
-    from zeeguu.core.translation_services.translator import translate_in_context
+    from zeeguu.core.translation_services.translator import (
+        _vote_single_word_translation,
+    )
+    from python_translators.translation_query import TranslationQuery
 
     word_str = request.json.get("word", "").strip(punctuation_extended)
     context = request.json.get("context", "").strip()
     if not word_str:
         return "word required", 400
 
-    result = translate_in_context(word_str, context, from_lang_code, to_lang_code)
+    # Always run the 3-way voter, even for multi-word inputs. translate_in_context
+    # short-circuits multi-word translations through translate_mwe_phrase (a
+    # single-provider "best primary" call), which is the right default for the
+    # /translate_word path but useless here: the caller is explicitly asking
+    # for provider alternatives, and the providers all accept multi-word input.
+    try:
+        query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
+    except (AttributeError, Exception):
+        query = TranslationQuery(word_str, "", "", 1)
+
+    data = {
+        "source_language": from_lang_code,
+        "target_language": to_lang_code,
+        "word": word_str,
+        "query": query,
+        "context": context,
+    }
+    result = _vote_single_word_translation(data)
     alternatives = (result or {}).get("alternatives") or []
     return json_result({"alternatives": alternatives})
 
