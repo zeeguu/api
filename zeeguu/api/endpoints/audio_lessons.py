@@ -6,7 +6,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES, THREE_WORDS_LESSON
 from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
-from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress
+from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress, DailyAudioLesson
 from zeeguu.logging import log
 from . import api
 
@@ -159,19 +159,36 @@ def get_daily_lesson():
     return json_result(result), status_code
 
 
-@api.route("/shared_audio_lesson/<int:lesson_id>", methods=["GET"])
+@api.route("/shared_audio_lesson/<string:share_uuid>", methods=["GET"])
 @cross_domain
-def get_shared_audio_lesson(lesson_id):
+def get_shared_audio_lesson(share_uuid):
     """
-    Read-only public view of an audio lesson for share links. Returns the
-    lesson metadata + audio URL, but no owner-specific state (pause position,
-    completion, listen count) and no UserWord data. No session required —
-    matches the static audio file's accessibility.
+    Read-only public view of an audio lesson for share links. Looked up by
+    share_uuid so integer lesson IDs can't be enumerated. Returns lesson
+    metadata + audio URL, but no owner-specific state (pause position,
+    completion, listen count) and no UserWord data. No session required.
     """
     generator = DailyLessonGenerator()
-    result = generator.get_shared_lesson_view(lesson_id)
+    result = generator.get_shared_lesson_view(share_uuid)
     status_code = result.pop("status_code", 200)
     return json_result(result), status_code
+
+
+@api.route("/create_lesson_share_link/<int:lesson_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def create_lesson_share_link(lesson_id):
+    """
+    Owner-only: mint (or return existing) share_uuid for this lesson.
+    Returns {"share_uuid": "..."} for the frontend to build the share URL.
+    """
+    lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=flask.g.user_id).first()
+    if not lesson:
+        return json_result({"error": "Lesson not found"}), 404
+
+    lesson.ensure_share_uuid()
+    db.session.commit()
+    return json_result({"share_uuid": lesson.share_uuid})
 
 
 @api.route("/get_todays_lesson", methods=["GET"])
