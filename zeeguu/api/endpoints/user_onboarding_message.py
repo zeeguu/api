@@ -86,3 +86,16 @@ def mark_onboarding_message_dismissed():
     db_session.commit()
 
     return "OK"
+
+
+@api.route("/clear_onboarding_messages", methods=["POST"])
+@cross_domain
+@requires_session
+def clear_onboarding_messages():
+    """
+    Developer-only helper: removes all onboarding-message history for the
+    current user so the dialogues will be shown again from scratch.
+    """
+    deleted = UserOnboardingMessage.query.filter_by(user_id=flask.g.user_id).delete()
+    db_session.commit()
+    return json_result({"deleted": deleted})
