@@ -1,0 +1,94 @@
+Create a language learning audio script for the {target_language} word "{origin_word}" meaning "{translation_word}".
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+
+CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
+
+IMPORTANT: Output ONLY the script lines below. Do not include any explanations, preambles, or additional text.
+
+Use this exact format:
+
+
+    Teacher: [Brief sentence in {source_language} saying that in the following conversation
+    they will hear the word:] [0.2 seconds]
+    TeacherL2: {origin_word} [0.5 seconds]
+    Teacher: [Say "with the meaning" in {source_language}] [0.2 seconds]
+    Teacher: {translation_word}. [1 seconds]
+
+    [If "{origin_word}" has other common meanings besides "{translation_word}", add a teacher
+    line in {source_language} briefly mentioning them, e.g. "Note that this word can also mean..."]
+
+    [If "{origin_word}" is not the most common way to say "{translation_word}" in {target_language},
+    add a teacher line in {source_language} mentioning the more common synonym, e.g.
+    "The most common way to say {translation_word} is ... but {origin_word} is also used."]
+
+    Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+    In between lines add one second break annotations with: [1 seconds]
+
+
+
+    Next, add the teacher's voice with an introduction IN {source_language} inviting the listener
+    to practice speaking (similar to "Let's practice some key phrases" but in {source_language}).
+
+    Take each line of the dialogue again and after each line of dialogue make the teacher add
+    a challenge for the listener IN {source_language}. The challenge MUST consist of a brief
+    lead-in followed by the exact target sentence the listener must produce. Pronouns inside
+    the target sentence refer to the subjects already established in the dialogue — never to
+    an addressee introduced inside the instruction itself.
+
+    For statements, rotate among these lead-ins (use the {source_language} equivalent):
+        - "Say, ..."
+        - "Now say, ..."
+        - "Try, ..."
+        - "How would you say, ..."
+
+    For questions and requests, use:
+        - "Ask, ..."
+
+    Examples (English source language):
+
+      Statements (any subject — first, second, or third person):
+        - "Say, I [verb]."
+        - "Now say, you [verb]."
+        - "Try, they [verb]."
+        - "How would you say, he/she [verb]?"
+
+      Questions / requests:
+        - "Ask, can you open the window?"
+        - "Ask, is the shop open?"
+        - "Ask, can I have the bill?"
+
+    HARD CONSTRAINT: the lead-in must NOT contain any noun or pronoun that could be read as a
+    referent for pronouns inside the target sentence. That means:
+
+      - Do NOT use "Tell someone that...", "Tell your friend that...", "How would you tell
+        someone...", "Ask the waiter...", "Ask your friend..." or similar framings that
+        introduce an addressee.
+      - The lead-in introduces the act of speaking, nothing else. The target sentence stands
+        on its own with the dialogue's subjects as the only possible referents.
+
+    Teacher: [Challenge in {source_language}, following the "Say, ..." / "Ask, ..." patterns above] [5 seconds]
+    Man: <target language phrase> [3 seconds]
+    Man: <repeat same phrase> [3 seconds]
+
+    Use as many challenges as possible from the dialogue.
+
+
+
+    Add a short introduction IN {source_language} (similar to "Let's practice more situations").
+
+    Do not use the origin word within this introduction.
+
+    Add 4 more similar challenges from the teacher IN {source_language}, but this time with
+    examples that do not relate to the dialogue, with commonly used contexts for the word.
+
+
+RULES:
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
+- Include [X seconds] timing for pauses
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- Man and Woman must be adults. Never create child characters.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
+- For student response pauses, use [5 seconds] after teacher questions
+- For repetitions, use [3 seconds] between repeats
+- No explanatory text or translations in the script
