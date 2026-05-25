@@ -43,6 +43,31 @@ RETENTION_DAYS = {
 
 BATCH_SIZE = 1000
 
+# Children of `article` with an ON DELETE CASCADE foreign key, keyed by article_id.
+# We delete these explicitly because the bulk delete below runs with
+# FOREIGN_KEY_CHECKS=0 (needed to get past article's NO ACTION children such as
+# user_article / user_reading_session), and FK-checks-off suppresses real
+# cascades — which is what was leaving these tables full of orphans.
+# Keep in sync with: SELECT TABLE_NAME FROM information_schema.REFERENTIAL_CONSTRAINTS
+#   WHERE REFERENCED_TABLE_NAME='article' AND DELETE_RULE='CASCADE'.
+# (article_fragment is handled separately so its own cascade child,
+#  article_fragment_context, is cleaned first.)
+CASCADE_CHILDREN = [
+    "article_broken_code_map",
+    "article_cefr_assessment",
+    "article_classification",
+    "article_tokenization_cache",
+    "article_topic_map",
+    "article_topic_user_feedback",
+    "article_url_keyword_map",
+    "cohort_article_map",
+    "difficulty_lingo_rank",
+    "grammar_correction_log",
+    "personal_copy",
+    "user_activity_data",
+    "user_article_broken_report",
+]
+
 apply_mode = "--apply" in sys.argv
 
 app = create_app_for_scripts()
@@ -133,8 +158,40 @@ def candidates_for_class(retention_class, days, referenced):
     return unreferenced
 
 
+def delete_article_owned_children(placeholders):
+    """Delete an article batch's ON DELETE CASCADE children explicitly.
+
+    Replicates the cascade that FOREIGN_KEY_CHECKS=0 suppresses, so pruning an
+    article doesn't leave behind orphaned fragments/tokenization/etc. Does NOT
+    touch the shared, deduplicated content tables (new_text / source /
+    source_text): those can be referenced by other articles or by user data and
+    are reclaimed separately by tools/cleanup_orphaned_content.py.
+    """
+    # article_fragment_context hangs off article_fragment (cascade); delete it
+    # first, while the fragments still exist to identify it.
+    db_session.execute(
+        text(
+            "DELETE FROM article_fragment_context "
+            "WHERE article_fragment_id IN "
+            f"(SELECT id FROM article_fragment WHERE article_id IN ({placeholders}))"
+        )
+    )
+    db_session.execute(
+        text(f"DELETE FROM article_fragment WHERE article_id IN ({placeholders})")
+    )
+    for child in CASCADE_CHILDREN:
+        db_session.execute(
+            text(f"DELETE FROM {child} WHERE article_id IN ({placeholders})")
+        )
+
+
 def delete_in_batches(ids):
-    """Bulk-delete with FK checks off (rows are unreferenced — verified)."""
+    """Bulk-delete unreferenced articles and their owned children.
+
+    Runs with FK checks off (to get past article's NO ACTION children, which the
+    caller has already verified are unreferenced) and deletes each article's
+    cascade-owned children explicitly, since FK-checks-off suppresses cascades.
+    """
     db_session.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
     db_session.commit()
 
@@ -145,6 +202,7 @@ def delete_in_batches(ids):
         for i in range(0, total, BATCH_SIZE):
             batch = ids[i : i + BATCH_SIZE]
             placeholders = ",".join(str(x) for x in batch)
+            delete_article_owned_children(placeholders)
             db_session.execute(
                 text(f"DELETE FROM article WHERE id IN ({placeholders})")
             )
@@ -158,6 +216,10 @@ def delete_in_batches(ids):
         db_session.commit()
 
     print(f"  done in {time.time() - t0:.1f}s")
+    print(
+        "  note: shared content (new_text/source/source_text) is reclaimed "
+        "separately by tools/cleanup_orphaned_content.py"
+    )
 
 
 def main():
