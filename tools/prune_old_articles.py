@@ -53,9 +53,11 @@ BATCH_SIZE = 1000
 # computed/cache data that is meaningless once the article is gone. We
 # intentionally do NOT delete the user/research/teacher cascade children
 # (user_activity_data, personal_copy, cohort_article_map,
-# article_topic_user_feedback, user_article_broken_report) — that data is worth
-# preserving even after an article is pruned. So do NOT "re-sync" this list to
-# the full DELETE_RULE='CASCADE' set; the omissions are on purpose.
+# article_topic_user_feedback, user_article_broken_report). Articles those
+# tables point at are protected from pruning entirely (see
+# referenced_article_ids), so they never become orphans — and that data stays
+# valid. So do NOT "re-sync" this list to the full DELETE_RULE='CASCADE' set;
+# the omissions are on purpose.
 # (article_fragment is handled separately so its own cascade child,
 #  article_fragment_context, is cleaned first.)
 CASCADE_CHILDREN = [
@@ -84,6 +86,16 @@ def referenced_article_ids():
         ("user_article", "article_id"),
         ("text", "article_id"),
         ("user_reading_session", "article_id"),
+        # Protect articles referenced by user/research/teacher data. These
+        # tables are pointers (no content of their own), so the article must
+        # survive for them to mean anything — hence we keep the article rather
+        # than orphan them. This must cover exactly the cascade children that
+        # CASCADE_CHILDREN deliberately omits, so none of them ever dangles.
+        ("personal_copy", "article_id"),
+        ("cohort_article_map", "article_id"),
+        ("user_activity_data", "article_id"),
+        ("article_topic_user_feedback", "article_id"),
+        ("user_article_broken_report", "article_id"),
     ]:
         rows = db_session.execute(
             text(f"SELECT DISTINCT {col} FROM {tbl} WHERE {col} IS NOT NULL")
