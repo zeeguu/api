@@ -41,6 +41,15 @@ class Feed(db.Model):
 
     feed_type = db.Column(db.Integer)
 
+    # 'perennial' | 'ephemeral' | 'unknown' — drives the article-pruning
+    # retention window (see docs/future-work/article-retention-perennial-vs-ephemeral.md)
+    retention_class = db.Column(
+        db.Enum("perennial", "ephemeral", "unknown"),
+        nullable=False,
+        default="unknown",
+        server_default="unknown",
+    )
+
     feed_handler = None
 
     def __init__(
