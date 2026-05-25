@@ -37,8 +37,61 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.audio_lesson_generation_progress import AudioLessonGenerationProgress
 from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
+from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
+from zeeguu.core.model.article_title_context import ArticleTitleContext
+from zeeguu.core.model.video_caption_context import VideoCaptionContext
+from zeeguu.core.model.video_title_context import VideoTitleContext
+from zeeguu.core.model.translation_search import TranslationSearch
+from zeeguu.core.model.user_article_broken_report import UserArticleBrokenReport
+from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
+from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.model.user_video import UserVideo
+from zeeguu.core.model.user_browsing_session import UserBrowsingSession
+from zeeguu.core.model.user_notification import UserNotification
+from zeeguu.core.model.meaning_report import MeaningReport
+from zeeguu.core.model.user_onboarding_message import UserOnboardingMessage
+from zeeguu.core.model.user_mwe_override import UserMweOverride
+from zeeguu.core.model.topic_subscription import TopicSubscription
+from zeeguu.core.model.exercise_report import ExerciseReport
+from zeeguu.core.model.topic_filter import TopicFilter
+from zeeguu.core.model.user_listening_session import UserListeningSession
+from zeeguu.core.model.article_upload import ArticleUpload
+from zeeguu.core.model.user_watching_session import UserWatchingSession
+from zeeguu.core.model.user_feedback import UserFeedback
+from zeeguu.core.model.example_sentence import ExampleSentence
+
+# Tables with a NOT NULL FK to Bookmark; rows here must be deleted before
+# the parent bookmark is removed.
+bookmark_context_tables = [
+    ExampleSentenceContext,
+    ArticleSummaryContext,
+    ArticleFragmentContext,
+    ArticleTitleContext,
+    VideoCaptionContext,
+    VideoTitleContext,
+    ExerciseReport,
+]
 
 tables_to_modify = [
+    TranslationSearch,
+    UserArticleBrokenReport,
+    ArticleTopicUserFeedback,
+    UserLanguage,
+    UserVideo,
+    UserBrowsingSession,
+    UserNotification,
+    MeaningReport,
+    UserOnboardingMessage,
+    UserMweOverride,
+    TopicSubscription,
+    ExerciseReport,
+    TopicFilter,
+    UserListeningSession,
+    ArticleUpload,
+    UserWatchingSession,
+    UserFeedback,
     SearchSubscription,
     Session,
     Teacher,
@@ -101,6 +154,20 @@ def delete_user_account(db_session, user_to_delete):
 
         # Delete bookmarks (they reference UserWord with NOT NULL constraint)
         user_bookmarks = Bookmark.find_by_specific_user(user_to_delete)
+
+        # Clean up *_context tables that have NOT NULL bookmark_id
+        if user_bookmarks:
+            bookmark_ids = [b.id for b in user_bookmarks]
+            for ctx_table in bookmark_context_tables:
+                ctx_rows = ctx_table.query.filter(
+                    ctx_table.bookmark_id.in_(bookmark_ids)
+                ).all()
+                print(f"{ctx_table.__tablename__}: {len(ctx_rows)}")
+                for each in ctx_rows:
+                    total_rows_affected += 1
+                    db_session.delete(each)
+                db_session.commit()
+
         print(f"bookmark: {len(user_bookmarks)}")
         for each in user_bookmarks:
             total_rows_affected += 1
@@ -133,6 +200,44 @@ def delete_user_account(db_session, user_to_delete):
         for each in user_friends:
             total_rows_affected += 1
             db_session.delete(each)
+        db_session.commit()
+
+        # Null out Article.source_upload_id on articles that reference this
+        # user's article_upload rows (those articles may belong to other users
+        # but were ingested via this user's upload).
+        user_uploads = ArticleUpload.query.filter_by(user_id=user_to_delete.id).all()
+        if user_uploads:
+            upload_ids = [u.id for u in user_uploads]
+            referencing_articles = Article.query.filter(
+                Article.source_upload_id.in_(upload_ids)
+            ).all()
+            print(f"articles with source_upload_id pointing at user's uploads: {len(referencing_articles)}")
+            for a in referencing_articles:
+                a.source_upload_id = None
+                db_session.add(a)
+            db_session.commit()
+
+        # Delete the user's uploaded example sentences. First drop any
+        # ExampleSentenceContext rows referencing them (these can belong to
+        # other users' bookmarks; doing so just removes the side-link, the
+        # other user's bookmark and exercises survive).
+        uploaded_sentences = ExampleSentence.query.filter_by(
+            user_id=user_to_delete.id
+        ).all()
+        if uploaded_sentences:
+            sentence_ids = [es.id for es in uploaded_sentences]
+            esc_rows = ExampleSentenceContext.query.filter(
+                ExampleSentenceContext.example_sentence_id.in_(sentence_ids)
+            ).all()
+            print(f"example_sentence_context (other users'): {len(esc_rows)}")
+            for esc in esc_rows:
+                total_rows_affected += 1
+                db_session.delete(esc)
+            db_session.commit()
+        print(f"example_sentence: {len(uploaded_sentences)}")
+        for es in uploaded_sentences:
+            total_rows_affected += 1
+            db_session.delete(es)
         db_session.commit()
 
         for each_table in tables_to_modify:
