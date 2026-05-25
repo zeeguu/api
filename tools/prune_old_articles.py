@@ -43,13 +43,19 @@ RETENTION_DAYS = {
 
 BATCH_SIZE = 1000
 
-# Children of `article` with an ON DELETE CASCADE foreign key, keyed by article_id.
-# We delete these explicitly because the bulk delete below runs with
-# FOREIGN_KEY_CHECKS=0 (needed to get past article's NO ACTION children such as
-# user_article / user_reading_session), and FK-checks-off suppresses real
-# cascades — which is what was leaving these tables full of orphans.
-# Keep in sync with: SELECT TABLE_NAME FROM information_schema.REFERENTIAL_CONSTRAINTS
-#   WHERE REFERENCED_TABLE_NAME='article' AND DELETE_RULE='CASCADE'.
+# Derived/computed children of `article` to delete when pruning it. The bulk
+# delete below runs with FOREIGN_KEY_CHECKS=0 (needed to get past article's
+# NO ACTION children such as user_article / user_reading_session), which also
+# suppresses real ON DELETE CASCADE — that's what was leaving these regenerable
+# tables full of orphans.
+#
+# This is DELIBERATELY a subset of article's cascade children: it lists only
+# computed/cache data that is meaningless once the article is gone. We
+# intentionally do NOT delete the user/research/teacher cascade children
+# (user_activity_data, personal_copy, cohort_article_map,
+# article_topic_user_feedback, user_article_broken_report) — that data is worth
+# preserving even after an article is pruned. So do NOT "re-sync" this list to
+# the full DELETE_RULE='CASCADE' set; the omissions are on purpose.
 # (article_fragment is handled separately so its own cascade child,
 #  article_fragment_context, is cleaned first.)
 CASCADE_CHILDREN = [
@@ -58,14 +64,9 @@ CASCADE_CHILDREN = [
     "article_classification",
     "article_tokenization_cache",
     "article_topic_map",
-    "article_topic_user_feedback",
     "article_url_keyword_map",
-    "cohort_article_map",
     "difficulty_lingo_rank",
     "grammar_correction_log",
-    "personal_copy",
-    "user_activity_data",
-    "user_article_broken_report",
 ]
 
 apply_mode = "--apply" in sys.argv
@@ -159,13 +160,16 @@ def candidates_for_class(retention_class, days, referenced):
 
 
 def delete_article_owned_children(placeholders):
-    """Delete an article batch's ON DELETE CASCADE children explicitly.
+    """Delete an article batch's derived/computed children explicitly.
 
-    Replicates the cascade that FOREIGN_KEY_CHECKS=0 suppresses, so pruning an
-    article doesn't leave behind orphaned fragments/tokenization/etc. Does NOT
-    touch the shared, deduplicated content tables (new_text / source /
-    source_text): those can be referenced by other articles or by user data and
-    are reclaimed separately by tools/cleanup_orphaned_content.py.
+    FOREIGN_KEY_CHECKS=0 suppresses real cascades, so we clean these here to
+    avoid leaving orphaned fragments/tokenization/etc. Scope is deliberately
+    narrow (see CASCADE_CHILDREN): only regenerable data. It does NOT touch
+    user/research cascade children (user_activity_data, personal_copy,
+    cohort_article_map, ...) — those are preserved — nor the shared,
+    deduplicated content tables (new_text / source / source_text), which can be
+    shared across articles/user data and are reclaimed separately by
+    tools/cleanup_orphaned_content.py.
     """
     # article_fragment_context hangs off article_fragment (cascade); delete it
     # first, while the fragments still exist to identify it.
