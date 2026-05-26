@@ -12,15 +12,16 @@ from zeeguu.core.util.encoding import datetime_to_json
 
 class UserVideo(db.Model):
     __tablename__ = "user_video"
-    table_args = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "video_id"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     user = db.relationship("User")
     video_id = db.Column(db.Integer, db.ForeignKey("video.id"))
     video = db.relationship("Video")
-
-    db.UniqueConstraint("user_id", "video_id")
 
     opened = db.Column(db.DateTime)
 
@@ -69,10 +70,9 @@ class UserVideo(db.Model):
 
     @classmethod
     def find(cls, user: User, video: Video):
-        try:
-            return cls.query.filter_by(user=user, video=video).one()
-        except NoResultFound:
-            return None
+        # .first() (not .one()) so that pre-existing duplicate rows never raise
+        # MultipleResultsFound; the unique constraint prevents new dups going forward.
+        return cls.query.filter_by(user=user, video=video).first()
 
     @classmethod
     def find_or_create(
@@ -84,27 +84,27 @@ class UserVideo(db.Model):
         liked=None,
         playback_position=None,
     ):
+        existing = cls.query.filter_by(user=user, video=video).first()
+        if existing:
+            return existing
         try:
-            return cls.query.filter_by(user=user, video=video).one()
-        except NoResultFound:
-            try:
-                new = cls(
-                    user,
-                    video,
-                    opened=opened,
-                    liked=liked,
-                    playback_position=playback_position,
-                )
-                session.add(new)
-                session.commit()
-                return new
-            except Exception as e:
-                from sentry_sdk import capture_exception
+            new = cls(
+                user,
+                video,
+                opened=opened,
+                liked=liked,
+                playback_position=playback_position,
+            )
+            session.add(new)
+            session.commit()
+            return new
+        except Exception as e:
+            from sentry_sdk import capture_exception
 
-                capture_exception(e)
-                print("Seems we avoided a race condition")
-                session.rollback()
-                return cls.query.filter_by(user=user, video=video).one()
+            capture_exception(e)
+            print("Seems we avoided a race condition")
+            session.rollback()
+            return cls.query.filter_by(user=user, video=video).first()
 
     @classmethod
     def all_liked_videos_of_user(cls, user):
