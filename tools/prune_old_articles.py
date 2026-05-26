@@ -25,7 +25,10 @@ Deletion runs with FK checks ON — the database enforces correctness:
     reading tables BLOCK the delete (RESTRICT / NO ACTION). The pre-filter is
     supposed to have excluded every such article already.
   - shared, deduplicated content (new_text / source / source_text) has no FK
-    from article and is reclaimed separately by tools/cleanup_orphaned_content.py.
+    from article, so prune reclaims it itself after each batch — but only the
+    rows the batch touched that nobody else references (see
+    reclaim_shared_content). tools/cleanup_orphaned_content.py stays for the
+    one-time historical backlog and the anonymization pipeline.
 
 If a delete is still blocked by a FK, the pre-filter is incomplete: we ABORT
 LOUDLY (naming the constraint) rather than skip, so the missing table gets added
@@ -184,12 +187,53 @@ def candidates_for_class(retention_class, days, referenced):
     return unreferenced
 
 
-def delete_in_batches(ids):
-    """Delete articles in batches with FK checks ON.
+def _ids(sql):
+    return [r[0] for r in db_session.execute(text(sql))]
 
-    The database cascades the derived children (fragments, tokenization cache,
-    cefr/classification/topic maps, simplified children, ...) automatically, and
-    BLOCKS the deletion of any article still referenced by a protected table
+
+def reclaim_shared_content(text_ids, source_ids, source_text_ids):
+    """Delete the shared, de-duplicated content a just-pruned batch pointed at,
+    but ONLY the rows now referenced by nobody.
+
+    new_text / source / source_text have no FK from article and can be shared
+    across articles or with bookmarks/captions, so the cascade can't touch them.
+    We delete only within the ids the batch touched (targeted -> no full-table
+    scan), guarded by NOT EXISTS so a row still used by a surviving article or a
+    bookmark/caption is kept. Returns (n_new_text, n_source, n_source_text).
+    """
+    n_text = n_src = n_stext = 0
+    if text_ids:
+        ph = ",".join(str(t) for t in text_ids)
+        n_text = db_session.execute(text(
+            f"DELETE FROM new_text WHERE id IN ({ph}) "
+            "AND NOT EXISTS (SELECT 1 FROM article_fragment f WHERE f.text_id = new_text.id) "
+            "AND NOT EXISTS (SELECT 1 FROM bookmark_context bc WHERE bc.text_id = new_text.id) "
+            "AND NOT EXISTS (SELECT 1 FROM caption c WHERE c.text_id = new_text.id)"
+        )).rowcount
+    if source_ids:
+        ph = ",".join(str(s) for s in source_ids)
+        n_src = db_session.execute(text(
+            f"DELETE FROM source WHERE id IN ({ph}) "
+            "AND NOT EXISTS (SELECT 1 FROM article a WHERE a.source_id = source.id) "
+            "AND NOT EXISTS (SELECT 1 FROM bookmark b WHERE b.source_id = source.id) "
+            "AND NOT EXISTS (SELECT 1 FROM user_activity_data u WHERE u.source_id = source.id) "
+            "AND NOT EXISTS (SELECT 1 FROM video v WHERE v.source_id = source.id)"
+        )).rowcount
+    if source_text_ids:
+        ph = ",".join(str(s) for s in source_text_ids)
+        n_stext = db_session.execute(text(
+            f"DELETE FROM source_text WHERE id IN ({ph}) "
+            "AND NOT EXISTS (SELECT 1 FROM source s WHERE s.source_text_id = source_text.id)"
+        )).rowcount
+    return n_text, n_src, n_stext
+
+
+def delete_in_batches(ids):
+    """Delete articles in batches with FK checks ON, reclaiming shared content.
+
+    The database cascades each article's OWNED children (fragments, tokenization
+    cache, cefr/classification/topic maps, simplified children, ...) and BLOCKS
+    the deletion of any article still referenced by a protected table
     (personal_copy, user_activity_data, bookmarks, reading sessions, ...).
 
     referenced_article_ids() is supposed to have already excluded every such
@@ -197,13 +241,38 @@ def delete_in_batches(ids):
     table — we ABORT LOUDLY (re-raising, naming the FK) instead of skipping, so
     the omission is noticed and fixed. Batches already committed stay deleted;
     re-running after fixing the pre-filter simply continues.
+
+    The shared, de-duplicated content tables (new_text / source / source_text)
+    have no FK from article, so the cascade can't reach them. We reclaim them
+    here, scoped to the ids each batch touched (see reclaim_shared_content) — so
+    prune cleans up after itself without a full-table sweep. (The standalone
+    tools/cleanup_orphaned_content.py remains for the one-time historical
+    backlog and the anonymization pipeline.)
     """
     total = len(ids)
     deleted = 0
+    freed = [0, 0, 0]  # new_text, source, source_text
     t0 = time.time()
     for i in range(0, total, BATCH_SIZE):
         batch = ids[i : i + BATCH_SIZE]
         placeholders = ",".join(str(x) for x in batch)
+
+        # Capture the shared content this batch references, before deleting it.
+        text_ids = _ids(
+            f"SELECT DISTINCT text_id FROM article_fragment WHERE article_id IN ({placeholders})"
+        )
+        source_ids = _ids(
+            f"SELECT DISTINCT source_id FROM article "
+            f"WHERE id IN ({placeholders}) AND source_id IS NOT NULL"
+        )
+        source_text_ids = []
+        if source_ids:
+            sph = ",".join(str(s) for s in source_ids)
+            source_text_ids = _ids(
+                f"SELECT DISTINCT source_text_id FROM source "
+                f"WHERE id IN ({sph}) AND source_text_id IS NOT NULL"
+            )
+
         try:
             db_session.execute(
                 text(f"DELETE FROM article WHERE id IN ({placeholders})")
@@ -219,6 +288,15 @@ def delete_in_batches(ids):
             print("    and re-run. No referenced article was force-deleted.")
             print(f"\n    {e.orig}")
             raise
+
+        # Now that the batch's articles (and their fragments) are gone, reclaim
+        # the shared content they pointed at that nobody else references.
+        nt, ns, nst = reclaim_shared_content(text_ids, source_ids, source_text_ids)
+        freed[0] += nt
+        freed[1] += ns
+        freed[2] += nst
+        db_session.commit()
+
         deleted += len(batch)
         if deleted % 10000 == 0 or deleted == total:
             pct = 100 * deleted // total if total else 100
@@ -226,8 +304,8 @@ def delete_in_batches(ids):
 
     print(f"  done in {time.time() - t0:.1f}s")
     print(
-        "  note: shared content (new_text/source/source_text) is reclaimed "
-        "separately by tools/cleanup_orphaned_content.py"
+        f"  reclaimed shared content: {freed[0]} new_text, "
+        f"{freed[1]} source, {freed[2]} source_text"
     )
 
 
