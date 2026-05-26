@@ -11,11 +11,26 @@ Retention windows (days):
   perennial  →  None (don't age-prune; only deleted via the existing
                       anonymize_users.py unreferenced sweep)
 
-Articles with no feed_id are treated as 'unknown'.
-Articles are only deleted if BOTH:
-  - older than the retention window for their class, AND
-  - not referenced from user_article / text / user_reading_session /
-    user_activity_data (same reference-set as anonymize_users.py)
+Articles with no feed_id are treated as 'unknown'. An article is deleted if it
+is older than its class's retention window AND not in the reference pre-filter
+(referenced_article_ids).
+
+Deletion runs with FK checks ON — the database enforces correctness:
+  - derived children (article_fragment, *_tokenization_cache, cefr,
+    classification, topic/url-keyword/difficulty maps, grammar_log) and
+    simplified children (parent_article_id) are ON DELETE CASCADE → the DB
+    deletes them automatically.
+  - data we keep (personal_copy, user_activity_data, cohort_article_map,
+    article_topic_user_feedback, user_article_broken_report) plus bookmark /
+    reading tables BLOCK the delete (RESTRICT / NO ACTION). The pre-filter is
+    supposed to have excluded every such article already.
+  - shared, deduplicated content (new_text / source / source_text) has no FK
+    from article and is reclaimed separately by tools/cleanup_orphaned_content.py.
+
+If a delete is still blocked by a FK, the pre-filter is incomplete: we ABORT
+LOUDLY (naming the constraint) rather than skip, so the missing table gets added
+to referenced_article_ids() and we never force-delete referenced data.
+(Requires migration 26-05-26--restrict-article-fk-for-prune-protection.sql.)
 
 Usage:
   python prune_old_articles.py             # dry-run (default)
@@ -33,6 +48,7 @@ from datetime import datetime, timedelta
 
 import zeeguu.core
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from zeeguu.api.app import create_app_for_scripts
 
 RETENTION_DAYS = {
@@ -42,34 +58,6 @@ RETENTION_DAYS = {
 }
 
 BATCH_SIZE = 1000
-
-# Derived/computed children of `article` to delete when pruning it. The bulk
-# delete below runs with FOREIGN_KEY_CHECKS=0 (needed to get past article's
-# NO ACTION children such as user_article / user_reading_session), which also
-# suppresses real ON DELETE CASCADE — that's what was leaving these regenerable
-# tables full of orphans.
-#
-# This is DELIBERATELY a subset of article's cascade children: it lists only
-# computed/cache data that is meaningless once the article is gone. We
-# intentionally do NOT delete the user/research/teacher cascade children
-# (user_activity_data, personal_copy, cohort_article_map,
-# article_topic_user_feedback, user_article_broken_report). Articles those
-# tables point at are protected from pruning entirely (see
-# referenced_article_ids), so they never become orphans — and that data stays
-# valid. So do NOT "re-sync" this list to the full DELETE_RULE='CASCADE' set;
-# the omissions are on purpose.
-# (article_fragment is handled separately so its own cascade child,
-#  article_fragment_context, is cleaned first.)
-CASCADE_CHILDREN = [
-    "article_broken_code_map",
-    "article_cefr_assessment",
-    "article_classification",
-    "article_tokenization_cache",
-    "article_topic_map",
-    "article_url_keyword_map",
-    "difficulty_lingo_rank",
-    "grammar_correction_log",
-]
 
 apply_mode = "--apply" in sys.argv
 
@@ -86,16 +74,23 @@ def referenced_article_ids():
         ("user_article", "article_id"),
         ("text", "article_id"),
         ("user_reading_session", "article_id"),
-        # Protect articles referenced by user/research/teacher data. These
-        # tables are pointers (no content of their own), so the article must
-        # survive for them to mean anything — hence we keep the article rather
-        # than orphan them. This must cover exactly the cascade children that
-        # CASCADE_CHILDREN deliberately omits, so none of them ever dangles.
+        # Articles referenced by data we keep. Every table here has a
+        # RESTRICT/NO ACTION FK on article_id, so the DB would block the delete
+        # anyway — excluding them up front just avoids triggering that block.
+        # This list should match the set of blocking FKs; if it drifts,
+        # delete_in_batches aborts loudly rather than skipping, so the gap shows.
+        #   - switched to RESTRICT by the 26-05-26 migration:
         ("personal_copy", "article_id"),
         ("cohort_article_map", "article_id"),
         ("user_activity_data", "article_id"),
         ("article_topic_user_feedback", "article_id"),
         ("user_article_broken_report", "article_id"),
+        #   - already NO ACTION (bookmark summary/title context, feedback, MWE):
+        ("article_summary_context", "article_id"),
+        ("article_title_context", "article_id"),
+        ("article_difficulty_feedback", "article_id"),
+        ("topic_user_feedback", "article_id"),
+        ("user_mwe_override", "article_id"),
     ]:
         rows = db_session.execute(
             text(f"SELECT DISTINCT {col} FROM {tbl} WHERE {col} IS NOT NULL")
@@ -120,6 +115,24 @@ def referenced_article_ids():
         rows = db_session.execute(
             text(
                 f"SELECT id FROM article WHERE source_id IN ({placeholders})"
+            )
+        )
+        n_before = len(ref)
+        ref.update(r[0] for r in rows)
+        print(f"    +{len(ref) - n_before} (total {len(ref)})")
+
+    # Protect the ORIGINAL of any referenced simplification. parent_article_id
+    # is ON DELETE CASCADE, so deleting an original would cascade to (and, if it
+    # is referenced, be blocked by) its simplification. Keeping the original
+    # whenever a simplification is referenced keeps the family together and
+    # never orphans a simplification. (Simplifications don't nest, so one level.)
+    if ref:
+        print("  originals of referenced simplifications...")
+        placeholders = ",".join(str(a) for a in ref)
+        rows = db_session.execute(
+            text(
+                f"SELECT DISTINCT parent_article_id FROM article "
+                f"WHERE id IN ({placeholders}) AND parent_article_id IS NOT NULL"
             )
         )
         n_before = len(ref)
@@ -171,65 +184,45 @@ def candidates_for_class(retention_class, days, referenced):
     return unreferenced
 
 
-def delete_article_owned_children(placeholders):
-    """Delete an article batch's derived/computed children explicitly.
-
-    FOREIGN_KEY_CHECKS=0 suppresses real cascades, so we clean these here to
-    avoid leaving orphaned fragments/tokenization/etc. Scope is deliberately
-    narrow (see CASCADE_CHILDREN): only regenerable data. It does NOT touch
-    user/research cascade children (user_activity_data, personal_copy,
-    cohort_article_map, ...) — those are preserved — nor the shared,
-    deduplicated content tables (new_text / source / source_text), which can be
-    shared across articles/user data and are reclaimed separately by
-    tools/cleanup_orphaned_content.py.
-    """
-    # article_fragment_context hangs off article_fragment (cascade); delete it
-    # first, while the fragments still exist to identify it.
-    db_session.execute(
-        text(
-            "DELETE FROM article_fragment_context "
-            "WHERE article_fragment_id IN "
-            f"(SELECT id FROM article_fragment WHERE article_id IN ({placeholders}))"
-        )
-    )
-    db_session.execute(
-        text(f"DELETE FROM article_fragment WHERE article_id IN ({placeholders})")
-    )
-    for child in CASCADE_CHILDREN:
-        db_session.execute(
-            text(f"DELETE FROM {child} WHERE article_id IN ({placeholders})")
-        )
-
-
 def delete_in_batches(ids):
-    """Bulk-delete unreferenced articles and their owned children.
+    """Delete articles in batches with FK checks ON.
 
-    Runs with FK checks off (to get past article's NO ACTION children, which the
-    caller has already verified are unreferenced) and deletes each article's
-    cascade-owned children explicitly, since FK-checks-off suppresses cascades.
+    The database cascades the derived children (fragments, tokenization cache,
+    cefr/classification/topic maps, simplified children, ...) automatically, and
+    BLOCKS the deletion of any article still referenced by a protected table
+    (personal_copy, user_activity_data, bookmarks, reading sessions, ...).
+
+    referenced_article_ids() is supposed to have already excluded every such
+    article. If a delete is nevertheless blocked, the pre-filter is missing a
+    table — we ABORT LOUDLY (re-raising, naming the FK) instead of skipping, so
+    the omission is noticed and fixed. Batches already committed stay deleted;
+    re-running after fixing the pre-filter simply continues.
     """
-    db_session.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
-    db_session.commit()
-
     total = len(ids)
     deleted = 0
     t0 = time.time()
-    try:
-        for i in range(0, total, BATCH_SIZE):
-            batch = ids[i : i + BATCH_SIZE]
-            placeholders = ",".join(str(x) for x in batch)
-            delete_article_owned_children(placeholders)
+    for i in range(0, total, BATCH_SIZE):
+        batch = ids[i : i + BATCH_SIZE]
+        placeholders = ",".join(str(x) for x in batch)
+        try:
             db_session.execute(
                 text(f"DELETE FROM article WHERE id IN ({placeholders})")
             )
             db_session.commit()
-            deleted += len(batch)
-            if deleted % 10000 == 0 or deleted == total:
-                pct = 100 * deleted // total if total else 100
-                print(f"    deleted {deleted}/{total} ({pct}%)")
-    finally:
-        db_session.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
-        db_session.commit()
+        except IntegrityError as e:
+            db_session.rollback()
+            print(f"\n!!! PRUNE ABORTED after {deleted} deletions.")
+            print("    A candidate article is still referenced — the FK below "
+                  "blocked its deletion, which means referenced_article_ids() is")
+            print("    missing the referencing table. Add it to the pre-filter "
+                  "(or, if the data is disposable, make its FK ON DELETE CASCADE)")
+            print("    and re-run. No referenced article was force-deleted.")
+            print(f"\n    {e.orig}")
+            raise
+        deleted += len(batch)
+        if deleted % 10000 == 0 or deleted == total:
+            pct = 100 * deleted // total if total else 100
+            print(f"    deleted {deleted}/{total} ({pct}%)")
 
     print(f"  done in {time.time() - t0:.1f}s")
     print(
