@@ -92,7 +92,14 @@ class Video(db.Model):
         video_unique_key,
         language,
         upload_index=True,
+        captions=None,
+        enforce_language=True,
+        enforce_caption_length=True,
     ):
+        """captions: client-extracted segments (browser extension / iOS WKWebView) used
+        instead of the server-side caption fetch. For user-shared videos, callers pass
+        enforce_language=False and enforce_caption_length=False (the user chose the
+        video, so we don't reject it on language detection or caption length)."""
         from zeeguu.core.elastic.indexing import index_video
 
         # Import here to avoid circular dependency:
@@ -111,7 +118,13 @@ class Video(db.Model):
             return video
 
         try:
-            video_info = fetch_video_info(video_unique_key, language)
+            video_info = fetch_video_info(
+                video_unique_key,
+                language,
+                provided_captions=captions,
+                enforce_language=enforce_language,
+                enforce_caption_length=enforce_caption_length,
+            )
         except ValueError as e:
             print(f"Error fetching video info for {video_unique_key}: {e}")
             return None
