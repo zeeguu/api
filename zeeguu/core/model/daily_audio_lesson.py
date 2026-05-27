@@ -164,6 +164,20 @@ class DailyAudioLesson(db.Model):
         completion, since a completed lesson can be replayed and paused."""
         return self.pause_position_seconds > 0
 
+    @property
+    def is_engaged(self):
+        """Did the learner get at least halfway through (or finish)?
+
+        Daily pre-generation pauses when the most recent lesson wasn't engaged
+        with, so unheard lessons don't pile up — see the daily cron and
+        get_todays_lesson_for_user.
+        """
+        if self.is_completed:
+            return True
+        if self.duration_seconds and self.pause_position_seconds:
+            return self.pause_position_seconds >= 0.5 * self.duration_seconds
+        return False
+
     def display_title(self):
         """
         Best-effort human-readable title for this lesson.
@@ -238,4 +252,13 @@ class DailyAudioLesson(db.Model):
         if not include_completed:
             query = query.filter(cls.last_completed_at.is_(None))
         return query.order_by(cls.recommended_at.desc()).first()
+
+    @classmethod
+    def latest_for_language(cls, user, language_id):
+        """Most recent lesson (any completion state) for this user + language."""
+        return (
+            cls.query.filter_by(user_id=user.id, language_id=language_id)
+            .order_by(cls.id.desc())
+            .first()
+        )
 

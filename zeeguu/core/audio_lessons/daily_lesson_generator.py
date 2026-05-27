@@ -673,7 +673,7 @@ class DailyLessonGenerator:
 
         return self._format_lesson_response(lesson)
 
-    def get_todays_lesson_for_user(self, user, timezone_offset=0):
+    def get_todays_lesson_for_user(self, user, timezone_offset=0, include_paused=False):
         """
         Get today's daily audio lesson for a user.
 
@@ -701,6 +701,21 @@ class DailyLessonGenerator:
         )
 
         if not lesson:
+            # No lesson today. For the app view (include_paused), if the most
+            # recent lesson wasn't engaged with (< halfway) generation is PAUSED
+            # — surface that waiting lesson flagged `paused` so the app shows it
+            # instead of making a new one. Generation callers pass the default
+            # (today-only) so a paused older lesson never blocks on-demand
+            # creation (e.g. change-topic / first day).
+            if include_paused:
+                latest = DailyAudioLesson.latest_for_language(
+                    user, user.learned_language.id
+                )
+                if latest and not latest.is_engaged:
+                    response = self._format_lesson_response(latest)
+                    if response.get("lesson_id"):
+                        response["paused"] = True
+                        return response
             return {"lesson": None, "message": "No lesson generated yet today"}
 
         return self._format_lesson_response(lesson)
