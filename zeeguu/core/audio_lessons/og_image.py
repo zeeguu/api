@@ -191,7 +191,11 @@ def ensure_cached_card(view, data_folder):
     return path
 
 
-# --- Article cards: the article's own photo, full-bleed, with a scrim ---------
+# --- Article cards: just the article's own photo, cover-cropped -------------
+# The headline / level / reading time / source — and "zeeguu.org" — all render
+# natively in the link's text block, at the reader's own font size. So nothing
+# is baked onto the image: device-text is always crisper at thumbnail size and
+# scales per-phone, where baked text can't. The image is purely the photo.
 
 def _cover(image, target_w, target_h):
     """Scale to fill (target_w, target_h) and centre-crop — never distorts."""
@@ -203,80 +207,25 @@ def _cover(image, target_w, target_h):
     return image.crop((left, top, left + target_w, top + target_h))
 
 
-def _chip(draw, x, y, text, font, *, fill, fg, pad=(20, 10)):
-    """Pill at (x, y); returns the x past its right edge."""
-    tw = draw.textlength(text, font=font)
-    asc, desc = font.getmetrics()
-    draw.rounded_rectangle((x, y, x + tw + 2 * pad[0], y + asc + desc + 2 * pad[1]),
-                           radius=44, fill=fill)
-    draw.text((x + pad[0], y + pad[1]), text, font=font, fill=fg)
-    return x + tw + 2 * pad[0]
-
-
-def _article_meta(view):
-    bits = []
-    if view.get("minutes"):
-        bits.append(f"{view['minutes']} min read")
-    if view.get("source"):
-        bits.append(view["source"])
-    return "   ·   ".join(bits)
-
-
 def render_article_card(view, photo=None):
-    """Render the OG card for an article. With a photo: the article's own image
-    full-bleed under a bottom scrim, white text. Without one (no/failed image):
-    the warm branded card so it never breaks."""
-    language = view.get("language_name")
-    label = f"{language} Article" if language else "Article"
-    cefr = view.get("cefr_level")
-    meta = _article_meta(view)
-    title = (view.get("title") or "Article").strip()
-
+    """The article's photo, cover-cropped to the OG ratio — purely visual.
+    Falls back to a plain Zeeguu brand card when there's no photo (rare); the
+    article's text lives in the link's og:title / og:description either way."""
     if photo is not None:
-        img = _cover(photo.convert("RGB"), WIDTH, HEIGHT)
-        scrim = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-        sdraw = ImageDraw.Draw(scrim)
-        for y in range(HEIGHT):  # transparent up top → dark over the lower band
-            a = int(245 * max(0.0, (y - HEIGHT * 0.30) / (HEIGHT * 0.70)) ** 1.25)
-            sdraw.rectangle((0, y, WIDTH, y + 1), fill=(20, 14, 6, a))
-        img = Image.alpha_composite(img.convert("RGBA"), scrim).convert("RGB")
-        title_fill, meta_fill, wordmark_fill = WHITE, (240, 230, 215), WHITE
-    else:
-        img = _gradient_bg()
-        ImageDraw.Draw(img).rectangle((0, 0, 12, HEIGHT), fill=ORANGE)
-        title_fill, meta_fill, wordmark_fill = INK, (140, 110, 60), ORANGE_DEEP
+        return _cover(photo.convert("RGB"), WIDTH, HEIGHT)
 
+    img = _gradient_bg()
     draw = ImageDraw.Draw(img)
-
-    # Header: logo + wordmark (left), "<Language> Article" pill (right)
-    logo_size = 58
+    draw.rectangle((0, 0, 12, HEIGHT), fill=ORANGE)
     try:
-        logo = Image.open(_LOGO_PATH).convert("RGBA").resize((logo_size, logo_size))
-        img.paste(logo, (MARGIN, MARGIN), logo)
+        size = 150
+        logo = Image.open(_LOGO_PATH).convert("RGBA").resize((size, size))
+        img.paste(logo, ((WIDTH - size) // 2, HEIGHT // 2 - size - 6), logo)
     except OSError:
         pass
-    wordmark = _font("ExtraBold", 30)
-    draw.text((MARGIN + logo_size + 16, MARGIN + (logo_size - sum(wordmark.getmetrics())) // 2),
-              "Zeeguu", font=wordmark, fill=wordmark_fill)
-    pill_font = _font("Bold", 30)
-    lw = draw.textlength(label, font=pill_font)
-    _chip(draw, WIDTH - MARGIN - lw - 44, MARGIN + 2, label, pill_font,
-          fill=ORANGE, fg=WHITE, pad=(22, 11))
-
-    # Bottom: CEFR chip + "<N> min read · <source>", with the title stacked above
-    by = HEIGHT - MARGIN - 44
-    meta_font = _font("Bold", 30)
-    cursor = MARGIN
-    if cefr:
-        cursor = _chip(draw, MARGIN, by, cefr, meta_font, fill=ORANGE, fg=WHITE) + 18
-    if meta:
-        draw.text((cursor, by + 10), meta, font=meta_font, fill=meta_fill)
-
-    title_font, lines, line_h = _fit_title(draw, title, WIDTH - 2 * MARGIN, 230, max_lines=2)
-    ty = by - 28 - len(lines) * line_h
-    for i, line in enumerate(lines):
-        draw.text((MARGIN, ty + i * line_h), line, font=title_font, fill=title_fill)
-
+    wordmark = _font("ExtraBold", 60)
+    tw = draw.textlength("Zeeguu", font=wordmark)
+    draw.text(((WIDTH - tw) // 2, HEIGHT // 2 + 24), "Zeeguu", font=wordmark, fill=ORANGE_DEEP)
     return img
 
 
