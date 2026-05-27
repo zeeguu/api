@@ -281,11 +281,13 @@ def render_article_card(view, photo=None):
 
 
 def cached_article_card_path(data_folder, article_id):
-    return os.path.join(data_folder, "og-images", "shared-articles", f"{article_id}.png")
+    # JPEG, not PNG: the card embeds a photo, so JPEG is ~5x smaller — crawlers
+    # fetch it faster and are far less likely to skip it on a cold first scrape.
+    return os.path.join(data_folder, "og-images", "shared-articles", f"{article_id}.jpg")
 
 
 def ensure_cached_article_card(view, data_folder, photo=None):
-    """Render (once) and cache the article card PNG; return its path, or None if
+    """Render (once) and cache the article card JPEG; return its path, or None if
     the view has no article_id."""
     article_id = view.get("article_id")
     if not article_id:
@@ -293,5 +295,5 @@ def ensure_cached_article_card(view, data_folder, photo=None):
     path = cached_article_card_path(data_folder, article_id)
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        render_article_card(view, photo).save(path, format="PNG")
+        render_article_card(view, photo).save(path, format="JPEG", quality=85, optimize=True)
     return path
