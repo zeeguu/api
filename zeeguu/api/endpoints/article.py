@@ -14,6 +14,143 @@ from langdetect import detect
 import json
 from zeeguu.logging import log
 
+import math
+import requests
+from io import BytesIO
+from markupsafe import escape
+from PIL import Image
+from zeeguu.config import ZEEGUU_DATA_FOLDER
+from zeeguu.core.audio_lessons import og_image
+
+# Production origins for shared-article link previews (mirrors audio lessons):
+# the share page lives on the web app; the card image is served by this API.
+SHARE_WEB_ORIGIN = "https://zeeguu.org"
+SHARE_API_ORIGIN = "https://api.zeeguu.org"
+
+
+def _article_card_view(article):
+    """The data the article OG card + text need, derived from article_info()."""
+    info = article.article_info()
+    metrics = info.get("metrics") or {}
+    word_count = metrics.get("word_count")
+    minutes = max(1, math.ceil(word_count / 200)) if word_count else None
+    lang_code = info.get("language")
+    language_name = (
+        Language.LANGUAGE_NAMES.get(lang_code, lang_code.upper()) if lang_code else None
+    )
+    source = article.feed.title if article.feed else (article.authors or None)
+    return {
+        "article_id": article.id,
+        "title": info.get("title"),
+        "language_name": language_name,
+        "cefr_level": metrics.get("cefr_level"),
+        "minutes": minutes,
+        "source": source,
+        "image_url": info.get("img_url"),
+    }
+
+
+def _article_preview_texts(view):
+    """(<title>, <description>) for the article's OG tags."""
+    title = (view.get("title") or "Article").strip()
+    parts = [p for p in [
+        f"{view['language_name']} article" if view.get("language_name") else "Article",
+        view.get("cefr_level"),
+        f"{view['minutes']} min read" if view.get("minutes") else None,
+        view.get("source"),
+    ] if p]
+    return title, " · ".join(parts) + ". Read on Zeeguu."
+
+
+def _fetch_preview_image(url):
+    """Download the article's hero image for compositing; None on any failure."""
+    if not url:
+        return None
+    try:
+        resp = requests.get(url, timeout=6, headers={"User-Agent": "ZeeguuLinkPreview/1.0"})
+        resp.raise_for_status()
+        return Image.open(BytesIO(resp.content))
+    except Exception:
+        return None
+
+
+def _og_preview_html(og_title, description, page_url, image_url):
+    title = escape(og_title)
+    desc = escape(description)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{desc}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Zeeguu">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{desc}">
+<meta property="og:url" content="{page_url}">
+<meta property="og:image" content="{image_url}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{title}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{image_url}">
+<link rel="canonical" href="{page_url}">
+<meta http-equiv="refresh" content="0; url={page_url}">
+</head>
+<body>
+<p>Opening this article on Zeeguu… <a href="{page_url}">Continue</a>.</p>
+</body>
+</html>
+"""
+
+
+@api.route("/shared_article_preview/<int:article_id>", methods=["GET"])
+@cross_domain
+def shared_article_preview(article_id):
+    """Crawler-facing HTML with Open Graph tags for a shared article link. nginx
+    routes social-scraper user-agents on zeeguu.org/read/article?id=<id> here;
+    real users get the SPA. Public — article content is already public."""
+    article = Article.find_by_id(article_id)
+    page_url = f"{SHARE_WEB_ORIGIN}/read/article?id={article_id}"
+    if not article:
+        return flask.redirect(page_url, code=302)
+    og_title, description = _article_preview_texts(_article_card_view(article))
+    image_url = f"{SHARE_API_ORIGIN}/shared_article_image/{article_id}.png"
+    response = flask.Response(
+        _og_preview_html(og_title, description, page_url, image_url), mimetype="text/html")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@api.route("/shared_article_image/<int:article_id>.png", methods=["GET"])
+@cross_domain
+def shared_article_image(article_id):
+    """1200x630 OG card for a shared article — its own photo under a scrim, or
+    the branded fallback. Rendered once and cached on disk."""
+    article = Article.find_by_id(article_id)
+    if not article:
+        return flask.Response("Not found", status=404)
+    view = _article_card_view(article)
+    url = view.get("image_url")
+    photo = _fetch_preview_image(url)
+    if url and photo is None:
+        # Transient image-fetch failure: serve the fallback now but DON'T cache it,
+        # so the photo card appears once the fetch later succeeds. Short TTL.
+        buffer = BytesIO()
+        og_image.render_article_card(view, None).save(buffer, format="PNG")
+        buffer.seek(0)
+        response = flask.send_file(buffer, mimetype="image/png")
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+    path = og_image.ensure_cached_article_card(view, ZEEGUU_DATA_FOLDER, photo)
+    response = flask.send_file(path, mimetype="image/png")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
 
 # ---------------------------------------------------------------------------
 @api.route("/find_or_create_article", methods=("POST",))
