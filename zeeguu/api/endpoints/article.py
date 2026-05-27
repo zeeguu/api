@@ -14,6 +14,7 @@ from langdetect import detect
 import json
 from zeeguu.logging import log
 
+import os
 import math
 import requests
 from io import BytesIO
@@ -90,7 +91,7 @@ def _og_preview_html(og_title, description, page_url, image_url):
 <meta property="og:description" content="{desc}">
 <meta property="og:url" content="{page_url}">
 <meta property="og:image" content="{image_url}">
-<meta property="og:image:type" content="image/png">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="{title}">
@@ -108,46 +109,70 @@ def _og_preview_html(og_title, description, page_url, image_url):
 """
 
 
+def _ensure_article_card(view):
+    """Render + cache the article card if it's not already on disk; return its
+    path, or None on a transient image-fetch failure (caller serves an uncached
+    fallback). The remote photo is downloaded only on a cache miss."""
+    article_id = view.get("article_id")
+    if not article_id:
+        return None
+    path = og_image.cached_article_card_path(ZEEGUU_DATA_FOLDER, article_id)
+    if os.path.exists(path):
+        return path
+    url = view.get("image_url")
+    photo = _fetch_preview_image(url)
+    if url and photo is None:
+        return None  # transient fetch failure — don't poison the cache
+    return og_image.ensure_cached_article_card(view, ZEEGUU_DATA_FOLDER, photo)
+
+
 @api.route("/shared_article_preview/<int:article_id>", methods=["GET"])
 @cross_domain
 def shared_article_preview(article_id):
     """Crawler-facing HTML with Open Graph tags for a shared article link. nginx
     routes social-scraper user-agents on zeeguu.org/read/article?id=<id> here;
-    real users get the SPA. Public — article content is already public."""
+    real users get the SPA. Public — article content is already public.
+
+    We warm the card image here so that when the crawler fetches og:image moments
+    later it's a fast cache hit — otherwise the cold render (which downloads the
+    article's photo) can race the crawler's image-fetch timeout."""
     article = Article.find_by_id(article_id)
     page_url = f"{SHARE_WEB_ORIGIN}/read/article?id={article_id}"
     if not article:
         return flask.redirect(page_url, code=302)
-    og_title, description = _article_preview_texts(_article_card_view(article))
-    image_url = f"{SHARE_API_ORIGIN}/shared_article_image/{article_id}.png"
+    view = _article_card_view(article)
+    og_title, description = _article_preview_texts(view)
+    image_url = f"{SHARE_API_ORIGIN}/shared_article_image/{article_id}.jpg"
+    try:
+        _ensure_article_card(view)  # best-effort cache warm
+    except Exception as e:
+        log(f"[shared_article_preview] card warm failed for {article_id}: {e}")
     response = flask.Response(
         _og_preview_html(og_title, description, page_url, image_url), mimetype="text/html")
     response.headers["Cache-Control"] = "public, max-age=3600"
     return response
 
 
-@api.route("/shared_article_image/<int:article_id>.png", methods=["GET"])
+@api.route("/shared_article_image/<int:article_id>.jpg", methods=["GET"])
 @cross_domain
 def shared_article_image(article_id):
-    """1200x630 OG card for a shared article — its own photo under a scrim, or
-    the branded fallback. Rendered once and cached on disk."""
+    """1200x630 OG card (JPEG) for a shared article — its own photo under a
+    scrim, or the branded fallback. Rendered once and cached on disk."""
     article = Article.find_by_id(article_id)
     if not article:
         return flask.Response("Not found", status=404)
     view = _article_card_view(article)
-    url = view.get("image_url")
-    photo = _fetch_preview_image(url)
-    if url and photo is None:
-        # Transient image-fetch failure: serve the fallback now but DON'T cache it,
-        # so the photo card appears once the fetch later succeeds. Short TTL.
+    path = _ensure_article_card(view)
+    if path is None:
+        # Transient image-fetch failure: serve the fallback now but DON'T cache
+        # it, so the photo card appears once the fetch later succeeds. Short TTL.
         buffer = BytesIO()
-        og_image.render_article_card(view, None).save(buffer, format="PNG")
+        og_image.render_article_card(view, None).save(buffer, format="JPEG", quality=85)
         buffer.seek(0)
-        response = flask.send_file(buffer, mimetype="image/png")
+        response = flask.send_file(buffer, mimetype="image/jpeg")
         response.headers["Cache-Control"] = "public, max-age=300"
         return response
-    path = og_image.ensure_cached_article_card(view, ZEEGUU_DATA_FOLDER, photo)
-    response = flask.send_file(path, mimetype="image/png")
+    response = flask.send_file(path, mimetype="image/jpeg")
     response.headers["Cache-Control"] = "public, max-age=86400"
     return response
 
