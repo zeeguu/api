@@ -19,8 +19,49 @@ Design (see also migration 26-05-26--restrict-article-fk-for-prune-protection):
     caption are kept.
 """
 
-from sqlalchemy import text
+from sqlalchemy import text, event
 from sqlalchemy.exc import IntegrityError
+
+
+def _disable_binlog_on_connect(db_session):
+    """Make this session's engine run `SET sql_log_bin=0` on every NEW connection,
+    at connect time.
+
+    MySQL only allows changing sql_log_bin OUTSIDE a transaction, so a plain
+    execute() fails once the session has started one (error 1694). A `connect`
+    event hook runs on the raw DBAPI connection before any transaction begins,
+    which is the one moment it's allowed. We then close the current connection
+    and dispose the pool so subsequent work checks out fresh, hooked connections.
+
+    Best-effort: setting sql_log_bin needs SUPER / SESSION_VARIABLES_ADMIN; if it
+    fails we log and continue with binlog ON. Use only where there is NO replica.
+    """
+    try:
+        engine = db_session.get_bind()
+    except Exception as e:
+        print(f"  WARNING: could not resolve engine to disable binlog ({e}); binlog stays ON")
+        return
+
+    @event.listens_for(engine, "connect")
+    def _set_no_binlog(dbapi_conn, _record):
+        try:
+            cur = dbapi_conn.cursor()
+            cur.execute("SET sql_log_bin = 0")
+            cur.close()
+        except Exception as e:
+            print(f"  WARNING: SET sql_log_bin=0 failed on connect (need SUPER?): {e}")
+
+    # Drop the current (already mid-transaction) connection and the pool so the
+    # next checkout is a fresh connection that runs the hook above.
+    db_session.close()
+    engine.dispose()
+
+    val = db_session.execute(text("SELECT @@session.sql_log_bin")).scalar()
+    db_session.commit()
+    if val == 0:
+        print("  binlog disabled for delete connections (sql_log_bin=0)")
+    else:
+        print(f"  WARNING: binlog still ON (sql_log_bin={val}); continuing with it ON")
 
 # Every table with a RESTRICT / NO ACTION foreign key on article.article_id:
 # an article referenced by any of these must NOT be deleted. Keep in sync with
@@ -143,13 +184,7 @@ def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binl
     import time
 
     if skip_binlog:
-        try:
-            db_session.execute(text("SET sql_log_bin = 0"))
-            db_session.commit()
-            print("  binlog disabled for this session (skip_binlog=True)")
-        except Exception as e:
-            db_session.rollback()
-            print(f"  WARNING: could not disable binlog (need SUPER) — continuing with it ON: {e}")
+        _disable_binlog_on_connect(db_session)
 
     total = len(ids)
     deleted = 0
