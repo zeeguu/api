@@ -157,9 +157,14 @@ class Phrase(db.Model):
         # The DB does a case insensitive search so it will return both Pee and pee
         # Here we get all the results from the DB, and we do the equality test here in python
         # This has the downside that it will represent the same word twice :( Piss and piss.
-        # Equally, if case insensitive would find it, now we ensure that
+        # Equally, if case insensitive would find it, now we ensure that.
+        # Filter on the indexed content_lower column (idx_phrase_lang_content_lower)
+        # — filtering on `content` ignores the index and scans every phrase in the
+        # language (~98K rows for English, ~15s cold), which is the dominant cost of
+        # bookmark/translation creation. The exact-case re-filter below is unchanged,
+        # so behaviour is identical.
         ci_matches = (
-            cls.query.filter(cls.content == _content)
+            cls.query.filter(cls.content_lower == _content.lower())
             .filter(cls.language == language)
             .all()
         )
