@@ -1310,11 +1310,10 @@ class User(db.Model):
         )
 
         if not lesson:
-            # No lesson today — but if the most recent one wasn't engaged with,
-            # generation is paused and that lesson is still waiting to be played,
-            # so surface it as "ready" (the nav dot nudges the learner back).
-            latest = DailyAudioLesson.latest_for_language(self, self.learned_language_id)
-            if latest and not latest.is_engaged:
+            # No lesson today — but if generation is paused (latest lesson not
+            # engaged with), it's still waiting to be played, so surface it as
+            # "ready" (the nav dot nudges the learner back).
+            if DailyAudioLesson.waiting_paused_for(self, self.learned_language_id):
                 return "ready"
             # Check if generation is feasible before showing "available"
             if not self._is_audio_lesson_feasible():

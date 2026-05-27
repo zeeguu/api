@@ -164,19 +164,25 @@ class DailyAudioLesson(db.Model):
         completion, since a completed lesson can be replayed and paused."""
         return self.pause_position_seconds > 0
 
+    # Fraction of a lesson the learner must reach for it to count as "engaged".
+    # Below this, daily generation pauses so unheard lessons don't pile up.
+    ENGAGEMENT_THRESHOLD = 0.5
+
     @property
     def is_engaged(self):
         """Did the learner get at least halfway through (or finish)?
 
         Daily pre-generation pauses when the most recent lesson wasn't engaged
-        with, so unheard lessons don't pile up — see the daily cron and
+        with — see waiting_paused_for, the daily cron, and
         get_todays_lesson_for_user.
         """
         if self.is_completed:
             return True
-        if self.duration_seconds and self.pause_position_seconds:
-            return self.pause_position_seconds >= 0.5 * self.duration_seconds
-        return False
+        if not self.duration_seconds:
+            # No duration to measure against (data anomaly) — fall back to "did
+            # they start it" rather than pausing the user forever.
+            return bool(self.pause_position_seconds) or bool(self.listened_count)
+        return (self.pause_position_seconds or 0) >= self.ENGAGEMENT_THRESHOLD * self.duration_seconds
 
     def display_title(self):
         """
@@ -246,14 +252,6 @@ class DailyAudioLesson(db.Model):
         return result.canonical_suggestion if result else None
 
     @classmethod
-    def find_latest_for_user(cls, user, include_completed=False):
-        """Find the most recent audio lesson for a user"""
-        query = cls.query.filter_by(user=user)
-        if not include_completed:
-            query = query.filter(cls.last_completed_at.is_(None))
-        return query.order_by(cls.recommended_at.desc()).first()
-
-    @classmethod
     def latest_for_language(cls, user, language_id):
         """Most recent lesson (any completion state) for this user + language."""
         return (
@@ -261,4 +259,16 @@ class DailyAudioLesson(db.Model):
             .order_by(cls.id.desc())
             .first()
         )
+
+    @classmethod
+    def waiting_paused_for(cls, user, language_id):
+        """The most recent lesson when daily generation is PAUSED on it — it
+        exists but wasn't engaged with (< halfway). None when the latest was
+        engaged (or there is none), meaning generation should proceed.
+
+        Single source of truth for "is this user paused", shared by the
+        today's-lesson endpoint, the nav-dot status, and the nightly cron.
+        """
+        latest = cls.latest_for_language(user, language_id)
+        return latest if (latest and not latest.is_engaged) else None
 
