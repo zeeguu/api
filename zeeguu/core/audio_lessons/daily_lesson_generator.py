@@ -673,7 +673,23 @@ class DailyLessonGenerator:
 
         return self._format_lesson_response(lesson)
 
-    def get_todays_lesson_for_user(self, user, timezone_offset=0):
+    def today_lesson_exists(self, user, timezone_offset=0):
+        """Cheap existence check for today's lesson — no response formatting,
+        word extraction, or filesystem stat. Used by the cron so it can skip a
+        user without building (and discarding) a full lesson response."""
+        start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
+            timezone_offset
+        )
+        return (
+            DailyAudioLesson.query.with_entities(DailyAudioLesson.id)
+            .filter_by(user_id=user.id, language_id=user.learned_language.id)
+            .filter(DailyAudioLesson.created_at >= start_of_today_utc)
+            .filter(DailyAudioLesson.created_at <= end_of_today_utc)
+            .first()
+            is not None
+        )
+
+    def get_todays_lesson_for_user(self, user, timezone_offset=0, include_paused=False):
         """
         Get today's daily audio lesson for a user.
 
@@ -701,6 +717,21 @@ class DailyLessonGenerator:
         )
 
         if not lesson:
+            # No lesson today. For the app view (include_paused), if the most
+            # recent lesson wasn't engaged with (< halfway) generation is PAUSED
+            # — surface that waiting lesson flagged `paused` so the app shows it
+            # instead of making a new one. Generation callers pass the default
+            # (today-only) so a paused older lesson never blocks on-demand
+            # creation (e.g. change-topic / first day).
+            if include_paused:
+                paused = DailyAudioLesson.waiting_paused_for(
+                    user, user.learned_language.id
+                )
+                if paused:
+                    response = self._format_lesson_response(paused)
+                    if response.get("lesson_id"):
+                        response["paused"] = True
+                        return response
             return {"lesson": None, "message": "No lesson generated yet today"}
 
         return self._format_lesson_response(lesson)

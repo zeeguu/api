@@ -307,7 +307,10 @@ def get_todays_lesson():
     # Get timezone offset from query parameter (default to 0 for UTC)
     timezone_offset = flask.request.args.get("timezone_offset", 0, type=int)
 
-    result = generator.get_todays_lesson_for_user(user, timezone_offset)
+    # include_paused: when there's no lesson today but the last one wasn't
+    # engaged with (< halfway), surface it flagged `paused` so the app shows the
+    # waiting lesson rather than triggering a new generation.
+    result = generator.get_todays_lesson_for_user(user, timezone_offset, include_paused=True)
 
     # Check if there's a specific status code to return
     status_code = result.pop("status_code", 200)

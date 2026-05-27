@@ -130,6 +130,14 @@ def resolve_suggestion(user, lesson_type, raw_suggestion):
 def generate_for_user(user, lesson_type, raw_suggestion, timezone_offset):
     """Run the full prepare+generate pipeline synchronously for one user.
     Returns one of: "generated", "exists", "skipped:<reason>", "failed:<reason>"."""
+    # Pause gate (before any LLM work): skip if today's lesson already exists,
+    # or if generation is paused (most recent lesson not engaged with) — so
+    # unheard lessons don't pile up until the learner returns.
+    if generator.today_lesson_exists(user, timezone_offset):
+        return "exists"
+    if DailyAudioLesson.waiting_paused_for(user, user.learned_language.id):
+        return "skipped:paused"
+
     try:
         canonical, is_general = resolve_suggestion(user, lesson_type, raw_suggestion)
     except ValueError as e:
@@ -217,14 +225,17 @@ for index, user_id in enumerate(user_ids, start=1):
 
         if DRY_RUN:
             # Read-only: don't create a progress record or generate.
-            existing = generator.get_todays_lesson_for_user(user, timezone_offset)
-            if existing.get("lesson_id"):
+            if generator.today_lesson_exists(user, timezone_offset):
                 output(f"{index}. {user.name} [{user.learned_language.name}] — already has today's lesson")
                 counts["exists"] += 1
-            else:
-                output(f"{index}. {user.name} [{user.learned_language.name}] — WOULD generate {lesson_type}: {subject}")
-                counts["would-generate"] += 1
-                language_breakdown[user.learned_language.name] += 1
+                continue
+            if DailyAudioLesson.waiting_paused_for(user, user.learned_language.id):
+                output(f"{index}. {user.name} [{user.learned_language.name}] — paused (last lesson < 50% listened)")
+                counts["paused"] += 1
+                continue
+            output(f"{index}. {user.name} [{user.learned_language.name}] — WOULD generate {lesson_type}: {subject}")
+            counts["would-generate"] += 1
+            language_breakdown[user.learned_language.name] += 1
             continue
 
         outcome = generate_for_user(user, lesson_type, raw_suggestion, timezone_offset)
