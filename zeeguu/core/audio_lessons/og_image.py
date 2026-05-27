@@ -145,14 +145,14 @@ def render_card(view):
 
     language = view.get("language_name")
     label = f"{language} Audio Lesson" if language else "Audio Lesson"
-    pill_font = _font("Bold", 34)
+    pill_font = _font("Bold", 42)
     lw = draw.textlength(label, font=pill_font)
     asc, desc = pill_font.getmetrics()
-    pill_top = MARGIN + 10
+    pill_top = MARGIN + 4
     draw.rounded_rectangle(
-        (WIDTH - MARGIN - lw - 52, pill_top, WIDTH - MARGIN, pill_top + asc + desc + 26),
-        radius=46, fill=ORANGE)
-    draw.text((WIDTH - MARGIN - lw - 26, pill_top + 13), label, font=pill_font, fill=WHITE)
+        (WIDTH - MARGIN - lw - 60, pill_top, WIDTH - MARGIN, pill_top + asc + desc + 30),
+        radius=52, fill=ORANGE)
+    draw.text((WIDTH - MARGIN - lw - 30, pill_top + 15), label, font=pill_font, fill=WHITE)
 
     # --- Title (hero): auto-fit, vertically centred between header and audio band ---
     title = clean_lesson_title((view.get("title") or "Audio lesson").strip())
