@@ -129,11 +129,27 @@ def reclaim_shared_content(db_session, text_ids, source_ids, source_text_ids):
     return n_text, n_src, n_stext
 
 
-def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE):
+def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binlog=False):
     """Delete the given article ids with FK checks ON, reclaiming their shared
     content inline. Aborts loudly (re-raising, naming the FK) if any delete is
-    blocked — meaning referenced_article_ids() missed a protecting table."""
+    blocked — meaning referenced_article_ids() missed a protecting table.
+
+    skip_binlog: for a big one-off purge on a server with NO replica, set this to
+    skip writing the (huge) delete stream to the binary log — a large I/O win on
+    a disk-bound box. Best-effort: needs SUPER / SESSION_VARIABLES_ADMIN on the
+    connection's user; if the SET is denied we log it and continue with binlog ON
+    rather than fail. Never use it where a replica reads this binlog.
+    """
     import time
+
+    if skip_binlog:
+        try:
+            db_session.execute(text("SET sql_log_bin = 0"))
+            db_session.commit()
+            print("  binlog disabled for this session (skip_binlog=True)")
+        except Exception as e:
+            db_session.rollback()
+            print(f"  WARNING: could not disable binlog (need SUPER) — continuing with it ON: {e}")
 
     total = len(ids)
     deleted = 0

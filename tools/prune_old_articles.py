@@ -21,8 +21,11 @@ the shared content (new_text/source/source_text) is reclaimed inline. Requires
 migration 26-05-26--restrict-article-fk-for-prune-protection.sql.
 
 Usage:
-  python prune_old_articles.py             # dry-run (default)
-  python prune_old_articles.py --apply     # actually delete
+  python prune_old_articles.py                       # dry-run (default)
+  python prune_old_articles.py --apply               # actually delete
+  python prune_old_articles.py --apply --skip-binlog # big one-off purge, no-replica box:
+                                                     # skip binlog writes (big I/O win;
+                                                     # needs SUPER on the DB user)
 
 Run nightly via cron once the dry-run output looks right.
 """
@@ -48,6 +51,7 @@ RETENTION_DAYS = {
 }
 
 apply_mode = "--apply" in sys.argv
+skip_binlog = "--skip-binlog" in sys.argv  # big one-off purge on a no-replica box only
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -124,8 +128,8 @@ def main():
     if not to_delete_all:
         return
 
-    print(f"\nDeleting {len(to_delete_all)} articles...")
-    delete_articles_in_batches(db_session, to_delete_all)
+    print(f"\nDeleting {len(to_delete_all)} articles{' (binlog off)' if skip_binlog else ''}...")
+    delete_articles_in_batches(db_session, to_delete_all, skip_binlog=skip_binlog)
     print("Done.")
 
 
