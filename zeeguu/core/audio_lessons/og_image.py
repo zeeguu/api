@@ -144,7 +144,8 @@ def render_card(view):
         "Zeeguu", font=wordmark, fill=ORANGE_DEEP)
 
     language = view.get("language_name")
-    label = f"{language} Audio Lesson" if language else "Audio Lesson"
+    # The play button + soundform already say "audio", so the pill needn't repeat it.
+    label = f"{language} Lesson" if language else "Lesson"
     pill_font = _font("Bold", 42)
     lw = draw.textlength(label, font=pill_font)
     asc, desc = pill_font.getmetrics()
