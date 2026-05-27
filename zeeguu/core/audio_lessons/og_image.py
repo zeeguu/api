@@ -15,15 +15,16 @@ cache the PNG on disk (see ensure_cached_card).
 import os
 from functools import lru_cache
 
+import zeeguu
 from PIL import Image, ImageDraw, ImageFont
 
 # 1.91:1 — the ratio every major scraper crops to.
 WIDTH, HEIGHT = 1200, 630
 MARGIN = 70
 
-_ASSETS = os.path.join(os.path.dirname(__file__), "assets")
+_ASSETS = os.path.join(os.path.dirname(zeeguu.__file__), "assets")
 _FONTS = os.path.join(_ASSETS, "fonts")
-_LOGO_PATH = os.path.join(_ASSETS, "zeeguu-logo.png")
+_LOGO_PATH = os.path.join(_ASSETS, "images", "zeeguu-logo.png")
 
 # Warm Zeeguu palette (mirrors web/src/components/colors.js).
 BG_TOP = (255, 248, 230)      # cream
@@ -34,19 +35,6 @@ ORANGE = (255, 168, 40)       # zeeguuOrange-ish, brand accent
 ORANGE_DEEP = (196, 120, 24)  # darker orange for the wordmark
 CHIP_BORDER = (224, 190, 130)
 WHITE = (255, 255, 255)
-
-_LANGUAGE_NAMES = {
-    "da": "Danish", "de": "German", "es": "Spanish", "fr": "French",
-    "nl": "Dutch", "en": "English", "it": "Italian", "pt": "Portuguese",
-    "ro": "Romanian", "sv": "Swedish", "no": "Norwegian", "pl": "Polish",
-    "ru": "Russian", "hu": "Hungarian",
-}
-
-
-def language_name(code):
-    if not code:
-        return None
-    return _LANGUAGE_NAMES.get(code.lower(), code.upper())
 
 
 @lru_cache(maxsize=None)
@@ -169,7 +157,7 @@ def render_card(view):
     wm_y = MARGIN + (logo_size - sum(wordmark_font.getmetrics())) // 2
     draw.text((wm_x, wm_y), "Zeeguu", font=wordmark_font, fill=ORANGE_DEEP)
 
-    language = language_name(view.get("language_code"))
+    language = view.get("language_name")
     if language:
         lang_font = _font("Bold", 32)
         lw = _text_w(draw, language, lang_font)

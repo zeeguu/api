@@ -633,6 +633,7 @@ class DailyLessonGenerator:
             "canonical_suggestion": lesson.canonical_suggestion,
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
+            "language_name": lesson.language.name if lesson.language else None,
             "title": lesson.display_title(),
             "cefr_level": lesson.cefr_level(),
         }

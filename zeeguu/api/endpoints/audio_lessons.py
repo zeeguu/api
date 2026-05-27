@@ -195,7 +195,7 @@ def create_lesson_share_link(lesson_id):
 def _preview_texts(view):
     """Build the (page/OG title, description) for a shared lesson's link preview."""
     title = (view.get("title") or "Audio lesson").strip()
-    language = og_image.language_name(view.get("language_code"))
+    language = view.get("language_name")
     cefr = view.get("cefr_level")
     lesson_type = view.get("lesson_type")
     words = [w.get("origin") for w in (view.get("words") or []) if w.get("origin")]
