@@ -104,6 +104,17 @@ def save_user_preferences():
         show_reading_timer.value = show_reading_timer_value
         db_session.add(show_reading_timer)
 
+    # Daily audio lesson preferences are keyed per language (e.g. daily_audio_lesson_type_da,
+    # daily_audio_lesson_suggestion_da). The suggestion is stored EXACTLY as the user typed it —
+    # no canonicalization/normalization here; that happens later, at generation time.
+    for key in data.keys():
+        if key.startswith(
+            UserPreference.DAILY_AUDIO_LESSON_TYPE_PREFIX
+        ) or key.startswith(UserPreference.DAILY_AUDIO_LESSON_SUGGESTION_PREFIX):
+            pref = UserPreference.find_or_create(db_session, user, key)
+            pref.value = (data.get(key) or "")[:255]
+            db_session.add(pref)
+
     db_session.add(user)
     db_session.commit()
     return "OK"

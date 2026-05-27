@@ -44,6 +44,13 @@ class UserPreference(db.Model):
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
 
+    # Daily audio lesson preferences. Keyed PER learned-language because the daily
+    # lesson is stored/queried per user.learned_language; the language code is
+    # appended to the prefix (e.g. "daily_audio_lesson_type_da"). A user can keep a
+    # different daily topic for each language they learn.
+    DAILY_AUDIO_LESSON_TYPE_PREFIX = "daily_audio_lesson_type_"  # value: three_words_lesson | topic | situation
+    DAILY_AUDIO_LESSON_SUGGESTION_PREFIX = "daily_audio_lesson_suggestion_"  # value: the verbatim subject the user typed
+
     def __init__(self, user: User, key=None, value=None):
         self.user = user
         self.key = key
@@ -125,6 +132,27 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
         ).first()
         return filter_setting and filter_setting.value == "true"
+
+    @classmethod
+    def daily_audio_lesson_type_key(cls, language_code: str):
+        return f"{cls.DAILY_AUDIO_LESSON_TYPE_PREFIX}{language_code}"
+
+    @classmethod
+    def daily_audio_lesson_suggestion_key(cls, language_code: str):
+        return f"{cls.DAILY_AUDIO_LESSON_SUGGESTION_PREFIX}{language_code}"
+
+    @classmethod
+    def get_daily_audio_lesson_config(cls, user: User, language_code: str):
+        """The user's configured daily audio lesson for a given language.
+
+        :return: (lesson_type, raw_suggestion). lesson_type is None when the user
+                 has not set up a daily lesson for this language (daily lesson off).
+                 raw_suggestion is the verbatim subject the user typed (None for the
+                 three_words_lesson type, which needs no subject).
+        """
+        lesson_type = cls.get(user, cls.daily_audio_lesson_type_key(language_code))
+        suggestion = cls.get(user, cls.daily_audio_lesson_suggestion_key(language_code))
+        return lesson_type, suggestion
 
     # Generic preference handling
     # ---------------------------
