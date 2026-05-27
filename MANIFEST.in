@@ -1,1 +1,2 @@
 recursive-include ./zeeguu/core/sql/queries/ *.sql
+recursive-include zeeguu/assets *.ttf *.png

@@ -187,6 +187,34 @@ class DailyAudioLesson(db.Model):
         ]
         return ", ".join(origins) if origins else None
 
+    def cefr_level(self):
+        """
+        CEFR level this lesson was generated for (e.g. "A1", "B2"), or None.
+
+        Like display_title(), this is the single source of truth used by every
+        lesson response. The level isn't stored on the lesson itself; it lives
+        on each segment's content (AudioLessonDialogue / AudioLessonMeaning,
+        column difficulty_level). Dialogue lessons (topic/situation) have a
+        single segment, so it's unambiguous. Word lessons have one segment per
+        word, and those can disagree: a meaning's audio row is cached and reused
+        across users, so a word may carry the level it was first generated at
+        rather than this user's level. We therefore return the most common level
+        across segments, which tracks the user's generation level (ties resolve
+        to the first segment encountered).
+        """
+        from collections import Counter
+
+        levels = []
+        for segment in self.segments:
+            if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:
+                levels.append(segment.audio_lesson_dialogue.difficulty_level)
+            elif segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+                levels.append(segment.audio_lesson_meaning.difficulty_level)
+        levels = [level for level in levels if level]
+        if not levels:
+            return None
+        return Counter(levels).most_common(1)[0][0]
+
     def ensure_share_uuid(self):
         if not self.share_uuid:
             self.share_uuid = str(uuid.uuid4())
