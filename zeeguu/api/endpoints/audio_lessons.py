@@ -1,14 +1,23 @@
 import flask
+from markupsafe import escape
 
 from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.config import ZEEGUU_DATA_FOLDER
+from zeeguu.core.audio_lessons import og_image
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES, THREE_WORDS_LESSON
 from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress, DailyAudioLesson
 from zeeguu.logging import log
 from . import api
+
+# Production origins for shared-lesson link previews. The share page lives on
+# the web app; the OG card image is served by this API. (The frontend likewise
+# hardcodes zeeguu.org.)
+SHARE_WEB_ORIGIN = "https://zeeguu.org"
+SHARE_API_ORIGIN = "https://api.zeeguu.org"
 
 
 def _generate_lesson_in_background(user_id, preparation):
@@ -181,6 +190,104 @@ def create_lesson_share_link(lesson_id):
     lesson.ensure_share_uuid()
     db.session.commit()
     return json_result({"share_uuid": lesson.share_uuid})
+
+
+def _preview_texts(view):
+    """Build the (page/OG title, description) for a shared lesson's link preview."""
+    title = (view.get("title") or "Audio lesson").strip()
+    language = og_image.language_name(view.get("language_code"))
+    cefr = view.get("cefr_level")
+    lesson_type = view.get("lesson_type")
+    words = [w.get("origin") for w in (view.get("words") or []) if w.get("origin")]
+
+    seconds = view.get("duration_seconds")
+    minutes = f"{max(1, round(seconds / 60))}-min" if seconds else None
+
+    # OG title: the lesson name, with light context appended.
+    context = f"{language} audio lesson" if language else "audio lesson"
+    og_title = f"{title} — {context}"
+
+    # Description.
+    lead = " ".join(p for p in [minutes, language] if p)  # e.g. "4-min German"
+    opening = f"A {lead} audio lesson" if lead else "An audio lesson"
+    if cefr:
+        opening += f" at level {cefr}"
+    if lesson_type in ("topic", "situation"):
+        body = "Listen to a real conversation and pick up the words."
+    elif words:
+        body = f"Learn {len(words)} new words by listening."
+    else:
+        body = "Learn by listening."
+    description = f"{opening}. {body} With Zeeguu."
+    return og_title, description
+
+
+def _preview_html(view, share_uuid):
+    og_title, description = _preview_texts(view)
+    page_url = f"{SHARE_WEB_ORIGIN}/shared-lesson/{share_uuid}"
+    image_url = f"{SHARE_API_ORIGIN}/shared_lesson_image/{share_uuid}.png"
+    title = escape(og_title)
+    desc = escape(description)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{desc}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Zeeguu">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{desc}">
+<meta property="og:url" content="{page_url}">
+<meta property="og:image" content="{image_url}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{title}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{image_url}">
+<link rel="canonical" href="{page_url}">
+<meta http-equiv="refresh" content="0; url={page_url}">
+</head>
+<body>
+<p>Opening this audio lesson on Zeeguu… <a href="{page_url}">Continue</a>.</p>
+</body>
+</html>
+"""
+
+
+@api.route("/shared_lesson_preview/<string:share_uuid>", methods=["GET"])
+@cross_domain
+def shared_lesson_preview(share_uuid):
+    """Crawler-facing HTML with Open Graph tags for a shared lesson link.
+
+    nginx routes social-scraper user-agents hitting zeeguu.org/shared-lesson/<uuid>
+    here; real users get the SPA. A missing lesson (or a human who lands here) is
+    redirected to the app."""
+    view = DailyLessonGenerator().get_shared_lesson_view(share_uuid)
+    if view.get("error"):
+        return flask.redirect(f"{SHARE_WEB_ORIGIN}/shared-lesson/{share_uuid}", code=302)
+    response = flask.Response(_preview_html(view, share_uuid), mimetype="text/html")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@api.route("/shared_lesson_image/<string:share_uuid>.png", methods=["GET"])
+@cross_domain
+def shared_lesson_image(share_uuid):
+    """1200x630 Open Graph card for a shared lesson, rendered once and cached."""
+    view = DailyLessonGenerator().get_shared_lesson_view(share_uuid)
+    if view.get("error"):
+        return flask.Response("Not found", status=404)
+    path = og_image.ensure_cached_card(view, ZEEGUU_DATA_FOLDER)
+    if not path:
+        return flask.Response("Not found", status=404)
+    response = flask.send_file(path, mimetype="image/png")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @api.route("/get_todays_lesson", methods=["GET"])

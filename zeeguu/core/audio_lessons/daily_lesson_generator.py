@@ -612,6 +612,7 @@ class DailyLessonGenerator:
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
             "title": lesson.display_title(),
+            "cefr_level": lesson.cefr_level(),
         }
 
     def get_shared_lesson_view(self, share_uuid):
@@ -633,6 +634,7 @@ class DailyLessonGenerator:
             "lesson_type": lesson.lesson_type,
             "language_code": lesson.language.code if lesson.language else None,
             "title": lesson.display_title(),
+            "cefr_level": lesson.cefr_level(),
         }
 
     def get_daily_lesson_for_user(self, user, lesson_id=None):
@@ -832,6 +834,7 @@ class DailyLessonGenerator:
                 lesson_data = {
                         "lesson_id": lesson.id,
                         "title": lesson.display_title(),
+                        "cefr_level": lesson.cefr_level(),
                         "audio_url": (
                             f"/audio/daily_lessons/{lesson.id}.mp3"
                             if audio_exists
