@@ -12,6 +12,8 @@ from zeeguu.core.model import (
     PersonalCopy,
     User,
     UserArticleBrokenReport,
+    Language,
+    UserLanguage,
 )
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -49,6 +51,25 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     """
 
     user = User.find_by_id(flask.g.user_id)
+
+    # Recommend for the language the client asks for, falling back to the
+    # user's persisted learned language. On a language switch the client sends
+    # the new language here so the feed is correct immediately, without waiting
+    # for (or racing) the separate user_settings save that persists it.
+    requested_language_code = request.args.get("language", None)
+    language = user.learned_language
+    if requested_language_code:
+        try:
+            candidate = Language.find(requested_language_code)
+            # Only honor a language the user actually studies. Otherwise the
+            # downstream per-language CEFR lookup (UserLanguage row) misses and
+            # the whole recommendation silently degrades to the no-CEFR DB
+            # fallback. The switcher only offers active languages, which always
+            # have a row, so this just guards against stray/hand-crafted codes.
+            UserLanguage.with_language_id(candidate.id, user)
+            language = candidate
+        except Exception:
+            language = user.learned_language
 
     # Get exclusion parameters from request args
     exclude_saved = request.args.get("exclude_saved", "false").lower() == "true"
@@ -90,7 +111,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     try:
         content = article_recommendations_for_user(
-            user, count, page, articles_to_exclude
+            user, count, page, articles_to_exclude, language=language
         )
         print("Total content found: ", len(content))
     except Exception as e:
@@ -99,7 +120,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
         from zeeguu.core.model.cohort_article_map import CohortArticleMap
 
         query = Article.query.filter_by(broken=0).filter_by(
-            language_id=user.learned_language_id
+            language_id=language.id
         )
 
         # Apply exclusions to the fallback query as well

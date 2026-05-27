@@ -38,11 +38,16 @@ def filter_hits_on_score(hits, score_threshold):
     return [h for h in hits if h["_score"] > score_threshold]
 
 
-def _prepare_user_constraints(user):
-    language = user.learned_language
+def _prepare_user_constraints(user, language=None):
+    # `language` lets callers recommend for a language other than the one
+    # currently persisted on the user. The web client passes it on language
+    # switch so the feed reflects the new language immediately, without
+    # racing the (separate) user_settings save that persists it server-side.
+    if language is None:
+        language = user.learned_language
 
     # Get user's CEFR level for filtering (e.g., "A1", "B2")
-    user_cefr_level = user.cefr_level_for_learned_language()
+    user_cefr_level = user.cefr_level_for_language(language)
 
     # 1. Unwanted user topics
     # ==============================
@@ -104,6 +109,7 @@ def article_recommendations_for_user(
     es_decay=0.6,
     score_threshold_for_search=5,
     maximum_added_search_articles=10,
+    language=None,
 ):
     """
         Retrieve up to :param count + maximum_added_search_articles articles
@@ -133,7 +139,7 @@ def article_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         user_ignored_sources,
-    ) = _prepare_user_constraints(user)
+    ) = _prepare_user_constraints(user, language)
 
     es = Elasticsearch(ES_CONN_STRING)
 
@@ -182,6 +188,7 @@ def article_recommendations_for_user(
             page,
             score_threshold=score_threshold_for_search,
             use_published_priority=True,
+            language=language,
         )
         for article in search_results:
             if article.source_id not in search_matches_by_source:
@@ -293,6 +300,7 @@ def article_and_video_search_for_user(
     es_time_decay=0.65,
     use_published_priority=False,
     score_threshold=0,
+    language=None,
 ):
 
     (
@@ -303,7 +311,7 @@ def article_and_video_search_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         _,
-    ) = _prepare_user_constraints(user)
+    ) = _prepare_user_constraints(user, language)
 
     # build the query using elastic_query_builder
     query_body = build_elastic_search_query(

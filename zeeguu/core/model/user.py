@@ -1184,11 +1184,14 @@ class User(db.Model):
     def word_count(self):
         return len(self.user_words())
 
-    def cefr_level_for_learned_language(self):
+    def cefr_level_for_language(self, language):
         from zeeguu.core.model import UserLanguage
 
-        lang_info = UserLanguage.with_language_id(self.learned_language_id, self)
+        lang_info = UserLanguage.with_language_id(language.id, self)
         return ["A1", "A2", "B1", "B2", "C1", "C2"][lang_info.cefr_level - 1]
+
+    def cefr_level_for_learned_language(self):
+        return self.cefr_level_for_language(self.learned_language)
 
     def is_b2_or_higher_for_learned_language(self):
         """B2+ users see thin (B2: ~10% of inventory) or zero (C1+) simplified
