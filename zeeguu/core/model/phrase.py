@@ -32,34 +32,53 @@ class Phrase(db.Model):
     def __init__(self, word, language):
         self.content = word
         self.language = language
+        # rank is wordstats-derived and display-only (the importance bars). Word.stats()
+        # cold-loads the language frequency list (~3s, and once *per gunicorn worker*),
+        # so it must NOT run on the translation request path. It's computed in the
+        # background right after the phrase is committed -- see _calculate_rank_async,
+        # triggered from find_or_create. Until then rank is None (importance_level
+        # already treats None as 0).
+        self.rank = None
 
-        # TODO: Performance
+    def _compute_rank(self):
+        """wordstats rank: for a multi-word phrase, the rank of the rarest word;
+        None if it can't be determined. Slow (cold-loads frequency data), so only
+        call off the request path."""
         try:
-            # For multi-word phrases, use the rank of the hardest (least frequent) word
             words = self.content.split()
             if len(words) > 1:
                 ranks = []
                 for single_word in words:
                     try:
-                        rank = Word.stats(single_word, self.language.code).rank
-                        if rank is not None:
-                            ranks.append(rank)
-                    except:
+                        r = Word.stats(single_word, self.language.code).rank
+                        if r is not None:
+                            ranks.append(r)
+                    except Exception:
                         # If we can't get rank for a word, treat it as very rare
                         ranks.append(self.IMPOSSIBLE_RANK)
-                
-                if ranks:
-                    # Take the highest rank (least frequent word)
-                    self.rank = max(ranks)
-                else:
-                    self.rank = None
-            else:
-                # Single word - use existing logic
-                self.rank = Word.stats(self.content, self.language.code).rank
-        except FileNotFoundError:
-            self.rank = None
+                return max(ranks) if ranks else None
+            return Word.stats(self.content, self.language.code).rank
         except Exception:
-            self.rank = None
+            return None
+
+    @classmethod
+    def _calculate_rank_async(cls, phrase_id):
+        """Backfill a phrase's rank in a background thread (re-querying by id), so the
+        expensive wordstats load never blocks bookmark/translation creation."""
+        from zeeguu.api.utils.background import run_in_background
+
+        def calc(pid):
+            from zeeguu.core.model.db import db
+
+            phrase = db.session.query(cls).get(pid)
+            if phrase is None or phrase.rank is not None:
+                return
+            rank = phrase._compute_rank()
+            if rank is not None:
+                phrase.rank = rank
+                db.session.commit()
+
+        run_in_background(calc, phrase_id)
 
     def __repr__(self):
         return f"<@Phrase {self.content} {self.language_id} {self.rank}>"
@@ -192,6 +211,7 @@ class Phrase(db.Model):
                 new = cls(_word, language)
                 session.add(new)
                 session.commit()
+                cls._calculate_rank_async(new.id)
                 return new
             except sqlalchemy.exc.IntegrityError:
                 for _ in range(10):
