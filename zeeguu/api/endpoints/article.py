@@ -420,8 +420,10 @@ def translate_and_adapt_article():
     """
     Translate an article to the user's learned language and adapt it to their level.
 
-    Expects:
-        - url: str - URL of the article to translate
+    Expects (one of):
+        - article_id: int - id of an article already in Zeeguu (preferred; uses
+          the stored content, no re-download)
+        - url: str - URL of an external article to fetch and translate
         - target_language: str (optional) - defaults to user's learned language
 
     Returns:
@@ -433,8 +435,9 @@ def translate_and_adapt_article():
     from zeeguu.core.content_retriever import download_and_parse
 
     url = request.form.get("url")
-    if not url:
-        flask.abort(400, "URL required")
+    article_id = request.form.get("article_id")
+    if not url and not article_id:
+        flask.abort(400, "url or article_id required")
 
     user = User.find_by_id(flask.g.user_id)
     target_language = request.form.get("target_language", user.learned_language.code)
@@ -448,21 +451,38 @@ def translate_and_adapt_article():
         user_level = "A1"  # Default to A1 if there's an error
         log(f"Defaulting to A1 level")
 
-    # Detect source language first
-    try:
-        article_obj = download_and_parse(url)
-        article_content = article_obj.text
-        text = re.sub(HTML_TAG_CLEANR, "", article_content)
-        source_language = detect(text)
-    except Exception as e:
-        log(f"Failed to detect source language: {e}")
-        source_language = "unknown"
+    # Resolve the source article. Prefer an article we already have in the DB:
+    # re-downloading is fragile (the URL may be a Zeeguu reader link, paywalled,
+    # or a JS page readability can't parse) and we already hold parsed content.
+    # `downloaded` stays None on the article_id path so we know to reuse the
+    # stored image instead of re-extracting one.
+    downloaded = None
+    source_article = None
+    if article_id:
+        source_article = Article.find_by_id(article_id)
+        if not source_article:
+            flask.abort(404, "Article not found")
+        article_content = source_article.content
+        article_title = source_article.title
+        source_language = source_article.language.code
+        cache_base_url = source_article.url.as_string()
+    else:
+        cache_base_url = url
+        try:
+            downloaded = download_and_parse(url)
+            article_content = downloaded.text
+            article_title = downloaded.title
+            text = re.sub(HTML_TAG_CLEANR, "", article_content)
+            source_language = detect(text)
+        except Exception as e:
+            log(f"Failed to fetch article for translation ({url}): {e}")
+            flask.abort(502, "Could not retrieve the article to translate")
 
     # Create a unique identifier for this translated article
     # Based on source language, target language and CEFR level so translations can be shared between users
     # Format: url#translated-from-SOURCE-to-TARGET-LEVEL
     translated_url_key = (
-        f"{url}#translated-from-{source_language}-to-{target_language}-{user_level}"
+        f"{cache_base_url}#translated-from-{source_language}-to-{target_language}-{user_level}"
     )
 
     from zeeguu.core.model.url import Url
@@ -499,17 +519,15 @@ def translate_and_adapt_article():
         # No existing translation found, continue with creating a new one
         pass
 
-    # Fetch the article content using readability server
+    # Translate and adapt the resolved content (title/content/source_language
+    # were set when resolving the source article above).
     try:
-        # We already downloaded the article above, reuse it
-        article_title = article_obj.title
-
         log(f"Article content length: {len(article_content)} characters")
         log(f"Article title: {article_title}")
         log(f"First 200 chars: {article_content[:200]}...")
 
         if not article_content or article_content.strip() == "":
-            flask.abort(400, "Could not extract article content from URL")
+            flask.abort(400, "Could not extract article content")
 
         # Use the simplification service to translate and adapt
         simplification_service = SimplificationService()
@@ -577,14 +595,18 @@ def translate_and_adapt_article():
         # Set the CEFR level to match the user's level for display
         article.cefr_level = user_level
 
-        # Extract and save main image from original article
-        from zeeguu.core.content_retriever.article_downloader import (
-            extract_article_image,
-        )
+        # Carry over the main image: extract it from a freshly downloaded
+        # article, or reuse the stored article's image on the article_id path.
+        if downloaded is not None:
+            from zeeguu.core.content_retriever.article_downloader import (
+                extract_article_image,
+            )
 
-        main_img_url = extract_article_image(article_obj)
-        if main_img_url and main_img_url != "":
-            article.img_url = Url.find_or_create(db_session, main_img_url)
+            main_img_url = extract_article_image(downloaded)
+            if main_img_url and main_img_url != "":
+                article.img_url = Url.find_or_create(db_session, main_img_url)
+        elif source_article and source_article.img_url:
+            article.img_url = source_article.img_url
 
         # Save to DB for caching
         db_session.add(article)
@@ -605,7 +627,7 @@ def translate_and_adapt_article():
         return json_result(uai)
 
     except Exception as e:
-        log(f"Translation failed for {url}: {str(e)}")
+        log(f"Translation failed for {cache_base_url}: {str(e)}")
         flask.abort(500, f"Translation failed: {str(e)}")
 
 
