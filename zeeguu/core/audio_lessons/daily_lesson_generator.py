@@ -600,6 +600,7 @@ class DailyLessonGenerator:
 
         return {
             "lesson_id": lesson.id,
+            "share_uuid": lesson.share_uuid,
             "audio_url": f"/audio/daily_lessons/{lesson.id}.mp3",
             "duration_seconds": lesson.duration_seconds,
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
@@ -865,6 +866,7 @@ class DailyLessonGenerator:
 
                 lesson_data = {
                         "lesson_id": lesson.id,
+                        "share_uuid": lesson.share_uuid,
                         "title": lesson.display_title(),
                         "cefr_level": lesson.cefr_level(),
                         "audio_url": (

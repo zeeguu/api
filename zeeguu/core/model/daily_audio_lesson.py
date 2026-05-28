@@ -67,6 +67,10 @@ class DailyAudioLesson(db.Model):
         self.lesson_type = lesson_type
         self.listened_count = 0
         self.pause_position_seconds = 0
+        # Mint the share id up front so the client can build a share URL without
+        # a round-trip — that round-trip would consume the tap's user activation
+        # and break the native share sheet on iOS (it'd fall back to clipboard).
+        self.share_uuid = str(uuid.uuid4())
 
     def __repr__(self):
         return f"<DailyAudioLesson {self.id} for user {self.user_id}>"
