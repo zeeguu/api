@@ -546,7 +546,11 @@ def set_daily_subscription_enabled():
 
     sub = DailyAudioSubscription.find(user, language)
     if sub is None:
-        return json_result({"error": "No daily subscription to update"}), 404
+        # Turning off something not subscribed is the desired end state — no-op.
+        # Turning on requires a subscription (we don't know the type to create).
+        if not enabled:
+            return json_result({"subscription_status": "not_subscribed"}), 200
+        return json_result({"error": "Configure a daily lesson first"}), 404
 
     sub.set_enabled(enabled)
     db.session.commit()
