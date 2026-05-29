@@ -690,26 +690,32 @@ class DailyLessonGenerator:
             is not None
         )
 
-    def get_todays_lesson_for_user(self, user, timezone_offset=0, include_paused=False):
+    def get_todays_lesson_for_user(self, user, timezone_offset=0, include_paused=False, language=None):
         """
         Get today's daily audio lesson for a user.
 
         Args:
             user: The User object
             timezone_offset: Client's timezone offset in minutes from UTC
+            language: Language to look up; falls back to user.learned_language.
+                Callers should pass an explicit Language to avoid races on
+                language switch (server-side learned_language can lag the UI).
 
         Returns:
             Dictionary with lesson details or message if no lesson today
         """
+        if language is None:
+            language = user.learned_language
+
         # Get today's date range in UTC
         start_of_today_utc, end_of_today_utc = self._get_user_day_range_utc(
             timezone_offset
         )
 
-        # Find lesson created today for the user's current learned language
+        # Find lesson created today for the requested language
         lesson = (
             DailyAudioLesson.query.filter_by(
-                user_id=user.id, language_id=user.learned_language.id
+                user_id=user.id, language_id=language.id
             )
             .filter(DailyAudioLesson.created_at >= start_of_today_utc)
             .filter(DailyAudioLesson.created_at <= end_of_today_utc)
@@ -725,17 +731,48 @@ class DailyLessonGenerator:
             # (today-only) so a paused older lesson never blocks on-demand
             # creation (e.g. change-topic / first day).
             if include_paused:
-                paused = DailyAudioLesson.waiting_paused_for(
-                    user, user.learned_language.id
-                )
+                paused = DailyAudioLesson.waiting_paused_for(user, language.id)
                 if paused:
                     response = self._format_lesson_response(paused)
                     if response.get("lesson_id"):
                         response["paused"] = True
+                        response.update(self._subscription_fields(
+                            user, timezone_offset, has_lesson_today=False, is_paused=True, language=language))
                         return response
-            return {"lesson": None, "message": "No lesson generated yet today"}
+            return {
+                "lesson": None,
+                "message": "No lesson generated yet today",
+                **self._subscription_fields(
+                    user, timezone_offset, has_lesson_today=False, is_paused=False, language=language),
+            }
 
-        return self._format_lesson_response(lesson)
+        response = self._format_lesson_response(lesson)
+        if response.get("lesson_id"):
+            response.update(self._subscription_fields(
+                user, timezone_offset, has_lesson_today=True, is_paused=False, language=language))
+        return response
+
+    def _subscription_fields(self, user, timezone_offset, has_lesson_today, is_paused, language=None):
+        """Daily-subscription state for the Today UI, layered on top of #643's
+        engagement `paused` flag: whether the learner is subscribed/off, and the
+        next lesson's date (None when off or paused waiting for engagement).
+
+        `language` is the language to look up; defaults to user.learned_language."""
+        from zeeguu.core.model.daily_audio_subscription import DailyAudioSubscription
+
+        if language is None:
+            language = user.learned_language
+        sub = DailyAudioSubscription.find(user, language)
+        if sub is None:
+            return {"subscription_status": "not_subscribed", "next_lesson_date": None}
+        if not sub.enabled:
+            return {"subscription_status": "off", "next_lesson_date": None}
+        today_local = datetime.now(timezone(timedelta(minutes=timezone_offset))).date()
+        next_date = sub.next_lesson_date(today_local, has_lesson_today, is_paused)
+        return {
+            "subscription_status": "active",
+            "next_lesson_date": next_date.isoformat() if next_date else None,
+        }
 
     def delete_todays_lesson_for_user(self, user, timezone_offset=0):
         """

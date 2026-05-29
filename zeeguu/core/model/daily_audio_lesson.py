@@ -41,8 +41,8 @@ class DailyAudioLesson(db.Model):
     last_paused_at = Column(TIMESTAMP)
     pause_position_seconds = Column(Integer, default=0)
 
-    raw_suggestion = Column(db.String(100), nullable=True)
-    canonical_suggestion = Column(db.String(100), nullable=True)
+    raw_suggestion = Column(db.String(128), nullable=True)
+    canonical_suggestion = Column(db.String(128), nullable=True)
     lesson_type = Column(db.String(20), nullable=True)
 
     # NULL until the owner first generates a share link.

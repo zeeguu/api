@@ -20,6 +20,26 @@ SHARE_WEB_ORIGIN = "https://zeeguu.org"
 SHARE_API_ORIGIN = "https://api.zeeguu.org"
 
 
+def _resolve_subscription_language(user, lang_code):
+    """Pick the language to act on for daily-audio subscription / today's-lesson
+    endpoints. Prefer an explicit code from the client (avoids races where the
+    user just switched language and the server's learned_language hasn't caught
+    up); fall back to user.learned_language for clients that don't send it yet.
+    Returns the Language object, or None if the code is unknown."""
+    from sqlalchemy.orm.exc import NoResultFound
+    from zeeguu.core.model import Language
+
+    code = (lang_code or "").strip()
+    if not code:
+        return user.learned_language
+    if code == "cn":
+        code = "zh-CN"
+    try:
+        return Language.find(code)
+    except NoResultFound:
+        return None
+
+
 def _generate_lesson_in_background(user_id, preparation):
     """
     Run lesson generation in a background thread (called via run_in_background).
@@ -102,7 +122,7 @@ def generate_daily_lesson():
 
     # Get timezone offset from form data (default to 0 for UTC)
     timezone_offset = flask.request.form.get("timezone_offset", 0, type=int)
-    suggestion = flask.request.form.get("suggestion", "").strip()[:80].strip() or None
+    suggestion = flask.request.form.get("suggestion", "").strip()[:128].strip() or None
     lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
     if lesson_type not in VALID_LESSON_TYPES:
         return json_result({"error": f"Invalid lesson_type: {lesson_type}"}), 400
@@ -300,17 +320,25 @@ def get_todays_lesson():
 
     Query parameters:
     - timezone_offset (optional): Client's timezone offset in minutes from UTC
+    - language (optional): explicit learned-language code (e.g. "da"). When
+      absent, falls back to user.learned_language — but a fresh client should
+      send the code it's currently displaying, to avoid races on language switch.
     """
     user = User.find_by_id(flask.g.user_id)
     generator = DailyLessonGenerator()
 
     # Get timezone offset from query parameter (default to 0 for UTC)
     timezone_offset = flask.request.args.get("timezone_offset", 0, type=int)
+    language = _resolve_subscription_language(user, flask.request.args.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
 
     # include_paused: when there's no lesson today but the last one wasn't
     # engaged with (< halfway), surface it flagged `paused` so the app shows the
     # waiting lesson rather than triggering a new generation.
-    result = generator.get_todays_lesson_for_user(user, timezone_offset, include_paused=True)
+    result = generator.get_todays_lesson_for_user(
+        user, timezone_offset, include_paused=True, language=language
+    )
 
     # Check if there's a specific status code to return
     status_code = result.pop("status_code", 200)
@@ -493,3 +521,108 @@ def get_audio_lesson_generation_progress():
         db.session.commit()
 
     return json_result({"progress": progress.to_dict()})
+
+
+@api.route("/set_daily_subscription_enabled", methods=["POST"])
+@cross_domain
+@requires_session
+def set_daily_subscription_enabled():
+    """Turn the daily audio subscription off/on for the current learned language.
+    Config (type/subject/schedule) is remembered while off, so turning back on
+    is one tap.
+
+    Form data:
+    - enabled: "true" | "false"
+    - language (optional): explicit learned-language code; falls back to
+      user.learned_language. Send the code the UI is showing to avoid races.
+    """
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    enabled = flask.request.form.get("enabled", "true").strip().lower() in ("1", "true", "yes")
+    language = _resolve_subscription_language(user, flask.request.form.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+
+    sub = DailyAudioSubscription.find(user, language)
+    if sub is None:
+        return json_result({"error": "No daily subscription to update"}), 404
+
+    sub.set_enabled(enabled)
+    db.session.commit()
+    return json_result({"subscription_status": "active" if enabled else "off"}), 200
+
+
+def _subscription_to_dict(sub):
+    if sub is None:
+        return {
+            "lesson_type": None,
+            "raw_suggestion": None,
+            "enabled": False,
+            "schedule_kind": None,
+            "weekday_mask": None,
+        }
+    return {
+        "lesson_type": sub.lesson_type,
+        "raw_suggestion": sub.raw_suggestion,
+        "enabled": sub.enabled,
+        "schedule_kind": sub.schedule_kind,
+        "weekday_mask": sub.weekday_mask,
+    }
+
+
+@api.route("/daily_subscription", methods=["GET"])
+@cross_domain
+@requires_session
+def get_daily_subscription():
+    """Current daily-audio subscription config. Source of truth for the configure
+    dialog; replaces the legacy daily_audio_lesson_*_<lang> preference reads.
+
+    Query parameters:
+    - language (optional): explicit learned-language code; falls back to
+      user.learned_language. Send the code the UI is showing to avoid races.
+
+    Returns nulls/false when not subscribed."""
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    language = _resolve_subscription_language(user, flask.request.args.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+    sub = DailyAudioSubscription.find(user, language)
+    return json_result(_subscription_to_dict(sub)), 200
+
+
+@api.route("/configure_daily_subscription", methods=["POST"])
+@cross_domain
+@requires_session
+def configure_daily_subscription():
+    """Upsert the daily-audio subscription. Replaces the legacy
+    /save_user_preferences write path for daily-audio config.
+
+    Form data:
+    - lesson_type: three_words_lesson | topic | situation
+    - suggestion:  verbatim subject (topic/situation), trimmed to 128 chars
+    - language (optional): explicit learned-language code; falls back to
+      user.learned_language. Send the code the UI is showing to avoid writing
+      the new config to the wrong language after a fast switch.
+    """
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
+    if lesson_type not in VALID_LESSON_TYPES:
+        return json_result({"error": f"Invalid lesson_type: {lesson_type}"}), 400
+    raw_suggestion = (flask.request.form.get("suggestion", "") or "").strip()[:128] or None
+    language = _resolve_subscription_language(user, flask.request.form.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+
+    sub = DailyAudioSubscription.find(user, language)
+    if sub is None:
+        sub = DailyAudioSubscription(user, language, lesson_type, raw_suggestion)
+        db.session.add(sub)
+    else:
+        sub.configure(lesson_type, raw_suggestion)
+    db.session.commit()
+    return json_result(_subscription_to_dict(sub)), 200

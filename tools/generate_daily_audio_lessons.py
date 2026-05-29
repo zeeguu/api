@@ -4,27 +4,23 @@
 Pre-generate each opted-in user's DAILY audio lesson so it's waiting for them
 when they open the app — no spinner, just press play.
 
-A user "opts in" by configuring a daily lesson in the app, which stores a
-per-language preference:
-    daily_audio_lesson_type_<lang>        three_words_lesson | topic | situation
-    daily_audio_lesson_suggestion_<lang>  the verbatim subject they typed (topic/situation)
+A user "opts in" by configuring a daily lesson in the app, which creates a
+DailyAudioSubscription(user, learned_language) holding the lesson type, subject,
+on/off flag, and schedule (daily, or a weekday mask).
 
-For each recently-active user that has a daily lesson configured for their
-currently-learned language and no lesson yet for their local "today", we run
-the same generation pipeline the on-demand endpoint uses
-(DailyLessonGenerator.prepare_lesson_generation + generate_daily_lesson),
-synchronously. Re-running is safe: users who already have today's lesson are
-skipped.
-
-The frontend still generates on demand (first day / cron miss / odd timezone),
-so this job is a pure latency optimization, not a correctness requirement.
+For each recently-active user with an ENABLED subscription for their currently
+-learned language, we generate today's lesson unless: it isn't a scheduled day,
+they already have one for their local "today", or generation is PAUSED because
+the most recent lesson wasn't engaged with (DailyAudioLesson.waiting_paused_for,
+from #643 — avoids piling up unheard lessons). Generation reuses the on-demand
+pipeline (prepare_lesson_generation + generate_daily_lesson), synchronously.
 
 Usage:
     python generate_daily_audio_lessons.py [--send-email] [--dry-run] [--days N] [--user-id ID]
 """
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 parser = argparse.ArgumentParser(
     description="Pre-generate daily audio lessons for opted-in active users"
@@ -56,8 +52,8 @@ from zeeguu.core.model import (
     db,
     User,
     UserWord,
-    UserPreference,
     DailyAudioLesson,
+    DailyAudioSubscription,
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
@@ -209,33 +205,42 @@ for index, user_id in enumerate(user_ids, start=1):
         continue
 
     try:
-        lang_code = user.learned_language.code
-        lesson_type, raw_suggestion = UserPreference.get_daily_audio_lesson_config(user, lang_code)
+        language = user.learned_language
+        sub = DailyAudioSubscription.find(user, language)
 
-        if not lesson_type:
-            counts["not-opted-in"] += 1
+        # No subscription, or turned off → not generating for this user.
+        if sub is None or not sub.enabled:
+            counts["not-subscribed"] += 1
             continue
+        lesson_type, raw_suggestion = sub.lesson_type, sub.raw_suggestion
         if lesson_type not in VALID_LESSON_TYPES:
-            output(f"{index}. {user.name}: invalid stored lesson_type {lesson_type!r} — skipping")
+            output(f"{index}. {user.name}: invalid lesson_type {lesson_type!r} — skipping")
             counts["skipped"] += 1
             continue
 
         subject = raw_suggestion or ("study words" if lesson_type == "three_words_lesson" else "?")
         timezone_offset = user_timezone_offset_minutes(user)
+        today_local = datetime.now(timezone(timedelta(minutes=timezone_offset))).date()
+
+        # Not a scheduled day for this subscription (e.g. Mon/Wed/Fri schedule).
+        if not sub.scheduled_on(today_local):
+            counts["not-due"] += 1
+            continue
 
         if DRY_RUN:
-            # Read-only: don't create a progress record or generate.
+            # Read-only: don't create a progress record or generate. Engagement
+            # pause + today-exists gates are #643's (reused here).
             if generator.today_lesson_exists(user, timezone_offset):
-                output(f"{index}. {user.name} [{user.learned_language.name}] — already has today's lesson")
+                output(f"{index}. {user.name} [{language.name}] — already has today's lesson")
                 counts["exists"] += 1
                 continue
-            if DailyAudioLesson.waiting_paused_for(user, user.learned_language.id):
-                output(f"{index}. {user.name} [{user.learned_language.name}] — paused (last lesson < 50% listened)")
+            if DailyAudioLesson.waiting_paused_for(user, language.id):
+                output(f"{index}. {user.name} [{language.name}] — paused (last lesson < 50% listened)")
                 counts["paused"] += 1
                 continue
-            output(f"{index}. {user.name} [{user.learned_language.name}] — WOULD generate {lesson_type}: {subject}")
+            output(f"{index}. {user.name} [{language.name}] — WOULD generate {lesson_type}: {subject}")
             counts["would-generate"] += 1
-            language_breakdown[user.learned_language.name] += 1
+            language_breakdown[language.name] += 1
             continue
 
         outcome = generate_for_user(user, lesson_type, raw_suggestion, timezone_offset)
