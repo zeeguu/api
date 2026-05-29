@@ -49,7 +49,7 @@ class DailyAudioSubscription(db.Model):
     enabled = Column(Boolean, default=True, nullable=False)
 
     lesson_type = Column(String(20), nullable=False)  # three_words_lesson | topic | situation
-    raw_suggestion = Column(String(255), nullable=True)
+    raw_suggestion = Column(String(128), nullable=True)
 
     schedule_kind = Column(String(20), default="daily", nullable=False)  # daily | weekdays
     weekday_mask = Column(SmallInteger, default=127)  # Mon=bit0 .. Sun=bit6
@@ -91,14 +91,18 @@ class DailyAudioSubscription(db.Model):
         return True  # daily
 
     def next_lesson_date(self, today_local, has_lesson_today, is_paused):
-        """Date of the next lesson, or None when there's no fixed date — either
-        the subscription is off, or generation is paused waiting for the learner
-        to engage with the current lesson (see DailyAudioLesson.waiting_paused_for)."""
-        if not self.enabled or is_paused:
+        """The next lesson's date, or None when we can't honestly promise one.
+
+        We only return a date once today's lesson already exists (→ the next
+        scheduled day after today). When there's no lesson today, off, or paused,
+        return None: the cron won't necessarily run again today (cron miss / first
+        day / timezone), so the UI offers an explicit 'generate now' instead of a
+        date that might be wrong."""
+        if not self.enabled or is_paused or not has_lesson_today:
             return None
-        start = today_local + timedelta(days=1) if has_lesson_today else today_local
+        start = today_local + timedelta(days=1)
         if self.schedule_kind == "weekdays":
-            for i in range(8):
+            for i in range(7):
                 day = start + timedelta(days=i)
                 if self.scheduled_on(day):
                     return day
@@ -110,12 +114,3 @@ class DailyAudioSubscription(db.Model):
     @classmethod
     def find(cls, user, language):
         return cls.query.filter_by(user_id=user.id, language_id=language.id).first()
-
-    @classmethod
-    def find_or_create(cls, session, user, language, lesson_type, raw_suggestion=None):
-        sub = cls.find(user, language)
-        if sub is None:
-            sub = cls(user, language, lesson_type, raw_suggestion)
-            session.add(sub)
-            session.flush()
-        return sub

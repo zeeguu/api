@@ -10,7 +10,7 @@ CREATE TABLE daily_audio_subscription (
   language_id INT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   lesson_type VARCHAR(20) NOT NULL,
-  raw_suggestion VARCHAR(255) DEFAULT NULL,
+  raw_suggestion VARCHAR(128) DEFAULT NULL,
   schedule_kind VARCHAR(20) NOT NULL DEFAULT 'daily',
   weekday_mask SMALLINT DEFAULT 127,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
