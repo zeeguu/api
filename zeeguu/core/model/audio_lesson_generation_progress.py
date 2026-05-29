@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
+from zeeguu.core.model.language import Language
 
 
 class AudioLessonGenerationProgress(db.Model):
@@ -20,6 +21,12 @@ class AudioLessonGenerationProgress(db.Model):
 
     user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
     user = relationship(User)
+
+    # The learned-language this generation is for. Used by the frontend to only
+    # adopt a progress record into its UI when it matches the language the user
+    # is currently viewing (a Danish view shouldn't show Dutch progress).
+    language_id = Column(Integer, ForeignKey(Language.id), nullable=True)
+    language = relationship(Language)
 
     status = Column(
         Enum(
@@ -44,8 +51,9 @@ class AudioLessonGenerationProgress(db.Model):
     started_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def __init__(self, user, total_segments=1):
+    def __init__(self, user, total_segments=1, language=None):
         self.user = user
+        self.language = language or user.learned_language
         self.total_segments = total_segments
         self.current_segment = 0
         self.current_step = 0
@@ -123,6 +131,7 @@ class AudioLessonGenerationProgress(db.Model):
             "current_segment": self.current_segment,
             "total_segments": self.total_segments,
             "message": self.message,
+            "language_code": self.language.code if self.language else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
         }
 
@@ -143,9 +152,9 @@ class AudioLessonGenerationProgress(db.Model):
         )
 
     @classmethod
-    def create_for_user(cls, user, total_segments=1):
+    def create_for_user(cls, user, total_segments=1, language=None):
         cls.query.filter_by(user_id=user.id).delete()
-        progress = cls(user=user, total_segments=total_segments)
+        progress = cls(user=user, total_segments=total_segments, language=language)
         db.session.add(progress)
         db.session.flush()
         return progress

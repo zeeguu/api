@@ -124,7 +124,7 @@ class DailyLessonGenerator:
         is_dialogue = canonical_suggestion and lesson_type in ("topic", "situation")
         progress_total = 1 if is_dialogue else len(selected_words)
         progress = AudioLessonGenerationProgress.create_for_user(
-            user=user, total_segments=progress_total
+            user=user, total_segments=progress_total, language=user.learned_language
         )
         db.session.commit()  # Commit so frontend can see it immediately
 
