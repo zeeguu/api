@@ -518,3 +518,64 @@ def set_daily_subscription_enabled():
     sub.set_enabled(enabled)
     db.session.commit()
     return json_result({"subscription_status": "active" if enabled else "off"}), 200
+
+
+def _subscription_to_dict(sub):
+    if sub is None:
+        return {
+            "lesson_type": None,
+            "raw_suggestion": None,
+            "enabled": False,
+            "schedule_kind": None,
+            "weekday_mask": None,
+        }
+    return {
+        "lesson_type": sub.lesson_type,
+        "raw_suggestion": sub.raw_suggestion,
+        "enabled": sub.enabled,
+        "schedule_kind": sub.schedule_kind,
+        "weekday_mask": sub.weekday_mask,
+    }
+
+
+@api.route("/daily_subscription", methods=["GET"])
+@cross_domain
+@requires_session
+def get_daily_subscription():
+    """Current daily-audio subscription config for the user's learned language.
+    Returns nulls/false when not subscribed. Source of truth for the configure
+    dialog; replaces the legacy daily_audio_lesson_*_<lang> preference reads."""
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    sub = DailyAudioSubscription.find(user, user.learned_language)
+    return json_result(_subscription_to_dict(sub)), 200
+
+
+@api.route("/configure_daily_subscription", methods=["POST"])
+@cross_domain
+@requires_session
+def configure_daily_subscription():
+    """Upsert the daily-audio subscription for the user's learned language.
+    Replaces the legacy /save_user_preferences write path for daily-audio config.
+
+    Form data:
+    - lesson_type: three_words_lesson | topic | situation
+    - suggestion:  verbatim subject (topic/situation), trimmed to 128 chars
+    """
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    lesson_type = flask.request.form.get("lesson_type", "").strip() or THREE_WORDS_LESSON
+    if lesson_type not in VALID_LESSON_TYPES:
+        return json_result({"error": f"Invalid lesson_type: {lesson_type}"}), 400
+    raw_suggestion = (flask.request.form.get("suggestion", "") or "").strip()[:128] or None
+
+    sub = DailyAudioSubscription.find(user, user.learned_language)
+    if sub is None:
+        sub = DailyAudioSubscription(user, user.learned_language, lesson_type, raw_suggestion)
+        db.session.add(sub)
+    else:
+        sub.configure(lesson_type, raw_suggestion)
+    db.session.commit()
+    return json_result(_subscription_to_dict(sub)), 200

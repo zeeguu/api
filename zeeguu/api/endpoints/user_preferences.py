@@ -104,9 +104,14 @@ def save_user_preferences():
         show_reading_timer.value = show_reading_timer_value
         db_session.add(show_reading_timer)
 
-    # Daily audio lesson preferences are keyed per language (e.g. daily_audio_lesson_type_da,
-    # daily_audio_lesson_suggestion_da). The suggestion is stored EXACTLY as the user typed it —
-    # no canonicalization/normalization here; that happens later, at generation time.
+    # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
+    # Daily-audio config now lives in DailyAudioSubscription, written by the
+    # dedicated /configure_daily_subscription endpoint. The block below + the
+    # mirror keep this endpoint working for clients still posting the legacy
+    # daily_audio_lesson_type_<lang> / _suggestion_<lang> keys. Remove once the
+    # deployed web/mobile clients are off /save_user_preferences for daily audio
+    # (see useDailyLessonPreference). Also delete the prefix constants and
+    # get_daily_audio_lesson_config from UserPreference at the same time.
     for key in data.keys():
         if key.startswith(
             UserPreference.DAILY_AUDIO_LESSON_TYPE_PREFIX
@@ -115,10 +120,8 @@ def save_user_preferences():
             pref.value = (data.get(key) or "")[:255]
             db_session.add(pref)
 
-    # Mirror the legacy daily-audio keys into the first-class DailyAudioSubscription
-    # (the source of truth for the cron and newer clients), keeping this endpoint
-    # working for clients that still post the keys. Empty type = turn off.
     _mirror_daily_audio_subscriptions(user, data)
+    # ---- END LEGACY DAILY-AUDIO COMPAT --------------------------------------
 
     db_session.add(user)
     db_session.commit()
@@ -126,6 +129,8 @@ def save_user_preferences():
 
 
 def _mirror_daily_audio_subscriptions(user, data):
+    """Legacy compat — remove ~2026-06-05 with the daily-audio block above
+    (clients now configure via /configure_daily_subscription)."""
     from sqlalchemy.orm.exc import NoResultFound
     from ...core.model import Language, DailyAudioSubscription
 
