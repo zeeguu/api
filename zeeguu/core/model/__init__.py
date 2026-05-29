@@ -102,6 +102,7 @@ from .audio_lesson_dialogue import AudioLessonDialogue
 from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment
+from .daily_audio_subscription import DailyAudioSubscription
 from .user_listening_session import UserListeningSession
 from .audio_lesson_generation_progress import AudioLessonGenerationProgress
 

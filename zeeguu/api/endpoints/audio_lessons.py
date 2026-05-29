@@ -493,3 +493,28 @@ def get_audio_lesson_generation_progress():
         db.session.commit()
 
     return json_result({"progress": progress.to_dict()})
+
+
+@api.route("/set_daily_subscription_enabled", methods=["POST"])
+@cross_domain
+@requires_session
+def set_daily_subscription_enabled():
+    """Turn the daily audio subscription off/on for the current learned language.
+    Config (type/subject/schedule) is remembered while off, so turning back on
+    is one tap.
+
+    Form data:
+    - enabled: "true" | "false"
+    """
+    from zeeguu.core.model import DailyAudioSubscription
+
+    user = User.find_by_id(flask.g.user_id)
+    enabled = flask.request.form.get("enabled", "true").strip().lower() in ("1", "true", "yes")
+
+    sub = DailyAudioSubscription.find(user, user.learned_language)
+    if sub is None:
+        return json_result({"error": "No daily subscription to update"}), 404
+
+    sub.set_enabled(enabled)
+    db.session.commit()
+    return json_result({"subscription_status": "active" if enabled else "off"}), 200

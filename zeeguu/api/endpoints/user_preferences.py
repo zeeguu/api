@@ -115,6 +115,38 @@ def save_user_preferences():
             pref.value = (data.get(key) or "")[:255]
             db_session.add(pref)
 
+    # Mirror the legacy daily-audio keys into the first-class DailyAudioSubscription
+    # (the source of truth for the cron and newer clients), keeping this endpoint
+    # working for clients that still post the keys. Empty type = turn off.
+    _mirror_daily_audio_subscriptions(user, data)
+
     db_session.add(user)
     db_session.commit()
     return "OK"
+
+
+def _mirror_daily_audio_subscriptions(user, data):
+    from ...core.model import Language, DailyAudioSubscription
+
+    lang_codes = {
+        key[len(UserPreference.DAILY_AUDIO_LESSON_TYPE_PREFIX):]
+        for key in data.keys()
+        if key.startswith(UserPreference.DAILY_AUDIO_LESSON_TYPE_PREFIX)
+    }
+    for lang_code in lang_codes:
+        try:
+            language = Language.find_or_create(lang_code)  # handles the cn→zh-CN quirk
+        except Exception:
+            continue
+        lesson_type = (data.get(UserPreference.daily_audio_lesson_type_key(lang_code)) or "").strip()
+        raw_suggestion = (
+            data.get(UserPreference.daily_audio_lesson_suggestion_key(lang_code)) or ""
+        ).strip() or None
+        sub = DailyAudioSubscription.find(user, language)
+        if lesson_type:
+            if sub is None:
+                db_session.add(DailyAudioSubscription(user, language, lesson_type, raw_suggestion))
+            else:
+                sub.configure(lesson_type, raw_suggestion)
+        elif sub is not None:
+            sub.set_enabled(False)
