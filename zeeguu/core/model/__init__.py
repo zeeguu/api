@@ -88,6 +88,8 @@ from .difficulty_lingo_rank import DifficultyLingoRank
 from .yt_channel import YTChannel
 from .video import Video
 from .caption import Caption
+from .caption_translation_set import CaptionTranslationSet
+from .caption_translation import CaptionTranslation
 from .video_tag import VideoTag
 from .video_tag_map import VideoTagMap
 from .video_caption_context import VideoCaptionContext
