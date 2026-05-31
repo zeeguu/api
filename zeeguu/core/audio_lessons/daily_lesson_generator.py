@@ -606,6 +606,7 @@ class DailyLessonGenerator:
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
             "words": self._extract_segment_words(lesson, with_user_metadata=True),
             "pause_position_seconds": lesson.pause_position_seconds,
+            "max_position_seconds": lesson.max_position_seconds,
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
@@ -973,7 +974,15 @@ class DailyLessonGenerator:
                 return {"error": "Lesson not found", "status_code": 404}
 
             action = state_data.get("action")
-            position_seconds = state_data.get("position_seconds", 0)
+            # Coerce defensively: the value comes straight from client JSON, so
+            # null / a string / a float / a negative all reach here. `.get(_, 0)`
+            # only covers a MISSING key, not an explicit null — without this an
+            # explicit null would make `pause_at` do `None > duration` → TypeError
+            # → 500, and a negative would corrupt is_paused / the resume counter.
+            try:
+                position_seconds = max(0, int(state_data.get("position_seconds") or 0))
+            except (TypeError, ValueError):
+                position_seconds = 0
 
             if action == "pause":
                 # Record pause position and time
