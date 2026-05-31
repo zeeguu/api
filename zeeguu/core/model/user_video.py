@@ -128,13 +128,16 @@ class UserVideo(db.Model):
 
     @classmethod
     def user_video_info(
-        cls, user: User, video: Video, with_content=False, with_translations=True
+        cls, user: User, video: Video, with_content=False, with_translations=True,
+        translation_set=None,
     ):
         from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.user_activitiy_data import UserActivityData
 
-        returned_info = video.video_info(with_content=with_content)
+        returned_info = video.video_info(
+            with_content=with_content, translation_set=translation_set
+        )
         user_video_info = UserVideo.find(user, video)
         # user_diff_feedback = VideoDifficultyFeedback.find(user, video)
         # user_topics_feedback = VideoTopicsFeedback.find_given_user_video(user, video)

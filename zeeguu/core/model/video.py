@@ -239,7 +239,12 @@ class Video(db.Model):
             topics.append((topic.topic.title, topic.origin_type))
         return topics
 
-    def video_info(self, with_content=False):
+    def video_info(self, with_content=False, translation_set=None):
+        """If `translation_set` is given, each caption's `text`/`tokenized_text` come from the
+        translated caption in the user's target language at the set's CEFR; timings and the
+        `context_identifier` (still keyed by the original caption id) are unchanged, so the
+        player's timing logic and the bookmark anchor are stable across original/translated
+        views. Captions missing a translation in the set fall back to the original text."""
         text = self.get_content()
         summary = text[:MAX_CHAR_COUNT_IN_SUMMARY].replace("\n", " ") + "..."
         result_dict = dict(
@@ -269,13 +274,29 @@ class Video(db.Model):
         if with_content:
             from zeeguu.core.mwe import tokenize_for_reading
 
+            translations_by_caption_id = {}
+            caption_language = self.language
+            if translation_set is not None:
+                translations_by_caption_id = {
+                    ct.caption_id: ct.get_content()
+                    for ct in translation_set.translations
+                }
+                caption_language = translation_set.target_language
+                result_dict["caption_set"] = {
+                    "id": translation_set.id,
+                    "target_language": translation_set.target_language.code,
+                    "cefr_level": translation_set.cefr_level,
+                }
+
             result_dict["captions"] = [
                 {
                     "time_start": caption.time_start / 1000,  # convert to seconds
                     "time_end": caption.time_end / 1000,
-                    "text": caption.get_content(),
+                    "text": translations_by_caption_id.get(caption.id, caption.get_content()),
                     "tokenized_text": tokenize_for_reading(
-                        caption.get_content(), self.language, mode="stanza"
+                        translations_by_caption_id.get(caption.id, caption.get_content()),
+                        caption_language,
+                        mode="stanza",
                     ),
                     "context_identifier": ContextIdentifier(
                         ContextType.VIDEO_CAPTION, video_caption_id=caption.id

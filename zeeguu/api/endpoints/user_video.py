@@ -1,6 +1,10 @@
 import flask
 from flask import request
 from zeeguu.core.model import User, UserVideo, Video
+from zeeguu.core.model.caption_translation_set import (
+    CaptionTranslationSet,
+    STATUS_READY,
+)
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
@@ -24,7 +28,26 @@ def get_user_video():
     user = User.find_by_id(flask.g.user_id)
     new_user_video = UserVideo.find_or_create(db_session, user, video)
 
-    return json_result(new_user_video.user_video_info(user, video, with_content=True))
+    # Optional translated-caption track. If the set isn't ready yet (still translating, errored,
+    # or doesn't belong to this video) we silently serve the original captions — the reader
+    # polls the dedicated status endpoint and re-fetches when ready, so the worst UX is a
+    # one-cycle delay rather than a 4xx during a known-async wait.
+    translation_set = None
+    caption_set_id = request.args.get("caption_set_id")
+    if caption_set_id:
+        candidate = CaptionTranslationSet.find_by_id(int(caption_set_id))
+        if (
+            candidate
+            and candidate.video_id == video.id
+            and candidate.status == STATUS_READY
+        ):
+            translation_set = candidate
+
+    return json_result(
+        new_user_video.user_video_info(
+            user, video, with_content=True, translation_set=translation_set
+        )
+    )
 
 
 # ---------------------------------------------------------------------------

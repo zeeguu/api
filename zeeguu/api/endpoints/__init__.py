@@ -41,6 +41,7 @@ from .browsing_sessions import *
 from .listening_sessions import *
 from . import user_video
 from . import user_watching_session
+from . import caption_translation
 from . import audio_lessons
 from . import article_simplification
 from . import generated_examples
