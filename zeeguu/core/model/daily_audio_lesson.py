@@ -39,7 +39,13 @@ class DailyAudioLesson(db.Model):
 
     # Pause/resume tracking
     last_paused_at = Column(TIMESTAMP)
+    # Where to RESUME from — the last position, which can move BACKWARDS when the
+    # learner rewinds/scrubs back. Do not use this for engagement (see below).
     pause_position_seconds = Column(Integer, default=0)
+    # Furthest position ever reached, monotonic (never decreases). This is the
+    # honest "how much did they actually hear" measure. pause_position can drop
+    # below it on a rewind, which is why engagement must read THIS, not that.
+    max_position_seconds = Column(Integer, default=0)
 
     raw_suggestion = Column(db.String(128), nullable=True)
     canonical_suggestion = Column(db.String(128), nullable=True)
@@ -67,6 +73,7 @@ class DailyAudioLesson(db.Model):
         self.lesson_type = lesson_type
         self.listened_count = 0
         self.pause_position_seconds = 0
+        self.max_position_seconds = 0
         # Mint the share id up front so the client can build a share URL without
         # a round-trip — that round-trip would consume the tap's user activation
         # and break the native share sheet on iOS (it'd fall back to clipboard).
@@ -147,15 +154,21 @@ class DailyAudioLesson(db.Model):
         if self.listened_count == 0:
             self.listened_count = 1
         self.pause_position_seconds = 0
+        # Finishing means the whole thing was reached.
+        if self.duration_seconds:
+            self.max_position_seconds = max(self.max_position_seconds or 0, self.duration_seconds)
 
     def pause_at(self, position_seconds):
         """Record pause position for later resume"""
         self.last_paused_at = datetime.now()
-        # Ensure pause position doesn't exceed duration (prevents MediaSession API errors)
+        # Clamp to duration (prevents MediaSession API errors).
+        clamped = position_seconds
         if self.duration_seconds and position_seconds > self.duration_seconds:
-            self.pause_position_seconds = self.duration_seconds
-        else:
-            self.pause_position_seconds = position_seconds
+            clamped = self.duration_seconds
+        self.pause_position_seconds = clamped
+        # High-water mark: only ever grows, so a rewind-then-pause can't erase
+        # the fact that the learner already heard further. Engagement reads this.
+        self.max_position_seconds = max(self.max_position_seconds or 0, clamped)
 
     @property
     def is_completed(self):
@@ -176,17 +189,23 @@ class DailyAudioLesson(db.Model):
     def is_engaged(self):
         """Did the learner get at least halfway through (or finish)?
 
-        Daily pre-generation pauses when the most recent lesson wasn't engaged
-        with — see waiting_paused_for, the daily cron, and
+        Measured against the FURTHEST position reached (max_position_seconds),
+        not the resume pointer (pause_position_seconds) — the latter drops on a
+        rewind, which used to make someone who heard 80% then scrubbed back read
+        as "not engaged". Daily pre-generation pauses when the most recent lesson
+        wasn't engaged with — see waiting_paused_for, the daily cron, and
         get_todays_lesson_for_user.
         """
         if self.is_completed:
             return True
+        # max_position is the monotonic furthest-reached; fall back to the resume
+        # pointer for rows written before the column existed.
+        furthest = max(self.max_position_seconds or 0, self.pause_position_seconds or 0)
         if not self.duration_seconds:
             # No duration to measure against (data anomaly) — fall back to "did
             # they start it" rather than pausing the user forever.
-            return bool(self.pause_position_seconds) or bool(self.listened_count)
-        return (self.pause_position_seconds or 0) >= self.ENGAGEMENT_THRESHOLD * self.duration_seconds
+            return bool(furthest) or bool(self.listened_count)
+        return furthest >= self.ENGAGEMENT_THRESHOLD * self.duration_seconds
 
     def display_title(self):
         """

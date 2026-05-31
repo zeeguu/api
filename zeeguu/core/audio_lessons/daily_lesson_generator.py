@@ -606,6 +606,7 @@ class DailyLessonGenerator:
             "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
             "words": self._extract_segment_words(lesson, with_user_metadata=True),
             "pause_position_seconds": lesson.pause_position_seconds,
+            "max_position_seconds": lesson.max_position_seconds,
             "is_paused": lesson.is_paused,
             "is_completed": lesson.is_completed,
             "listened_count": lesson.listened_count,
