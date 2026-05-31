@@ -56,6 +56,18 @@ class DailyAudioLessonEngagementTest(ModelTestMixIn):
         assert self.lesson.max_position_seconds == 360
         assert self.lesson.pause_position_seconds == 0  # resume reset on completion
 
+    def test_listened_count_is_completions(self):
+        # listened_count counts COMPLETIONS, not starts: one ✓ per full listen.
+        assert self.lesson.listened_count == 0
+        self.lesson.mark_completed()
+        assert self.lesson.listened_count == 1
+        # Replaying and finishing again adds a second ✓ …
+        self.lesson.mark_completed()
+        assert self.lesson.listened_count == 2
+        # … but merely pausing/resuming (no completion) must NOT bump it.
+        self.lesson.pause_at(50)
+        assert self.lesson.listened_count == 2
+
     def test_legacy_row_falls_back_to_pause_position(self):
         # A row written before max_position_seconds existed (backfill would set
         # it, but simulate the in-memory fallback): only pause_position is set.

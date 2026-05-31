@@ -989,18 +989,18 @@ class DailyLessonGenerator:
                 lesson.pause_at(position_seconds)
 
             elif action == "resume":
-                # Resume from pause or start a new play. Completion is sticky
-                # — replaying a completed lesson does NOT clear last_completed_at,
-                # only bumps the listen counter so we can show how many times
-                # the user has come back to it.
-                if lesson.pause_position_seconds < 1:
-                    lesson.listened_count += 1
+                # Resume / start playing. No counting here — listened_count is
+                # COMPLETIONS, incremented in mark_completed(). Counting on
+                # resume inflated the count every time the user pressed play
+                # (even without finishing), and double-counted a replay's start
+                # against its own later completion.
+                pass
 
             elif action == "complete":
-                # Mark lesson as completed
+                # Mark lesson as completed (this increments listened_count).
                 lesson.mark_completed()
 
-                # Progress words when audio lesson is completed
+                # Progress words on the FIRST completion only.
                 if lesson.listened_count == 1:
                     self._progress_words_from_completed_lesson(lesson, user)
 

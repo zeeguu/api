@@ -148,11 +148,15 @@ class DailyAudioLesson(db.Model):
         return sum(1 for s in self.segments if s.segment_type == "meaning_lesson")
 
     def mark_completed(self):
-        """Mark this lesson as completed (sets/updates last_completed_at)."""
+        """Mark this lesson as completed and count the completion.
+
+        listened_count is COMPLETIONS, not starts — one ✓ per time the learner
+        listened all the way through. Each completion increments it, so replays
+        accumulate checkmarks. (Counting on `resume` instead would inflate the
+        count every time the user merely pressed play, even without finishing.)
+        """
         self.last_completed_at = datetime.utcnow()
-        # Only count as a listen if it hasn't been counted yet
-        if self.listened_count == 0:
-            self.listened_count = 1
+        self.listened_count = (self.listened_count or 0) + 1
         self.pause_position_seconds = 0
         # Finishing means the whole thing was reached.
         if self.duration_seconds:
