@@ -92,11 +92,66 @@ def get_video_unique_keys(lang, category_id=None, topic_id=None, max_results=50)
     return video_ids
 
 
-def fetch_video_info(video_unique_key, lang):
+YOUTUBE_ID_RE = r"[0-9A-Za-z_-]{11}"
+
+
+def extract_youtube_video_id(url):
+    """Parse the 11-char video id from common YouTube URL shapes
+    (watch?v=, youtu.be/, /shorts/, /embed/, /live/) or a bare id. None if not found."""
+    if not url:
+        return None
+    url = url.strip()
+    m = re.search(
+        rf"(?:v=|/shorts/|/embed/|/live/|youtu\.be/)({YOUTUBE_ID_RE})", url
+    )
+    if m:
+        return m.group(1)
+    if re.fullmatch(YOUTUBE_ID_RE, url):
+        return url
+    return None
+
+
+def normalize_caption_list(caption_list):
+    """Turn a client-supplied list of {time_start, time_end, text} segments (times in
+    milliseconds) into the {text, captions} shape the rest of the pipeline expects.
+    Used for captions extracted client-side (browser extension / iOS WKWebView) from
+    YouTube's authorized player, sidestepping the server-side fetch YouTube blocks."""
+    if not caption_list:
+        return None
+    normalized = []
+    full_text = []
+    for c in caption_list:
+        clean = text_cleaner(c.get("text", ""))
+        if not clean.strip():
+            continue
+        normalized.append(
+            {
+                "time_start": int(c["time_start"]),
+                "time_end": int(c["time_end"]),
+                "text": clean,
+            }
+        )
+        full_text.append(clean)
+    if not normalized:
+        return None
+    return {"text": "\n".join(full_text), "captions": normalized}
+
+
+def fetch_video_info(
+    video_unique_key,
+    lang,
+    provided_captions=None,
+    enforce_language=True,
+    enforce_caption_length=True,
+):
     """
     video_unique_key is the video id, e.g. "8-GrLwHK8SQ"
 
-
+    provided_captions: already-normalized {text, captions} dict (see
+    normalize_caption_list); when given, used in place of the server-side fetch.
+    enforce_language / enforce_caption_length default True for crawling, but are
+    relaxed for user-shared videos (the user already chose the video, so we don't
+    reject on language/length).
     """
 
     def _get_thumbnail(item):
@@ -155,18 +210,24 @@ def fetch_video_info(video_unique_key, lang):
         video_info["broken"] = VIDEO_IS_MISSING_DURATION
         return video_info
 
-    if not is_video_language_correct(
+    if enforce_language and not is_video_language_correct(
         video_info["title"], video_info["description"], lang
     ):
         print(f"Video {video_unique_key} is not in the expected language {lang}.")
         video_info["broken"] = NOT_IN_EXPECTED_LANGUAGE
         return video_info
 
-    captions = get_captions_from_json(video_unique_key, lang)
+    if provided_captions is not None:
+        captions = provided_captions
+    else:
+        captions = get_captions_from_json(video_unique_key, lang)
+
     if captions is None:
         print(f"Could not fetch captions for video {video_unique_key} in {lang}")
         video_info["broken"] = NO_CAPTIONS_AVAILABLE
-    elif is_captions_too_short(captions["text"], video_info["duration"]):
+    elif enforce_caption_length and is_captions_too_short(
+        captions["text"], video_info["duration"]
+    ):
         video_info["broken"] = CAPTIONS_TOO_SHORT
     else:
         video_info["text"] = captions["text"]
