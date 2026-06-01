@@ -76,3 +76,30 @@ class VideoCaptionContext(db.Model):
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]
+
+    @classmethod
+    def get_user_bookmarks_grouped_by_caption(cls, user_id: int, caption_ids):
+        """Batched companion to get_all_user_bookmarks_for_caption.
+
+        One query for many captions; returns {caption_id: [bookmark_json, ...]}.
+        Avoids the N+1 of calling the single-caption helper per caption when
+        rendering the whole transcript of a video.
+        """
+        if not caption_ids:
+            return {}
+
+        from zeeguu.core.model.user_word import UserWord
+
+        rows = (
+            Bookmark.query.join(cls)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(cls.caption_id.in_(caption_ids))
+            .filter(UserWord.user_id == user_id)
+            .add_columns(cls.caption_id)
+            .all()
+        )
+
+        grouped = {}
+        for bookmark, caption_id in rows:
+            grouped.setdefault(caption_id, []).append(bookmark.to_json(True))
+        return grouped
