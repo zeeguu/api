@@ -96,10 +96,11 @@ class Video(db.Model):
         enforce_language=True,
         enforce_caption_length=True,
     ):
-        """captions: client-extracted segments (browser extension / iOS WKWebView) used
-        instead of the server-side caption fetch. For user-shared videos, callers pass
-        enforce_language=False and enforce_caption_length=False (the user chose the
-        video, so we don't reject it on language detection or caption length)."""
+        """captions: already-normalized {text, captions} dict from a client (browser
+        extension / iOS WKWebView), used in place of the server-side fetch. For
+        user-shared videos, callers pass enforce_language=False and
+        enforce_caption_length=False (the user chose the video, so we don't reject
+        it on language detection or caption length)."""
         from zeeguu.core.elastic.indexing import index_video
 
         # Import here to avoid circular dependency:

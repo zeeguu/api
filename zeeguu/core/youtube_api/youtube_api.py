@@ -147,10 +147,11 @@ def fetch_video_info(
     """
     video_unique_key is the video id, e.g. "8-GrLwHK8SQ"
 
-    provided_captions: client-extracted caption segments; when given, they are used
-    directly instead of the server-side caption fetch. enforce_language /
-    enforce_caption_length default True for crawling, but are relaxed for user-shared
-    videos (the user already chose the video, so we don't reject on language/length).
+    provided_captions: already-normalized {text, captions} dict (see
+    normalize_caption_list); when given, used in place of the server-side fetch.
+    enforce_language / enforce_caption_length default True for crawling, but are
+    relaxed for user-shared videos (the user already chose the video, so we don't
+    reject on language/length).
     """
 
     def _get_thumbnail(item):
@@ -217,7 +218,7 @@ def fetch_video_info(
         return video_info
 
     if provided_captions is not None:
-        captions = normalize_caption_list(provided_captions)
+        captions = provided_captions
     else:
         captions = get_captions_from_json(video_unique_key, lang)
 

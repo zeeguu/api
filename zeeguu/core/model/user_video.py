@@ -1,6 +1,8 @@
+import logging
 from datetime import datetime
 
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user import User
 from zeeguu.core.model.video import Video
@@ -8,6 +10,8 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model.video_caption_context import VideoCaptionContext
 from zeeguu.core.util.encoding import datetime_to_json
+
+logger = logging.getLogger(__name__)
 
 
 class UserVideo(db.Model):
@@ -98,11 +102,15 @@ class UserVideo(db.Model):
             session.add(new)
             session.commit()
             return new
+        except IntegrityError:
+            # Concurrent insert hit the UNIQUE(user_id, video_id) constraint -- not a bug.
+            session.rollback()
+            logger.info("UserVideo race avoided: returning row inserted by concurrent request")
+            return cls.query.filter_by(user=user, video=video).first()
         except Exception as e:
             from sentry_sdk import capture_exception
 
             capture_exception(e)
-            print("Seems we avoided a race condition")
             session.rollback()
             return cls.query.filter_by(user=user, video=video).first()
 

@@ -12,11 +12,28 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import User, Language
 from zeeguu.core.model.video import Video
-from zeeguu.core.youtube_api.youtube_api import extract_youtube_video_id
+from zeeguu.core.youtube_api.youtube_api import (
+    extract_youtube_video_id,
+    normalize_caption_list,
+    NO_CAPTIONS_AVAILABLE,
+    NOT_IN_EXPECTED_LANGUAGE,
+    DUBBED_AUDIO,
+    CAPTIONS_TOO_SHORT,
+    VIDEO_IS_MISSING_DURATION,
+)
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 from . import api, db_session
+
+
+BROKEN_CODE_MESSAGES = {
+    NO_CAPTIONS_AVAILABLE: "This video has no subtitles yet",
+    NOT_IN_EXPECTED_LANGUAGE: "Video is not in the requested language",
+    DUBBED_AUDIO: "Video audio is dubbed; original captions unavailable",
+    CAPTIONS_TOO_SHORT: "Video captions are too sparse for interactive reading",
+    VIDEO_IS_MISSING_DURATION: "Video duration is unavailable",
+}
 
 
 def _payload():
@@ -54,25 +71,36 @@ def video_upload_create():
     except NoResultFound:
         flask.abort(406, "Language not supported")
 
-    # Captions extracted client-side: list of {time_start, time_end, text} (times in ms).
-    # Optional — if absent we fall through to broken=NO_CAPTIONS and report it below.
-    captions = data.get("captions")
+    # Client-extracted caption segments: list of {time_start, time_end, text} (times in ms).
+    # Optional -- if absent we fall through to broken=NO_CAPTIONS_AVAILABLE below.
+    raw_captions = data.get("captions")
+    if raw_captions is not None:
+        if not isinstance(raw_captions, list):
+            flask.abort(400, "captions must be a list")
+        if len(raw_captions) == 0:
+            flask.abort(400, "captions list is empty")
+
+    provided_captions = normalize_caption_list(raw_captions)
+    if raw_captions is not None and provided_captions is None:
+        flask.abort(400, "captions contained no usable text")
 
     video = Video.find_or_create(
         db_session,
         video_unique_key,
         lang_code,
-        captions=captions,
+        upload_index=False,  # share-flow: don't block the redirect on Elasticsearch
+        captions=provided_captions,
         enforce_language=False,
         enforce_caption_length=False,
     )
 
     if video is None:
         flask.abort(422, "Could not fetch video info from YouTube")
-    if video.broken != 0:
-        # 1=no captions, 5=missing duration. The client should surface a friendly
-        # "this video has no subtitles yet" for the no-captions case.
-        flask.abort(422, f"Video not usable for interactive viewing (code {video.broken})")
+    if video.broken:
+        message = BROKEN_CODE_MESSAGES.get(
+            video.broken, f"Video not usable (broken={video.broken})"
+        )
+        flask.abort(422, message)
 
     return json_result(
         {"video_id": video.id, "video_unique_key": video.video_unique_key}
