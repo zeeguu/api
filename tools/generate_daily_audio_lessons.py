@@ -123,17 +123,29 @@ def resolve_suggestion(user, lesson_type, raw_suggestion):
     return result["canonical"], result["is_general"]
 
 
+def decide_generation(user, language, timezone_offset, today_local):
+    """One row per outcome of "should we generate for this (user, language) today?".
+    Returns (kind, sub) where kind is one of:
+      not-subscribed | invalid-type | not-due | exists | paused | ready
+
+    Read-only: no LLM calls, no writes. Mirrors the daily-audio generation
+    decision table — see docs/history/26-05-30--daily-audio-subscription-state-machine.md."""
+    sub = DailyAudioSubscription.find(user, language)
+    if sub is None or not sub.enabled:                          return ("not-subscribed", None)
+    if sub.lesson_type not in VALID_LESSON_TYPES:               return ("invalid-type",  sub)
+    if not sub.scheduled_on(today_local):                       return ("not-due",       sub)
+    if generator.today_lesson_exists(user, timezone_offset):    return ("exists",        sub)
+    if DailyAudioLesson.waiting_paused_for(user, language.id):  return ("paused",        sub)
+    return ("ready", sub)
+
+
 def generate_for_user(user, lesson_type, raw_suggestion, timezone_offset):
     """Run the full prepare+generate pipeline synchronously for one user.
-    Returns one of: "generated", "exists", "skipped:<reason>", "failed:<reason>"."""
-    # Pause gate (before any LLM work): skip if today's lesson already exists,
-    # or if generation is paused (most recent lesson not engaged with) — so
-    # unheard lessons don't pile up until the learner returns.
-    if generator.today_lesson_exists(user, timezone_offset):
-        return "exists"
-    if DailyAudioLesson.waiting_paused_for(user, user.learned_language.id):
-        return "skipped:paused"
+    Caller must have established via decide_generation() that the user is
+    eligible — we don't re-gate here (prepare_lesson_generation still has its
+    own existing-lesson check as belt-and-suspenders).
 
+    Returns one of: "generated", "exists", "skipped:<reason>", "failed:<reason>"."""
     try:
         canonical, is_general = resolve_suggestion(user, lesson_type, raw_suggestion)
     except ValueError as e:
@@ -206,44 +218,40 @@ for index, user_id in enumerate(user_ids, start=1):
 
     try:
         language = user.learned_language
-        sub = DailyAudioSubscription.find(user, language)
-
-        # No subscription, or turned off → not generating for this user.
-        if sub is None or not sub.enabled:
-            counts["not-subscribed"] += 1
-            continue
-        lesson_type, raw_suggestion = sub.lesson_type, sub.raw_suggestion
-        if lesson_type not in VALID_LESSON_TYPES:
-            output(f"{index}. {user.name}: invalid lesson_type {lesson_type!r} — skipping")
-            counts["skipped"] += 1
-            continue
-
-        subject = raw_suggestion or ("study words" if lesson_type == "three_words_lesson" else "?")
         timezone_offset = user_timezone_offset_minutes(user)
         today_local = datetime.now(timezone(timedelta(minutes=timezone_offset))).date()
 
-        # Not a scheduled day for this subscription (e.g. Mon/Wed/Fri schedule).
-        if not sub.scheduled_on(today_local):
+        kind, sub = decide_generation(user, language, timezone_offset, today_local)
+
+        # Dispatch one branch per row of the decision table.
+        if kind == "not-subscribed":
+            counts["not-subscribed"] += 1
+            continue
+        if kind == "invalid-type":
+            output(f"{index}. {user.name}: invalid lesson_type {sub.lesson_type!r} — skipping")
+            counts["skipped"] += 1
+            continue
+        if kind == "not-due":
             counts["not-due"] += 1
             continue
+        if kind == "exists":
+            output(f"{index}. {user.name} [{language.name}] — already has today's lesson")
+            counts["exists"] += 1
+            continue
+        if kind == "paused":
+            output(f"{index}. {user.name} [{language.name}] — paused (last lesson < 50% listened)")
+            counts["paused"] += 1
+            continue
 
+        # kind == "ready" — actually generate.
+        subject = sub.raw_suggestion or ("study words" if sub.lesson_type == "three_words_lesson" else "?")
         if DRY_RUN:
-            # Read-only: don't create a progress record or generate. Engagement
-            # pause + today-exists gates are #643's (reused here).
-            if generator.today_lesson_exists(user, timezone_offset):
-                output(f"{index}. {user.name} [{language.name}] — already has today's lesson")
-                counts["exists"] += 1
-                continue
-            if DailyAudioLesson.waiting_paused_for(user, language.id):
-                output(f"{index}. {user.name} [{language.name}] — paused (last lesson < 50% listened)")
-                counts["paused"] += 1
-                continue
-            output(f"{index}. {user.name} [{language.name}] — WOULD generate {lesson_type}: {subject}")
+            output(f"{index}. {user.name} [{language.name}] — WOULD generate {sub.lesson_type}: {subject}")
             counts["would-generate"] += 1
             language_breakdown[language.name] += 1
             continue
 
-        outcome = generate_for_user(user, lesson_type, raw_suggestion, timezone_offset)
+        outcome = generate_for_user(user, sub.lesson_type, sub.raw_suggestion, timezone_offset)
         counts[outcome.split(":")[0]] += 1
         if outcome == "generated":
             language_breakdown[user.learned_language.name] += 1
