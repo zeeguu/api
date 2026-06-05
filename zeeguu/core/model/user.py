@@ -1129,19 +1129,6 @@ class User(db.Model):
 
         return json_words
 
-    def bookmarks_by_url_by_date(self, n_days=365):
-        bookmarks_list, dates = self.bookmarks_by_date()
-
-        most_recent_n_days = dates[0:n_days]
-
-        urls_by_date = {}
-        texts_by_url = {}
-        for date in most_recent_n_days:
-            for bookmark in bookmarks_list[date]:
-                urls_by_date.setdefault(date, set()).add(bookmark.text.url)
-                texts_by_url.setdefault(bookmark.text.url, set()).add(bookmark.text)
-        return most_recent_n_days, urls_by_date, texts_by_url
-
     def bookmark_counts_by_date(self):
         """returns array with added bookmark amount per each date for the last year
         this function is for the activity_graph, generates data
