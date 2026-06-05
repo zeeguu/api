@@ -24,6 +24,7 @@ from zeeguu.core.constants import (
 from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
 )
+from zeeguu.core.util.url import remove_tracking_query_params
 import zeeguu
 
 from zeeguu.core.model.db import db
@@ -475,6 +476,10 @@ class UserActivityData(db.Model):
 
         event = data.get("event", "")
         value = data.get("value", "")
+        # Strip tracking cruft (gaa_*, utm_*, ...) and clamp to the column size.
+        # Some publishers append long signed access tokens that overflow the
+        # 255-char `value` column and 500 the whole activity upload.
+        value = remove_tracking_query_params(value)[:255]
         extra_data = data.get("extra_data", "")
         source_id = data.get("source_id", "")
         platform = data.get("platform", None)

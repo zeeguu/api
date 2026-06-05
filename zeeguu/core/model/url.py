@@ -13,6 +13,7 @@ import random
 from zeeguu.core.model.db import db
 
 from zeeguu.core.model.domain_name import DomainName
+from zeeguu.core.util.url import remove_tracking_query_params
 
 
 class Url(db.Model):
@@ -78,6 +79,11 @@ class Url(db.Model):
 
     @classmethod
     def get_path(cls, url: str):
+        # Strip tracking cruft (gaa_*, utm_*, ...) before extracting the path,
+        # so the stored path stays canonical and short. Some publishers append
+        # long signed access tokens that otherwise overflow the 255-char column.
+        url = remove_tracking_query_params(url)
+
         protocol_re = "(.*://)?"
         domain_re = "([^/?]*)"
         path_re = "(.*)"
