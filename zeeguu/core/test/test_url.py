@@ -27,6 +27,11 @@ class UrlTest(ModelTestMixIn, TestCase):
 
         self.assertTrue("Duplicate entry" or "IntegrityError" in str(context.exception))
 
+    def test_get_path_strips_tracking_params(self):
+        # gaa_* tokens would otherwise overflow the 255-char path column
+        url = "https://www.bt.dk/krimi/x?gaa_sig=AAAA&page=2"
+        self.assertEqual(Url.get_path(url), "/krimi/x?page=2")
+
     def test_find_or_create_works(self):
 
         _url = self.url_rule.url.as_string()
