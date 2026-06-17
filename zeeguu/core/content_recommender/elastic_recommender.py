@@ -110,6 +110,7 @@ def article_recommendations_for_user(
     score_threshold_for_search=5,
     maximum_added_search_articles=10,
     language=None,
+    topics_override=None,
 ):
     """
         Retrieve up to :param count + maximum_added_search_articles articles
@@ -125,6 +126,10 @@ def article_recommendations_for_user(
         Fails if no language is selected.
 
         :param articles_to_exclude: List of article IDs to exclude from results
+        :param topics_override: Optional list of topic titles. When given, the feed
+            is restricted to exactly these topics instead of the user's broader topic
+            subscriptions (e.g. a single topic pill on the home feed). The saved-search
+            augmentation is also dropped so the feed stays on the requested topic.
 
     :return:
 
@@ -140,6 +145,13 @@ def article_recommendations_for_user(
         unwanted_user_searches,
         user_ignored_sources,
     ) = _prepare_user_constraints(user, language)
+
+    if topics_override is not None:
+        # Single-topic view: pin the feed to the requested topic(s) and skip the
+        # saved-search injection below, which would otherwise mix in off-topic
+        # articles the user didn't ask for in this view.
+        topics_to_include = _topics_to_string(topics_override)
+        wanted_user_searches = ""
 
     es = Elasticsearch(ES_CONN_STRING)
 
