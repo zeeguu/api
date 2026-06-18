@@ -12,6 +12,7 @@ from sqlalchemy import (
     desc,
     Enum,
     BigInteger,
+    text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import relationship
@@ -154,6 +155,11 @@ class Article(db.Model):
     summary = Column(UnicodeText)
     word_count = Column(Integer)
     published_time = Column(DateTime)
+    # When this row was ingested by the crawler. Distinct from published_time
+    # (the source's publish date, which can be backdated) — so crawled_at is the
+    # reliable signal for crawler-throughput metrics. DB-stamped on insert; rows
+    # that predate this column are NULL.
+    crawled_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     fk_difficulty = Column(Integer)
     broken = Column(Integer)
     deleted = Column(Integer)
