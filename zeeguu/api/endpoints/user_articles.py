@@ -46,6 +46,9 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     URL parameters:
     - exclude_saved: if 'true', exclude saved articles from results
+    - topic: if given (a topic title), restrict the feed to that single topic
+      (e.g. a topic pill on the home feed). Matches the title shape returned by
+      /subscribed_topics.
 
     Note: Hidden articles are always excluded from recommendations.
     """
@@ -73,6 +76,11 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     # Get exclusion parameters from request args
     exclude_saved = request.args.get("exclude_saved", "false").lower() == "true"
+
+    # Optional single-topic filter (e.g. a topic pill on the home feed). The
+    # value is a topic title, matching the shape returned by /subscribed_topics.
+    topic_filter = request.args.get("topic", None)
+    topics_override = [topic_filter] if topic_filter else None
 
     # Collect article IDs to exclude
     articles_to_exclude = []
@@ -111,7 +119,12 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     try:
         content = article_recommendations_for_user(
-            user, count, page, articles_to_exclude, language=language
+            user,
+            count,
+            page,
+            articles_to_exclude,
+            language=language,
+            topics_override=topics_override,
         )
         print("Total content found: ", len(content))
     except Exception as e:
@@ -126,6 +139,18 @@ def user_articles_recommended(count: int = 15, page: int = 0):
         # Apply exclusions to the fallback query as well
         if articles_to_exclude:
             query = query.filter(Article.id.notin_(articles_to_exclude))
+
+        # Honor the single-topic filter in the fallback too, so a topic pill
+        # still narrows results when Elasticsearch is unavailable.
+        if topic_filter:
+            from zeeguu.core.model.topic import Topic
+            from zeeguu.core.model.article_topic_map import ArticleTopicMap
+
+            topic_obj = Topic.find(topic_filter)
+            if topic_obj:
+                query = query.filter(
+                    Article.topics.any(ArticleTopicMap.topic_id == topic_obj.id)
+                )
 
         content = query.order_by(Article.published_time.desc()).limit(20).all()
 
