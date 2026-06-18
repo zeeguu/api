@@ -14,7 +14,7 @@
 API_DIR="/home/zeeguu/ops/running/api"
 DOCKER_COMPOSE="docker compose -f $API_DIR/docker-compose.yml"
 
-# Per-language hard-timeout ceiling, in minutes (enforced by run_crawler_bounded).
+# Per-language hard-timeout ceiling, in minutes (enforced by run_crawler_with_hard_timeout).
 DEFAULT_MAX_TIME_MIN=25         # most languages
 HIGH_VOLUME_MAX_TIME_MIN=50     # da/fr: more users + bigger backlogs, so a longer ceiling
 
@@ -84,26 +84,26 @@ for lang in $LANGUAGES; do
     docker rm crawler_${lang} 2>/dev/null || true
 done
 
-# Run a single crawler container under a hard wall-clock ceiling, escalating how
+# Run one crawler container under a hard wall-clock ceiling, escalating how
 # forcefully we take it down if it overruns:
 #   1. SIGTERM at $hard_timeout_seconds — graceful: docker compose stops the
 #      container and --rm removes it.
-#   2. SIGKILL if it's STILL alive $GRACE_BEFORE_KILL later — for a crawl so wedged
-#      it ignores SIGTERM.
+#   2. SIGKILL if it's STILL alive $KILL_GRACE later — for a crawl so wedged it
+#      ignores SIGTERM.
 #   3. `docker rm -f` to sweep up any container the kill orphaned, so it can't keep
 #      holding /tmp/zeeguu-crawl.lock and stall every language's crawl (as happened
 #      for 3 days in June 2026).
 # This is only a backstop — the per-article SIGALRM watchdog in article_downloader.py
 # is the primary guard and keeps healthy crawls flowing.
-GRACE_BEFORE_KILL="60s"
+KILL_GRACE="60s"
 
-run_crawler_bounded() {
+run_crawler_with_hard_timeout() {
     local lang="$1"
     local hard_timeout_seconds="$2"
     local log_file="$3"
     shift 3   # remaining args = the python crawl command line
 
-    timeout --kill-after="$GRACE_BEFORE_KILL" "$hard_timeout_seconds" \
+    timeout --kill-after="$KILL_GRACE" "$hard_timeout_seconds" \
         $DOCKER_COMPOSE run --rm --name "crawler_${lang}" run_task python "$@" \
         >> "$log_file" 2>&1
     local rc=$?
@@ -134,7 +134,7 @@ for lang in $LANGUAGES; do
 
     LOG_FILE="/var/log/zeeguu/crawler/crawler-${lang}-${TIMESTAMP}.log"
 
-    run_crawler_bounded "$lang" "$max_time_seconds" "$LOG_FILE" \
+    run_crawler_with_hard_timeout "$lang" "$max_time_seconds" "$LOG_FILE" \
         zeeguu/operations/crawler/crawl.py "$lang" --provider "$PROVIDER" --max-articles "$max_articles" --max-time "$max_time_seconds"
 done
 
