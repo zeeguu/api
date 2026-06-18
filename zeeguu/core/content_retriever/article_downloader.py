@@ -7,6 +7,7 @@ about and downloads new articles saving them in the DB.
 """
 
 import os
+import signal
 import newspaper
 from time import time
 from pymysql import DataError
@@ -51,6 +52,27 @@ TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
+
+# Hard ceiling for processing a SINGLE article (download + readability + topic
+# classification + stanza tokenization + LLM simplification). Healthy articles
+# finish in well under a minute; anything past this is a wedged network/IPC call
+# with no timeout of its own. In June 2026 one such article hung the German crawl
+# for 3 days, and because every crawl shares one `flock`, it silently froze new
+# articles for ALL languages. The per-feed check above only fires *between*
+# articles, so it can't catch a hang *inside* one — hence this per-article guard.
+# SIGALRM aborts just the stuck article and the crawl moves on. download_from_feed
+# is only ever called from the single-threaded crawler scripts, so arming SIGALRM
+# here is safe.
+MAX_ARTICLE_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_ARTICLE_PROCESSING_TIME_SECONDS", "180"))
+
+
+class ArticleProcessingTimeout(Exception):
+    """Raised by the per-article SIGALRM watchdog when one article blocks past
+    MAX_ARTICLE_PROCESSING_TIME_SECONDS."""
+
+
+def _raise_article_timeout(signum, frame):
+    raise ArticleProcessingTimeout()
 
 # Duplicate detection settings
 SIMHASH_DUPLICATE_DISTANCE_THRESHOLD = 5  # Hamming distance <= 5 (~92% similar)
@@ -284,6 +306,17 @@ def download_from_feed(
         return ""
 
     skipped_already_in_db = 0
+
+    # Arm the per-article watchdog. signal.signal() only works on the main thread;
+    # the crawler is single-threaded, but guard anyway so an unexpected non-crawler
+    # caller degrades gracefully (the shell-level `timeout` backstop still applies).
+    article_timeout_armed = False
+    try:
+        signal.signal(signal.SIGALRM, _raise_article_timeout)
+        article_timeout_armed = True
+    except ValueError:
+        log("⚠ Not on main thread; per-article timeout watchdog disabled")
+
     for feed_item in items:
 
         if downloaded >= limit:
@@ -345,6 +378,8 @@ def download_from_feed(
             skipped_other += 1
             continue
 
+        if article_timeout_armed:
+            signal.alarm(MAX_ARTICLE_PROCESSING_TIME_SECONDS)
         try:
             new_article = download_feed_item(
                 session,
@@ -427,6 +462,21 @@ def download_from_feed(
             skipped_other += 1
             continue
 
+        except ArticleProcessingTimeout:
+            # A single article wedged past the hard ceiling. Abandon just this
+            # one — roll back its partial transaction so the next article starts
+            # clean — and keep crawling. Reported to Sentry so repeat offenders
+            # (slow sources / a struggling downstream service) are visible.
+            log(f"⏱ Article processing exceeded {MAX_ARTICLE_PROCESSING_TIME_SECONDS}s; abandoning: {url}")
+            try:
+                session.rollback()
+            except Exception:
+                pass
+            capture_to_sentry(ArticleProcessingTimeout(f"Article processing timeout (>{MAX_ARTICLE_PROCESSING_TIME_SECONDS}s): {url}"))
+            crawl_report.add_feed_error(feed, f"Article processing timeout (>{MAX_ARTICLE_PROCESSING_TIME_SECONDS}s): {url}")
+            skipped_other += 1
+            continue
+
         except Exception as e:
             import traceback
 
@@ -439,6 +489,12 @@ def download_from_feed(
                 log(e)
             skipped_other += 1
             continue
+
+        finally:
+            # Always disarm — whether the article succeeded, was skipped, or timed
+            # out — so a pending alarm can never fire during the next iteration.
+            signal.alarm(0)
+
     # Calculate unprocessed: articles in feed that we didn't even attempt
     # (due to time limit or article count limit being reached)
     processed_count = downloaded + skipped_already_in_db + skipped_due_to_low_quality + skipped_other + skipped_readability_timeout
