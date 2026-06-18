@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 """
-Feed Health Check - alerts on stale or broken feeds.
+Feed Health Check - alerts on individual stale feeds (dead RSS sources).
 
-Prints warnings to stdout if issues found (for cron to email).
-Silent if everything is OK.
+Emails the report via ZeeguuMailer (the app's own SMTP) when stale feeds are
+found; silent otherwise. It used to just print to stdout "for cron to email",
+but cron jobs run under run_task.sh which swallows stdout into a log file — and
+the host MTA drops mail anyway — so those warnings never reached anyone.
+
+For "is the crawler as a whole alive right now?" see crawler_liveness_check.py.
 
 Usage:
     python -m tools.feed_health_check [--days N] [--verbose]
@@ -14,6 +18,7 @@ from datetime import datetime, timedelta
 
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Feed
+from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -47,17 +52,25 @@ def main():
 
     stale_feeds = check_stale_feeds(args.days, args.verbose)
 
-    if stale_feeds:
-        print(f"=== STALE FEEDS (no updates in {args.days}+ days) ===\n")
-        for feed, days in stale_feeds:
-            if days is None:
-                print(f"  [{feed.language.code}] {feed.title} (id={feed.id}) - NEVER CRAWLED")
-            else:
-                print(f"  [{feed.language.code}] {feed.title} (id={feed.id}) - {days} days stale")
-                print(f"      Last crawled: {feed.last_crawled_time}")
-                if feed.url:
-                    print(f"      URL: {feed.url.as_string()}")
-            print()
+    if not stale_feeds:
+        print(f"OK: no active feed is more than {args.days} days stale.")
+        return
+
+    lines = [f"=== STALE FEEDS (no updates in {args.days}+ days) ===", ""]
+    for feed, days in stale_feeds:
+        if days is None:
+            lines.append(f"  [{feed.language.code}] {feed.title} (id={feed.id}) - NEVER CRAWLED")
+        else:
+            lines.append(f"  [{feed.language.code}] {feed.title} (id={feed.id}) - {days} days stale")
+            lines.append(f"      Last crawled: {feed.last_crawled_time}")
+            if feed.url:
+                lines.append(f"      URL: {feed.url.as_string()}")
+        lines.append("")
+
+    # Print for the run_task log (manual/debug runs) and email the report so it
+    # actually reaches a human.
+    print("\n".join(lines))
+    ZeeguuMailer.send_mail(f"⚠️ Zeeguu: {len(stale_feeds)} stale feed(s) (>{args.days}d)", lines)
 
 
 if __name__ == "__main__":
