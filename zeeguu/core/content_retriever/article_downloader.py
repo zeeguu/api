@@ -62,8 +62,8 @@ MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_
 # articles, so it can't catch a hang *inside* one — hence this per-article guard.
 # SIGALRM aborts just the stuck article and the crawl moves on. download_from_feed
 # is only ever called from the single-threaded crawler scripts, so arming SIGALRM
-# here is safe.
-MAX_ARTICLE_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_ARTICLE_PROCESSING_TIME_SECONDS", "180"))
+# here is safe. Plain constant (not an env var) — tune it right here if needed.
+MAX_ARTICLE_PROCESSING_TIME_SECONDS = 180
 
 
 class ArticleProcessingTimeout(Exception):
@@ -390,6 +390,11 @@ def download_from_feed(
                 simplification_provider=simplification_provider,
                 topic_simplification_counts=topic_simplification_counts,
             )
+            # The article is fetched + saved; disarm now so the alarm can't fire
+            # during the ES-indexing/bookkeeping below — a timeout there would
+            # roll back the article we just successfully stored.
+            if article_timeout_armed:
+                signal.alarm(0)
             # Politiken sometimes has titles that have
             # strange characters instead of å æ ø
             if feed.id == 136:
@@ -493,7 +498,8 @@ def download_from_feed(
         finally:
             # Always disarm — whether the article succeeded, was skipped, or timed
             # out — so a pending alarm can never fire during the next iteration.
-            signal.alarm(0)
+            if article_timeout_armed:
+                signal.alarm(0)
 
     # Calculate unprocessed: articles in feed that we didn't even attempt
     # (due to time limit or article count limit being reached)
