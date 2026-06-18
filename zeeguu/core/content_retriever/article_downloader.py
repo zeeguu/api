@@ -240,7 +240,12 @@ def extract_article_image(np_article):
         from io import BytesIO
 
         try:
-            response = requests.get(np_article.top_image)
+            # timeout is essential: this lead-image fetch is the one outbound
+            # call in the pipeline that had none, and a host that accepts the
+            # connection but never sends the body wedged the whole crawler for
+            # 3 days (June 2026) — the per-article SIGALRM watchdog now caps it
+            # regardless, but bound the call itself too.
+            response = requests.get(np_article.top_image, timeout=10)
             im = Image.open(BytesIO(response.content))
             im_x, im_y = im.size
             # Quality Check that the image is at least 300x300 ( not an icon )
