@@ -18,6 +18,9 @@ FOLDER_FOR_REPORT_OUTPUT = os.environ.get(
     os.path.join(pathlib.Path(__file__).parent.resolve(), "reports"),
 )
 
+# Whether to email a short digest after generating the report (set by --email).
+SEND_EMAIL = False
+
 
 def set_legend_to_right_side(ax):
     # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-outside-the-plot
@@ -512,6 +515,43 @@ def generate_top_opened_articles(
     )
 
 
+def email_report_digest(article_df, feed_df, report_filename):
+    """Email a short, scannable digest via the app's own SMTP (ZeeguuMailer).
+
+    The HTML report is generated daily but never pushed, so it gets forgotten;
+    this brings the headline to the inbox. Per-language new-article counts come
+    straight from the report's own data, and any active language sitting at 0
+    gets a ⚠ — the one-glance "something's off" signal.
+    """
+    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
+    counts = article_df["Language"].value_counts().to_dict()
+    active_langs = set(
+        feed_df[feed_df["deactivated"] == 0]["Language"].dropna().unique()
+    )
+    langs = sorted(active_langs | set(counts), key=lambda l: -counts.get(l, 0))
+    total = sum(int(counts.get(l, 0)) for l in langs)
+
+    per_lang = " · ".join(
+        f"{l} {int(counts.get(l, 0))}{' ⚠' if counts.get(l, 0) == 0 else ''}"
+        for l in langs
+    )
+    report_url = f"https://zeeguu.org/reports/{report_filename}"
+    lines = [
+        f"Crawl digest — last {DAYS_FOR_REPORT} day(s)",
+        "",
+        "  " + per_lang,
+        "",
+        f"  {total} new articles across {len(langs)} active languages",
+        "",
+        f"  Full report: {report_url}",
+    ]
+    ZeeguuMailer.send_mail(
+        f"📈 Zeeguu crawl digest — {total} new ({DAYS_FOR_REPORT}d)", lines
+    )
+    print(f"Digest email sent ({total} new articles).")
+
+
 def generate_html_page():
     data_extractor = DataExtractor(db_connection, DAYS_FOR_REPORT)
 
@@ -700,6 +740,13 @@ def generate_html_page():
         f.write(result)
 
     print(f"File written to '{output_filepath}'.")
+    if SEND_EMAIL:
+        # A digest failure must never break report generation — the HTML is the
+        # primary artifact; the email is a courtesy push on top.
+        try:
+            email_report_digest(article_df, feed_df, output_filepath)
+        except Exception as e:
+            print(f"Failed to send report digest: {e}")
     return result
 
 
@@ -712,8 +759,14 @@ if __name__ == "__main__":
         help="Number of days from the current date that will be cnsidered for the report.",
         type=int,
     )
+    parser.add_argument(
+        "--email",
+        action="store_true",
+        help="Email a short digest of the report via ZeeguuMailer after generating.",
+    )
     args = parser.parse_args()
     DAYS_FOR_REPORT = args.number_of_days
+    SEND_EMAIL = args.email
     print(
         f"## Reporting for the last {DAYS_FOR_REPORT} days, today is: {datetime.datetime.now()}"
     )
