@@ -14,24 +14,28 @@
 API_DIR="/home/zeeguu/ops/running/api"
 DOCKER_COMPOSE="docker compose -f $API_DIR/docker-compose.yml"
 
+# Per-language hard-timeout ceiling, in minutes (enforced by run_crawler_with_hard_timeout).
+DEFAULT_MAX_TIME_MIN=25         # most languages
+HIGH_VOLUME_MAX_TIME_MIN=50     # da/fr: more users + bigger backlogs, so a longer ceiling
+
 # Per-language configuration: MAX_ARTICLES MAX_TIME_MINUTES
 # Format: LANG_CONFIG_<code>="max_articles max_time_minutes"
 # High activity languages (20+ active users in last 2 weeks)
-LANG_CONFIG_da="100 50"  # 22 users - runs hourly
-LANG_CONFIG_fr="40 50"   # 45 users - runs hourly
-LANG_CONFIG_de="20 25"   # 31 users - runs hourly
-LANG_CONFIG_en="20 25"   # 26 users
+LANG_CONFIG_da="100 $HIGH_VOLUME_MAX_TIME_MIN"  # 22 users - runs hourly
+LANG_CONFIG_fr="40 $HIGH_VOLUME_MAX_TIME_MIN"   # 45 users - runs hourly
+LANG_CONFIG_de="20 $DEFAULT_MAX_TIME_MIN"       # 31 users - runs hourly
+LANG_CONFIG_en="20 $DEFAULT_MAX_TIME_MIN"       # 26 users
 
 # Medium activity languages (10+ users)
-LANG_CONFIG_nl="15 25"   # 10 users
+LANG_CONFIG_nl="15 $DEFAULT_MAX_TIME_MIN"       # 10 users
 
 # Low activity languages (1-3 users)
-LANG_CONFIG_el="5 25"    # 3 users
-LANG_CONFIG_pt="5 25"    # 1 user
-LANG_CONFIG_ro="5 25"    # 1 user
-LANG_CONFIG_es="5 25"    # 1 user
-LANG_CONFIG_it="5 25"    # 1 user
-LANG_CONFIG_sv="5 25"    # 0 users
+LANG_CONFIG_el="5 $DEFAULT_MAX_TIME_MIN"        # 3 users
+LANG_CONFIG_pt="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
+LANG_CONFIG_ro="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
+LANG_CONFIG_es="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
+LANG_CONFIG_it="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
+LANG_CONFIG_sv="5 $DEFAULT_MAX_TIME_MIN"        # 0 users
 
 # Default languages (when no language args provided)
 # Note: da, fr, de run hourly via separate cron job
@@ -80,6 +84,38 @@ for lang in $LANGUAGES; do
     docker rm crawler_${lang} 2>/dev/null || true
 done
 
+# Run one crawler container under a hard wall-clock ceiling, escalating how
+# forcefully we take it down if it overruns:
+#   1. SIGTERM at $hard_timeout_seconds — graceful: docker compose stops the
+#      container and --rm removes it.
+#   2. SIGKILL if it's STILL alive $KILL_GRACE later — for a crawl so wedged it
+#      ignores SIGTERM.
+#   3. `docker rm -f` to sweep up any container the kill orphaned, so it can't keep
+#      holding /tmp/zeeguu-crawl.lock and stall every language's crawl (as happened
+#      for 3 days in June 2026).
+# This is only a backstop — the per-article SIGALRM watchdog in article_downloader.py
+# is the primary guard and keeps healthy crawls flowing.
+KILL_GRACE="60s"
+
+run_crawler_with_hard_timeout() {
+    local lang="$1"
+    local hard_timeout_seconds="$2"
+    local log_file="$3"
+    shift 3   # remaining args = the python crawl command line
+
+    timeout --kill-after="$KILL_GRACE" "$hard_timeout_seconds" \
+        $DOCKER_COMPOSE run --rm --name "crawler_${lang}" run_task python "$@" \
+        >> "$log_file" 2>&1
+    local rc=$?
+
+    # timeout exits 124 (had to SIGTERM) or 137 (had to SIGKILL) when it tripped.
+    if [[ $rc -eq 124 || $rc -eq 137 ]]; then
+        echo "[$(date)] crawler_${lang} exceeded ${hard_timeout_seconds}s — force-removing container to release the crawl lock" >> "$log_file"
+        docker rm -f "crawler_${lang}" >/dev/null 2>&1 || true
+    fi
+    return $rc
+}
+
 # Run one crawler container at a time, in the order languages were given.
 # Sequential by design — parallel crawls saturate Stanza and slow the live API.
 for lang in $LANGUAGES; do
@@ -97,7 +133,9 @@ for lang in $LANGUAGES; do
     max_time_seconds=$((max_time_minutes * 60))
 
     LOG_FILE="/var/log/zeeguu/crawler/crawler-${lang}-${TIMESTAMP}.log"
-    $DOCKER_COMPOSE run --rm --name crawler_${lang} run_task python zeeguu/operations/crawler/crawl.py $lang --provider $PROVIDER --max-articles $max_articles --max-time $max_time_seconds >> "$LOG_FILE" 2>&1
+
+    run_crawler_with_hard_timeout "$lang" "$max_time_seconds" "$LOG_FILE" \
+        zeeguu/operations/crawler/crawl.py "$lang" --provider "$PROVIDER" --max-articles "$max_articles" --max-time "$max_time_seconds"
 done
 
 # echo ""
