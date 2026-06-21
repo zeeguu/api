@@ -100,6 +100,35 @@ class Bookmark(db.Model):
         else:
             return self.text.content
 
+    def url(self):
+        """URL of the article this bookmark's source maps to, or "" if none.
+
+        Replaces the legacy ``Text.url()``: bookmarks now derive their article
+        via ``source_id`` (``Article.find_by_source_id``), not the old ``text``
+        table. Returns "" when the bookmark has no article (matches the old
+        behaviour for non-article sources).
+        """
+        from zeeguu.core.model.article import Article
+
+        if not self.source_id:
+            return ""
+        article = Article.find_by_source_id(self.source_id)
+        if article and article.url:
+            return article.url.as_string()
+        return ""
+
+    def article_id(self):
+        """Id of the article this bookmark's source maps to, or None.
+
+        Replaces the legacy ``Text.article_id``.
+        """
+        from zeeguu.core.model.article import Article
+
+        if not self.source_id:
+            return None
+        article = Article.find_by_source_id(self.source_id)
+        return article.id if article else None
+
     def to_json(
         self,
         with_context,
@@ -193,7 +222,7 @@ class Bookmark(db.Model):
         result["from"] = self.user_word.meaning.origin.content
         result["to"] = self.user_word.meaning.translation.content
         result["fit_for_study"] = self.user_word.fit_for_study
-        result["url"] = self.text.url() if self.text else ""
+        result["url"] = self.url()
         
         # Add word rank if available
         word_rank = self.user_word.meaning.origin.rank
@@ -470,7 +499,6 @@ class Bookmark(db.Model):
         _translation: str,
         _translation_lang: str,
         _context: str,
-        article_id: int,
         source_id: int,
         sentence_i: int = None,
         token_i: int = None,
@@ -519,24 +547,16 @@ class Bookmark(db.Model):
             session, user_word, UserWordInteractionHistory.TRANSLATED
         )
 
-        # Erode "declared known" confidence on re-translation
-        if UserWordExPreference.is_declared_known(user_word.user_preference):
-            user_word.user_preference += 2
-            if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
-                user_word.user_preference = UserWordExPreference.NO_PREFERENCE
-                user_word.update_fit_for_study(session)
-            session.add(user_word)
+        # # Erode "declared known" confidence on re-translation
+        # if UserWordExPreference.is_declared_known(user_word.user_preference):
+        #     user_word.user_preference += 2
+        #     if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
+        #         user_word.user_preference = UserWordExPreference.NO_PREFERENCE
+        #         user_word.update_fit_for_study(session)
+        #     session.add(user_word)
 
         log(f"[BOOKMARK-TIMING] Getting Source")
         source = Source.find_by_id(source_id)
-
-        # TODO: This will be temporary.
-        log(f"[BOOKMARK-TIMING] Getting Article")
-        article = None
-        if source_id and not article_id:
-            article = Article.find_by_source_id(source_id)
-        if article_id:
-            article = Article.query.filter_by(id=article_id).one()
 
         log(f"[BOOKMARK-TIMING] Creating BookmarkContext")
         ctx_start = time.time()
@@ -552,23 +572,6 @@ class Bookmark(db.Model):
         )
         log(f"[BOOKMARK-TIMING] BookmarkContext.find_or_create took {time.time() - ctx_start:.3f}s")
 
-        log(f"[BOOKMARK-TIMING] Creating Text")
-        text_start = time.time()
-        text = Text.find_or_create(
-            session,
-            _context,
-            meaning.origin.language,
-            None,
-            article,
-            c_paragraph_i,
-            c_sentence_i,
-            c_token_i,
-            in_content,
-            left_ellipsis,
-            right_ellipsis,
-        )
-        log(f"[BOOKMARK-TIMING] Text.find_or_create took {time.time() - text_start:.3f}s")
-
         now = datetime.now()
 
         log(f"[BOOKMARK-TIMING] Finding or creating bookmark instance")
@@ -582,7 +585,7 @@ class Bookmark(db.Model):
             bookmark = cls(
                 user_word,
                 source,
-                text,
+                None,  # legacy `text` column no longer written; `context` carries the content
                 now,
                 sentence_i=sentence_i,
                 token_i=token_i,

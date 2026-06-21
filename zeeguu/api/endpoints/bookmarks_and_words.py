@@ -892,7 +892,6 @@ def add_custom_word():
         )
 
         # Create bookmark
-        from zeeguu.core.model.text import Text
         from zeeguu.core.model.source import Source
 
         # Validate and find position data using shared utility
@@ -964,7 +963,6 @@ def add_custom_word():
             translation,
             to_lang_code,
             context,
-            None,  # article_id - None for user-added words
             None,  # source_id - None for user-added words
             sentence_i=sentence_i,
             token_i=token_i,
