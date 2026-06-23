@@ -1,7 +1,7 @@
 # Stanza service dependencies
 flask>=2.0.0
 gunicorn>=21.0.0
-stanza>=1.5.0
+stanza>=1.12.2
 psutil>=5.9.0
 
 # Stanza dependencies (PyTorch)
