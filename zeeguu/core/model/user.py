@@ -1407,7 +1407,7 @@ class User(db.Model):
             cls.username.like(f"%{escaped}%", escape="\\"),  # partial match for username
             cls.name == term,                                  # exact match for name
         ]
-        
+
         # Relevance scoring: exact username match (0), prefix match (1), others (2)
         relevance = case(
             (cls.username == term, 0),                  # exact username match

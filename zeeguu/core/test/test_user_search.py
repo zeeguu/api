@@ -19,10 +19,10 @@ class UserSearchTest(ModelTestMixIn):
         self.searching_user = UserRule().user
 
     def test_exact_username_match_is_ranked_first(self):
+        UserRule().user.username = "bigjohn"
+        UserRule().user.username = "johnny"
         exact = UserRule().user
         exact.username = "john"
-        UserRule().user.username = "johnny"
-        UserRule().user.username = "bigjohn"
 
         session.commit()
 
@@ -34,10 +34,10 @@ class UserSearchTest(ModelTestMixIn):
         self.assertEqual(exact.id, users[0].id)
 
     def test_prefix_matches_are_ranked_before_contains_matches(self):
-        prefix = UserRule().user
-        prefix.username = "johnny"
         contains = UserRule().user
         contains.username = "bigjohn"
+        prefix = UserRule().user
+        prefix.username = "johnny"
 
         session.commit()
 
@@ -53,10 +53,11 @@ class UserSearchTest(ModelTestMixIn):
 
 
     def test_shorter_prefix_matches_are_ranked_first(self):
-        shorter = UserRule().user
-        shorter.username = "john1"
+        # Add longer first so that we can test that the shorter one is ranked first after search
         longer = UserRule().user
         longer.username = "john123456"
+        shorter = UserRule().user
+        shorter.username = "john1"
 
         session.commit()
 
@@ -69,6 +70,38 @@ class UserSearchTest(ModelTestMixIn):
             users.index(shorter),
             users.index(longer),
         )
+
+    def test_shorter_prefix_matches_are_ranked_first_v2(self):
+        longer = UserRule().user
+        longer.username = "witty_beaver123456"
+        shorter1 = UserRule().user
+        shorter1.username = "witty_beaver1"
+        shorter0 = UserRule().user
+        shorter0.username = "witty_beaver0"
+
+
+        session.commit()
+
+        results = User.search(self.searching_user.id, "witty_beaver")
+
+        users = [user for user, avatar in results]
+
+        self.assertEqual(3, len(users))  # Ensure all three users are returned
+        self.assertLess(
+            users.index(shorter0),
+            users.index(longer),
+        )
+        self.assertLess(
+            users.index(shorter1),
+            users.index(longer),
+        )
+
+        self.assertLess(
+            users.index(shorter0),
+            users.index(shorter1),
+        )
+        
+
 
     def test_current_user_is_not_returned(self):
         self.searching_user.username = "john"
