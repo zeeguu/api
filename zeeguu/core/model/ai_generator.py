@@ -5,6 +5,7 @@ AI Model entity for tracking which AI models were used for various tasks.
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from zeeguu.core.model.db import db
+from zeeguu.core.llm_services import models
 
 
 class AIGenerator(db.Model):
@@ -68,4 +69,4 @@ class AIGenerator(db.Model):
     @classmethod
     def get_current_classification_model(cls):
         """Get the current model used for meaning frequency classification."""
-        return cls.query.filter_by(model_name="claude-sonnet-4-5-20250929").first()
+        return cls.query.filter_by(model_name=models.MEANING_FREQUENCY).first()

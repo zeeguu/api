@@ -21,6 +21,8 @@ import re
 from typing import List, Dict, Optional
 from threading import Lock
 
+from zeeguu.core.llm_services import models
+
 logger = logging.getLogger(__name__)
 
 # Language names for prompts
@@ -178,7 +180,7 @@ JSON:"""
 
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=models.MWE_DETECTION,
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -448,7 +450,7 @@ JSON:"""
         # Single LLM call for all sentences
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=models.MWE_DETECTION,
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )

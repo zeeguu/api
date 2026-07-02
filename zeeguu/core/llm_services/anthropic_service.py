@@ -8,6 +8,7 @@ from typing import List, Dict, Optional
 
 from .llm_service import LLMService
 from .prompts import format_prompt, PROMPT_VERSION_V3
+from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 
 
@@ -26,8 +27,7 @@ class AnthropicService(LLMService):
         try:
             import anthropic
             self.client = anthropic.Anthropic(api_key=self.api_key, timeout=self.timeout)
-            # Use Claude Sonnet 4.5 (latest model as of September 2025)
-            self.model = "claude-sonnet-4-5-20250929"
+            self.model = models.ANTHROPIC_GENERAL
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     

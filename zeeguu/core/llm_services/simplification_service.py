@@ -7,6 +7,7 @@ import requests
 from typing import Dict, Optional, Tuple
 from zeeguu.logging import log
 from zeeguu.core.llm_services.haiku_client import haiku_completion
+from zeeguu.core.llm_services import models
 
 
 class SimplificationService:
@@ -397,7 +398,7 @@ TOPIC: [topic]"""
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "deepseek-chat",
+                    "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 30,
                     "temperature": 0.1,
@@ -518,7 +519,7 @@ IMPORTANT:
             
             # Create the payload with proper JSON encoding
             payload = {
-                "model": "claude-haiku-4-5-20251001",
+                "model": models.SIMPLIFICATION,
                 "max_tokens": 4000,
                 "temperature": 0.3,
                 "messages": [{"role": "user", "content": prompt}],
@@ -631,7 +632,7 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "deepseek-chat",
+                    "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 8000,
                     "temperature": 0.3,
@@ -820,7 +821,7 @@ Remember: Keep the same factual information but make it appropriate for {target_
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "deepseek-chat",
+                    "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 2000,
                     "temperature": 0.3,
