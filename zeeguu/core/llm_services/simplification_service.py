@@ -514,73 +514,52 @@ IMPORTANT:
 
         log(f"Prompt length: {len(prompt)} chars")
 
+        # Route through the shared Haiku client so the model (models.SIMPLIFICATION,
+        # via haiku_client), key, endpoint, and truncation handling live in one
+        # place instead of a second hand-rolled copy here.
+        #
+        # max_tokens must leave room for the *translated* output, which for a full
+        # chapter runs at least as long as the input (German et al. run 20-30%
+        # longer). Haiku 4.5's ceiling is 64k, so 16k comfortably covers a single
+        # chapter (~4k words). If the model still hits the cap, haiku_completion
+        # returns None (it treats stop_reason "max_tokens" as a failure) rather
+        # than handing back truncated, unparseable JSON.
+        result_text = haiku_completion(
+            prompt, max_tokens=16000, temperature=0.3, timeout=120
+        )
+        if not result_text:
+            return None
+
         try:
+            import re
             import json
-            
-            # Create the payload with proper JSON encoding
-            payload = {
-                "model": models.SIMPLIFICATION,
-                "max_tokens": 4000,
-                "temperature": 0.3,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-            
-            # Manually serialize to JSON to handle encoding issues
-            json_payload = json.dumps(payload, ensure_ascii=False)
-            
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": self.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json; charset=utf-8",
-                },
-                data=json_payload.encode('utf-8'),  # Explicitly encode as UTF-8
-                timeout=60,
-            )
+            import markdown2
 
-            if response.status_code == 200:
-                result_text = response.json()["content"][0]["text"]
-                
-                # Clean up markdown code blocks if present
-                import re
-                if result_text.startswith("```"):
-                    # Remove markdown code blocks
-                    result_text = re.sub(r'^```(?:json)?\n', '', result_text)
-                    result_text = re.sub(r'\n```$', '', result_text)
-                    result_text = result_text.strip()
-                
-                # Parse JSON response
-                import json
-                import markdown2
-                try:
-                    # LLMs often return JSON with literal newlines inside
-                    # string values (instead of \n), which strict JSON rejects
-                    result = json.loads(result_text, strict=False)
-                    
-                    # Convert markdown content to HTML
-                    if "content" in result and result["content"]:
-                        result["content"] = markdown2.markdown(
-                            result["content"],
-                            extras=['break-on-newline', 'fenced-code-blocks', 'tables']
-                        )
-                    
-                    # Add fallback summary if not provided by LLM
-                    if "summary" not in result or not result["summary"]:
-                        from bs4 import BeautifulSoup
-                        clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
-                        result["summary"] = clean_content[:200] + "..."
-                    return result
-                except json.JSONDecodeError as e:
-                    log(f"Error parsing Anthropic JSON: {e}")
-                    log(f"Problematic JSON response: {result_text}")
-                    return None
-            else:
-                log(f"Anthropic API error: {response.status_code}")
-                log(f"Response text: {response.text}")
-                log(f"Content length: {len(content)} characters")
-                return None
+            # Strip a ```json ... ``` fence if the model wrapped its reply.
+            if result_text.startswith("```"):
+                result_text = re.sub(r'^```(?:json)?\n', '', result_text)
+                result_text = re.sub(r'\n```$', '', result_text)
+                result_text = result_text.strip()
 
+            # LLMs often return JSON with literal newlines inside string values
+            # (instead of \n), which strict JSON rejects.
+            result = json.loads(result_text, strict=False)
+
+            if "content" in result and result["content"]:
+                result["content"] = markdown2.markdown(
+                    result["content"],
+                    extras=['break-on-newline', 'fenced-code-blocks', 'tables']
+                )
+
+            if "summary" not in result or not result["summary"]:
+                from bs4 import BeautifulSoup
+                clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
+                result["summary"] = clean_content[:200] + "..."
+            return result
+        except json.JSONDecodeError as e:
+            log(f"Error parsing Anthropic JSON: {e}")
+            log(f"Problematic JSON response: {result_text}")
+            return None
         except Exception as e:
             log(f"Error in Anthropic translation: {e}")
             return None
@@ -634,18 +613,33 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 8000,
+                    # deepseek-chat caps max_tokens at 8192 (unlike Haiku's 64k);
+                    # requesting more is rejected with a 400. 8192 is the most
+                    # headroom available — anything longer is caught by the
+                    # finish_reason check below rather than truncated silently.
+                    "max_tokens": 8192,
                     "temperature": 0.3,
                 },
-                timeout=60,
+                timeout=120,
             )
 
             if response.status_code == 200:
                 try:
                     response_data = response.json()
-                    result_text = response_data["choices"][0]["message"]["content"]
+                    choice = response_data["choices"][0]
+                    result_text = choice["message"]["content"]
                     log(f"DeepSeek raw response: {result_text[:200]}...")
-                    
+
+                    # finish_reason "length" is DeepSeek's truncation signal (the
+                    # equivalent of Anthropic's stop_reason "max_tokens"). Bail
+                    # rather than parse a cut-off response.
+                    if choice.get("finish_reason") == "length":
+                        log(
+                            f"DeepSeek translation hit the token cap "
+                            f"(finish_reason=length, input {len(content)} chars)"
+                        )
+                        return None
+
                     # Clean up markdown code blocks if present
                     import re
                     if result_text.startswith("```"):

@@ -208,7 +208,17 @@ def article_upload_translate_and_adapt(upload_id):
         target_level=user_level,
     )
     if not result:
-        flask.abort(500, "Translation failed")
+        # translate_and_adapt returns None when the LLM output is truncated at
+        # the token cap as well as on genuine API errors. The most common cause
+        # for a user-submitted piece is that it's simply too long to translate
+        # in one pass, so give an actionable hint rather than a bare "failed".
+        # 422 (not 500) — oversized content is a content issue, not a server
+        # fault, and shouldn't page on-call.
+        flask.abort(
+            422,
+            "Could not translate this article. It may be too long to process in "
+            "one piece — try importing a single chapter.",
+        )
 
     translated_url = Url.find_or_create(db_session, translated_url_key)
     target_lang_obj = Language.find(target_language)
