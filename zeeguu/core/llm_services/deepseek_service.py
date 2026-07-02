@@ -9,6 +9,7 @@ from typing import List, Dict, Optional
 
 from .llm_service import LLMService
 from .prompts import format_prompt, PROMPT_VERSION_V3
+from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 
 
@@ -21,7 +22,7 @@ class DeepSeekService(LLMService):
             raise ValueError("DEEPSEEK_API_KEY environment variable not set")
 
         self.base_url = "https://api.deepseek.com/v1"
-        self.model = "deepseek-chat"
+        self.model = models.DEEPSEEK_GENERAL
         # Set timeout (default 120 seconds = 2 minutes)
         self.timeout = timeout
 

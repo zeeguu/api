@@ -12,10 +12,11 @@ import time
 from zeeguu.logging import log
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.grammar_correction import get_full_article_correction_prompt
+from zeeguu.core.llm_services import models
 
 # Model names for tracking
-ANTHROPIC_CORRECTION_MODEL = HAIKU_MODEL
-DEEPSEEK_CORRECTION_MODEL = "deepseek-chat"
+ANTHROPIC_CORRECTION_MODEL = models.GRAMMAR_CORRECTION_ANTHROPIC
+DEEPSEEK_CORRECTION_MODEL = models.GRAMMAR_CORRECTION_DEEPSEEK
 
 
 class GrammarCorrectionService:

@@ -17,6 +17,7 @@ from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.article_simplification import get_adaptive_simplification_prompt
+from zeeguu.core.llm_services import models
 
 
 # Round-robin counter for alternating between providers
@@ -79,7 +80,7 @@ def simplify_article_adaptive_levels(
     title: str,
     content: str,
     target_language: str,
-    model: str = "deepseek-chat",
+    model: str = models.DEEPSEEK_GENERAL,
     simplification_provider: str = None,
     correct_grammar: bool = False,
 ) -> dict:
@@ -152,7 +153,7 @@ def simplify_article_adaptive_levels(
         api_start_time = time.time()
 
         if provider == "deepseek":
-            model_name = "deepseek-chat"
+            model_name = models.DEEPSEEK_GENERAL
             log(f"  Sending request to DeepSeek API...")
             response = requests.post(
                 "https://api.deepseek.com/v1/chat/completions",
@@ -835,7 +836,7 @@ def create_user_specific_simplified_version(session, article, target_level):
             simplified_content=simplified_content["content"],
             simplified_summary=simplified_content.get("summary", ""),
             cefr_level=target_level,
-            ai_model="claude-3-5-sonnet",  # Match what SimplificationService actually uses
+            ai_model=models.SIMPLIFICATION,  # provenance: primary model SimplificationService uses (Haiku; DeepSeek fallback)
             commit=True,
         )
 
@@ -894,7 +895,7 @@ def create_simplified_version_from_upload(session, upload, target_level):
             simplified_content=result["content"],
             simplified_summary=result.get("summary", ""),
             cefr_level=target_level,
-            ai_model="claude-3-5-sonnet",
+            ai_model=models.SIMPLIFICATION,  # provenance: primary model SimplificationService uses (Haiku; DeepSeek fallback)
             commit=True,
         )
     except Exception as e:

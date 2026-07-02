@@ -31,6 +31,7 @@ from typing import Optional, List
 
 from zeeguu.logging import log
 from zeeguu.core.model.language import Language
+from zeeguu.core.llm_services import models
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class ValidationResult:
 class TranslationValidator:
     """Validates and classifies translations before they enter exercises."""
 
-    MODEL_NAME = "claude-sonnet-4-5-20250929"
+    MODEL_NAME = models.TRANSLATION_VALIDATION
 
     def __init__(self):
         """Initialize with Anthropic client."""

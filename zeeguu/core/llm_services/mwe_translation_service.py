@@ -22,6 +22,8 @@ import json
 import logging
 from typing import Optional
 
+from zeeguu.core.llm_services import models
+
 logger = logging.getLogger(__name__)
 
 # Language code to name mapping
@@ -102,7 +104,7 @@ def translate_word_in_context(
         client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
 
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=models.WORD_TRANSLATION,
             max_tokens=50,
             temperature=0.1,
             messages=[{"role": "user", "content": prompt}],
@@ -160,7 +162,7 @@ def translate_separated_mwe(
         client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
 
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",  # Fast model for translation
+            model=models.MWE_TRANSLATION,
             max_tokens=50,  # Short response expected
             temperature=0.1,  # Low temperature for consistent translation
             messages=[{"role": "user", "content": prompt}]
@@ -232,7 +234,7 @@ JSON:"""
         client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
 
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=models.MWE_TRANSLATION,
             max_tokens=200,
             temperature=0.1,
             messages=[{"role": "user", "content": prompt}]

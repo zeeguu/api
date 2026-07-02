@@ -12,13 +12,14 @@ from zeeguu.core.llm_services.prompts.meaning_frequency_classifier import (
 )
 from zeeguu.core.model.meaning import MeaningFrequency
 from zeeguu.core.model.meaning import PhraseType
+from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 
 
 class MeaningFrequencyClassifier:
     """Classifies meaning frequencies using Claude API."""
 
-    MODEL_NAME = "claude-sonnet-4-5-20250929"  # Latest model (September 2025)
+    MODEL_NAME = models.MEANING_FREQUENCY
 
     def __init__(self):
         """Initialize with Anthropic client."""

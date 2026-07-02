@@ -19,8 +19,9 @@ from typing import Optional
 
 import requests
 from zeeguu.logging import log
+from zeeguu.core.llm_services import models
 
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+HAIKU_MODEL = models.ANTHROPIC_HAIKU
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 
