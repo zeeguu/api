@@ -7,6 +7,7 @@ from zeeguu.core.model import Article, ArticleUpload, User
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 from . import api, db_session
@@ -156,7 +157,14 @@ def article_upload_simplify(upload_id):
         db_session, upload, user_level
     )
     if simplified is None:
-        flask.abort(500, "Could not simplify this upload")
+        # make_error (JSON {message}) rather than flask.abort (HTML) so the web
+        # client can display the reason. Truncation on a long piece is the usual
+        # cause, so 422 with an actionable hint, not an opaque 500.
+        return make_error(
+            422,
+            "Could not simplify this article. It may be too long to process in "
+            "one piece — try a shorter piece or a single chapter.",
+        )
 
     _ensure_personal_copy(user, simplified)
 
@@ -212,9 +220,10 @@ def article_upload_translate_and_adapt(upload_id):
         # the token cap as well as on genuine API errors. The most common cause
         # for a user-submitted piece is that it's simply too long to translate
         # in one pass, so give an actionable hint rather than a bare "failed".
-        # 422 (not 500) — oversized content is a content issue, not a server
-        # fault, and shouldn't page on-call.
-        flask.abort(
+        # make_error (JSON {message}) rather than flask.abort (HTML) so the web
+        # client can display it. 422 (not 500) — oversized content is a content
+        # issue, not a server fault, and shouldn't page on-call.
+        return make_error(
             422,
             "Could not translate this article. It may be too long to process in "
             "one piece — try importing a single chapter.",
