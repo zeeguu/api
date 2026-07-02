@@ -63,7 +63,16 @@ def haiku_completion(
         if response.status_code != 200:
             log(f"Anthropic API error: {response.status_code}")
             return None
-        return response.json()["content"][0]["text"]
+        data = response.json()
+        # stop_reason "max_tokens" means the reply was cut off at the cap — the
+        # text is incomplete and any caller parsing it (JSON, structured fields)
+        # gets garbage. Treat truncation as a failure so callers fall back or
+        # surface an error instead of promoting a half-finished result. Callers
+        # that need longer output should raise max_tokens.
+        if data.get("stop_reason") == "max_tokens":
+            log(f"Haiku output truncated at max_tokens={max_tokens}")
+            return None
+        return data["content"][0]["text"]
     except Exception as e:
         log(f"Haiku completion failed: {e}")
         return None
@@ -84,4 +93,10 @@ def haiku_completion_or_raise(
         raise Exception(
             f"Anthropic API error: {response.status_code} - {response.text}"
         )
+    # NOTE: deliberately does NOT treat stop_reason "max_tokens" as an error.
+    # The fail-soft haiku_completion does (truncation -> None -> fallback), but
+    # the batch crawl simplification pipeline calls this variant and has long
+    # inputs that can legitimately hit the cap; raising here would turn stored
+    # (truncated) simplifications into pipeline failures and shrink feed
+    # inventory. Left as-is on purpose — revisit alongside the chunking work.
     return response.json()["content"][0]["text"]
