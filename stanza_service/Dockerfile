@@ -31,7 +31,8 @@ EXPOSE 5001
 # Health check. Timeout picked from measured latency: >5s is the p99.9 of real
 # tokenizations and the legitimate slow tail reaches ~12s for large texts, so a
 # 5s timeout tripped on genuine big-text work. 15s clears the observed max with
-# margin; keep 30s interval / 3 retries so a real outage is still caught in ~90s.
+# margin; keep 30s interval / 3 retries so a real outage is caught in ~60-90s
+# (3 consecutive failures x 30s interval, plus scheduling phase).
 # (Run with >1 worker so /health stays answerable while another worker tokenizes.)
 # Note: a compose-level healthcheck, if defined, overrides this.
 HEALTHCHECK --interval=30s --timeout=15s --start-period=300s --retries=3 \
