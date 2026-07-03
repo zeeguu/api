@@ -28,8 +28,11 @@ RUN mkdir -p $STANZA_RESOURCE_DIR
 # Expose port
 EXPOSE 5001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=300s --retries=3 \
+# Health check. Tolerant timeout/retries: tokenization is CPU-bound and a long
+# text can keep a worker busy, delaying /health. Aggressive values (5s/3) caused
+# orchestrators (e.g. autoheal) to needlessly restart a healthy-but-busy service
+# under load. Note: a compose-level healthcheck, if defined, overrides this.
+HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:5001/health || exit 1
 
 # Run with entrypoint that ensures models are downloaded
