@@ -23,12 +23,24 @@ import stanza
 
 # Monitoring - track request stats
 _stats_lock = threading.Lock()
+
+# Latency histogram buckets (seconds), Prometheus-style cumulative "le" buckets.
+# Fine-grained below 1s (where ~99% of tokenizations land) with tail coverage to
+# 60s: measured p99.9 is ~5s and the legitimate slow tail reaches ~12s.
+DURATION_BUCKETS = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0]
+
 _request_stats = {
     "total_requests": 0,
     "slow_requests": 0,  # > 5s
     "errors": 0,
     "total_chars_processed": 0,
     "by_language": {},
+    # Duration histogram: cumulative count per "le" bucket, plus sum/count, so
+    # Prometheus can derive p50/p90/p99 via histogram_quantile(). The elapsed is
+    # already computed per request (see log_request) — we just stop discarding it.
+    "duration_sum": 0.0,
+    "duration_count": 0,
+    "duration_buckets": {b: 0 for b in DURATION_BUCKETS},
 }
 
 SLOW_REQUEST_THRESHOLD = 5.0  # seconds
@@ -210,6 +222,14 @@ def log_request(endpoint, language, chars, elapsed, is_error=False):
     with _stats_lock:
         _request_stats["total_requests"] += 1
         _request_stats["total_chars_processed"] += chars
+
+        # Latency histogram (all requests, success or error). Cumulative "le"
+        # buckets: bump every bucket whose upper bound the request fits under.
+        _request_stats["duration_sum"] += elapsed
+        _request_stats["duration_count"] += 1
+        for b in DURATION_BUCKETS:
+            if elapsed <= b:
+                _request_stats["duration_buckets"][b] += 1
 
         if is_error:
             _request_stats["errors"] += 1
@@ -421,8 +441,36 @@ def prometheus_metrics():
         f"stanza_pipelines_loaded {len(CACHED_PIPELINES)}",
     ]
 
-    # Per-language metrics
+    # Latency histogram + per-language metrics
+    worker = os.getpid()
     with _stats_lock:
+        # Tokenize-duration histogram, labelled per worker: each gunicorn worker
+        # keeps its own in-memory counters (preload_app is off), so a bare series
+        # would sawtooth as scrapes land on different workers. The pid label keeps
+        # each series monotonic; sum across workers in PromQL, e.g.
+        #   histogram_quantile(0.9, sum by (le) (rate(stanza_tokenize_duration_seconds_bucket[5m])))
+        lines.extend([
+            "",
+            "# HELP stanza_tokenize_duration_seconds Tokenization request duration in seconds",
+            "# TYPE stanza_tokenize_duration_seconds histogram",
+        ])
+        for b in DURATION_BUCKETS:
+            lines.append(
+                f'stanza_tokenize_duration_seconds_bucket{{worker="{worker}",le="{b}"}} '
+                f'{_request_stats["duration_buckets"][b]}'
+            )
+        lines.append(
+            f'stanza_tokenize_duration_seconds_bucket{{worker="{worker}",le="+Inf"}} '
+            f'{_request_stats["duration_count"]}'
+        )
+        lines.append(
+            f'stanza_tokenize_duration_seconds_sum{{worker="{worker}"}} {_request_stats["duration_sum"]}'
+        )
+        lines.append(
+            f'stanza_tokenize_duration_seconds_count{{worker="{worker}"}} {_request_stats["duration_count"]}'
+        )
+
+        # Per-language metrics
         if _request_stats["by_language"]:
             lines.extend([
                 "",
