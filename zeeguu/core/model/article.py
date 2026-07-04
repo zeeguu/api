@@ -479,7 +479,7 @@ class Article(db.Model):
         - Caching of results
 
         Returns:
-            dict with: content, htmlContent, paragraphs, tokenized_paragraphs,
+            dict with: content, htmlContent, paragraphs,
                       tokenized_fragments, tokenized_title_new, tokenized_title
         """
         from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -506,7 +506,6 @@ class Article(db.Model):
         if cache and cache.tokenized_content:
             log(f"[CACHE-HIT] Article {self.id} - Using cached tokenized content")
             cached_data = json.loads(cache.tokenized_content)
-            result["tokenized_paragraphs"] = cached_data.get("tokenized_paragraphs", [])
             result["tokenized_fragments"] = cached_data.get("tokenized_fragments", [])
             result["tokenized_title_new"] = cached_data.get("tokenized_title_new", {})
             result["tokenized_title"] = cached_data.get("tokenized_title", [])
@@ -516,10 +515,10 @@ class Article(db.Model):
         log(f"[CACHE-MISS] Article {self.id} - Tokenizing content with MWE detection")
         tokenizer = get_tokenizer(self.language, TOKENIZER_MODEL)
 
-        # Tokenize main content
-        result["tokenized_paragraphs"] = tokenize_for_reading(content, self.language)
-
-        # Tokenize fragments with batch MWE processing
+        # Tokenize fragments with batch MWE processing. The whole-body
+        # tokenization that used to fill `tokenized_paragraphs` was removed:
+        # nothing consumed it, and the fragments already carry the article's
+        # HTML block structure. See #666.
         result["tokenized_fragments"] = self._tokenize_fragments(tokenizer)
 
         # Tokenize title (simpler, just use stanza mode)
@@ -638,7 +637,6 @@ class Article(db.Model):
             cache = ArticleTokenizationCache.find_or_create(session, self)
             cache.tokenized_content = json.dumps(
                 {
-                    "tokenized_paragraphs": tokenized_data["tokenized_paragraphs"],
                     "tokenized_fragments": tokenized_data["tokenized_fragments"],
                     "tokenized_title_new": tokenized_data["tokenized_title_new"],
                     "tokenized_title": tokenized_data["tokenized_title"],
@@ -650,10 +648,9 @@ class Article(db.Model):
                     self.summary, self.language, mode="stanza"
                 )
                 cache.tokenized_summary = json.dumps(tokenized_summary)
-            tokenized_title = tokenize_for_reading(
-                self.title, self.language, mode="stanza"
-            )
-            cache.tokenized_title = json.dumps(tokenized_title)
+            # Reuse the title tokens already computed in get_tokenized_content
+            # instead of re-tokenizing the title a second time (see #666).
+            cache.tokenized_title = json.dumps(tokenized_data["tokenized_title"])
             session.commit()
             log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content, summary, and title")
         except Exception as e:
