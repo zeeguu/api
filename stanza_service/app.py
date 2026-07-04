@@ -25,9 +25,12 @@ import stanza
 _stats_lock = threading.Lock()
 
 # Latency histogram buckets (seconds), Prometheus-style cumulative "le" buckets.
-# Fine-grained below 1s (where ~99% of tokenizations land) with tail coverage to
-# 60s: measured p99.9 is ~5s and the legitimate slow tail reaches ~12s.
-DURATION_BUCKETS = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0]
+# Boundaries placed from observed data (Grafana), not guesswork: live tokenizes
+# cluster in 1-2s and crawl (big-text batches) in 5-15s, so both regions get
+# dense resolution. Too-coarse buckets there made histogram_quantile interpolate
+# the wide gaps, pinning every percentile to a bucket edge (e.g. p50/p90/p99 all
+# stuck at 1.50/1.90/1.99 when everything sat in a single [1,2] bucket).
+DURATION_BUCKETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 15, 20, 30, 60]
 
 _request_stats = {
     "total_requests": 0,
