@@ -5,7 +5,7 @@ import sqlalchemy
 from flask import request, jsonify
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
+from zeeguu.api.utils.route_wrappers import requires_session
 from zeeguu.core.model import (
     User,
     Cohort,
@@ -14,21 +14,18 @@ from zeeguu.core.model import (
     CohortArticleMap,
     Teacher,
 )
-from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.db import db
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
 from ._only_teachers_decorator import only_teachers
-from .helpers import (
-    all_user_info_from_cohort,
-    get_cohort_info,
-)
 from ._permissions import (
     check_permission_for_cohort,
     check_permission_for_user,
 )
+from .helpers import (
+    all_user_info_from_cohort,
+    get_cohort_info, parse_bool,
+)
 from .. import api
-from zeeguu.api.utils.route_wrappers import requires_session
-
-from zeeguu.core.model.db import db
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
@@ -124,9 +121,12 @@ def create_own_cohort():
     max_students = params.get("max_students")
     if int(max_students) < 1:
         flask.abort(400)
+    has_recommendations = parse_bool(params.get("has_recommendations"))
+    has_leaderboard = parse_bool(params.get("has_leaderboard"))
 
     try:
-        c = Cohort(inv_code, name, language, max_students)
+        c = Cohort(inv_code=inv_code, name=name, language=language, max_students=max_students,
+                   has_recommendations=has_recommendations, has_leaderboard=has_leaderboard)
         db.session.add(c)
         db.session.commit()
         _link_teacher_cohort(teacher_id, c.id)
@@ -163,6 +163,9 @@ def update_cohort(cohort_id):
 
         cohort_to_change.declared_level_min = params.get("declared_level_min")
         cohort_to_change.declared_level_max = params.get("declared_level_max")
+
+        cohort_to_change.has_recommendations = parse_bool(params.get("has_recommendations"))
+        cohort_to_change.has_leaderboard = parse_bool(params.get("has_leaderboard"))
 
         db.session.commit()
         return "OK"
