@@ -762,6 +762,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             log(
                 f"   Created {len(simplified_articles)} simplified versions"
             )
+            # Pre-tokenize each simplified child's title/summary too. These are what
+            # the recommended feed renders as tappable preview cards; caching them
+            # here keeps that off the request path (mirrors the original above).
+            for simplified in simplified_articles:
+                _cache_article_tokenization(simplified, session)
             # Update topic simplification counts after successful simplification
             # Key is (language_id, topic_id) to track per language
             if topic_simplification_counts is not None:
