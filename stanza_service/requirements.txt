@@ -6,7 +6,7 @@ gunicorn>=21.0.0
 # state_dict size mismatch -> every /tokenize with depparse 500s. 1.11.0 matches
 # the on-disk model (it's the version the API container tokenizes with today).
 # Re-pin only after re-downloading the models under the newer stanza.
-stanza==1.11.0
+stanza==1.12.2
 psutil>=5.9.0
 
 # Stanza dependencies (PyTorch)
