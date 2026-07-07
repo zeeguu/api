@@ -12,6 +12,10 @@ RUN=/home/zeeguu/src/api/zeeguu/operations/run_task.sh
 # cleanup old reports
 59 23 * * * find /home/zeeguu/data/crawl-reports/ -type f -mtime +7 -execdir rm -- '{}' \;
 
+# cleanup old tokenization cache (bounds the article_tokenization_cache table;
+# entries re-tokenize on demand when an old article is shown again)
+30 03 * * * $RUN cleanup_tokenization_cache tools/cleanup_tokenization_cache.py --days 30
+
 # weekly reports
 54 14 * * MON $RUN weekly_report tools/report_generator/generate_report.py
 
