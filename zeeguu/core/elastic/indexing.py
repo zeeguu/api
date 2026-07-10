@@ -264,7 +264,10 @@ def index_in_elasticsearch(new_article, session):
 def remove_from_index(article):
 
     hit = get_article_hit_in_es(article.id)
-    es_id = hit["_id"]
+    if not hit:
+        # Article was never indexed (or already removed) — nothing to do.
+        return
+    es_id = hit.meta.id
     if es_exists(id=es_id):
         print("Found in ES Index")
         es_delete(id=es_id)
