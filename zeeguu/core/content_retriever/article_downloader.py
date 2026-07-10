@@ -89,6 +89,11 @@ LOG_CONTEXT = "FEED RETRIEVAL"
 # Maps domain patterns to lists of keywords that indicate non-article content
 SOURCE_CONTENT_FILTERS = {
     "videnskab.dk": ["puslespil"],  # Interactive puzzles
+    # Guardian puzzles: readability scrapes the clue list (~140-250 words), so they
+    # clear the 90-word minimum and slip into feeds as articles (web#1177). "crossword no"
+    # matches "Cryptic/Quick/Prize crossword No 30,039" but NOT "Crossword editor's desk:"
+    # feature articles. Sudoku already fails the length filter, but we list it for clarity.
+    "theguardian.com": ["crossword no", "sudoku", "wordsearch", "wordiply"],
     # Add more sources and their filter keywords here as needed
 }
 
