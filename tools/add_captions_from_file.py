@@ -8,11 +8,11 @@ Use this script for videos that have already been crawled.
 from zeeguu.core.model.db import db
 from zeeguu.core.model.video import Video
 from zeeguu.core.model.caption import Caption
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.youtube_api.youtube_api import get_captions_from_json
 
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 db_session = db.session
 
