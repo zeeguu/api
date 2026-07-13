@@ -339,10 +339,36 @@ _PAGE = """<!doctype html>
 </body></html>"""
 
 
+def _summary(v, overall, headline, roster):
+    """The same verdict as the page, as a compact dict — for the phone widget
+    (GET /status?format=json). No HTML, just the numbers a widget renders."""
+    load_pct = 100 * v["load1"] / v["cores"] if (v["load1"] is not None and v["cores"]) else None
+    greens = sum(1 for _, st, _ in roster if st == "green")
+    rnd = lambda x: round(x) if x is not None else None
+    return {
+        "status": overall,
+        "headline": headline,
+        "host": {
+            "disk_pct": rnd(v["disk"]),
+            "mem_pct": rnd(v["mem"]),
+            "load_pct": rnd(load_pct),
+            "hp": round(100 * greens / len(roster)) if roster else 0,
+        },
+        "containers": {
+            "total": len(roster),
+            "healthy": greens,
+            "issues": [{"name": n, "status": s, "detail": d} for n, s, d in roster if s != "green"],
+        },
+        "datastores": {"elasticsearch": v["es"], "mysql_up": v["mysql_up"]},
+    }
+
+
 @api.route("/status", methods=["GET"])
 @requires_session
 @only_admins
 def status():
     v = _gather()
     overall, headline, roster = _judge(v)
+    if flask.request.args.get("format") == "json":
+        return flask.jsonify(_summary(v, overall, headline, roster))
     return flask.Response(_render(v, overall, headline, roster), mimetype="text/html")
