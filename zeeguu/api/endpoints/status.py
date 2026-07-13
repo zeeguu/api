@@ -137,9 +137,15 @@ SEV = {"green": 0, "yellow": 1, "red": 2}
 
 
 def _container_verdict(name, v):
-    r24 = v["restarts_24h"].get(name) or 0
+    # Persistent services (api-*, monitoring-*) are supposed to stay up, so a
+    # restart loop or a disappearance is a real signal. Batch containers
+    # (crawlers, one-shot cron jobs) legitimately start and exit on a schedule —
+    # a finished crawler isn't "gone", and running 3x/day isn't "restarting". For
+    # them only an OOM kill or nearing the mem limit means anything.
+    persistent = name.startswith("api-") or name.startswith("monitoring-")
     oom = v["oom_24h"].get(name) or 0
-    seen = v["last_seen"].get(name)
+    restarts = (v["restarts_24h"].get(name) or 0) if persistent else 0
+    gone = v["last_seen"].get(name) if persistent else None
     # mem as a fraction of the container's own limit; cadvisor emits the
     # float64-max sentinel for "no limit", so anything physically impossible
     # (a live container can't exceed ~1x its limit) means "no real limit".
@@ -147,22 +153,22 @@ def _container_verdict(name, v):
     if frac is not None and (not math.isfinite(frac) or frac > 8):
         frac = None
 
-    if oom > 0 or r24 >= 3 or (frac is not None and frac >= 0.95) or (seen and seen > 300):
+    if oom > 0 or restarts >= 3 or (frac is not None and frac >= 0.95) or (gone and gone > 300):
         status = "red"
-    elif r24 >= 1 or (frac is not None and frac >= 0.85) or (seen and seen > 120):
+    elif restarts >= 1 or (frac is not None and frac >= 0.85) or (gone and gone > 120):
         status = "yellow"
     else:
         status = "green"
 
     bits = []
-    if r24:
-        bits.append(f"{int(r24)} restart{'s' if r24 != 1 else ''}/24h")
+    if restarts:
+        bits.append(f"{int(restarts)} restart{'s' if restarts != 1 else ''}/24h")
     if oom:
         bits.append(f"{int(oom)} OOM")
     if frac is not None:
         bits.append(f"mem {round(frac * 100)}% of limit")
-    if seen and seen > 120:
-        bits.append(f"last seen {round(seen)}s ago")
+    if gone and gone > 120:
+        bits.append(f"last seen {round(gone)}s ago")
     return status, ", ".join(bits) or "healthy"
 
 
