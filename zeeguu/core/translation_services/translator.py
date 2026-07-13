@@ -347,8 +347,11 @@ def _translation_key(text):
 
 
 # Preference order used both for picking a bucket's representative dict and
-# for breaking ties between equally-sized buckets: Google > DeepL > Azure.
-_PROVIDER_PREFERENCE = {"google": 0, "deepl": 1, "azure": 2}
+# for breaking ties between equally-sized buckets: DeepL > Google > Azure.
+# DeepL is the most accurate provider for the European language pairs Zeeguu
+# teaches (see the DeepL-dissent handling in _vote_single_word_translation),
+# so it wins genuine ties and represents any bucket it shares.
+_PROVIDER_PREFERENCE = {"deepl": 0, "google": 1, "azure": 2}
 
 
 def _alternative_entry(result_dict, votes):
@@ -373,9 +376,10 @@ def _vote_single_word_translation(data):
       - ``competing_translations``: legacy subset of ``alternatives`` that
         excludes the winner and is only present when more than one bucket
         existed. Kept during ADR 022's deprecation window.
-      - ``disagreement``: True when no majority emerged (all 3 distinct, or
-        only 2 of 3 succeeded and they disagreed). Kept during ADR 022's
-        deprecation window; derivable from ``alternatives[0]["votes"] < 2``.
+      - ``disagreement``: True when the consensus shouldn't be trusted —
+        either no majority emerged (all 3 distinct, or only 2 of 3 succeeded
+        and disagreed), or DeepL dissents from a 2-vote majority (see below).
+        Signals the client to auto-open the alternatives menu.
 
     Falls back to Microsoft contextual if all three contextual providers fail.
     """
@@ -446,7 +450,21 @@ def _vote_single_word_translation(data):
     winner = dict(winner_dict)
     winner["alternatives"] = [_alternative_entry(rep, votes) for rep, votes in bucket_picks]
     winner["competing_translations"] = competing
-    if winner_votes < 2:
+
+    # DeepL is our most accurate provider for the European pairs we teach, so
+    # when it lands outside the winning bucket we surface the disagreement even
+    # if a Google+Azure majority outvoted it. This catches cases a plain vote
+    # buries — e.g. Danish definiteness ("Skuespilleren" → DeepL "The actor" vs
+    # Google/Azure "Actor") — so the client auto-opens the alternatives menu
+    # and the learner sees DeepL's option instead of a silent 2-vs-1 override.
+    winner_key = _translation_key(winner_dict["translation"])
+    deepl_result = results.get("deepl")
+    deepl_dissents = bool(
+        deepl_result
+        and deepl_result.get("translation")
+        and _translation_key(deepl_result["translation"]) != winner_key
+    )
+    if winner_votes < 2 or deepl_dissents:
         winner["disagreement"] = True
 
     providers_summary = ", ".join(
