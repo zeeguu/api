@@ -4,7 +4,7 @@
 The API container shares the `api_zeeguu_backend` network with Prometheus
 (see ops/running/monitoring/docker-compose.yml), so we query it directly at
 http://prometheus:9090 — no tunnel, no exposed port, no extra password. Access
-is gated by @requires_session + @only_devs (the User.is_dev flag).
+is gated by @requires_session + @only_admins (same as the admin dashboards).
 
 Container health is the headline signal: restarts, OOM kills, and memory as a
 fraction of each container's own limit. Mood is rule-based (instant, no LLM);
@@ -21,7 +21,7 @@ import requests
 from markupsafe import escape
 
 from . import api
-from zeeguu.api.utils.route_wrappers import requires_session, only_devs
+from zeeguu.api.utils.route_wrappers import requires_session, only_admins
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://prometheus:9090")
 
@@ -196,10 +196,12 @@ def _judge(v):
         issues.append((1, f"memory {round(m)}%"))
     if v["mysql_up"] is not None and v["mysql_up"] != 1:
         issues.append((2, "mysql down"))
+    # A single-node cluster is permanently "yellow": the default 1 replica can't
+    # be allocated with no second node to hold it. That's expected here and has
+    # been the steady state for years, so only RED (an actual unassigned-primary
+    # / red-index problem) is worth flagging — otherwise the pet is never green.
     if v["es"] == "red":
         issues.append((2, "elasticsearch RED"))
-    elif v["es"] == "yellow":
-        issues.append((1, "elasticsearch yellow (usually replica shards)"))
 
     if not issues:
         parts = []
@@ -333,7 +335,7 @@ _PAGE = """<!doctype html>
 
 @api.route("/status", methods=["GET"])
 @requires_session
-@only_devs
+@only_admins
 def status():
     v = _gather()
     overall, headline, roster = _judge(v)
