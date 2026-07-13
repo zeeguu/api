@@ -185,3 +185,21 @@ def only_admins(view):
     return wrapped_view
 
 
+def only_devs(view):
+    """
+    Decorator checks that the user has the is_dev flag set.
+    Must be used after @requires_session decorator.
+    """
+
+    @functools.wraps(view)
+    def wrapped_view(*args, **kwargs):
+        from zeeguu.core.model import User
+
+        user = User.find_by_id(flask.g.user_id)
+        if not user or not user.is_dev:
+            flask.abort(401)
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
