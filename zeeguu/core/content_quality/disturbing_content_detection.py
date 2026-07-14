@@ -6,7 +6,15 @@ Articles flagged here will still be saved but marked appropriately.
 """
 
 # Keywords by language for detecting disturbing content
-# Focus on words that appear in headlines/titles about violent/tragic current events
+# Focus on words that appear in headlines/titles about violent/tragic current events.
+#
+# The "Death imagery & morbid themes" category is intentionally broader than the
+# event-based categories: it catches articles whose SUBJECT is death/burial even
+# when nobody was killed (e.g. a "coffin therapy" lifestyle piece). Terms here are
+# chosen to be distinctive enough to survive naive substring matching, but by design
+# this category accepts a few false positives — the user-facing checkbox promises to
+# hide "death", not only tragedies. The LLM prompt (article_simplification.py) is the
+# real theme-level catch-all; this list is the fast, always-on pre-filter.
 DISTURBING_KEYWORDS = {
     "en": [
         # Violence & Crime
@@ -26,6 +34,9 @@ DISTURBING_KEYWORDS = {
         "deadly crash", "fatal crash", "plane crash", "train crash",
         "disaster kills", "earthquake kills", "tsunami kills",
         "building collapse", "fire kills",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "buried alive", "coffin", "coffins", "corpse", "corpses",
+        "morgue", "mortuary", "exhumed", "embalm",
     ],
     "fr": [
         # Violence & Crime
@@ -44,6 +55,9 @@ DISTURBING_KEYWORDS = {
         "accident mortel", "crash mortel",
         "catastrophe fait", "incendie meurtrier", "incendie mortel",
         "effondrement meurtrier",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "enterré vivant", "enterrée vivante", "cercueil", "cercueils",
+        "morgue", "exhumé", "inhumation",
     ],
     "es": [
         # Violence & Crime
@@ -62,6 +76,9 @@ DISTURBING_KEYWORDS = {
         "accidente mortal", "choque mortal",
         "desastre deja", "incendio mortal",
         "derrumbe mortal",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "enterrado vivo", "enterrada viva", "sepultado vivo",
+        "ataúd", "ataúdes", "morgue", "exhumado",
     ],
     "de": [
         # Violence & Crime
@@ -79,6 +96,9 @@ DISTURBING_KEYWORDS = {
         "tödlicher Unfall", "tödlicher Absturz",
         "Katastrophe fordert", "tödlicher Brand",
         "Einsturz",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "lebendig begraben", "Sarg", "Särge", "Leichnam",
+        "Leichenhalle", "exhumiert",
     ],
     "da": [
         # Violence & Crime
@@ -96,6 +116,9 @@ DISTURBING_KEYWORDS = {
         "dødsulykke", "dødsstyrtet",
         "katastrofe koster", "dødsbrand",
         "sammenstyrtning",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "begravet levende", "ligkiste", "lighus", "opgravet",
+        "balsameret",
     ],
     "nl": [
         # Violence & Crime
@@ -113,6 +136,9 @@ DISTURBING_KEYWORDS = {
         "dodelijk ongeluk", "dodelijke crash",
         "ramp kost", "dodelijke brand",
         "instorting",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "levend begraven", "doodskist", "lijkkist", "mortuarium",
+        "opgegraven", "gebalsemd",
     ],
     "it": [
         # Violence & Crime
@@ -130,6 +156,9 @@ DISTURBING_KEYWORDS = {
         "incidente mortale", "schianto mortale",
         "disastro causa", "incendio mortale",
         "crollo",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "sepolto vivo", "sepolta viva", "feretro",
+        "obitorio", "riesumato", "imbalsamato",
     ],
     "pt": [
         # Violence & Crime
@@ -148,6 +177,9 @@ DISTURBING_KEYWORDS = {
         "acidente fatal", "acidente mortal",
         "desastre deixa", "incêndio mortal",
         "desabamento",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        "enterrado vivo", "enterrada viva", "sepultado vivo",
+        "caixão", "caixões", "necrotério", "exumado",
     ],
     "ro": [
         # Violence & Crime
@@ -165,6 +197,10 @@ DISTURBING_KEYWORDS = {
         "accident mortal", "accident fatal",
         "dezastru lasă", "incendiu mortal",
         "prăbușire", "colaps",
+        # Death imagery & morbid themes (subject is death/burial, not necessarily an event)
+        # "coșciug" also matches the plural "coșciuge"; "sicri" matches "sicriu"/"sicrie".
+        "îngropat de viu", "îngropați de vii", "sicri", "coșciug",
+        "înmormântare", "funeralii", "morgă", "exhumat",
     ],
 }
 

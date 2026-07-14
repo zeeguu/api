@@ -88,7 +88,7 @@ MARKDOWN FORMATTING RULES:
 
 You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. All simplifications should be done in <<LANGUAGE_NAME>>.
 
-DISTURBING_CONTENT: [YES or NO - is the article's primary focus disturbing content (violence, death, disaster, tragedy)? This includes violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence. Note: Historical or educational articles about difficult topics are acceptable - focus on current disturbing events.]
+DISTURBING_CONTENT: [YES or NO - would a reader who has asked to avoid disturbing material be upset by this article? Answer YES if EITHER (a) the article's focus is violence, death, or disaster AS AN EVENT - violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence; OR (b) the article dwells on death/burial imagery and themes even when nobody was harmed - corpses, coffins, being buried (alive or dead), funerary, mortuary, or embalming practices, graphic bodily harm or medical gore. A lifestyle, wellness, or novelty piece whose SUBJECT is death or burial (e.g. "coffin therapy", being buried alive for relaxation) is YES. Note: brief incidental mentions in an otherwise neutral article do NOT count, and purely historical or educational treatment of a difficult topic is acceptable (NO).]
 
 ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (politics, breaking news, weather, sports results, someone visiting somewhere today, elections, daily events). GENERAL = evergreen content you could read months later (science explainers, cultural topics, how-to guides, historical articles, general knowledge, health/lifestyle advice).]
 
