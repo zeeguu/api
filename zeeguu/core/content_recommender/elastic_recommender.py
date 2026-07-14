@@ -158,6 +158,10 @@ def article_recommendations_for_user(
     # Check if user has enabled disturbing content filtering
     filter_disturbing = UserPreference.is_filter_disturbing_content_enabled(user)
 
+    # "Show easier articles": also surface articles below the user's level (helps
+    # advanced/native readers and thin-inventory languages avoid an empty feed).
+    include_lower = UserPreference.is_show_easier_articles_enabled(user)
+
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
@@ -173,6 +177,7 @@ def article_recommendations_for_user(
         user_ignored_sources=user_ignored_sources,
         articles_to_exclude=articles_to_exclude,
         filter_disturbing=filter_disturbing,
+        include_lower=include_lower,
         page=page,
     )
 
@@ -401,9 +406,11 @@ def topic_filter_for_user(
     if topic != None and topic != "all":
         s = s.filter("match", topics=topic.lower())
 
-    # Filter by user's CEFR level (use .keyword sub-field for exact matching)
+    # Filter by user's CEFR level; the "show easier articles" pref also includes
+    # everything below the user's level.
     user_cefr_level = user.cefr_level_for_learned_language()
-    levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+    include_lower = UserPreference.is_show_easier_articles_enabled(user)
+    levels_to_match = get_cefr_levels_to_match(user_cefr_level, include_lower)
     s = s.filter("terms", **{"available_cefr_levels.keyword": levels_to_match})
 
     query = s.query

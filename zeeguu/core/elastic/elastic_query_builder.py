@@ -50,17 +50,26 @@ def more_like_this_query(count, article_text, language, page=0):
 CEFR_LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
-def get_cefr_levels_to_match(user_cefr_level):
+def get_cefr_levels_to_match(user_cefr_level, include_lower=False):
     """
     Returns the list of CEFR levels that match the user's level.
     Includes exact match and compound levels where user is the upper half.
-    E.g., A2 user matches: ["A2", "A1/A2"]
+    E.g., A2 user matches: ["A2", "A1/A2"].
+
+    When include_lower is True, ALSO match every level BELOW the user's — so an
+    advanced/native reader (or a thin-inventory language) isn't starved down to
+    only same-level articles. E.g., C1 user matches every band from A1 up to
+    "B2/C1". Driven by the "show easier articles" user preference.
     """
-    levels = [user_cefr_level]
     idx = CEFR_LEVEL_ORDER.index(user_cefr_level)
-    if idx > 0:
-        prev_level = CEFR_LEVEL_ORDER[idx - 1]
-        levels.append(f"{prev_level}/{user_cefr_level}")
+    exact_levels = CEFR_LEVEL_ORDER[: idx + 1] if include_lower else [user_cefr_level]
+
+    levels = []
+    for lvl in exact_levels:
+        levels.append(lvl)
+        i = CEFR_LEVEL_ORDER.index(lvl)
+        if i > 0:
+            levels.append(f"{CEFR_LEVEL_ORDER[i - 1]}/{lvl}")
     return levels
 
 
@@ -78,6 +87,7 @@ def build_elastic_recommender_query(
     user_ignored_sources,
     articles_to_exclude=None,
     filter_disturbing=False,
+    include_lower=False,
     page=0,
 ):
     """
@@ -156,10 +166,11 @@ def build_elastic_recommender_query(
     if filter_disturbing:
         must_not.append({"match": {"is_disturbing": True}})
 
-    # Filter by CEFR level - only show articles available at user's level
+    # Filter by CEFR level. Normally only articles available at the user's level;
+    # with include_lower (the "show easier articles" pref) also everything below.
     # Use .keyword sub-field for exact matching (field is mapped as text)
     if user_cefr_level:
-        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
+        levels_to_match = get_cefr_levels_to_match(user_cefr_level, include_lower)
         must.append(terms("available_cefr_levels.keyword", levels_to_match))
 
     must.append(exists("published_time"))

@@ -41,6 +41,7 @@ class UserPreference(db.Model):
     PRONOUNCE_IN_READER = "pronounce_reader"
     MAX_WORDS_TO_SCHEDULE = "max_words_to_schedule"
     FILTER_DISTURBING_CONTENT = "filter_disturbing_content"  # Filter violence/death/tragedy articles
+    SHOW_EASIER_ARTICLES = "show_easier_articles"  # Also show articles below the user's CEFR level
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
 
@@ -132,6 +133,16 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
         ).first()
         return filter_setting and filter_setting.value == "true"
+
+    @classmethod
+    def is_show_easier_articles_enabled(cls, user: User):
+        """Whether to ALSO show articles below the user's CEFR level (not just at
+        level). Helps advanced/native readers and thin-inventory languages whose
+        at-level feed would otherwise be near-empty. Default: False."""
+        setting = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.SHOW_EASIER_ARTICLES
+        ).first()
+        return setting and setting.value == "true"
 
     @classmethod
     def daily_audio_lesson_type_key(cls, language_code: str):
