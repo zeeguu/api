@@ -11,9 +11,11 @@ fraction of each container's own limit. Mood is rule-based (instant, no LLM);
 the reasoning "speech bubble" can later be fed by the daily digest job.
 """
 
+import json
 import math
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import flask
@@ -28,6 +30,30 @@ PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://prometheus:9090")
 # Per-query timeout. All queries run concurrently, so worst-case page latency is
 # ~one timeout, not the sum — see _gather().
 REQUEST_TIMEOUT = 3
+
+# The afternoon watch (on the Mac) reasons over the day's capture and drops its
+# one-line verdict here — /home/zeeguu/data is mounted into this container as
+# /zeeguu-data — so the phone (page + widget) can show the reasoned briefing
+# (incl. the log analysis), not just live vitals. See ADR 028.
+DIGEST_PATH = os.environ.get("HEALTH_DIGEST_PATH", "/zeeguu-data/health-digest.json")
+
+
+def _read_daily():
+    """The latest reasoned digest the afternoon watch published, or None."""
+    try:
+        with open(DIGEST_PATH) as f:
+            d = json.load(f)
+    except Exception:
+        return None
+    at = d.get("at")
+    age_min = int((time.time() - at) / 60) if isinstance(at, (int, float)) else None
+    return {
+        "status": d.get("status"),
+        "headline": d.get("headline"),
+        "body": d.get("body"),
+        "at": at,
+        "age_min": age_min,
+    }
 
 
 # Ephemeral / uninteresting containers we don't want as pet organs.
@@ -262,7 +288,18 @@ def _bar(label, pct, color):
     )
 
 
-def _render(v, overall, headline, roster):
+def _brief_html(daily):
+    """The afternoon watch's reasoned line + how long ago, or a placeholder."""
+    if not (daily and daily.get("headline")):
+        return '<span class="ago">no reasoned briefing yet today</span>'
+    age = daily.get("age_min")
+    when = ""
+    if isinstance(age, int):
+        when = f" <span class=\"ago\">· {age // 60}h ago</span>" if age >= 60 else f" <span class=\"ago\">· {age}m ago</span>"
+    return f'&#128203; {escape(daily["headline"])}{when}'
+
+
+def _render(v, overall, headline, roster, daily):
     disk = v["disk"]
     mem = v["mem"]
     load_pct = None
@@ -289,6 +326,7 @@ def _render(v, overall, headline, roster):
         "__DOTS__": dots,
         "__STATUS__": overall,
         "__COUNT__": count,
+        "__BRIEF__": _brief_html(daily),
     }
     return re.sub(r"__[A-Z]+__", lambda mo: subs.get(mo.group(0), mo.group(0)), _PAGE)
 
@@ -323,6 +361,9 @@ _PAGE = """<!doctype html>
   .dots{display:flex;flex-wrap:wrap;gap:6px;}
   .dot{width:11px;height:11px;border-radius:50%;cursor:help;}
   .count{font-family:ui-monospace,monospace;font-size:9px;color:#7d8a83;margin-top:8px;text-align:center;}
+  .brief{font-family:ui-monospace,monospace;font-size:9px;line-height:1.4;color:#c9d6cf;margin-top:10px;
+    padding-top:8px;border-top:1px solid rgba(255,255,255,.06);}
+  .brief .ago{color:#7d8a83;}
   .foot{text-align:center;font-size:10px;color:#5a6560;margin-top:12px;font-family:ui-monospace,monospace;}
 </style></head>
 <body>
@@ -333,21 +374,24 @@ _PAGE = """<!doctype html>
       <div class="pet">__PET__</div>
       <div class="statgrid">__BARS__</div>
       <div class="roster"><div class="dots">__DOTS__</div><div class="count">__COUNT__ &middot; __STATUS__</div></div>
+      <div class="brief">__BRIEF__</div>
     </div>
     <div class="foot">live &middot; refreshes every 30s</div>
   </div>
 </body></html>"""
 
 
-def _summary(v, overall, headline, roster):
+def _summary(v, overall, headline, roster, daily):
     """The same verdict as the page, as a compact dict — for the phone widget
-    (GET /status?format=json). No HTML, just the numbers a widget renders."""
+    (GET /status?format=json). No HTML, just the numbers a widget renders.
+    `daily` is the afternoon watch's reasoned briefing (incl. log analysis)."""
     load_pct = 100 * v["load1"] / v["cores"] if (v["load1"] is not None and v["cores"]) else None
     greens = sum(1 for _, st, _ in roster if st == "green")
     rnd = lambda x: round(x) if x is not None else None
     return {
         "status": overall,
         "headline": headline,
+        "daily": daily,
         "host": {
             "disk_pct": rnd(v["disk"]),
             "mem_pct": rnd(v["mem"]),
@@ -369,6 +413,7 @@ def _summary(v, overall, headline, roster):
 def status():
     v = _gather()
     overall, headline, roster = _judge(v)
+    daily = _read_daily()
     if flask.request.args.get("format") == "json":
-        return flask.jsonify(_summary(v, overall, headline, roster))
-    return flask.Response(_render(v, overall, headline, roster), mimetype="text/html")
+        return flask.jsonify(_summary(v, overall, headline, roster, daily))
+    return flask.Response(_render(v, overall, headline, roster, daily), mimetype="text/html")
