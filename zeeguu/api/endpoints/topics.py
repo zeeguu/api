@@ -43,6 +43,15 @@ def subscribe_to_topic_with_id():
     user = User.find_by_id(flask.g.user_id)
     TopicSubscription.find_or_create(db_session, user, topic_object)
     db_session.commit()
+
+    # Promotion-on-join (Task 5): give this newly-demanded bucket an immediate
+    # head start so the reader sees their topic without waiting for the next
+    # crawl. Runs in the background; no-ops if the bucket already has inventory.
+    from zeeguu.api.utils.background import run_in_background
+    from zeeguu.core.content_retriever.backfill import maybe_backfill_bucket
+
+    run_in_background(maybe_backfill_bucket, user.id, topic_id)
+
     return "OK"
 
 
