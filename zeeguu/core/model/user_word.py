@@ -379,6 +379,15 @@ class UserWord(db.Model):
 
         if not time:
             time = datetime.now()
+
+        # Update the schedule FIRST. The lazy translation-validation inside the
+        # scheduler may replace this UserWord with a corrected one and delete
+        # `self`; scheduler.update() returns the UserWord that survived. We must
+        # log the Exercise against that survivor — binding it to a deleted `self`
+        # raised "Instance UserWord has been deleted" (SR log digest 2026-07-15).
+        scheduler = self.get_scheduler()
+        practiced_user_word = scheduler.update(db_session, self, exercise_outcome, time)
+
         from zeeguu.core.model import Exercise
 
         exercise = Exercise(
@@ -387,18 +396,16 @@ class UserWord(db.Model):
             solving_speed,
             time,
             session_id,
-            self,
+            practiced_user_word,
             other_feedback,
         )
         db_session.add(exercise)
 
         if source.source != "DAILY_AUDIO_LESSON" and exercise.is_correct():
             from zeeguu.core import events
-            events.exercise_correct.send(None, user_id=self.user.id, db_session=db_session)
-
-
-        scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome, time)
+            events.exercise_correct.send(
+                None, user_id=practiced_user_word.user.id, db_session=db_session
+            )
 
         db_session.commit()
 

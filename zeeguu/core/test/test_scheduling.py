@@ -342,3 +342,137 @@ class SchedulerTest(ModelTestMixIn):
             bookmark.user_word.get_scheduler(), bookmark.user_word, db_session
         ).schedule
         return schedule
+
+    # ================================================================================================================
+    # Regression tests for the SR exercise-outcome failures in the 2026-07-15 log digest
+    # ================================================================================================================
+
+    def test_update_returns_user_word_when_scheduler_declines(self):
+        """
+        find_or_create() returns None when a word is judged unfit for study
+        (invalid / duplicate / unvalidatable translation). update() must not
+        dereference that None ('NoneType' has no attribute 'update_schedule')
+        and must return the passed-in user_word.
+        """
+        from unittest.mock import patch
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        scheduler = user_word.get_scheduler()
+
+        with patch.object(scheduler, "find_or_create", return_value=None):
+            result = scheduler.update(
+                db_session, user_word, OutcomeRule().correct.outcome, datetime.now()
+            )
+
+        assert result is user_word
+        # nothing should have been scheduled
+        assert BasicSRSchedule.find_by_user_word(user_word) is None
+
+    def test_report_outcome_logs_exercise_against_surviving_word(self):
+        """
+        The lazy translation-validation inside the scheduler can replace the
+        practiced UserWord with a corrected one and delete the original. The
+        Exercise must be logged against the survivor, not the deleted original
+        (which raised 'Instance UserWord has been deleted').
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        old_bookmark = BookmarkRule(self.four_levels_user).bookmark
+        old_user_word = old_bookmark.user_word
+        # force the validation path inside find_or_create
+        old_user_word.meaning.validated = Meaning.NOT_VALIDATED
+        db_session.add(old_user_word.meaning)
+
+        new_bookmark = BookmarkRule(self.four_levels_user).bookmark
+        new_user_word = new_bookmark.user_word
+        new_user_word.meaning.validated = Meaning.VALID
+        db_session.add(new_user_word.meaning)
+        db_session.commit()
+        new_user_word_id = new_user_word.id
+        old_user_word_id = old_user_word.id
+
+        def fake_validate_and_fix(db_sess, user_word):
+            # Simulate a validation-fix that moves to a different meaning:
+            # delete the original UserWord and hand back the corrected one.
+            db_sess.delete(user_word)
+            db_sess.commit()
+            return UserWord.query.get(new_user_word_id)
+
+        with patch.object(
+            UserWordValidationService,
+            "validate_and_fix",
+            side_effect=fake_validate_and_fix,
+        ):
+            # Must not raise "Instance UserWord has been deleted"
+            old_user_word.report_exercise_outcome(
+                db_session,
+                "Recognize",
+                OutcomeRule().correct.outcome,
+                1000,
+                None,
+                "",
+            )
+
+        # the original was deleted, the exercise is logged against the survivor
+        assert UserWord.query.get(old_user_word_id) is None
+        logged = Exercise.query.filter_by(user_word_id=new_user_word_id).all()
+        assert len(logged) == 1
+        assert (
+            Exercise.query.filter_by(user_word_id=old_user_word_id).count() == 0
+        )
+
+    def test_find_or_create_recovers_from_duplicate_schedule_race(self):
+        """
+        Two concurrent requests can both pass the "no schedule yet" check and
+        try to insert. The unique_user_word_schedule constraint makes the loser's
+        commit raise IntegrityError; find_or_create must roll back and return the
+        row the winner created instead of surfacing a 500.
+        """
+        from unittest.mock import patch
+        from sqlalchemy.exc import IntegrityError
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.meaning.validated = Meaning.VALID  # skip validation branch
+        db_session.add(user_word.meaning)
+        db_session.commit()
+
+        # The "winner" row that a concurrent request already committed.
+        winner = FourLevelsPerWord(user_word=user_word)
+        db_session.add(winner)
+        db_session.commit()
+        winner_id = winner.id
+
+        original_commit = db_session.commit
+
+        # find() returns None first (our SELECT missed the winner), then the
+        # winner on the post-rollback re-fetch. commit() raises once, as if the
+        # unique constraint fired on our duplicate insert.
+        with patch.object(
+            BasicSRSchedule, "find", side_effect=[None, winner]
+        ), patch.object(
+            db_session,
+            "commit",
+            side_effect=IntegrityError("insert", {}, Exception("duplicate")),
+        ):
+            result = FourLevelsPerWord.find_or_create(db_session, user_word)
+
+        # restore and make sure nothing extra was written
+        assert result is not None
+        assert result.id == winner_id
+        assert (
+            BasicSRSchedule.query.filter_by(user_word_id=user_word.id).count() == 1
+        )

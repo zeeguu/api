@@ -1,6 +1,8 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
 from datetime import datetime, timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from ...model import UserWord
 
 MAX_LEVEL = 4
@@ -130,6 +132,15 @@ class FourLevelsPerWord(BasicSRSchedule):
             schedule = cls(user_word)
             user_word.level = 1
             db_session.add_all([schedule, user_word])
-            db_session.commit()
+            try:
+                db_session.commit()
+            except IntegrityError:
+                # A concurrent request already created the schedule for this
+                # user_word (the unique_user_word_schedule constraint fired).
+                # Roll back our duplicate insert and use the existing row.
+                # (SR log digest 2026-07-15: duplicate entry for key
+                # 'unique_user_word_schedule'.)
+                db_session.rollback()
+                schedule = super(FourLevelsPerWord, cls).find(user_word)
 
         return schedule
