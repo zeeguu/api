@@ -38,6 +38,26 @@ REQUEST_TIMEOUT = 3
 DIGEST_PATH = os.environ.get("HEALTH_DIGEST_PATH", "/zeeguu-data/health-digest.json")
 
 
+def _parse_new_signatures(digest_text):
+    """Pull the NEW-signature lines out of the raw log digest into
+    [{count, signature}, ...] — the '[ Nx source ] signature' lines in the
+    '🔴 NEW signatures' section (skipping the 'e.g.' example lines)."""
+    out = []
+    in_new = False
+    for line in (digest_text or "").splitlines():
+        if "NEW signatures" in line:
+            in_new = True
+            continue
+        if in_new and ("Top recurring" in line or line.lstrip().startswith("↻")):
+            break
+        if not in_new:
+            continue
+        m = re.match(r"\s*\[\s*(\d+)x\s*[^\]]*\]\s*(.+)", line)
+        if m:
+            out.append({"count": int(m.group(1)), "signature": m.group(2).strip()})
+    return out
+
+
 def _read_daily():
     """The latest reasoned digest the afternoon watch published, or None."""
     try:
@@ -51,6 +71,7 @@ def _read_daily():
         "status": d.get("status"),
         "headline": d.get("headline"),
         "body": d.get("body"),
+        "new_signatures": _parse_new_signatures(d.get("log_digest")),
         "at": at,
         "age_min": age_min,
     }
@@ -299,6 +320,21 @@ def _brief_html(daily):
     return f'&#128203; {escape(daily["headline"])}{when}'
 
 
+def _newsigs_html(daily):
+    """The 'what's new in the logs' list — new error signatures since baseline.
+    The dashboard's job is 'what changed'; raw tracebacks stay in the logs."""
+    sigs = (daily or {}).get("new_signatures") or []
+    if not sigs:
+        return ""
+    rows = "".join(
+        f'<div class="sig"><span class="cnt">{s["count"]}&times;</span> {escape(s["signature"][:90])}</div>'
+        for s in sigs[:8]
+    )
+    if len(sigs) > 8:
+        rows += f'<div class="sig cnt">&#8230; +{len(sigs) - 8} more</div>'
+    return f'<div class="newhdr">&#128308; {len(sigs)} new since baseline</div>{rows}'
+
+
 def _render(v, overall, headline, roster, daily):
     disk = v["disk"]
     mem = v["mem"]
@@ -327,6 +363,7 @@ def _render(v, overall, headline, roster, daily):
         "__STATUS__": overall,
         "__COUNT__": count,
         "__BRIEF__": _brief_html(daily),
+        "__NEWSIGS__": _newsigs_html(daily),
     }
     return re.sub(r"__[A-Z]+__", lambda mo: subs.get(mo.group(0), mo.group(0)), _PAGE)
 
@@ -364,6 +401,10 @@ _PAGE = """<!doctype html>
   .brief{font-family:ui-monospace,monospace;font-size:9px;line-height:1.4;color:#c9d6cf;margin-top:10px;
     padding-top:8px;border-top:1px solid rgba(255,255,255,.06);}
   .brief .ago{color:#7d8a83;}
+  .newsigs{margin-top:10px;}
+  .newhdr{font-family:ui-monospace,monospace;font-size:9px;color:#e0a52a;margin-bottom:5px;}
+  .sig{font-family:ui-monospace,monospace;font-size:9px;line-height:1.45;color:#c9d6cf;overflow-wrap:anywhere;margin-bottom:2px;}
+  .sig .cnt,.sig.cnt{color:#7d8a83;}
   .foot{text-align:center;font-size:10px;color:#5a6560;margin-top:12px;font-family:ui-monospace,monospace;}
 </style></head>
 <body>
@@ -375,6 +416,7 @@ _PAGE = """<!doctype html>
       <div class="statgrid">__BARS__</div>
       <div class="roster"><div class="dots">__DOTS__</div><div class="count">__COUNT__ &middot; __STATUS__</div></div>
       <div class="brief">__BRIEF__</div>
+      <div class="newsigs">__NEWSIGS__</div>
     </div>
     <div class="foot">live &middot; refreshes every 30s</div>
   </div>
