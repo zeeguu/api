@@ -15,7 +15,14 @@ MAX_WORDS_TO_SCHEDULE_CAP = 100  # Maximum allowed value to prevent SQL LIMIT er
 
 
 class BasicSRSchedule(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # A user_word has at most one schedule row. This mirrors the DB constraint
+    # added in tools/migrations/25-05-24--adding_the_user_word_table.sql; keeping
+    # it on the model documents the invariant and lets the test DB enforce it.
+    # (Single-table inheritance: FourLevelsPerWord shares this table.)
+    __table_args__ = (
+        db.UniqueConstraint("user_word_id", name="unique_user_word_schedule"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "basic_sr_schedule"
 
     id = db.Column(db.Integer, primary_key=True)

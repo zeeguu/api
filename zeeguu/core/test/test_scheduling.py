@@ -437,7 +437,6 @@ class SchedulerTest(ModelTestMixIn):
         row the winner created instead of surfacing a 500.
         """
         from unittest.mock import patch
-        from sqlalchemy.exc import IntegrityError
         from zeeguu.core.model.meaning import Meaning
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
         from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
@@ -456,21 +455,14 @@ class SchedulerTest(ModelTestMixIn):
         db_session.commit()
         winner_id = winner.id
 
-        original_commit = db_session.commit
-
-        # find() returns None first (our SELECT missed the winner), then the
-        # winner on the post-rollback re-fetch. commit() raises once, as if the
-        # unique constraint fired on our duplicate insert.
-        with patch.object(
-            BasicSRSchedule, "find", side_effect=[None, winner]
-        ), patch.object(
-            db_session,
-            "commit",
-            side_effect=IntegrityError("insert", {}, Exception("duplicate")),
-        ):
+        # Force the create path — as if our SELECT ran before the winner
+        # committed — so find() returns None first and then the winner on the
+        # post-rollback re-fetch. The real unique_user_word_schedule constraint
+        # then fires on our duplicate insert; find_or_create must roll back and
+        # return the winner's row instead of surfacing a 500.
+        with patch.object(BasicSRSchedule, "find", side_effect=[None, winner]):
             result = FourLevelsPerWord.find_or_create(db_session, user_word)
 
-        # restore and make sure nothing extra was written
         assert result is not None
         assert result.id == winner_id
         assert (
