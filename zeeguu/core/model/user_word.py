@@ -380,11 +380,11 @@ class UserWord(db.Model):
         if not time:
             time = datetime.now()
 
-        # Update the schedule FIRST. The lazy translation-validation inside the
-        # scheduler may replace this UserWord with a corrected one and delete
-        # `self`; scheduler.update() returns the UserWord that survived. We must
-        # log the Exercise against that survivor — binding it to a deleted `self`
-        # raised "Instance UserWord has been deleted" (SR log digest 2026-07-15).
+        # Update the schedule FIRST, and log the Exercise against the UserWord
+        # scheduler.update() returns. That is normally `self`, but a scheduler
+        # can replace the practiced word with a corrected one and delete `self`;
+        # binding the Exercise to a deleted `self` raised "Instance UserWord has
+        # been deleted" (SR log digest 2026-07-15).
         scheduler = self.get_scheduler()
         practiced_user_word = scheduler.update(db_session, self, exercise_outcome, time)
 
@@ -409,10 +409,52 @@ class UserWord(db.Model):
 
         db_session.commit()
 
+        # Validate the practiced word's translation off the hot path (async).
+        self._maybe_validate_off_hot_path(practiced_user_word)
+
         # This needs to be re-thought, currently the updates are done in
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
+
+    @staticmethod
+    def _maybe_validate_off_hot_path(user_word):
+        """
+        Kick off translation-validation for `user_word` in a background thread,
+        but only when it's worth doing and safe to do:
+
+        - skip if the meaning is already VALID (nothing to validate);
+        - skip if the word isn't actually scheduled — a full learning pipeline
+          leaves the word unscheduled, and the nightly
+          tools/validate_scheduled_meanings.py batch will pick it up if it ever
+          gets scheduled (this is the "delay till the night" half of the trade);
+        - skip under tests / outside an app context, where spawning a thread
+          would hit a fresh (empty) in-memory DB.
+
+        The background worker re-queries by id, so we only pass the id across the
+        thread boundary.
+        """
+        from flask import current_app, has_app_context
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        if user_word is None:
+            return
+        if user_word.meaning.validated == Meaning.VALID:
+            return
+        if BasicSRSchedule.find_by_user_word(user_word) is None:
+            return
+        if not has_app_context() or current_app.config.get("TESTING"):
+            return
+
+        from zeeguu.api.utils.background import run_in_background
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        run_in_background(
+            UserWordValidationService.validate_scheduled_user_word, user_word.id
+        )
 
     @classmethod
     def find_or_create(cls, session, user, meaning, is_user_added=False):
