@@ -58,7 +58,9 @@ def fresh_simplified_count(session, language_id, topic_id, days=BACKFILL_FRESH_D
         session.query(Article.id)
         .join(ParentArticle, Article.parent_article_id == ParentArticle.id)
         .filter(ParentArticle.language_id == language_id)
-        .filter(Article.published_time >= cutoff)
+        # crawled_at is when the simplified child was created; published_time is
+        # inherited from the (backdatable) parent, so it can't measure freshness.
+        .filter(Article.crawled_at >= cutoff)
         .filter(_not_broken(Article))
     )
     if topic_id is not None:
@@ -84,7 +86,9 @@ def recent_unsimplified_articles(
         .filter(Article.parent_article_id.is_(None))  # originals only
         .filter(Child.id.is_(None))  # not yet simplified
         .filter(Article.language_id == language_id)
-        .filter(Article.published_time >= cutoff)
+        # Recency = when we ingested it, not its (backdatable) publish date, so a
+        # recently-crawled but old-dated article is still eligible backfill material.
+        .filter(Article.crawled_at >= cutoff)
         .filter(_not_broken(Article))
     )
     if topic_id is not None:
@@ -92,7 +96,7 @@ def recent_unsimplified_articles(
             ArticleTopicMap, ArticleTopicMap.article_id == Article.id
         ).filter(ArticleTopicMap.topic_id == topic_id)
 
-    return q.order_by(Article.published_time.desc()).limit(limit).all()
+    return q.order_by(Article.crawled_at.desc()).limit(limit).all()
 
 
 def maybe_backfill_bucket(user_id, topic_id=None, provider="deepseek"):

@@ -172,7 +172,17 @@ class FunnelBudget:
         # {(language_id, topic_id): simplifications recorded so far today}
         self.counts = defaultdict(int, todays_counts or {})
         # {language_id: set(topic_id)} distinct topics already given a floor slot
-        self.floor_topics_used = defaultdict(set, floor_topics_used or {})
+        if floor_topics_used is None:
+            # A dormant language's only simplifications today came from the floor
+            # path, so today's counts ARE its floored topics. Seed from them, or
+            # an intra-day re-run (the crawler runs hourly) would floor a fresh
+            # set of topics every time and multiply the pilot-light cost by the
+            # number of crawls per day.
+            floor_topics_used = defaultdict(set)
+            for (lang_id, topic_id), count in self.counts.items():
+                if count > 0 and not demand_surface.language_has_demand(lang_id):
+                    floor_topics_used[lang_id].add(topic_id)
+        self.floor_topics_used = defaultdict(set, floor_topics_used)
 
     def quota_for(self, language_id, topic_id):
         """Demand-path quota for a bucket (0 when it has no demand; floor is separate)."""

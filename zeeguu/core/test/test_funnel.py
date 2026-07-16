@@ -148,6 +148,63 @@ class FunnelBudgetGateTest(TestCase):
         self.assertEqual(reason, "capped")
 
 
+class FloorSeedingTest(TestCase):
+    """Seeding floor_topics_used from today's counts stops the pilot-light floor
+    from re-firing on every intra-day crawl re-run. No DB."""
+
+    def test_full_floor_from_seeded_counts_does_not_refire(self):
+        # Dormant language 1 already floored 5 distinct topics today.
+        seeded = {(1, t): 1 for t in range(100, 100 + LANGUAGE_FLOOR_TOPICS)}
+        budget = FunnelBudget(DemandSurface({}, {}), todays_counts=seeded)
+        # A fresh topic gets nothing (floor already full)...
+        self.assertFalse(budget.should_simplify(1, [200])[0])
+        # ...and an already-floored topic doesn't re-fire either.
+        self.assertFalse(budget.should_simplify(1, [100])[0])
+
+    def test_partial_floor_seed_allows_only_remaining_slots(self):
+        seeded = {(1, 100): 1, (1, 101): 1}  # 2 of 5 slots used today
+        budget = FunnelBudget(DemandSurface({}, {}), todays_counts=seeded)
+        granted = []
+        for topic_id in range(200, 210):
+            ok, reason = budget.should_simplify(1, [topic_id])
+            if ok:
+                budget.record(1, [topic_id], reason)
+                granted.append(topic_id)
+        self.assertEqual(len(granted), LANGUAGE_FLOOR_TOPICS - 2)
+
+    def test_demand_language_counts_not_seeded_as_floor(self):
+        # Counts for a language WITH demand came from the demand path, not the
+        # floor, so they must not seed floor_topics_used.
+        surface = DemandSurface({(1, 10): 1}, {})
+        budget = FunnelBudget(surface, todays_counts={(1, 10): 5})
+        self.assertEqual(budget.floor_topics_used.get(1, set()), set())
+
+
+class TitleTriageSafetyTest(TestCase):
+    """_apply_title_triage must fall back to the full item list on any error,
+    never let an exception drop the whole feed. No DB / no LLM."""
+
+    def test_falls_back_to_full_list_on_error(self):
+        from zeeguu.core.content_retriever.article_downloader import _apply_title_triage
+
+        class BoomBudget:
+            def language_simplification_headroom(self, language_id):
+                raise RuntimeError("boom")
+
+        class FakeLang:
+            id = 1
+            code = "de"
+
+        class FakeFeed:
+            language_id = 1
+            language = FakeLang()
+            title = "Feed"
+
+        items = [{"title": "a"}, {"title": "b"}]
+        result = _apply_title_triage(FakeFeed(), items, 1, BoomBudget())
+        self.assertEqual(result, items)
+
+
 class HeadroomTest(TestCase):
     """language_simplification_headroom drives the pre-download triage; no DB."""
 
@@ -298,6 +355,9 @@ class BackfillInventoryTest(ModelTestMixIn, TestCase):
             art.language = self.lang
             art.parent_article_id = None
             art.broken = broken
+            # Recency keys off crawled_at (ingestion time), not the backdatable
+            # published_time, so drive the test window with crawled_at.
+            art.crawled_at = datetime.datetime.now() - datetime.timedelta(days=days_old)
             art.published_time = datetime.datetime.now() - datetime.timedelta(days=days_old)
             db_session.add(
                 ArticleTopicMap(art, self.topic, TopicOriginType.HARDSET)
@@ -316,7 +376,10 @@ class BackfillInventoryTest(ModelTestMixIn, TestCase):
         child.language = self.lang
         child.parent_article_id = self.parent.id
         child.broken = 0
-        child.published_time = datetime.datetime.now()
+        # Child inherits the parent's (old) published_time in production; its
+        # crawled_at is when it was simplified, which is what freshness counts.
+        child.crawled_at = datetime.datetime.now()
+        child.published_time = self.parent.published_time
         db_session.add(child)
         db_session.commit()
 
@@ -345,3 +408,35 @@ class BackfillInventoryTest(ModelTestMixIn, TestCase):
         other_topic = TopicRule.get_or_create_topic(7)  # Politics — nothing tagged
         found = recent_unsimplified_articles(db_session, self.lang.id, other_topic.id)
         self.assertEqual(found, [])
+
+    def test_freshness_uses_crawled_at_not_published_time(self):
+        # A child simplified just now but inheriting an old (backdated) parent
+        # published_time must still count as fresh — the whole point of the fix.
+        from zeeguu.core.test.rules.article_rule import ArticleRule
+        from zeeguu.core.model import ArticleTopicMap
+        from zeeguu.core.model.article_topic_map import TopicOriginType
+        from zeeguu.core.content_retriever.backfill import fresh_simplified_count
+
+        old_parent = ArticleRule().article
+        old_parent.language = self.lang
+        old_parent.parent_article_id = None
+        old_parent.broken = 0
+        old_parent.crawled_at = datetime.datetime.now() - datetime.timedelta(days=20)
+        old_parent.published_time = datetime.datetime.now() - datetime.timedelta(days=20)
+        db_session.add(ArticleTopicMap(old_parent, self.topic, TopicOriginType.HARDSET))
+        db_session.commit()
+
+        child = ArticleRule().article
+        child.language = self.lang
+        child.parent_article_id = old_parent.id
+        child.broken = 0
+        child.published_time = old_parent.published_time  # backdated, 20d ago
+        child.crawled_at = datetime.datetime.now()  # but simplified now
+        db_session.add(child)
+        db_session.commit()
+
+        # setUp already contributed 1 fresh child; this backdated-but-recent one
+        # makes 2. Under the old published_time filter it would have been 1.
+        self.assertEqual(
+            fresh_simplified_count(db_session, self.lang.id, self.topic.id), 2
+        )

@@ -299,35 +299,42 @@ def _apply_title_triage(feed, items, limit, funnel_budget):
     from zeeguu.core.model import Topic
 
     items_list = list(items)
-    headroom = funnel_budget.language_simplification_headroom(feed.language_id)
-    keep = triage_keep_count(headroom, limit)
+    try:
+        headroom = funnel_budget.language_simplification_headroom(feed.language_id)
+        keep = triage_keep_count(headroom, limit)
 
-    if keep <= 0:
-        log(
-            f"   ⏭ Skipping feed '{feed.title}' - no simplification budget left "
-            f"today for {feed.language.code}"
+        if keep <= 0:
+            log(
+                f"   ⏭ Skipping feed '{feed.title}' - no simplification budget left "
+                f"today for {feed.language.code}"
+            )
+            return []
+
+        if len(items_list) <= keep:
+            return items_list
+
+        demanded_ids = funnel_budget.demand.demanded_topic_ids(feed.language_id)
+        demand_topic_names = []
+        for topic_id in demanded_ids:
+            topic = Topic.find_by_id(topic_id)
+            if topic:
+                demand_topic_names.append(topic.title)
+
+        titles = [feed_item.get("title", "") for feed_item in items_list]
+        kept_indices = select_titles_to_download(
+            titles, feed.language.code, demand_topic_names, keep
         )
-        return []
-
-    if len(items_list) <= keep:
+        log(
+            f"   Title triage: keeping {len(kept_indices)}/{len(items_list)} candidates "
+            f"for {feed.language.code} (headroom={headroom})"
+        )
+        return [items_list[i] for i in kept_indices]
+    except Exception as e:
+        # Triage is a best-effort optimization: on any trouble, fall back to the
+        # full candidate list so the crawl proceeds exactly as it would without
+        # the funnel, rather than dropping the whole feed.
+        log(f"   ⚠ Title triage errored ({e}); processing full feed")
         return items_list
-
-    demanded_ids = funnel_budget.demand.demanded_topic_ids(feed.language_id)
-    demand_topic_names = []
-    for topic_id in demanded_ids:
-        topic = Topic.find_by_id(topic_id)
-        if topic:
-            demand_topic_names.append(topic.title)
-
-    titles = [feed_item["title"] for feed_item in items_list]
-    kept_indices = select_titles_to_download(
-        titles, feed.language.code, demand_topic_names, keep
-    )
-    log(
-        f"   Title triage: keeping {len(kept_indices)}/{len(items_list)} candidates "
-        f"for {feed.language.code} (headroom={headroom})"
-    )
-    return [items_list[i] for i in kept_indices]
 
 
 def download_from_feed(
