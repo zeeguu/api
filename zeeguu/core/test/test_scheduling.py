@@ -342,3 +342,256 @@ class SchedulerTest(ModelTestMixIn):
             bookmark.user_word.get_scheduler(), bookmark.user_word, db_session
         ).schedule
         return schedule
+
+    # ================================================================================================================
+    # Regression tests for the SR exercise-outcome failures in the 2026-07-15 log digest
+    # ================================================================================================================
+
+    def test_update_returns_user_word_when_scheduler_declines(self):
+        """
+        find_or_create() returns None when a word is judged unfit for study
+        (invalid / duplicate / unvalidatable translation). update() must not
+        dereference that None ('NoneType' has no attribute 'update_schedule')
+        and must return the passed-in user_word.
+        """
+        from unittest.mock import patch
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        scheduler = user_word.get_scheduler()
+
+        with patch.object(scheduler, "find_or_create", return_value=None):
+            result = scheduler.update(
+                db_session, user_word, OutcomeRule().correct.outcome, datetime.now()
+            )
+
+        assert result is user_word
+        # nothing should have been scheduled
+        assert BasicSRSchedule.find_by_user_word(user_word) is None
+
+    def test_report_outcome_logs_exercise_against_surviving_word(self):
+        """
+        A scheduler can replace the practiced UserWord with a corrected one and
+        delete the original (as the validation re-home does). report_exercise_outcome
+        must log the Exercise against the survivor scheduler.update() returns, not
+        the deleted original (which raised 'Instance UserWord has been deleted').
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+
+        old_bookmark = BookmarkRule(self.four_levels_user).bookmark
+        old_user_word = old_bookmark.user_word
+
+        new_bookmark = BookmarkRule(self.four_levels_user).bookmark
+        new_user_word = new_bookmark.user_word
+        db_session.commit()
+        new_user_word_id = new_user_word.id
+        old_user_word_id = old_user_word.id
+
+        def fake_update(db_sess, user_word, outcome, time=None):
+            # Simulate a scheduler that re-homes the word: delete the original,
+            # return the survivor (mirrors validate_and_fix's re-home).
+            db_sess.delete(user_word)
+            db_sess.commit()
+            return UserWord.query.get(new_user_word_id)
+
+        with patch.object(FourLevelsPerWord, "update", side_effect=fake_update):
+            # Must not raise "Instance UserWord has been deleted"
+            old_user_word.report_exercise_outcome(
+                db_session,
+                "Recognize",
+                OutcomeRule().correct.outcome,
+                1000,
+                None,
+                "",
+            )
+
+        # the original was deleted, the exercise is logged against the survivor
+        assert UserWord.query.get(old_user_word_id) is None
+        logged = Exercise.query.filter_by(user_word_id=new_user_word_id).all()
+        assert len(logged) == 1
+        assert (
+            Exercise.query.filter_by(user_word_id=old_user_word_id).count() == 0
+        )
+
+    def test_find_or_create_recovers_from_duplicate_schedule_race(self):
+        """
+        Two concurrent requests can both pass the "no schedule yet" check and
+        try to insert. The unique_user_word_schedule constraint makes the loser's
+        commit raise IntegrityError; find_or_create must roll back and return the
+        row the winner created instead of surfacing a 500.
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.meaning.validated = Meaning.VALID  # skip validation branch
+        db_session.add(user_word.meaning)
+        db_session.commit()
+
+        # The "winner" row that a concurrent request already committed.
+        winner = FourLevelsPerWord(user_word=user_word)
+        db_session.add(winner)
+        db_session.commit()
+        winner_id = winner.id
+
+        # Force the create path — as if our SELECT ran before the winner
+        # committed — so find() returns None first and then the winner on the
+        # post-rollback re-fetch. The real unique_user_word_schedule constraint
+        # then fires on our duplicate insert; find_or_create must roll back and
+        # return the winner's row instead of surfacing a 500.
+        with patch.object(BasicSRSchedule, "find", side_effect=[None, winner]):
+            result = FourLevelsPerWord.find_or_create(db_session, user_word)
+
+        assert result is not None
+        assert result.id == winner_id
+        assert (
+            BasicSRSchedule.query.filter_by(user_word_id=user_word.id).count() == 1
+        )
+
+    # ================================================================================================================
+    # Off-hot-path (async + nightly) translation validation
+    # ================================================================================================================
+
+    def test_find_or_create_does_not_validate_inline(self):
+        """
+        Scheduling must no longer call the LLM validator on the hot path — an
+        unvalidated word is scheduled as-is, validation happens off-path.
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.meaning.validated = Meaning.NOT_VALIDATED
+        db_session.add(user_word.meaning)
+        db_session.commit()
+
+        with patch.object(
+            UserWordValidationService, "validate_and_fix"
+        ) as vf, patch.object(
+            UserWordValidationService, "check_for_duplicate_meaning"
+        ) as dup:
+            schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
+
+        vf.assert_not_called()
+        dup.assert_not_called()
+        assert schedule is not None
+        assert BasicSRSchedule.find_by_user_word(user_word) is not None
+
+    def test_validate_scheduled_user_word_is_noop_when_already_valid(self):
+        """The worker is idempotent: a VALID meaning does no validation work."""
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.meaning.validated = Meaning.VALID
+        db_session.add(user_word.meaning)
+        db_session.commit()
+
+        with patch.object(UserWordValidationService, "validate_and_fix") as vf:
+            UserWordValidationService.validate_scheduled_user_word(user_word.id)
+
+        vf.assert_not_called()
+
+    def test_validate_scheduled_user_word_unfit_leaves_rotation(self):
+        """
+        When validation deems the word unfit (validate_and_fix -> None), the
+        worker drops it from the schedule so a known-bad word stops appearing.
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.meaning.validated = Meaning.NOT_VALIDATED
+        schedule = FourLevelsPerWord(user_word=user_word)
+        db_session.add_all([user_word.meaning, schedule])
+        db_session.commit()
+        uw_id = user_word.id
+        assert BasicSRSchedule.find_by_user_word(user_word) is not None
+
+        with patch.object(
+            UserWordValidationService, "validate_and_fix", return_value=None
+        ):
+            UserWordValidationService.validate_scheduled_user_word(uw_id)
+
+        assert BasicSRSchedule.query.filter_by(user_word_id=uw_id).count() == 0
+
+    def test_off_hot_path_validation_fires_only_for_scheduled_unvalidated_word(self):
+        """
+        The trigger implements the pipeline compromise: fire background validation
+        for a scheduled, not-yet-valid word; skip it when the word isn't scheduled
+        (full pipeline → left for the nightly batch).
+        """
+        from unittest.mock import patch
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+        from zeeguu.core.llm_services.validation_service import (
+            UserWordValidationService,
+        )
+
+        # Scheduled + unvalidated → fires
+        scheduled_bm = BookmarkRule(self.four_levels_user).bookmark
+        scheduled_uw = scheduled_bm.user_word
+        scheduled_uw.meaning.validated = Meaning.NOT_VALIDATED
+        db_session.add_all(
+            [scheduled_uw.meaning, FourLevelsPerWord(user_word=scheduled_uw)]
+        )
+
+        # Unscheduled + unvalidated → does NOT fire (nightly handles it)
+        unscheduled_bm = BookmarkRule(self.four_levels_user).bookmark
+        unscheduled_uw = unscheduled_bm.user_word
+        unscheduled_uw.meaning.validated = Meaning.NOT_VALIDATED
+        db_session.add(unscheduled_uw.meaning)
+        db_session.commit()
+
+        self.app.config["TESTING"] = False
+        try:
+            with patch(
+                "zeeguu.api.utils.background.run_in_background"
+            ) as run_bg:
+                UserWord._maybe_validate_off_hot_path(scheduled_uw)
+                assert run_bg.call_count == 1
+                assert (
+                    run_bg.call_args.args[0]
+                    == UserWordValidationService.validate_scheduled_user_word
+                )
+                assert run_bg.call_args.args[1] == scheduled_uw.id
+
+                run_bg.reset_mock()
+                UserWord._maybe_validate_off_hot_path(unscheduled_uw)
+                run_bg.assert_not_called()
+        finally:
+            self.app.config["TESTING"] = True

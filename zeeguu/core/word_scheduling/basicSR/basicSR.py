@@ -15,7 +15,14 @@ MAX_WORDS_TO_SCHEDULE_CAP = 100  # Maximum allowed value to prevent SQL LIMIT er
 
 
 class BasicSRSchedule(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # A user_word has at most one schedule row. This mirrors the DB constraint
+    # added in tools/migrations/25-05-24--adding_the_user_word_table.sql; keeping
+    # it on the model documents the invariant and lets the test DB enforce it.
+    # (Single-table inheritance: FourLevelsPerWord shares this table.)
+    __table_args__ = (
+        db.UniqueConstraint("user_word_id", name="unique_user_word_schedule"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "basic_sr_schedule"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -95,6 +102,17 @@ class BasicSRSchedule(db.Model):
 
     @classmethod
     def update(cls, db_session, user_word, outcome, time: datetime = None):
+        """
+        Record the effect of an exercise outcome on the schedule.
+
+        Returns the UserWord that was actually scheduled. This is normally the
+        `user_word` passed in, but the lazy translation-validation inside
+        find_or_create() may replace it with a corrected UserWord (deleting the
+        original). Callers that keep a reference to `user_word` — e.g. to log an
+        Exercise against it — MUST use the returned value instead; binding a row
+        to the now-deleted original raised "Instance UserWord has been deleted"
+        (SR log digest 2026-07-15).
+        """
         if not time:
             time = datetime.now()
 
@@ -112,7 +130,7 @@ class BasicSRSchedule(db.Model):
             user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
             db_session.add(user_word)
 
-            return
+            return user_word
 
         correctness = ExerciseOutcome.is_correct(outcome)
 
@@ -125,17 +143,31 @@ class BasicSRSchedule(db.Model):
 
         if schedule and schedule.there_was_no_need_for_practice_on_date(time):
             # nothing to update in this case
-            return
+            return user_word
 
         if not schedule and more_scheduled_words_than_user_prefers:
             # we are not adding this word to scheduled words
-            return
+            return user_word
 
         # pipeline is not full, and the word was not scheduled before
         if not schedule and not more_scheduled_words_than_user_prefers:
             schedule = cls.find_or_create(db_session, user_word)
 
+        # find_or_create returns None when the word was judged unfit for study
+        # (invalid / duplicate / unvalidatable translation) — there is nothing
+        # to schedule, so don't dereference it (guards the 'NoneType' has no
+        # attribute 'update_schedule' crash from the same digest).
+        if schedule is None:
+            return user_word
+
+        # Capture the scheduled UserWord *before* update_schedule: find_or_create
+        # may have swapped in a corrected UserWord, and update_schedule may delete
+        # the schedule row (set_meaning_as_learned), detaching it afterwards.
+        scheduled_user_word = schedule.user_word
+
         schedule.update_schedule(db_session, correctness, time)
+
+        return scheduled_user_word
 
     @classmethod
     def user_words_not_scheduled(cls, user, limit):
