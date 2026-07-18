@@ -75,6 +75,8 @@ def get_cohort_info(id):
             "declared_level_min": c.declared_level_min,
             "declared_level_max": c.declared_level_max,
             "teachers_for_cohort": teachers_for_cohort(id),
+            "has_recommendations": c.has_recommendations,
+            "has_leaderboard": c.has_leaderboard,
         }
         return dictionary
     except ValueError:
@@ -83,3 +85,6 @@ def get_cohort_info(id):
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
+
+def parse_bool(value):
+    return value is True or str(value).lower() == "true"

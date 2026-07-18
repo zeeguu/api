@@ -4,6 +4,7 @@ from typing import Callable, Optional
 import flask
 from flask import request
 
+from core.model import Cohort
 from zeeguu.core.leaderboards.leaderboards import cohort_leaderboard_user_ids_subquery
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
@@ -132,6 +133,9 @@ def cohort_leaderboard(cohort_id: int):
     teacher_cohort_ids = {tcm.cohort_id for tcm in TeacherCohortMap.query.filter_by(user_id=user.id).all()}
     if not user.is_member_of_cohort(cohort_id) and int(cohort_id) not in teacher_cohort_ids:
         return make_error(403, "You can only view leaderboards for cohorts you belong to or teach.")
+    cohort = Cohort.find(cohort_id)
+    if not cohort.has_leaderboard:
+        return make_error(400, "Cohort does not have leaderboards enabled.")
 
     rows = metric(
         cohort_leaderboard_user_ids_subquery(cohort_id),
