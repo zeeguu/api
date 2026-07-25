@@ -67,7 +67,6 @@ def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
         user_word.meaning.translation.content,
         user_word.meaning.translation.language.code,
         selected_sentence,
-        None,  # article_id
         None,  # source_id
         sentence_i=pos["sentence_i"],
         token_i=pos["token_i"],
@@ -435,7 +434,6 @@ def set_preferred_example(user_word_id):
         user_word.meaning.translation.content,
         user_word.meaning.translation.language.code,
         selected_sentence,
-        None,  # article_id
         None,  # source_id
         sentence_i=sentence_i,
         token_i=token_i,
@@ -690,7 +688,6 @@ def add_word_to_learning():
             final_translation,
             to_lang,
             final_example,
-            None,  # article_id
             None,  # source_id
             sentence_i=sentence_i,
             token_i=token_i,
