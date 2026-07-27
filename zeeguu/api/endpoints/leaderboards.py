@@ -4,7 +4,7 @@ from typing import Callable, Optional
 import flask
 from flask import request
 
-from core.model import Cohort
+from zeeguu.core.model import Cohort
 from zeeguu.core.leaderboards.leaderboards import cohort_leaderboard_user_ids_subquery
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
