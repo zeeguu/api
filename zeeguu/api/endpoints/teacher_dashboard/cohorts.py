@@ -121,12 +121,10 @@ def create_own_cohort():
     max_students = params.get("max_students")
     if int(max_students) < 1:
         flask.abort(400)
-    has_recommendations = parse_bool(params.get("has_recommendations"))
     has_leaderboard = parse_bool(params.get("has_leaderboard"))
 
     try:
-        c = Cohort(inv_code=inv_code, name=name, language=language, max_students=max_students,
-                   has_recommendations=has_recommendations, has_leaderboard=has_leaderboard)
+        c = Cohort(inv_code=inv_code, name=name, language=language, max_students=max_students, has_leaderboard=has_leaderboard)
         db.session.add(c)
         db.session.commit()
         _link_teacher_cohort(teacher_id, c.id)
@@ -164,7 +162,6 @@ def update_cohort(cohort_id):
         cohort_to_change.declared_level_min = params.get("declared_level_min")
         cohort_to_change.declared_level_max = params.get("declared_level_max")
 
-        cohort_to_change.has_recommendations = parse_bool(params.get("has_recommendations"))
         cohort_to_change.has_leaderboard = parse_bool(params.get("has_leaderboard"))
 
         db.session.commit()

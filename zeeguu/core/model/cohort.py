@@ -19,13 +19,12 @@ class Cohort(db.Model):
     declared_level_max = Column(Integer)
     is_cohort_of_teachers = Column(Boolean)
     has_leaderboard = Column(Boolean)
-    has_recommendations = Column(Boolean)
 
     users = relationship("UserCohortMap", back_populates="cohort")
 
     def __init__(
         self, inv_code, name, language, max_students,
-            level_min=0, level_max=10, has_leaderboard=False, has_recommendations=True
+            level_min=0, level_max=10, has_leaderboard=False
     ):
         self.inv_code = inv_code
         self.name = name
@@ -35,7 +34,6 @@ class Cohort(db.Model):
         self.declared_level_max = level_max
         self.is_cohort_of_teachers = False  # by default a cohort is a student cohort!
         self.has_leaderboard = has_leaderboard
-        self.has_recommendations = has_recommendations
 
     def get_current_student_count(self):
         from zeeguu.core.model.user import User
