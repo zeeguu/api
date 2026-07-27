@@ -5,7 +5,7 @@ import random
 import re
 
 import sqlalchemy.orm
-from sqlalchemy import Column, Boolean, func, select
+from sqlalchemy import Column, Boolean, case, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -1408,11 +1408,23 @@ class User(db.Model):
             cls.name == term,                                  # exact match for name
         ]
 
+        # Relevance scoring: exact username match (0), prefix match (1), others (2)
+        relevance = case(
+            (cls.username == term, 0),                  # exact username match
+            (cls.username.like(f"{escaped}%", escape="\\"), 1),  # prefix match
+            else_=2,
+        )
+
         return (
             db.session.query(cls, UserAvatar)
             .select_from(cls)
             .filter(or_(*filters), cls.id != current_user_id, ~cls.email.endswith(cls.ANONYMOUS_EMAIL_DOMAIN))
             .outerjoin(UserAvatar, UserAvatar.user_id == cls.id)
+            .order_by(
+                relevance,
+                func.length(cls.username),  # shorter usernames first
+                cls.username,
+            )
             .limit(limit)
             .all()
         )

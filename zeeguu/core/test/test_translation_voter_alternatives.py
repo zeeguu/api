@@ -42,8 +42,9 @@ class VoterAlternativesTest(TestCase):
         result = translator._vote_single_word_translation(self.data)
 
         self.assertEqual(result["translation"], "close")
+        # DeepL represents a bucket it shares (provider preference DeepL > Google).
         self.assertEqual(result["alternatives"], [
-            {"translation": "close", "source": "Google - with context", "votes": 3},
+            {"translation": "close", "source": "DeepL - with context", "votes": 3},
         ])
         # Legacy fields: no disagreement, no competing.
         self.assertNotIn("competing_translations", result)
@@ -53,7 +54,7 @@ class VoterAlternativesTest(TestCase):
     @patch.object(translator, "google_contextual_translate")
     @patch.object(translator, "azure_alignment_contextual_translate")
     @patch.object(translator, "microsoft_contextual_translate")
-    def test_two_vs_one_splits_into_two_alternatives(self, ms, azure, google, deepl):
+    def test_deepl_dissent_from_majority_flags_disagreement(self, ms, azure, google, deepl):
         azure.return_value = _provider_result("close", "Azure - alignment")
         google.return_value = _provider_result("close", "Google - with context")
         deepl.return_value = _provider_result("tight", "DeepL - with context")
@@ -61,17 +62,19 @@ class VoterAlternativesTest(TestCase):
 
         result = translator._vote_single_word_translation(self.data)
 
-        # Winner is the 2-vote bucket; loser bucket follows.
+        # Google+Azure outvote DeepL 2-to-1, so "close" still wins...
         self.assertEqual(result["translation"], "close")
         self.assertEqual(result["alternatives"], [
             {"translation": "close", "source": "Google - with context", "votes": 2},
             {"translation": "tight", "source": "DeepL - with context", "votes": 1},
         ])
-        # Legacy fields still present during deprecation window.
+        # ...but because DeepL dissents, we flag disagreement so the client
+        # auto-opens the menu instead of silently burying DeepL's answer.
+        self.assertTrue(result["disagreement"])
+        # Legacy field still present during deprecation window.
         self.assertEqual(result["competing_translations"], [
             {"translation": "tight", "source": "DeepL - with context"},
         ])
-        self.assertNotIn("disagreement", result)
 
     @patch.object(translator, "deepl_contextual_translate_cached")
     @patch.object(translator, "google_contextual_translate")
@@ -85,9 +88,9 @@ class VoterAlternativesTest(TestCase):
 
         result = translator._vote_single_word_translation(self.data)
 
-        # All three buckets are size 1; provider preference (Google > DeepL >
-        # Azure) breaks the tie, so Google's "tight" wins.
-        self.assertEqual(result["translation"], "tight")
+        # All three buckets are size 1; provider preference (DeepL > Google >
+        # Azure) breaks the tie, so DeepL's "near" wins.
+        self.assertEqual(result["translation"], "near")
         self.assertEqual([alt["votes"] for alt in result["alternatives"]], [1, 1, 1])
         self.assertEqual(
             {alt["translation"] for alt in result["alternatives"]},

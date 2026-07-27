@@ -1,4 +1,5 @@
 **/.vscode/
+.venv
 instance
 dev_data_folder*
 .idea/

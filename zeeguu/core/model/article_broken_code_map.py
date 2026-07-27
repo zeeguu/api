@@ -20,6 +20,7 @@ class LowQualityTypes:
     ADVERTORIAL_PATTERN = "ADVERTORIAL_PATTERN"    # Detected by URL/keyword patterns
     ADVERTORIAL_LLM = "ADVERTORIAL_LLM"            # Detected by LLM during simplification
     USER_REPORTED = "USER_REPORTED"
+    NON_ARTICLE = "NON_ARTICLE"                    # Interactive/non-prose page (crossword, sudoku, quiz...)
 
 
 class ArticleBrokenMap(db.Model):

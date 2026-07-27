@@ -470,7 +470,11 @@ def create_simplified_article_adaptive(
         # Update the original article with assessed metadata if not already set
         if not original_article.cefr_level:
             original_article.cefr_level = original_level
-        if not original_article.summary:
+        # Prefer the LLM's abstractive summary over the feed's RSS blurb, which is
+        # often just the headline reworded (and can be verbatim publisher text).
+        # Keep whatever's already there only as a fallback when the LLM produced
+        # no summary.
+        if original_summary:
             original_article.summary = original_summary
 
         # Create the simplified article
@@ -595,7 +599,11 @@ def simplify_and_classify(
         original_article.cefr_level = original_level
         if article_type:
             original_article.article_type = article_type
-        if not original_article.summary:
+        # Prefer the LLM's abstractive summary over the feed's RSS blurb, which is
+        # often just the headline reworded (and can be verbatim publisher text).
+        # Keep whatever's already there only as a fallback when the LLM produced
+        # no summary.
+        if original_summary:
             original_article.summary = original_summary
 
         if not simplified_levels:

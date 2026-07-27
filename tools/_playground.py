@@ -2,10 +2,10 @@ from zeeguu.core.model import User, Session
 import requests
 import json
 
-from zeeguu.api.app import create_app
+from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 
-app = create_app()
+app = create_app_for_scripts()
 app.app_context().push()
 
 

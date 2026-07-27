@@ -89,6 +89,11 @@ LOG_CONTEXT = "FEED RETRIEVAL"
 # Maps domain patterns to lists of keywords that indicate non-article content
 SOURCE_CONTENT_FILTERS = {
     "videnskab.dk": ["puslespil"],  # Interactive puzzles
+    # Guardian puzzles: readability scrapes the clue list (~140-250 words), so they
+    # clear the 90-word minimum and slip into feeds as articles (web#1177). "crossword no"
+    # matches "Cryptic/Quick/Prize crossword No 30,039" but NOT "Crossword editor's desk:"
+    # feature articles. Sudoku already fails the length filter, but we list it for clarity.
+    "theguardian.com": ["crossword no", "sudoku", "wordsearch", "wordiply"],
     # Add more sources and their filter keywords here as needed
 }
 
@@ -112,6 +117,27 @@ def _cache_article_tokenization(article, session):
         except Exception:
             pass  # Session may already be clean
         # Don't fail the whole article download if tokenization fails
+
+
+def _save_classifications(session, article, classifications):
+    """
+    Persist a list of (classification_type, detection_method) tuples for an article.
+
+    Idempotent via ArticleClassification.find_or_create, so it is safe to call more
+    than once for the same article (e.g. the keyword pass and later the LLM pass).
+    """
+    if not classifications:
+        return
+
+    from zeeguu.core.model.article_classification import ArticleClassification
+
+    for classification_type, detection_method in classifications:
+        log(
+            f"Tagging article {article.id} as {classification_type} ({detection_method} detection)"
+        )
+        ArticleClassification.find_or_create(
+            session, article, classification_type, detection_method
+        )
 
 
 def should_filter_by_source_keywords(url, title):
@@ -717,7 +743,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
         return new_article
 
-    # Check for disturbing content (keyword-based detection)
+    # Check for disturbing content (keyword-based detection).
+    # Persist this flag NOW, decoupled from simplification: the LLM classification
+    # only runs if the article gets simplified, but simplification can be skipped
+    # (daily cap below, on-demand simplification, or an LLM error). The always-on
+    # keyword gate must set is_disturbing regardless, or the feed filter can't work.
     is_disturbing_keyword, disturbing_reason = is_disturbing_content_based_on_keywords(
         title=title, content=np_article.text, language=feed.language.code
     )
@@ -725,6 +755,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         log(
             f"   ⚠ Disturbing content detected ({disturbing_reason})"
         )
+        _save_classifications(session, new_article, [("DISTURBING", "KEYWORD")])
 
     # Check topic simplification cap - skip simplification if all topics are "full" for this language today
     # topic_simplification_counts is keyed by (language_id, topic_id) tuple
@@ -762,6 +793,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             log(
                 f"   Created {len(simplified_articles)} simplified versions"
             )
+            # Pre-tokenize each simplified child's title/summary too. These are what
+            # the recommended feed renders as tappable preview cards; caching them
+            # here keeps that off the request path (mirrors the original above).
+            for simplified in simplified_articles:
+                _cache_article_tokenization(simplified, session)
             # Update topic simplification counts after successful simplification
             # Key is (language_id, topic_id) to track per language
             if topic_simplification_counts is not None:
@@ -773,31 +809,10 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
                 f"   No simplified versions created"
             )
 
-        # Collect all classifications (keyword + LLM) and save them once
-        all_classifications = []
-
-        # Add keyword-based classification
-        if is_disturbing_keyword:
-            all_classifications.append(("DISTURBING", "KEYWORD"))
-
-        # Add LLM-based classifications
-        all_classifications.extend(llm_classifications)
-
-        # Save all classifications at once
-        if all_classifications:
-            from zeeguu.core.model.article_classification import (
-                ArticleClassification,
-                ClassificationType,
-                DetectionMethod,
-            )
-
-            for classification_type, detection_method in all_classifications:
-                log(
-                    f"Tagging article {new_article.id} as {classification_type} ({detection_method} detection)"
-                )
-                ArticleClassification.find_or_create(
-                    session, new_article, classification_type, detection_method
-                )
+        # Save LLM-based classifications. The keyword-based DISTURBING flag was
+        # already persisted above, right after keyword detection, so it survives
+        # even when simplification is skipped or errors out.
+        _save_classifications(session, new_article, llm_classifications)
     except Exception as e:
         llm_duration = time() - llm_start_time
         error_msg = str(e).lower()

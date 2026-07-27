@@ -1,7 +1,12 @@
 # Stanza service dependencies
 flask>=2.0.0
 gunicorn>=21.0.0
-stanza>=1.5.0
+# Pin stanza: 1.13+ expects the Danish DDT depparse model to have 41 dependency
+# relations, but our downloaded ddt_charlm.pt (Nov 2025) has 45 -> GraphParser
+# state_dict size mismatch -> every /tokenize with depparse 500s. 1.11.0 matches
+# the on-disk model (it's the version the API container tokenizes with today).
+# Re-pin only after re-downloading the models under the newer stanza.
+stanza==1.11.0
 psutil>=5.9.0
 
 # Stanza dependencies (PyTorch)

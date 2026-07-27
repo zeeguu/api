@@ -27,6 +27,8 @@ Usage:
 import argparse
 from datetime import datetime
 
+from sqlalchemy import func
+
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, Feed
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -45,7 +47,7 @@ def newest_crawl_time():
     """Most recent last_crawled_time across all active feeds — the crawler's
     global heartbeat. None if no active feed has ever been crawled."""
     return (
-        db.session.query(db.func.max(Feed.last_crawled_time))
+        db.session.query(func.max(Feed.last_crawled_time))
         .filter(Feed.deactivated == 0)
         .scalar()
     )
