@@ -7,7 +7,10 @@ from zeeguu.core.model.personal_copy import PersonalCopy
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.abort_handling import make_error
 from . import api, db_session
+
+CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 @api.route("/upload_own_text", methods=["POST"])
@@ -155,4 +158,58 @@ def estimate_article_cefr():
     return json_result({
         "cefr_level": ml_assessment,
         "assessment_method": ml_method
+    })
+
+
+@api.route("/simplify_own_text", methods=["POST"])
+@cross_domain
+@requires_session
+def simplify_own_text():
+    """
+    Adapt a teacher-authored text to an easier CEFR level, on demand.
+
+    Stateless — operates on the content currently in the editor, so it works
+    for a brand-new (unsaved) draft as well as an existing own-text. The
+    teacher reviews the returned text and saves it themselves; nothing is
+    persisted here.
+
+    Form params: title, content (plain text), language (code), cefr_level (target).
+    Returns: {"title", "content" (HTML), "summary", "cefr_level"}.
+    """
+    from zeeguu.core.llm_services.simplification_service import SimplificationService
+    from zeeguu.logging import log
+
+    title = request.form.get("title", "")
+    content = request.form.get("content", "")
+    language_code = request.form.get("language", "")
+    target_level = request.form.get("cefr_level", "")
+
+    if not content or not language_code:
+        return make_error(400, "content and language are required")
+    if target_level not in CEFR_LEVELS:
+        return make_error(400, f"cefr_level must be one of {', '.join(CEFR_LEVELS)}")
+
+    log(
+        f"simplify_own_text: target={target_level}, language={language_code}, "
+        f"content length={len(content)}"
+    )
+
+    result = SimplificationService().simplify_text(
+        title, content, target_level, language_code
+    )
+    if not result:
+        # simplify_text returns None both on LLM error and when the output is
+        # truncated at the token cap — the usual cause on a long piece. Give an
+        # actionable 422 (JSON, so the web client can show it) rather than a 500.
+        return make_error(
+            422,
+            "Could not adapt this text. It may be too long to process in one "
+            "piece — try a shorter piece or a single section.",
+        )
+
+    return json_result({
+        "title": result["title"],
+        "content": result["content"],
+        "summary": result.get("summary"),
+        "cefr_level": target_level,
     })
