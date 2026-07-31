@@ -754,7 +754,14 @@ class Article(db.Model):
     def article_info_for_teacher(self):
         from zeeguu.core.model import CohortArticleMap
 
-        info = self.article_info(with_content=True)
+        # NB: with_content=False on purpose. This is the teacher list/metadata
+        # view; it needs CEFR + metrics, not per-token reader data. Passing
+        # with_content=True made /teacher_texts synchronously Stanza/MWE-tokenize
+        # the full body of every owned text on each load (see get_tokenized_content),
+        # which could time the request out. The one caller that does need tokens
+        # (UserArticle reader path) re-fetches content itself via
+        # article_info(with_content=True) and merges it.
+        info = self.article_info(with_content=False)
         info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
 
         # Include CEFR assessment details for teacher view
