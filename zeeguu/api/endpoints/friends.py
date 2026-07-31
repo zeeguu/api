@@ -8,8 +8,11 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import User
 from zeeguu.core.model import UserLanguage
+from zeeguu.core.model.db import db
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.friend_request import FriendRequest
 from zeeguu.core.model.friendship import Friendship
+from zeeguu.core.model.shared_article import SharedArticle
 from zeeguu.core.model.user_avatar import UserAvatar
 from zeeguu.logging import log
 from . import api
@@ -392,3 +395,86 @@ def _validate_friend_request_participants(sender_id: int, receiver_id: int) -> t
         return 422, "cannot send friend request to yourself"
 
     return 200, "ok"
+
+
+# ---------------------------------------------------------------------------
+@api.route("/share_article_with_friend", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def share_article_with_friend():
+    """
+    Share an article with an accepted friend.
+
+    Body (JSON): { friend_username, article_id, note? }
+
+    We store the ORIGINAL/parent article id (never the sharer's adapted or
+    translated copy) so the recipient's reader adapts it to their own language
+    and level on open.
+    """
+    from_user_id = flask.g.user_id
+    friend_username = request.json.get("friend_username")
+    article_id = request.json.get("article_id")
+    note = request.json.get("note")
+
+    if not friend_username or not article_id:
+        return make_error(400, "friend_username and article_id are required")
+
+    friend = User.find_by_username(friend_username)
+    if not friend:
+        return make_error(404, "user not found")
+
+    to_user_id = friend.id
+    if to_user_id == from_user_id:
+        return make_error(422, "cannot share with yourself")
+
+    # are_friends returns True for self, so the self-check above must come first.
+    if not Friendship.are_friends(from_user_id, to_user_id):
+        return make_error(403, "you can only share with your friends")
+
+    article = Article.find_by_id(article_id)
+    if not article:
+        return make_error(404, "article not found")
+
+    original_id = SharedArticle.resolve_original_article_id(article)
+    shared = SharedArticle.create(db.session, from_user_id, to_user_id, original_id, note)
+    return json_result({"shared_article_id": shared.id})
+
+
+# ---------------------------------------------------------------------------
+@api.route("/articles_shared_with_me", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def articles_shared_with_me():
+    """Inbox: non-dismissed articles shared with the current user, newest first."""
+    shares = SharedArticle.inbox_for(flask.g.user_id)
+    return json_result([s.to_dict() for s in shares])
+
+
+# ---------------------------------------------------------------------------
+@api.route("/mark_shared_article_read", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def mark_shared_article_read():
+    """Mark a received share as read. Body (JSON): { shared_article_id }."""
+    shared = SharedArticle.find_by_id(request.json.get("shared_article_id"))
+    if not shared or shared.to_user_id != flask.g.user_id:
+        return make_error(404, "shared article not found")
+    shared.mark_read(db.session)
+    return json_result("OK")
+
+
+# ---------------------------------------------------------------------------
+@api.route("/dismiss_shared_article", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def dismiss_shared_article():
+    """Remove a share from the recipient's inbox. Body (JSON): { shared_article_id }."""
+    shared = SharedArticle.find_by_id(request.json.get("shared_article_id"))
+    if not shared or shared.to_user_id != flask.g.user_id:
+        return make_error(404, "shared article not found")
+    shared.dismiss(db.session)
+    return json_result("OK")
