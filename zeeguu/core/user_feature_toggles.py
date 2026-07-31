@@ -170,30 +170,11 @@ def _verbal_flashcards(user):
 
 def _gamification(user: User):
     """
-    Enable general gamification features for users whose invitation with the gamification invite code,
-    or who are in the gamification cohort. This includes features like badges, friends, and leaderboards.
+    Enable general gamification features (badges, friends, leaderboards) for
+    everyone.
+
+    Previously this was a staged rollout gated on the "CD8HGKKJ" invite code /
+    cohort, dev accounts, and users with id > 6479. The rollout is complete, so
+    the feature is now on for all users.
     """
-
-    GAMIFICATION_INVITE_CODE = "CD8HGKKJ"
-    if user.is_dev or user.id == 4022:  # Tiago
-        return True
-
-    # Invitation code can be None
-    invitation_code = user.invitation_code or ""
-    if invitation_code.lower() == GAMIFICATION_INVITE_CODE.lower():
-        return True
-
-    # Find gamification cohort by invite code, if it exists.
-    try:
-        gamification_cohort = Cohort.find_by_code(GAMIFICATION_INVITE_CODE)
-    except NoResultFound:
-        gamification_cohort = None
-
-    if gamification_cohort and user.is_member_of_cohort(gamification_cohort.id):
-        return True
-
-    if user.id>6479:
-        return True
-
-    # Disabled for everyone else
-    return False
+    return True
