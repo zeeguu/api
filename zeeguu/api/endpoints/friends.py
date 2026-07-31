@@ -438,6 +438,13 @@ def share_article_with_friend():
 
     original_id = SharedArticle.resolve_original_article_id(article)
     shared = SharedArticle.create(db.session, from_user_id, to_user_id, original_id, note)
+
+    # Notify the recipient by email — best-effort, off the request thread.
+    from zeeguu.api.utils.background import run_in_background
+    from zeeguu.core.emailer.shared_article import send_shared_article_notification
+
+    run_in_background(send_shared_article_notification, to_user_id, from_user_id, shared.id)
+
     return json_result({"shared_article_id": shared.id})
 
 

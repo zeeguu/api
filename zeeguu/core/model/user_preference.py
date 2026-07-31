@@ -44,6 +44,7 @@ class UserPreference(db.Model):
     SHOW_EASIER_ARTICLES = "show_easier_articles"  # Also show articles below the user's CEFR level
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
+    EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
 
     # Daily audio lesson preferences. Keyed PER learned-language because the daily
     # lesson is stored/queried per user.learned_language; the language code is
@@ -133,6 +134,15 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
         ).first()
         return filter_setting and filter_setting.value == "true"
+
+    @classmethod
+    def is_email_on_article_shared_enabled(cls, user: User):
+        """Whether to email the user when a friend shares an article. Default: True
+        (opt-out) — a shared article the recipient never hears about is a dead share."""
+        setting = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.EMAIL_ON_ARTICLE_SHARED
+        ).first()
+        return setting is None or setting.value == "true"
 
     @classmethod
     def is_show_easier_articles_enabled(cls, user: User):

@@ -104,6 +104,16 @@ def save_user_preferences():
         show_reading_timer.value = show_reading_timer_value
         db_session.add(show_reading_timer)
 
+    email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
+    if email_on_article_shared_value is not None:
+        email_on_article_shared = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.EMAIL_ON_ARTICLE_SHARED,
+        )
+        email_on_article_shared.value = email_on_article_shared_value
+        db_session.add(email_on_article_shared)
+
     # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
     # Daily-audio config now lives in DailyAudioSubscription, written by the
     # dedicated /configure_daily_subscription endpoint. The block below + the
