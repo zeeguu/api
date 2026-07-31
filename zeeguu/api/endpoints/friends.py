@@ -37,7 +37,7 @@ def get_my_friends():
 @requires_session
 def get_friends_of(username):
     """
-        Get all friends for the specified user_id.
+        Get all friends for the specified username.
     """
     target = User.find_by_username(username)
     if target is None:
