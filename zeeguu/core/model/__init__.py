@@ -131,4 +131,5 @@ from .user_avatar import UserAvatar
 # friends
 from .friend_request import FriendRequest
 from .friendship import Friendship
+from .shared_article import SharedArticle
 
