@@ -110,6 +110,7 @@ class SharedArticle(db.Model):
             "id": self.id,
             "from_user_id": self.from_user_id,
             "from_user_name": self.from_user.name,
+            "from_user_username": self.from_user.username,
             "note": self.note,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "read": self.read_at is not None,
