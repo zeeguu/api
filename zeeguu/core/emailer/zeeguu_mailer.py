@@ -23,11 +23,8 @@ class ZeeguuMailer(object):
         # EMAIL_SENDING_ENABLED is the global "actually send email" switch: on in
         # prod, off in dev/test (this also disables the mailer during unit tests).
         # It gates ALL mail — user-facing (password reset, share notifications) and
-        # team/monitoring alike; per-feature or per-user opt-outs are the caller's
-        # job. SEND_NOTIFICATION_EMAILS is the former name; keep the fallback until
-        # the prod config is migrated to EMAIL_SENDING_ENABLED, then drop it.
-        config = zeeguu.core.app.config
-        if not config.get("EMAIL_SENDING_ENABLED", config.get("SEND_NOTIFICATION_EMAILS", False)):
+        # team/monitoring alike; per-feature or per-user opt-outs are the caller's job.
+        if not zeeguu.core.app.config.get("EMAIL_SENDING_ENABLED", False):
             log("returning without sending")
             return
         try:
