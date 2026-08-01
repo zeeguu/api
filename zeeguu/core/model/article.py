@@ -738,6 +738,22 @@ class Article(db.Model):
             # source instead of the article's own zeeguu.org placeholder URL.
             result_dict["parent_url"] = self.source_upload.url.as_string()
 
+        # Cross-language derivative → is_translated, a flag DISTINCT from
+        # is_simplified (which is same-language level adaptation). Derived, not
+        # stored: this article's language differs from its origin's — the upload
+        # it was translated from, or its parent. (translate_and_adapt always also
+        # adapts to a level, so the reader renders is_translated as "Translated &
+        # simplified".) The crawl→translate path sets neither link and encodes the
+        # origin in a #translated-from URL fragment instead, so it's not derivable
+        # here yet — see unify-translated-copies-onto-parent.md.
+        origin_language_id = None
+        if self.source_upload_id and self.source_upload:
+            origin_language_id = self.source_upload.language_id
+        elif self.parent_article_id and self.parent_article:
+            origin_language_id = self.parent_article.language_id
+        if origin_language_id and self.language_id and origin_language_id != self.language_id:
+            result_dict["is_translated"] = True
+
         if self.authors:
             result_dict["authors"] = self.authors
         elif self.uploader:

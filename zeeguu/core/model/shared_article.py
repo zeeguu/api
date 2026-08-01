@@ -210,10 +210,4 @@ class SharedArticle(db.Model):
             "article": display_article.article_info(with_content=False),
             "delivery_ready": self.delivery_article_id is not None,
             "delivery_language": self.delivery_language.code if self.delivery_language else None,
-            # Cross-language delivery → "Translated & simplified" vs "Simplified".
-            "translated": bool(
-                self.delivery_article
-                and self.article
-                and self.delivery_article.language_id != self.article.language_id
-            ),
         }
