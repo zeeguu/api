@@ -34,21 +34,36 @@ def send_shared_article_notification(to_user_id, from_user_id, shared_article_id
         shared = SharedArticle.find_by_id(shared_article_id)
         if not shared:
             return
-        article_title = shared.article.title if shared.article else "an article"
+
+        # Prefer the recipient's personalized copy: its title is in *their*
+        # language (so a cross-language share isn't a foreign headline), and its
+        # id deep-links straight to their adapted read. Fall back to the
+        # canonical article if the derivative isn't there (plain crawl / failed).
+        display_article = shared.delivery_article or shared.article
+        article_title = display_article.title if display_article else "an article"
+        open_id = shared.delivery_article_id or shared.article_id
+        lang_clause = (
+            f" in {shared.delivery_language.name}" if shared.delivery_language else ""
+        )
 
         subject = f"{sharer.name} shared an article with you on Zeeguu"
 
         lines = [
             f"Hi {recipient.name},",
             "",
-            f"{sharer.name} shared an article with you: “{article_title}”.",
+            f"{sharer.name} shared the following article with you:",
+            "",
+            f"“{article_title}”",
         ]
         if shared.note:
             lines += ["", f"Their note: “{shared.note}”"]
         lines += [
             "",
-            "Open it in the language you're learning, at your level:",
-            f"{WEB_URL}/articles/shared",
+            f"We've prepared it for you{lang_clause}, at your level — open it here:",
+            f"{WEB_URL}/read/article?id={open_id}&shared={shared.id}",
+            "",
+            "You'll also find any other articles friends have sent you",
+            f"in your Shared inbox: {WEB_URL}/articles/shared",
             "",
             "— Zeeguu",
             "",
