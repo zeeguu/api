@@ -189,6 +189,15 @@ class SharedArticle(db.Model):
         )
 
     @classmethod
+    def inbox_count_for(cls, user_id: int) -> int:
+        """Total non-dismissed shares in the recipient's inbox (read or not)."""
+        return (
+            cls.query.filter(cls.to_user_id == user_id)
+            .filter(cls.dismissed_at.is_(None))
+            .count()
+        )
+
+    @classmethod
     def unread_count_for(cls, user_id: int) -> int:
         return (
             cls.query.filter(cls.to_user_id == user_id)
