@@ -467,7 +467,7 @@ def _deliver_share(from_user_id: int, to_user_id: int, article_id: int, note):
     delivery_language, level = SharedArticle.compute_delivery_language(recipient)
     delivery_language_id = delivery_language.id if delivery_language is not None else None
     delivery_article_id = (
-        _generate_recipient_derivative(article, recipient, delivery_language, level)
+        _generate_recipient_derivative(article, original_id, recipient, delivery_language, level)
         if delivery_language is not None
         else None
     )
@@ -486,26 +486,36 @@ def _deliver_share(from_user_id: int, to_user_id: int, article_id: int, note):
         log(f"share {shared.id}: email notification failed: {e}")
 
 
-def _generate_recipient_derivative(article, recipient, delivery_language, level):
+def _generate_recipient_derivative(article, canonical_id, recipient, delivery_language, level):
     """The id of the recipient's personalized derivative, or None.
 
-    Only for upload-based shares (the sharer captured a full body); plain crawl
-    shares get None and the recipient opens the canonical article (adapting it
-    in the reader). Never raises — a generation failure (LLM/fragment/DB) rolls
-    back and degrades to None so the share still lands, routed by its language.
+    Two sources: an **upload** (the sharer captured a full body) → generate from
+    its text; otherwise a **crawled article** → simplify the canonical article to
+    the recipient's level. Either way the recipient's deep-link opens a ready,
+    adapted copy — no "adapt to your level?" prompt. Falls back to None (recipient
+    opens the original and adapts) when nothing needs generating or on any error;
+    never raises, so the share still lands, routed by its language.
     """
-    upload = article.source_upload
-    if upload is None:
-        return None
-
     from zeeguu.core.llm_services.simplification_and_classification import (
         create_recipient_derivative,
+        create_recipient_derivative_from_article,
     )
 
     try:
-        derivative = create_recipient_derivative(
-            db.session, upload, delivery_language.code, level
-        )
+        upload = article.source_upload
+        if upload is not None:
+            derivative = create_recipient_derivative(
+                db.session, upload, delivery_language.code, level
+            )
+        else:
+            canonical = Article.find_by_id(canonical_id)
+            derivative = (
+                create_recipient_derivative_from_article(
+                    db.session, canonical, delivery_language.code, level
+                )
+                if canonical is not None
+                else None
+            )
     except Exception as e:
         db.session.rollback()
         log(f"share to user_id={recipient.id}: derivative generation errored "
@@ -513,7 +523,7 @@ def _generate_recipient_derivative(article, recipient, delivery_language, level)
         return None
 
     if derivative is None:
-        log(f"share to user_id={recipient.id}: derivative generation failed; "
+        log(f"share to user_id={recipient.id}: no derivative generated; "
             f"recipient will open the canonical article")
         return None
 

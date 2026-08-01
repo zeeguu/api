@@ -859,6 +859,39 @@ def create_user_specific_simplified_version(session, article, target_level):
         return None
 
 
+def create_recipient_derivative_from_article(
+    session, article, target_language_code, target_level
+):
+    """A recipient's personalized copy generated from a crawled ARTICLE (no upload).
+
+    The multiplexer for *feed* shares: the sharer sent a crawled article, and the
+    recipient reads it at their level. Reuses the article-simplify path, which
+    creates a proper simplified child (``parent_article_id`` → the reader's
+    ``Original:`` link, ``is_simplified``, ``target_cefr_level`` all work) and is
+    same-language (so it can't confuse the recommender's overlay).
+
+    **MVP scope — same language only.** Cross-language crawl *translation* is
+    deferred: a translated child would need a same-language guard in the
+    recommender overlay first, so here we return ``None`` and the recipient opens
+    the original and adapts it in the reader (today's behavior). Also returns
+    ``None`` when no simplification is needed (recipient's level ≥ the article's)
+    — they just read the original.
+    """
+    from zeeguu.core.model.article import Article
+
+    if not article.language:
+        return None
+    if target_language_code != article.language.code:
+        return None  # cross-language crawl translation deferred (see docstring)
+
+    existing = Article.query.filter_by(
+        parent_article_id=article.id, cefr_level=target_level
+    ).first()
+    if existing:
+        return existing
+    return create_user_specific_simplified_version(session, article, target_level)
+
+
 def create_recipient_derivative(session, upload, target_language_code, target_level):
     """A recipient's personalized full-body copy, generated from a SHARER's upload.
 
