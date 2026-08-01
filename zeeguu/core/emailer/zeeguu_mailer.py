@@ -20,8 +20,11 @@ class ZeeguuMailer(object):
         yag.send(self.to_email, self.message_subject, contents=self.message_body)
 
     def send(self):
-        # this next line disables the mailer also during unit testing
-        if not zeeguu.core.app.config.get("SEND_NOTIFICATION_EMAILS", False):
+        # EMAIL_SENDING_ENABLED is the global "actually send email" switch: on in
+        # prod, off in dev/test (this also disables the mailer during unit tests).
+        # It gates ALL mail — user-facing (password reset, share notifications) and
+        # team/monitoring alike; per-feature or per-user opt-outs are the caller's job.
+        if not zeeguu.core.app.config.get("EMAIL_SENDING_ENABLED", False):
             log("returning without sending")
             return
         try:
