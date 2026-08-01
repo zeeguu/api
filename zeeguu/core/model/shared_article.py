@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
@@ -167,6 +167,25 @@ class SharedArticle(db.Model):
             .filter(cls.dismissed_at.is_(None))
             .order_by(cls.created_at.desc())
             .all()
+        )
+
+    @classmethod
+    def has_earlier_recent_share_to(cls, user_id: int, before_id: int, within_minutes: int) -> bool:
+        """Whether an EARLIER share reached this recipient within the last
+        ``within_minutes`` — used to collapse a burst into one notification email.
+
+        Keyed on ``id < before_id`` (not just "any other"), so it's asymmetric:
+        the first share of a simultaneous burst has no earlier neighbour and
+        notifies; the rest are suppressed. That avoids the race where every
+        member sees a sibling and none notifies.
+        """
+        cutoff = datetime.now() - timedelta(minutes=within_minutes)
+        return (
+            cls.query.filter(cls.to_user_id == user_id)
+            .filter(cls.id < before_id)
+            .filter(cls.created_at >= cutoff)
+            .count()
+            > 0
         )
 
     @classmethod

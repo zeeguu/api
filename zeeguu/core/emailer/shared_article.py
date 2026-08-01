@@ -6,15 +6,22 @@ from zeeguu.logging import log
 
 WEB_URL = "https://zeeguu.org"
 
+# Collapse a burst of shares to the same recipient into one email: a share is
+# only skipped if an earlier one reached them within this window. Generous
+# enough to cover a deliberate "share a few articles in one sitting" session,
+# short enough that a genuinely later share re-notifies.
+SHARE_EMAIL_DEBOUNCE_MINUTES = 10
+
 
 def send_shared_article_notification(to_user_id, from_user_id, shared_article_id):
     """Email the recipient that a friend shared an article. Best-effort; meant to
     run off the request thread via run_in_background (re-fetches everything by id).
 
-    Debounce without a cron or extra state: only the recipient's **first** unread
-    share triggers an email. Once they have an unread share they've been told;
-    further shares just accumulate in their inbox until they clear it, and then
-    the next share re-notifies. That collapses a burst of shares into one email.
+    Temporal debounce (no cron, no extra state): collapse a *burst* of shares to
+    the same recipient into one email, while still notifying a genuinely new
+    share later. We suppress only if an earlier share reached this recipient
+    within the last SHARE_EMAIL_DEBOUNCE_MINUTES — unlike the old count-based
+    rule, a single un-opened share no longer silences all future notifications.
 
     Globally gated by EMAIL_SENDING_ENABLED (checked inside ZeeguuMailer.send —
     the env-level "send real email at all" switch), and per-user by the
@@ -26,13 +33,17 @@ def send_shared_article_notification(to_user_id, from_user_id, shared_article_id
             return
         if not UserPreference.is_email_on_article_shared_enabled(recipient):
             return
-        # Only the first unread share triggers an email; the rest batch in-app.
-        if SharedArticle.unread_count_for(to_user_id) != 1:
-            return
 
         sharer = User.find_by_id(from_user_id)
         shared = SharedArticle.find_by_id(shared_article_id)
         if not shared:
+            return
+
+        # Collapse a burst: skip the email if an earlier share reached this
+        # recipient in the debounce window (that one already notified them).
+        if SharedArticle.has_earlier_recent_share_to(
+            to_user_id, shared.id, within_minutes=SHARE_EMAIL_DEBOUNCE_MINUTES
+        ):
             return
 
         # Prefer the recipient's personalized copy: its title is in *their*
