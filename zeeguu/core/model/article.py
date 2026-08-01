@@ -28,6 +28,7 @@ from zeeguu.core.model.db import db
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.util.authors import clean_authors
 from zeeguu.logging import log
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
@@ -279,7 +280,9 @@ class Article(db.Model):
 
         self.url = url
         self.title = title
-        self.authors = authors
+        # Scrapers often mistake a "published on <date>" line for a byline;
+        # strip those fragments so they don't render as the article's author.
+        self.authors = clean_authors(authors)
         self.source = source
         # Remove once we have source migration complete.
         self.content = source.get_content()
