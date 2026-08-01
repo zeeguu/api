@@ -436,16 +436,66 @@ def share_article_with_friend():
     if not article:
         return make_error(404, "article not found")
 
-    original_id = SharedArticle.resolve_original_article_id(article)
-    shared = SharedArticle.create(db.session, from_user_id, to_user_id, original_id, note)
-
-    # Notify the recipient by email — best-effort, off the request thread.
+    # Everything heavy — resolving the canonical article, generating the
+    # recipient's personalized copy, creating the share row, emailing — runs in
+    # the background so the sharer's Send returns immediately. The row is created
+    # LAST, already carrying the derivative, so a share only ever appears in an
+    # inbox once it's ready in the recipient's language (no not-ready window).
+    # Trade-off: the client's "Shared with X" is optimistic — the row lands a few
+    # seconds later.
     from zeeguu.api.utils.background import run_in_background
-    from zeeguu.core.emailer.shared_article import send_shared_article_notification
 
-    run_in_background(send_shared_article_notification, to_user_id, from_user_id, shared.id)
+    run_in_background(_deliver_share, from_user_id, to_user_id, article_id, note)
 
-    return json_result({"shared_article_id": shared.id})
+    return json_result({"status": "sharing"})
+
+
+def _deliver_share(from_user_id: int, to_user_id: int, article_id: int, note):
+    """Background: resolve the canonical article, generate the recipient's
+    personalized copy, create the (complete) share row, and email. Re-queries
+    everything by id (own app context / session)."""
+    article = Article.find_by_id(article_id)
+    recipient = User.find_by_id(to_user_id)
+    if not article or not recipient:
+        return
+
+    original_id = SharedArticle.resolve_shareable_original_id(db.session, article)
+    delivery_language_id, delivery_article_id = _recipient_derivative_for(article, recipient)
+
+    shared = SharedArticle.create(
+        db.session, from_user_id, to_user_id, original_id, note,
+        delivery_language_id=delivery_language_id,
+        delivery_article_id=delivery_article_id,
+    )
+
+    try:
+        from zeeguu.core.emailer.shared_article import send_shared_article_notification
+
+        send_shared_article_notification(to_user_id, from_user_id, shared.id)
+    except Exception as e:
+        log(f"share {shared.id}: email notification failed: {e}")
+
+
+def _recipient_derivative_for(article, recipient):
+    """(delivery_language_id, delivery_article_id) for a share of `article` to
+    `recipient`. Returns (None, None) for a plain crawl share (no upload body),
+    and (language_id, None) if generation fails — the recipient then opens the
+    canonical article and adapts it in the reader, so a share never fails."""
+    from zeeguu.core.llm_services.simplification_and_classification import (
+        create_recipient_derivative,
+    )
+
+    upload = article.source_upload
+    if upload is None:
+        return None, None
+
+    delivery_language, level = SharedArticle.compute_delivery_language(recipient, upload)
+    derivative = create_recipient_derivative(db.session, upload, delivery_language.code, level)
+    if derivative is None:
+        log(f"share to user_id={recipient.id}: derivative generation failed; "
+            f"recipient will open the canonical article")
+        return delivery_language.id, None
+    return delivery_language.id, derivative.id
 
 
 # ---------------------------------------------------------------------------
