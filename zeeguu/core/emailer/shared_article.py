@@ -16,8 +16,9 @@ def send_shared_article_notification(to_user_id, from_user_id, shared_article_id
     further shares just accumulate in their inbox until they clear it, and then
     the next share re-notifies. That collapses a burst of shares into one email.
 
-    Globally gated by SEND_NOTIFICATION_EMAILS (checked inside ZeeguuMailer.send),
-    and per-user by the EMAIL_ON_ARTICLE_SHARED preference.
+    Globally gated by EMAIL_SENDING_ENABLED (checked inside ZeeguuMailer.send —
+    the env-level "send real email at all" switch), and per-user by the
+    EMAIL_ON_ARTICLE_SHARED preference.
     """
     try:
         recipient = User.find_by_id(to_user_id)
