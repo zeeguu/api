@@ -460,7 +460,17 @@ def _deliver_share(from_user_id: int, to_user_id: int, article_id: int, note):
         return
 
     original_id = SharedArticle.resolve_shareable_original_id(db.session, article)
-    delivery_language_id, delivery_article_id = _recipient_derivative_for(article, recipient)
+
+    # Route the share by the recipient's primary language — ALWAYS, even for a
+    # plain crawl share that gets no derivative — so it's the "which inbox" key
+    # and the per-language inbox surfaces it in the language they actually study.
+    delivery_language, level = SharedArticle.compute_delivery_language(recipient)
+    delivery_language_id = delivery_language.id if delivery_language is not None else None
+    delivery_article_id = (
+        _generate_recipient_derivative(article, recipient, delivery_language, level)
+        if delivery_language is not None
+        else None
+    )
 
     shared = SharedArticle.create(
         db.session, from_user_id, to_user_id, original_id, note,
@@ -476,39 +486,37 @@ def _deliver_share(from_user_id: int, to_user_id: int, article_id: int, note):
         log(f"share {shared.id}: email notification failed: {e}")
 
 
-def _recipient_derivative_for(article, recipient):
-    """(delivery_language_id, delivery_article_id) for a share of `article` to
-    `recipient`. Returns (None, None) for a plain crawl share (no upload body),
-    and (language_id, None) if generation fails — the recipient then opens the
-    canonical article and adapts it in the reader, so a share never fails."""
+def _generate_recipient_derivative(article, recipient, delivery_language, level):
+    """The id of the recipient's personalized derivative, or None.
+
+    Only for upload-based shares (the sharer captured a full body); plain crawl
+    shares get None and the recipient opens the canonical article (adapting it
+    in the reader). Never raises — a generation failure (LLM/fragment/DB) rolls
+    back and degrades to None so the share still lands, routed by its language.
+    """
+    upload = article.source_upload
+    if upload is None:
+        return None
+
     from zeeguu.core.llm_services.simplification_and_classification import (
         create_recipient_derivative,
     )
 
-    upload = article.source_upload
-    if upload is None:
-        return None, None
-
-    # Never let a generation failure drop the share: _deliver_share creates the
-    # row AFTER this, so any exception raised here would skip row creation
-    # entirely (recipient with no learned_language, fragment/LLM/DB error, …).
-    # Degrade to "no derivative" — the recipient opens the canonical article and
-    # adapts it in the reader — and roll back so the dirty session doesn't taint
-    # the subsequent row commit.
     try:
-        delivery_language, level = SharedArticle.compute_delivery_language(recipient, upload)
-        derivative = create_recipient_derivative(db.session, upload, delivery_language.code, level)
+        derivative = create_recipient_derivative(
+            db.session, upload, delivery_language.code, level
+        )
     except Exception as e:
         db.session.rollback()
         log(f"share to user_id={recipient.id}: derivative generation errored "
             f"({e}); recipient will open the canonical article")
-        return None, None
+        return None
 
     if derivative is None:
         log(f"share to user_id={recipient.id}: derivative generation failed; "
             f"recipient will open the canonical article")
-        return delivery_language.id, None
-    return delivery_language.id, derivative.id
+        return None
+    return derivative.id
 
 
 # ---------------------------------------------------------------------------

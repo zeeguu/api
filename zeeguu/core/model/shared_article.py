@@ -123,27 +123,23 @@ class SharedArticle(db.Model):
             return SharedArticle.resolve_original_article_id(article)
 
     @staticmethod
-    def compute_delivery_language(recipient, upload):
-        """The (language, cefr_level) the recipient's copy is delivered in.
+    def compute_delivery_language(recipient):
+        """The (language, cefr_level) the recipient's copy is delivered in —
+        always their primary/active learned language (``learned_language``).
 
-        The recipient's own profile decides it — never the sender:
+        If the article's source language IS that language it's simplified in
+        place (authentic text); otherwise it's translated + adapted into it.
+        We deliberately do NOT route into a merely-also-studied secondary
+        language: a German-A1 dabbler shouldn't receive a German article just
+        because German is on their list — it lands in the language they actually
+        study, where their per-language inbox surfaces it. (They can still switch
+        to a secondary in the reader to read it authentically, generated on
+        demand.)
 
-          - the article's **source language if the recipient learns it**
-            (→ simplify to their level; authentic text), else
-          - the recipient's **primary learned language** (→ translate + adapt).
-
-        Level is resolved for the chosen language, defaulting to A2 when the
-        recipient has no declared level there yet.
+        Level is resolved for that language, defaulting to A2 when the recipient
+        has no declared level there yet.
         """
-        from zeeguu.core.model.user_language import UserLanguage
-
-        source_language = upload.language
         delivery_language = recipient.learned_language
-        if source_language is not None:
-            learned = UserLanguage.all_languages_for_user(recipient)
-            if any(l.id == source_language.id for l in learned):
-                delivery_language = source_language
-
         try:
             level = recipient.cefr_level_for_language(delivery_language)
         except Exception:
