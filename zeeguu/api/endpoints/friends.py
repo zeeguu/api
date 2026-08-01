@@ -489,8 +489,21 @@ def _recipient_derivative_for(article, recipient):
     if upload is None:
         return None, None
 
-    delivery_language, level = SharedArticle.compute_delivery_language(recipient, upload)
-    derivative = create_recipient_derivative(db.session, upload, delivery_language.code, level)
+    # Never let a generation failure drop the share: _deliver_share creates the
+    # row AFTER this, so any exception raised here would skip row creation
+    # entirely (recipient with no learned_language, fragment/LLM/DB error, …).
+    # Degrade to "no derivative" — the recipient opens the canonical article and
+    # adapts it in the reader — and roll back so the dirty session doesn't taint
+    # the subsequent row commit.
+    try:
+        delivery_language, level = SharedArticle.compute_delivery_language(recipient, upload)
+        derivative = create_recipient_derivative(db.session, upload, delivery_language.code, level)
+    except Exception as e:
+        db.session.rollback()
+        log(f"share to user_id={recipient.id}: derivative generation errored "
+            f"({e}); recipient will open the canonical article")
+        return None, None
+
     if derivative is None:
         log(f"share to user_id={recipient.id}: derivative generation failed; "
             f"recipient will open the canonical article")
