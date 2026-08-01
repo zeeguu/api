@@ -704,6 +704,19 @@ class Article(db.Model):
         if self.simplification_ai_generator_id:
             result_dict["is_simplified"] = True
 
+            # Expose the *target* CEFR level the simplification was generated at.
+            # Deliberately NOT metrics.cefr_level: that is effective_cefr_level, a
+            # synthesis of target + ML re-measurement that can come back compound
+            # (e.g. "B1/B2"). The target is the reliable, intended level, so that
+            # is what we surface to the reader (see feedback_cefr_data_unreliable).
+            target_cefr_level = (
+                self.cefr_assessment.simplification_target_level
+                if self.cefr_assessment
+                else None
+            ) or self.cefr_level
+            if target_cefr_level:
+                result_dict["target_cefr_level"] = target_cefr_level
+
         # Add simplified article metadata if this is a simplified version
         if self.parent_article_id:
             result_dict["parent_article_id"] = self.parent_article_id
