@@ -516,6 +516,17 @@ def _generate_recipient_derivative(article, recipient, delivery_language, level)
         log(f"share to user_id={recipient.id}: derivative generation failed; "
             f"recipient will open the canonical article")
         return None
+
+    # Warm the reader's tokenization cache now, in this same background job, so
+    # the recipient's first open is instant instead of paying the Stanza/MWE
+    # tokenization cost then. get_tokenized_content() caches on a miss. Best
+    # effort — a warm-up failure must not fail the share.
+    try:
+        derivative.get_tokenized_content()
+    except Exception as e:
+        log(f"share to user_id={recipient.id}: tokenization warm-up failed "
+            f"(non-fatal): {e}")
+
     return derivative.id
 
 
