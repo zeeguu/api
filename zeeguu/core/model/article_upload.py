@@ -39,6 +39,13 @@ class ArticleUpload(db.Model):
     language_id = Column(Integer, ForeignKey(Language.id), nullable=False)
     language = relationship(Language)
 
+    # The canonical article at this upload's URL (many uploads : one article).
+    # NULL until an article exists at the URL. The full body stays HERE, in the
+    # upload — it is never written into `article` (which may be recommended),
+    # so one subscriber's paywall access can't leak into the corpus.
+    article_id = Column(Integer, ForeignKey("article.id"), nullable=True)
+    article = relationship("Article", foreign_keys=[article_id])
+
     title = Column(String(512))
     raw_html = Column(UnicodeText())
     text_content = Column(UnicodeText())
@@ -65,6 +72,38 @@ class ArticleUpload(db.Model):
     @classmethod
     def find_by_id(cls, upload_id):
         return cls.query.filter_by(id=upload_id).first()
+
+    def canonical_article(self, session, create=False):
+        """The canonical Article at this upload's URL, linking it if needed.
+
+        This is the *handle* the reader/share stack consumes — NOT where the
+        full body lives (that stays in ``text_content`` here). We resolve it by
+        URL, and when ``create`` we build a public article FROM THE URL ONLY —
+        never from this upload's ``text_content``/``raw_html`` — so a
+        subscriber's full paywalled body is never laundered into a row that the
+        recommender could serve. A common crawl stub at the URL is the correct
+        handle; the recipient's full-body derivative is generated separately
+        from ``text_content``.
+
+        Returns the Article (and caches it on ``article_id``), or ``None`` if
+        no article exists and ``create`` is False.
+        """
+        from zeeguu.core.model.article import Article
+
+        if self.article is not None:
+            return self.article
+
+        url_string = self.url.as_string()
+        existing = Article.find(url_string)
+        if existing is None and create:
+            # URL only — deliberately no text_content/raw_html (see docstring).
+            existing = Article.find_or_create(session, url_string)
+
+        if existing is not None:
+            self.article_id = existing.id
+            session.add(self)
+            session.commit()
+        return existing
 
     @classmethod
     def for_user(cls, user, limit=_DEFAULT_USER_UPLOADS_LIMIT):
@@ -100,6 +139,8 @@ class ArticleUpload(db.Model):
             existing.language = language
             session.add(existing)
             session.commit()
+            # Link to a crawl already at this URL, if any (cheap — never creates).
+            existing.canonical_article(session, create=False)
             return existing
 
         upload = cls(
@@ -114,6 +155,8 @@ class ArticleUpload(db.Model):
         )
         session.add(upload)
         session.commit()
+        # Link to a crawl already at this URL, if any (cheap — never creates).
+        upload.canonical_article(session, create=False)
         return upload
 
     def as_dictionary(self):

@@ -859,6 +859,112 @@ def create_user_specific_simplified_version(session, article, target_level):
         return None
 
 
+def create_recipient_derivative(session, upload, target_language_code, target_level):
+    """A recipient's personalized full-body copy, generated from a SHARER's upload.
+
+    The multiplexer's "out" side: the sharer captured the full body (`upload`),
+    and each recipient reads it in *their* language at *their* level.
+
+      - **same language** (target == upload.language): simplify to ``target_level``.
+      - **cross language**: translate + adapt to ``target_language_code``.
+
+    Cached per (upload, language, level) — the same-language variant via
+    (source_upload_id, cefr_level, language), the cross-language variant via the
+    ``#translated-from-…`` URL key — so a second recipient at the same
+    language+level reuses the first one's article. Returns the Article, or
+    ``None`` if generation failed (too long / LLM error).
+    """
+    from zeeguu.core.model.article import Article
+    from zeeguu.core.model import Language
+    from zeeguu.core.model.url import Url
+    from zeeguu.core.model.source import Source
+    from zeeguu.core.model.source_type import SourceType
+    from zeeguu.core.llm_services.simplification_service import SimplificationService
+    from datetime import datetime
+    from zeeguu.logging import log
+
+    if not upload.language:
+        log(f"Upload {upload.id} has no language; cannot build recipient derivative")
+        return None
+    source_language_code = upload.language.code
+
+    # Same language → simplify to level (reuse the upload-simplify path + cache).
+    if target_language_code == source_language_code:
+        existing = (
+            Article.query.filter_by(
+                source_upload_id=upload.id,
+                cefr_level=target_level,
+                language_id=upload.language_id,
+            )
+            .filter(Article.parent_article_id.is_(None))
+            .first()
+        )
+        if existing:
+            return existing
+        return create_simplified_version_from_upload(session, upload, target_level)
+
+    # Cross language → translate + adapt, cached under the #translated-from key
+    # (mirrors POST /article_upload/<id>/translate_and_adapt).
+    translated_url_key = (
+        f"{upload.url.as_string()}"
+        f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
+    )
+    existing = Article.find(translated_url_key)
+    if existing:
+        return existing
+
+    content = upload.text_content or upload.raw_html or ""
+    title = upload.title or ""
+    if not content.strip():
+        return None
+
+    try:
+        result = SimplificationService().translate_and_adapt(
+            title=title,
+            content=content,
+            source_language=source_language_code,
+            target_language=target_language_code,
+            target_level=target_level,
+        )
+    except Exception as e:
+        log(f"translate_and_adapt failed for upload {upload.id}: {e}")
+        return None
+    if not result:
+        log(f"translate_and_adapt returned nothing for upload {upload.id}")
+        return None
+
+    translated_url = Url.find_or_create(session, translated_url_key)
+    target_lang_obj = Language.find(target_language_code)
+    source_type = SourceType.find_by_type(SourceType.ARTICLE)
+    source_obj = Source.find_or_create(
+        session, result["content"], source_type, target_lang_obj, 0
+    )
+    clean_summary = result.get("summary") or (result["content"][:200] + "...")
+
+    translated = Article(
+        translated_url,
+        result["title"],
+        None,
+        source_obj,
+        clean_summary,
+        datetime.now(),
+        None,
+        target_lang_obj,
+        result["content"],
+        None,
+    )
+    translated.cefr_level = target_level
+    translated.source_upload_id = upload.id
+    if upload.image_url:
+        translated.img_url = Url.find_or_create(session, upload.image_url)
+
+    session.add(translated)
+    session.commit()
+    translated.create_article_fragments(session)
+    session.commit()
+    return translated
+
+
 def create_simplified_version_from_upload(session, upload, target_level):
     """
     Simplify an ArticleUpload directly at target_level. No parent Article
