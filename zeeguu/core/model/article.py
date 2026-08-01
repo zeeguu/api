@@ -231,6 +231,7 @@ class Article(db.Model):
     # Set when this article was derived from a user's ArticleUpload
     # (extension body-scrape or iOS share). Nullable for normal feed articles.
     source_upload_id = Column(Integer, ForeignKey("article_upload.id"))
+    source_upload = relationship("ArticleUpload", foreign_keys=[source_upload_id])
 
     topics = relationship(
         "ArticleTopicMap",
@@ -729,6 +730,13 @@ class Article(db.Model):
             # Include parent URL for reference
             if self.parent_article and self.parent_article.url:
                 result_dict["parent_url"] = self.parent_article.url.as_string()
+        elif self.source_upload_id and self.source_upload and self.source_upload.url:
+            # Simplified from a shared/uploaded article (extension or phone
+            # share) — there is no crawled parent Article, but the upload row
+            # still holds the true origin URL (e.g. politiken.dk). Surface it as
+            # parent_url so the reader's "Original:" link points at the real
+            # source instead of the article's own zeeguu.org placeholder URL.
+            result_dict["parent_url"] = self.source_upload.url.as_string()
 
         if self.authors:
             result_dict["authors"] = self.authors
