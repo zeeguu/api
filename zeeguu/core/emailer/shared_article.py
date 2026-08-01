@@ -65,16 +65,19 @@ def send_shared_article_notification(to_user_id, from_user_id, shared_article_id
             f"{sharer.name} shared the following article with you:",
             "",
             f"“{article_title}”",
+            f"We've prepared it for you{lang_clause}, at your level — open it here:",
+            f"{WEB_URL}/read/article?id={open_id}&shared={shared.id}",
         ]
         if shared.note:
             lines += ["", f"Their note: “{shared.note}”"]
+        # Only point at the inbox when there's more than this one waiting.
+        if SharedArticle.inbox_count_for(to_user_id) > 1:
+            lines += [
+                "",
+                "You'll also find any other articles friends have sent you",
+                f"in your Shared inbox: {WEB_URL}/articles/shared",
+            ]
         lines += [
-            "",
-            f"We've prepared it for you{lang_clause}, at your level — open it here:",
-            f"{WEB_URL}/read/article?id={open_id}&shared={shared.id}",
-            "",
-            "You'll also find any other articles friends have sent you",
-            f"in your Shared inbox: {WEB_URL}/articles/shared",
             "",
             "— Zeeguu",
             "",
