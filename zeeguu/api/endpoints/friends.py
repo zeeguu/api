@@ -436,7 +436,7 @@ def share_article_with_friend():
     if not article:
         return make_error(404, "article not found")
 
-    original_id = SharedArticle.resolve_original_article_id(article)
+    original_id = SharedArticle.resolve_shareable_original_id(db.session, article)
     shared = SharedArticle.create(db.session, from_user_id, to_user_id, original_id, note)
 
     # Notify the recipient by email — best-effort, off the request thread.

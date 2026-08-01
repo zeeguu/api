@@ -65,6 +65,47 @@ class SharedArticle(db.Model):
         return article.id
 
     @classmethod
+    def resolve_shareable_original_id(cls, session, article) -> int:
+        """Resolve the original article id to store for a share, promoting an
+        upload-based original into a real Article when needed.
+
+        `resolve_original_article_id` handles crawled/translated copies. But a
+        simplification made from a user upload (extension / phone share) has no
+        `parent_article_id` and a placeholder URL, so that resolver would fall
+        through and share the *simplified* copy — leaving the recipient unable to
+        re-adapt from the original. Such articles carry a `source_upload` whose
+        row holds the true origin (URL + content); promote it to a real Article
+        (deduped by URL) so the recipient opens the original and adapts on open.
+
+        Falls back to the plain resolver if the upload can't be promoted (e.g. a
+        paywalled original that won't parse) — better to share the copy than to
+        fail the share.
+        """
+        if (
+            not article.parent_article_id
+            and article.source_upload_id
+            and article.source_upload
+        ):
+            upload = article.source_upload
+            try:
+                original = Article.find_or_create(
+                    session,
+                    upload.url.as_string(),
+                    html_content=upload.raw_html,
+                    text_content=upload.text_content,
+                    title=upload.title,
+                    author=upload.author,
+                    image_url=upload.image_url,
+                    source_upload_id=upload.id,
+                )
+                if original:
+                    return original.id
+            except Exception:
+                pass  # original won't promote (paywall/parse) — fall through
+
+        return cls.resolve_original_article_id(article)
+
+    @classmethod
     def create(cls, session, from_user_id: int, to_user_id: int, article_id: int, note: str = None):
         shared = cls(from_user_id, to_user_id, article_id, note)
         session.add(shared)
