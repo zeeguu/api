@@ -597,10 +597,21 @@ def _apply_simplified_display_overlay(user, results):
     if not candidate_ids:
         return
 
+    # Only same-language children may overlay an original. A child is normally a
+    # simplification (same language), but a friend-share can now create a
+    # *translated* child (different language) hanging off the same original —
+    # that must NOT be shown as the original's "simplified version" to speakers
+    # of the original's language. (No-op on pre-existing data: today's children
+    # are all same-language.)
+    from sqlalchemy.orm import aliased
+
+    ParentArticle = aliased(Article)
     children = (
         Article.query
         .options(joinedload(Article.cefr_assessment))
+        .join(ParentArticle, Article.parent_article_id == ParentArticle.id)
         .filter(Article.parent_article_id.in_(candidate_ids))
+        .filter(Article.language_id == ParentArticle.language_id)
         .all()
     )
     if not children:

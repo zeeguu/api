@@ -864,32 +864,112 @@ def create_recipient_derivative_from_article(
 ):
     """A recipient's personalized copy generated from a crawled ARTICLE (no upload).
 
-    The multiplexer for *feed* shares: the sharer sent a crawled article, and the
-    recipient reads it at their level. Reuses the article-simplify path, which
-    creates a proper simplified child (``parent_article_id`` → the reader's
-    ``Original:`` link, ``is_simplified``, ``target_cefr_level`` all work) and is
-    same-language (so it can't confuse the recommender's overlay).
+    The multiplexer for *feed* shares. Both variants create a child of the
+    original (``parent_article_id``) so the reader's ``Original:`` link works,
+    ``is_translated``/``is_simplified`` derive, and it coalesces per
+    (original, language, level):
 
-    **MVP scope — same language only.** Cross-language crawl *translation* is
-    deferred: a translated child would need a same-language guard in the
-    recommender overlay first, so here we return ``None`` and the recipient opens
-    the original and adapts it in the reader (today's behavior). Also returns
-    ``None`` when no simplification is needed (recipient's level ≥ the article's)
-    — they just read the original.
+      - **same language**: simplify to the recipient's level.
+      - **cross language**: translate + adapt into the recipient's language.
+        (The recommender overlay is guarded to *same-language* children, so a
+        translated child is never shown as the original's "simplified version".)
+
+    Returns the Article, or ``None`` (recipient opens the original and adapts)
+    when no simplification is needed (level ≥ the article's) or generation fails.
     """
     from zeeguu.core.model.article import Article
 
     if not article.language:
         return None
-    if target_language_code != article.language.code:
-        return None  # cross-language crawl translation deferred (see docstring)
+    source_language_code = article.language.code
 
-    existing = Article.query.filter_by(
-        parent_article_id=article.id, cefr_level=target_level
-    ).first()
+    # Same language → simplify to the recipient's level. Filter the cache by
+    # language too: cross-language translated children now also hang off this
+    # parent, so parent+level alone could match one of those.
+    if target_language_code == source_language_code:
+        existing = (
+            Article.query.filter_by(
+                parent_article_id=article.id, cefr_level=target_level
+            )
+            .filter(Article.language_id == article.language_id)
+            .first()
+        )
+        if existing:
+            return existing
+        return create_user_specific_simplified_version(session, article, target_level)
+
+    # Cross language → translate + adapt into the recipient's language, as a
+    # child of the original. Cached under the #translated-from URL key.
+    from zeeguu.core.model import Language
+    from zeeguu.core.model.url import Url
+    from zeeguu.core.model.source import Source
+    from zeeguu.core.model.source_type import SourceType
+    from zeeguu.core.llm_services.simplification_service import SimplificationService
+    from datetime import datetime
+    import markdown2
+
+    target_lang = Language.find(target_language_code)
+    if target_lang is None:
+        return None
+    translated_url_key = (
+        f"{article.url.as_string()}"
+        f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
+    )
+    existing = Article.find(translated_url_key)
     if existing:
         return existing
-    return create_user_specific_simplified_version(session, article, target_level)
+
+    content = article.content or ""
+    title = article.title or ""
+    if not content.strip():
+        return None
+    result = SimplificationService().translate_and_adapt(
+        title=title,
+        content=content,
+        source_language=source_language_code,
+        target_language=target_language_code,
+        target_level=target_level,
+    )
+    if not result:
+        return None
+
+    translated_url = Url.find_or_create(session, translated_url_key)
+    source_type = SourceType.find_by_type(SourceType.ARTICLE)
+    source_obj = Source.find_or_create(
+        session, result["content"], source_type, target_lang, 0
+    )
+    clean_summary = result.get("summary") or (result["content"][:200] + "...")
+    html = result["content"]
+    if html and not html.strip().startswith("<"):
+        html = markdown2.markdown(
+            html, extras=["break-on-newline", "fenced-code-blocks", "tables"]
+        )
+
+    translated = Article(
+        translated_url,
+        result["title"],
+        "",
+        source_obj,
+        clean_summary,
+        article.published_time or datetime.now(),
+        None,
+        target_lang,
+        html,
+        None,
+    )
+    translated.cefr_level = target_level
+    # Child of the original: gives the reader's Original: link (parent_url),
+    # makes is_translated derive (language != parent's), and coalesces. Safe
+    # for the recommender because its overlay is filtered to same-language.
+    translated.parent_article_id = article.id
+    if article.img_url:
+        translated.img_url = article.img_url
+
+    session.add(translated)
+    session.commit()
+    translated.create_article_fragments(session)
+    session.commit()
+    return translated
 
 
 def create_recipient_derivative(session, upload, target_language_code, target_level):
