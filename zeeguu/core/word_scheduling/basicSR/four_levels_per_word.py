@@ -1,6 +1,8 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
 from datetime import datetime, timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from ...model import UserWord
 
 MAX_LEVEL = 4
@@ -106,30 +108,42 @@ class FourLevelsPerWord(BasicSRSchedule):
 
     @classmethod
     def find_or_create(cls, db_session, user_word):
+        """
+        Ensure a schedule row exists for `user_word` and return it (None only if
+        the word is not fit for study).
 
+        This is a fast, non-destructive primitive: it does NOT call the LLM
+        translation-validator. Validation used to run here synchronously, which
+        put an LLM round-trip on the exercise-report hot path and — when it
+        re-homed the word to a corrected meaning — could delete the practiced
+        UserWord mid-request ("Instance UserWord has been deleted",
+        SR log digest 2026-07-15).
+
+        Validation now happens off the hot path: asynchronously right after the
+        word is scheduled (UserWordValidationService.validate_scheduled_user_word,
+        triggered from UserWord.report_exercise_outcome) and, as a backstop, in
+        the nightly tools/validate_scheduled_meanings.py batch. Until then the
+        word is scheduled as-is, with meaning.validated != VALID acting as the
+        "still needs validation" marker.
+        """
         schedule = super(FourLevelsPerWord, cls).find(user_word)
 
         if not schedule:
-            # Validate translation before first schedule (if not already validated as correct)
-            from zeeguu.core.model.meaning import Meaning
-            if user_word.meaning.validated != Meaning.VALID:
-                from zeeguu.core.llm_services.validation_service import UserWordValidationService
-                user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
-                if user_word is None:
-                    return None  # Validation failed, word is not fit for study
-
-            # After validation, check if still fit for study
             if not user_word.fit_for_study:
                 return None  # Don't create schedule for unfit words
-
-            # Check for duplicate meanings (same word with equivalent translation already being learned)
-            from zeeguu.core.llm_services.validation_service import UserWordValidationService
-            if UserWordValidationService.check_for_duplicate_meaning(db_session, user_word):
-                return None  # Duplicate meaning, don't schedule
 
             schedule = cls(user_word)
             user_word.level = 1
             db_session.add_all([schedule, user_word])
-            db_session.commit()
+            try:
+                db_session.commit()
+            except IntegrityError:
+                # A concurrent request already created the schedule for this
+                # user_word (the unique_user_word_schedule constraint fired).
+                # Roll back our duplicate insert and use the existing row.
+                # (SR log digest 2026-07-15: duplicate entry for key
+                # 'unique_user_word_schedule'.)
+                db_session.rollback()
+                schedule = super(FourLevelsPerWord, cls).find(user_word)
 
         return schedule
