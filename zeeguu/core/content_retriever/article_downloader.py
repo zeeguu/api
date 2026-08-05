@@ -285,8 +285,60 @@ def extract_article_image(np_article):
         return ""
 
 
+def _apply_title_triage(feed, items, limit, funnel_budget):
+    """Prune a feed's candidate items to the best ones worth downloading.
+
+    See the demand-aware funnel (funnel.py, phase 3). Returns the (possibly
+    shorter, possibly reordered) list of feed items to process. Never raises:
+    on any trouble it returns the original list so the crawl proceeds unchanged.
+    """
+    from zeeguu.core.content_retriever.funnel import (
+        triage_keep_count,
+        select_titles_to_download,
+    )
+    from zeeguu.core.model import Topic
+
+    items_list = list(items)
+    try:
+        headroom = funnel_budget.language_simplification_headroom(feed.language_id)
+        keep = triage_keep_count(headroom, limit)
+
+        if keep <= 0:
+            log(
+                f"   ⏭ Skipping feed '{feed.title}' - no simplification budget left "
+                f"today for {feed.language.code}"
+            )
+            return []
+
+        if len(items_list) <= keep:
+            return items_list
+
+        demanded_ids = funnel_budget.demand.demanded_topic_ids(feed.language_id)
+        demand_topic_names = []
+        for topic_id in demanded_ids:
+            topic = Topic.find_by_id(topic_id)
+            if topic:
+                demand_topic_names.append(topic.title)
+
+        titles = [feed_item.get("title", "") for feed_item in items_list]
+        kept_indices = select_titles_to_download(
+            titles, feed.language.code, demand_topic_names, keep
+        )
+        log(
+            f"   Title triage: keeping {len(kept_indices)}/{len(items_list)} candidates "
+            f"for {feed.language.code} (headroom={headroom})"
+        )
+        return [items_list[i] for i in kept_indices]
+    except Exception as e:
+        # Triage is a best-effort optimization: on any trouble, fall back to the
+        # full candidate list so the crawl proceeds exactly as it would without
+        # the funnel, rather than dropping the whole feed.
+        log(f"   ⚠ Title triage errored ({e}); processing full feed")
+        return items_list
+
+
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None, topic_simplification_counts=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None, funnel_budget=None
 ):
     """
 
@@ -337,6 +389,14 @@ def download_from_feed(
         return ""
 
     skipped_already_in_db = 0
+
+    # Pre-download title triage (Task 5, phase 3). Before paying any readability /
+    # download cost, let the funnel prune this feed's candidates: skip the feed
+    # entirely when its language is already satisfied for the day, or keep only
+    # the best-N titles when headroom is limited. Falls back to the full list on
+    # any problem, so this can only reduce waste, never drop must-have articles.
+    if funnel_budget is not None:
+        items = _apply_title_triage(feed, items, limit, funnel_budget)
 
     # Arm the per-article watchdog. signal.signal() only works on the main thread;
     # the crawler is single-threaded, but guard anyway so an unexpected non-crawler
@@ -419,7 +479,7 @@ def download_from_feed(
                 url,
                 crawl_report,
                 simplification_provider=simplification_provider,
-                topic_simplification_counts=topic_simplification_counts,
+                funnel_budget=funnel_budget,
             )
             # The article is fetched + saved; disarm now so the alarm can't fire
             # during the ES-indexing/bookkeeping below — a timeout there would
@@ -614,7 +674,7 @@ def get_todays_simplified_counts_by_language_topic(session, language_id):
     return {topic_id: count for topic_id, count in results}
 
 
-def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, topic_simplification_counts=None):
+def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, funnel_budget=None):
     import html
 
     title = html.unescape(feed_item["title"])
@@ -757,27 +817,23 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         )
         _save_classifications(session, new_article, [("DISTURBING", "KEYWORD")])
 
-    # Check topic simplification cap - skip simplification if all topics are "full" for this language today
-    # topic_simplification_counts is keyed by (language_id, topic_id) tuple
-    # Note: article_topic_ids and article_topic_names were captured earlier before potential rollback
-    skip_simplification_due_to_cap = False
+    # Demand-aware funnel gate (Task 5): does this article earn a simplification?
+    # The funnel replaces the old static per-language cap with a per-(language,
+    # topic) quota derived from what active readers actually want, plus a
+    # pilot-light floor for dormant supported languages. See funnel.py.
+    # article_topic_ids / article_topic_names were captured earlier, before any
+    # potential rollback.
     language_id = feed.language_id
-    lang_code = feed.language.code
-    max_for_lang = get_max_simplified_for_language(lang_code)
+    simplify_reason = None
 
-    if topic_simplification_counts is not None and article_topic_ids:
-        # Check if ANY topic still needs simplified articles today for this language
-        needs_simplification = False
-        for topic_id in article_topic_ids:
-            key = (language_id, topic_id)
-            current_count = topic_simplification_counts.get(key, 0)
-            if current_count < max_for_lang:
-                needs_simplification = True
-                break
-
-        if not needs_simplification:
-            skip_simplification_due_to_cap = True
-            log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
+    if funnel_budget is not None:
+        should_simplify, simplify_reason = funnel_budget.should_simplify(
+            language_id, article_topic_ids
+        )
+        if not should_simplify:
+            log(
+                f"   ⏭ Skipping simplification ({simplify_reason}) for topics: {article_topic_names}"
+            )
             return new_article
 
     # Auto-create simplified versions and classify content
@@ -798,12 +854,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             # here keeps that off the request path (mirrors the original above).
             for simplified in simplified_articles:
                 _cache_article_tokenization(simplified, session)
-            # Update topic simplification counts after successful simplification
-            # Key is (language_id, topic_id) to track per language
-            if topic_simplification_counts is not None:
-                for topic_id in article_topic_ids:
-                    key = (language_id, topic_id)
-                    topic_simplification_counts[key] = topic_simplification_counts.get(key, 0) + 1
+            # Book this simplification against the funnel budget so the running
+            # per-(language, topic) counts (and the floor's topic-diversity set)
+            # reflect it for the rest of the crawl.
+            if funnel_budget is not None:
+                funnel_budget.record(language_id, article_topic_ids, simplify_reason)
         else:
             log(
                 f"   No simplified versions created"

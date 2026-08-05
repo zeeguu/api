@@ -58,6 +58,15 @@ def learned_language_set(language_code):
     user = User.find_by_id(flask.g.user_id)
     user.set_learned_language(language_code, session=zeeguu.core.model.db.session)
     zeeguu.core.model.db.session.commit()
+
+    # Promotion-on-join (Task 5): a reader who just switched to this language
+    # shouldn't wait for the next crawl. Backfill a few articles across the
+    # language (no specific topic) in the background; no-ops if already stocked.
+    from zeeguu.api.utils.background import run_in_background
+    from zeeguu.core.content_retriever.backfill import maybe_backfill_bucket
+
+    run_in_background(maybe_backfill_bucket, user.id)
+
     return "OK"
 
 
