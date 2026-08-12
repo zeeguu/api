@@ -41,6 +41,97 @@ def _get_next_simplification_provider() -> str:
         return "anthropic"
 
 
+def _select_provider_and_key(simplification_provider: str = None):
+    """
+    Resolve the provider (round-robin unless one is given) and its API key,
+    falling back to the other provider when the primary key is unset.
+    Returns (provider, api_key). Shared by the assess-only and full-simplify paths.
+    """
+    if simplification_provider:
+        provider = simplification_provider
+    else:
+        provider = _get_next_simplification_provider()
+    log(f"Using {provider.upper()} provider for simplification")
+
+    if provider == "deepseek":
+        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+    else:
+        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+
+    if not api_key:
+        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
+        provider = "anthropic" if provider == "deepseek" else "deepseek"
+        api_key = fallback_api_key
+        if not api_key:
+            raise Exception(
+                "Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set"
+            )
+    return provider, api_key
+
+
+def _call_simplification_llm(prompt, provider, api_key, max_tokens, timeout=180):
+    """
+    Send `prompt` to the chosen provider and return (result_text, model_name).
+    Raises on a non-200 DeepSeek response or an Anthropic error.
+    """
+    api_start_time = time.time()
+    if provider == "deepseek":
+        model_name = models.DEEPSEEK_GENERAL
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0.1,
+            },
+            timeout=timeout,
+        )
+        if response.status_code != 200:
+            raise Exception(
+                f"DEEPSEEK API error: {response.status_code} - {response.text}"
+            )
+        result = response.json()["choices"][0]["message"]["content"].strip()
+    else:  # anthropic
+        model_name = HAIKU_MODEL
+        result = haiku_completion_or_raise(
+            prompt, max_tokens=max_tokens, temperature=0.1, timeout=timeout
+        ).strip()
+    log(f"  {provider.upper()} responded in {time.time() - api_start_time:.2f}s ({len(result)} chars)")
+    return result, model_name
+
+
+def _raise_if_paywall_or_advertorial(result):
+    """Both prompts answer with a bare token when the article is junk — reject it."""
+    if result.lower().strip() == "unfinished":
+        raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+    if result.lower().strip() == "advertorial":
+        raise Exception(
+            "ADVERTORIAL: Article appears to be advertorial/promotional content"
+        )
+
+
+def _clean_text(text):
+    return text.strip("[](){}\"'")
+
+
+def _strip_markdown_from_summary(text):
+    """Remove markdown bold/italic formatting from summary text."""
+    import re
+
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"__(.+?)__", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
+    return text
+
+
 def assess_and_summarize(
     title: str,
     content: str,
@@ -73,68 +164,17 @@ def assess_and_summarize(
     prompt_template = get_assessment_and_summary_prompt(target_language)
     prompt = prompt_template.format(title=title, content=content)
 
-    if simplification_provider:
-        provider = simplification_provider
-    else:
-        provider = _get_next_simplification_provider()
-    log(f"Using {provider.upper()} provider for assessment+summary")
-
-    if provider == "deepseek":
-        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
-        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-    else:
-        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
-
-    if not api_key:
-        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
-        provider = "anthropic" if provider == "deepseek" else "deepseek"
-        api_key = fallback_api_key
-        if not api_key:
-            raise Exception(
-                "Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set"
-            )
-
+    provider, api_key = _select_provider_and_key(simplification_provider)
     log(f"Assessing+summarizing article '{title[:50]}...' in {target_language}")
 
-    if provider == "deepseek":
-        model_name = models.DEEPSEEK_GENERAL
-        response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                # Assessment + one ~70-word summary PER level below the original
-                # (up to 5 for a C2 article) plus the original summary. Sized with
-                # headroom so the last-emitted levels aren't truncated — still a
-                # fraction of the 6000 the full multi-level bodies needed.
-                "max_tokens": 2000,
-                "temperature": 0.1,
-            },
-            timeout=120,
-        )
-        if response.status_code != 200:
-            raise Exception(
-                f"DEEPSEEK API error: {response.status_code} - {response.text}"
-            )
-        result = response.json()["choices"][0]["message"]["content"].strip()
-    else:  # anthropic
-        model_name = HAIKU_MODEL
-        result = haiku_completion_or_raise(
-            prompt, max_tokens=2000, temperature=0.1, timeout=120
-        ).strip()
-
-    # Same paywall/advertorial rejection contract as the full simplifier.
-    if result.lower().strip() == "unfinished":
-        raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
-    if result.lower().strip() == "advertorial":
-        raise Exception(
-            "ADVERTORIAL: Article appears to be advertorial/promotional content"
-        )
+    # Assessment + one ~70-word summary PER level below the original (up to 5 for a
+    # C2 article) plus the original summary. 2000 gives headroom over the single-
+    # summary sizing so the last-emitted levels aren't truncated — still a fraction
+    # of the 6000 the full multi-level bodies needed.
+    result, model_name = _call_simplification_llm(
+        prompt, provider, api_key, max_tokens=2000, timeout=120
+    )
+    _raise_if_paywall_or_advertorial(result)
 
     # Parse the small set of labelled fields, plus any per-level [LEVEL]_SUMMARY
     # sections (e.g. "A1_SUMMARY:", "B1_SUMMARY:").
@@ -171,24 +211,12 @@ def assess_and_summarize(
     if current_section:
         sections[current_section] = "\n".join(current_content).strip()
 
-    def clean_text(text):
-        return text.strip("[](){}\"'")
-
-    def strip_markdown_from_summary(text):
-        import re
-
-        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
-        text = re.sub(r"__(.+?)__", r"\1", text)
-        text = re.sub(r"\*(.+?)\*", r"\1", text)
-        text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
-        return text
-
-    is_disturbing = clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
-    article_type_raw = clean_text(sections.get("ARTICLE_TYPE", "")).upper()
+    is_disturbing = _clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+    article_type_raw = _clean_text(sections.get("ARTICLE_TYPE", "")).upper()
     article_type = article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
-    original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
-    original_summary = strip_markdown_from_summary(
-        clean_text(sections.get("ORIGINAL_SUMMARY", ""))
+    original_level = _clean_text(sections.get("ORIGINAL_LEVEL", ""))
+    original_summary = _strip_markdown_from_summary(
+        _clean_text(sections.get("ORIGINAL_SUMMARY", ""))
     )
 
     # Per-level preview summaries (one per level simpler than the original).
@@ -196,7 +224,7 @@ def assess_and_summarize(
     for level in ["A1", "A2", "B1", "B2", "C1", "C2"]:
         raw = sections.get(f"{level}_SUMMARY")
         if raw:
-            text = strip_markdown_from_summary(clean_text(raw))
+            text = _strip_markdown_from_summary(_clean_text(raw))
             if text:
                 level_summaries[level] = text
 
@@ -392,85 +420,17 @@ def simplify_article_adaptive_levels(
     prompt_template = get_adaptive_simplification_prompt(target_language)
     prompt = prompt_template.format(title=title, content=content)
 
-    # Choose provider: use specified, or round-robin between deepseek and anthropic
-    if simplification_provider:
-        provider = simplification_provider
-    else:
-        # Round-robin based on a simple counter
-        provider = _get_next_simplification_provider()
-    log(f"Using {provider.upper()} provider for simplification")
-
-    # Try the chosen provider first, fallback to the other if it fails
-    if provider == "deepseek":
-        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
-        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-    else:
-        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
-
-    if not api_key:
-        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
-        provider = "anthropic" if provider == "deepseek" else "deepseek"
-        api_key = fallback_api_key
-        if not api_key:
-            raise Exception(
-                "Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set"
-            )
+    provider, api_key = _select_provider_and_key(simplification_provider)
 
     try:
         log(f"Adaptively simplifying article '{title[:50]}...' in {target_language}")
         log(f"  Article length: {len(content)} characters")
         log(f"  Prompt length: {len(prompt)} characters")
 
-        # Make API call based on provider
-        api_start_time = time.time()
-
-        if provider == "deepseek":
-            model_name = models.DEEPSEEK_GENERAL
-            log(f"  Sending request to DeepSeek API...")
-            response = requests.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model_name,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 6000,
-                    "temperature": 0.1,
-                },
-                timeout=180,
-            )
-            api_duration = time.time() - api_start_time
-            log(
-                f"  DEEPSEEK API responded with status: {response.status_code} (took {api_duration:.2f} seconds)"
-            )
-            if response.status_code != 200:
-                raise Exception(
-                    f"DEEPSEEK API error: {response.status_code} - {response.text}"
-                )
-            result = response.json()["choices"][0]["message"]["content"].strip()
-        else:  # anthropic
-            model_name = HAIKU_MODEL
-            log(f"  Sending request to Anthropic API...")
-            result = haiku_completion_or_raise(
-                prompt, max_tokens=4000, temperature=0.1, timeout=180
-            ).strip()
-            api_duration = time.time() - api_start_time
-            log(f"  ANTHROPIC API completed (took {api_duration:.2f} seconds)")
-
-        log(f"  Response length: {len(result)} characters")
-
-        # Check if article is unfinished due to paywall
-        if result.lower().strip() == "unfinished":
-            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
-
-        # Check if article is advertorial
-        if result.lower().strip() == "advertorial":
-            raise Exception(
-                "ADVERTORIAL: Article appears to be advertorial/promotional content"
-            )
+        result, model_name = _call_simplification_llm(
+            prompt, provider, api_key, max_tokens=6000, timeout=180
+        )
+        _raise_if_paywall_or_advertorial(result)
 
         log(f"  Parsing response sections...")
         # Parse the response
@@ -517,33 +477,18 @@ def simplify_article_adaptive_levels(
         log(f"  Section keys: {list(sections.keys())}")
 
         # Extract basic info
-        def clean_text(text):
-            return text.strip("[](){}\"'")
-
-        def strip_markdown_from_summary(text):
-            """Remove markdown bold/italic formatting from summary text."""
-            import re
-
-            # Remove bold (**text** or __text__)
-            text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
-            text = re.sub(r"__(.+?)__", r"\1", text)
-            # Remove italic (*text* or _text_)
-            text = re.sub(r"\*(.+?)\*", r"\1", text)
-            text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
-            return text
-
         is_disturbing = (
-            clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+            _clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
         )
-        article_type_raw = clean_text(sections.get("ARTICLE_TYPE", "")).upper()
+        article_type_raw = _clean_text(sections.get("ARTICLE_TYPE", "")).upper()
         article_type = (
             article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
         )
-        original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
-        original_summary = strip_markdown_from_summary(
-            clean_text(sections.get("ORIGINAL_SUMMARY", ""))
+        original_level = _clean_text(sections.get("ORIGINAL_LEVEL", ""))
+        original_summary = _strip_markdown_from_summary(
+            _clean_text(sections.get("ORIGINAL_SUMMARY", ""))
         )
-        simplified_levels_str = clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
+        simplified_levels_str = _clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
 
         # Parse simplified levels
         if simplified_levels_str:
@@ -576,10 +521,10 @@ def simplify_article_adaptive_levels(
 
             if all(key in sections for key in [title_key, content_key, summary_key]):
                 versions[level] = {
-                    "title": clean_text(sections[title_key]),
-                    "content": clean_text(sections[content_key]),
-                    "summary": strip_markdown_from_summary(
-                        clean_text(sections[summary_key])
+                    "title": _clean_text(sections[title_key]),
+                    "content": _clean_text(sections[content_key]),
+                    "summary": _strip_markdown_from_summary(
+                        _clean_text(sections[summary_key])
                     ),
                 }
                 log(f"    Successfully extracted {level} version")

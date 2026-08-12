@@ -564,7 +564,9 @@ def _apply_simplified_display_overlay(user, results):
     per-level titles. Falls back silently to the article's own summary when the
     learner's level has no simpler summary.
 
-    Batched: one IN-query for all candidate articles' level summaries.
+    Batched in two queries: a columns-only pick of the best level per article,
+    then a load of just those chosen rows (so the heavy tokenized_summary JSON is
+    deserialized once per article, not once per level).
     """
     from zeeguu.core.model.article_level_summary import (
         ArticleLevelSummary,
@@ -591,28 +593,49 @@ def _apply_simplified_display_overlay(user, results):
     if not candidate_ids:
         return
 
-    allowed = set(CEFR_ORDER[: CEFR_ORDER.index(user_cefr_level) + 1])
-    rows = (
+    allowed = ArticleLevelSummary.allowed_levels(user_cefr_level)
+
+    # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
+    # best row per article, never every level: first a columns-only query to pick
+    # the best-matching level per article, then load just those chosen rows.
+    lightweight = (
         ArticleLevelSummary.query
-        .filter(ArticleLevelSummary.article_id.in_(candidate_ids))
+        .with_entities(
+            ArticleLevelSummary.id,
+            ArticleLevelSummary.article_id,
+            ArticleLevelSummary.cefr_level,
+        )
+        .filter(
+            ArticleLevelSummary.article_id.in_(candidate_ids),
+            ArticleLevelSummary.cefr_level.in_(allowed),
+        )
         .all()
     )
-    # Best level summary per article: highest level at or below the learner's.
-    best = {}  # article_id -> ArticleLevelSummary
-    for row in rows:
-        if row.cefr_level not in allowed:
-            continue
-        current = best.get(row.article_id)
-        if current is None or CEFR_ORDER.index(row.cefr_level) > CEFR_ORDER.index(
-            current.cefr_level
-        ):
-            best[row.article_id] = row
-
-    if not best:
+    if not lightweight:
         return
 
+    by_article = {}
+    for row in lightweight:
+        by_article.setdefault(row.article_id, []).append(row)
+
+    chosen_id_by_article = {}
+    for article_id, rows in by_article.items():
+        best_row = ArticleLevelSummary.pick_best(rows, user_cefr_level)
+        if best_row:
+            chosen_id_by_article[article_id] = best_row.id
+    if not chosen_id_by_article:
+        return
+
+    full_by_id = {
+        als.id: als
+        for als in ArticleLevelSummary.query.filter(
+            ArticleLevelSummary.id.in_(chosen_id_by_article.values())
+        ).all()
+    }
+
     for result in results:
-        display = best.get(result["id"])
+        chosen_id = chosen_id_by_article.get(result["id"])
+        display = full_by_id.get(chosen_id) if chosen_id else None
         if not display:
             continue
 

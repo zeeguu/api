@@ -89,6 +89,30 @@ class ArticleLevelSummary(db.Model):
                 session.commit()
             return new
 
+    @staticmethod
+    def allowed_levels(user_level: str):
+        """CEFR levels at or below ``user_level`` (the levels a learner can read),
+        or None if the level is unknown."""
+        if user_level not in CEFR_ORDER:
+            return None
+        return set(CEFR_ORDER[: CEFR_ORDER.index(user_level) + 1])
+
+    @staticmethod
+    def pick_best(candidates, user_level: str):
+        """
+        From ``candidates`` (any objects with a ``.cefr_level``), return the one at
+        the highest level still at or below ``user_level``, or None. This is the
+        single source of truth for level selection, shared by the single-article
+        lookup and the batched feed overlay so they can't drift apart.
+        """
+        allowed = ArticleLevelSummary.allowed_levels(user_level)
+        if not allowed:
+            return None
+        eligible = [c for c in candidates if c.cefr_level in allowed]
+        if not eligible:
+            return None
+        return max(eligible, key=lambda c: CEFR_ORDER.index(c.cefr_level))
+
     @classmethod
     def best_for_user_level(cls, article_id: int, user_level: str):
         """
@@ -98,14 +122,13 @@ class ArticleLevelSummary(db.Model):
         article level gets None and the caller falls back to Article.summary).
         Returns None when there's no suitable per-level summary.
         """
-        if user_level not in CEFR_ORDER:
+        allowed = cls.allowed_levels(user_level)
+        if not allowed:
             return None
-        allowed = set(CEFR_ORDER[: CEFR_ORDER.index(user_level) + 1])
-        rows = cls.query.filter(cls.article_id == article_id).all()
-        candidates = [r for r in rows if r.cefr_level in allowed]
-        if not candidates:
-            return None
-        return max(candidates, key=lambda r: CEFR_ORDER.index(r.cefr_level))
+        rows = cls.query.filter(
+            cls.article_id == article_id, cls.cefr_level.in_(allowed)
+        ).all()
+        return cls.pick_best(rows, user_level)
 
     def get_tokenized_summary(self):
         """Parse the cached token stream, tolerating either JSON text or a dict."""
