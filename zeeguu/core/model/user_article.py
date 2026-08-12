@@ -690,6 +690,34 @@ class UserArticle(db.Model):
                     token.pop("mwe_is_separated", None)
                     token.pop("mwe_partner_indices", None)
 
+    @staticmethod
+    def _apply_mwe_overrides_to_summary_tokens(summary_tokens, overrides_by_hash):
+        """
+        Clear MWE metadata from summary tokens for expressions the user disabled.
+
+        A summary's token stream nests paragraphs -> sentences -> tokens (the
+        direct output of tokenize_for_reading, same as a body fragment's tokens
+        but without the outer fragment wrapper), so this has one fewer loop than
+        the body version in user_article_info. Mutates summary_tokens in place.
+
+        Args:
+            summary_tokens: list of paragraphs, each a list of sentences,
+                each a list of token dicts
+            overrides_by_hash: dict of {sentence_hash: [disabled mwe expressions]}
+        """
+        if not overrides_by_hash or not summary_tokens:
+            return
+        for paragraph in summary_tokens:
+            for sentence in paragraph:
+                if not sentence:
+                    continue
+                sentence_text = " ".join(t.get("text", "") for t in sentence)
+                sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
+                if sentence_hash in overrides_by_hash:
+                    UserArticle._clear_mwe_metadata_for_expressions(
+                        sentence, overrides_by_hash[sentence_hash]
+                    )
+
     @classmethod
     def _level_matched_summary_payload(cls, user, article):
         """
@@ -719,8 +747,13 @@ class UserArticle(db.Model):
         if not tokens:
             return None
 
+        # The bookmark mapping still keys on article_level_summary_id
+        # (create_context_mapping switches on context_type); article_id is carried
+        # only so the client's MWE-ungroup path can address the override by
+        # parent article id.
         context_id = ContextIdentifier(
             ContextType.ARTICLE_LEVEL_SUMMARY,
+            article_id=article.id,
             article_level_summary_id=level_summary.id,
         )
         return {
@@ -788,6 +821,21 @@ class UserArticle(db.Model):
                 }
             except (json.JSONDecodeError, TypeError):
                 log(f"[SUMMARY] Article {article.id} - Cache corrupt, skipping summary")
+
+        # Apply the user's MWE ungroup overrides to whichever summary branch
+        # produced the payload (per-level OR the fallback own-summary). The lookup
+        # keys on the PARENT article.id: for level summaries that's how overrides
+        # are stored (see ContextIdentifier.article_id on ARTICLE_LEVEL_SUMMARY),
+        # and the summary sentence text differs from body sentences so the
+        # sentence hash still scopes the override to the summary. Mutates in place.
+        if "tokenized_summary" in result:
+            overrides_by_hash = UserMweOverride.get_disabled_mwes_for_user_article(
+                user.id, article.id
+            )
+            if overrides_by_hash:
+                cls._apply_mwe_overrides_to_summary_tokens(
+                    result["tokenized_summary"].get("tokens"), overrides_by_hash
+                )
 
         # Build title response
         if cache.tokenized_title:
