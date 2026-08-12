@@ -16,7 +16,10 @@ from zeeguu.logging import log
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
-from .prompts.article_simplification import get_adaptive_simplification_prompt
+from .prompts.article_simplification import (
+    get_adaptive_simplification_prompt,
+    get_assessment_and_summary_prompt,
+)
 from zeeguu.core.llm_services import models
 
 
@@ -36,6 +39,261 @@ def _get_next_simplification_provider() -> str:
         return "deepseek"
     else:
         return "anthropic"
+
+
+def assess_and_summarize(
+    title: str,
+    content: str,
+    target_language: str,
+    simplification_provider: str = None,
+) -> dict:
+    """
+    On-demand-pipeline crawl step: assess CEFR level, summarize, and classify an
+    article in a single LLM call WITHOUT generating any simplified versions.
+
+    This is the cheap replacement for ``simplify_article_adaptive_levels`` on the
+    crawl path now that simplification is on-demand. It returns the same metadata
+    fields the feed relies on and raises the same PAYWALL/ADVERTORIAL exceptions
+    so the crawler's junk-rejection keeps working unchanged.
+
+    Returns:
+        {
+            'original_cefr_level': str,
+            'original_summary': str,
+            'article_type': str | None,   # 'NEWS' | 'GENERAL'
+            'is_disturbing': bool,
+            'provider': str,
+            'model_name': str,
+        }
+
+    Raises:
+        Exception: "PAYWALL: ..." or "ADVERTORIAL: ..." when the LLM flags the
+        article, or on API failure.
+    """
+    prompt_template = get_assessment_and_summary_prompt(target_language)
+    prompt = prompt_template.format(title=title, content=content)
+
+    if simplification_provider:
+        provider = simplification_provider
+    else:
+        provider = _get_next_simplification_provider()
+    log(f"Using {provider.upper()} provider for assessment+summary")
+
+    if provider == "deepseek":
+        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+    else:
+        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
+        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+
+    if not api_key:
+        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
+        provider = "anthropic" if provider == "deepseek" else "deepseek"
+        api_key = fallback_api_key
+        if not api_key:
+            raise Exception(
+                "Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set"
+            )
+
+    log(f"Assessing+summarizing article '{title[:50]}...' in {target_language}")
+
+    if provider == "deepseek":
+        model_name = models.DEEPSEEK_GENERAL
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                # Assessment + a ~70-word summary is a handful of short fields, so
+                # a small cap is plenty (vs. 6000 for full multi-level bodies).
+                "max_tokens": 800,
+                "temperature": 0.1,
+            },
+            timeout=120,
+        )
+        if response.status_code != 200:
+            raise Exception(
+                f"DEEPSEEK API error: {response.status_code} - {response.text}"
+            )
+        result = response.json()["choices"][0]["message"]["content"].strip()
+    else:  # anthropic
+        model_name = HAIKU_MODEL
+        result = haiku_completion_or_raise(
+            prompt, max_tokens=800, temperature=0.1, timeout=120
+        ).strip()
+
+    # Same paywall/advertorial rejection contract as the full simplifier.
+    if result.lower().strip() == "unfinished":
+        raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+    if result.lower().strip() == "advertorial":
+        raise Exception(
+            "ADVERTORIAL: Article appears to be advertorial/promotional content"
+        )
+
+    # Parse the small set of labelled fields, plus any per-level [LEVEL]_SUMMARY
+    # sections (e.g. "A1_SUMMARY:", "B1_SUMMARY:").
+    sections = {}
+    current_section = None
+    current_content = []
+    for line in result.split("\n"):
+        line = line.strip()
+        is_field = ":" in line and any(
+            line.startswith(prefix)
+            for prefix in [
+                "DISTURBING_CONTENT",
+                "ARTICLE_TYPE",
+                "ORIGINAL_LEVEL",
+                "ORIGINAL_SUMMARY",
+                "SIMPLIFIED_LEVELS",
+            ]
+        )
+        is_level_summary = "_SUMMARY:" in line and line.split("_SUMMARY:")[0] in [
+            "A1",
+            "A2",
+            "B1",
+            "B2",
+            "C1",
+            "C2",
+        ]
+        if is_field or is_level_summary:
+            if current_section:
+                sections[current_section] = "\n".join(current_content).strip()
+            current_section = line.split(":")[0]
+            current_content = [line.split(":", 1)[1].strip()]
+        elif current_section:
+            current_content.append(line)
+    if current_section:
+        sections[current_section] = "\n".join(current_content).strip()
+
+    def clean_text(text):
+        return text.strip("[](){}\"'")
+
+    def strip_markdown_from_summary(text):
+        import re
+
+        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+        text = re.sub(r"__(.+?)__", r"\1", text)
+        text = re.sub(r"\*(.+?)\*", r"\1", text)
+        text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
+        return text
+
+    is_disturbing = clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+    article_type_raw = clean_text(sections.get("ARTICLE_TYPE", "")).upper()
+    article_type = article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
+    original_level = clean_text(sections.get("ORIGINAL_LEVEL", ""))
+    original_summary = strip_markdown_from_summary(
+        clean_text(sections.get("ORIGINAL_SUMMARY", ""))
+    )
+
+    # Per-level preview summaries (one per level simpler than the original).
+    level_summaries = {}
+    for level in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+        raw = sections.get(f"{level}_SUMMARY")
+        if raw:
+            text = strip_markdown_from_summary(clean_text(raw))
+            if text:
+                level_summaries[level] = text
+
+    return {
+        "original_cefr_level": original_level,
+        "original_summary": original_summary,
+        "article_type": article_type,
+        "is_disturbing": is_disturbing,
+        "level_summaries": level_summaries,
+        "provider": provider,
+        "model_name": model_name,
+    }
+
+
+def assess_summarize_and_classify(
+    session, original_article: Article, simplification_provider: str = None
+) -> tuple[list, list]:
+    """
+    Crawl-time entry point for the on-demand pipeline. Mirrors the return
+    contract of ``simplify_and_classify`` — ``(simplified_articles, classifications)``
+    — but NEVER creates simplified children: it only assesses the original's
+    CEFR level, writes an abstractive summary, and detects article type and
+    disturbing content. Simplification happens later, on demand, when a learner
+    opens the article (POST /simplify_article/<id>).
+
+    The empty ``simplified_articles`` list keeps the caller in
+    ``article_downloader.py`` working with no branch changes, and PAYWALL/
+    ADVERTORIAL exceptions propagate so junk rejection is unchanged.
+    """
+    if original_article.parent_article_id:
+        log(
+            f"SKIP: Article {original_article.id} is already a simplified version (parent: {original_article.parent_article_id})"
+        )
+        return [], []
+
+    word_count = original_article.get_word_count()
+    if word_count < 100:
+        log(
+            f"SKIP: Article {original_article.id} is too short to assess - {word_count} words (minimum: 100 words)"
+        )
+        return [], []
+
+    log(f"STARTING: Assess+summarize (on-demand mode) for article {original_article.id}")
+
+    result = assess_and_summarize(
+        original_article.title,
+        original_article.get_content(),
+        original_article.language.code,
+        simplification_provider=simplification_provider,
+    )
+
+    original_article.cefr_level = result["original_cefr_level"]
+    if result["article_type"]:
+        original_article.article_type = result["article_type"]
+    # Prefer the LLM's abstractive summary over the feed's RSS blurb, which is
+    # often just the headline reworded (and can be verbatim publisher text).
+    if result["original_summary"]:
+        original_article.summary = result["original_summary"]
+    session.commit()
+
+    # Persist the per-level preview summaries (tokenized so the tappable feed-card
+    # preview renders without re-tokenizing on the request path).
+    _store_level_summaries(
+        session,
+        original_article,
+        result.get("level_summaries", {}),
+        result.get("model_name"),
+    )
+
+    classifications = []
+    if result["is_disturbing"]:
+        classifications.append(("DISTURBING", "LLM"))
+    return [], classifications
+
+
+def _store_level_summaries(session, article, level_summaries, model_name):
+    """Create/refresh ArticleLevelSummary rows for an article, tokenizing each."""
+    if not level_summaries:
+        return
+    from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+    from zeeguu.core.mwe import tokenize_for_reading
+
+    for level, summary_text in level_summaries.items():
+        try:
+            tokenized = tokenize_for_reading(summary_text, article.language, mode="stanza")
+        except Exception as e:
+            log(f"  Could not tokenize {level} summary for article {article.id}: {e}")
+            tokenized = None
+        ArticleLevelSummary.find_or_create(
+            session,
+            article,
+            cefr_level=level,
+            summary=summary_text,
+            tokenized_summary=tokenized,
+            ai_model=model_name,
+            commit=False,
+        )
+    session.commit()
+    log(f"  Stored {len(level_summaries)} per-level preview summaries for article {article.id}")
 
 
 def get_target_levels_for_original_level(original_level: str) -> list[str]:

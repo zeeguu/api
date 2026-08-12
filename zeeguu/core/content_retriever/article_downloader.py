@@ -41,6 +41,7 @@ from zeeguu.core.content_retriever import (
 )
 from zeeguu.core.llm_services.simplification_and_classification import (
     simplify_and_classify,
+    assess_summarize_and_classify,
 )
 from zeeguu.core.content_quality.advertorial_detection import is_advertorial
 from zeeguu.core.content_quality.disturbing_content_detection import (
@@ -50,6 +51,15 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
+# On-demand simplification: at crawl time we only assess + summarize + classify;
+# full simplification to each CEFR level happens lazily when a learner opens an
+# article (POST /simplify_article/<id>). Set SIMPLIFY_AT_CRAWL=true to restore the
+# legacy behavior of pre-generating every sub-level at crawl time.
+SIMPLIFY_AT_CRAWL = os.environ.get("SIMPLIFY_AT_CRAWL", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
 
@@ -757,34 +767,43 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         )
         _save_classifications(session, new_article, [("DISTURBING", "KEYWORD")])
 
-    # Check topic simplification cap - skip simplification if all topics are "full" for this language today
-    # topic_simplification_counts is keyed by (language_id, topic_id) tuple
-    # Note: article_topic_ids and article_topic_names were captured earlier before potential rollback
-    skip_simplification_due_to_cap = False
-    language_id = feed.language_id
-    lang_code = feed.language.code
-    max_for_lang = get_max_simplified_for_language(lang_code)
+    # The per-(language, topic) daily simplification cap only exists to bound the
+    # cost of pre-generating simplified versions at crawl time. In on-demand mode
+    # no simplified children are created here, so the cap does not apply — every
+    # article still gets the cheap assess+summarize+classify pass.
+    if SIMPLIFY_AT_CRAWL:
+        # topic_simplification_counts is keyed by (language_id, topic_id) tuple
+        # Note: article_topic_ids/names were captured earlier before potential rollback
+        language_id = feed.language_id
+        lang_code = feed.language.code
+        max_for_lang = get_max_simplified_for_language(lang_code)
 
-    if topic_simplification_counts is not None and article_topic_ids:
-        # Check if ANY topic still needs simplified articles today for this language
-        needs_simplification = False
-        for topic_id in article_topic_ids:
-            key = (language_id, topic_id)
-            current_count = topic_simplification_counts.get(key, 0)
-            if current_count < max_for_lang:
-                needs_simplification = True
-                break
+        if topic_simplification_counts is not None and article_topic_ids:
+            # Check if ANY topic still needs simplified articles today for this language
+            needs_simplification = False
+            for topic_id in article_topic_ids:
+                key = (language_id, topic_id)
+                current_count = topic_simplification_counts.get(key, 0)
+                if current_count < max_for_lang:
+                    needs_simplification = True
+                    break
 
-        if not needs_simplification:
-            skip_simplification_due_to_cap = True
-            log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
-            return new_article
+            if not needs_simplification:
+                log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
+                return new_article
 
-    # Auto-create simplified versions and classify content
-    log(f"   Calling LLM for simplification and classification...")
+    # On-demand mode: assess + summarize + classify only (no simplified children).
+    # Legacy mode: also pre-generate simplified versions for every sub-level.
+    if SIMPLIFY_AT_CRAWL:
+        log(f"   Calling LLM for simplification and classification...")
+    else:
+        log(f"   Calling LLM for assessment and summary (on-demand simplification)...")
     llm_start_time = time()
     try:
-        simplified_articles, llm_classifications = simplify_and_classify(
+        classify_fn = (
+            simplify_and_classify if SIMPLIFY_AT_CRAWL else assess_summarize_and_classify
+        )
+        simplified_articles, llm_classifications = classify_fn(
             session, new_article, simplification_provider=simplification_provider
         )
         llm_duration = time() - llm_start_time
