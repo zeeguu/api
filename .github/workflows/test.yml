@@ -39,9 +39,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: nltk_data
-          key: ${{ runner.os }}-nltk-data-v2
+          key: ${{ runner.os }}-nltk-data-v3
           restore-keys: |
-            ${{ runner.os }}-nltk-data-
+            ${{ runner.os }}-nltk-data-v3
       - name: Install dependencies
         run: |
           export ZEEGUU_RESOURCES_FOLDER=`pwd`
@@ -69,7 +69,7 @@ jobs:
           fi
 
           # Ensure NLTK data is downloaded (even if venv cached)
-          if [ ! -d "nltk_data" ] || [ -z "$(ls -A nltk_data)" ]; then
+          if [ ! -d "nltk_data/tokenizers/punkt_tab" ]; then
             echo "Downloading NLTK data..."
             python -c "import nltk; import os; nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data'); nltk.download('punkt', download_dir=nltk_data_dir); nltk.download('punkt_tab', download_dir=nltk_data_dir); nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_dir)"
           else
