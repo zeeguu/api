@@ -34,15 +34,20 @@ class ArticleLevelSummary(db.Model):
     # Cached token stream (same shape as ArticleTokenizationCache.tokenized_summary)
     # so the tappable preview renders without re-tokenizing on the request path.
     tokenized_summary = db.Column(db.JSON)
-    ai_model = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime)
+    # First-class generator entity (model_name + prompt_version), same as
+    # Article.simplification_ai_generator_id — not a raw model-name string.
+    ai_generator_id = db.Column(db.Integer, db.ForeignKey("ai_generator.id"))
+    ai_generator = db.relationship("AIGenerator", foreign_keys=[ai_generator_id])
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-    def __init__(self, article, cefr_level, summary, tokenized_summary=None, ai_model=None):
+    def __init__(
+        self, article, cefr_level, summary, tokenized_summary=None, ai_generator_id=None
+    ):
         self.article = article
         self.cefr_level = cefr_level
         self.summary = summary
         self.tokenized_summary = tokenized_summary
-        self.ai_model = ai_model
+        self.ai_generator_id = ai_generator_id
 
     def __repr__(self):
         return f"<ArticleLevelSummary a:{self.article_id} {self.cefr_level}>"
@@ -62,7 +67,7 @@ class ArticleLevelSummary(db.Model):
         cefr_level,
         summary,
         tokenized_summary=None,
-        ai_model=None,
+        ai_generator_id=None,
         commit=True,
     ):
         try:
@@ -72,13 +77,13 @@ class ArticleLevelSummary(db.Model):
             ).one()
             existing.summary = summary
             existing.tokenized_summary = tokenized_summary
-            existing.ai_model = ai_model
+            existing.ai_generator_id = ai_generator_id
             session.add(existing)
             if commit:
                 session.commit()
             return existing
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(article, cefr_level, summary, tokenized_summary, ai_model)
+            new = cls(article, cefr_level, summary, tokenized_summary, ai_generator_id)
             session.add(new)
             if commit:
                 session.commit()

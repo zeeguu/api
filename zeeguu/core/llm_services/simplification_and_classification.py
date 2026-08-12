@@ -108,9 +108,11 @@ def assess_and_summarize(
             json={
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
-                # Assessment + a ~70-word summary is a handful of short fields, so
-                # a small cap is plenty (vs. 6000 for full multi-level bodies).
-                "max_tokens": 800,
+                # Assessment + one ~70-word summary PER level below the original
+                # (up to 5 for a C2 article) plus the original summary. Sized with
+                # headroom so the last-emitted levels aren't truncated — still a
+                # fraction of the 6000 the full multi-level bodies needed.
+                "max_tokens": 2000,
                 "temperature": 0.1,
             },
             timeout=120,
@@ -123,7 +125,7 @@ def assess_and_summarize(
     else:  # anthropic
         model_name = HAIKU_MODEL
         result = haiku_completion_or_raise(
-            prompt, max_tokens=800, temperature=0.1, timeout=120
+            prompt, max_tokens=2000, temperature=0.1, timeout=120
         ).strip()
 
     # Same paywall/advertorial rejection contract as the full simplifier.
@@ -270,12 +272,25 @@ def assess_summarize_and_classify(
     return [], classifications
 
 
+# Prompt-version tag so the first-class AIGenerator entity records which prompt
+# produced these summaries (bump when the assess+summarize prompt changes).
+ASSESS_SUMMARY_PROMPT_VERSION = "assess_summary_v1"
+
+
 def _store_level_summaries(session, article, level_summaries, model_name):
     """Create/refresh ArticleLevelSummary rows for an article, tokenizing each."""
     if not level_summaries:
         return
     from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+    from zeeguu.core.model.ai_generator import AIGenerator
     from zeeguu.core.mwe import tokenize_for_reading
+
+    ai_generator_id = None
+    if model_name:
+        ai_generator = AIGenerator.find_or_create(
+            session, model_name, prompt_version=ASSESS_SUMMARY_PROMPT_VERSION
+        )
+        ai_generator_id = ai_generator.id
 
     for level, summary_text in level_summaries.items():
         try:
@@ -289,7 +304,7 @@ def _store_level_summaries(session, article, level_summaries, model_name):
             cefr_level=level,
             summary=summary_text,
             tokenized_summary=tokenized,
-            ai_model=model_name,
+            ai_generator_id=ai_generator_id,
             commit=False,
         )
     session.commit()

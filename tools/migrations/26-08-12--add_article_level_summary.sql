@@ -15,9 +15,10 @@ CREATE TABLE article_level_summary (
     cefr_level ENUM('A1', 'A2', 'B1', 'B2', 'C1', 'C2') NOT NULL,
     summary TEXT,
     tokenized_summary JSON,
-    ai_model VARCHAR(255),
+    ai_generator_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_als_article FOREIGN KEY (article_id) REFERENCES article (id) ON DELETE CASCADE,
+    CONSTRAINT fk_als_ai_generator FOREIGN KEY (ai_generator_id) REFERENCES ai_generator (id),
     UNIQUE KEY uq_article_level (article_id, cefr_level)
 );
 
