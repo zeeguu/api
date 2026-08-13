@@ -87,3 +87,26 @@ class UserMweOverride(db.Model):
                 result[o.sentence_hash] = []
             result[o.sentence_hash].append(o.mwe_expression)
         return result
+
+    @classmethod
+    def get_disabled_mwes_for_user_articles(cls, user_id, article_ids):
+        """Batched variant of get_disabled_mwes_for_user_article.
+
+        Returns dict mapping article_id -> {sentence_hash -> [mwe_expressions]}
+        for the given user across many articles, in a single query. Articles with
+        no overrides are simply absent from the returned dict.
+        """
+        if not article_ids:
+            return {}
+
+        overrides = cls.query.filter(
+            cls.user_id == user_id,
+            cls.article_id.in_(article_ids),
+            cls.disabled == True,  # noqa: E712 (SQLAlchemy needs ==, not `is`)
+        ).all()
+
+        result = {}
+        for o in overrides:
+            by_hash = result.setdefault(o.article_id, {})
+            by_hash.setdefault(o.sentence_hash, []).append(o.mwe_expression)
+        return result

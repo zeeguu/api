@@ -577,6 +577,8 @@ def _apply_simplified_display_overlay(user, results):
     )
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
+    from zeeguu.core.model.user_article import UserArticle
+    from zeeguu.core.model.user_mwe_override import UserMweOverride
     from sqlalchemy.orm.exc import NoResultFound
 
     try:
@@ -633,6 +635,13 @@ def _apply_simplified_display_overlay(user, results):
         ).all()
     }
 
+    # Batch-fetch the user's MWE ungroup overrides for every candidate article in
+    # one query (overrides are stored keyed by the parent article id), so we can
+    # clear disabled MWE metadata from each overlaid summary without an N+1.
+    overrides_by_article = UserMweOverride.get_disabled_mwes_for_user_articles(
+        user.id, list(chosen_id_by_article.keys())
+    )
+
     for result in results:
         chosen_id = chosen_id_by_article.get(result["id"])
         display = full_by_id.get(chosen_id) if chosen_id else None
@@ -645,8 +654,15 @@ def _apply_simplified_display_overlay(user, results):
         tokens = display.get_tokenized_summary()
         if not tokens:
             continue
+        # Apply the user's MWE ungroup overrides to the overlaid summary tokens.
+        overrides_by_hash = overrides_by_article.get(display.article_id)
+        if overrides_by_hash:
+            UserArticle._apply_mwe_overrides_to_summary_tokens(tokens, overrides_by_hash)
+        # The bookmark mapping keys on article_level_summary_id; article_id is
+        # carried only for the client's MWE-ungroup path (parent article id).
         ctx = ContextIdentifier(
             ContextType.ARTICLE_LEVEL_SUMMARY,
+            article_id=display.article_id,
             article_level_summary_id=display.id,
         )
         result["interactiveSummary"] = {
