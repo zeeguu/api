@@ -10,10 +10,18 @@ class ExampleSentenceContext(db.Model):
     This follows the same pattern as VideoTitleContext, ArticleFragmentContext, etc.
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # At most one context row per (bookmark, example sentence) — see find_or_create.
+        db.UniqueConstraint(
+            "bookmark_id",
+            "example_sentence_id",
+            name="uq_esc_bookmark_example",
+        ),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    
+
     bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
     bookmark = db.relationship(Bookmark)
 
@@ -46,17 +54,31 @@ class ExampleSentenceContext(db.Model):
         example_sentence,
         commit=True,
     ):
+        existing = cls.query.filter(
+            cls.bookmark == bookmark,
+            cls.example_sentence == example_sentence,
+        ).one_or_none()
+        if existing:
+            return existing
+
+        # Insert inside a SAVEPOINT so that if a concurrent request created the
+        # same (bookmark, example sentence) between our SELECT and INSERT, the
+        # unique constraint fires and we roll back just this insert (not the
+        # caller's whole transaction, which may still be uncommitted when
+        # commit=False) and return the row the other request created.
+        new = cls(bookmark, example_sentence)
         try:
+            with session.begin_nested():
+                session.add(new)
+        except sqlalchemy.exc.IntegrityError:
             return cls.query.filter(
                 cls.bookmark == bookmark,
                 cls.example_sentence == example_sentence,
             ).one()
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
-            new = cls(bookmark, example_sentence)
-            session.add(new)
-            if commit:
-                session.commit()
-            return new
+
+        if commit:
+            session.commit()
+        return new
 
     @classmethod
     def get_all_user_bookmarks_for_example(
