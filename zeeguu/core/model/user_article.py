@@ -477,7 +477,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None, simplified_pc_by_parent=None
+        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None, simplified_pc_by_parent=None, mwe_overrides_by_article=None
     ):
         """
         Returns user-specific article information for the given article.
@@ -632,20 +632,13 @@ class UserArticle(db.Model):
                 for fragment in returned_info["tokenized_fragments"]:
                     for paragraph in fragment.get("tokens", []):
                         for sentence in paragraph:
-                            if sentence:
-                                # Compute sentence hash to check for overrides
-                                sentence_text = " ".join(t.get("text", "") for t in sentence)
-                                sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
-                                if sentence_hash in overrides_by_hash:
-                                    disabled_expressions = overrides_by_hash[sentence_hash]
-                                    # Clear MWE metadata from tokens matching disabled expressions
-                                    cls._clear_mwe_metadata_for_expressions(sentence, disabled_expressions)
+                            cls._apply_overrides_to_sentence(sentence, overrides_by_hash)
 
         # Include tokenized summary if requested (enabled by default for homepage performance)
         if with_summary and not with_content:
             # Only include summary if we're not already including full content
             # (full content tokenization includes everything)
-            summary_info = cls.user_article_summary_info(user, article, tokenization_cache=tokenization_cache)
+            summary_info = cls.user_article_summary_info(user, article, tokenization_cache=tokenization_cache, mwe_overrides_by_article=mwe_overrides_by_article)
             # Merge summary-specific keys into the returned info
             # Map to frontend-expected keys for backwards compatibility
             if "tokenized_summary" in summary_info:
@@ -691,32 +684,43 @@ class UserArticle(db.Model):
                     token.pop("mwe_partner_indices", None)
 
     @staticmethod
+    def _apply_overrides_to_sentence(sentence, overrides_by_hash):
+        """Clear disabled-MWE metadata from one sentence's tokens, matched by the
+        hash of the sentence text. Shared by the body walk (user_article_info)
+        and the summary walk (_apply_mwe_overrides_to_summary_tokens)."""
+        if not sentence:
+            return
+        sentence_text = " ".join(t.get("text", "") for t in sentence)
+        sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
+        if sentence_hash in overrides_by_hash:
+            UserArticle._clear_mwe_metadata_for_expressions(
+                sentence, overrides_by_hash[sentence_hash]
+            )
+
+    @staticmethod
     def _apply_mwe_overrides_to_summary_tokens(summary_tokens, overrides_by_hash):
         """
-        Clear MWE metadata from summary tokens for expressions the user disabled.
+        Return summary tokens with disabled-MWE metadata cleared.
 
         A summary's token stream nests paragraphs -> sentences -> tokens (the
         direct output of tokenize_for_reading, same as a body fragment's tokens
         but without the outer fragment wrapper), so this has one fewer loop than
-        the body version in user_article_info. Mutates summary_tokens in place.
+        the body version in user_article_info.
 
-        Args:
-            summary_tokens: list of paragraphs, each a list of sentences,
-                each a list of token dicts
-            overrides_by_hash: dict of {sentence_hash: [disabled mwe expressions]}
+        Works on a DEEP COPY so the caller's ORM-loaded token object is never
+        mutated: tokenized_summary is a plain db.JSON column (not MutableJSON), so
+        an in-place edit isn't flushed today — copying keeps it safe even if that
+        ever changes. Returns the input unchanged (no copy) when nothing matches.
         """
         if not overrides_by_hash or not summary_tokens:
-            return
-        for paragraph in summary_tokens:
+            return summary_tokens
+        import copy
+
+        tokens = copy.deepcopy(summary_tokens)
+        for paragraph in tokens:
             for sentence in paragraph:
-                if not sentence:
-                    continue
-                sentence_text = " ".join(t.get("text", "") for t in sentence)
-                sentence_hash = UserMweOverride.compute_sentence_hash(sentence_text)
-                if sentence_hash in overrides_by_hash:
-                    UserArticle._clear_mwe_metadata_for_expressions(
-                        sentence, overrides_by_hash[sentence_hash]
-                    )
+                UserArticle._apply_overrides_to_sentence(sentence, overrides_by_hash)
+        return tokens
 
     @classmethod
     def _level_matched_summary_payload(cls, user, article):
@@ -765,7 +769,7 @@ class UserArticle(db.Model):
         }
 
     @classmethod
-    def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None):
+    def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None, mwe_overrides_by_article=None):
         """
         Returns tokenized summary and title for an article with user bookmarks.
 
@@ -829,11 +833,17 @@ class UserArticle(db.Model):
         # and the summary sentence text differs from body sentences so the
         # sentence hash still scopes the override to the summary. Mutates in place.
         if "tokenized_summary" in result:
-            overrides_by_hash = UserMweOverride.get_disabled_mwes_for_user_article(
-                user.id, article.id
-            )
+            # In the feed, article_infos pre-fetches overrides for all articles in
+            # one query and passes them in (mwe_overrides_by_article), avoiding an
+            # N+1; the single-article endpoint path leaves it None and queries here.
+            if mwe_overrides_by_article is not None:
+                overrides_by_hash = mwe_overrides_by_article.get(article.id)
+            else:
+                overrides_by_hash = UserMweOverride.get_disabled_mwes_for_user_article(
+                    user.id, article.id
+                )
             if overrides_by_hash:
-                cls._apply_mwe_overrides_to_summary_tokens(
+                result["tokenized_summary"]["tokens"] = cls._apply_mwe_overrides_to_summary_tokens(
                     result["tokenized_summary"].get("tokens"), overrides_by_hash
                 )
 
@@ -946,6 +956,13 @@ class UserArticle(db.Model):
         for parent_id, simplified_article_id in rows:
             simplified_pc_by_parent[parent_id] = simplified_article_id
 
+        # Batch-fetch the user's MWE ungroup overrides for every article in one
+        # query so user_article_summary_info doesn't run a per-article query
+        # (N+1 on every feed load).
+        mwe_overrides_by_article = UserMweOverride.get_disabled_mwes_for_user_articles(
+            user.id, article_ids
+        )
+
         # Step 5: Build response infos (pure reads, using pre-fetched caches)
         return [
             cls.user_article_info(
@@ -953,6 +970,7 @@ class UserArticle(db.Model):
                 article,
                 tokenization_cache=existing_caches.get(article.id),
                 simplified_pc_by_parent=simplified_pc_by_parent,
+                mwe_overrides_by_article=mwe_overrides_by_article,
             )
             for article in articles_to_process
         ]

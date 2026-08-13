@@ -654,10 +654,11 @@ def _apply_simplified_display_overlay(user, results):
         tokens = display.get_tokenized_summary()
         if not tokens:
             continue
-        # Apply the user's MWE ungroup overrides to the overlaid summary tokens.
+        # Apply the user's MWE ungroup overrides to the overlaid summary tokens
+        # (returns a cleared copy; never mutates the ORM-loaded token list).
         overrides_by_hash = overrides_by_article.get(display.article_id)
         if overrides_by_hash:
-            UserArticle._apply_mwe_overrides_to_summary_tokens(tokens, overrides_by_hash)
+            tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(tokens, overrides_by_hash)
         # The bookmark mapping keys on article_level_summary_id; article_id is
         # carried only for the client's MWE-ungroup path (parent article id).
         ctx = ContextIdentifier(
