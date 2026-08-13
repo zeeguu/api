@@ -21,12 +21,22 @@ from datetime import datetime, timedelta
 from tools.feed_delivery_health_check import (
     freshness_summary,
     classify_segment,
+    is_alerting,
+    Segment,
+    SegmentResult,
     FreshnessSummary,
     STATUS_OK,
     STATUS_EMPTY,
     STATUS_NO_FRESH,
     STATUS_STALE,
 )
+
+
+def _result(cefr_level, status):
+    return SegmentResult(
+        Segment("da", cefr_level), status, "reason",
+        FreshnessSummary(0, 0, None), None, None, None, "",
+    )
 
 NOW = datetime(2026, 8, 13, 12, 0, 0)
 
@@ -111,3 +121,21 @@ def test_classify_ok_at_stale_boundary():
     s = FreshnessSummary(total=10, fresh_count=5, freshest_age_days=4.0)
     status, _ = classify_segment(s, min_articles=3, min_fresh=3, stale_days=4)
     assert status == STATUS_OK
+
+
+# --- is_alerting (alert-level gating) -----------------------------------------
+ALERTING = {"A1", "A2", "B1", "B2"}
+
+
+def test_alerting_when_failing_and_level_in_alert_set():
+    assert is_alerting(_result("B2", STATUS_STALE), ALERTING) is True
+
+
+def test_not_alerting_for_report_only_level_even_when_empty():
+    # C1/C2 are report-only until we complexify — empty must NOT alert.
+    assert is_alerting(_result("C1", STATUS_EMPTY), ALERTING) is False
+    assert is_alerting(_result("C2", STATUS_NO_FRESH), ALERTING) is False
+
+
+def test_not_alerting_when_segment_is_ok():
+    assert is_alerting(_result("B1", STATUS_OK), ALERTING) is False

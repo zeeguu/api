@@ -84,6 +84,11 @@ def _env_int(name, default):
         return default
 
 
+def _env_level_set(name, default):
+    raw = os.environ.get(name, default)
+    return {tok.strip().upper() for tok in raw.split(",") if tok.strip()}
+
+
 # Consider a user "active" if last_seen within this window.
 ACTIVE_DAYS = _env_int("FEED_HEALTH_ACTIVE_DAYS", 30)
 # An article/video counts as FRESH if published within this window.
@@ -93,7 +98,17 @@ MIN_ARTICLES = _env_int("FEED_HEALTH_MIN_ARTICLES", 3)
 # ...and at least this many of them FRESH.
 MIN_FRESH = _env_int("FEED_HEALTH_MIN_FRESH", 3)
 # Flag a segment if even its FRESHEST recommendable item is older than this.
-STALE_DAYS = _env_int("FEED_HEALTH_STALE_DAYS", 4)
+# We crawl several times a day, so for an alerting segment "nothing fresh in ~a
+# day" already means new content stopped landing — that's the alarm, not a
+# multi-day grace. Kept at 1 (≈ nothing new today); this assumes the check runs
+# AFTER the day's crawl so it doesn't fire on a not-yet-crawled today.
+STALE_DAYS = _env_int("FEED_HEALTH_STALE_DAYS", 1)
+# CEFR levels whose failures actually ALERT (email + non-zero exit). Other levels
+# are still evaluated and shown in the report, but don't trigger alerts. C1/C2
+# are report-only by default: we don't complexify (generate above-level content)
+# yet, so almost all crawled news sits at A1–B2 and C1/C2 are empty by design —
+# alerting on them would be pure noise. Revisit when complexification ships.
+ALERT_LEVELS = _env_level_set("FEED_HEALTH_ALERT_LEVELS", "A1,A2,B1,B2")
 # How many items to request from the recommender / inventory query.
 COUNT = _env_int("FEED_HEALTH_COUNT", 10)
 
@@ -132,6 +147,17 @@ STATUS_NO_FRESH = "NO_FRESH"  # inventory exists but not enough of it fresh
 STATUS_STALE = "STALE"  # freshest item is older than STALE_DAYS
 
 FAILING_STATUSES = {STATUS_EMPTY, STATUS_NO_FRESH, STATUS_STALE}
+
+
+def is_alerting(result, alert_levels=ALERT_LEVELS):
+    """Whether a failing segment should actually raise an alert (email + non-zero
+    exit). A segment alerts only if it's failing AND its CEFR level is in the
+    alerting set; report-only levels (e.g. C1/C2) are still shown but never
+    alarm — see ALERT_LEVELS."""
+    return (
+        result.status in FAILING_STATUSES
+        and result.segment.cefr_level in alert_levels
+    )
 
 
 def classify_segment(
@@ -352,21 +378,33 @@ def evaluate_segment(segment, users, count, now, thresholds):
     )
 
 
-def build_report(results):
+def build_report(results, alert_levels=ALERT_LEVELS):
     """Human-readable, structured per-segment summary lines."""
     lines = []
-    failing = [r for r in results if r.status in FAILING_STATUSES]
+    alerting = [r for r in results if is_alerting(r, alert_levels)]
+    report_only = [
+        r
+        for r in results
+        if r.status in FAILING_STATUSES and not is_alerting(r, alert_levels)
+    ]
 
     lines.append("=== FEED DELIVERY HEALTH — per-segment summary ===")
     lines.append(f"Checked at {datetime.now():%Y-%m-%d %H:%M}")
     lines.append(
-        f"Segments checked: {len(results)}  |  failing: {len(failing)}"
+        f"Segments checked: {len(results)}  |  alerting: {len(alerting)}"
+        f"  |  report-only issues: {len(report_only)}"
     )
     lines.append("")
 
-    if failing:
-        lines.append("--- FAILING SEGMENTS ---")
-        for r in sorted(failing, key=lambda r: (r.segment.language_code, r.segment.cefr_level)):
+    if alerting:
+        lines.append("--- ALERTING SEGMENTS (empty/stale) ---")
+        for r in sorted(alerting, key=lambda r: (r.segment.language_code, r.segment.cefr_level)):
+            lines.extend(_segment_lines(r))
+        lines.append("")
+
+    if report_only:
+        lines.append("--- REPORT-ONLY ISSUES (not alerting; e.g. C1/C2) ---")
+        for r in sorted(report_only, key=lambda r: (r.segment.language_code, r.segment.cefr_level)):
             lines.extend(_segment_lines(r))
         lines.append("")
 
@@ -402,6 +440,12 @@ def main():
     parser.add_argument("--min-fresh", type=int, default=MIN_FRESH)
     parser.add_argument("--stale-days", type=int, default=STALE_DAYS)
     parser.add_argument("--count", type=int, default=COUNT)
+    parser.add_argument(
+        "--alert-levels",
+        type=str,
+        default=",".join(sorted(ALERT_LEVELS)),
+        help="Comma-separated CEFR levels whose failures alert; others are report-only.",
+    )
     parser.add_argument(
         "--languages",
         type=str,
@@ -446,16 +490,29 @@ def main():
             for line in _segment_lines(result):
                 print(line)
 
-    report = build_report(results)
+    alert_levels = {
+        t.strip().upper() for t in args.alert_levels.split(",") if t.strip()
+    }
+    report = build_report(results, alert_levels)
     print("\n".join(report))
 
-    failing = [r for r in results if r.status in FAILING_STATUSES]
-    if not failing:
-        print(f"\nOK: all {len(results)} segment(s) deliver a fresh feed.")
+    alerting_failures = [r for r in results if is_alerting(r, alert_levels)]
+    report_only_failures = [
+        r
+        for r in results
+        if r.status in FAILING_STATUSES and not is_alerting(r, alert_levels)
+    ]
+    if not alerting_failures:
+        note = (
+            f" ({len(report_only_failures)} report-only issue(s) shown above)"
+            if report_only_failures
+            else ""
+        )
+        print(f"\nOK: no alerting segment failures.{note}")
         return 0
 
     subject = (
-        f"⚠️ Zeeguu feed delivery: {len(failing)} segment(s) empty/stale"
+        f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) empty/stale"
     )
     if args.dry_run:
         print(f"\n[dry-run] would email: {subject}")
