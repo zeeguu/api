@@ -113,3 +113,86 @@ Original article to simplify:
 TITLE: {{title}}
 
 CONTENT: {{content}}"""
+
+
+def get_assessment_and_summary_prompt(language: str) -> str:
+    """
+    Prompt for the on-demand pipeline's crawl step: assess + summarize + classify
+    ONLY, with no simplified versions generated.
+
+    Simplification has moved to on-demand (a learner requests a level when they
+    open an article), so at crawl time we no longer pre-generate every sub-level.
+    We still need the cheap-to-produce metadata the feed relies on: the original
+    CEFR level (feed ranking + the reader's simplify-offer gate), an abstractive
+    summary (preferred over copyright-risky RSS blurbs), the article type, the
+    disturbing-content flag, and the same paywall/advertorial rejection signals
+    the crawler uses to drop junk. The output is a handful of short fields rather
+    than several full article bodies, so this call costs a fraction of the old
+    all-levels simplification.
+    """
+    language_name = Language.LANGUAGE_NAMES.get(language, language)
+
+    return f"""You are an expert <<LANGUAGE_NAME>> language teacher. Your task is to assess an article's CEFR level and write a short summary. Do NOT rewrite or simplify the article — only assess and summarize it.
+
+CEFR Level Guidelines:
+- A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
+- A2: Expanded vocabulary (2000 words), past/future tenses, simple connectors
+- B1: Intermediate vocabulary (3000 words), complex sentences, opinion expressions
+- B2: Advanced vocabulary, subjunctive mood, nuanced expressions
+- C1: Sophisticated vocabulary, complex grammar, idiomatic expressions
+- C2: Near-native level, literary devices, specialized terminology
+
+IMPORTANT: If the article appears to be incomplete due to a paywall, simply respond with: "unfinished". This includes:
+- Articles with fewer than 3 paragraphs (very likely incomplete)
+- Articles that end abruptly without a proper conclusion
+- Articles that appear to be only the first paragraph(s) of a longer piece
+- Articles with "subscribe to read more" or similar paywall messages
+- Articles that seem to cut off mid-story or mid-explanation
+- Articles that lack the depth/detail expected from the headline
+- Articles that end with incomplete sentences (like ending with "«." or mid-quote)
+- Articles that introduce a topic but don't provide substantial content about it
+- Articles that have audio elements mentioned ("Lyt til artiklen", "Læst op af") but very little text content
+- Articles that appear to be just a teaser or introduction without the main content
+
+IMPORTANT: If the article appears to be promotional/advertorial content rather than genuine news, simply respond with: "advertorial". This includes:
+- Articles primarily promoting specific products with pricing/discounts ("Ne laissez pas passer cette offre", "à -30%", "en promotion")
+- Articles with affiliate marketing language ("meilleure offre", "bon plan", "code promo")
+- Articles focused on shopping recommendations rather than journalistic news content
+- Articles with repeated brand/retailer mentions (Rakuten, Amazon, etc.) in a promotional context
+- Articles that are essentially product advertisements disguised as news
+- Articles with strong call-to-action language for purchasing ("profitez", "achetez maintenant")
+- Articles that read like shopping guides or product catalogs rather than news reporting
+
+LEVELS TO SUMMARIZE:
+- Also write a level-appropriate summary for EVERY CEFR level simpler than the original.
+- If original is A1, write no extra summaries.
+- If original is A2, write A1.
+- If original is B1, write A1 and A2.
+- If original is B2, write A1, A2, and B1.
+- If original is C1, write A1, A2, B1, and B2.
+- If original is C2, write A1, A2, B1, B2, and C1.
+- Each level's summary conveys the SAME facts as ORIGINAL_SUMMARY but using vocabulary and sentence structure appropriate for that level. Do NOT drop information at lower levels — say the same things more simply.
+
+You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. Do NOT produce full simplified versions of the article — summaries only.
+
+DISTURBING_CONTENT: [YES or NO - would a reader who has asked to avoid disturbing material be upset by this article? Answer YES if EITHER (a) the article's focus is violence, death, or disaster AS AN EVENT - violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence; OR (b) the article dwells on death/burial imagery and themes even when nobody was harmed - corpses, coffins, being buried (alive or dead), funerary, mortuary, or embalming practices, graphic bodily harm or medical gore. A lifestyle, wellness, or novelty piece whose SUBJECT is death or burial (e.g. "coffin therapy", being buried alive for relaxation) is YES. Note: brief incidental mentions in an otherwise neutral article do NOT count, and purely historical or educational treatment of a difficult topic is acceptable (NO).]
+
+ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (politics, breaking news, weather, sports results, someone visiting somewhere today, elections, daily events). GENERAL = evergreen content you could read months later (science explainers, cultural topics, how-to guides, historical articles, general knowledge, health/lifestyle advice).]
+
+ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, C1, or C2]
+
+ORIGINAL_SUMMARY: [plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>>, 2-4 sentences scaled to the article (short items 1-2 sentences; longer or denser articles up to 4; hard cap ~70 words). It MUST ADD information the title does not already contain — the specific names, numbers, reasons, consequences, or context the headline implies but does not state; if the title assumes a referent (a person, event, acronym, "a swap with X"), briefly say what it is IF the article explains it. NEVER restate or paraphrase the title: if a reader could guess the summary from the title alone, rewrite it. Use ONLY facts stated in the article — do not add details from your own knowledge. Lead with the concrete facts (who/what/how many/outcome). Paraphrase in your own words: no verbatim sentences or phrases lifted from the article, and no direct quotes. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself.]
+
+SIMPLIFIED_LEVELS: [comma-separated list of the levels simpler than the original for which you wrote a summary below, e.g. "A1,A2" — leave empty if original is A1]
+
+[For each level in SIMPLIFIED_LEVELS, include this section:]
+
+[LEVEL]_SUMMARY: [plain text summary (NO markdown formatting, no bold/italic) in <<LANGUAGE_NAME>> using vocabulary appropriate for this level, same length limits and same content/no-meta-preamble rules as ORIGINAL_SUMMARY above.]
+
+<<LANGUAGE_NAME>> = {language_name}
+
+Original article to assess:
+
+TITLE: {{title}}
+
+CONTENT: {{content}}"""

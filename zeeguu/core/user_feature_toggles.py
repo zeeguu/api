@@ -88,37 +88,29 @@ def _extension_experiment_1(user):
 
 
 def _show_non_simplified_articles(user):
-    """Show non-simplified (original) articles.
+    """Show non-simplified (original) articles in the feed.
 
-    Transitional allowlist: the product direction is flipping so that
-    full articles (opened externally) become the default. This set holds
-    the pilots on the new flow while we validate it; eventually this will
-    be the behavior for everyone and the flag can go away.
+    Now on for everyone: simplification has moved on-demand, so the crawl no
+    longer pre-generates simplified children and the feed is originals-first for
+    all users (a level-matched simplified version is created lazily when a learner
+    opens an article). Previously a transitional allowlist ({4607, 4626, 6083,
+    6250}); the rollout is complete, so this is the default.
     """
-    LEGACY_USER_IDS = {4607, 4626, 6083, 6250}
-    return user.id in LEGACY_USER_IDS
+    return True
 
 
 def _always_open_externally(user):
-    """Article cards in the feed always render the "Open Externally"
-    button for these users — except for saved articles, which still
-    open in the Zeeguu reader.
+    """Article cards in the feed always render the "Open Externally" button
+    (except saved articles, which still open in the Zeeguu reader).
 
-    Click-through behavior is unchanged: the redirect-notification modal
-    still appears unless the user has dismissed it with "don't show again".
+    Click-through behavior is unchanged: the redirect-notification modal still
+    appears unless the user dismissed it with "don't show again".
 
-    Rollout: the original pilot users, every user signed up from id 6367
-    onwards (i.e., all new users going forward), and all dev accounts so
-    the team dogfoods the on-demand flow. Existing non-dev users keep the
-    in-reader flow until we flip the default for them too.
+    Now on for everyone as part of the on-demand simplification flip. Previously
+    a staged rollout (pilot users {4607, 6083, 6250}, new signups from id 6367,
+    and all dev accounts); the rollout is complete, so this is the default.
     """
-    BETA_USER_IDS = {4607, 6083, 6250}
-    NEW_USER_THRESHOLD = 6367
-    return (
-        user.is_dev
-        or user.id in BETA_USER_IDS
-        or user.id >= NEW_USER_THRESHOLD
-    )
+    return True
 
 
 def _hide_recommendations(user):

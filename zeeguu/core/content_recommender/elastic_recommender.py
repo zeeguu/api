@@ -552,42 +552,38 @@ def get_user_info_from_content_recommendations(user, content_list):
 
 def _apply_simplified_display_overlay(user, results):
     """
-    Overlay the simplified *title* and *summary* onto result dicts that
-    point at an original article, when a CEFR-matched simplified child
-    exists. The publisher's headline is reachable via the article's
-    source/url at the publisher itself — no need to surface it on the
-    card.
+    Overlay a CEFR-level-matched preview *summary* onto feed-card result dicts
+    that point at an original article, using the per-level ArticleLevelSummary
+    rows (on-demand simplification means there are no simplified child articles
+    to borrow a summary from anymore).
 
-    Result ids, urls, and parent linkage are untouched, so the
-    "Simplified" badge, save state, and external-open routing in
-    ArticlePreview are unchanged. Falls back silently to the original
-    title/summary when no level match exists.
+    Sets both the plain ``summary`` teaser (Preview mode) and the tappable
+    ``interactiveSummary`` payload (Interactive mode), the latter anchored to the
+    specific level-summary row so tap-to-translate and past-bookmark highlighting
+    land on the right tokens. Titles are left as the original — we don't produce
+    per-level titles. Falls back silently to the article's own summary when the
+    learner's level has no simpler summary.
 
-    Batched: one IN-query for simplified children (+ joined CEFR
-    assessments), one for their tokenization caches. past_bookmarks
-    are populated against the simplified article's id — the card lives
-    over the simplified content (title/summary come from there), so
-    the bookmarks the user made while reading that simplified article
-    are the right ones to highlight.
+    Batched in two queries: a columns-only pick of the best level per article,
+    then a load of just those chosen rows (so the heavy tokenized_summary JSON is
+    deserialized once per article, not once per level).
     """
-    import json
-    from sqlalchemy.orm import joinedload
-    from zeeguu.core.model import db
-    from zeeguu.core.model.article import (
-        strip_trailing_ellipsis,
-        strip_trailing_ellipsis_tokens_json,
+    from zeeguu.core.model.article_level_summary import (
+        ArticleLevelSummary,
+        CEFR_ORDER,
     )
-    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
-    from zeeguu.core.model.article_title_context import ArticleTitleContext
-    from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+    from zeeguu.core.model.article_level_summary_context import (
+        ArticleLevelSummaryContext,
+    )
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
+    from sqlalchemy.orm.exc import NoResultFound
 
     try:
         user_cefr_level = user.cefr_level_for_learned_language()
-    except (AttributeError, IndexError, TypeError):
+    except (AttributeError, IndexError, TypeError, NoResultFound):
         return
-    if not user_cefr_level:
+    if not user_cefr_level or user_cefr_level not in CEFR_ORDER:
         return
 
     candidate_ids = [
@@ -597,104 +593,66 @@ def _apply_simplified_display_overlay(user, results):
     if not candidate_ids:
         return
 
-    # Only same-language children may overlay an original. A child is normally a
-    # simplification (same language), but a friend-share can now create a
-    # *translated* child (different language) hanging off the same original —
-    # that must NOT be shown as the original's "simplified version" to speakers
-    # of the original's language. (No-op on pre-existing data: today's children
-    # are all same-language.)
-    from sqlalchemy.orm import aliased
+    allowed = ArticleLevelSummary.allowed_levels(user_cefr_level)
 
-    ParentArticle = aliased(Article)
-    children = (
-        Article.query
-        .options(joinedload(Article.cefr_assessment))
-        .join(ParentArticle, Article.parent_article_id == ParentArticle.id)
-        .filter(Article.parent_article_id.in_(candidate_ids))
-        .filter(Article.language_id == ParentArticle.language_id)
+    # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
+    # best row per article, never every level: first a columns-only query to pick
+    # the best-matching level per article, then load just those chosen rows.
+    lightweight = (
+        ArticleLevelSummary.query
+        .with_entities(
+            ArticleLevelSummary.id,
+            ArticleLevelSummary.article_id,
+            ArticleLevelSummary.cefr_level,
+        )
+        .filter(
+            ArticleLevelSummary.article_id.in_(candidate_ids),
+            ArticleLevelSummary.cefr_level.in_(allowed),
+        )
         .all()
     )
-    if not children:
+    if not lightweight:
         return
 
-    def matches(child):
-        level = (
-            child.cefr_assessment.effective_cefr_level
-            if child.cefr_assessment and child.cefr_assessment.effective_cefr_level
-            else child.cefr_level
-        )
-        if not level:
-            return False
-        if level == user_cefr_level:
-            return True
-        if "/" in level:
-            lo, hi = level.split("/")
-            return user_cefr_level in (lo, hi)
-        return False
+    by_article = {}
+    for row in lightweight:
+        by_article.setdefault(row.article_id, []).append(row)
 
-    # First level-matching child wins, mirroring get_appropriate_version_for_user_level
-    overlays = {}  # original_id -> simplified Article
-    for child in children:
-        if child.parent_article_id in overlays:
-            continue
-        if matches(child):
-            overlays[child.parent_article_id] = child
-
-    if not overlays:
+    chosen_id_by_article = {}
+    for article_id, rows in by_article.items():
+        best_row = ArticleLevelSummary.pick_best(rows, user_cefr_level)
+        if best_row:
+            chosen_id_by_article[article_id] = best_row.id
+    if not chosen_id_by_article:
         return
 
-    display_articles = list(overlays.values())
-    display_ids = [a.id for a in display_articles]
-    caches = {
-        c.article_id: c
-        for c in db.session.query(ArticleTokenizationCache)
-        .filter(ArticleTokenizationCache.article_id.in_(display_ids))
-        .all()
+    full_by_id = {
+        als.id: als
+        for als in ArticleLevelSummary.query.filter(
+            ArticleLevelSummary.id.in_(chosen_id_by_article.values())
+        ).all()
     }
-    for article in display_articles:
-        if article.id not in caches:
-            cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
-            caches[article.id] = cache
-    db.session.commit()
 
     for result in results:
-        display = overlays.get(result["id"])
+        chosen_id = chosen_id_by_article.get(result["id"])
+        display = full_by_id.get(chosen_id) if chosen_id else None
         if not display:
             continue
 
-        result["title"] = display.title
-
         if display.summary and len(display.summary.strip()) > 10:
-            result["summary"] = strip_trailing_ellipsis(display.summary)
+            result["summary"] = display.summary.strip()
 
-        cache = caches.get(display.id)
-        if not cache:
+        tokens = display.get_tokenized_summary()
+        if not tokens:
             continue
-        if cache.tokenized_title:
-            try:
-                tokens = json.loads(cache.tokenized_title)
-                ctx = ContextIdentifier(ContextType.ARTICLE_TITLE, article_id=display.id)
-                result["interactiveTitle"] = {
-                    "tokens": tokens,
-                    "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": ArticleTitleContext.get_all_user_bookmarks_for_article_title(
-                        user.id, display.id
-                    ),
-                }
-            except (json.JSONDecodeError, TypeError):
-                pass
-        if display.summary and cache.tokenized_summary:
-            try:
-                tokens = json.loads(
-                    strip_trailing_ellipsis_tokens_json(cache.tokenized_summary)
-                )
-                ctx = ContextIdentifier(ContextType.ARTICLE_SUMMARY, article_id=display.id)
-                result["interactiveSummary"] = {
-                    "tokens": tokens,
-                    "context_identifier": ctx.as_dictionary(),
-                    "past_bookmarks": ArticleSummaryContext.get_all_user_bookmarks_for_article_summary(
-                        user.id, display.id
-                    ),
-                }
-            except (json.JSONDecodeError, TypeError):
-                pass
+        ctx = ContextIdentifier(
+            ContextType.ARTICLE_LEVEL_SUMMARY,
+            article_level_summary_id=display.id,
+        )
+        result["interactiveSummary"] = {
+            "tokens": tokens,
+            "context_identifier": ctx.as_dictionary(),
+            "past_bookmarks": ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
+                user.id, display.id
+            ),
+        }

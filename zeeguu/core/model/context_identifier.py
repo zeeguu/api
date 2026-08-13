@@ -10,6 +10,7 @@ class ContextIdentifier:
         video_id=None,
         video_caption_id=None,
         example_sentence_id=None,
+        article_level_summary_id=None,
     ):
         self.context_type = context_type
         self.article_fragment_id = article_fragment_id
@@ -17,6 +18,7 @@ class ContextIdentifier:
         self.video_id = video_id
         self.video_caption_id = video_caption_id
         self.example_sentence_id = example_sentence_id
+        self.article_level_summary_id = article_level_summary_id
 
     def __repr__(self):
         return f"<ContextIdentifier context_type={self.context_type}>"
@@ -33,6 +35,7 @@ class ContextIdentifier:
             video_id=dictionary.get("video_id", None),
             video_caption_id=dictionary.get("video_caption_id", None),
             example_sentence_id=dictionary.get("example_sentence_id", None),
+            article_level_summary_id=dictionary.get("article_level_summary_id", None),
         )
 
     @classmethod
@@ -47,6 +50,7 @@ class ContextIdentifier:
             "video_id": self.video_id,
             "video_caption_id": self.video_caption_id,
             "example_sentence_id": self.example_sentence_id,
+            "article_level_summary_id": self.article_level_summary_id,
         }
 
     def create_context_mapping(self, session, bookmark, commit=False):
@@ -93,7 +97,21 @@ class ContextIdentifier:
                     session, bookmark, article, commit=commit
                 )
                 session.add(mapped_context)
-                
+
+            case ContextType.ARTICLE_LEVEL_SUMMARY:
+                if self.article_level_summary_id is None:
+                    return None
+                from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+                level_summary = ArticleLevelSummary.find_by_id(
+                    self.article_level_summary_id
+                )
+                if level_summary is None:
+                    return None
+                mapped_context = context_specific_table.find_or_create(
+                    session, bookmark, level_summary, commit=commit
+                )
+                session.add(mapped_context)
+
             case ContextType.VIDEO_TITLE:
                 if self.video_id is None:
                     return None

@@ -152,6 +152,19 @@ class Bookmark(db.Model):
             else:
                 # Fallback: context mapping is missing
                 return "[Title not available]"
+        if self.context.context_type.type == ContextType.ARTICLE_LEVEL_SUMMARY:
+            from zeeguu.core.model.article_level_summary_context import (
+                ArticleLevelSummaryContext,
+            )
+
+            level_summary_context = ArticleLevelSummaryContext.find_by_bookmark(self)
+            if level_summary_context and level_summary_context.article_level_summary:
+                return Article.find_by_id(
+                    level_summary_context.article_level_summary.article_id
+                ).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
         if self.context.context_type.type == ContextType.VIDEO_TITLE:
             from zeeguu.core.model.video_title_context import VideoTitleContext
 
@@ -429,6 +442,10 @@ class Bookmark(db.Model):
                 case ContextType.ARTICLE_SUMMARY:
                     context_identifier.article_id = (
                         result.article_id if result else None
+                    )
+                case ContextType.ARTICLE_LEVEL_SUMMARY:
+                    context_identifier.article_level_summary_id = (
+                        result.article_level_summary_id if result else None
                     )
                 case ContextType.VIDEO_TITLE:
                     context_identifier.video_id = result.video_id if result else None

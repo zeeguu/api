@@ -1,0 +1,142 @@
+import json
+
+import sqlalchemy
+
+from zeeguu.core.model.article import Article
+from zeeguu.core.model.db import db
+
+# CEFR levels, simplest → most complex. Used to pick the best available summary
+# for a learner's level.
+CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
+
+
+class ArticleLevelSummary(db.Model):
+    """
+    A short, CEFR-level-specific summary of an Article, used as the tappable
+    preview blurb on feed cards.
+
+    On-demand simplification means the crawl no longer creates a simplified child
+    article per level, so the level-appropriate summaries live here directly
+    instead of on child-article rows. There is at most one row per
+    (article, cefr_level), for levels simpler than the article's own level; the
+    article's own-level summary stays on ``Article.summary``.
+    """
+
+    __table_args__ = {"mysql_collate": "utf8_bin"}
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    article_id = db.Column(db.Integer, db.ForeignKey(Article.id), nullable=False)
+    article = db.relationship(Article)
+
+    cefr_level = db.Column(db.String(2), nullable=False)
+    summary = db.Column(db.UnicodeText)
+    # Cached token stream (same shape as ArticleTokenizationCache.tokenized_summary)
+    # so the tappable preview renders without re-tokenizing on the request path.
+    tokenized_summary = db.Column(db.JSON)
+    # First-class generator entity (model_name + prompt_version), same as
+    # Article.simplification_ai_generator_id — not a raw model-name string.
+    ai_generator_id = db.Column(db.Integer, db.ForeignKey("ai_generator.id"))
+    ai_generator = db.relationship("AIGenerator", foreign_keys=[ai_generator_id])
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    def __init__(
+        self, article, cefr_level, summary, tokenized_summary=None, ai_generator_id=None
+    ):
+        self.article = article
+        self.cefr_level = cefr_level
+        self.summary = summary
+        self.tokenized_summary = tokenized_summary
+        self.ai_generator_id = ai_generator_id
+
+    def __repr__(self):
+        return f"<ArticleLevelSummary a:{self.article_id} {self.cefr_level}>"
+
+    @classmethod
+    def find_by_id(cls, id: int):
+        try:
+            return cls.query.filter(cls.id == id).one()
+        except sqlalchemy.orm.exc.NoResultFound:
+            return None
+
+    @classmethod
+    def find_or_create(
+        cls,
+        session,
+        article,
+        cefr_level,
+        summary,
+        tokenized_summary=None,
+        ai_generator_id=None,
+        commit=True,
+    ):
+        try:
+            existing = cls.query.filter(
+                cls.article_id == article.id,
+                cls.cefr_level == cefr_level,
+            ).one()
+            existing.summary = summary
+            existing.tokenized_summary = tokenized_summary
+            existing.ai_generator_id = ai_generator_id
+            session.add(existing)
+            if commit:
+                session.commit()
+            return existing
+        except sqlalchemy.orm.exc.NoResultFound:
+            new = cls(article, cefr_level, summary, tokenized_summary, ai_generator_id)
+            session.add(new)
+            if commit:
+                session.commit()
+            return new
+
+    @staticmethod
+    def allowed_levels(user_level: str):
+        """CEFR levels at or below ``user_level`` (the levels a learner can read),
+        or None if the level is unknown."""
+        if user_level not in CEFR_ORDER:
+            return None
+        return set(CEFR_ORDER[: CEFR_ORDER.index(user_level) + 1])
+
+    @staticmethod
+    def pick_best(candidates, user_level: str):
+        """
+        From ``candidates`` (any objects with a ``.cefr_level``), return the one at
+        the highest level still at or below ``user_level``, or None. This is the
+        single source of truth for level selection, shared by the single-article
+        lookup and the batched feed overlay so they can't drift apart.
+        """
+        allowed = ArticleLevelSummary.allowed_levels(user_level)
+        if not allowed:
+            return None
+        eligible = [c for c in candidates if c.cefr_level in allowed]
+        if not eligible:
+            return None
+        return max(eligible, key=lambda c: CEFR_ORDER.index(c.cefr_level))
+
+    @classmethod
+    def best_for_user_level(cls, article_id: int, user_level: str):
+        """
+        Return the ArticleLevelSummary best matching a learner's CEFR level: the
+        highest stored level that is still at or below ``user_level`` (rows only
+        exist for levels below the article's own, so a learner at or above the
+        article level gets None and the caller falls back to Article.summary).
+        Returns None when there's no suitable per-level summary.
+        """
+        allowed = cls.allowed_levels(user_level)
+        if not allowed:
+            return None
+        rows = cls.query.filter(
+            cls.article_id == article_id, cls.cefr_level.in_(allowed)
+        ).all()
+        return cls.pick_best(rows, user_level)
+
+    def get_tokenized_summary(self):
+        """Parse the cached token stream, tolerating either JSON text or a dict."""
+        if not self.tokenized_summary:
+            return None
+        if isinstance(self.tokenized_summary, str):
+            try:
+                return json.loads(self.tokenized_summary)
+            except (ValueError, TypeError):
+                return None
+        return self.tokenized_summary

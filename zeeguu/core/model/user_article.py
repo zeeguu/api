@@ -691,6 +691,47 @@ class UserArticle(db.Model):
                     token.pop("mwe_partner_indices", None)
 
     @classmethod
+    def _level_matched_summary_payload(cls, user, article):
+        """
+        Return the tappable-summary payload for the ArticleLevelSummary matching
+        this learner's CEFR level, or None if there's no suitable per-level
+        summary (caller falls back to the article's own-level summary).
+        """
+        from sqlalchemy.orm.exc import NoResultFound
+        from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+        from zeeguu.core.model.article_level_summary_context import (
+            ArticleLevelSummaryContext,
+        )
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+
+        try:
+            user_level = user.cefr_level_for_learned_language()
+        except (AttributeError, IndexError, TypeError, NoResultFound):
+            return None
+        if not user_level:
+            return None
+
+        level_summary = ArticleLevelSummary.best_for_user_level(article.id, user_level)
+        if not level_summary:
+            return None
+        tokens = level_summary.get_tokenized_summary()
+        if not tokens:
+            return None
+
+        context_id = ContextIdentifier(
+            ContextType.ARTICLE_LEVEL_SUMMARY,
+            article_level_summary_id=level_summary.id,
+        )
+        return {
+            "tokens": tokens,
+            "context_identifier": context_id.as_dictionary(),
+            "past_bookmarks": ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
+                user.id, level_summary.id
+            ),
+        }
+
+    @classmethod
     def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None):
         """
         Returns tokenized summary and title for an article with user bookmarks.
@@ -723,8 +764,13 @@ class UserArticle(db.Model):
         if not cache:
             cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
 
-        # Build summary response
-        if article.summary and cache.tokenized_summary:
+        # Build summary response — prefer a CEFR-level-matched preview summary if
+        # one exists for this learner's level; otherwise fall back to the article's
+        # own-level summary.
+        level_summary = cls._level_matched_summary_payload(user, article)
+        if level_summary:
+            result["tokenized_summary"] = level_summary
+        elif article.summary and cache.tokenized_summary:
             try:
                 from zeeguu.core.model.article import strip_trailing_ellipsis_tokens_json
                 tokenized_summary = json.loads(
