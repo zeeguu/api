@@ -12,9 +12,11 @@ from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.user_rule import UserRule
 
 from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+from zeeguu.core.model.article_level_summary_context import ArticleLevelSummaryContext
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 
 session = zeeguu.core.model.db.session
 
@@ -101,3 +103,29 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
                 payload["context_identifier"]["context_type"]
                 == ContextType.ARTICLE_SUMMARY
             )
+
+    def test_context_find_or_create_is_idempotent(self):
+        als = self._add_level_summary("B1")
+        bookmark = BookmarkRule(self.user).bookmark
+
+        c1 = ArticleLevelSummaryContext.find_or_create(session, bookmark, als)
+        c2 = ArticleLevelSummaryContext.find_or_create(session, bookmark, als)
+
+        assert c1.id == c2.id
+        count = ArticleLevelSummaryContext.query.filter_by(
+            bookmark_id=bookmark.id, article_level_summary_id=als.id
+        ).count()
+        assert count == 1
+
+    def test_duplicate_context_rejected_by_unique_constraint(self):
+        from sqlalchemy.exc import IntegrityError
+
+        als = self._add_level_summary("B1")
+        bookmark = BookmarkRule(self.user).bookmark
+
+        # Two raw rows for the same (bookmark, level summary) must not coexist.
+        session.add(ArticleLevelSummaryContext(bookmark, als))
+        session.add(ArticleLevelSummaryContext(bookmark, als))
+        with self.assertRaises(IntegrityError):
+            session.flush()
+        session.rollback()

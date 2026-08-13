@@ -31,7 +31,11 @@ CREATE TABLE article_level_summary_context (
     bookmark_id INT NOT NULL,
     article_level_summary_id INT,
     CONSTRAINT fk_alsc_bookmark FOREIGN KEY (bookmark_id) REFERENCES bookmark (id),
-    CONSTRAINT fk_alsc_summary FOREIGN KEY (article_level_summary_id) REFERENCES article_level_summary (id) ON DELETE CASCADE
+    CONSTRAINT fk_alsc_summary FOREIGN KEY (article_level_summary_id) REFERENCES article_level_summary (id) ON DELETE CASCADE,
+    -- One context row per (bookmark, level summary): makes a concurrent-insert
+    -- race fail with IntegrityError (which find_or_create catches + re-queries)
+    -- instead of silently creating a duplicate that later breaks .one().
+    UNIQUE KEY uq_alsc_bookmark_summary (bookmark_id, article_level_summary_id)
 );
 
 -- New context type so the bookmark/context pipeline can dispatch to the join above.
