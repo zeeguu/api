@@ -9,7 +9,15 @@ class ArticleTitleContext(db.Model):
     A context that is found in a title of an Article.
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # At most one context row per (bookmark, article) title — see find_or_create.
+        db.UniqueConstraint(
+            "bookmark_id",
+            "article_id",
+            name="uq_atc_bookmark_article",
+        ),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
@@ -44,20 +52,34 @@ class ArticleTitleContext(db.Model):
         article,
         commit=True,
     ):
+        existing = cls.query.filter(
+            cls.bookmark == bookmark,
+            cls.article == article,
+        ).one_or_none()
+        if existing:
+            return existing
+
+        # Insert inside a SAVEPOINT so that if a concurrent request created the
+        # same (bookmark, article) between our SELECT and INSERT, the unique
+        # constraint fires and we roll back just this insert (not the caller's
+        # whole transaction, which may still be uncommitted when commit=False) and
+        # return the row the other request created.
+        new = cls(
+            bookmark,
+            article,
+        )
         try:
+            with session.begin_nested():
+                session.add(new)
+        except sqlalchemy.exc.IntegrityError:
             return cls.query.filter(
                 cls.bookmark == bookmark,
                 cls.article == article,
             ).one()
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
-            new = cls(
-                bookmark,
-                article,
-            )
-            session.add(new)
-            if commit:
-                session.commit()
-            return new
+
+        if commit:
+            session.commit()
+        return new
 
     @classmethod
     def get_all_user_bookmarks_for_article_title(

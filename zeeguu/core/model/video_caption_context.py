@@ -8,7 +8,15 @@ class VideoCaptionContext(db.Model):
     A context that is found in a caption of a Video.
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # At most one context row per (bookmark, caption) — see find_or_create.
+        db.UniqueConstraint(
+            "bookmark_id",
+            "caption_id",
+            name="uq_vcc_bookmark_caption",
+        ),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -46,20 +54,34 @@ class VideoCaptionContext(db.Model):
         caption,
         commit=True,
     ):
+        existing = cls.query.filter(
+            cls.bookmark == bookmark,
+            cls.caption == caption,
+        ).one_or_none()
+        if existing:
+            return existing
+
+        # Insert inside a SAVEPOINT so that if a concurrent request created the
+        # same (bookmark, caption) between our SELECT and INSERT, the unique
+        # constraint fires and we roll back just this insert (not the caller's
+        # whole transaction, which may still be uncommitted when commit=False) and
+        # return the row the other request created.
+        new = cls(
+            bookmark,
+            caption,
+        )
         try:
+            with session.begin_nested():
+                session.add(new)
+        except sqlalchemy.exc.IntegrityError:
             return cls.query.filter(
                 cls.bookmark == bookmark,
                 cls.caption == caption,
             ).one()
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
-            new = cls(
-                bookmark,
-                caption,
-            )
-            session.add(new)
-            if commit:
-                session.commit()
-            return new
+
+        if commit:
+            session.commit()
+        return new
 
     @classmethod
     def get_all_user_bookmarks_for_caption(
