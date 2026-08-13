@@ -21,9 +21,9 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 
 session = zeeguu.core.model.db.session
 
-# A minimal non-empty token stream (shape is opaque to our code — we only check
-# truthiness and round-tripping).
-DUMMY_TOKENS = [[{"text": "hej", "sentence_i": 0, "token_i": 0}]]
+# A minimal non-empty token stream in the real shape: paragraphs -> sentences ->
+# tokens (same nesting tokenize_for_reading produces).
+DUMMY_TOKENS = [[[{"text": "hej", "sentence_i": 0, "token_i": 0}]]]
 
 # A summary token stream (paragraphs -> sentences -> tokens) whose first sentence
 # groups "har lavet" into an MWE. The metadata keys mirror what
@@ -173,6 +173,55 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         info = UserArticle.user_article_summary_info(self.user, self.article)
         sentence = info["tokenized_summary"]["tokens"][0][0]
         assert sentence[0]["mwe_group_id"] == 7
+
+    def test_mwe_override_does_not_mutate_stored_tokens(self):
+        # The served tokens are a cleared copy; the ArticleLevelSummary row's own
+        # tokenized_summary must be left intact (no accidental DB-side mutation).
+        als = self._add_mwe_level_summary("B1")
+        self._set_user_level("B2")
+        UserMweOverride.find_or_create(
+            session,
+            user_id=self.user.id,
+            article_id=self.article.id,
+            sentence_hash=UserMweOverride.compute_sentence_hash(MWE_SENTENCE_TEXT),
+            mwe_expression=MWE_EXPRESSION,
+        )
+        session.commit()
+
+        UserArticle.user_article_summary_info(self.user, self.article)
+
+        # The stored row still has its MWE grouping.
+        assert als.get_tokenized_summary()[0][0][0]["mwe_group_id"] == 7
+
+    def test_overlay_applies_mwe_override_and_carries_article_id(self):
+        # Exercise the feed overlay path directly (not just user_article_summary_info).
+        from zeeguu.core.content_recommender.elastic_recommender import (
+            _apply_simplified_display_overlay,
+        )
+
+        self._add_mwe_level_summary("B1")
+        self._set_user_level("B2")
+        UserMweOverride.find_or_create(
+            session,
+            user_id=self.user.id,
+            article_id=self.article.id,
+            sentence_hash=UserMweOverride.compute_sentence_hash(MWE_SENTENCE_TEXT),
+            mwe_expression=MWE_EXPRESSION,
+        )
+        session.commit()
+
+        results = [{"id": self.article.id}]
+        _apply_simplified_display_overlay(self.user, results)
+
+        interactive = results[0].get("interactiveSummary")
+        assert interactive is not None
+        ctx = interactive["context_identifier"]
+        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_SUMMARY
+        assert ctx["article_id"] == self.article.id
+        # MWE metadata cleared on the overlaid tokens.
+        sentence = interactive["tokens"][0][0]
+        assert "mwe_group_id" not in sentence[0]
+        assert "mwe_group_id" not in sentence[1]
 
     def test_summary_info_falls_back_to_original_when_no_level_match(self):
         # Learner at A1 with only a B1 summary → no per-level match → falls back
