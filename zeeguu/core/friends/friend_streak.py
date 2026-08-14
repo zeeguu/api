@@ -52,12 +52,11 @@ def update_streak(friendship: Friendship, session=None, commit=True):
     both_practiced_today = user_a_date == user_a_today and user_b_date == user_b_today
     either_has_no_history = user_a_date is None or user_b_date is None
     either_lapsed = _either_lapsed(user_a_date, user_b_date, user_a_today, user_b_today)
-    already_counted_today = last_updated_date == server_today
     streak_was_active_yesterday = last_updated_date == server_yesterday and friendship.friend_streak > 0
 
     if either_has_no_history:
         pass  # do not reset if one side has never practiced
-    elif both_practiced_today and not already_counted_today:
+    elif both_practiced_today:
         if streak_was_active_yesterday:
             friendship.friend_streak += 1
         else:
