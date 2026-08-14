@@ -16,12 +16,14 @@ Run:
     python -m pytest tools/test_feed_delivery_health_check.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tools.feed_delivery_health_check import (
     freshness_summary,
     classify_segment,
     is_alerting,
+    _to_local_naive,
+    _hit_published_time,
     Segment,
     SegmentResult,
     FreshnessSummary,
@@ -139,3 +141,32 @@ def test_not_alerting_for_report_only_level_even_when_empty():
 
 def test_not_alerting_when_segment_is_ok():
     assert is_alerting(_result("B1", STATUS_OK), ALERTING) is False
+
+
+# --- timezone handling / ES hit parsing ---------------------------------------
+def test_to_local_naive_leaves_naive_unchanged():
+    dt = datetime(2026, 8, 13, 10, 0, 0)
+    assert _to_local_naive(dt) == dt
+
+
+def test_to_local_naive_converts_aware_to_local_instant():
+    aware = datetime(2026, 8, 13, 10, 0, 0, tzinfo=timezone.utc)
+    # Converted to local wall-clock (naive), preserving the instant — not just
+    # tz-stripped (which would keep 10:00 regardless of the server's offset).
+    assert _to_local_naive(aware).tzinfo is None
+    assert _to_local_naive(aware) == datetime.fromtimestamp(aware.timestamp())
+
+
+def test_hit_published_time_none_and_missing():
+    assert _hit_published_time({"_source": {"published_time": None}}) is None
+    assert _hit_published_time({"_source": {}}) is None
+    assert _hit_published_time({}) is None
+
+
+def test_hit_published_time_parses_iso_naive():
+    hit = {"_source": {"published_time": "2026-08-13T10:00:00"}}
+    assert _hit_published_time(hit) == datetime(2026, 8, 13, 10, 0, 0)
+
+
+def test_hit_published_time_unparseable_returns_none():
+    assert _hit_published_time({"_source": {"published_time": ""}}) is None

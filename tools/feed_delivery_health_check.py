@@ -145,8 +145,9 @@ STATUS_OK = "OK"
 STATUS_EMPTY = "EMPTY"  # nothing (or too little) recommendable at all
 STATUS_NO_FRESH = "NO_FRESH"  # inventory exists but not enough of it fresh
 STATUS_STALE = "STALE"  # freshest item is older than STALE_DAYS
+STATUS_ERROR = "ERROR"  # inventory probe itself failed (ES down/timeout) — infra, not content
 
-FAILING_STATUSES = {STATUS_EMPTY, STATUS_NO_FRESH, STATUS_STALE}
+FAILING_STATUSES = {STATUS_EMPTY, STATUS_NO_FRESH, STATUS_STALE, STATUS_ERROR}
 
 
 def is_alerting(result, alert_levels=ALERT_LEVELS):
@@ -222,28 +223,42 @@ def active_users_by_segment(active_days, language_codes=None):
     """Group recently-active users into (language, cefr_level) segments.
 
     Returns dict[Segment] -> list of (user, last_seen), each list sorted with the
-    most-recently-seen user first (that's the canary we pick). Users whose CEFR
-    level can't be resolved (no UserLanguage row / null level) are skipped — they
-    can't define a CEFR segment.
+    most-recently-seen user first. Users whose CEFR level can't be resolved (no
+    UserLanguage row / null level) are skipped. CEFR levels are resolved in ONE
+    batched query rather than per-user, to avoid an N+1 over every active user.
     """
+    from zeeguu.core.model.user_language import UserLanguage
+
     cutoff = datetime.now() - timedelta(days=active_days)
-    q = User.query.filter(User.last_seen != None).filter(User.last_seen >= cutoff)  # noqa: E711
+    users = (
+        User.query.filter(User.last_seen != None)  # noqa: E711
+        .filter(User.last_seen >= cutoff)
+        .all()
+    )
+
+    # Batch: one query for these users' UserLanguage rows -> {(user_id,
+    # language_id): cefr_level int}, where cefr_level is 1..6 (A1..C2).
+    levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    ul_rows = UserLanguage.query.filter(
+        UserLanguage.user_id.in_([u.id for u in users])
+    ).all()
+    cefr_int_by_user_lang = {
+        (ul.user_id, ul.language_id): ul.cefr_level for ul in ul_rows
+    }
 
     segments = defaultdict(list)
-    for user in q.all():
+    for user in users:
         lang = user.learned_language
         if lang is None:
             continue
         if language_codes and lang.code not in language_codes:
             continue
-        try:
-            cefr = user.cefr_level_for_learned_language()
-        except Exception:
-            # No UserLanguage row, null cefr_level, etc. — can't segment.
+        level_int = cefr_int_by_user_lang.get((user.id, lang.id))
+        if not level_int or not (1 <= level_int <= 6):
             continue
-        if not cefr:
-            continue
-        segments[Segment(lang.code, cefr)].append((user, user.last_seen))
+        segments[Segment(lang.code, levels[level_int - 1])].append(
+            (user, user.last_seen)
+        )
 
     for seg in segments:
         segments[seg].sort(key=lambda pair: pair[1], reverse=True)
@@ -259,6 +274,13 @@ def segment_inventory_published_times(segment, count):
     no topic narrowing, no disturbing filter). include_lower=False on purpose:
     the incident hit users who see ONLY their exact level, so the strict same-
     level query is the worst-case signal we want to alarm on.
+
+    LIMITATION: this models CEFR filtering but NOT per-user feature-flag filtering
+    (e.g. a simplified-only feed). A flag-driven emptiness — like the ORIGINAL
+    Aug 2026 incident (simplified-only feed, no simplified content) — would show
+    only in the per-user canary, not here. That's acceptable because api#698 made
+    feeds originals-first for everyone, removing that filter; revisit if a
+    per-user filter that can starve a feed is ever reintroduced.
 
     Returns a list of publication datetimes for the returned hits (articles AND
     videos), or raises on ES failure (caller treats that as its own alert).
@@ -295,18 +317,28 @@ def segment_inventory_published_times(segment, count):
     return [_hit_published_time(h) for h in hits]
 
 
+def _to_local_naive(dt):
+    """Align a datetime to the basis the freshness math uses (datetime.now(), i.e.
+    server-local, naive). A tz-aware value is CONVERTED to local first, so a UTC
+    timestamp isn't mis-aged by the server's UTC offset; a naive value is assumed
+    already local and returned unchanged."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone()
+    return dt.replace(tzinfo=None)
+
+
 def _hit_published_time(hit):
-    """Parse published_time out of an ES hit's _source into a naive datetime."""
+    """Parse published_time out of an ES hit's _source into a server-local naive
+    datetime (matching datetime.now())."""
     raw = hit.get("_source", {}).get("published_time")
     if raw is None:
         return None
     if isinstance(raw, datetime):
-        return raw.replace(tzinfo=None)
+        return _to_local_naive(raw)
     from dateutil import parser as date_parser
 
     try:
-        dt = date_parser.parse(raw)
-        return dt.replace(tzinfo=None)
+        return _to_local_naive(date_parser.parse(raw))
     except (ValueError, TypeError):
         return None
 
@@ -337,18 +369,21 @@ def evaluate_segment(segment, users, count, now, thresholds):
             inv_summary, min_articles, min_fresh, stale_days
         )
     except Exception as e:
-        # An ES failure is itself alert-worthy for this segment.
+        # Infra failure (ES down/timeout), NOT content emptiness — distinct status
+        # so a transient ES hiccup isn't reported as "the segment has no content".
         empty = FreshnessSummary(0, 0, None)
         return SegmentResult(
-            segment, STATUS_EMPTY, f"inventory query failed: {e}", empty,
+            segment, STATUS_ERROR, f"inventory query failed: {e}", empty,
             None, None, None, "inventory query raised",
         )
 
-    # Corroboration: per-user canary (most-recently-active user in the segment).
+    # Corroboration: per-user canary. Pick a MEDIAN-activity user, not the most
+    # recently seen: the heaviest reader's personal feed is legitimately empty most
+    # days (they opened everything fresh), which would make corroboration useless.
     canary_user_id = canary_total = canary_fresh = None
     canary_note = ""
     if users:
-        canary_user = users[0][0]
+        canary_user = users[len(users) // 2][0]
         canary_user_id = canary_user.id
         try:
             can_times = canary_published_times(canary_user, count)
@@ -512,7 +547,7 @@ def main():
         return 0
 
     subject = (
-        f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) empty/stale"
+        f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) failing (empty/stale/error)"
     )
     if args.dry_run:
         print(f"\n[dry-run] would email: {subject}")
