@@ -151,7 +151,7 @@ def assess_and_summarize(
         {
             'original_cefr_level': str,
             'original_summary': str,
-            'article_type': str | None,   # 'NEWS' | 'GENERAL'
+            'article_type': str | None,   # 'news' | 'general'
             'is_disturbing': bool,
             'provider': str,
             'model_name': str,
@@ -231,7 +231,12 @@ def assess_and_summarize(
     return {
         "original_cefr_level": original_level,
         "original_summary": original_summary,
-        "article_type": article_type,
+        # Lowercase to match the DB enum('news','general') — the article_type
+        # column uses a case-sensitive utf8mb4_bin collation, so an uppercase
+        # value fails the write with "Data truncated for column 'article_type'"
+        # and rolls back the whole crawl-time assessment. Mirrors the sibling
+        # parser in simplify_and_classify below.
+        "article_type": article_type.lower() if article_type else None,
         "is_disturbing": is_disturbing,
         "level_summaries": level_summaries,
         "provider": provider,
