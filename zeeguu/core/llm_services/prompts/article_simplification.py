@@ -11,7 +11,9 @@ def get_adaptive_simplification_prompt(language: str) -> str:
     """
     language_name = Language.LANGUAGE_NAMES.get(language, language)
 
-    return f"""You are an expert <<LANGUAGE_NAME>> language teacher. Your task is to assess an article's CEFR level and create simplified versions for ALL levels that are simpler than the original.
+    return f"""You are an expert {language_name} language teacher. Your task is to assess an article's CEFR level and create simplified versions for ALL levels that are simpler than the original.
+
+CRITICAL — OUTPUT LANGUAGE: These instructions are written in English, but everything you produce (every simplified title, body, and summary) MUST be written in {language_name}, the article's own language — NEVER in English (unless {language_name} is itself English). Output written in English is a failure, even though this prompt is in English.
 
 CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
@@ -132,7 +134,9 @@ def get_assessment_and_summary_prompt(language: str) -> str:
     """
     language_name = Language.LANGUAGE_NAMES.get(language, language)
 
-    return f"""You are an expert <<LANGUAGE_NAME>> language teacher. Your task is to assess an article's CEFR level and write a short summary. Do NOT rewrite or simplify the article — only assess and summarize it.
+    return f"""You are an expert {language_name} language teacher. Your task is to assess an article's CEFR level and write a short summary. Do NOT rewrite or simplify the article — only assess and summarize it.
+
+CRITICAL — OUTPUT LANGUAGE: These instructions are written in English, but every summary you produce (ORIGINAL_SUMMARY and each [LEVEL]_SUMMARY) MUST be written in {language_name}, the article's own language — NEVER in English (unless {language_name} is itself English). A summary written in English is a failure, even though this prompt is in English.
 
 CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
