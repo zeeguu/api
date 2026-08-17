@@ -112,8 +112,6 @@ def analyze_user_recommendations(user_email, show_details=True, count=20):
     # Get user constraints for recommendations
     (
         language,
-        upper_bounds,
-        lower_bounds,
         topics_to_include,
         topics_to_exclude,
         wanted_searches,
@@ -122,7 +120,6 @@ def analyze_user_recommendations(user_email, show_details=True, count=20):
     ) = _prepare_user_constraints(user)
 
     print(f"  Language: {language.name if language else 'Not set'}")
-    print(f"  Difficulty Level: {lower_bounds/10:.1f} - {upper_bounds/10:.1f}")
 
     # Topics
     print(f"\n  Subscribed Topics:")
