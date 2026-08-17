@@ -50,26 +50,21 @@ def more_like_this_query(count, article_text, language, page=0):
 CEFR_LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
-def get_cefr_levels_to_match(user_cefr_level, include_lower=False):
+def get_cefr_levels_to_match(user_cefr_level):
     """
     Returns the list of CEFR levels that match the user's level.
     Includes exact match and compound levels where user is the upper half.
     E.g., A2 user matches: ["A2", "A1/A2"].
 
-    When include_lower is True, ALSO match every level BELOW the user's — so an
-    advanced/native reader (or a thin-inventory language) isn't starved down to
-    only same-level articles. E.g., C1 user matches every band from A1 up to
-    "B2/C1". Driven by the "show easier articles" user preference.
+    NOTE: discovery (feed, topic browsing, search) no longer filters on CEFR at
+    all — see build_elastic_recommender_query. What is left of this function
+    serves tools/feed_delivery_health_check.py, which still probes per-level
+    inventory as a canary on CEFR assessment coverage.
     """
-    idx = CEFR_LEVEL_ORDER.index(user_cefr_level)
-    exact_levels = CEFR_LEVEL_ORDER[: idx + 1] if include_lower else [user_cefr_level]
-
-    levels = []
-    for lvl in exact_levels:
-        levels.append(lvl)
-        i = CEFR_LEVEL_ORDER.index(lvl)
-        if i > 0:
-            levels.append(f"{CEFR_LEVEL_ORDER[i - 1]}/{lvl}")
+    levels = [user_cefr_level]
+    i = CEFR_LEVEL_ORDER.index(user_cefr_level)
+    if i > 0:
+        levels.append(f"{CEFR_LEVEL_ORDER[i - 1]}/{user_cefr_level}")
     return levels
 
 
@@ -78,7 +73,6 @@ def build_elastic_recommender_query(
     user_topics,
     unwanted_user_topics,
     language,
-    user_cefr_level,
     es_scale,
     es_offset,
     es_decay,
@@ -87,7 +81,6 @@ def build_elastic_recommender_query(
     user_ignored_sources,
     articles_to_exclude=None,
     filter_disturbing=False,
-    include_lower=False,
     page=0,
 ):
     """
@@ -95,16 +88,23 @@ def build_elastic_recommender_query(
 
     Filters articles by:
     - Language
-    - User's CEFR level (via available_cefr_levels field)
     - Topic preferences
     - Disturbing content (if enabled)
 
     Scores/ranks by recency (preferring recent articles).
 
-    Args:
-        user_cefr_level: User's CEFR level string (e.g., "A1", "B2")
-                        Articles must have this level in available_cefr_levels.
-                        Also matches compound levels (e.g., A2 matches "A1/A2").
+    NOT filtered by CEFR level, deliberately. With on-demand simplification
+    every article is readable at the learner's level — the feed card carries a
+    level-appropriate summary (ArticleLevelSummary) and the body simplifies on
+    request (POST /simplify_article/<id>) — so an article being "too hard" is no
+    longer a reason to hide it. Filtering on available_cefr_levels used to mean
+    the opposite: that field lists the levels for which a version was already
+    generated, so once crawl-time simplification was retired it collapsed to the
+    original's own level and a learner saw only articles a publisher happened to
+    write at exactly their band (for Danish A2: ~3/day out of ~50). It also hid
+    every article whose LLM assessment failed, which turned any assessment
+    outage into an empty feed. Above-level readers are the mirror case and get
+    the same treatment once we complexify.
     """
 
     # must = mandatory, has to occur
@@ -166,13 +166,6 @@ def build_elastic_recommender_query(
     if filter_disturbing:
         must_not.append({"match": {"is_disturbing": True}})
 
-    # Filter by CEFR level. Normally only articles available at the user's level;
-    # with include_lower (the "show easier articles" pref) also everything below.
-    # Use .keyword sub-field for exact matching (field is mapped as text)
-    if user_cefr_level:
-        levels_to_match = get_cefr_levels_to_match(user_cefr_level, include_lower)
-        must.append(terms("available_cefr_levels.keyword", levels_to_match))
-
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations
     must.append({"bool": {"should": [exists("article_id"), exists("video_id")]}})
@@ -219,15 +212,19 @@ def build_elastic_search_query_for_videos(
     user_topics,
     unwanted_user_topics,
     language,
-    user_cefr_level,
     topics_to_include,
     topics_to_exclude,
     user_ignored_sources,
     page,
 ):
     """
-    Builds video search query with CEFR level filtering.
-    Similar to article recommender but with less emphasis on recency.
+    Builds video search query. Similar to article recommender but with less
+    emphasis on recency.
+
+    No CEFR filter — same reasoning as build_elastic_recommender_query, and for
+    videos the filter was worse than redundant: document_from_video never writes
+    an available_cefr_levels field, so requiring a level in it excluded every
+    video from every leveled user's results.
     """
 
     must = []
@@ -261,12 +258,6 @@ def build_elastic_search_query_for_videos(
                 user_ignored_sources,
             )
         )
-
-    # Filter by CEFR level - only show videos available at user's level
-    # Use .keyword sub-field for exact matching (field is mapped as text)
-    if user_cefr_level:
-        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
-        must.append(terms("available_cefr_levels.keyword", levels_to_match))
 
     must.append(exists("published_time"))
     must.append(exists("video_id"))
@@ -309,7 +300,6 @@ def build_elastic_search_query(
     count,
     search_terms,
     language,
-    user_cefr_level=None,
     es_time_scale="1d",
     es_time_offset="1d",
     es_time_decay=0.65,
@@ -319,7 +309,9 @@ def build_elastic_search_query(
     """
     Builds an elastic search query for search terms.
 
-    Filters by CEFR level and ranks by recency.
+    Ranks by recency. No CEFR filter — a learner searching for a word wants the
+    articles that contain it, and any of them can be simplified on demand (same
+    reasoning as build_elastic_recommender_query).
     """
 
     s = (
@@ -333,11 +325,6 @@ def build_elastic_search_query(
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
-
-    # Add CEFR level filter (use .keyword sub-field for exact matching)
-    if user_cefr_level:
-        levels_to_match = get_cefr_levels_to_match(user_cefr_level)
-        s = s.filter("terms", **{"available_cefr_levels.keyword": levels_to_match})
 
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608

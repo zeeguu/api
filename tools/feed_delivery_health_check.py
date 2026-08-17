@@ -23,18 +23,19 @@ user in that segment actually get a non-empty, fresh feed?
 Two signals per segment
 ------------------------
 1. INVENTORY (primary alert trigger): re-run the app's OWN recommender query
-   builder (build_elastic_recommender_query) parameterized by the segment's
-   language + CEFR level, with NO per-user seen-exclusion and NO topic
-   narrowing. This is "does fresh content that this segment COULD be shown even
-   exist in the index?" It replicates the exact CEFR filtering
-   (available_cefr_levels) that starved the incident's segment, without being
-   confounded by one user's reading history.
+   builder (build_elastic_recommender_query) for the segment's language, with NO
+   per-user seen-exclusion and NO topic narrowing, plus a CEFR clause this check
+   adds itself. This is "does fresh content that this segment COULD be shown even
+   exist in the index?", without being confounded by one user's reading history.
+   The CEFR half of it has since become a check on ASSESSMENT rather than on
+   delivery — the feed no longer filters by level (see
+   segment_inventory_published_times).
 
 2. PER-USER CANARY (corroboration): pick a real, recently-active user in the
    segment and call the REAL feed function article_recommendations_for_user().
-   This exercises the full path the app uses — CEFR filtering, the feature flags
-   (simplified-only vs originals-first, "show easier"), the disturbing filter,
-   the ES index, seen-exclusion, teacher-upload filtering.
+   This exercises the full path the app uses — the feature flags (simplified-only
+   vs originals-first), the disturbing filter, the ES index, seen-exclusion,
+   teacher-upload filtering.
 
 INVENTORY is the primary trigger because a single power-user can legitimately
 have an empty PERSONAL feed (they already opened everything fresh) — that's a
@@ -269,13 +270,20 @@ def active_users_by_segment(active_days, language_codes=None):
 def segment_inventory_published_times(segment, count):
     """Fresh-inventory probe for a segment, independent of any one user.
 
-    Reuses the app's OWN query builder (build_elastic_recommender_query) with the
-    segment's language + CEFR level and NO per-user filters (no seen-exclusion,
-    no topic narrowing, no disturbing filter). include_lower=False on purpose:
-    the incident hit users who see ONLY their exact level, so the strict same-
-    level query is the worst-case signal we want to alarm on.
+    Reuses the app's OWN query builder (build_elastic_recommender_query) for the
+    segment's language with NO per-user filters (no seen-exclusion, no topic
+    narrowing, no disturbing filter), then adds the CEFR clause on top.
 
-    LIMITATION: this models CEFR filtering but NOT per-user feature-flag filtering
+    That clause is ours now, not the feed's: the recommender stopped filtering on
+    available_cefr_levels once simplification became on-demand (any article is
+    readable at any level), so nothing in the delivery path narrows by level
+    anymore. We keep probing per level because the field still tells us whether
+    CEFR ASSESSMENT is running — a segment going empty here means new articles
+    are landing unassessed (the Aug 2026 article_type bug, and the Anthropic
+    usage-cap outages, both looked exactly like this), which no longer starves
+    the feed but does starve level summaries and the level badge.
+
+    LIMITATION: this models CEFR coverage but NOT per-user feature-flag filtering
     (e.g. a simplified-only feed). A flag-driven emptiness — like the ORIGINAL
     Aug 2026 incident (simplified-only feed, no simplified content) — would show
     only in the per-user canary, not here. That's acceptable because api#698 made
@@ -288,6 +296,7 @@ def segment_inventory_published_times(segment, count):
     from elasticsearch import Elasticsearch
     from zeeguu.core.elastic.elastic_query_builder import (
         build_elastic_recommender_query,
+        get_cefr_levels_to_match,
     )
     from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
@@ -298,7 +307,6 @@ def segment_inventory_published_times(segment, count):
         user_topics="",
         unwanted_user_topics="",
         language=language,
-        user_cefr_level=segment.cefr_level,
         es_scale="1d",
         es_offset="1d",
         es_decay=0.6,
@@ -307,8 +315,16 @@ def segment_inventory_published_times(segment, count):
         user_ignored_sources=[],
         articles_to_exclude=None,
         filter_disturbing=False,
-        include_lower=False,
         page=0,
+    )
+    query_body["query"]["function_score"]["query"]["bool"]["must"].append(
+        {
+            "terms": {
+                "available_cefr_levels.keyword": get_cefr_levels_to_match(
+                    segment.cefr_level
+                )
+            }
+        }
     )
 
     es = Elasticsearch(ES_CONN_STRING)

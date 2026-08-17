@@ -148,7 +148,12 @@ class UserPreference(db.Model):
     def is_show_easier_articles_enabled(cls, user: User):
         """Whether to ALSO show articles below the user's CEFR level (not just at
         level). Helps advanced/native readers and thin-inventory languages whose
-        at-level feed would otherwise be near-empty. Default: False."""
+        at-level feed would otherwise be near-empty. Default: False.
+
+        INERT since the feed stopped filtering by CEFR level altogether (see
+        build_elastic_recommender_query) — every article is already shown, so
+        there is nothing left for this to widen. Kept until the web toggle in
+        Settings > Feed Preferences is removed or repurposed."""
         setting = UserPreference.query.filter_by(
             user_id=user.id, key=cls.SHOW_EASIER_ARTICLES
         ).first()

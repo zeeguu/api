@@ -46,9 +46,6 @@ def _prepare_user_constraints(user, language=None):
     if language is None:
         language = user.learned_language
 
-    # Get user's CEFR level for filtering (e.g., "A1", "B2")
-    user_cefr_level = user.cefr_level_for_language(language)
-
     # 1. Unwanted user topics
     # ==============================
     user_search_filters = SearchFilter.all_for_user(user)
@@ -90,7 +87,6 @@ def _prepare_user_constraints(user, language=None):
 
     return (
         language,
-        user_cefr_level,
         _topics_to_string(topics_to_include),
         _topics_to_string(topics_to_exclude),
         _list_to_string(wanted_user_searches),
@@ -138,7 +134,6 @@ def article_recommendations_for_user(
     final_article_mix = []
     (
         language,
-        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -158,17 +153,12 @@ def article_recommendations_for_user(
     # Check if user has enabled disturbing content filtering
     filter_disturbing = UserPreference.is_filter_disturbing_content_enabled(user)
 
-    # "Show easier articles": also surface articles below the user's level (helps
-    # advanced/native readers and thin-inventory languages avoid an empty feed).
-    include_lower = UserPreference.is_show_easier_articles_enabled(user)
-
     # build the query using elastic_query_builder
     query_body = build_elastic_recommender_query(
         count,
         wanted_user_searches,
         unwanted_user_searches,
         language,
-        user_cefr_level,
         es_scale,
         es_offset,
         es_decay,
@@ -177,7 +167,6 @@ def article_recommendations_for_user(
         user_ignored_sources=user_ignored_sources,
         articles_to_exclude=articles_to_exclude,
         filter_disturbing=filter_disturbing,
-        include_lower=include_lower,
         page=page,
     )
 
@@ -279,7 +268,6 @@ def video_recommendations_for_user(
 ):
     (
         language,
-        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -293,7 +281,6 @@ def video_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         language,
-        user_cefr_level,
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
@@ -322,7 +309,6 @@ def article_and_video_search_for_user(
 
     (
         language,
-        user_cefr_level,
         topics_to_include,
         topics_to_exclude,
         wanted_user_searches,
@@ -335,7 +321,6 @@ def article_and_video_search_for_user(
         count,
         search_terms,
         language,
-        user_cefr_level,
         es_time_scale,
         es_time_offset,
         es_time_decay,
@@ -376,8 +361,6 @@ def topic_filter_for_user(
     difficulty_level,
     topic,
 ):
-    from zeeguu.core.elastic.elastic_query_builder import get_cefr_levels_to_match
-
     es = Elasticsearch(ES_CONN_STRING)
 
     s = Search().query(Q("term", language=user.learned_language.code()))
@@ -406,12 +389,7 @@ def topic_filter_for_user(
     if topic != None and topic != "all":
         s = s.filter("match", topics=topic.lower())
 
-    # Filter by user's CEFR level; the "show easier articles" pref also includes
-    # everything below the user's level.
-    user_cefr_level = user.cefr_level_for_learned_language()
-    include_lower = UserPreference.is_show_easier_articles_enabled(user)
-    levels_to_match = get_cefr_levels_to_match(user_cefr_level, include_lower)
-    s = s.filter("terms", **{"available_cefr_levels.keyword": levels_to_match})
+    # No CEFR filter here either — see build_elastic_recommender_query for why.
 
     query = s.query
 
