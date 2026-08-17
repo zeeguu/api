@@ -4,7 +4,6 @@ Uses Azure for languages not well-supported by Google (e.g., Greek with male voi
 """
 
 import os
-import re
 import hashlib
 from typing import List, Tuple
 from google.cloud import texttospeech
@@ -15,10 +14,10 @@ from zeeguu.core.audio_lessons.voice_config import (
     get_voice_id,
     get_teacher_voice,
     normalize_language_code,
-    DEFAULT_SILENCE_SECONDS,
     VOICE_CONFIG,
 )
 from zeeguu.core.audio_lessons.azure_voice_synthesizer import AzureVoiceSynthesizer
+from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.logging import log
 
 
@@ -55,86 +54,9 @@ class VoiceSynthesizer:
             self.azure_client = AzureVoiceSynthesizer()
         return self.azure_client
 
-    def _join_continuation_lines(self, script: str) -> str:
-        """
-        Join continuation lines back to their parent voice line.
-
-        Sometimes the LLM breaks a single voice instruction across multiple lines,
-        e.g.:
-            Teacher: In the following conversation...
-            Throughout the dialogue, you will hear the word [0.2 seconds]
-
-        This method joins such continuation lines back to the previous voice line.
-        """
-        lines = script.split("\n")
-        joined_lines = []
-        voice_pattern = re.compile(r"^(Teacher|TeacherL2|Man|Woman|Armin|Aldo):\s*", re.IGNORECASE)
-
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-
-            # Check if this line starts with a voice label
-            if voice_pattern.match(stripped):
-                joined_lines.append(stripped)
-            elif stripped.startswith("[") and re.search(r"\[([0-9.]+)\s*seconds?", stripped, re.IGNORECASE):
-                # Standalone timing/silence marker
-                joined_lines.append(stripped)
-            elif joined_lines:
-                # Continuation line - append to previous line
-                joined_lines[-1] = joined_lines[-1] + " " + stripped
-            # else: orphan line before any voice line - skip it
-
-        return "\n".join(joined_lines)
-
     def parse_script(self, script: str) -> List[Tuple[str, str, float]]:
-        """
-        Parse the script into individual voice segments.
-
-        Returns:
-            List of tuples: (voice_type, text, silence_after)
-        """
-        # First, join any continuation lines back to their parent
-        script = self._join_continuation_lines(script)
-
-        segments = []
-        lines = script.split("\n")
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Handle standalone silence/timing markers like [1 seconds], [1 second silence]
-            if line.startswith("["):
-                duration_match = re.search(
-                    r"\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", line, re.IGNORECASE
-                )
-                if duration_match:
-                    duration = float(duration_match.group(1))
-                    segments.append(("silence", "", duration))
-                continue
-
-            # Parse voice lines like "Teacher: Some text [2 seconds]"
-            voice_match = re.match(r"^(Teacher|TeacherL2|Man|Woman|Armin|Aldo):\s*(.+)$", line, re.IGNORECASE)
-            if not voice_match:
-                continue
-
-            voice_type = voice_match.group(1).lower()
-            text = voice_match.group(2)
-
-            # Extract silence duration from the last [X seconds] marker
-            silence_duration = DEFAULT_SILENCE_SECONDS
-            silence_match = re.search(r"\[([0-9.]+)\s*seconds?\]", text)
-            if silence_match:
-                silence_duration = float(silence_match.group(1))
-            # Strip ALL timing annotations from the text
-            text = re.sub(r"\s*\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", "", text)
-
-            segments.append((voice_type, text.strip(), silence_duration))
-
-        return segments
+        """Parse the script into (voice_type, text, silence_after) segments."""
+        return parse_script(script)
 
     def get_voice_config(self, voice_type: str, language_code: str, teacher_language: str = None) -> dict:
         """Get the voice configuration for TTS.
