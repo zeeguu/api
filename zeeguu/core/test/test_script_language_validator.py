@@ -186,3 +186,63 @@ def test_language_langdetect_cannot_check_is_skipped():
 
 def test_too_short_to_judge_is_not_flagged():
     assert find_language_mismatches("Man: Hej. [1 seconds]", "da", "en") == []
+
+
+# A meaning lesson: a short dialogue, then practice phrases each spoken twice.
+# The drills are fragments, and fragments are what a detector misreads — this
+# exact script was flagged as Afrikaans on the 2026-08-18 audit run.
+DUTCH_MEANING_LESSON_WITH_DRILLS = """
+TeacherL2: dit [0.5 seconds]
+Man: Wat vind je van dit appartement? [1 seconds]
+Woman: Dit is perfect! De keuken is groot genoeg. [1 seconds]
+Man: Ja, en dit balkon heeft een mooi uitzicht. [1 seconds]
+Woman: Moeten we dit oude bankstel houden? [1 seconds]
+Man: Nee, dit bankstel is te klein. We kopen iets nieuws. [1 seconds]
+Woman: Goed idee. En dit tapijt in de woonkamer? [1 seconds]
+Man: Dit tapijt blijft. Het is nog in goede staat. [1 seconds]
+Teacher: Now let's practice. [1 seconds]
+Man: Dit appartement is perfect. [3 seconds]
+Man: Dit appartement is perfect. [3 seconds]
+Man: Dit is te klein. [3 seconds]
+Man: Dit is te klein. [3 seconds]
+Man: Ik vind dit leuk. [3 seconds]
+Man: Ik vind dit leuk. [3 seconds]
+"""
+
+# The failure the drills were hiding: an Italian lesson whose conversation is
+# Spanish, because 'madre' is a word in both. Production lesson 1167.
+ITALIAN_MEANING_LESSON_WRITTEN_IN_SPANISH = """
+TeacherL2: madre [0.5 seconds]
+Man: La madre está en el trabajo ahora. [1 seconds]
+Woman: Sí, podemos preparar la cena. [1 seconds]
+Man: A nuestra madre le gusta la pasta. [1 seconds]
+Woman: ¿Crees que a madre le gustará la sorpresa? [1 seconds]
+Man: Claro, nuestra madre siempre aprecia estas cosas. [1 seconds]
+Woman: La madre llega a las siete. [1 seconds]
+Man: Necesitamos comprar flores para madre. [1 seconds]
+Teacher: Now let's practice. [1 seconds]
+Man: Mi madre es muy amable. [3 seconds]
+Man: Mi madre es muy amable. [3 seconds]
+"""
+
+
+def test_practice_drills_do_not_fail_a_correct_lesson():
+    # 16 of the 19 lessons flagged on the first real audit were this: correct
+    # text, misread because the drill fragments dominate the passage.
+    assert find_language_mismatches(DUTCH_MEANING_LESSON_WITH_DRILLS, "nl") == []
+
+
+def test_a_conversation_in_the_wrong_language_is_still_caught():
+    mismatches = find_language_mismatches(ITALIAN_MEANING_LESSON_WRITTEN_IN_SPANISH, "it")
+    assert len(mismatches) == 1
+    assert mismatches[0].detected == "es"
+
+
+def test_a_dialogue_lesson_is_not_truncated():
+    # No drills, so nothing is dropped — which is why dialogue 235's English
+    # conversation still fails.
+    mismatches = find_language_mismatches(
+        DANISH_LESSON_ENGLISH_DIALOGUE_DANISH_PRACTICE, "da", "en"
+    )
+    assert len(mismatches) == 1
+    assert mismatches[0].detected == "en"
