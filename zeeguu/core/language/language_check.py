@@ -11,18 +11,24 @@ The question this asks is **"is this plausibly Danish?"**, not "which language i
 this?". That distinction is the whole design.
 
 A detector that only names a winner forces a question nobody wants to answer. Ask
-"which language is this?" of short Danish and it often says Norwegian, so the first
-version carried a hand-maintained list of confusable families to decide that
-Norwegian was close enough to Danish to allow. That list forgave real defects
-along with the misreads: a Norwegian learner served a Danish script passed.
+"which language is this?" of short Danish and it often says Norwegian. Asking
+about the expected language directly usually never raises it: correct Danish
+scores 0.6-0.99 as Danish, English in a Danish lesson scores 0.01, and given a
+paragraph even the neighbours separate — this Danish paragraph scores 4e-09 as
+Norwegian, so a script in the wrong Scandinavian language is caught rather than
+excused.
 
-Asking about the expected language directly never raises the question. Correct
-Danish scores 0.6-0.99 as Danish — no adjudication needed — and English in a
-Danish lesson scores 0.01. Given enough text the neighbours separate cleanly too:
-this Danish paragraph scores 4e-09 as Norwegian, so a script in the wrong
-Scandinavian language is now caught rather than excused. Short lines are the only
-place neighbours genuinely blur, and there the aggregation described below absorbs
-it.
+Where neighbours genuinely blur is short text, and the two callers answer that
+differently. A lesson script has many lines, so it groups them until there is
+enough text to be sure and then decides on the whole lesson; it needs no notion of
+which languages are close. A single stored summary has nothing to aggregate — it
+is three sentences, often mostly proper nouns — and there lingua is not merely
+uncertain but confidently wrong: a correct Danish summary about Bjørnøya scores
+Bokmål 0.998, Danish 0.002. That is not a tuning failure. Bokmål is written
+Danish; on this much text the distinction does not survive. So the field-level
+check keeps a small list of confusable families and answers "can't judge" when the
+text reads as a neighbour of the expected language, while the lesson path, which
+can aggregate, does not and so still catches a wrong-Scandinavian script.
 
 Measured over 6532 stored audio lessons: this flags 8 where the previous
 langdetect implementation flagged 12, and the four it stops flagging were all
@@ -80,6 +86,43 @@ MIN_CHARS_TO_JUDGE = 60
 # Zeeguu spells some codes differently, and lingua splits Norwegian into Bokmål and
 # Nynorsk. Without the 'no' mapping every Norwegian lesson would be unjudgeable.
 _ZEEGUU_TO_ISO = {"no": "NB", "zh-CN": "ZH"}
+
+# Languages too close to tell apart in a short, name-dense text.
+#
+# This list was deleted when the check moved to lingua, because a lesson's lines
+# can be grouped until the neighbours separate — a Danish paragraph is 4e-09
+# plausible Norwegian. A field has no such option: a summary is one short,
+# proper-noun-heavy paragraph, and there lingua is confidently wrong. Measured on
+# stored summaries, correct Danish reads as Norwegian at 0.85-1.00 while scoring
+# 0.00-0.15 as Danish — indistinguishable, by confidence OR by ratio, from an
+# English summary on a Danish article.
+#
+# What does separate them is WHICH language it reads as: a sibling for the misread,
+# English for the real defect. So a field that reads as a neighbour answers "can't
+# judge" rather than "wrong".
+# Languages close enough that a few sentences cannot separate them.
+#
+# Used ONLY by language_mismatch(), i.e. for a single field with nothing to
+# aggregate, where being confidently wrong is the observed behaviour rather than
+# the exception. The lesson path deliberately does not consult this: it groups
+# lines until the neighbours separate on their own, and excusing them there would
+# wave through a Norwegian learner served a Danish script — the exact defect the
+# first langdetect version let past.
+_CONFUSABLE_FAMILIES = [
+    {"da", "no", "sv"},
+    {"hr", "sl", "mk", "bg"},
+    {"es", "ca", "pt"},
+    {"cs", "sk"},
+    {"nl", "af"},
+    {"hi", "mr", "ne"},
+]
+
+
+def _is_a_neighbour(detected: str, expected: str) -> bool:
+    return any(
+        detected in family and expected in family for family in _CONFUSABLE_FAMILIES
+    )
+
 
 LanguageMismatch = namedtuple(
     "LanguageMismatch",
@@ -163,10 +206,24 @@ def plausibility(text, expected_zeeguu_code):
     return _detector_for_all_languages().compute_language_confidence(text, expected)
 
 
+_ISO_TO_ZEEGUU = {iso.lower(): code for code, iso in _ZEEGUU_TO_ISO.items()}
+
+
 def detected_language_of(text) -> str:
-    """The Zeeguu code this text reads as, for reporting. 'unknown' if nothing fits."""
+    """
+    The Zeeguu code this text reads as, for reporting and for the neighbour check.
+
+    Translated back into Zeeguu's vocabulary, not lingua's: lingua answers 'nb' for
+    Norwegian because it separates Bokmål from Nynorsk, and everything else here —
+    the expected code, the families, the audit output — says 'no'. Leaving it
+    untranslated silently broke the neighbour check, which then flagged correct
+    Danish summaries that read as Bokmål.
+    """
     best = _detector_for_all_languages().detect_language_of(_detectable_text(text))
-    return best.iso_code_639_1.name.lower() if best else "unknown"
+    if best is None:
+        return "unknown"
+    iso = best.iso_code_639_1.name.lower()
+    return _ISO_TO_ZEEGUU.get(iso, iso)
 
 
 def language_mismatch(text, expected_zeeguu_code, label="text"):
@@ -192,10 +249,17 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
     if confidence is None or confidence >= GROUP_LEVEL_FLOOR:
         return None
 
+    detected = detected_language_of(text)
+    if _is_a_neighbour(detected, expected_zeeguu_code):
+        # Too close to call at this length. Saying "wrong" here would condemn
+        # correct Danish summaries that happen to read as Norwegian, which is most
+        # of what a proper-noun-heavy news summary does.
+        return None
+
     return LanguageMismatch(
         label=label,
         expected=expected_zeeguu_code,
-        detected=detected_language_of(text),
+        detected=detected,
         expected_probability=confidence,
         sample=_detectable_text(text)[:120],
     )

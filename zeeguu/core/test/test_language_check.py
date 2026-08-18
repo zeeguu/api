@@ -64,12 +64,20 @@ def test_correct_text_scores_high_enough_that_neighbours_never_come_up():
     assert plausibility(DANISH, "da") > 0.5
 
 
-def test_a_neighbouring_language_is_not_excused():
-    # And the list's cost is gone with it. Given a paragraph, Danish is decisively
-    # not Norwegian, so a Norwegian learner served Danish is now caught — the old
-    # family list waved this through.
+def test_a_neighbouring_language_is_not_judged_at_field_level():
+    # Danish really is implausible Norwegian by the numbers...
     assert plausibility(DANISH, "no") < GROUP_LEVEL_FLOOR
-    assert language_mismatch(DANISH, "no").detected == "da"
+    # ...but a single field has nothing to average against, and at this length
+    # lingua is confidently wrong in both directions: correct Danish summaries read
+    # as Bokmål at 0.998. So a field that reads as a neighbour answers "can't
+    # judge". A lesson script can do better, because its lines can be grouped until
+    # the neighbours separate — see the script validator.
+    assert not language_mismatch(DANISH, "no")
+
+
+def test_a_language_outside_the_family_is_still_caught():
+    assert language_mismatch(ENGLISH, "da").detected == "en"
+    assert language_mismatch(GERMAN, "da").detected == "de"
 
 
 def test_a_further_language_is_caught_too():

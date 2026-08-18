@@ -38,6 +38,7 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
+from zeeguu.core.audio_lessons.script_generator import _is_a_script
 from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
 from zeeguu.core.language.language_check import describe_mismatches
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
@@ -92,9 +93,19 @@ def audit(label, lessons, learned_code_of, describe):
     out("=" * 70)
 
     bad = []
+    not_scripts = []
     for lesson in lessons:
         learned = learned_code_of(lesson)
         if LANGUAGE and learned != LANGUAGE:
+            continue
+
+        if not _is_a_script(lesson.script):
+            # Not a wrong-language script — not a script. The model answered with a
+            # refusal or a correction of the request and it was stored as a lesson.
+            # Reported separately because "too little text to judge" hid these.
+            not_scripts.append(lesson)
+            out(f"  [{lesson.id}] {describe(lesson)} ({learned}) — NOT A SCRIPT: "
+                f"{lesson.script.strip()[:90]!r}")
             continue
         mismatches = find_language_mismatches(
             lesson.script,
@@ -108,8 +119,10 @@ def audit(label, lessons, learned_code_of, describe):
             out(f"      {describe_mismatches(mismatches)}")
 
     out(f"  → {len(bad)} with a wrong-language script")
+    if not_scripts:
+        out(f"  → {len(not_scripts)} that are not scripts at all")
     out()
-    return bad
+    return bad + not_scripts
 
 
 meanings = AudioLessonMeaning.query.filter(

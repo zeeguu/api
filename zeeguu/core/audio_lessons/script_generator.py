@@ -6,7 +6,11 @@ import os
 import re
 from collections import namedtuple
 
-from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
+from zeeguu.core.audio_lessons.script_language_validator import (
+    TARGET_LANGUAGE_VOICES,
+    find_language_mismatches,
+)
+from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
@@ -80,6 +84,20 @@ def language_contract(target_lang_name: str, source_lang_name: str) -> str:
     )
 
 
+_NOT_A_SCRIPT_NOTE = (
+    "\n\nYour previous attempt was not a script: it contained no 'Man:', 'Woman:' or "
+    "'TeacherL2:' lines. Do not explain, apologise, or comment on the request. "
+    "Reply with the script only, in the format described above."
+)
+
+
+def _is_a_script(script: str) -> bool:
+    """A script has lines for the voices that speak the language being learned."""
+    return any(
+        voice in TARGET_LANGUAGE_VOICES for voice, _, _ in parse_script(script or "")
+    )
+
+
 def _correction_note(mismatches, target_lang_name, source_lang_name) -> str:
     return (
         "\n\nYour previous attempt used the wrong language: "
@@ -111,8 +129,20 @@ def generate_script_in_languages(
     attempt_prompt = prompt
     mismatches = []
 
+    mismatches = None
     for attempt in range(1, LANGUAGE_ATTEMPTS + 1):
         script, model_name = generate_audio_lesson_script(attempt_prompt, **kwargs)
+
+        if not _is_a_script(script):
+            # The model answered in prose instead of producing a script — a refusal,
+            # or a correction of the request. Nothing checked for this, so those
+            # answers were stored as lessons: "I cannot assist with creating
+            # educational content...", "ERROR: the word means threat, not hot".
+            # They synthesise to nothing and read as "too little text to judge".
+            log(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): "
+                f"not a script, the model answered: {(script or '').strip()[:120]!r}")
+            attempt_prompt = prompt + _NOT_A_SCRIPT_NOTE
+            continue
 
         mismatches = find_language_mismatches(script, target_language, source_language)
         if not mismatches:
@@ -124,8 +154,8 @@ def generate_script_in_languages(
         )
 
     raise Exception(
-        f"Script for {context} came back in the wrong language "
-        f"{LANGUAGE_ATTEMPTS} times: {describe_mismatches(mismatches)}"
+        f"Script for {context} was unusable {LANGUAGE_ATTEMPTS} times: "
+        + (describe_mismatches(mismatches) if mismatches else "not a script")
     )
 
 
