@@ -17,8 +17,14 @@ IMPORTANT: run this only AFTER the prompt fix (7cd9d6ca) is live on the server,
 or it will just rewrite English summaries again. It imports the deployed prompt.
 
 A candidate needs re-assessment if EITHER its cefr_level is missing (defect 1)
-OR its stored summary looks English (defect 2). Already-correct articles are
-skipped so we don't burn LLM calls (and cap budget) on them.
+OR its stored summary is in the wrong language (defect 2 — judged by the shared
+zeeguu.core.language.language_check, so this works for any language). Already-
+correct articles are skipped so we don't burn LLM calls (and cap budget) on them.
+
+--include-missing-summaries adds a third case: articles with no summary at all.
+Off by default because that describes everything crawled before summaries
+existed; turn it on right after audit_stored_article_languages.py --fix, which
+empties the wrong-language ones.
 
 Usage (inside the api container), DRY-RUN first:
     python tools/backfill_reassess_summaries.py --language da --since 2026-08-13
@@ -33,6 +39,7 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
+from zeeguu.core.language.language_check import language_mismatch
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services.simplification_and_classification import (
@@ -41,21 +48,16 @@ from zeeguu.core.llm_services.simplification_and_classification import (
 
 session = db.session
 
-# English stopword markers vs Danish markers — the stored summaries are strongly
-# bimodal (fully English or fully target-language), so a simple count separates
-# them cleanly. Danish-specific; good enough for the "da first" pass.
-EN = [" the ", " and ", " is ", " of ", " to ", " with ", " has ", " for ",
-      " in ", " on ", " that ", " was ", " were ", " are ", " a ", " by ",
-      " from ", " this ", " have ", " been "]
-DA = [" og ", " er ", " ikke ", " på ", " til ", " med ", " har ", " som ",
-      " den ", " det ", " af ", " en ", " et ", "æ", "ø", "å"]
 
+def wrong_language(text, language_code):
+    """
+    True only when the summary is confidently in another language.
 
-def looks_english(text):
-    if not text:
-        return False
-    t = " " + text.lower() + " "
-    return sum(t.count(m) for m in EN) > sum(t.count(m) for m in DA)
+    Was a hand-rolled Danish-vs-English stopword count; now the same check the
+    generation path uses, so this works for every language and agrees with what
+    tools/audit_stored_article_languages.py reports.
+    """
+    return language_mismatch(text, language_code) is not None
 
 
 def main():
@@ -63,6 +65,14 @@ def main():
     p.add_argument("--language", default="da", help="language code (default da)")
     p.add_argument("--since", default="2026-08-13", help="published_time >= this date")
     p.add_argument("--apply", action="store_true", help="actually re-assess (else dry-run)")
+    p.add_argument(
+        "--include-missing-summaries",
+        action="store_true",
+        help="also re-assess articles that have no summary at all. Off by default: "
+        "a missing summary is normal for anything crawled before summaries existed, "
+        "so this widens the run far beyond the damaged set. Turn it on right after "
+        "audit_stored_article_languages.py --fix, which is what empties them.",
+    )
     p.add_argument("--limit", type=int, default=0, help="cap number processed (0 = no cap)")
     p.add_argument("--provider", default="anthropic")
     args = p.parse_args()
@@ -84,7 +94,7 @@ def main():
     )
 
     need = []
-    n_no_cefr = n_english = 0
+    n_no_cefr = n_wrong_language = n_no_summary = 0
     for a in candidates:
         if a.get_word_count() < 100:
             continue
@@ -92,15 +102,24 @@ def main():
         if not a.cefr_level:
             reason = "no_cefr"
             n_no_cefr += 1
-        elif looks_english(a.summary or ""):
-            reason = "english_summary"
-            n_english += 1
+        elif wrong_language(a.summary or "", lang.code):
+            reason = "wrong_language"
+            n_wrong_language += 1
+        elif args.include_missing_summaries and not a.summary:
+            # The ones audit_stored_article_languages.py --fix emptied. Opt-in:
+            # without the flag this would also sweep in every article crawled
+            # before summaries existed, which is a lot of LLM calls for nothing.
+            reason = "no_summary"
+            n_no_summary += 1
         if reason:
             need.append((a, reason))
 
     print(f"\n=== Backfill re-assess: {lang.name} since {args.since} ===")
     print(f"candidates scanned: {len(candidates)}")
-    print(f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, english_summary={n_english})")
+    print(
+        f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, "
+        f"wrong_language={n_wrong_language}, no_summary={n_no_summary})"
+    )
     if args.limit:
         need = need[: args.limit]
         print(f"limited to: {len(need)}")

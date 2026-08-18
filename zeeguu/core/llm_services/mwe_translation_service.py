@@ -26,7 +26,7 @@ from zeeguu.core.llm_services import models
 
 logger = logging.getLogger(__name__)
 
-# Language code to name mapping
+
 LANG_NAMES = {
     "de": "German", "da": "Danish", "nl": "Dutch", "sv": "Swedish", "no": "Norwegian",
     "el": "Greek", "it": "Italian", "es": "Spanish", "fr": "French", "ro": "Romanian",

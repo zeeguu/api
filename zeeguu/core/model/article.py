@@ -185,6 +185,34 @@ class Article(db.Model):
         "AIGenerator", foreign_keys=[simplification_ai_generator_id]
     )
 
+    @property
+    def available_simplified_versions(self):
+        """
+        The children we're willing to offer as a level of THIS article.
+
+        ``simplified_versions`` is the raw backref on parent_article_id, and it
+        holds two different kinds of child. Same-language ones are level
+        adaptations of this article. Cross-language ones are friend-share
+        derivatives — a recipient learning another language got their own
+        translated copy, hung off the same parent so the reader's "Original:"
+        link works and so it coalesces per (original, language, level). A German
+        copy of a Danish article is not a B1 version of that article, and
+        offering it to a Danish learner is how it leaks: the level lists, the ES
+        available_cefr_levels, and the on-demand "do we already have this level?"
+        check all read this.
+
+        Broken children are excluded too. A version can be marked broken after
+        the fact — most notably by tools/audit_stored_article_languages.py, when
+        the LLM wrote it in the wrong language — and skipping it here is what
+        makes it regenerate: the on-demand path only calls the LLM when it finds
+        no usable version at the reader's level.
+        """
+        return [
+            version
+            for version in self.simplified_versions
+            if not version.broken and version.language_id == self.language_id
+        ]
+
     # 1:1 relationship to CEFR assessment data
     cefr_assessment = relationship(
         "ArticleCefrAssessment",
@@ -909,8 +937,10 @@ class Article(db.Model):
                     user_cefr_level
                 )
 
-        # Look for simplified version matching user's level
-        for simplified in self.simplified_versions:
+        # Look for simplified version matching user's level. usable_ excludes
+        # broken children and cross-language friend-share copies — a German copy
+        # of this Danish article is not the B1 version of it.
+        for simplified in self.available_simplified_versions:
             if matches_user_level(simplified):
                 return simplified
 
