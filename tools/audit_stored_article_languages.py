@@ -221,6 +221,13 @@ def main():
         help="published_time >= this date (default 2026-08-01, the bug window)",
     )
     p.add_argument(
+        "--include-broken",
+        action="store_true",
+        help="also scan articles marked broken. Off by default: a broken article "
+        "is already excluded from every feed, so reporting it is noise. Useful for "
+        "auditing what the crawl-time filter caught, which is its own question.",
+    )
+    p.add_argument(
         "--until",
         help="published_time < this date. With --since, scopes --fix to one window "
         "— the 14-15 Aug summariser bug is worth fixing separately from the "
@@ -238,6 +245,14 @@ def main():
     query = Article.query.filter(Article.published_time >= args.since).filter(
         (Article.deleted.is_(None)) | (Article.deleted == 0)
     )
+    # broken == 0 is what the endpoints use for "a user can see this", so it is
+    # what this tool scans. Without it the audit re-reports articles the crawl-time
+    # filter already caught — every one of the 31 wrong-language articles found on
+    # 18 Aug 2026 was already broken=100, so all of them were noise dressed up as a
+    # finding. Anything that DOES surface here is an escape from that filter, which
+    # is the signal worth having.
+    if not args.include_broken:
+        query = query.filter(Article.broken == 0)
     if args.until:
         query = query.filter(Article.published_time < args.until)
     if args.language:
