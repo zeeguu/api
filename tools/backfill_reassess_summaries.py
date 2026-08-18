@@ -62,8 +62,13 @@ def wrong_language(text, language_code):
 
 def main():
     p = argparse.ArgumentParser(description="Re-assess damaged article summaries")
-    p.add_argument("--language", default="da", help="language code (default da)")
-    p.add_argument("--since", default="2026-08-13", help="published_time >= this date")
+    p.add_argument(
+        "--language",
+        help="language code. Default: every language — audit_stored_article_languages.py "
+        "--fix runs across all of them, and a single-language default silently "
+        "backfilled a fraction of what it emptied.",
+    )
+    p.add_argument("--since", default="2026-08-01", help="published_time >= this date")
     p.add_argument("--apply", action="store_true", help="actually re-assess (else dry-run)")
     p.add_argument(
         "--include-missing-summaries",
@@ -77,14 +82,18 @@ def main():
     p.add_argument("--provider", default="anthropic")
     args = p.parse_args()
 
-    lang = Language.query.filter_by(code=args.language).first()
-    if not lang:
-        print(f"Unknown language code: {args.language}")
-        return
+    lang = None
+    if args.language:
+        lang = Language.query.filter_by(code=args.language).first()
+        if not lang:
+            print(f"Unknown language code: {args.language}")
+            return
 
+    candidates = Article.query
+    if lang:
+        candidates = candidates.filter(Article.language_id == lang.id)
     candidates = (
-        Article.query.filter(Article.language_id == lang.id)
-        .filter(Article.parent_article_id.is_(None))
+        candidates.filter(Article.parent_article_id.is_(None))
         .filter(Article.simplification_ai_generator_id.is_(None))
         .filter(Article.published_time >= args.since)
         .filter((Article.broken.is_(None)) | (Article.broken == 0))
@@ -102,7 +111,7 @@ def main():
         if not a.cefr_level:
             reason = "no_cefr"
             n_no_cefr += 1
-        elif wrong_language(a.summary or "", lang.code):
+        elif a.language and wrong_language(a.summary or "", a.language.code):
             reason = "wrong_language"
             n_wrong_language += 1
         elif args.include_missing_summaries and not a.summary:
@@ -114,7 +123,8 @@ def main():
         if reason:
             need.append((a, reason))
 
-    print(f"\n=== Backfill re-assess: {lang.name} since {args.since} ===")
+    scope = lang.name if lang else "all languages"
+    print(f"\n=== Backfill re-assess: {scope} since {args.since} ===")
     print(f"candidates scanned: {len(candidates)}")
     print(
         f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, "
