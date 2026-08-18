@@ -22,24 +22,11 @@ import json
 import logging
 from typing import Optional
 
-from zeeguu.core.language.language_check import language_mismatch
 from zeeguu.core.llm_services import models
 
 logger = logging.getLogger(__name__)
 
 
-def _warn_if_wrong_language(translation, target_lang, what):
-    """
-    Report — don't act. A translation of a word or short phrase is almost always
-    under the length langdetect needs, so the check answers "can't judge" for
-    most of them; dropping a translation on that basis would cost more than the
-    rare wrong-language one it caught.
-    """
-    mismatch = language_mismatch(translation, target_lang, label=what)
-    if mismatch:
-        logger.warning(f"LLM translation in the wrong language: {mismatch}")
-
-# Language code to name mapping
 LANG_NAMES = {
     "de": "German", "da": "Danish", "nl": "Dutch", "sv": "Swedish", "no": "Norwegian",
     "el": "Greek", "it": "Italian", "es": "Spanish", "fr": "French", "ro": "Romanian",
@@ -125,7 +112,6 @@ def translate_word_in_context(
 
         translation = response.content[0].text.strip().strip('"\'.')
         logger.debug(f"LLM translated '{word}' -> '{translation}'")
-        _warn_if_wrong_language(translation, target_lang, f"translation of '{word}'")
         return translation or None
     except ImportError:
         logger.error("anthropic package not installed")
@@ -188,7 +174,6 @@ def translate_separated_mwe(
         translation = translation.strip('"\'.')
 
         logger.debug(f"Translated MWE '{mwe_text}' -> '{translation}'")
-        _warn_if_wrong_language(translation, target_lang, f"translation of '{mwe_text}'")
         return translation
 
     except ImportError:
