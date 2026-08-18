@@ -48,9 +48,15 @@ from zeeguu.logging import log
 # How plausible the expected language must be, for one piece of text.
 #
 # Sized for text of a few sentences, which is what callers give it: a summary, an
-# article body, or a group of lesson lines. Measured on production scripts, correct
-# text at that size scores 0.66-0.97 and wrong-language text 0.00-0.07 — so this
-# sits in a gap nine times wider than itself, and its exact value is not delicate.
+# article body, or a group of lesson lines.
+#
+# Measured on a full production sweep with the drill echo removed, the two
+# populations are further apart than anything else we tried: every genuinely
+# wrong-language script scores 0.00, and the sound A1 lessons that a 0.30 floor
+# caught by mistake — four short sentences of Swedish, Danish or German — score
+# 0.22-0.26. Prose of any length scores far higher still. So this sits in the
+# middle of a gap from 0.00 to 0.22 rather than shaving one edge of it, which is
+# the mistake 0.2 and then 0.30 both made from the other side.
 #
 # It does NOT work on a single short sentence, and two production runs went wrong
 # learning that. Correct short Danish scores 0.08-0.15 as Danish, because the
@@ -58,7 +64,7 @@ from zeeguu.logging import log
 # text scores 0.00-0.14. Those bands overlap: no floor separates them one sentence
 # at a time. Callers whose unit is that small must group before asking — see
 # LINES_PER_GROUP in script_language_validator.
-GROUP_LEVEL_FLOOR = 0.30
+GROUP_LEVEL_FLOOR = 0.15
 
 # Below this many characters, a single text cannot be judged on its own — and
 # nothing downstream will catch the error, because a field is checked alone.

@@ -107,7 +107,9 @@ def _reads_as(line, target_language) -> str:
     return detected if detected != target_language else "no language confidently"
 
 
-def find_language_mismatches(script: str, target_language: str, source_language=None) -> list:
+def find_language_mismatches(
+    script: str, target_language: str, source_language=None, label_for_log: str = ""
+) -> list:
     """
     Check a lesson script against the language it was supposed to be written in.
 
@@ -148,9 +150,12 @@ def find_language_mismatches(script: str, target_language: str, source_language=
             implausible.append((group, confidence))
 
     if not judged or judged_chars < MIN_CHARS_TO_JUDGE_A_LESSON:
+        # Named, because a skip and a pass look identical in the audit output
+        # otherwise — and a lesson that was never judged is not a lesson that was
+        # found sound.
         log(
-            f"[script_language_validator] too little {target_language} text to judge "
-            f"({judged} groups, {judged_chars} chars)"
+            f"[script_language_validator] {label_for_log or 'script'}: too little "
+            f"{target_language} text to judge ({judged} groups, {judged_chars} chars)"
         )
         return []
 

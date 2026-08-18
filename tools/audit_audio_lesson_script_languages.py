@@ -87,7 +87,10 @@ def audit(label, lessons, learned_code_of, describe):
         if LANGUAGE and learned != LANGUAGE:
             continue
         mismatches = find_language_mismatches(
-            lesson.script, target_language=learned, source_language=teacher_code(lesson)
+            lesson.script,
+            target_language=learned,
+            source_language=teacher_code(lesson),
+            label_for_log=f"[{lesson.id}] {describe(lesson)[:40]}",
         )
         if mismatches:
             bad.append(lesson)
