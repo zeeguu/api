@@ -43,10 +43,9 @@ def prompt_version_of(prompt_file: str) -> str:
     ran is recoverable from the row's own lesson_type.
     """
     stem = os.path.basename(prompt_file).rsplit(".", 1)[0]
+    family = stem.split("--")[0]
     version = _PROMPT_VERSION.search(stem)
-    if not version:
-        return stem
-    return f"{stem.split('--')[0]}-{version.group(1)}"
+    return f"{family}-{version.group(1)}" if version else family
 
 
 # Load the prompt template

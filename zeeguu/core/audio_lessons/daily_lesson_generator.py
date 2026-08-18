@@ -177,6 +177,7 @@ class DailyLessonGenerator:
         origin_language,
         translation_language,
         cefr_level,
+        *,
         progress=None,
     ):
         """
@@ -269,6 +270,7 @@ class DailyLessonGenerator:
         cefr_level,
         canonical_suggestion,
         lesson_type,
+        *,
         progress=None,
         is_general=False,
         raw_suggestion=None,
