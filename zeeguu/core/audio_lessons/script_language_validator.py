@@ -81,6 +81,27 @@ LINES_PER_GROUP = 4
 MIN_CHARS_TO_JUDGE_A_LESSON = 200
 
 
+def _without_echoes(lines: list) -> list:
+    """
+    Drop the drill echo: every practice phrase is spoken twice in a row.
+
+    Grouping assumes each line adds text, and in the practice section that is
+    false — four lines there are two phrases said twice. A group then carries half
+    the evidence it looks like it carries, which is exactly how grouping alone
+    flagged sixty sound lessons: "Har du en pen? Har du en pen?" is not four lines
+    of Danish, it is four words.
+
+    A dialogue never repeats a line back to back, so removing consecutive
+    duplicates costs the conversation nothing and makes a group of four mean four.
+    """
+    kept = []
+    for line in lines:
+        if kept and line.strip().lower() == kept[-1].strip().lower():
+            continue
+        kept.append(line)
+    return kept
+
+
 def _reads_as(line, target_language) -> str:
     detected = detected_language_of(line)
     return detected if detected != target_language else "no language confidently"
@@ -106,7 +127,9 @@ def find_language_mismatches(script: str, target_language: str, source_language=
         if voice_type in TARGET_LANGUAGE_VOICES
     ]
 
-    long_enough = [line for line in lines if len(line.split()) >= MIN_WORDS_PER_LINE]
+    long_enough = _without_echoes(
+        [line for line in lines if len(line.split()) >= MIN_WORDS_PER_LINE]
+    )
     groups = [
         " ".join(long_enough[i : i + LINES_PER_GROUP])
         for i in range(0, len(long_enough), LINES_PER_GROUP)
