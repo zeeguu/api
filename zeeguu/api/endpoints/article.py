@@ -660,7 +660,7 @@ def simplify_article(article_id):
 
     # Check if already simplified (check for user's specific level)
     existing_simplified = [
-        v for v in article.usable_simplified_versions if v.cefr_level == user_level
+        v for v in article.available_simplified_versions if v.cefr_level == user_level
     ]
     if existing_simplified:
         # Tapping Simplify expresses interest in keeping this article — save it
@@ -677,7 +677,7 @@ def simplify_article(article_id):
             {"id": article.id, "cefr_level": original_cefr, "is_original": True}
         )
         # Add simplified versions
-        for v in article.usable_simplified_versions:
+        for v in article.available_simplified_versions:
             all_levels.append(
                 {"id": v.id, "cefr_level": v.cefr_level, "is_original": False}
             )
@@ -710,7 +710,7 @@ def simplify_article(article_id):
                 {"id": article.id, "cefr_level": original_cefr, "is_original": True}
             )
             # Add all simplified versions (including the new one)
-            for v in article.usable_simplified_versions:
+            for v in article.available_simplified_versions:
                 all_levels.append(
                     {"id": v.id, "cefr_level": v.cefr_level, "is_original": False}
                 )

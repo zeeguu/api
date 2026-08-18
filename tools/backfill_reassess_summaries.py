@@ -39,7 +39,7 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
-from zeeguu.core.language.language_check import check_language
+from zeeguu.core.language.language_check import language_mismatch
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services.simplification_and_classification import (
@@ -57,7 +57,7 @@ def wrong_language(text, language_code):
     generation path uses, so this works for every language and agrees with what
     tools/audit_stored_article_languages.py reports.
     """
-    return check_language(text, language_code) is not None
+    return language_mismatch(text, language_code) is not None
 
 
 def main():

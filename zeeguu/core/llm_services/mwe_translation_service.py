@@ -22,7 +22,7 @@ import json
 import logging
 from typing import Optional
 
-from zeeguu.core.language.language_check import check_language
+from zeeguu.core.language.language_check import language_mismatch
 from zeeguu.core.llm_services import models
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def _warn_if_wrong_language(translation, target_lang, what):
     most of them; dropping a translation on that basis would cost more than the
     rare wrong-language one it caught.
     """
-    mismatch = check_language(translation, target_lang, label=what)
+    mismatch = language_mismatch(translation, target_lang, label=what)
     if mismatch:
         logger.warning(f"LLM translation in the wrong language: {mismatch}")
 

@@ -146,8 +146,12 @@ def _level_summary_label(level: str) -> str:
     return f"{level} summary"
 
 
-def _summary_fields(assessment: dict) -> list:
-    """The parts of an assessment that must be in the article's language."""
+def _summaries_to_check(assessment: dict) -> list:
+    """
+    The summaries out of an assessment, labelled — the only part of it that has
+    a language. Each label is also the key we drop that summary by, so they have
+    to match the ones _without_wrong_language_summaries looks for.
+    """
     fields = [(ORIGINAL_SUMMARY_LABEL, assessment.get("original_summary", ""))]
     fields += [
         (_level_summary_label(level), text)
@@ -232,7 +236,7 @@ def assess_and_summarize(
         return generate_in_language(
             generate,
             target_language,
-            _summary_fields,
+            _summaries_to_check,
             f"summary of '{title[:50]}'",
         )
     except LanguageMismatchError as e:
@@ -450,17 +454,22 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
     return target_levels
 
 
-def _version_fields(simplification: dict) -> list:
+def _simplification_to_check(simplification: dict) -> list:
     """
-    The parts of a multi-level simplification that must be in the article's
-    language — one field per level, so a level that comes back English can be
-    dropped without taking the others with it.
+    What a simplification run generated, one field per level.
+
+    Split by level for *detection*, not for salvage: an English A2 body sits next
+    to a Danish title and three Danish summaries, and judged as one blob the
+    Danish wins on volume and the English body goes through. Nothing keys off
+    these labels — a run that comes back wrong is lost whole (see the policy in
+    simplify_article_adaptive_levels), because a level has never failed on its
+    own; every failure we have seen was the entire response.
     """
     fields = [(ORIGINAL_SUMMARY_LABEL, simplification.get("original_summary", ""))]
     for level, version in simplification.get("versions", {}).items():
         fields.append(
             (
-                level,
+                f"{level} text",
                 " ".join(
                     [
                         version.get("title", ""),
@@ -471,38 +480,6 @@ def _version_fields(simplification: dict) -> list:
             )
         )
     return fields
-
-
-def _without_wrong_language_levels(simplification: dict, mismatches: list) -> dict:
-    """
-    Policy for a level that came back in the wrong language: drop that level and
-    keep the good ones. A run produces up to six levels and every caller already
-    tolerates a partial set, so one bad generation must not cost the other five.
-
-    Raises when nothing survives — same contract as "no complete versions".
-    """
-    wrong = {m.label for m in mismatches}
-    result = dict(simplification)
-    if ORIGINAL_SUMMARY_LABEL in wrong:
-        result["original_summary"] = ""
-    result["versions"] = {
-        level: version
-        for level, version in result.get("versions", {}).items()
-        if level not in wrong
-    }
-    result["simplified_levels"] = [
-        level for level in result.get("simplified_levels", []) if level not in wrong
-    ]
-    log(
-        f"  Dropping wrong-language output {sorted(wrong)}; "
-        f"keeping levels {result['simplified_levels']}"
-    )
-    if not result["simplified_levels"]:
-        raise Exception(
-            "No simplified versions survived the language check: "
-            f"{describe_mismatches(mismatches)}"
-        )
-    return result
 
 
 def _parse_adaptive_response(result: str, provider: str, model_name: str) -> dict:
@@ -692,13 +669,13 @@ def simplify_article_adaptive_levels(
             'model_name': str  # e.g., 'deepseek-chat' or 'claude-haiku-4-5-20251001'
         }
 
-    Every level must come back in the article's language. If any doesn't, the
-    whole set is re-requested once with the offending levels named; whatever is
-    still wrong after that is dropped, and the levels that are right are kept.
+    The whole set must come back in the article's language. If it doesn't, it is
+    re-requested once with the mistake named, and then the run fails — no level
+    is salvaged from a response that came back in the wrong language twice.
 
     Raises:
-        Exception: If API call fails, returns unexpected response, or no level
-        survives the language check
+        Exception: If API call fails, returns unexpected response, or the output
+        is still in the wrong language after the retry
     """
 
     # Get the adaptive prompt
@@ -719,15 +696,12 @@ def simplify_article_adaptive_levels(
             _raise_if_paywall_or_advertorial(result)
             return _parse_adaptive_response(result, provider, model_name)
 
-        try:
-            simplification = generate_in_language(
-                generate,
-                target_language,
-                _version_fields,
-                f"simplification of '{title[:50]}'",
-            )
-        except LanguageMismatchError as e:
-            simplification = _without_wrong_language_levels(e.result, e.mismatches)
+        simplification = generate_in_language(
+            generate,
+            target_language,
+            _simplification_to_check,
+            f"simplification of '{title[:50]}'",
+        )
 
         versions = simplification["versions"]
         simplified_levels = simplification["simplified_levels"]
@@ -805,7 +779,7 @@ def create_simplified_article_adaptive(
     """
 
     # Check if simplified version already exists
-    for existing in original_article.usable_simplified_versions:
+    for existing in original_article.available_simplified_versions:
         if existing.cefr_level == cefr_level:
             log(
                 f"Simplified version for {cefr_level} already exists for article {original_article.id}"

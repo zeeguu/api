@@ -88,7 +88,7 @@ def article_simplification_levels():
     )
 
     # Add all simplified versions
-    for simplified in original_article.usable_simplified_versions:
+    for simplified in original_article.available_simplified_versions:
         levels.append(
             {
                 "id": simplified.id,

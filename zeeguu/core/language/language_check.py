@@ -157,7 +157,7 @@ def _detectable_text(text: str) -> str:
     return re.sub(r"\s+", " ", _TAG.sub(" ", text or "")).strip()
 
 
-def check_language(text, expected_zeeguu_code, label="text"):
+def language_mismatch(text, expected_zeeguu_code, label="text"):
     """
     Return a LanguageMismatch if `text` isn't in the expected language, else None.
 
@@ -220,12 +220,12 @@ def _chunk(pieces, size=PASSAGE_CHUNK_CHARS) -> list:
     return chunks
 
 
-def check_passage(pieces, expected_zeeguu_code, label="text"):
+def passage_mismatch(pieces, expected_zeeguu_code, label="text"):
     """
     Check a long text made of many pieces (voice lines, paragraphs) for a
     wrong-language *run*, and return a LanguageMismatch if one is big enough.
 
-    ``check_language`` judges a text as a single blob, which averages partial
+    ``language_mismatch`` judges a text as a single blob, which averages partial
     failures away — the case this exists for: a Danish lesson whose opening
     dialogue is entirely English but whose practice phrases are correctly Danish
     scores 71% Danish overall and passes, while the learner hears two solid
@@ -236,12 +236,12 @@ def check_passage(pieces, expected_zeeguu_code, label="text"):
     if not chunks:
         return None
     if len(chunks) == 1:
-        return check_language(chunks[0], expected_zeeguu_code, label)
+        return language_mismatch(chunks[0], expected_zeeguu_code, label)
 
     wrong = [
         (chunk, mismatch)
         for chunk, mismatch in (
-            (c, check_language(c, expected_zeeguu_code, label)) for c in chunks
+            (c, language_mismatch(c, expected_zeeguu_code, label)) for c in chunks
         )
         if mismatch
     ]
@@ -257,7 +257,7 @@ def check_passage(pieces, expected_zeeguu_code, label="text"):
     return worst._replace(label=f"{label} ({round(100 * share)}% of it)")
 
 
-def check_fields(fields, expected_zeeguu_code) -> list:
+def field_mismatches(fields, expected_zeeguu_code) -> list:
     """
     Check several labelled texts at once.
 
@@ -271,7 +271,7 @@ def check_fields(fields, expected_zeeguu_code) -> list:
         (or couldn't be judged).
     """
     mismatches = [
-        check_language(text, expected_zeeguu_code, label) for label, text in fields
+        language_mismatch(text, expected_zeeguu_code, label) for label, text in fields
     ]
     return [m for m in mismatches if m]
 
@@ -344,7 +344,7 @@ def generate_in_language(generate, expected_language, fields_of, context, attemp
 
     for attempt in range(1, attempts + 1):
         result = generate(correction)
-        mismatches = check_fields(fields_of(result), expected)
+        mismatches = field_mismatches(fields_of(result), expected)
         if not mismatches:
             return result
         log_mismatches(f"{context} (attempt {attempt}/{attempts})", mismatches)

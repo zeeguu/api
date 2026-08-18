@@ -48,7 +48,7 @@ Usage:
   - bad ArticleLevelSummary rows are deleted, with the bookmark anchors that
     reference them (a real FK, no cascade) removed first;
   - child articles are marked broken (LLM_WRONG_LANGUAGE), which takes a
-    simplified one out of usable_simplified_versions and a translated one out of
+    simplified one out of available_simplified_versions and a translated one out of
     the #translated-from URL cache, so the next reader at that language+level
     gets a fresh one.
 
@@ -66,7 +66,7 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
-from zeeguu.core.language.language_check import check_language, describe_mismatches
+from zeeguu.core.language.language_check import language_mismatch, describe_mismatches
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 from zeeguu.core.model.article_level_summary import ArticleLevelSummary
@@ -97,7 +97,7 @@ def audit_original_summaries(articles):
     """article.summary vs the article's own language."""
     wrong, wrong_articles = [], []
     for article in articles:
-        mismatch = check_language(article.summary, article.language.code, "summary")
+        mismatch = language_mismatch(article.summary, article.language.code, "summary")
         if mismatch:
             wrong.append((f"[{article.id}] {(article.title or '')[:60]}", mismatch))
             wrong_articles.append(article)
@@ -116,7 +116,7 @@ def audit_level_summaries(articles):
     wrong, wrong_rows = [], []
     for row in rows:
         article = by_id[row.article_id]
-        mismatch = check_language(row.summary, article.language.code, "level summary")
+        mismatch = language_mismatch(row.summary, article.language.code, "level summary")
         if mismatch:
             wrong.append((f"[article {row.article_id}] {row.cefr_level} summary", mismatch))
             wrong_rows.append(row)
@@ -130,7 +130,7 @@ def audit_child_articles(children):
         text = " ".join(
             filter(None, [article.title, article.summary, article.get_content()])
         )
-        mismatch = check_language(text, article.language.code, "simplified article")
+        mismatch = language_mismatch(text, article.language.code, "simplified article")
         if mismatch:
             wrong.append(
                 (
@@ -262,7 +262,7 @@ def main():
     session.commit()
 
     # Marked broken (not deleted): a reader who already has this article open
-    # keeps it, while usable_simplified_versions (same-language children) and the
+    # keeps it, while available_simplified_versions (same-language children) and the
     # #translated-from URL cache (cross-language ones) both stop handing it out,
     # so the next request at that language+level regenerates.
     for article in bad_children:

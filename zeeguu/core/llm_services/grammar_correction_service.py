@@ -10,7 +10,7 @@ import re
 import requests
 import time
 from zeeguu.logging import log
-from zeeguu.core.language.language_check import check_fields, describe_mismatches
+from zeeguu.core.language.language_check import field_mismatches, describe_mismatches
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.grammar_correction import get_full_article_correction_prompt
 from zeeguu.core.llm_services import models
@@ -65,7 +65,7 @@ class GrammarCorrectionService:
         # Parse the response
         corrected = self._parse_correction_response(response_text, version_data)
 
-        mismatches = check_fields(
+        mismatches = field_mismatches(
             [(field, corrected.get(field, "")) for field in ("title", "summary", "content")],
             language_code,
         )

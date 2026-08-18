@@ -54,10 +54,6 @@ class VoiceSynthesizer:
             self.azure_client = AzureVoiceSynthesizer()
         return self.azure_client
 
-    def parse_script(self, script: str) -> List[Tuple[str, str, float]]:
-        """Parse the script into (voice_type, text, silence_after) segments."""
-        return parse_script(script)
-
     def get_voice_config(self, voice_type: str, language_code: str, teacher_language: str = None) -> dict:
         """Get the voice configuration for TTS.
         
@@ -170,7 +166,7 @@ class VoiceSynthesizer:
 
     def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None):
         """Shared logic: parse script, synthesize all segments, combine and export to output_path."""
-        segments = self.parse_script(script)
+        segments = parse_script(script)
         audio_segments = []
 
         speech_segments = [(v, t, s) for v, t, s in segments if v != "silence"]

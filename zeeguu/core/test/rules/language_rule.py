@@ -92,3 +92,11 @@ class LanguageRule(BaseRule):
     def random(self):
         random_id, __ = random.choice(list(self.languages.items()))
         return self.get_or_create_language(random_id)
+
+    def other_than(self, language):
+        """A random language that is NOT `language` — for the many tests whose
+        point is that two things are in different languages."""
+        other = self.random
+        while other.id == language.id:
+            other = self.random
+        return other

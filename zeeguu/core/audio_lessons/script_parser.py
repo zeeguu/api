@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 from zeeguu.core.audio_lessons.voice_config import DEFAULT_SILENCE_SECONDS
 
-VOICE_LABELS = ("Teacher", "TeacherL2", "Man", "Woman", "Armin", "Aldo")
+VOICE_LABELS = ("Teacher", "TeacherL2", "Man", "Woman")
 
 _VOICE_LABEL_PATTERN = re.compile(
     r"^(" + "|".join(VOICE_LABELS) + r"):\s*", re.IGNORECASE

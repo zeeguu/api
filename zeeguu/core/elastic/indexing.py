@@ -155,7 +155,7 @@ def document_from_article(article, session, current_doc=None):
         # This is an original article - collect its level + all simplified versions
         if article.cefr_level:
             available_cefr_levels.append(article.cefr_level)
-        for simplified in article.usable_simplified_versions:
+        for simplified in article.available_simplified_versions:
             if simplified.cefr_level:
                 available_cefr_levels.append(simplified.cefr_level)
     else:

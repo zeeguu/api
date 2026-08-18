@@ -186,7 +186,7 @@ class Article(db.Model):
     )
 
     @property
-    def usable_simplified_versions(self):
+    def available_simplified_versions(self):
         """
         The children we're willing to offer as a level of THIS article.
 
@@ -940,7 +940,7 @@ class Article(db.Model):
         # Look for simplified version matching user's level. usable_ excludes
         # broken children and cross-language friend-share copies — a German copy
         # of this Danish article is not the B1 version of it.
-        for simplified in self.usable_simplified_versions:
+        for simplified in self.available_simplified_versions:
             if matches_user_level(simplified):
                 return simplified
 

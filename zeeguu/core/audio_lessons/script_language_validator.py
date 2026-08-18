@@ -27,11 +27,11 @@ target language — and they caught every real failure we have.
 """
 
 from zeeguu.core.audio_lessons.script_parser import parse_script
-from zeeguu.core.language.language_check import check_passage
+from zeeguu.core.language.language_check import passage_mismatch
 
 # Voices that speak the language being learned. "Teacher" is deliberately absent —
 # see the module docstring.
-TARGET_LANGUAGE_VOICES = {"teacherl2", "man", "woman", "armin", "aldo"}
+TARGET_LANGUAGE_VOICES = {"teacherl2", "man", "woman"}
 
 TARGET_LABEL = "Man/Woman/TeacherL2"
 
@@ -59,5 +59,5 @@ def find_language_mismatches(script: str, target_language: str, source_language=
     # Checked as a passage, not as one blob: scripts fail in halves. The lesson that
     # started all this had an all-English opening dialogue followed by correct Danish
     # practice phrases — 71% Danish overall, which a whole-text check waves through.
-    mismatch = check_passage(target_texts, target_language, TARGET_LABEL)
+    mismatch = passage_mismatch(target_texts, target_language, TARGET_LABEL)
     return [mismatch] if mismatch else []
