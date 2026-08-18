@@ -145,7 +145,7 @@ def test_correct_danish_lesson_passes():
 def test_danish_lesson_written_in_english_is_caught():
     mismatches = find_language_mismatches(DANISH_LESSON_GONE_ENGLISH, "da", "en")
     assert len(mismatches) == 1
-    assert mismatches[0].label == "Man/Woman/TeacherL2"
+    assert mismatches[0].label.startswith("Man/Woman/TeacherL2")
     assert mismatches[0].expected == "da"
     assert mismatches[0].detected == "en"
 
@@ -173,10 +173,21 @@ def test_correct_german_lesson_with_romanian_teacher_passes():
     assert find_language_mismatches(GERMAN_LESSON_WITH_ROMANIAN_TEACHER, "de", "ro") == []
 
 
-def test_scandinavian_neighbours_are_not_flagged_against_each_other():
-    # langdetect regularly reads short Danish sentences as Norwegian or Swedish;
-    # that must not fail a lesson.
-    assert find_language_mismatches(DANISH_LESSON, "no", "en") == []
+def test_a_danish_script_does_not_pass_as_a_norwegian_lesson():
+    # This used to assert the opposite, because langdetect could not separate the
+    # two: short Danish reads as Norwegian, so a hand-maintained list of confusable
+    # families forgave it — and forgave a Norwegian learner being served Danish
+    # along with it. Asking "is this plausibly Norwegian?" separates them cleanly:
+    # these lines score 0.60-0.99 as Danish and 0.00-0.40 as Norwegian.
+    mismatches = find_language_mismatches(DANISH_LESSON, "no", "en")
+    assert len(mismatches) == 1
+    assert mismatches[0].detected == "da"
+
+
+def test_a_danish_script_still_passes_as_a_danish_lesson():
+    # The other half of the same point: lines that also look Norwegian are still
+    # plausible Danish, so nothing is flagged. That is what replaced the family list.
+    assert find_language_mismatches(DANISH_LESSON, "da", "en") == []
 
 
 def test_language_langdetect_cannot_check_is_skipped():
