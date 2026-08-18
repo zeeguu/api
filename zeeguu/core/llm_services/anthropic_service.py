@@ -7,7 +7,8 @@ import json
 from typing import List, Dict, Optional
 
 from .llm_service import LLMService
-from .prompts import format_prompt, PROMPT_VERSION_V3
+from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
+from zeeguu.core.language.language_check import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 
@@ -48,14 +49,27 @@ class AnthropicService(LLMService):
             log(f"Anthropic API failed: {e}")
             raise e
 
-    def generate_examples(self, word: str, translation: str, source_lang: str, 
+    def generate_examples(self, word: str, translation: str, source_lang: str,
                          target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
-        """Generate example sentences using Claude - fail fast to DeepSeek fallback"""
-        prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
-        
-        # Try API request - fail fast
-        content = self._make_api_request(prompt)
-        
+        """
+        Generate example sentences using Claude - fail fast to DeepSeek fallback.
+
+        The sentences must be in the language being learned; examples in the
+        learner's own language teach nothing. Asked for once more when they come
+        back wrong, then allowed to fail into the DeepSeek fallback.
+        """
+        def generate(correction):
+            prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
+            if correction:
+                prompt = {**prompt, "user": prompt["user"] + correction}
+            return self._parse_examples(self._make_api_request(prompt), cefr_level, prompt_version)
+
+        return generate_in_language(
+            generate, source_lang, example_sentence_fields, f"examples for '{word}'"
+        )
+
+    def _parse_examples(self, content: str, cefr_level: str, prompt_version: str) -> List[Dict]:
+        """Pull the examples out of one response, annotated with their provenance."""
         # Clean the content to extract JSON
         content = content.strip()
         
@@ -92,11 +106,18 @@ class AnthropicService(LLMService):
             log(f"Raw Anthropic response content: {content}")
             raise ValueError("Invalid response format from Anthropic")
     
-    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Generate text using Anthropic API - fail fast to DeepSeek fallback"""
+    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                      system: str = None) -> str:
+        """Generate text using Anthropic API - fail fast to DeepSeek fallback
+
+        `system` carries constraints that must hold for the whole response. The
+        provider docs single the system prompt out as the reliable place for an
+        output-language rule, and measured against DeepSeek it moved a
+        non-English-teacher script from 1/9 correct to 7/9.
+        """
         # Try Anthropic API - fail fast
         content = self._make_api_request(
-            {"system": "You are a helpful assistant.", "user": prompt},
+            {"system": system or "You are a helpful assistant.", "user": prompt},
             max_tokens=max_tokens,
             temperature=temperature,
         )

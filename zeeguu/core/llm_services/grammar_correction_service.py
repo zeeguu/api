@@ -10,6 +10,7 @@ import re
 import requests
 import time
 from zeeguu.logging import log
+from zeeguu.core.language.language_check import check_fields, describe_mismatches
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.grammar_correction import get_full_article_correction_prompt
 from zeeguu.core.llm_services import models
@@ -38,6 +39,12 @@ class GrammarCorrectionService:
             language_code: Language code (e.g., 'da', 'es')
             provider: LLM provider to use ('anthropic' or 'deepseek')
 
+        A correction must come back in the language it went in as. If it doesn't,
+        we throw the correction away and keep the uncorrected text — the same
+        thing this service already does when the API call fails, and the right
+        trade: the corrections are cosmetic, a translated article is not. No
+        retry, for the same reason.
+
         Returns:
             Dict with corrected 'title', 'content', and 'summary'
         """
@@ -57,6 +64,17 @@ class GrammarCorrectionService:
 
         # Parse the response
         corrected = self._parse_correction_response(response_text, version_data)
+
+        mismatches = check_fields(
+            [(field, corrected.get(field, "")) for field in ("title", "summary", "content")],
+            language_code,
+        )
+        if mismatches:
+            log(
+                "Discarding grammar correction — it came back in another language: "
+                f"{describe_mismatches(mismatches)}"
+            )
+            return version_data
 
         return corrected
 

@@ -17,6 +17,7 @@ class LowQualityTypes:
     LIVE_BLOG = "LIVE_BLOG"
     ML_PREDICTION = "ML_PREDICTION"
     LANGUAGE_DOES_NOT_MATCH_FEED = "LANGUAGE_DOES_NOT_MATCH_FEED"
+    LLM_WRONG_LANGUAGE = "LLM_WRONG_LANGUAGE"      # LLM wrote a simplification in another language
     ADVERTORIAL_PATTERN = "ADVERTORIAL_PATTERN"    # Detected by URL/keyword patterns
     ADVERTORIAL_LLM = "ADVERTORIAL_LLM"            # Detected by LLM during simplification
     USER_REPORTED = "USER_REPORTED"

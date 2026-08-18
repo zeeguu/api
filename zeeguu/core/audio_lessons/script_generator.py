@@ -3,11 +3,8 @@ Script generator for audio lessons using unified LLM service.
 """
 
 import os
-from zeeguu.core.audio_lessons.script_language_validator import (
-    describe_mismatches,
-    find_language_mismatches,
-    log_mismatches,
-)
+from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
+from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
 from zeeguu.logging import log

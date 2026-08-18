@@ -2,7 +2,11 @@
 Unified prompts module for all LLM-powered features in Zeeguu.
 """
 
-from .example_generation import format_prompt, PROMPT_VERSION_V3
+from .example_generation import (
+    example_sentence_fields,
+    format_prompt,
+    PROMPT_VERSION_V3,
+)
 from .meaning_frequency_classifier import (
     create_meaning_frequency_and_type_prompt,
     create_meaning_frequency_prompt,
@@ -10,6 +14,7 @@ from .meaning_frequency_classifier import (
 )
 
 __all__ = [
+    'example_sentence_fields',
     'format_prompt',
     'PROMPT_VERSION_V3',
     'create_meaning_frequency_and_type_prompt',

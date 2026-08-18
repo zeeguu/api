@@ -13,6 +13,11 @@ import requests
 import time
 from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
+from zeeguu.core.language.language_check import (
+    LanguageMismatchError,
+    describe_mismatches,
+    generate_in_language,
+)
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
@@ -132,6 +137,46 @@ def _strip_markdown_from_summary(text):
     return text
 
 
+# Labels for the language check on the summaries. They double as the keys we use
+# to drop exactly the summaries that came back in the wrong language.
+ORIGINAL_SUMMARY_LABEL = "original summary"
+
+
+def _level_summary_label(level: str) -> str:
+    return f"{level} summary"
+
+
+def _summary_fields(assessment: dict) -> list:
+    """The parts of an assessment that must be in the article's language."""
+    fields = [(ORIGINAL_SUMMARY_LABEL, assessment.get("original_summary", ""))]
+    fields += [
+        (_level_summary_label(level), text)
+        for level, text in assessment.get("level_summaries", {}).items()
+    ]
+    return fields
+
+
+def _without_wrong_language_summaries(assessment: dict, mismatches: list) -> dict:
+    """
+    Policy for a summary that stayed English: drop it, keep the assessment.
+
+    CEFR level, article type and the disturbing-content flag are language-
+    independent and still correct, and the crawl path only overwrites
+    ``article.summary`` when the summary is non-empty — so dropping one leaves
+    the feed blurb in place rather than an English summary on a Danish article.
+    """
+    wrong = {m.label for m in mismatches}
+    result = dict(assessment)
+    if ORIGINAL_SUMMARY_LABEL in wrong:
+        result["original_summary"] = ""
+    result["level_summaries"] = {
+        level: text
+        for level, text in result.get("level_summaries", {}).items()
+        if _level_summary_label(level) not in wrong
+    }
+    return result
+
+
 def assess_and_summarize(
     title: str,
     content: str,
@@ -157,6 +202,11 @@ def assess_and_summarize(
             'model_name': str,
         }
 
+    The summaries must be in the article's language; the LLM used to return
+    English for half of them and nothing errored. They are re-requested once with
+    the mismatch named, and dropped if they come back wrong again — the
+    assessment itself is language-independent and always kept.
+
     Raises:
         Exception: "PAYWALL: ..." or "ADVERTORIAL: ..." when the LLM flags the
         article, or on API failure.
@@ -167,15 +217,33 @@ def assess_and_summarize(
     provider, api_key = _select_provider_and_key(simplification_provider)
     log(f"Assessing+summarizing article '{title[:50]}...' in {target_language}")
 
-    # Assessment + one ~70-word summary PER level below the original (up to 5 for a
-    # C2 article) plus the original summary. 2000 gives headroom over the single-
-    # summary sizing so the last-emitted levels aren't truncated — still a fraction
-    # of the 6000 the full multi-level bodies needed.
-    result, model_name = _call_simplification_llm(
-        prompt, provider, api_key, max_tokens=2000, timeout=120
-    )
-    _raise_if_paywall_or_advertorial(result)
+    def generate(correction):
+        # Assessment + one ~70-word summary PER level below the original (up to 5
+        # for a C2 article) plus the original summary. 2000 gives headroom over the
+        # single-summary sizing so the last-emitted levels aren't truncated — still
+        # a fraction of the 6000 the full multi-level bodies needed.
+        result, model_name = _call_simplification_llm(
+            prompt + correction, provider, api_key, max_tokens=2000, timeout=120
+        )
+        _raise_if_paywall_or_advertorial(result)
+        return _parse_assessment_and_summary(result, provider, model_name)
 
+    try:
+        return generate_in_language(
+            generate,
+            target_language,
+            _summary_fields,
+            f"summary of '{title[:50]}'",
+        )
+    except LanguageMismatchError as e:
+        log(
+            f"  Dropping wrong-language summaries for '{title[:50]}': "
+            f"{describe_mismatches(e.mismatches)}"
+        )
+        return _without_wrong_language_summaries(e.result, e.mismatches)
+
+
+def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -> dict:
     # Parse the small set of labelled fields, plus any per-level [LEVEL]_SUMMARY
     # sections (e.g. "A1_SUMMARY:", "B1_SUMMARY:").
     sections = {}
@@ -382,6 +450,213 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
     return target_levels
 
 
+def _version_fields(simplification: dict) -> list:
+    """
+    The parts of a multi-level simplification that must be in the article's
+    language — one field per level, so a level that comes back English can be
+    dropped without taking the others with it.
+    """
+    fields = [(ORIGINAL_SUMMARY_LABEL, simplification.get("original_summary", ""))]
+    for level, version in simplification.get("versions", {}).items():
+        fields.append(
+            (
+                level,
+                " ".join(
+                    [
+                        version.get("title", ""),
+                        version.get("summary", ""),
+                        version.get("content", ""),
+                    ]
+                ),
+            )
+        )
+    return fields
+
+
+def _without_wrong_language_levels(simplification: dict, mismatches: list) -> dict:
+    """
+    Policy for a level that came back in the wrong language: drop that level and
+    keep the good ones. A run produces up to six levels and every caller already
+    tolerates a partial set, so one bad generation must not cost the other five.
+
+    Raises when nothing survives — same contract as "no complete versions".
+    """
+    wrong = {m.label for m in mismatches}
+    result = dict(simplification)
+    if ORIGINAL_SUMMARY_LABEL in wrong:
+        result["original_summary"] = ""
+    result["versions"] = {
+        level: version
+        for level, version in result.get("versions", {}).items()
+        if level not in wrong
+    }
+    result["simplified_levels"] = [
+        level for level in result.get("simplified_levels", []) if level not in wrong
+    ]
+    log(
+        f"  Dropping wrong-language output {sorted(wrong)}; "
+        f"keeping levels {result['simplified_levels']}"
+    )
+    if not result["simplified_levels"]:
+        raise Exception(
+            "No simplified versions survived the language check: "
+            f"{describe_mismatches(mismatches)}"
+        )
+    return result
+
+
+def _parse_adaptive_response(result: str, provider: str, model_name: str) -> dict:
+    """Turn one adaptive-simplification response into the levels it describes."""
+    log(f"  Parsing response sections...")
+    # Parse the response
+    sections = {}
+    lines = result.split("\n")
+    current_section = None
+    current_content = []
+
+    for line in lines:
+        line = line.strip()
+        if ":" in line and any(
+            line.startswith(prefix)
+            for prefix in [
+                "DISTURBING_CONTENT",
+                "ARTICLE_TYPE",
+                "ORIGINAL_LEVEL",
+                "ORIGINAL_SUMMARY",
+                "SIMPLIFIED_LEVELS",
+            ]
+        ):
+            # Save previous section
+            if current_section:
+                sections[current_section] = "\n".join(current_content).strip()
+            # Start new section
+            section_name = line.split(":")[0]
+            current_section = section_name
+            current_content = [line.split(":", 1)[1].strip()]
+        elif "_TITLE:" in line or "_CONTENT:" in line or "_SUMMARY:" in line:
+            # Save previous section
+            if current_section:
+                sections[current_section] = "\n".join(current_content).strip()
+            # Start new section
+            section_name = line.split(":")[0]
+            current_section = section_name
+            current_content = [line.split(":", 1)[1].strip()]
+        elif current_section:
+            current_content.append(line)
+
+    # Save last section
+    if current_section:
+        sections[current_section] = "\n".join(current_content).strip()
+
+    log(f"  Found {len(sections)} sections in response")
+    log(f"  Section keys: {list(sections.keys())}")
+
+    # Extract basic info
+    is_disturbing = (
+        _clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+    )
+    article_type_raw = _clean_text(sections.get("ARTICLE_TYPE", "")).upper()
+    article_type = (
+        article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
+    )
+    original_level = _clean_text(sections.get("ORIGINAL_LEVEL", ""))
+    original_summary = _strip_markdown_from_summary(
+        _clean_text(sections.get("ORIGINAL_SUMMARY", ""))
+    )
+    simplified_levels_str = _clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
+
+    # Parse simplified levels
+    if simplified_levels_str:
+        simplified_levels = [
+            level.strip() for level in simplified_levels_str.split(",")
+        ]
+    else:
+        simplified_levels = []
+
+    # Validate CEFR level
+    valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    if original_level not in valid_levels:
+        log(
+            f"Warning: Invalid original CEFR level '{original_level}', defaulting to 'B2'"
+        )
+        original_level = "B2"
+
+    log(
+        f"  Extracted: original_level={original_level}, simplified_levels={simplified_levels}"
+    )
+
+    # Extract simplified versions
+    log(f"  Extracting simplified versions for levels: {simplified_levels}")
+    versions = {}
+    for level in simplified_levels:
+        log(f"    Processing level {level}...")
+        title_key = f"{level}_TITLE"
+        content_key = f"{level}_CONTENT"
+        summary_key = f"{level}_SUMMARY"
+
+        if all(key in sections for key in [title_key, content_key, summary_key]):
+            versions[level] = {
+                "title": _clean_text(sections[title_key]),
+                "content": _clean_text(sections[content_key]),
+                "summary": _strip_markdown_from_summary(
+                    _clean_text(sections[summary_key])
+                ),
+            }
+            log(f"    Successfully extracted {level} version")
+        else:
+            missing_keys = [
+                key
+                for key in [title_key, content_key, summary_key]
+                if key not in sections
+            ]
+            log(f"    Missing keys for {level}: {missing_keys}")
+
+    # Validate we got the expected content
+    if not original_summary:
+        raise Exception("Missing original summary in response")
+
+    # Filter out incomplete levels but keep the ones that are complete
+    valid_levels = []
+    invalid_levels = []
+    for level in simplified_levels:
+        if level in versions and all(versions[level].values()):
+            valid_levels.append(level)
+        else:
+            invalid_levels.append(level)
+            log(
+                f"  Warning: Missing or incomplete content for {level} level, skipping"
+            )
+
+    # Update simplified_levels to only include valid ones
+    simplified_levels = valid_levels
+
+    # Only fail if we got NO valid levels at all
+    if not simplified_levels:
+        raise Exception(
+            f"No complete simplified versions were created. Incomplete levels: {invalid_levels}"
+        )
+
+    if invalid_levels:
+        log(
+            f"Partially successful: simplified article to {len(simplified_levels)} levels: {simplified_levels} (skipped incomplete: {invalid_levels})"
+        )
+    else:
+        log(
+            f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
+        )
+
+    return {
+        "is_disturbing": is_disturbing,
+        "article_type": article_type.lower() if article_type else None,
+        "original_cefr_level": original_level,
+        "original_summary": original_summary,
+        "simplified_levels": simplified_levels,
+        "versions": versions,
+        "provider": provider,
+        "model_name": model_name,
+    }
+
+
 def simplify_article_adaptive_levels(
     title: str,
     content: str,
@@ -417,8 +692,13 @@ def simplify_article_adaptive_levels(
             'model_name': str  # e.g., 'deepseek-chat' or 'claude-haiku-4-5-20251001'
         }
 
+    Every level must come back in the article's language. If any doesn't, the
+    whole set is re-requested once with the offending levels named; whatever is
+    still wrong after that is dropped, and the levels that are right are kept.
+
     Raises:
-        Exception: If API call fails or returns unexpected response
+        Exception: If API call fails, returns unexpected response, or no level
+        survives the language check
     """
 
     # Get the adaptive prompt
@@ -432,148 +712,25 @@ def simplify_article_adaptive_levels(
         log(f"  Article length: {len(content)} characters")
         log(f"  Prompt length: {len(prompt)} characters")
 
-        result, model_name = _call_simplification_llm(
-            prompt, provider, api_key, max_tokens=6000, timeout=180
-        )
-        _raise_if_paywall_or_advertorial(result)
-
-        log(f"  Parsing response sections...")
-        # Parse the response
-        sections = {}
-        lines = result.split("\n")
-        current_section = None
-        current_content = []
-
-        for line in lines:
-            line = line.strip()
-            if ":" in line and any(
-                line.startswith(prefix)
-                for prefix in [
-                    "DISTURBING_CONTENT",
-                    "ARTICLE_TYPE",
-                    "ORIGINAL_LEVEL",
-                    "ORIGINAL_SUMMARY",
-                    "SIMPLIFIED_LEVELS",
-                ]
-            ):
-                # Save previous section
-                if current_section:
-                    sections[current_section] = "\n".join(current_content).strip()
-                # Start new section
-                section_name = line.split(":")[0]
-                current_section = section_name
-                current_content = [line.split(":", 1)[1].strip()]
-            elif "_TITLE:" in line or "_CONTENT:" in line or "_SUMMARY:" in line:
-                # Save previous section
-                if current_section:
-                    sections[current_section] = "\n".join(current_content).strip()
-                # Start new section
-                section_name = line.split(":")[0]
-                current_section = section_name
-                current_content = [line.split(":", 1)[1].strip()]
-            elif current_section:
-                current_content.append(line)
-
-        # Save last section
-        if current_section:
-            sections[current_section] = "\n".join(current_content).strip()
-
-        log(f"  Found {len(sections)} sections in response")
-        log(f"  Section keys: {list(sections.keys())}")
-
-        # Extract basic info
-        is_disturbing = (
-            _clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
-        )
-        article_type_raw = _clean_text(sections.get("ARTICLE_TYPE", "")).upper()
-        article_type = (
-            article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
-        )
-        original_level = _clean_text(sections.get("ORIGINAL_LEVEL", ""))
-        original_summary = _strip_markdown_from_summary(
-            _clean_text(sections.get("ORIGINAL_SUMMARY", ""))
-        )
-        simplified_levels_str = _clean_text(sections.get("SIMPLIFIED_LEVELS", ""))
-
-        # Parse simplified levels
-        if simplified_levels_str:
-            simplified_levels = [
-                level.strip() for level in simplified_levels_str.split(",")
-            ]
-        else:
-            simplified_levels = []
-
-        # Validate CEFR level
-        valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-        if original_level not in valid_levels:
-            log(
-                f"Warning: Invalid original CEFR level '{original_level}', defaulting to 'B2'"
+        def generate(correction):
+            result, model_name = _call_simplification_llm(
+                prompt + correction, provider, api_key, max_tokens=6000, timeout=180
             )
-            original_level = "B2"
+            _raise_if_paywall_or_advertorial(result)
+            return _parse_adaptive_response(result, provider, model_name)
 
-        log(
-            f"  Extracted: original_level={original_level}, simplified_levels={simplified_levels}"
-        )
-
-        # Extract simplified versions
-        log(f"  Extracting simplified versions for levels: {simplified_levels}")
-        versions = {}
-        for level in simplified_levels:
-            log(f"    Processing level {level}...")
-            title_key = f"{level}_TITLE"
-            content_key = f"{level}_CONTENT"
-            summary_key = f"{level}_SUMMARY"
-
-            if all(key in sections for key in [title_key, content_key, summary_key]):
-                versions[level] = {
-                    "title": _clean_text(sections[title_key]),
-                    "content": _clean_text(sections[content_key]),
-                    "summary": _strip_markdown_from_summary(
-                        _clean_text(sections[summary_key])
-                    ),
-                }
-                log(f"    Successfully extracted {level} version")
-            else:
-                missing_keys = [
-                    key
-                    for key in [title_key, content_key, summary_key]
-                    if key not in sections
-                ]
-                log(f"    Missing keys for {level}: {missing_keys}")
-
-        # Validate we got the expected content
-        if not original_summary:
-            raise Exception("Missing original summary in response")
-
-        # Filter out incomplete levels but keep the ones that are complete
-        valid_levels = []
-        invalid_levels = []
-        for level in simplified_levels:
-            if level in versions and all(versions[level].values()):
-                valid_levels.append(level)
-            else:
-                invalid_levels.append(level)
-                log(
-                    f"  Warning: Missing or incomplete content for {level} level, skipping"
-                )
-
-        # Update simplified_levels to only include valid ones
-        simplified_levels = valid_levels
-
-        # Only fail if we got NO valid levels at all
-        if not simplified_levels:
-            raise Exception(
-                f"No complete simplified versions were created. Incomplete levels: {invalid_levels}"
+        try:
+            simplification = generate_in_language(
+                generate,
+                target_language,
+                _version_fields,
+                f"simplification of '{title[:50]}'",
             )
+        except LanguageMismatchError as e:
+            simplification = _without_wrong_language_levels(e.result, e.mismatches)
 
-        if invalid_levels:
-            log(
-                f"Partially successful: simplified article to {len(simplified_levels)} levels: {simplified_levels} (skipped incomplete: {invalid_levels})"
-            )
-        else:
-            log(
-                f"Successfully simplified article to {len(simplified_levels)} levels: {simplified_levels} (original was {original_level}, disturbing: {is_disturbing})"
-            )
+        versions = simplification["versions"]
+        simplified_levels = simplification["simplified_levels"]
 
         # Grammar correction pass - fix spelling/grammar errors introduced during simplification
         uncorrected_versions = None
@@ -608,17 +765,9 @@ def simplify_article_adaptive_levels(
                 )
                 uncorrected_versions = None  # Don't log if correction failed
 
-        return {
-            "is_disturbing": is_disturbing,
-            "article_type": article_type.lower() if article_type else None,
-            "original_cefr_level": original_level,
-            "original_summary": original_summary,
-            "simplified_levels": simplified_levels,
-            "versions": versions,
-            "uncorrected_versions": uncorrected_versions,  # For logging corrections
-            "provider": provider,
-            "model_name": model_name,
-        }
+        # For logging corrections
+        simplification["uncorrected_versions"] = uncorrected_versions
+        return simplification
 
     except Timeout as e:
         log(f"  ERROR: DeepSeek API call timed out after 3 minutes")
@@ -656,7 +805,7 @@ def create_simplified_article_adaptive(
     """
 
     # Check if simplified version already exists
-    for existing in original_article.simplified_versions:
+    for existing in original_article.usable_simplified_versions:
         if existing.cefr_level == cefr_level:
             log(
                 f"Simplified version for {cefr_level} already exists for article {original_article.id}"
@@ -1139,7 +1288,9 @@ def create_recipient_derivative_from_article(
         f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
     )
     existing = Article.find(translated_url_key)
-    if existing:
+    # Skip a copy marked broken — the audit tool marks wrong-language ones, and
+    # this URL-key cache is the only thing that would otherwise keep serving it.
+    if existing and not existing.broken:
         return existing
 
     content = article.content or ""
@@ -1246,7 +1397,9 @@ def create_recipient_derivative(session, upload, target_language_code, target_le
         f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
     )
     existing = Article.find(translated_url_key)
-    if existing:
+    # Skip a copy marked broken — the audit tool marks wrong-language ones, and
+    # this URL-key cache is the only thing that would otherwise keep serving it.
+    if existing and not existing.broken:
         return existing
 
     content = upload.text_content or upload.raw_html or ""

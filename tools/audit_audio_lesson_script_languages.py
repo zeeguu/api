@@ -30,10 +30,8 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
-from zeeguu.core.audio_lessons.script_language_validator import (
-    describe_mismatches,
-    find_language_mismatches,
-)
+from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
+from zeeguu.core.language.language_check import describe_mismatches
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 

@@ -6,8 +6,26 @@ import os
 import requests
 from typing import Dict, Optional, Tuple
 from zeeguu.logging import log
+from zeeguu.core.language.language_check import (
+    LanguageMismatchError,
+    generate_in_language,
+)
 from zeeguu.core.llm_services.haiku_client import haiku_completion
 from zeeguu.core.llm_services import models
+
+
+def _text_fields(result: Dict) -> list:
+    """
+    What must be in the requested language, for the output-language check.
+
+    Title and summary are usually under the length threshold and come back as
+    "can't judge"; the content is what actually decides.
+    """
+    return [
+        ("title", result.get("title", "")),
+        ("summary", result.get("summary", "")),
+        ("content", result.get("content", "")),
+    ]
 
 
 class SimplificationService:
@@ -87,43 +105,73 @@ class SimplificationService:
         - Try Anthropic first (fast, real-time, extension use)
         - Fall back to DeepSeek if needed (slower, batch processing)
 
+        Simplifying must not change the language. When the output comes back in
+        another one it is re-requested once naming the mistake, and then given up
+        on — the callers all treat None as "no simplified version".
+
         Returns: Dict with 'title', 'content', 'summary' keys or None if failed
         """
         # Try Anthropic first (faster for real-time use)
         if self.anthropic_api_key:
             log(f"Using Anthropic for real-time simplification to {target_level}")
-            try:
+
+            def generate_anthropic(correction):
                 simplified_title, simplified_content, simplified_summary = self._simplify_anthropic(
-                    title, content, target_level, language_code
+                    title, content, target_level, language_code, correction
                 )
-                if simplified_title and simplified_content:
-                    if not simplified_summary:
-                        # Anthropic didn't produce a summary — strip HTML off the
-                        # content before slicing so we don't leak <p>/<strong> tags.
-                        from bs4 import BeautifulSoup
-                        plain = BeautifulSoup(simplified_content, "html.parser").get_text()
-                        simplified_summary = plain[:200] + ("..." if len(plain) > 200 else "")
-                    return {
-                        "title": simplified_title,
-                        "content": simplified_content,
-                        "summary": simplified_summary,
-                    }
+                if not (simplified_title and simplified_content):
+                    raise Exception("Anthropic returned an incomplete simplification")
+                if not simplified_summary:
+                    # Anthropic didn't produce a summary — strip HTML off the
+                    # content before slicing so we don't leak <p>/<strong> tags.
+                    from bs4 import BeautifulSoup
+                    plain = BeautifulSoup(simplified_content, "html.parser").get_text()
+                    simplified_summary = plain[:200] + ("..." if len(plain) > 200 else "")
+                return {
+                    "title": simplified_title,
+                    "content": simplified_content,
+                    "summary": simplified_summary,
+                }
+
+            try:
+                return generate_in_language(
+                    generate_anthropic,
+                    language_code,
+                    _text_fields,
+                    f"{target_level} simplification of '{title[:50]}'",
+                )
+            except LanguageMismatchError as e:
+                log(f"Anthropic simplified into the wrong language, trying DeepSeek: {e}")
             except Exception as e:
                 log(f"Anthropic simplification failed, falling back to DeepSeek: {e}")
 
         # Fallback to DeepSeek
         if self.deepseek_api_key:
             log(f"Using DeepSeek for batch simplification to {target_level}")
-            try:
-                return self._simplify_deepseek(
-                    title, content, target_level, language_code
+
+            def generate_deepseek(correction):
+                result = self._simplify_deepseek(
+                    title, content, target_level, language_code, correction
                 )
+                if not result:
+                    raise Exception("DeepSeek returned no simplification")
+                return result
+
+            try:
+                return generate_in_language(
+                    generate_deepseek,
+                    language_code,
+                    _text_fields,
+                    f"{target_level} simplification of '{title[:50]}'",
+                )
+            except LanguageMismatchError as e:
+                log(f"DeepSeek simplified into the wrong language, giving up: {e}")
             except Exception as e:
                 log(f"DeepSeek simplification failed: {e}")
 
         log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
         return None
-    
+
     def translate_and_adapt(
         self,
         title: str,
@@ -134,7 +182,13 @@ class SimplificationService:
     ) -> Optional[Dict]:
         """
         Translate and adapt text to target language and reading level.
-        
+
+        The riskiest LLM call in the codebase for output language: this is a
+        translation task, so "left it in the source language" is the single most
+        likely way for it to go wrong, and the result is stored as an article in
+        the recipient's language. Checked against target_language, re-requested
+        once, then abandoned (None) rather than stored untranslated.
+
         Returns: Dict with 'title', 'content', 'summary' keys or None if failed
         """
         # Map language codes to names
@@ -158,28 +212,47 @@ class SimplificationService:
         source_lang_name = language_names.get(source_language, source_language)
         target_lang_name = language_names.get(target_language, target_language)
         
+        context = f"{target_lang_name} translation of '{title[:50]}'"
+
+        def translated_by(translate):
+            """Wrap one provider's translate call for the output-language check."""
+
+            def generate(correction):
+                result = translate(correction)
+                if not result:
+                    raise Exception("translation returned nothing")
+                return result
+
+            return generate_in_language(generate, target_language, _text_fields, context)
+
         # Try Anthropic first (faster for real-time use)
         if self.anthropic_api_key:
             log(f"Using Anthropic for translation from {source_language} to {target_language} at {target_level}")
             try:
-                result = self._translate_and_adapt_anthropic(
-                    title, content, source_lang_name, target_lang_name, target_level
+                return translated_by(
+                    lambda correction: self._translate_and_adapt_anthropic(
+                        title, content, source_lang_name, target_lang_name, target_level, correction
+                    )
                 )
-                if result:
-                    return result
+            except LanguageMismatchError as e:
+                log(f"Anthropic did not translate into {target_lang_name}, trying DeepSeek: {e}")
             except Exception as e:
                 log(f"Anthropic translation failed, falling back to DeepSeek: {e}")
-        
+
         # Fallback to DeepSeek
         if self.deepseek_api_key:
             log(f"Using DeepSeek for translation from {source_language} to {target_language} at {target_level}")
             try:
-                return self._translate_and_adapt_deepseek(
-                    title, content, source_lang_name, target_lang_name, target_level
+                return translated_by(
+                    lambda correction: self._translate_and_adapt_deepseek(
+                        title, content, source_lang_name, target_lang_name, target_level, correction
+                    )
                 )
+            except LanguageMismatchError as e:
+                log(f"DeepSeek did not translate into {target_lang_name}, giving up: {e}")
             except Exception as e:
                 log(f"DeepSeek translation failed: {e}")
-        
+
         log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
         return None
 
@@ -448,7 +521,8 @@ TOPIC: [topic]"""
             return (None, None)
 
     def _translate_and_adapt_anthropic(
-        self, title: str, content: str, source_language: str, target_language: str, target_level: str
+        self, title: str, content: str, source_language: str, target_language: str,
+        target_level: str, correction: str = ""
     ) -> Optional[Dict]:
         """Translate and adapt text using Anthropic"""
         
@@ -512,6 +586,8 @@ IMPORTANT:
 - Summary should be concise, maximum 25 words, using {target_level} vocabulary
 - Ensure valid JSON format"""
 
+        prompt += correction
+
         log(f"Prompt length: {len(prompt)} chars")
 
         # Route through the shared Haiku client so the model (models.SIMPLIFICATION,
@@ -565,7 +641,8 @@ IMPORTANT:
             return None
 
     def _translate_and_adapt_deepseek(
-        self, title: str, content: str, source_language: str, target_language: str, target_level: str
+        self, title: str, content: str, source_language: str, target_language: str,
+        target_level: str, correction: str = ""
     ) -> Optional[Dict]:
         """Translate and adapt text using DeepSeek"""
         
@@ -602,6 +679,8 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
 }}
 
 IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} vocabulary."""
+
+        prompt += correction
 
         try:
             response = requests.post(
@@ -683,7 +762,8 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
             return None
 
     def _simplify_anthropic(
-        self, title: str, content: str, target_level: str, language_code: str
+        self, title: str, content: str, target_level: str, language_code: str,
+        correction: str = ""
     ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """Simplify text using Anthropic with ultra-strict constraints"""
         language_names = {
@@ -740,6 +820,8 @@ SIMPLIFIED_TITLE: [your simplified title in {language_name}]
 SIMPLIFIED_SUMMARY: [a concise plain-text summary in {language_name}, maximum 25 words, NO Markdown or HTML]
 SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown formatting - preserve paragraph breaks with double newlines, use **bold**, *italics*, ## for headings, - for lists]"""
 
+        prompt += correction
+
         result = haiku_completion(
             prompt, max_tokens=2000, temperature=0.2, timeout=60
         )
@@ -780,7 +862,8 @@ SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown f
         return simplified_title, simplified_html, simplified_summary
 
     def _simplify_deepseek(
-        self, title: str, content: str, target_level: str, language_code: str
+        self, title: str, content: str, target_level: str, language_code: str,
+        correction: str = ""
     ) -> Optional[Dict]:
         """Simplify text using DeepSeek"""
         prompt = f"""You are a language learning content creator. Simplify this {language_code} article from C1 level to {target_level} level.
@@ -806,6 +889,8 @@ SIMPLIFIED_CONTENT: [simplified article content in {language_code} with Markdown
 SIMPLIFIED_SUMMARY: [concise summary in {language_code}, maximum 25 words]
 
 Remember: Keep the same factual information but make it appropriate for {target_level} learners of {language_code}. DO NOT TRANSLATE THE CONTENT."""
+
+        prompt += correction
 
         try:
             response = requests.post(

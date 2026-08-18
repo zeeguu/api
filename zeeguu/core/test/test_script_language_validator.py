@@ -51,23 +51,73 @@ Teacher: Ask, where shall we meet? [5 seconds]
 Man: Where shall we meet? [3 seconds]
 """
 
-# The inverse: the teacher explains in the language being learned instead of the
-# learner's native language.
-GERMAN_LESSON_TEACHER_NOT_IN_ROMANIAN = """
-Teacher: In der folgenden Unterhaltung hören Sie das Wort: [0.2 seconds]
-TeacherL2: gemütlich [0.5 seconds]
-Teacher: Das bedeutet, dass ein Ort angenehm und warm ist. [1 seconds]
-Man: Hallo Anna, wollen wir heute Abend etwas trinken gehen? [1 seconds]
-Woman: Ja, gerne. Wo möchtest du dich denn treffen? [1 seconds]
-Man: Es gibt ein sehr gemütliches Café unten am Hafen. [1 seconds]
-Woman: Das klingt gut. Ich komme um sieben Uhr dorthin. [1 seconds]
-Man: Wunderbar, ich freue mich sehr auf heute Abend. [1 seconds]
-Woman: Ich mich auch. Bis später dann, mein lieber Freund. [1 seconds]
-Teacher: Lassen Sie uns jetzt einige wichtige Sätze üben. [1 seconds]
-Teacher: Sagen Sie, wo möchtest du dich treffen? [5 seconds]
-Man: Wo möchtest du dich treffen? [3 seconds]
-Teacher: Fragen Sie, wollen wir heute Abend etwas trinken gehen? [5 seconds]
-Man: Wollen wir heute Abend etwas trinken gehen? [3 seconds]
+# Abridged from production dialogue 235 (Danish, A2, generated 2026-08-16). The
+# opening conversation — the part a learner hears first, and for two solid minutes —
+# is entirely English; the practice phrases after it are correctly Danish. The whole
+# script scores 71% Danish, so checking it as one blob passes it.
+DANISH_LESSON_ENGLISH_DIALOGUE_DANISH_PRACTICE = """
+Teacher: Today, we will listen to a conversation about strength training. [0.5 seconds]
+Man: I think we should do strength training at home. It is easy and cheap. [1 seconds]
+Woman: That is a good idea. But what exercises can we do here? [1 seconds]
+Man: We can do push-ups and squats. They are very good for the body. [1 seconds]
+Woman: I like squats. But push-ups are hard for me. [1 seconds]
+Man: That is okay. You can start with a few and do more later. [1 seconds]
+Woman: How many times a week should we train? [1 seconds]
+Man: I think three times a week is good for us. [1 seconds]
+Woman: Should we use weights too? [1 seconds]
+Man: Yes, we can use small weights for our arms. [1 seconds]
+Woman: I do not have weights at home. Can we buy some? [1 seconds]
+Man: Yes, we can buy two small weights at the sports shop. [1 seconds]
+Woman: Great. And what about rest days? [1 seconds]
+Man: Rest days are important. Our muscles need time to grow stronger. [1 seconds]
+Woman: That makes sense. Let us start on Monday then. [1 seconds]
+Man: Perfect. We will train together and help each other. [1 seconds]
+Teacher: Let us practice some key phrases from the conversation. [1 seconds]
+Teacher: Tell your partner that you like squats. [5 seconds]
+Man: Jeg kan godt lide squats. [3 seconds]
+Teacher: Ask your partner how many times a week you should train. [5 seconds]
+Woman: Hvor mange gange om ugen skal vi træne? [3 seconds]
+Teacher: Say that you think three times a week is good for you. [5 seconds]
+Man: Jeg synes, tre gange om ugen er godt for os. [3 seconds]
+Teacher: Tell your partner that push-ups are hard for you. [5 seconds]
+Woman: Armstrækninger er svære for mig. [3 seconds]
+Teacher: Ask your partner if you should use weights. [5 seconds]
+Man: Skal vi bruge vægte? [3 seconds]
+Teacher: Say that rest days are important for your muscles. [5 seconds]
+Woman: Hviledage er vigtige for vores muskler. [3 seconds]
+Teacher: Tell your partner that you can start with a few exercises. [5 seconds]
+Man: Jeg kan starte med et par øvelser. [3 seconds]
+Teacher: Ask your partner if you can buy small weights at the shop. [5 seconds]
+Woman: Kan vi købe små vægte i butikken? [3 seconds]
+Teacher: Tell your friend that you want to get stronger. [5 seconds]
+Man: Jeg vil gerne blive stærkere. [3 seconds]
+Teacher: Ask your friend if they have a training mat. [5 seconds]
+Woman: Har du en træningsmåtte? [3 seconds]
+"""
+
+# Abridged from production lesson 1043 (English course, Ukrainian-speaking teacher).
+# This script is CORRECT. The teacher's lines are bilingual by design — a Ukrainian
+# lead-in plus the exact English sentence the listener must produce — so the teacher
+# reads as English by volume. Checking the teacher would fail a good lesson.
+ENGLISH_LESSON_WITH_UKRAINIAN_TEACHER = """
+Teacher: У наступній розмові ви почуєте слово: [0.2 seconds]
+TeacherL2: says [0.5 seconds]
+Teacher: зі значенням говорить. [1 seconds]
+Man: The news says it will rain tomorrow evening. [1 seconds]
+Woman: Really? My weather app says something completely different. [1 seconds]
+Man: It says the temperature will drop too, quite sharply. [1 seconds]
+Woman: Well, the forecast is never very accurate around here. [1 seconds]
+Man: True. My friend always says the news is more accurate. [1 seconds]
+Woman: Maybe. What does your app say about the weekend? [1 seconds]
+Teacher: Давайте попрактикуємо ключові фрази. [1 seconds]
+Teacher: Скажіть, the news says it will rain tomorrow. [5 seconds]
+Man: The news says it will rain tomorrow. [3 seconds]
+Teacher: Спробуйте, it says the temperature will drop too. [5 seconds]
+Man: It says the temperature will drop too. [3 seconds]
+Teacher: Тепер скажіть, my weather app says something different. [5 seconds]
+Man: My weather app says something different. [3 seconds]
+Teacher: Запитайте, what does your app say? [5 seconds]
+Man: What does your app say? [3 seconds]
 """
 
 GERMAN_LESSON_WITH_ROMANIAN_TEACHER = """
@@ -95,18 +145,28 @@ def test_correct_danish_lesson_passes():
 def test_danish_lesson_written_in_english_is_caught():
     mismatches = find_language_mismatches(DANISH_LESSON_GONE_ENGLISH, "da", "en")
     assert len(mismatches) == 1
-    assert mismatches[0].voices == "Man/Woman/TeacherL2"
+    assert mismatches[0].label == "Man/Woman/TeacherL2"
     assert mismatches[0].expected == "da"
     assert mismatches[0].detected == "en"
 
 
-def test_teacher_speaking_the_learned_language_is_caught():
+def test_english_dialogue_followed_by_danish_practice_is_caught():
+    # Production dialogue 235: the half a learner hears first was English. Checking
+    # the target-language lines as one blob scores 71% Danish and passes, which is
+    # how this reached a real daily lesson.
     mismatches = find_language_mismatches(
-        GERMAN_LESSON_TEACHER_NOT_IN_ROMANIAN, "de", "ro"
+        DANISH_LESSON_ENGLISH_DIALOGUE_DANISH_PRACTICE, "da", "en"
     )
-    assert [m.voices for m in mismatches] == ["Teacher"]
-    assert mismatches[0].expected == "ro"
-    assert mismatches[0].detected == "de"
+    assert len(mismatches) == 1
+    assert mismatches[0].expected == "da"
+    assert mismatches[0].detected == "en"
+
+
+def test_bilingual_teacher_lines_do_not_fail_a_good_lesson():
+    # Production lesson 1043. The teacher's challenges embed the English target
+    # sentence, so the teacher's lines read as English even though the lesson is
+    # correct. Only the target-language voices are judged.
+    assert find_language_mismatches(ENGLISH_LESSON_WITH_UKRAINIAN_TEACHER, "en", "uk") == []
 
 
 def test_correct_german_lesson_with_romanian_teacher_passes():

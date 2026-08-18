@@ -132,6 +132,19 @@ Format your response as JSON:
     }
 }
 
+def example_sentence_fields(examples):
+    """
+    The generated sentences, as (label, text) pairs for the output-language check.
+
+    Joined into one field on purpose: a single example sentence is well under the
+    length langdetect needs, while three of them together are usually enough to
+    judge — and a whole batch coming back in the wrong language is the failure
+    worth catching.
+    """
+    sentences = " ".join(example.get("sentence", "") for example in examples)
+    return [("example sentences", sentences)]
+
+
 def get_prompt_template(version=PROMPT_VERSION_V3):
     """Get prompt template by version."""
     if version not in EXAMPLE_GENERATION_PROMPTS:

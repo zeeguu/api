@@ -33,6 +33,7 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
+from zeeguu.core.language.language_check import check_language
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services.simplification_and_classification import (
@@ -41,21 +42,16 @@ from zeeguu.core.llm_services.simplification_and_classification import (
 
 session = db.session
 
-# English stopword markers vs Danish markers — the stored summaries are strongly
-# bimodal (fully English or fully target-language), so a simple count separates
-# them cleanly. Danish-specific; good enough for the "da first" pass.
-EN = [" the ", " and ", " is ", " of ", " to ", " with ", " has ", " for ",
-      " in ", " on ", " that ", " was ", " were ", " are ", " a ", " by ",
-      " from ", " this ", " have ", " been "]
-DA = [" og ", " er ", " ikke ", " på ", " til ", " med ", " har ", " som ",
-      " den ", " det ", " af ", " en ", " et ", "æ", "ø", "å"]
 
+def wrong_language(text, language_code):
+    """
+    True only when the summary is confidently in another language.
 
-def looks_english(text):
-    if not text:
-        return False
-    t = " " + text.lower() + " "
-    return sum(t.count(m) for m in EN) > sum(t.count(m) for m in DA)
+    Was a hand-rolled Danish-vs-English stopword count; now the same check the
+    generation path uses, so this works for every language and agrees with what
+    tools/audit_stored_article_languages.py reports.
+    """
+    return check_language(text, language_code) is not None
 
 
 def main():
@@ -84,7 +80,7 @@ def main():
     )
 
     need = []
-    n_no_cefr = n_english = 0
+    n_no_cefr = n_wrong_language = n_no_summary = 0
     for a in candidates:
         if a.get_word_count() < 100:
             continue
@@ -92,15 +88,22 @@ def main():
         if not a.cefr_level:
             reason = "no_cefr"
             n_no_cefr += 1
-        elif looks_english(a.summary or ""):
-            reason = "english_summary"
-            n_english += 1
+        elif wrong_language(a.summary or "", lang.code):
+            reason = "wrong_language"
+            n_wrong_language += 1
+        elif not a.summary:
+            # Includes the ones audit_stored_article_languages.py --fix emptied.
+            reason = "no_summary"
+            n_no_summary += 1
         if reason:
             need.append((a, reason))
 
     print(f"\n=== Backfill re-assess: {lang.name} since {args.since} ===")
     print(f"candidates scanned: {len(candidates)}")
-    print(f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, english_summary={n_english})")
+    print(
+        f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, "
+        f"wrong_language={n_wrong_language}, no_summary={n_no_summary})"
+    )
     if args.limit:
         need = need[: args.limit]
         print(f"limited to: {len(need)}")
