@@ -191,15 +191,26 @@ def _chunk(pieces, size=PASSAGE_CHUNK_CHARS) -> list:
 
 def passage_mismatch(pieces, expected_zeeguu_code, label="text"):
     """
-    Check a long text made of many pieces (voice lines, paragraphs) for a
-    wrong-language *run*, and return a LanguageMismatch if one is big enough.
+    Check a stretch of text that is supposed to be in ONE language throughout,
+    handed over as the pieces it is made of, and return a LanguageMismatch when a
+    big enough run of it is not.
 
-    ``language_mismatch`` judges a text as a single blob, which averages partial
-    failures away — the case this exists for: a Danish lesson whose opening
-    dialogue is entirely English but whose practice phrases are correctly Danish
-    scores 71% Danish overall and passes, while the learner hears two solid
-    minutes of English. Chunking finds the English half; the share threshold
-    keeps a single quoted foreign sentence from failing an otherwise good text.
+    Its one caller is the audio-lesson validator, which passes the Man, Woman and
+    TeacherL2 lines in script order. What makes that sound is that the bilingual
+    voice is already gone: the Teacher's English intro and English challenges are
+    filtered out upstream, so everything arriving here is material that should be
+    target language from end to end.
+
+    It exists because ``language_mismatch`` judges a text as one blob and averages
+    partial failures away. A Danish lesson whose opening dialogue was entirely
+    English, but whose practice answers were correctly Danish, scored 71% Danish
+    overall — passed, and shipped. Chunking separates the English dialogue from
+    the Danish answers rather than averaging them, and the share threshold then
+    keeps one stray sentence from failing an otherwise good passage.
+
+    Not for article bodies: prose that legitimately quotes a long foreign
+    statement would trip that threshold, which is why the simplification call
+    sites check whole fields instead.
     """
     chunks = _chunk(pieces)
     if not chunks:
