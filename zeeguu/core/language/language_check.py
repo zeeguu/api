@@ -83,9 +83,18 @@ GROUP_LEVEL_FLOOR = 0.15
 # its own, much lower, minimum — see MIN_WORDS_PER_LINE there.
 MIN_CHARS_TO_JUDGE = 60
 
-# Zeeguu spells some codes differently, and lingua splits Norwegian into Bokmål and
-# Nynorsk. Without the 'no' mapping every Norwegian lesson would be unjudgeable.
-_ZEEGUU_TO_ISO = {"no": "NB", "zh-CN": "ZH"}
+# Zeeguu spells some codes differently from ISO 639-1. A code with no entry here
+# and no ISO match resolves to no model at all, which means every text in that
+# language is silently unjudgeable *and* absent from the candidate set — Indonesian
+# prose was being detected as Albanian, for want of anywhere better to land.
+#
+# Norwegian maps to Bokmål alone, and deliberately so. lingua splits Norwegian into
+# Bokmål and Nynorsk; Zeeguu does not, because a learner learns Norwegian. With
+# only Bokmål among the candidates, Nynorsk has no closer home and scores 1.00 as
+# Norwegian — which is the answer we want. Adding Nynorsk splits the mass and drops
+# Nynorsk to 0.00 as Bokmål, turning every Nynorsk article in a Norwegian feed into
+# a wrong-language flag. Same reasoning for zh-CN: lingua models Chinese undivided.
+_ZEEGUU_TO_ISO = {"no": "NB", "zh-CN": "ZH", "ind": "ID"}
 
 # Languages too close to tell apart in a short, name-dense text.
 #

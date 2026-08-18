@@ -59,6 +59,7 @@ ones emptied here. The exact command is printed at the end of a --fix run.
 """
 
 import argparse
+from collections import Counter
 
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
@@ -90,6 +91,34 @@ def report(header, rows):
         print(f"      {describe(mismatch)}")
     if len(rows) > 40:
         print(f"  ... and {len(rows) - 40} more")
+    print()
+
+
+def report_by_crawl_day(originals, flagged_articles):
+    """
+    Flagged vs audited, per day the article was crawled.
+
+    A flat total cannot tell a fixed backlog from a leak that is still running,
+    and that difference decides whether --fix is safe: nulling a summary whose
+    generator is still broken just regenerates it wrong. The English-summary bug
+    was fixed in 7cd9d6ca on 15 Aug 2026 — if the rate falls to zero after that
+    day, what is left is history to be backfilled.
+    """
+    flagged_ids = {article.id for article in flagged_articles}
+    audited, flagged = Counter(), Counter()
+    for article in originals:
+        when = article.crawled_at or article.published_time
+        day = when.date().isoformat() if when else "unknown"
+        audited[day] += 1
+        if article.id in flagged_ids:
+            flagged[day] += 1
+
+    print("=" * 78)
+    print("wrong-language summaries by crawl day")
+    print("=" * 78)
+    for day in sorted(audited):
+        n, total = flagged[day], audited[day]
+        print(f"  {day}   {n:4} / {total:4}  {100 * n / total:5.1f}%  {'#' * min(40, n)}")
     print()
 
 
@@ -201,6 +230,8 @@ def main():
         f"({args.language or 'all languages'}, since {args.since})\n"
     )
 
+    originals_by_id = {article.id: article for article in originals}
+
     wrong_summaries, summary_articles = audit_original_summaries(originals)
     report("article.summary", wrong_summaries)
 
@@ -212,6 +243,13 @@ def main():
 
     wrong_translated, translated_articles = audit_child_articles(translated)
     report("translated children (judged against their own language)", wrong_translated)
+
+    level_summary_articles = [
+        originals_by_id[row.article_id]
+        for row in level_summary_rows
+        if row.article_id in originals_by_id
+    ]
+    report_by_crawl_day(originals, summary_articles + level_summary_articles)
 
     bad_children = simplified_articles + translated_articles
     total = (
