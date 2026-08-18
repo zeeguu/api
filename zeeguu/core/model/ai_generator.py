@@ -35,6 +35,19 @@ class AIGenerator(db.Model):
         """
         Find existing model or create new one.
 
+        Flushes rather than commits, so the generator belongs to whatever unit of
+        work the caller is in. It is almost always looked up while building the
+        row that will reference it — a lesson, a simplified article — and
+        committing here made a lookup quietly commit that half-built work too,
+        past the point any later failure could roll back. Flushing still emits
+        the INSERT, so the id is available immediately and a bad value still
+        fails here rather than somewhere later.
+
+        Every caller commits shortly after. The cost is that two processes
+        creating the same generator concurrently can now both insert it; there is
+        no unique constraint, so that was already possible, just in a narrower
+        window, and a duplicate generator row is harmless.
+
         Args:
             session: Database session
             model_name: Name of the AI model
@@ -58,11 +71,11 @@ class AIGenerator(db.Model):
             if description and model.description != description:
                 model.description = description
                 session.add(model)
-                session.commit()
+                session.flush()
         except:
             model = cls(model_name, prompt_version, description)
             session.add(model)
-            session.commit()
+            session.flush()
 
         return model
 
