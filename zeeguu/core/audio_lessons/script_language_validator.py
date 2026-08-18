@@ -41,16 +41,19 @@ TARGET_LABEL = "Man/Woman/TeacherL2"
 
 # How much of a lesson may read as another language before the lesson is wrong.
 #
-# Measured over 6532 stored lessons: sound scripts run 0-40% (short lines the
-# detector cannot place, a proper name, an English loanword the lesson is teaching),
-# and every genuine failure sits at 100% — the whole script written in the wrong
-# language. The worst innocent case is a Danish lesson about the name "Özlem
-# Saglanmak" at 40%, so this sits just above it with the real failures far away.
-LESSON_LEVEL_THRESHOLD = 0.45
+# With the floor under the correct band, sound lessons sit near zero rather than
+# near half, so this can come down far enough to catch the shape that was slipping
+# through: a dialogue lesson whose conversation is English but whose practice
+# answers are genuinely in the target language lands at 33-44%, because the practice
+# section is not wrong. Dialogues 235 and 236 are that shape, and a 0.45 threshold
+# missed both.
+LESSON_LEVEL_THRESHOLD = 0.25
 
-# A line shorter than this says nothing at all. Lower than the field-level minimum
-# in language_check because the threshold above absorbs individual bad answers,
-# which a field checked on its own has nothing to absorb.
+# Below this a line says nothing at all. It can stay small because the floor is set
+# under the band that correct short text occupies, rather than above it — raising
+# this to 9 words was the other way to fix the same problem, and it was worse: the
+# Italian-written-in-Spanish lessons have no line longer than eight words, so it
+# bought precision by discarding the evidence.
 MIN_WORDS_PER_LINE = 3
 
 # ...but absorbing requires something to absorb INTO. The threshold above is a
@@ -60,6 +63,11 @@ MIN_WORDS_PER_LINE = 3
 # that calibrated the threshold had 10-30 lines per lesson; below roughly this much
 # judged text there is no cushion, and the honest answer is "can't judge".
 MIN_CHARS_TO_JUDGE_A_LESSON = 200
+
+
+def _reads_as(line, target_language) -> str:
+    detected = detected_language_of(line)
+    return detected if detected != target_language else "no language confidently"
 
 
 def find_language_mismatches(script: str, target_language: str, source_language=None) -> list:
@@ -115,7 +123,11 @@ def find_language_mismatches(script: str, target_language: str, source_language=
             # What it reads as instead, taken from the worst line — the plausibility
             # question does not produce this, but a reader and a retry prompt both
             # want to know.
-            detected=detected_language_of(worst_line),
+            # Only meaningful when the winner differs from what we asked for. A line
+            # can be implausible while still reading as the expected language —
+            # confidence split across siblings — and reporting "expected da but
+            # reads as da" is nonsense.
+            detected=_reads_as(worst_line, target_language),
             expected_probability=worst_confidence,
             sample=worst_line[:120],
         )

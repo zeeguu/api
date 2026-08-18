@@ -45,13 +45,25 @@ from lingua import IsoCode639_1, Language, LanguageDetectorBuilder
 from zeeguu.core.language.language_codes import language_name
 from zeeguu.logging import log
 
-# How plausible the expected language must be, for ONE piece of text. Deliberately
-# low: lingua's confidence is relative, so a Danish sentence splits its score with
-# Norwegian and Swedish and still only reaches ~0.4. English in a Danish lesson
-# reaches 0.01. Measured across the stored corpus, sound text sits at 0.33-0.74 and
-# wrong-language text at 0.01-0.03, so anything in between separates them; 0.2 sits
-# in the gap with room on both sides.
-SENTENCE_LEVEL_FLOOR = 0.2
+# How plausible the expected language must be, for ONE piece of text.
+#
+# Very low, because lingua's confidence is relative to every candidate and the
+# Scandinavian languages divide it among themselves. Measured on production lines:
+# correct short Danish scores 0.076-0.132 — even where Danish is the detector's own
+# top answer — while English in a Danish lesson scores 0.015-0.029. The gap is
+# narrow in absolute terms and consistent in shape, so the floor goes just under
+# the correct band rather than in the middle of the range.
+#
+# It was 0.2 for one production run, which flagged thirteen sound Danish lessons at
+# ~50% each: half their lines are short, and short correct Danish does not reach
+# 0.2. Precision is what an unattended nightly sweep is for; a cron that cries wolf
+# thirteen times gets ignored.
+#
+# The cost is recorded honestly: a lesson written in a SIBLING of the target
+# language survives this floor. An Italian lesson written in Catalan scores
+# 0.070-0.141 as Italian — inside the correct band — so it now passes. The failure
+# this catches instead is the common and severe one, an entire script in English.
+SENTENCE_LEVEL_FLOOR = 0.05
 
 # Below this many characters, a single text cannot be judged on its own — and
 # nothing downstream will catch the error, because a field is checked alone.
