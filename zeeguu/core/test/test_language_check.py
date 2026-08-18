@@ -7,6 +7,7 @@ No Flask app context or DB — the check works on raw text.
 import pytest
 
 from zeeguu.core.language.language_check import (
+    _detectable_text,
     LanguageMismatchError,
     field_mismatches,
     language_mismatch,
@@ -126,3 +127,24 @@ def test_generate_in_language_gives_up_carrying_the_last_result():
     # The last result rides along so a caller can keep the parts that are fine.
     assert caught.value.result["assessment"] == "B1"
     assert [m.label for m in caught.value.mismatches] == ["text"]
+
+
+def test_prose_with_angle_brackets_is_not_eaten_as_markup():
+    # An unanchored tag pattern turned "Hvis 5 < 10 og 20 > 15" into "Hvis 5 15",
+    # deleting the very text we are about to judge.
+    kept = _detectable_text("Hvis 5 < 10 og 20 > 15, saa er tallene rigtige.")
+    assert "10 og 20" in kept
+    assert _detectable_text("<p>Hej <strong>med</strong> dig</p>") == "Hej med dig"
+
+
+def test_no_language_to_check_against_is_not_a_crash():
+    assert not language_mismatch(DANISH, None)
+    assert not language_mismatch(DANISH, "")
+
+
+def test_a_passage_given_as_one_string_is_refused():
+    # Iterating a string yields characters; the chunks read as Welsh and the
+    # caller gets a confident mismatch on perfectly good text.
+    with pytest.raises(TypeError):
+        passage_mismatch(DANISH, "da")
+    assert not passage_mismatch([DANISH], "da")

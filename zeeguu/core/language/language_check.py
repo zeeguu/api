@@ -118,7 +118,10 @@ def _probabilities(text: str) -> dict:
         return {}
 
 
-_TAG = re.compile(r"<[^>]+>")
+# Anchored to a letter after the bracket so this strips markup and not prose:
+# an unanchored <[^>]+> turns "Hvis 5 < 10 og 20 > 15" into "Hvis 5 15", quietly
+# deleting the evidence we are about to judge.
+_TAG = re.compile(r"</?[a-zA-Z][^>]*>")
 
 
 def _detectable_text(text: str) -> str:
@@ -133,6 +136,12 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
     None also means "can't judge": empty or short text, or a language langdetect
     has no profile for. Callers must not read None as proof the text is right.
     """
+    if not isinstance(expected_zeeguu_code, str) or not expected_zeeguu_code:
+        # No language to check against is a genuine "can't judge", but a silent
+        # one is how this whole class of bug hides — so it gets a line.
+        log(f"[language_check] nothing to check {label!r} against: {expected_zeeguu_code!r}")
+        return None
+
     expected = _langdetect_code(expected_zeeguu_code)
     if expected not in LANGDETECT_SUPPORTED:
         return None
@@ -217,6 +226,15 @@ def passage_mismatch(pieces, expected_zeeguu_code, label="text"):
     be loose enough to swallow both — which is why the simplification call sites
     check whole fields instead of passages.
     """
+    if isinstance(pieces, str):
+        # Iterating a string yields characters, and the chunks come out as
+        # "R e g e r i n g e n", which reads as Welsh. Loud beats plausible.
+        raise TypeError(
+            "passage_mismatch takes the pieces a passage is made of, not the "
+            "passage itself. Pass [text] for a single piece, or use "
+            "language_mismatch for text you already have as one string."
+        )
+
     chunks = _chunk(pieces)
     if not chunks:
         return None
