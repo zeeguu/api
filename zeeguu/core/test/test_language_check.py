@@ -8,11 +8,9 @@ import pytest
 
 from zeeguu.core.language.language_check import (
     _detectable_text,
-    LanguageMismatchError,
     field_mismatches,
     language_mismatch,
     passage_mismatch,
-    generate_in_language,
 )
 
 DANISH = (
@@ -85,48 +83,6 @@ def test_a_wrong_language_half_is_caught_even_when_the_whole_reads_right():
 def test_a_single_foreign_sentence_does_not_fail_a_good_passage():
     pieces = DANISH.split(". ") * 3 + ["The minister was not available for comment."]
     assert not passage_mismatch(pieces, "da")
-
-
-def test_generate_in_language_returns_a_good_first_attempt_without_retrying():
-    calls = []
-
-    def generate(correction):
-        calls.append(correction)
-        return {"text": DANISH}
-
-    result = generate_in_language(
-        generate, "da", lambda r: [("text", r["text"])], "test"
-    )
-    assert result == {"text": DANISH}
-    assert calls == [""]
-
-
-def test_generate_in_language_retries_with_a_correction_naming_the_problem():
-    calls = []
-    answers = [{"text": ENGLISH}, {"text": DANISH}]
-
-    def generate(correction):
-        calls.append(correction)
-        return answers[len(calls) - 1]
-
-    result = generate_in_language(
-        generate, "da", lambda r: [("text", r["text"])], "test"
-    )
-    assert result == {"text": DANISH}
-    assert calls[0] == ""
-    assert "Danish" in calls[1] and "en" in calls[1]
-
-
-def test_generate_in_language_gives_up_carrying_the_last_result():
-    def generate(correction):
-        return {"assessment": "B1", "text": ENGLISH}
-
-    with pytest.raises(LanguageMismatchError) as caught:
-        generate_in_language(generate, "da", lambda r: [("text", r["text"])], "test")
-
-    # The last result rides along so a caller can keep the parts that are fine.
-    assert caught.value.result["assessment"] == "B1"
-    assert [m.label for m in caught.value.mismatches] == ["text"]
 
 
 def test_prose_with_angle_brackets_is_not_eaten_as_markup():

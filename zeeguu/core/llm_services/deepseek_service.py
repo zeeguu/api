@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 
 from .llm_service import LLMService
 from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
-from zeeguu.core.language.language_check import generate_in_language
+from zeeguu.core.language.generate_in_language import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 

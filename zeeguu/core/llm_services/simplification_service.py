@@ -6,7 +6,7 @@ import os
 import requests
 from typing import Dict, Optional, Tuple
 from zeeguu.logging import log
-from zeeguu.core.language.language_check import (
+from zeeguu.core.language.generate_in_language import (
     LanguageMismatchError,
     generate_in_language,
 )

@@ -13,9 +13,9 @@ import requests
 import time
 from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
-from zeeguu.core.language.language_check import (
+from zeeguu.core.language.language_check import describe_mismatches
+from zeeguu.core.language.generate_in_language import (
     LanguageMismatchError,
-    describe_mismatches,
     generate_in_language,
 )
 from zeeguu.core.model.article import Article
