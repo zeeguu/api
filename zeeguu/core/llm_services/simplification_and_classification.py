@@ -456,29 +456,21 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
 
 def _simplification_to_check(simplification: dict) -> list:
     """
-    What a simplification run generated, one field per level.
+    What a simplification run generated, one field per part.
 
-    Split by level for *detection*, not for salvage: an English A2 body sits next
-    to a Danish title and three Danish summaries, and judged as one blob the
-    Danish wins on volume and the English body goes through. Nothing keys off
-    these labels — a run that comes back wrong is lost whole (see the policy in
-    simplify_article_adaptive_levels), because a level has never failed on its
-    own; every failure we have seen was the entire response.
+    Not glued together per level: a level's Danish summary masks its English body
+    when they are judged as one string — 0.97 plausible as Danish for a field whose
+    content alone scores 0.00. Titles are short enough to answer "can't judge" on
+    their own, which is the right answer for them.
+
+    Nothing keys off these labels — a run that comes back wrong is lost whole (see
+    simplify_article_adaptive_levels) — but naming the part makes the log say which
+    one it was.
     """
     fields = [(ORIGINAL_SUMMARY_LABEL, simplification.get("original_summary", ""))]
     for level, version in simplification.get("versions", {}).items():
-        fields.append(
-            (
-                f"{level} text",
-                " ".join(
-                    [
-                        version.get("title", ""),
-                        version.get("summary", ""),
-                        version.get("content", ""),
-                    ]
-                ),
-            )
-        )
+        for part in ("title", "summary", "content"):
+            fields.append((f"{level} {part}", version.get(part, "")))
     return fields
 
 
