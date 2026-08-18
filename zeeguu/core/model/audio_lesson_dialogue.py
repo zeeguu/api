@@ -36,12 +36,6 @@ class AudioLessonDialogue(db.Model):
     )
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
-    # Superseded by ai_generator_id, which names the model that actually answered
-    # and the prompt version that produced this script. Kept nullable and no longer
-    # written: every existing row says the literal 'claude-v1', including the ones
-    # DeepSeek wrote while the Anthropic cap was reached. Dropped once no deployed
-    # code selects it.
-    created_by = Column(String(255), nullable=True)
 
     # Which model and prompt version actually produced this script. created_by is a
     # fixed literal and cannot answer that: the fallback chain may serve from a
@@ -59,7 +53,6 @@ class AudioLessonDialogue(db.Model):
         canonical_suggestion,
         lesson_type,
         language,
-        created_by=None,
         difficulty_level=None,
         duration_seconds=None,
         teacher_language=None,
@@ -68,7 +61,6 @@ class AudioLessonDialogue(db.Model):
         ai_generator=None,
     ):
         self.script = script
-        self.created_by = created_by
         self.canonical_suggestion = canonical_suggestion
         self.lesson_type = lesson_type
         self.title = title

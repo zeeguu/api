@@ -13,6 +13,7 @@ Usage:
     python -m tools.audit_audio_lesson_script_languages                 # report only
     python -m tools.audit_audio_lesson_script_languages --language da   # one learned language
     python -m tools.audit_audio_lesson_script_languages --deprecate     # mark the bad ones
+    python -m tools.audit_audio_lesson_script_languages --deprecate --force  # ...more than 10
     python -m tools.audit_audio_lesson_script_languages --quiet         # print only if something is wrong
 
 --quiet is for the nightly cron: a clean run prints nothing at all, so cron stays
@@ -43,6 +44,15 @@ from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 
 DEPRECATE = "--deprecate" in sys.argv
+FORCE = "--force" in sys.argv
+
+# Deprecating is reversible only while you still know which rows moved. On
+# 2026-08-18 a --deprecate run acted on a report from a configuration that was one
+# commit old and stamped sixty lessons, fifty-six of them sound; they were
+# recoverable only because one run shares one timestamp and almost nothing had
+# regenerated yet. A sweep that finds this many at once has found a change in the
+# checker, not a change in the corpus.
+MAX_WITHOUT_FORCE = 10
 QUIET = "--quiet" in sys.argv
 LANGUAGE = None
 if "--language" in sys.argv:
@@ -123,8 +133,25 @@ bad_dialogues = audit(
 )
 
 if DEPRECATE and (bad_meanings or bad_dialogues):
+    condemned = bad_meanings + bad_dialogues
+
+    # Say exactly what is about to move, so the run is auditable afterwards from
+    # the log alone.
+    out("About to deprecate:")
+    for lesson in condemned:
+        out(f"    {type(lesson).__name__} {lesson.id}")
+
+    if len(condemned) > MAX_WITHOUT_FORCE and not FORCE:
+        out(
+            f"\nREFUSING: {len(condemned)} lessons is more than {MAX_WITHOUT_FORCE}. "
+            "That usually means the checker changed, not the corpus. Read the list, "
+            "then re-run with --force if it is really right."
+        )
+        flush()
+        sys.exit(1)
+
     now = datetime.now()
-    for lesson in bad_meanings + bad_dialogues:
+    for lesson in condemned:
         lesson.deprecated_at = now
     db.session.commit()
     out(
