@@ -37,6 +37,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
+from zeeguu.core.language.language_check import _CONFUSABLE_FAMILIES
 from zeeguu.core.model.language import Language as ZLanguage
 
 try:
@@ -46,11 +47,17 @@ except ImportError:
 
 LIMIT = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else 0
 
-# Flag a lesson when more than this share of its judgeable lines miss. 0.6 sits
-# between the worst true negative in the sample (a Danish lesson at 50%, dominated
-# by a Turkish name) and every genuine failure (100%). Thin margin, few samples —
-# this run is partly about whether it holds.
-LINE_SHARE = 0.6
+# Flag a lesson when more than this share of its judgeable lines miss.
+#
+# The first run used 0.6 and got this backwards: it flagged fourteen sound Danish
+# lessons at 61-91% while MISSING dialogues 235 and 236 at 44% and 33%. The cause
+# was a strict got != want comparison per line, with none of the confusable-family
+# tolerance the langdetect path has had all along, so every short Danish line
+# reading as Norwegian counted as a miss. With families applied those lessons drop
+# to 0-17% and the genuine ones stay at 100% (meaning lessons) or 33-44%
+# (dialogues, whose Danish practice section dilutes their English conversation).
+# Hence 0.3.
+LINE_SHARE = 0.3
 MIN_WORDS = 2  # the bare target word on its own line says nothing
 
 # Zeeguu code -> lingua. 'no' is Bokmål there; Kurdish has no model, as in langdetect.
@@ -68,7 +75,16 @@ def lingua_language(code):
         return None
 
 
+def accepted_codes(code):
+    """The same tolerance the langdetect path uses: a family member is evidence."""
+    for family in _CONFUSABLE_FAMILIES:
+        if code in family:
+            return set(family)
+    return {code}
+
+
 SUPPORTED = {c: lingua_language(c) for c in ZLanguage.LANGUAGE_NAMES}
+CODE_OF = {l: c for c, l in SUPPORTED.items() if l}
 CANDIDATES = sorted({l for l in SUPPORTED.values() if l}, key=lambda l: l.name)
 print(f"lingua over {len(CANDIDATES)} of {len(SUPPORTED)} Zeeguu languages "
       f"(no model: {', '.join(c for c, l in SUPPORTED.items() if not l) or 'none'})")
@@ -83,6 +99,7 @@ def lingua_verdict(lines, learned):
     want = SUPPORTED.get(learned)
     if want is None:
         return None, 0.0
+    ok = accepted_codes(learned)
     judged = misses = 0
     worst = None
     for line in lines:
@@ -90,7 +107,7 @@ def lingua_verdict(lines, learned):
             continue
         judged += 1
         got = DETECTOR.detect_language_of(line)
-        if got != want:
+        if CODE_OF.get(got) not in ok:
             misses += 1
             worst = worst or (line, got)
     if not judged:
