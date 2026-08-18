@@ -203,7 +203,6 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                 origin_language,
                 translation_language,
                 cefr_level,
-                "claude-v1",
             )
 
             db.session.commit()

@@ -3,6 +3,7 @@ Script generator for audio lessons using unified LLM service.
 """
 
 import os
+import re
 from collections import namedtuple
 
 from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
@@ -25,10 +26,27 @@ LANGUAGE_ATTEMPTS = 3
 GeneratedScript = namedtuple("GeneratedScript", ["script", "model_name", "prompt_version"])
 
 
+_PROMPT_VERSION = re.compile(r"-(v\d+)$")
+
+
 def prompt_version_of(prompt_file: str) -> str:
-    """'meaning_lesson--...-v4.txt' -> 'meaning_lesson--...-v4'. The version is already
-    in the filename the caller chose; it just was never persisted."""
-    return os.path.basename(prompt_file).rsplit(".", 1)[0]
+    """
+    'meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt'
+        -> 'meaning_lesson-v4'
+
+    The family and the version, not the whole filename. The 43 characters in
+    between name the prompt's strategy, and rewording them is a tidy-up rather
+    than a new version — recording them would make a rename look like a version
+    bump, and would not fit AIGenerator.prompt_version (VARCHAR(50)) anyway.
+
+    The two dialogue prompts both reduce to 'dialogue_lesson-v2'; which of them
+    ran is recoverable from the row's own lesson_type.
+    """
+    stem = os.path.basename(prompt_file).rsplit(".", 1)[0]
+    version = _PROMPT_VERSION.search(stem)
+    if not version:
+        return stem
+    return f"{stem.split('--')[0]}-{version.group(1)}"
 
 
 # Load the prompt template
@@ -119,7 +137,7 @@ def generate_lesson_script(
     translation_language: str,
     cefr_level: str = "A1",
     generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt",
-) -> str:
+) -> GeneratedScript:
     """
     Generate a meaning lesson script for a single word (auto mode only).
     """
