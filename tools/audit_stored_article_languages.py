@@ -60,6 +60,7 @@ ones emptied here. The exact command is printed at the end of a --fix run.
 
 import argparse
 from collections import Counter
+from datetime import date, timedelta
 
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
@@ -82,16 +83,29 @@ def describe(mismatch):
     return describe_mismatches([mismatch])
 
 
+_lines = []
+
+
+def out(text=""):
+    _lines.append(text)
+
+
+def flush():
+    for line in _lines:
+        print(line)
+    _lines.clear()
+
+
 def report(header, rows):
-    print("=" * 78)
-    print(f"{header}: {len(rows)} in the wrong language")
-    print("=" * 78)
+    out("=" * 78)
+    out(f"{header}: {len(rows)} in the wrong language")
+    out("=" * 78)
     for label, mismatch in rows[:40]:
-        print(f"  {label}")
-        print(f"      {describe(mismatch)}")
+        out(f"  {label}")
+        out(f"      {describe(mismatch)}")
     if len(rows) > 40:
-        print(f"  ... and {len(rows) - 40} more")
-    print()
+        out(f"  ... and {len(rows) - 40} more")
+    out()
 
 
 def report_by_crawl_day(originals, flagged_articles):
@@ -118,13 +132,13 @@ def report_by_crawl_day(originals, flagged_articles):
         if article.id in flagged_ids:
             flagged[day] += 1
 
-    print("=" * 78)
-    print("wrong-language summaries by crawl day")
-    print("=" * 78)
+    out("=" * 78)
+    out("wrong-language summaries by crawl day")
+    out("=" * 78)
     for day in sorted(audited):
         n, total = flagged[day], audited[day]
-        print(f"  {day}   {n:4} / {total:4}  {100 * n / total:5.1f}%  {'#' * min(40, n)}")
-    print()
+        out(f"  {day}   {n:4} / {total:4}  {100 * n / total:5.1f}%  {'#' * min(40, n)}")
+    out()
 
 
 def audit_original_summaries(articles):
@@ -221,6 +235,19 @@ def main():
         help="published_time >= this date (default 2026-08-01, the bug window)",
     )
     p.add_argument(
+        "--days",
+        type=int,
+        help="rolling window: published_time >= N days ago. Overrides --since. Use "
+        "this from cron — a fixed --since date makes a nightly job re-scan an "
+        "ever-growing set and it gets slower every day it runs.",
+    )
+    p.add_argument(
+        "--quiet",
+        action="store_true",
+        help="print nothing when there is nothing wrong, so cron mail means a real "
+        "finding. Same convention as audit_audio_lesson_script_languages.py.",
+    )
+    p.add_argument(
         "--include-broken",
         action="store_true",
         help="also scan articles marked broken. Off by default: a broken article "
@@ -241,6 +268,8 @@ def main():
         "simplified articles broken). Reports only without it.",
     )
     args = p.parse_args()
+    if args.days:
+        args.since = (date.today() - timedelta(days=args.days)).isoformat()
 
     query = Article.query.filter(Article.published_time >= args.since).filter(
         (Article.deleted.is_(None)) | (Article.deleted == 0)
@@ -271,7 +300,7 @@ def main():
     # against anyway.
     without_language = [a for a in articles if a.language is None]
     if without_language:
-        print(f"Skipping {len(without_language)} article(s) with no language set")
+        out(f"Skipping {len(without_language)} article(s) with no language set")
         articles = [a for a in articles if a.language is not None]
 
     originals = [a for a in articles if a.parent_article_id is None]
@@ -286,8 +315,8 @@ def main():
     simplified = [a for a in children if is_level_adaptation(a)]
     translated = [a for a in children if not is_level_adaptation(a)]
 
-    print(f"\nMode: {'FIX' if args.fix else 'REPORT ONLY'}")
-    print(
+    out(f"\nMode: {'FIX' if args.fix else 'REPORT ONLY'}")
+    out(
         f"Scanning {len(originals)} originals, {len(simplified)} simplified and "
         f"{len(translated)} translated children "
         f"({args.language or 'all languages'}, since {args.since})\n"
@@ -328,22 +357,32 @@ def main():
         + len(wrong_translated)
     )
     if wrong_language_articles:
-        print(
+        out(
             f"Leaving {len(wrong_language_articles)} article(s) alone: their body is "
             f"in the wrong language too, so regenerating the summary would only "
             f"produce a summary of foreign text. Mark them "
             f"{LowQualityTypes.LANGUAGE_DOES_NOT_MATCH_FEED} instead.\n"
         )
 
+    found_something = bool(total or wrong_language_articles)
+    if args.quiet and not found_something:
+        return
+
     if not total:
-        print("Nothing stored in the wrong language" +
-              (" that regenerating would fix." if wrong_language_articles else "."))
-        print("(Remember: titles and short summaries can't be judged at all.)")
+        out("Nothing stored in the wrong language" +
+            (" that regenerating would fix." if wrong_language_articles else "."))
+        out("(Remember: titles and short summaries can't be judged at all.)")
+        flush()
         return
 
     if not args.fix:
-        print(f"{total} wrong-language items. Re-run with --fix to drop them.")
+        out(f"{total} wrong-language items. Re-run with --fix to drop them.")
+        flush()
         return
+
+    # Everything below destroys data, so say what was found BEFORE doing it: if a
+    # fix run dies halfway, the report of what it was working from is already out.
+    flush()
 
     # Null the wrong summaries; the article keeps its assessment.
     #
