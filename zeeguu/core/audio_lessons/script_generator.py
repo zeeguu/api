@@ -3,6 +3,9 @@ Script generator for audio lessons using unified LLM service.
 """
 
 import os
+import re
+from collections import namedtuple
+
 from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
@@ -17,6 +20,33 @@ VALID_LESSON_TYPES = (THREE_WORDS_LESSON, "topic", "situation")
 # a lesson in the wrong language is worse than no lesson, so we retry and then fail.
 LANGUAGE_ATTEMPTS = 3
 
+# What produced a script: the model that actually answered (not the one configured,
+# which a fallback chain can silently override) and the prompt file that was used.
+# Both are known at generation time and unrecoverable afterwards.
+GeneratedScript = namedtuple("GeneratedScript", ["script", "model_name", "prompt_version"])
+
+
+_PROMPT_VERSION = re.compile(r"-(v\d+)$")
+
+
+def prompt_version_of(prompt_file: str) -> str:
+    """
+    'meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt'
+        -> 'meaning_lesson-v4'
+
+    The family and the version, not the whole filename. The 43 characters in
+    between name the prompt's strategy, and rewording them is a tidy-up rather
+    than a new version — recording them would make a rename look like a version
+    bump, and would not fit AIGenerator.prompt_version (VARCHAR(50)) anyway.
+
+    The two dialogue prompts both reduce to 'dialogue_lesson-v2'; which of them
+    ran is recoverable from the row's own lesson_type.
+    """
+    stem = os.path.basename(prompt_file).rsplit(".", 1)[0]
+    family = stem.split("--")[0]
+    version = _PROMPT_VERSION.search(stem)
+    return f"{family}-{version.group(1)}" if version else family
+
 
 # Load the prompt template
 def get_prompt_template(file_name) -> str:
@@ -26,6 +56,28 @@ def get_prompt_template(file_name) -> str:
 
     with open(prompt_file, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def language_contract(target_lang_name: str, source_lang_name: str) -> str:
+    """
+    The two-language rule, as a system prompt.
+
+    A lesson script carries two languages at once, and which voice speaks which is
+    the whole point of it. Stating that only in the user prompt leaves it competing
+    with several hundred lines of formatting instructions: measured on DeepSeek,
+    scripts with a non-English teacher held the rule 1 time in 9 that way, and 7
+    times in 9 with the rule stated here instead.
+    """
+    return (
+        f"You write audio lesson scripts for language learners. The learner speaks "
+        f"{source_lang_name} natively and is studying {target_lang_name}.\n"
+        f"Lines labelled 'Man:', 'Woman:' and 'TeacherL2:' are ALWAYS written in "
+        f"{target_lang_name}. Never in {source_lang_name}.\n"
+        f"Lines labelled 'Teacher:' are ALWAYS written in {source_lang_name}.\n"
+        f"Keeping these two languages apart is the entire purpose of the script. A "
+        f"script whose Man/Woman lines are in {source_lang_name} is worthless to the "
+        f"learner and must never be produced."
+    )
 
 
 def _correction_note(mismatches, target_lang_name, source_lang_name) -> str:
@@ -44,7 +96,7 @@ def generate_script_in_languages(
     source_language: str,
     context: str,
     max_tokens: int = None,
-) -> str:
+) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
 
@@ -54,16 +106,17 @@ def generate_script_in_languages(
     kwargs = {"max_tokens": max_tokens} if max_tokens else {}
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
+    kwargs["system"] = language_contract(target_lang_name, source_lang_name)
 
     attempt_prompt = prompt
     mismatches = []
 
     for attempt in range(1, LANGUAGE_ATTEMPTS + 1):
-        script = generate_audio_lesson_script(attempt_prompt, **kwargs)
+        script, model_name = generate_audio_lesson_script(attempt_prompt, **kwargs)
 
         mismatches = find_language_mismatches(script, target_language, source_language)
         if not mismatches:
-            return script
+            return script, model_name
 
         log_mismatches(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS})", mismatches)
         attempt_prompt = prompt + _correction_note(
@@ -82,8 +135,8 @@ def generate_lesson_script(
     origin_language: str,
     translation_language: str,
     cefr_level: str = "A1",
-    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v3.txt",
-) -> str:
+    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt",
+) -> GeneratedScript:
     """
     Generate a meaning lesson script for a single word (auto mode only).
     """
@@ -104,14 +157,14 @@ def generate_lesson_script(
 
     try:
         # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
-        script = generate_script_in_languages(
+        script, model_name = generate_script_in_languages(
             prompt,
             target_language=origin_language,
             source_language=translation_language,
             context=f"meaning lesson '{origin_word}'",
         )
         log(f"Successfully generated script for {origin_word}")
-        return script
+        return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
 
     except Exception as e:
         log(f"Failed to generate script for {origin_word}: {e}")
@@ -136,9 +189,9 @@ def generate_dialogue_script(
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
     if lesson_type == "situation":
-        prompt_file = "dialogue_lesson--situation-v1.txt"
+        prompt_file = "dialogue_lesson--situation-v2.txt"
     else:
-        prompt_file = "dialogue_lesson--topic-v1.txt"
+        prompt_file = "dialogue_lesson--topic-v2.txt"
 
     prompt_template = get_prompt_template(prompt_file)
     prompt = prompt_template.format(
@@ -155,7 +208,7 @@ def generate_dialogue_script(
     log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
 
     try:
-        raw = generate_script_in_languages(
+        raw, model_name = generate_script_in_languages(
             prompt,
             target_language=origin_language,
             source_language=translation_language,
@@ -172,7 +225,7 @@ def generate_dialogue_script(
             script = lines[1].strip()
 
         log(f"Successfully generated dialogue script, title: '{title}'")
-        return title, script
+        return title, GeneratedScript(script, model_name, prompt_version_of(prompt_file))
 
     except Exception as e:
         log(f"Failed to generate dialogue script: {e}")

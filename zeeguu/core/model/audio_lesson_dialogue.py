@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey, Da
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.language import Language
 
 
@@ -35,7 +36,18 @@ class AudioLessonDialogue(db.Model):
     )
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
-    created_by = Column(String(255), nullable=False)
+    # Superseded by ai_generator_id, which names the model that actually answered
+    # and the prompt version that produced this script. Kept nullable and no longer
+    # written: every existing row says the literal 'claude-v1', including the ones
+    # DeepSeek wrote while the Anthropic cap was reached. Dropped once no deployed
+    # code selects it.
+    created_by = Column(String(255), nullable=True)
+
+    # Which model and prompt version actually produced this script. created_by is a
+    # fixed literal and cannot answer that: the fallback chain may serve from a
+    # different provider than the configured one, so it has to be recorded here.
+    ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
+    ai_generator = relationship(AIGenerator)
 
     # When set, cache lookups skip this row and force regeneration. Existing
     # daily lesson segments that already reference it keep playing as before.
@@ -44,15 +56,16 @@ class AudioLessonDialogue(db.Model):
     def __init__(
         self,
         script,
-        created_by,
         canonical_suggestion,
         lesson_type,
         language,
+        created_by=None,
         difficulty_level=None,
         duration_seconds=None,
         teacher_language=None,
         is_general=False,
         title=None,
+        ai_generator=None,
     ):
         self.script = script
         self.created_by = created_by
@@ -65,6 +78,8 @@ class AudioLessonDialogue(db.Model):
         self.is_general = is_general
         if teacher_language:
             self.teacher_language_id = teacher_language.id
+        if ai_generator:
+            self.ai_generator_id = ai_generator.id
 
     def __repr__(self):
         return f"<AudioLessonDialogue {self.id} '{self.canonical_suggestion}' ({self.lesson_type})>"

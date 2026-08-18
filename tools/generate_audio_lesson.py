@@ -8,14 +8,15 @@ from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 target_language = "es"
 cefr_level="A1"
 
-script = generate_lesson_script(
+generated = generate_lesson_script(
     origin_word="mientras",
     translation_word="while",
     origin_language=target_language,
     translation_language="en",
     cefr_level=cefr_level,
-    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v3.txt",
+    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt",
 )
+script = generated.script
 
 print(script)
 

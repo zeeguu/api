@@ -17,6 +17,10 @@ Use this exact format:
 
     Create a single flowing dialogue of at least 14 lines between Man and Woman that feels
     like a real conversation in the given situation.
+    EVERY "Man:" and "Woman:" line in this dialogue MUST be written in {target_language}.
+    This dialogue is the part the learner listens to in order to hear {target_language};
+    a dialogue written in {source_language} is worthless to them and counts as a failed
+    script. Do not translate the lines and do not gloss them.
     In between lines add one second break annotations with: [1 seconds]
 
 

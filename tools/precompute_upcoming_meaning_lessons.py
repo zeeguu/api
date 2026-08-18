@@ -122,7 +122,10 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
         timeout_seconds: Maximum time to spend generating this lesson (default: 10 minutes)
 
     Returns:
-        AudioLessonMeaning object or None if generation fails
+        (AudioLessonMeaning, created) — `created` is False when an existing
+        lesson was reused. Only this function can tell the difference; the
+        caller used to infer it from created_by == "claude-v1", which every row
+        says, so every lesson counted as freshly generated.
     """
     meaning = user_word.meaning
     origin_language = meaning.origin.language.code
@@ -171,14 +174,14 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
             output(
                 f"        Audio lesson already exists for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
             )
-        return existing_lesson
+        return existing_lesson, False
 
     if DRY_RUN:
         rank, status = get_word_display_info()
         output(
             f"        [DRY RUN] Would generate audio for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status})"
         )
-        return None
+        return None, False
 
     try:
         import signal
@@ -200,7 +203,6 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                 origin_language,
                 translation_language,
                 cefr_level,
-                "claude-v1",
             )
 
             db.session.commit()
@@ -211,7 +213,7 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                     f"        ✓ Generated audio lesson for: {meaning.origin.content} → {meaning.translation.content} (rank: {rank}, {status}, {audio_lesson_meaning.duration_seconds}s)"
                 )
 
-            return audio_lesson_meaning
+            return audio_lesson_meaning, True
 
         finally:
             # Cancel the alarm
@@ -222,13 +224,13 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
         output(
             f"        ✗ Timeout (>{timeout_seconds}s) generating audio for {meaning.origin.content}"
         )
-        return None
+        return None, False
     except Exception as e:
         db.session.rollback()
         output(
             f"        ✗ Failed to generate audio for {meaning.origin.content}: {str(e)}"
         )
-        return None
+        return None, False
 
 
 # Get users with their last activity time
@@ -378,15 +380,12 @@ for user, last_activity in user_activity_map:
                         language_breakdown[language.name] += 1
 
                         # Generate audio lesson for this meaning
-                        audio_lesson = generate_audio_lesson_for_meaning(
+                        audio_lesson, created = generate_audio_lesson_for_meaning(
                             user, user_word, cefr_level
                         )
 
                         if audio_lesson:
-                            if (
-                                hasattr(audio_lesson, "created_by")
-                                and audio_lesson.created_by == "claude-v1"
-                            ):
+                            if created:
                                 total_audio_generated += 1
                             else:
                                 total_audio_existing += 1
