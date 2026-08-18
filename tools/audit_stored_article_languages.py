@@ -96,7 +96,12 @@ def report(header, rows):
 
 def report_by_crawl_day(originals, flagged_articles):
     """
-    Flagged vs audited, per day the article was crawled.
+    Summariser failures vs articles audited, per day the article was crawled.
+
+    Counts only articles whose BODY is in the right language — an English article
+    in a Dutch feed is not the summariser getting it wrong, and leaving those in
+    smeared a constant background rate across every day of the chart, which is
+    what made the real 14-15 Aug spike hard to see.
 
     A flat total cannot tell a fixed backlog from a leak that is still running,
     and that difference decides whether --fix is safe: nulling a summary whose
@@ -123,14 +128,49 @@ def report_by_crawl_day(originals, flagged_articles):
 
 
 def audit_original_summaries(articles):
-    """article.summary vs the article's own language."""
-    wrong, wrong_articles = [], []
+    """article.summary vs the article's own language. Rows keyed by article id, so
+    the body-check split below can filter them by identity."""
+    wrong, wrong_articles = {}, []
     for article in articles:
         mismatch = language_mismatch(article.summary, article.language.code, "summary")
         if mismatch:
-            wrong.append((f"[{article.id}] {(article.title or '')[:60]}", mismatch))
+            wrong[article.id] = (
+                f"[{article.id}] {(article.title or '')[:60]}",
+                mismatch,
+            )
             wrong_articles.append(article)
     return wrong, wrong_articles
+
+
+def split_off_wrong_language_articles(flagged):
+    """
+    Of the articles whose summary flagged, which have a wrong-language BODY too?
+
+    The two populations need opposite treatment and the summary check alone cannot
+    tell them apart. A Dutch feed carrying an English Economist piece flags exactly
+    like a Dutch article that was given an English summary — but nulling the
+    first one's summary only regenerates a Dutch summary of English text, which is
+    worse than what it replaced. Only the second is the summariser's bug; the first
+    is feed contamination and wants LANGUAGE_DOES_NOT_MATCH_FEED instead.
+
+    Bodies are checked only for what already flagged — a few dozen articles rather
+    than every one scanned — because reading full text is the expensive part.
+    """
+    summary_only, whole_article, rows = [], [], []
+    for article in flagged:
+        mismatch = language_mismatch(
+            article.get_content() or "", article.language.code, "article body"
+        )
+        if mismatch:
+            whole_article.append(article)
+            rows.append((f"[{article.id}] {(article.title or '')[:60]}", mismatch))
+        else:
+            summary_only.append(article)
+    return summary_only, whole_article, rows
+
+
+def rows_for(articles, rows_by_article):
+    return [rows_by_article[article.id] for article in articles]
 
 
 def audit_level_summaries(articles):
@@ -180,6 +220,12 @@ def main():
         default="2026-08-01",
         help="published_time >= this date (default 2026-08-01, the bug window)",
     )
+    p.add_argument(
+        "--until",
+        help="published_time < this date. With --since, scopes --fix to one window "
+        "— the 14-15 Aug summariser bug is worth fixing separately from the "
+        "long-running background rate that predates it.",
+    )
     p.add_argument("--limit", type=int, default=0, help="cap articles scanned (0 = no cap)")
     p.add_argument(
         "--fix",
@@ -192,6 +238,8 @@ def main():
     query = Article.query.filter(Article.published_time >= args.since).filter(
         (Article.deleted.is_(None)) | (Article.deleted == 0)
     )
+    if args.until:
+        query = query.filter(Article.published_time < args.until)
     if args.language:
         language = Language.find(args.language)
         if not language:
@@ -233,7 +281,13 @@ def main():
     originals_by_id = {article.id: article for article in originals}
 
     wrong_summaries, summary_articles = audit_original_summaries(originals)
-    report("article.summary", wrong_summaries)
+    summary_articles, wrong_language_articles, wrong_language_rows = (
+        split_off_wrong_language_articles(summary_articles)
+    )
+    report("article.summary (the summariser wrote the wrong language)",
+           rows_for(summary_articles, wrong_summaries))
+    report("the ARTICLE itself is in the wrong language — do NOT regenerate, "
+           "these want marking broken", wrong_language_rows)
 
     wrong_level_summaries, level_summary_rows = audit_level_summaries(originals)
     report("ArticleLevelSummary.summary", wrong_level_summaries)
@@ -253,13 +307,22 @@ def main():
 
     bad_children = simplified_articles + translated_articles
     total = (
-        len(wrong_summaries)
+        len(summary_articles)
         + len(wrong_level_summaries)
         + len(wrong_simplified)
         + len(wrong_translated)
     )
+    if wrong_language_articles:
+        print(
+            f"Leaving {len(wrong_language_articles)} article(s) alone: their body is "
+            f"in the wrong language too, so regenerating the summary would only "
+            f"produce a summary of foreign text. Mark them "
+            f"{LowQualityTypes.LANGUAGE_DOES_NOT_MATCH_FEED} instead.\n"
+        )
+
     if not total:
-        print("Nothing stored in the wrong language.")
+        print("Nothing stored in the wrong language" +
+              (" that regenerating would fix." if wrong_language_articles else "."))
         print("(Remember: titles and short summaries can't be judged at all.)")
         return
 
