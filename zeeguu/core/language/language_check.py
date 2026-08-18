@@ -162,9 +162,13 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
 # A contiguous run this long in the wrong language is a real failure, not a misread.
 PASSAGE_CHUNK_CHARS = 300
 
-# How much of a text may be in the wrong language before the whole thing is wrong.
-# A quoted foreign sentence inside an article is normal; half the dialogue is not.
-MAX_WRONG_SHARE = 0.25
+# How much of a passage may read as another language before we call the whole
+# thing wrong. There is nothing to calibrate here: the passage is one language by
+# contract, because the label carries the language — a line in the other language
+# would be a different label (TeacherL2, not Teacher). So this absorbs detector
+# error only, which in practice means stretches thick with proper names. Past a
+# tenth it is a real run of the wrong language, not a misread.
+MAX_WRONG_SHARE = 0.10
 
 
 def _chunk(pieces, size=PASSAGE_CHUNK_CHARS) -> list:
@@ -208,9 +212,10 @@ def passage_mismatch(pieces, expected_zeeguu_code, label="text"):
     the Danish answers rather than averaging them, and the share threshold then
     keeps one stray sentence from failing an otherwise good passage.
 
-    Not for article bodies: prose that legitimately quotes a long foreign
-    statement would trip that threshold, which is why the simplification call
-    sites check whole fields instead.
+    Not for article bodies. There the labels do not exist, so a quoted foreign
+    statement is indistinguishable from a defect and the threshold would have to
+    be loose enough to swallow both — which is why the simplification call sites
+    check whole fields instead of passages.
     """
     chunks = _chunk(pieces)
     if not chunks:
