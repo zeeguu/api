@@ -78,6 +78,16 @@ def main():
         "so this widens the run far beyond the damaged set. Turn it on right after "
         "audit_stored_article_languages.py --fix, which is what empties them.",
     )
+    p.add_argument(
+        "--only",
+        choices=["no_cefr", "wrong_language", "no_summary"],
+        help="re-assess only articles needing it for THIS reason. Reasons are not "
+        "equally sized: no_cefr covers every article demand-aware assessment has "
+        "never looked at — 11840 of 22582 on 18 Aug 2026 — while the set emptied by "
+        "audit_stored_article_languages.py --fix was 51. Without this, repairing "
+        "those 51 costs 233x what it should, and --limit cannot substitute because "
+        "it slices an id-ordered list that no_cefr dominates.",
+    )
     p.add_argument("--limit", type=int, default=0, help="cap number processed (0 = no cap)")
     p.add_argument("--provider", default="anthropic")
     args = p.parse_args()
@@ -120,7 +130,7 @@ def main():
             # before summaries existed, which is a lot of LLM calls for nothing.
             reason = "no_summary"
             n_no_summary += 1
-        if reason:
+        if reason and (args.only is None or reason == args.only):
             need.append((a, reason))
 
     scope = lang.name if lang else "all languages"
@@ -128,7 +138,8 @@ def main():
     print(f"candidates scanned: {len(candidates)}")
     print(
         f"need re-assessment: {len(need)}  (no_cefr={n_no_cefr}, "
-        f"wrong_language={n_wrong_language}, no_summary={n_no_summary})"
+        f"wrong_language={n_wrong_language}, no_summary={n_no_summary}"
+        + (f"; --only {args.only}" if args.only else "") + ")"
     )
     if args.limit:
         need = need[: args.limit]
