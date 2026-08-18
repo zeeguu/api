@@ -33,7 +33,12 @@ class AudioLessonMeaning(db.Model):
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
     duration_seconds = Column(Integer)
-    created_by = Column(String(255), nullable=False)
+    # Superseded by ai_generator_id, which names the model that actually answered
+    # and the prompt version that produced this script. Kept nullable and no longer
+    # written: every existing row says the literal 'claude-v1', including the ones
+    # DeepSeek wrote while the Anthropic cap was reached. Dropped once no deployed
+    # code selects it.
+    created_by = Column(String(255), nullable=True)
 
     # Which model and prompt version actually produced this script. created_by is a
     # fixed literal and cannot answer that: the fallback chain may serve from a
@@ -49,7 +54,7 @@ class AudioLessonMeaning(db.Model):
         self,
         meaning,
         script,
-        created_by,
+        created_by=None,
         difficulty_level=None,
         voice_config=None,
         duration_seconds=None,

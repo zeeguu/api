@@ -177,7 +177,6 @@ class DailyLessonGenerator:
         origin_language,
         translation_language,
         cefr_level,
-        created_by="claude-v1",
         progress=None,
     ):
         """
@@ -228,7 +227,6 @@ class DailyLessonGenerator:
         audio_lesson_meaning = AudioLessonMeaning(
             meaning=meaning,
             script=script,
-            created_by=created_by,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
             ai_generator=_ai_generator_for(generated),
@@ -271,7 +269,6 @@ class DailyLessonGenerator:
         cefr_level,
         canonical_suggestion,
         lesson_type,
-        created_by="claude-v1",
         progress=None,
         is_general=False,
         raw_suggestion=None,
@@ -337,7 +334,6 @@ class DailyLessonGenerator:
         script = generated.script
         dialogue = AudioLessonDialogue(
             script=script,
-            created_by=created_by,
             canonical_suggestion=canonical_suggestion,
             lesson_type=lesson_type,
             language=learned_lang,
