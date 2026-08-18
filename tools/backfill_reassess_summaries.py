@@ -17,8 +17,14 @@ IMPORTANT: run this only AFTER the prompt fix (7cd9d6ca) is live on the server,
 or it will just rewrite English summaries again. It imports the deployed prompt.
 
 A candidate needs re-assessment if EITHER its cefr_level is missing (defect 1)
-OR its stored summary looks English (defect 2). Already-correct articles are
-skipped so we don't burn LLM calls (and cap budget) on them.
+OR its stored summary is in the wrong language (defect 2 — judged by the shared
+zeeguu.core.language.language_check, so this works for any language). Already-
+correct articles are skipped so we don't burn LLM calls (and cap budget) on them.
+
+--include-missing-summaries adds a third case: articles with no summary at all.
+Off by default because that describes everything crawled before summaries
+existed; turn it on right after audit_stored_article_languages.py --fix, which
+empties the wrong-language ones.
 
 Usage (inside the api container), DRY-RUN first:
     python tools/backfill_reassess_summaries.py --language da --since 2026-08-13
@@ -59,6 +65,14 @@ def main():
     p.add_argument("--language", default="da", help="language code (default da)")
     p.add_argument("--since", default="2026-08-13", help="published_time >= this date")
     p.add_argument("--apply", action="store_true", help="actually re-assess (else dry-run)")
+    p.add_argument(
+        "--include-missing-summaries",
+        action="store_true",
+        help="also re-assess articles that have no summary at all. Off by default: "
+        "a missing summary is normal for anything crawled before summaries existed, "
+        "so this widens the run far beyond the damaged set. Turn it on right after "
+        "audit_stored_article_languages.py --fix, which is what empties them.",
+    )
     p.add_argument("--limit", type=int, default=0, help="cap number processed (0 = no cap)")
     p.add_argument("--provider", default="anthropic")
     args = p.parse_args()
@@ -91,8 +105,10 @@ def main():
         elif wrong_language(a.summary or "", lang.code):
             reason = "wrong_language"
             n_wrong_language += 1
-        elif not a.summary:
-            # Includes the ones audit_stored_article_languages.py --fix emptied.
+        elif args.include_missing_summaries and not a.summary:
+            # The ones audit_stored_article_languages.py --fix emptied. Opt-in:
+            # without the flag this would also sweep in every article crawled
+            # before summaries existed, which is a lot of LLM calls for nothing.
             reason = "no_summary"
             n_no_summary += 1
         if reason:

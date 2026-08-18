@@ -40,13 +40,22 @@ Usage:
     python -m tools.audit_stored_article_languages --language da --since 2026-07-01
     python -m tools.audit_stored_article_languages --language da --fix
 
---fix drops what is wrong rather than rewriting it: summaries are nulled and bad
-level-summary rows deleted, so they regenerate; child articles are marked broken
-(LLM_WRONG_LANGUAGE), which takes a simplified one out of
-usable_simplified_versions and a translated one out of the #translated-from URL
-cache, so the next reader at that language+level gets a fresh one. Regenerating
-the summaries themselves is the job of tools/backfill_reassess_summaries.py —
-run it after this, on the same --language/--since window.
+--fix drops what is wrong rather than rewriting it:
+
+  - article.summary is nulled, along with the cached tokenized copy of it (that
+    cache is only ever written when empty, so a stale one would outlive the
+    regeneration and keep rendering);
+  - bad ArticleLevelSummary rows are deleted, with the bookmark anchors that
+    reference them (a real FK, no cascade) removed first;
+  - child articles are marked broken (LLM_WRONG_LANGUAGE), which takes a
+    simplified one out of usable_simplified_versions and a translated one out of
+    the #translated-from URL cache, so the next reader at that language+level
+    gets a fresh one.
+
+Regenerating the summaries themselves is the job of
+tools/backfill_reassess_summaries.py — run it after this, on the same
+--language/--since window, with --include-missing-summaries so it picks up the
+ones emptied here. The exact command is printed at the end of a --fix run.
 """
 
 import argparse
@@ -61,6 +70,8 @@ from zeeguu.core.language.language_check import check_language, describe_mismatc
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+from zeeguu.core.model.article_level_summary_context import ArticleLevelSummaryContext
+from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 from zeeguu.core.model.language import Language
 
 session = db.session
@@ -163,6 +174,14 @@ def main():
         query = query.limit(args.limit)
     articles = query.all()
 
+    # Article.language_id is nullable, and a language-less row would take the
+    # whole scan down on article.language.code. There is nothing to check them
+    # against anyway.
+    without_language = [a for a in articles if a.language is None]
+    if without_language:
+        print(f"Skipping {len(without_language)} article(s) with no language set")
+        articles = [a for a in articles if a.language is not None]
+
     originals = [a for a in articles if a.parent_article_id is None]
     children = [a for a in articles if a.parent_article_id is not None]
     # Same language as the parent = a level adaptation. Different language = a
@@ -211,12 +230,34 @@ def main():
         return
 
     # Null the wrong summaries; the article keeps its assessment.
+    #
+    # The tokenized copy has to go with it. ArticleTokenizationCache only ever
+    # writes tokenized_summary when it is empty (`if article.summary and not
+    # cache.tokenized_summary`) and nothing else invalidates it — so leaving it
+    # in place would survive the regeneration below and keep rendering the old
+    # wrong-language tokens as the card's interactive summary.
     for article in summary_articles:
         article.summary = None
         session.add(article)
+        cache = ArticleTokenizationCache.get_for_article(session, article.id)
+        if cache and cache.tokenized_summary:
+            cache.tokenized_summary = None
+            session.add(cache)
 
-    for row in level_summary_rows:
-        session.delete(row)
+    # Bookmarks anchor to a SPECIFIC level summary (ArticleLevelSummaryContext
+    # holds a real FK with no cascade), so the anchors have to go first or the
+    # delete fails on the constraint and takes the whole batch down with it.
+    # They anchor into text we are throwing away, so there is nothing to keep.
+    if level_summary_rows:
+        summary_ids = [row.id for row in level_summary_rows]
+        anchors = ArticleLevelSummaryContext.query.filter(
+            ArticleLevelSummaryContext.article_level_summary_id.in_(summary_ids)
+        ).all()
+        for anchor in anchors:
+            session.delete(anchor)
+        session.flush()
+        for row in level_summary_rows:
+            session.delete(row)
 
     session.commit()
 
@@ -236,7 +277,7 @@ def main():
     print(
         "\nNow regenerate the summaries:\n"
         f"    python tools/backfill_reassess_summaries.py --language {args.language or 'da'}"
-        f" --since {args.since} --apply"
+        f" --since {args.since} --include-missing-summaries --apply"
     )
 
 
