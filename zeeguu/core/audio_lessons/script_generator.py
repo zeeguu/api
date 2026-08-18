@@ -84,11 +84,22 @@ def language_contract(target_lang_name: str, source_lang_name: str) -> str:
     )
 
 
-_NOT_A_SCRIPT_NOTE = (
-    "\n\nYour previous attempt was not a script: it contained no 'Man:', 'Woman:' or "
-    "'TeacherL2:' lines. Do not explain, apologise, or comment on the request. "
-    "Reply with the script only, in the format described above."
-)
+class NotAScript(Exception):
+    """
+    The model answered with prose instead of a dialogue, and asking again is wrong.
+
+    Every stored instance of this was the model being RIGHT. Twice it reported that
+    our own data was wrong ("amenaza means threat, not hot"; "justement does not
+    mean van"), and three times it declined a word it should decline — one of them
+    CSAM-related. None of that is a formatting slip.
+
+    An earlier version of this retried with "do not explain, apologise, or comment
+    on the request — reply with the script only", which is a prompt engineered to
+    push a model past a refusal it was correct to make. It ran against
+    'Kinderpornographie'. Do not reintroduce it: if a future case turns out to be a
+    genuine format failure, narrow the retry to that case specifically, and never
+    to a refusal.
+    """
 
 
 def _is_a_script(script: str) -> bool:
@@ -129,20 +140,17 @@ def generate_script_in_languages(
     attempt_prompt = prompt
     mismatches = []
 
-    mismatches = None
     for attempt in range(1, LANGUAGE_ATTEMPTS + 1):
         script, model_name = generate_audio_lesson_script(attempt_prompt, **kwargs)
 
         if not _is_a_script(script):
-            # The model answered in prose instead of producing a script — a refusal,
-            # or a correction of the request. Nothing checked for this, so those
-            # answers were stored as lessons: "I cannot assist with creating
-            # educational content...", "ERROR: the word means threat, not hot".
-            # They synthesise to nothing and read as "too little text to judge".
-            log(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): "
-                f"not a script, the model answered: {(script or '').strip()[:120]!r}")
-            attempt_prompt = prompt + _NOT_A_SCRIPT_NOTE
-            continue
+            # Raised, not retried, and the model's own words are carried out with it:
+            # they are the finding. Either our data is wrong or the word is one the
+            # model won't teach, and both need a person, not another attempt.
+            raise NotAScript(
+                f"{context}: the model did not write a script. It said: "
+                f"{(script or '').strip()[:300]!r}"
+            )
 
         mismatches = find_language_mismatches(script, target_language, source_language)
         if not mismatches:
@@ -154,8 +162,8 @@ def generate_script_in_languages(
         )
 
     raise Exception(
-        f"Script for {context} was unusable {LANGUAGE_ATTEMPTS} times: "
-        + (describe_mismatches(mismatches) if mismatches else "not a script")
+        f"Script for {context} came back in the wrong language "
+        f"{LANGUAGE_ATTEMPTS} times: {describe_mismatches(mismatches)}"
     )
 
 
