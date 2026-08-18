@@ -9,6 +9,19 @@ from datetime import datetime, timezone, timedelta
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
+from zeeguu.core.model.ai_generator import AIGenerator
+
+
+def _ai_generator_for(generated):
+    """
+    Record which model and which prompt actually produced a script.
+
+    Both are only knowable here: the fallback chain can serve from a different
+    provider than the one configured, and the prompt file is chosen per call.
+    """
+    return AIGenerator.find_or_create(
+        db.session, generated.model_name, prompt_version=generated.prompt_version
+    )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.model import (
@@ -198,7 +211,7 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        script = generate_lesson_script(
+        generated = generate_lesson_script(
             origin_word=meaning.origin.content,
             translation_word=meaning.translation.content,
             origin_language=origin_language,
@@ -211,12 +224,14 @@ class DailyLessonGenerator:
             progress.update_script_done()
             db.session.commit()
 
+        script = generated.script
         audio_lesson_meaning = AudioLessonMeaning(
             meaning=meaning,
             script=script,
             created_by=created_by,
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
+            ai_generator=_ai_generator_for(generated),
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -305,7 +320,7 @@ class DailyLessonGenerator:
         # Drive content from the raw user input so specific details are preserved.
         # Fall back to canonical only if no raw input was provided.
         content_suggestion = raw_suggestion or canonical_suggestion
-        title, script = generate_dialogue_script(
+        title, generated = generate_dialogue_script(
             origin_language=origin_language,
             translation_language=translation_language,
             suggestion=content_suggestion,
@@ -319,6 +334,7 @@ class DailyLessonGenerator:
             db.session.commit()
 
         # Create the dialogue record
+        script = generated.script
         dialogue = AudioLessonDialogue(
             script=script,
             created_by=created_by,
@@ -329,6 +345,7 @@ class DailyLessonGenerator:
             teacher_language=teacher_lang,
             is_general=is_general,
             title=title,
+            ai_generator=_ai_generator_for(generated),
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID

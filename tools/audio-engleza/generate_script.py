@@ -44,7 +44,7 @@ def generate_script_file(english_phrase, romanian_translation, output_file=None)
             # Use local prompt file
             local_prompt_path = os.path.join(os.path.dirname(__file__), "basic_english_for_elderly_romanian.txt")
             
-            script = generate_lesson_script(
+            generated = generate_lesson_script(
                 origin_word=english_phrase,
                 translation_word=romanian_translation,
                 origin_language="en",
@@ -52,6 +52,7 @@ def generate_script_file(english_phrase, romanian_translation, output_file=None)
                 cefr_level="A1",
                 generator_prompt_file=local_prompt_path,
             )
+            script = generated.script
             
             # Add metadata header to script file
             header = f"""# Audio-Engleza Lesson Script

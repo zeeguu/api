@@ -15,7 +15,8 @@ class LLMService:
         """Generate example sentences. Must be implemented by subclasses."""
         raise NotImplementedError
     
-    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
+    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                      system: str = None) -> str:
         """Generate text from a prompt. Must be implemented by subclasses."""
         raise NotImplementedError
 
@@ -60,23 +61,37 @@ class UnifiedLLMService(LLMService):
                 log(f"DeepSeek fallback also failed: {deepseek_error}")
                 raise Exception(f"Failed to generate examples (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
     
-    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Generate text with Anthropic -> DeepSeek fallback"""
+    def generate_text_with_model(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                                 system: str = None) -> tuple:
+        """
+        Generate text with Anthropic -> DeepSeek fallback, reporting who answered.
+
+        Returns (text, model_name). Callers that persist the result need the second
+        element: under a fallback chain the model named in the configuration is not
+        the model that served, so provenance has to be recorded at generation time
+        rather than inferred later.
+        """
         try:
             # Try Anthropic first
             anthropic = self._get_anthropic_service()
-            return anthropic.generate_text(prompt, max_tokens, temperature)
+            return anthropic.generate_text(prompt, max_tokens, temperature, system), anthropic.model
         except Exception as anthropic_error:
             log(f"Anthropic API failed for text generation: {anthropic_error}")
-            
+
             # Fallback to DeepSeek
             log(f"Falling back to DeepSeek for text generation")
             try:
                 deepseek = self._get_deepseek_service()
-                return deepseek.generate_text(prompt, max_tokens, temperature)
+                return deepseek.generate_text(prompt, max_tokens, temperature, system), deepseek.model
             except Exception as deepseek_error:
                 log(f"DeepSeek fallback also failed: {deepseek_error}")
                 raise Exception(f"Text generation failed (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
+
+    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                      system: str = None) -> str:
+        """Generate text with Anthropic -> DeepSeek fallback"""
+        text, _ = self.generate_text_with_model(prompt, max_tokens, temperature, system)
+        return text
 
 
 def get_llm_service(provider: Optional[str] = None) -> LLMService:
@@ -96,14 +111,16 @@ def get_llm_service(provider: Optional[str] = None) -> LLMService:
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500) -> str:
+def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500, system: str = None) -> tuple:
     """
     Convenience function for generating audio lesson scripts.
     Uses the unified service with automatic Anthropic -> DeepSeek fallback.
     Default 2500 tokens for single-word meaning lessons.
+
+    Returns (script, model_name): which provider served has to be recorded, not assumed.
     """
     llm_service = get_llm_service("unified")
-    return llm_service.generate_text(prompt, max_tokens=max_tokens, temperature=0.7)
+    return llm_service.generate_text_with_model(prompt, max_tokens=max_tokens, temperature=0.7, system=system)
 
 
 def prepare_learning_card(

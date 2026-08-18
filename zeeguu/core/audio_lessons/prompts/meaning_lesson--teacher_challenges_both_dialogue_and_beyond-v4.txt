@@ -22,6 +22,10 @@ Use this exact format:
     "The most common way to say {translation_word} is ... but {origin_word} is also used."]
 
     Create a dialogue of at least 8 lines between Man and Woman using the target word naturally.
+    EVERY "Man:" and "Woman:" line in this dialogue MUST be written in {target_language}.
+    This dialogue is the part the learner listens to in order to hear {target_language};
+    a dialogue written in {source_language} is worthless to them and counts as a failed
+    script. Do not translate the lines and do not gloss them.
     In between lines add one second break annotations with: [1 seconds]
 
 

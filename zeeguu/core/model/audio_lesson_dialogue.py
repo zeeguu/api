@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, JSON, Enum, ForeignKey, Da
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.language import Language
 
 
@@ -37,6 +38,12 @@ class AudioLessonDialogue(db.Model):
     is_general = Column(db.Boolean, default=False)
     created_by = Column(String(255), nullable=False)
 
+    # Which model and prompt version actually produced this script. created_by is a
+    # fixed literal and cannot answer that: the fallback chain may serve from a
+    # different provider than the configured one, so it has to be recorded here.
+    ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
+    ai_generator = relationship(AIGenerator)
+
     # When set, cache lookups skip this row and force regeneration. Existing
     # daily lesson segments that already reference it keep playing as before.
     deprecated_at = Column(DateTime, nullable=True)
@@ -65,6 +72,8 @@ class AudioLessonDialogue(db.Model):
         self.is_general = is_general
         if teacher_language:
             self.teacher_language_id = teacher_language.id
+        if ai_generator:
+            self.ai_generator_id = ai_generator.id
 
     def __repr__(self):
         return f"<AudioLessonDialogue {self.id} '{self.canonical_suggestion}' ({self.lesson_type})>"

@@ -29,7 +29,7 @@ LESSON_INDEX_FILE = os.path.join(WEBSITE_DIR, "lessons.json")
 def generate_script(english_phrase, romanian_translation):
     """Generate the lesson script for review"""
     
-    script = generate_lesson_script(
+    generated = generate_lesson_script(
         origin_word=english_phrase,
         translation_word=romanian_translation,
         origin_language="en",
@@ -37,6 +37,7 @@ def generate_script(english_phrase, romanian_translation):
         cefr_level="A1",
         generator_prompt_file="basic_english_for_elderly_romanian.txt",
     )
+    script = generated.script
     
     return script
 
