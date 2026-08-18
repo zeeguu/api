@@ -90,6 +90,17 @@ def test_a_language_with_no_model_is_skipped():
     assert not language_mismatch(ENGLISH, "ku")
 
 
+def test_skipping_a_language_we_cannot_check_says_so(caplog):
+    # A silent skip is indistinguishable from a successful check, which is the
+    # failure this module exists to catch. This log line has been lost to a rewrite
+    # once already, so it is pinned.
+    import logging
+
+    with caplog.at_level(logging.INFO):
+        language_mismatch(ENGLISH, "ku", label="summary")
+    assert "no model" in caplog.text and "summary" in caplog.text
+
+
 def test_html_markup_does_not_hide_the_language():
     assert language_mismatch(f"<p>{ENGLISH}</p>", "da").detected == "en"
     assert not language_mismatch(f"<p>{DANISH}</p>", "da")

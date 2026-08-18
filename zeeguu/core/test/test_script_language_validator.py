@@ -257,3 +257,25 @@ def test_a_dialogue_lesson_is_not_truncated():
     )
     assert len(mismatches) == 1
     assert mismatches[0].detected == "en"
+
+
+# Two lines of sound Danish, both short. Before there was a minimum on how much
+# text the lesson-level share is a share OF, this came back flagged "2 of 2 lines"
+# — correct Danish condemned, because 0.16 and 0.12 are what short correct lines
+# score and there was nothing to absorb them.
+TINY_DANISH_LESSON = """
+Teacher: In the following conversation you will hear the word: [0.2 seconds]
+TeacherL2: hus [0.5 seconds]
+Man: Jeg bor i et hus. [1 seconds]
+Woman: Er det i kantinen? [1 seconds]
+Teacher: Let's practice. [1 seconds]
+"""
+
+
+def test_a_lesson_with_too_little_text_is_not_judged():
+    assert find_language_mismatches(TINY_DANISH_LESSON, "da") == []
+
+
+def test_a_lesson_with_enough_text_is_still_judged():
+    # The guard must not swallow the real thing: dialogue 235's shape has plenty.
+    assert find_language_mismatches(DANISH_LESSON_ENGLISH_DIALOGUE_DANISH_PRACTICE, "da")

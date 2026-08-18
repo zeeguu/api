@@ -31,6 +31,7 @@ from zeeguu.core.language.language_check import (
     detected_language_of,
     plausibility,
 )
+from zeeguu.logging import log
 
 # Voices that speak the language being learned. "Teacher" is deliberately absent —
 # see the module docstring.
@@ -51,6 +52,14 @@ LESSON_LEVEL_THRESHOLD = 0.45
 # in language_check because the threshold above absorbs individual bad answers,
 # which a field checked on its own has nothing to absorb.
 MIN_WORDS_PER_LINE = 3
+
+# ...but absorbing requires something to absorb INTO. The threshold above is a
+# share, and a share of two lines is not evidence: correct short Danish sits under
+# the floor routinely ("Jeg bor i et hus." is 0.16, "Er det i kantinen?" is 0.12),
+# so a lesson with a brief dialogue was condemned on two sound lines. The corpus
+# that calibrated the threshold had 10-30 lines per lesson; below roughly this much
+# judged text there is no cushion, and the honest answer is "can't judge".
+MIN_CHARS_TO_JUDGE_A_LESSON = 200
 
 
 def find_language_mismatches(script: str, target_language: str, source_language=None) -> list:
@@ -74,6 +83,7 @@ def find_language_mismatches(script: str, target_language: str, source_language=
     ]
 
     judged = 0
+    judged_chars = 0
     implausible = []
     for line in lines:
         if len(line.split()) < MIN_WORDS_PER_LINE:
@@ -82,10 +92,15 @@ def find_language_mismatches(script: str, target_language: str, source_language=
         if confidence is None:
             continue
         judged += 1
+        judged_chars += len(line)
         if confidence < SENTENCE_LEVEL_FLOOR:
             implausible.append((line, confidence))
 
-    if not judged:
+    if not judged or judged_chars < MIN_CHARS_TO_JUDGE_A_LESSON:
+        log(
+            f"[script_language_validator] too little {target_language} text to judge "
+            f"({judged} lines, {judged_chars} chars)"
+        )
         return []
 
     share = len(implausible) / judged

@@ -164,6 +164,14 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
     None also means "can't judge": no model for the language, or too little text
     to stand on its own. Callers must not read it as proof the text is right.
     """
+    if _language(expected_zeeguu_code) is None:
+        # Genuinely unjudgeable, but a silent skip is indistinguishable from a
+        # successful check — which is the failure mode this module exists for. Said
+        # here rather than in plausibility() so a lesson logs once, not once a line.
+        log(f"[language_check] no model to check {label!r} against: "
+            f"{expected_zeeguu_code!r}")
+        return None
+
     if len(_detectable_text(text)) < MIN_CHARS_TO_JUDGE:
         return None
 
