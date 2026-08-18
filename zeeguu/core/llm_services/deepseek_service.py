@@ -69,6 +69,8 @@ class DeepSeekService(LLMService):
         """
         Generate example sentences using DeepSeek API.
 
+        `source_lang`/`target_lang` are Zeeguu codes, as every caller passes.
+
         Like the Anthropic path: the sentences must be in the language being
         learned, so they are re-requested once and then allowed to fail.
         """

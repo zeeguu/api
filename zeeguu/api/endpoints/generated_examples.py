@@ -547,8 +547,8 @@ def generate_examples_for_word(word, from_lang, to_lang):
         examples = llm_service.generate_examples(
             word=word,
             translation=translation,
-            source_lang=origin_lang,
-            target_lang=translation_lang,
+            source_lang=origin_lang.code,
+            target_lang=translation_lang.code,
             cefr_level=cefr_level,
             prompt_version="v3",
             count=MAX_EXAMPLES_GENERATE,

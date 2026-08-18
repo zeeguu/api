@@ -32,6 +32,7 @@ from langdetect import detect_langs
 from langdetect.detector_factory import DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
 
+from zeeguu.core.language.language_codes import language_name
 from zeeguu.logging import log
 
 # langdetect samples internally; without a fixed seed the same text can pass on
@@ -98,38 +99,6 @@ class LanguageMismatchError(Exception):
         self.result = result
 
 
-def language_code_of(language) -> str:
-    """
-    Best-effort Zeeguu code for whatever the call site has at hand: a Language
-    object, a code ('da'), or a language name ('Danish') — the LLM services are
-    inconsistent about which of the three they pass around.
-    """
-    code = getattr(language, "code", language)
-    if not isinstance(code, str):
-        return ""
-    return _NAME_TO_CODE().get(code.strip().lower(), code.strip())
-
-
-_name_to_code_cache = None
-
-
-def _NAME_TO_CODE() -> dict:
-    """Lowercased language name -> Zeeguu code, from the Language model."""
-    global _name_to_code_cache
-    if _name_to_code_cache is None:
-        try:
-            # Imported lazily: this module is a leaf that the LLM services and the
-            # audio lessons both depend on, and must not pull in the ORM to load.
-            from zeeguu.core.model.language import Language
-
-            _name_to_code_cache = {
-                name.lower(): code for code, name in Language.LANGUAGE_NAMES.items()
-            }
-        except Exception:
-            _name_to_code_cache = {}
-    return _name_to_code_cache
-
-
 def _langdetect_code(zeeguu_code: str) -> str:
     return _ZEEGUU_TO_LANGDETECT.get(zeeguu_code, zeeguu_code.lower())
 
@@ -164,7 +133,7 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
     None also means "can't judge": empty or short text, or a language langdetect
     has no profile for. Callers must not read None as proof the text is right.
     """
-    expected = _langdetect_code(language_code_of(expected_zeeguu_code))
+    expected = _langdetect_code(expected_zeeguu_code)
     if expected not in LANGDETECT_SUPPORTED:
         return None
 
@@ -290,22 +259,12 @@ def log_mismatches(context: str, mismatches: list) -> None:
     log(f"[language_check] {context}: {describe_mismatches(mismatches)}")
 
 
-def language_name(zeeguu_code: str) -> str:
-    """'da' -> 'Danish', for prompts. Falls back to the code itself."""
-    try:
-        from zeeguu.core.model.language import Language
-
-        return Language.LANGUAGE_NAMES.get(zeeguu_code, zeeguu_code)
-    except Exception:
-        return zeeguu_code
-
-
 def correction_note(mismatches: list, expected_zeeguu_code: str) -> str:
     """
     The note appended to the prompt on a retry. Naming the specific fields that
     came back wrong works far better than repeating the original instruction.
     """
-    name = language_name(language_code_of(expected_zeeguu_code))
+    name = language_name(expected_zeeguu_code)
     return (
         "\n\nYour previous attempt used the wrong language: "
         f"{describe_mismatches(mismatches)}.\n"
@@ -322,7 +281,7 @@ def generate_in_language(generate, expected_language, fields_of, context, attemp
         generate: called as ``generate(correction)``. `correction` is "" on the
             first attempt and, after a mismatch, a note naming exactly what came
             back wrong — the caller appends it to its prompt.
-        expected_language: Zeeguu code (or Language, or language name).
+        expected_language: Zeeguu language code, e.g. 'da'.
         fields_of: ``result -> [(label, text), ...]`` — the parts worth checking.
             One entry per independently droppable piece, so a caller returning a
             dict of CEFR levels can lose one level and keep the others.
@@ -337,18 +296,17 @@ def generate_in_language(generate, expected_language, fields_of, context, attemp
         to do about it — drop a field, drop a level, return None, fail loudly —
         is the call site's policy, deliberately not decided here.
     """
-    expected = language_code_of(expected_language)
     correction = ""
     result = None
     mismatches = []
 
     for attempt in range(1, attempts + 1):
         result = generate(correction)
-        mismatches = field_mismatches(fields_of(result), expected)
+        mismatches = field_mismatches(fields_of(result), expected_language)
         if not mismatches:
             return result
         log_mismatches(f"{context} (attempt {attempt}/{attempts})", mismatches)
-        correction = correction_note(mismatches, expected)
+        correction = correction_note(mismatches, expected_language)
 
     raise LanguageMismatchError(
         f"{context} came back in the wrong language {attempts} times",

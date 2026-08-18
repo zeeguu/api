@@ -54,6 +54,8 @@ class AnthropicService(LLMService):
         """
         Generate example sentences using Claude - fail fast to DeepSeek fallback.
 
+        `source_lang`/`target_lang` are Zeeguu codes, as every caller passes.
+
         The sentences must be in the language being learned; examples in the
         learner's own language teach nothing. Asked for once more when they come
         back wrong, then allowed to fail into the DeepSeek fallback.

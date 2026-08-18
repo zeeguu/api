@@ -12,7 +12,6 @@ from zeeguu.core.language.language_check import (
     language_mismatch,
     passage_mismatch,
     generate_in_language,
-    language_code_of,
 )
 
 DANISH = (
@@ -37,7 +36,7 @@ GERMAN = (
 
 
 def test_text_in_the_expected_language_passes():
-    assert language_mismatch(DANISH, "da") is None
+    assert not language_mismatch(DANISH, "da")
 
 
 def test_text_in_another_language_is_caught():
@@ -49,23 +48,23 @@ def test_text_in_another_language_is_caught():
 
 def test_confusable_neighbours_are_not_flagged_against_each_other():
     # langdetect regularly reads Danish as Norwegian; that must not fail a text.
-    assert language_mismatch(DANISH, "no") is None
+    assert not language_mismatch(DANISH, "no")
 
 
 def test_too_short_to_judge_is_not_a_mismatch():
     # "Can't judge" is a distinct answer from "wrong" — titles live down here.
-    assert language_mismatch("Hej med dig", "da") is None
+    assert not language_mismatch("Hej med dig", "da")
 
 
 def test_language_langdetect_cannot_check_is_skipped():
     # Kurdish has no langdetect profile; we can't check it, so we don't block on it.
-    assert language_mismatch(ENGLISH, "ku") is None
+    assert not language_mismatch(ENGLISH, "ku")
 
 
 def test_html_markup_does_not_hide_the_language():
     html = f"<p>{ENGLISH}</p><p><strong>More</strong> of the same.</p>"
     assert language_mismatch(html, "da").detected == "en"
-    assert language_mismatch(f"<p>{DANISH}</p>", "da") is None
+    assert not language_mismatch(f"<p>{DANISH}</p>", "da")
 
 
 def test_field_mismatches_reports_one_per_wrong_field():
@@ -79,21 +78,12 @@ def test_a_wrong_language_half_is_caught_even_when_the_whole_reads_right():
     # The audio-lesson failure: an all-English first half followed by correct
     # Danish scores mostly-Danish as one blob and would otherwise pass.
     pieces = ENGLISH.split(". ") + DANISH.split(". ") + DANISH.split(". ")
-    assert passage_mismatch(pieces, "da") is not None
+    assert passage_mismatch(pieces, "da")
 
 
 def test_a_single_foreign_sentence_does_not_fail_a_good_passage():
     pieces = DANISH.split(". ") * 3 + ["The minister was not available for comment."]
-    assert passage_mismatch(pieces, "da") is None
-
-
-def test_language_code_of_accepts_codes_names_and_language_objects():
-    class FakeLanguage:
-        code = "da"
-
-    assert language_code_of("da") == "da"
-    assert language_code_of("Danish") == "da"
-    assert language_code_of(FakeLanguage()) == "da"
+    assert not passage_mismatch(pieces, "da")
 
 
 def test_generate_in_language_returns_a_good_first_attempt_without_retrying():
