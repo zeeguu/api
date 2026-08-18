@@ -26,7 +26,7 @@ of chunks could be wrong.
 
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.language.language_check import (
-    SENTENCE_LEVEL_FLOOR,
+    GROUP_LEVEL_FLOOR,
     LanguageMismatch,
     detected_language_of,
     plausibility,
@@ -55,6 +55,22 @@ LESSON_LEVEL_THRESHOLD = 0.25
 # Italian-written-in-Spanish lessons have no line longer than eight words, so it
 # bought precision by discarding the evidence.
 MIN_WORDS_PER_LINE = 3
+
+# Lines are judged in groups of this many, not one at a time.
+#
+# One line is too little for lingua to discriminate with: correct short Danish
+# scores 0.08-0.15 as Danish, wrong-language text scores 0.00-0.14, and those bands
+# overlap, so no floor separates them one line at a time. The 0.05 floor that
+# preceded this worked by letting almost everything through and relying on the
+# aggregate — which means a script in a SIBLING of the target language was caught
+# only when some of its lines happened to dip under, not because it was detected.
+#
+# Four lines together and the overlap is gone: measured on production scripts,
+# sound groups score 0.66-0.97 and wrong ones 0.00-0.07. More text makes lingua more
+# DISCRIMINATING, not merely more confident — a Danish paragraph is 4e-09 plausible
+# Norwegian where a Danish line is 0.10 — which is what turns sibling substitution
+# from luck into detection.
+LINES_PER_GROUP = 4
 
 # ...but absorbing requires something to absorb INTO. The threshold above is a
 # share, and a share of two lines is not evidence: correct short Danish sits under
@@ -90,24 +106,28 @@ def find_language_mismatches(script: str, target_language: str, source_language=
         if voice_type in TARGET_LANGUAGE_VOICES
     ]
 
+    long_enough = [line for line in lines if len(line.split()) >= MIN_WORDS_PER_LINE]
+    groups = [
+        " ".join(long_enough[i : i + LINES_PER_GROUP])
+        for i in range(0, len(long_enough), LINES_PER_GROUP)
+    ]
+
     judged = 0
     judged_chars = 0
     implausible = []
-    for line in lines:
-        if len(line.split()) < MIN_WORDS_PER_LINE:
-            continue
-        confidence = plausibility(line, target_language)
+    for group in groups:
+        confidence = plausibility(group, target_language)
         if confidence is None:
             continue
         judged += 1
-        judged_chars += len(line)
-        if confidence < SENTENCE_LEVEL_FLOOR:
-            implausible.append((line, confidence))
+        judged_chars += len(group)
+        if confidence < GROUP_LEVEL_FLOOR:
+            implausible.append((group, confidence))
 
     if not judged or judged_chars < MIN_CHARS_TO_JUDGE_A_LESSON:
         log(
             f"[script_language_validator] too little {target_language} text to judge "
-            f"({judged} lines, {judged_chars} chars)"
+            f"({judged} groups, {judged_chars} chars)"
         )
         return []
 
@@ -118,7 +138,7 @@ def find_language_mismatches(script: str, target_language: str, source_language=
     worst_line, worst_confidence = min(implausible, key=lambda pair: pair[1])
     return [
         LanguageMismatch(
-            label=f"{TARGET_LABEL} ({len(implausible)} of {judged} lines)",
+            label=f"{TARGET_LABEL} ({len(implausible)} of {judged} groups)",
             expected=target_language,
             # What it reads as instead, taken from the worst line — the plausibility
             # question does not produce this, but a reader and a retry prompt both

@@ -45,25 +45,20 @@ from lingua import IsoCode639_1, Language, LanguageDetectorBuilder
 from zeeguu.core.language.language_codes import language_name
 from zeeguu.logging import log
 
-# How plausible the expected language must be, for ONE piece of text.
+# How plausible the expected language must be, for one piece of text.
 #
-# Very low, because lingua's confidence is relative to every candidate and the
-# Scandinavian languages divide it among themselves. Measured on production lines:
-# correct short Danish scores 0.076-0.132 — even where Danish is the detector's own
-# top answer — while English in a Danish lesson scores 0.015-0.029. The gap is
-# narrow in absolute terms and consistent in shape, so the floor goes just under
-# the correct band rather than in the middle of the range.
+# Sized for text of a few sentences, which is what callers give it: a summary, an
+# article body, or a group of lesson lines. Measured on production scripts, correct
+# text at that size scores 0.66-0.97 and wrong-language text 0.00-0.07 — so this
+# sits in a gap nine times wider than itself, and its exact value is not delicate.
 #
-# It was 0.2 for one production run, which flagged thirteen sound Danish lessons at
-# ~50% each: half their lines are short, and short correct Danish does not reach
-# 0.2. Precision is what an unattended nightly sweep is for; a cron that cries wolf
-# thirteen times gets ignored.
-#
-# The cost is recorded honestly: a lesson written in a SIBLING of the target
-# language survives this floor. An Italian lesson written in Catalan scores
-# 0.070-0.141 as Italian — inside the correct band — so it now passes. The failure
-# this catches instead is the common and severe one, an entire script in English.
-SENTENCE_LEVEL_FLOOR = 0.05
+# It does NOT work on a single short sentence, and two production runs went wrong
+# learning that. Correct short Danish scores 0.08-0.15 as Danish, because the
+# Scandinavian languages divide the confidence among themselves, and wrong-language
+# text scores 0.00-0.14. Those bands overlap: no floor separates them one sentence
+# at a time. Callers whose unit is that small must group before asking — see
+# LINES_PER_GROUP in script_language_validator.
+GROUP_LEVEL_FLOOR = 0.30
 
 # Below this many characters, a single text cannot be judged on its own — and
 # nothing downstream will catch the error, because a field is checked alone.
@@ -188,7 +183,7 @@ def language_mismatch(text, expected_zeeguu_code, label="text"):
         return None
 
     confidence = plausibility(text, expected_zeeguu_code)
-    if confidence is None or confidence >= SENTENCE_LEVEL_FLOOR:
+    if confidence is None or confidence >= GROUP_LEVEL_FLOOR:
         return None
 
     return LanguageMismatch(

@@ -12,7 +12,7 @@ No Flask app context or DB — the check works on raw text.
 
 from zeeguu.core.language.language_check import (
     MIN_CHARS_TO_JUDGE,
-    SENTENCE_LEVEL_FLOOR,
+    GROUP_LEVEL_FLOOR,
     _detectable_text,
     field_mismatches,
     language_mismatch,
@@ -54,7 +54,7 @@ def test_the_gap_between_right_and_wrong_is_wide():
     # wrong-language text far below, so the floor's exact value is not delicate.
     assert plausibility(DANISH, "da") > 0.5
     assert plausibility(ENGLISH, "da") < 0.05
-    assert SENTENCE_LEVEL_FLOOR < 0.5
+    assert GROUP_LEVEL_FLOOR < 0.5
 
 
 def test_correct_text_scores_high_enough_that_neighbours_never_come_up():
@@ -68,7 +68,7 @@ def test_a_neighbouring_language_is_not_excused():
     # And the list's cost is gone with it. Given a paragraph, Danish is decisively
     # not Norwegian, so a Norwegian learner served Danish is now caught — the old
     # family list waved this through.
-    assert plausibility(DANISH, "no") < SENTENCE_LEVEL_FLOOR
+    assert plausibility(DANISH, "no") < GROUP_LEVEL_FLOOR
     assert language_mismatch(DANISH, "no").detected == "da"
 
 
