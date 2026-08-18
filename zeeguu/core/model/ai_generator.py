@@ -19,7 +19,7 @@ class AIGenerator(db.Model):
 
     id = Column(Integer, primary_key=True)
     model_name = Column(String(100), nullable=False)
-    prompt_version = Column(String(50), nullable=True)
+    prompt_version = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
 
     def __init__(self, model_name, prompt_version=None, description=None):
