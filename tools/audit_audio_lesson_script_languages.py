@@ -13,6 +13,13 @@ Usage:
     python -m tools.audit_audio_lesson_script_languages                 # report only
     python -m tools.audit_audio_lesson_script_languages --language da   # one learned language
     python -m tools.audit_audio_lesson_script_languages --deprecate     # mark the bad ones
+    python -m tools.audit_audio_lesson_script_languages --quiet         # print only if something is wrong
+
+--quiet is for the nightly cron: a clean run prints nothing at all, so cron stays
+silent and any output is a real finding. This is the safety net under the
+generation-time check, which is a tuned heuristic and has been wrong in both
+directions; a script it wrongly passes leaves no log line anywhere, and sweeping
+what is already stored is the only thing that finds it.
 
 --deprecate sets deprecated_at, so cache lookups regenerate while daily lessons
 that already reference the row keep playing.
@@ -36,14 +43,32 @@ from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 
 DEPRECATE = "--deprecate" in sys.argv
+QUIET = "--quiet" in sys.argv
 LANGUAGE = None
 if "--language" in sys.argv:
     LANGUAGE = sys.argv[sys.argv.index("--language") + 1]
 
-print(f"Mode: {'DEPRECATE bad scripts' if DEPRECATE else 'REPORT ONLY'}")
+_buffered = []
+
+
+def out(line=""):
+    """Under --quiet, hold everything back until we know there is a finding."""
+    if QUIET:
+        _buffered.append(line)
+    else:
+        print(line)
+
+
+def flush():
+    for line in _buffered:
+        print(line)
+    _buffered.clear()
+
+
+out(f"Mode: {'DEPRECATE bad scripts' if DEPRECATE else 'REPORT ONLY'}")
 if LANGUAGE:
-    print(f"Learned language filter: {LANGUAGE}")
-print()
+    out(f"Learned language filter: {LANGUAGE}")
+out()
 
 
 def teacher_code(lesson):
@@ -52,9 +77,9 @@ def teacher_code(lesson):
 
 def audit(label, lessons, learned_code_of, describe):
     """Check each lesson's script and return the ones whose language is wrong."""
-    print("=" * 70)
-    print(f"{label}: {len(lessons)} to check")
-    print("=" * 70)
+    out("=" * 70)
+    out(f"{label}: {len(lessons)} to check")
+    out("=" * 70)
 
     bad = []
     for lesson in lessons:
@@ -66,11 +91,11 @@ def audit(label, lessons, learned_code_of, describe):
         )
         if mismatches:
             bad.append(lesson)
-            print(f"  [{lesson.id}] {describe(lesson)} ({learned}/{teacher_code(lesson)})")
-            print(f"      {describe_mismatches(mismatches)}")
+            out(f"  [{lesson.id}] {describe(lesson)} ({learned}/{teacher_code(lesson)})")
+            out(f"      {describe_mismatches(mismatches)}")
 
-    print(f"  → {len(bad)} with a wrong-language script")
-    print()
+    out(f"  → {len(bad)} with a wrong-language script")
+    out()
     return bad
 
 
@@ -99,11 +124,14 @@ if DEPRECATE and (bad_meanings or bad_dialogues):
     for lesson in bad_meanings + bad_dialogues:
         lesson.deprecated_at = now
     db.session.commit()
-    print(
+    out(
         f"Deprecated {len(bad_meanings)} meaning lessons and "
         f"{len(bad_dialogues)} dialogues. They will be regenerated on next request."
     )
 elif bad_meanings or bad_dialogues:
-    print("Run again with --deprecate to mark these for regeneration.")
+    out("Run again with --deprecate to mark these for regeneration.")
 else:
-    print("No wrong-language scripts found.")
+    out("No wrong-language scripts found.")
+
+if QUIET and (bad_meanings or bad_dialogues):
+    flush()
