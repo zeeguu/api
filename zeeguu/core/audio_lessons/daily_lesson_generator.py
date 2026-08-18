@@ -10,18 +10,6 @@ from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
 from zeeguu.core.model.ai_generator import AIGenerator
-
-
-def _ai_generator_for(generated):
-    """
-    Record which model and which prompt actually produced a script.
-
-    Both are only knowable here: the fallback chain can serve from a different
-    provider than the one configured, and the prompt file is chosen per call.
-    """
-    return AIGenerator.find_or_create(
-        db.session, generated.model_name, prompt_version=generated.prompt_version
-    )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.model import (
@@ -35,6 +23,18 @@ from zeeguu.core.model import (
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
+
+
+def _ai_generator_for(generated):
+    """
+    Record which model and which prompt actually produced a script.
+
+    Both are only knowable here: the fallback chain can serve from a different
+    provider than the one configured, and the prompt file is chosen per call.
+    """
+    return AIGenerator.find_or_create(
+        db.session, generated.model_name, prompt_version=generated.prompt_version
+    )
 
 
 class DailyLessonGenerator:

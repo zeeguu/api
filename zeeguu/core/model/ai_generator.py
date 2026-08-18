@@ -57,23 +57,23 @@ class AIGenerator(db.Model):
         Returns:
             AIGenerator instance
         """
-        try:
-            # Look for exact match with model_name and prompt_version
-            query = cls.query.filter_by(model_name=model_name)
-            if prompt_version:
-                query = query.filter_by(prompt_version=prompt_version)
-            else:
-                query = query.filter_by(prompt_version=None)
-            
-            model = query.one()
-            
-            # Update description if provided and different
-            if description and model.description != description:
-                model.description = description
-                session.add(model)
-                session.flush()
-        except:
+        # .first(), not .one() inside a bare except. There is no unique constraint
+        # on (model_name, prompt_version), so duplicates are possible and .one()
+        # raises on them; the bare except then treated that — and every genuine
+        # database error — as "not found" and answered with another INSERT, on a
+        # session that may already be unusable. It is also how the VARCHAR(50)
+        # overflow came to surface from inside an exception handler rather than at
+        # the lookup that caused it.
+        query = cls.query.filter_by(model_name=model_name)
+        query = query.filter_by(prompt_version=prompt_version if prompt_version else None)
+        model = query.first()
+
+        if model is None:
             model = cls(model_name, prompt_version, description)
+            session.add(model)
+            session.flush()
+        elif description and model.description != description:
+            model.description = description
             session.add(model)
             session.flush()
 
