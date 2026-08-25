@@ -31,9 +31,6 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "classroom_only": _classroom_only,
-        # Legacy name for classroom_only. Deployed app versions gate on this
-        # string, and they will keep doing so until every student updates.
-        "hide_recommendations": _classroom_only,
         "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,

@@ -32,15 +32,6 @@ class ClassroomOnlyFeatureTest(ModelTestMixIn, TestCase):
 
         self.assertTrue(self._classroom_only_for(self.student))
 
-    def test_legacy_feature_name_still_emitted(self):
-        # Deployed app versions gate on hide_recommendations, not classroom_only.
-        self.cohort.only_classroom_texts = True
-        db_session.commit()
-
-        self.assertTrue(
-            is_feature_enabled_for_user("hide_recommendations", self.student)
-        )
-
     def test_strictest_cohort_wins(self):
         self.cohort.only_classroom_texts = True
         unrestricted_cohort = CohortRule().cohort
