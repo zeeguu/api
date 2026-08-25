@@ -32,6 +32,15 @@ class ClassroomOnlyFeatureTest(ModelTestMixIn, TestCase):
 
         self.assertTrue(self._classroom_only_for(self.student))
 
+    def test_legacy_feature_name_still_emitted(self):
+        # Apps installed before 25 Aug 2026 gate on hide_recommendations.
+        self.cohort.only_classroom_texts = True
+        db_session.commit()
+
+        self.assertTrue(
+            is_feature_enabled_for_user("hide_recommendations", self.student)
+        )
+
     def test_strictest_cohort_wins(self):
         self.cohort.only_classroom_texts = True
         unrestricted_cohort = CohortRule().cohort

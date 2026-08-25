@@ -31,6 +31,12 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "classroom_only": _classroom_only,
+        # Legacy name for classroom_only, kept as of 25 Aug 2026. The native
+        # apps ship a bundled web build, so a student whose app predates the
+        # release that adopts the new name reads this string and nothing else.
+        # Safe to delete once no app build from before 25 Aug 2026 is still in
+        # use -- check the oldest active version first.
+        "hide_recommendations": _classroom_only,
         "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
