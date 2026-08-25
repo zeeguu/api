@@ -27,7 +27,7 @@ from ._permissions import (
 )
 from .. import api
 from zeeguu.api.utils.route_wrappers import requires_session
-from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 
 from zeeguu.core.model.db import db
 
@@ -126,9 +126,8 @@ def create_own_cohort():
     if int(max_students) < 1:
         flask.abort(400)
 
-    # None (absent or unparseable) means the teacher did not ask for it.
-    only_classroom_texts = bool(
-        parse_json_boolean(params.get("only_classroom_texts"))
+    only_classroom_texts = get_boolean_from_params(
+        params, "only_classroom_texts", default=False
     )
 
     try:
@@ -179,8 +178,8 @@ def update_cohort(cohort_id):
         # Only touched when the client actually sends it. A teacher on an older
         # web build posts a form without this field, and defaulting it to False
         # there would silently switch the class back to the full app.
-        only_classroom_texts = parse_json_boolean(
-            params.get("only_classroom_texts")
+        only_classroom_texts = get_boolean_from_params(
+            params, "only_classroom_texts"
         )
         if only_classroom_texts is not None:
             cohort_to_change.only_classroom_texts = only_classroom_texts
