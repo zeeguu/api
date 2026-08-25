@@ -30,7 +30,10 @@ def _feature_map():
         "tiago_exercises": _tiago_exercises,
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
-        "hide_recommendations": _hide_recommendations,
+        "classroom_only": _classroom_only,
+        # Legacy name for classroom_only. Deployed app versions gate on this
+        # string, and they will keep doing so until every student updates.
+        "hide_recommendations": _classroom_only,
         "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
@@ -113,21 +116,29 @@ def _always_open_externally(user):
     return True
 
 
-def _hide_recommendations(user):
-    """Hide recommended articles for students in specific cohorts.
+def _classroom_only(user):
+    """The student sees only the texts their teacher shares with the class.
 
-    When enabled, students only see the Classroom tab with teacher-uploaded texts.
-    Teachers are excluded from this feature even if they are in the cohort.
+    Set per class by the teacher (Cohort.only_classroom_texts). A student in
+    several classes is restricted if any one of them asks for it: the strictest
+    class wins, and the way out is to leave that class.
+
+    Teachers are excluded even when they are members of such a cohort -- they
+    need the feed and search to find the texts they are going to share.
     """
     if user.isTeacher():
         return False
 
-    COHORTS_WITH_HIDDEN_RECOMMENDATIONS = {564}
+    cohort_ids = [user_cohort.cohort_id for user_cohort in user.cohorts]
+    if not cohort_ids:
+        return False
 
-    for user_cohort in user.cohorts:
-        if user_cohort.cohort_id in COHORTS_WITH_HIDDEN_RECOMMENDATIONS:
-            return True
-    return False
+    return (
+        Cohort.query.filter(Cohort.id.in_(cohort_ids))
+        .filter(Cohort.only_classroom_texts.is_(True))
+        .count()
+        > 0
+    )
 
 
 def _verbal_flashcards(user):

@@ -31,6 +31,11 @@ from zeeguu.api.utils.route_wrappers import requires_session
 from zeeguu.core.model.db import db
 
 
+def _parse_bool(raw_value):
+    """Form values arrive as strings; anything unrecognized is False."""
+    return str(raw_value).strip().lower() in ("true", "1", "yes", "on")
+
+
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @requires_session
 def remove_cohort(cohort_id):
@@ -125,8 +130,16 @@ def create_own_cohort():
     if int(max_students) < 1:
         flask.abort(400)
 
+    only_classroom_texts = _parse_bool(params.get("only_classroom_texts"))
+
     try:
-        c = Cohort(inv_code, name, language, max_students)
+        c = Cohort(
+            inv_code,
+            name,
+            language,
+            max_students,
+            only_classroom_texts=only_classroom_texts,
+        )
         db.session.add(c)
         db.session.commit()
         _link_teacher_cohort(teacher_id, c.id)
@@ -163,6 +176,13 @@ def update_cohort(cohort_id):
 
         cohort_to_change.declared_level_min = params.get("declared_level_min")
         cohort_to_change.declared_level_max = params.get("declared_level_max")
+
+        # Only touched when the client actually sends it. A teacher on an older
+        # web build posts a form without this field, and defaulting it to False
+        # there would silently switch the class back to the full app.
+        only_classroom_texts = params.get("only_classroom_texts")
+        if only_classroom_texts is not None:
+            cohort_to_change.only_classroom_texts = _parse_bool(only_classroom_texts)
 
         db.session.commit()
         return "OK"
