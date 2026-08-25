@@ -18,6 +18,7 @@ from zeeguu.core.model import (
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from sentry_sdk import capture_exception
 from . import api
 
@@ -75,7 +76,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
             language = user.learned_language
 
     # Get exclusion parameters from request args
-    exclude_saved = request.args.get("exclude_saved", "false").lower() == "true"
+    exclude_saved = get_boolean_from_params(request.args, "exclude_saved", default=False)
 
     # Optional single-topic filter (e.g. a topic pill on the home feed). The
     # value is a topic title, matching the shape returned by /subscribed_topics.

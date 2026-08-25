@@ -7,7 +7,7 @@ from flask import request
 from python_translators.translation_query import TranslationQuery
 
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.translation_services.translator import (
     get_next_results,
@@ -211,7 +211,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
 
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
-    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    is_separated_mwe = get_boolean_from_params(request.form, "is_separated_mwe", default=False)
     full_sentence_context = request.form.get("full_sentence_context", "")
 
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
@@ -295,7 +295,7 @@ def get_translations_stream(from_lang_code, to_lang_code):
 
     word_str = request.form["word"].strip(punctuation_extended)
     context = request.form.get("context", "").strip()
-    is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
+    is_separated_mwe = get_boolean_from_params(request.form, "is_separated_mwe", default=False)
     full_sentence_context = request.form.get("full_sentence_context", "")
 
     def generate():
@@ -649,9 +649,10 @@ def contribute_translation(from_lang_code, to_lang_code):
     c_sent_i = request_params.get("c_sent_i", None)
     c_token_i = request_params.get("c_token_i", None)
     source_id = request_params.get("source_id", None)
-    in_content = parse_json_boolean(request_params.get("in_content", None))
-    left_ellipsis = parse_json_boolean(request_params.get("left_ellipsis", None))
-    right_ellipsis = parse_json_boolean(request_params.get("right_ellipsis", None))
+    # No default: these three stay tri-state, an absent one means unknown.
+    in_content = get_boolean_from_params(request_params, "in_content")
+    left_ellipsis = get_boolean_from_params(request_params, "left_ellipsis")
+    right_ellipsis = get_boolean_from_params(request_params, "right_ellipsis")
     context_identifier = ContextIdentifier.from_dictionary(
         request_params.get("context_identifier", None)
     )

@@ -15,6 +15,7 @@ from zeeguu.core.content_recommender import (
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from . import api
 
 import zeeguu
@@ -234,8 +235,8 @@ def search_for_search_terms(search_terms, page: int = 0):
     use_published_priority = False
 
     if request.method == "POST":
-        use_published_priority = (
-            request.form.get("use_publish_priority", "false") == "true"
+        use_published_priority = get_boolean_from_params(
+            request.form, "use_publish_priority", default=False
         )
 
     user = User.find_by_id(flask.g.user_id)

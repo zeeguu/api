@@ -8,7 +8,7 @@ from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
-from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from . import api, db_session
 from flask import request
 
@@ -103,7 +103,7 @@ def get_next_word_due_time():
 def get_user_words_due_today():
 
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_context", "false"))
+    with_tokens = get_boolean_from_params(request.form, "with_context", default=False)
     to_study = BasicSRSchedule.scheduled_words_due_today(user)
 
     return _user_words_as_json_result(to_study, True, with_tokens)
