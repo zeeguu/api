@@ -12,7 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from zeeguu.core.constants import SIMPLE_TIME_FORMAT
+from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.model import Url, User
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.db import db
@@ -62,7 +62,7 @@ class StarredArticle(db.Model):
             url=self.url.as_string(),
             title=self.title,
             language=self.language.code,
-            starred_date=self.starred_date.strftime(SIMPLE_TIME_FORMAT),
+            starred_date=datetime_to_json(self.starred_date),
         )
 
     @classmethod

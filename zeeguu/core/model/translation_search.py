@@ -3,7 +3,8 @@ from sqlalchemy import desc
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.user import User
-from zeeguu.core.util.time import server_now, to_utc_isoformat
+from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.util.time import server_now
 
 
 class TranslationSearch(db.Model):
@@ -70,5 +71,5 @@ class TranslationSearch(db.Model):
             "id": self.id,
             "search_word": self.search_word,
             "language": self.learned_language.code,
-            "search_time": to_utc_isoformat(self.search_time),
+            "search_time": datetime_to_json(self.search_time),
         }
