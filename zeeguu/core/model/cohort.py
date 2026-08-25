@@ -19,10 +19,21 @@ class Cohort(db.Model):
     declared_level_max = Column(Integer)
     is_cohort_of_teachers = Column(Boolean)
 
+    # When set, students of this cohort see only the texts their teacher shares
+    # with the class: no recommendation feed, no search, no shared inbox.
+    only_classroom_texts = Column(Boolean, nullable=False, default=False)
+
     users = relationship("UserCohortMap", back_populates="cohort")
 
     def __init__(
-        self, inv_code, name, language, max_students, level_min=0, level_max=10
+        self,
+        inv_code,
+        name,
+        language,
+        max_students,
+        level_min=0,
+        level_max=10,
+        only_classroom_texts=False,
     ):
         self.inv_code = inv_code
         self.name = name
@@ -31,6 +42,7 @@ class Cohort(db.Model):
         self.declared_level_min = level_min
         self.declared_level_max = level_max
         self.is_cohort_of_teachers = False  # by default a cohort is a student cohort!
+        self.only_classroom_texts = only_classroom_texts
 
     def get_current_student_count(self):
         from zeeguu.core.model.user import User

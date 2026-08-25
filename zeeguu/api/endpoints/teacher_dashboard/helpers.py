@@ -74,6 +74,7 @@ def get_cohort_info(id):
             "language_name": language_name,
             "declared_level_min": c.declared_level_min,
             "declared_level_max": c.declared_level_max,
+            "only_classroom_texts": bool(c.only_classroom_texts),
             "teachers_for_cohort": teachers_for_cohort(id),
         }
         return dictionary
