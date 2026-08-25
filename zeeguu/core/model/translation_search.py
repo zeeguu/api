@@ -1,12 +1,10 @@
-from datetime import datetime, timezone
 from sqlalchemy import desc
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.user import User
+from zeeguu.core.util.time import server_now, to_utc_isoformat
 
-def utc_now_naive():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class TranslationSearch(db.Model):
     """
@@ -28,13 +26,13 @@ class TranslationSearch(db.Model):
     )
     learned_language = db.relationship(Language)
 
-    search_time = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
+    search_time = db.Column(db.DateTime, nullable=False, default=server_now)
 
     def __init__(self, user: User, search_word: str, learned_language: Language):
         self.user = user
         self.search_word = search_word
         self.learned_language = learned_language
-        self.search_time = utc_now_naive()
+        self.search_time = server_now()
 
     def __repr__(self):
         return f"TranslationSearch({self.search_word}, {self.learned_language.code})"
@@ -72,5 +70,5 @@ class TranslationSearch(db.Model):
             "id": self.id,
             "search_word": self.search_word,
             "language": self.learned_language.code,
-            "search_time": self.search_time.replace(tzinfo=timezone.utc).isoformat(),
+            "search_time": to_utc_isoformat(self.search_time),
         }
