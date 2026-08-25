@@ -6,6 +6,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from . import api, db_session
 from zeeguu.core.model.article import HTML_TAG_CLEANR
 
@@ -196,7 +197,7 @@ def find_or_create_article():
     html_content = request.form.get("htmlContent", "")
 
     # Check if extension has pre-extracted all the data
-    pre_extracted = request.form.get("preExtracted", "") == "true"
+    pre_extracted = get_boolean_from_params(request.form, "preExtracted", default=False)
     text_content = request.form.get("textContent", "") if pre_extracted else None
     title = request.form.get("title", "") if pre_extracted else None
     author = request.form.get("author", "") if pre_extracted else None
@@ -368,7 +369,7 @@ def is_article_language_supported():
     """
 
     htmlContent = request.form.get("htmlContent", "")
-    return_detailed = request.form.get("detailed", "false").lower() == "true"
+    return_detailed = get_boolean_from_params(request.form, "detailed", default=False)
 
     text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
     try:

@@ -12,7 +12,7 @@ from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.logging import log
-from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
@@ -139,7 +139,7 @@ def bookmarks_by_day():
     also returns the text where the bookmark was found.
     """
 
-    with_context = parse_json_boolean(request.form.get("with_context", "false"))
+    with_context = get_boolean_from_params(request.form, "with_context", default=False)
     user = User.find_by_id(flask.g.user_id)
     return json_result(user.bookmarks_by_day(with_context=with_context))
 
@@ -184,7 +184,7 @@ def bookmarks_for_article(article_id, user_id):
 @requires_session
 def words_to_study_for_article(article_id):
     user = User.find_by_id(flask.g.user_id)
-    with_tokens = parse_json_boolean(request.form.get("with_tokens", "false"))
+    with_tokens = get_boolean_from_params(request.form, "with_tokens", default=False)
 
     # This approach works with UserWords (which have the scheduling logic)
     # instead of Bookmarks (which were the old approach)

@@ -2,9 +2,12 @@ def parse_json_boolean(value):
     """
     Converts a string to a boolean value.
     Used when parsing from the frontend.
+
+    Case-insensitive: some clients send "True". Anything else -- including
+    None -- is None, so a caller can tell "not sent" from "sent false".
     """
-    if value is None:
-        return None
+    if isinstance(value, str):
+        value = value.lower()
     if value == "true":
         return True
     if value == "false":
