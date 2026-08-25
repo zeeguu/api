@@ -552,6 +552,20 @@ def articles_shared_with_me():
 
 
 # ---------------------------------------------------------------------------
+@api.route("/shared_articles_inbox_signature", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def shared_articles_inbox_signature():
+    """Poll target for "did my inbox change?" — see SharedArticle.inbox_signature_for.
+
+    Exists so the client can notice a share within a second without paying for
+    the full inbox serialization on every tick.
+    """
+    return json_result({"signature": SharedArticle.inbox_signature_for(flask.g.user_id)})
+
+
+# ---------------------------------------------------------------------------
 @api.route("/mark_shared_article_read", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain

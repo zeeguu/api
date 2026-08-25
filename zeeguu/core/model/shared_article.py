@@ -198,6 +198,37 @@ class SharedArticle(db.Model):
         )
 
     @classmethod
+    def inbox_signature_for(cls, user_id: int) -> str:
+        """A token that changes whenever this user's inbox changes.
+
+        One aggregate query, no per-article serialization — cheap enough for the
+        client to poll every second, which ``articles_shared_with_me`` (an
+        ``article_info`` per row) is not. The client refetches the real inbox
+        only when this moves.
+
+        Deliberately language-agnostic, unlike the inbox the client renders: it
+        only has to detect *that* something changed. A share arriving in a
+        language the reader isn't currently studying costs one wasted refetch,
+        which is cheaper than teaching this query about delivery languages.
+
+        The three counts cover the three things that change a rendered inbox
+        besides a new share: a dismissal (drops out of the count), a read, and
+        a delivery derivative finishing in the background.
+        """
+        total, newest_id, read, delivered = (
+            db.session.query(
+                func.count(cls.id),
+                func.max(cls.id),
+                func.count(cls.read_at),
+                func.count(cls.delivery_article_id),
+            )
+            .filter(cls.to_user_id == user_id)
+            .filter(cls.dismissed_at.is_(None))
+            .one()
+        )
+        return f"{total}-{newest_id or 0}-{read}-{delivered}"
+
+    @classmethod
     def unread_count_for(cls, user_id: int) -> int:
         return (
             cls.query.filter(cls.to_user_id == user_id)
