@@ -81,20 +81,6 @@ def server_now():
     return datetime.now(SERVER_TZ).replace(tzinfo=None)
 
 
-def to_utc_isoformat(naive_server_dt):
-    """
-    Serialize a naive DB datetime for the wire, as an explicit UTC instant.
-
-    Naive isoformat is a trap for JS clients: `new Date("2026-08-25T12:34:56")`
-    is interpreted as the *browser's* local time, so a timestamp written 5
-    seconds ago renders as hours ago (or in the future) for anyone not on UTC.
-    Stamping SERVER_TZ and converting to UTC yields a "+00:00" suffix that
-    `new Date(...)` reads as the instant it actually is.
-    """
-    if naive_server_dt is None:
-        return None
-    return naive_server_dt.replace(tzinfo=SERVER_TZ).astimezone(timezone.utc).isoformat()
-
 """
 datetime (dt) is not by default a timezone aware object. When articles
 are crawled we do get them as time aware objects. This is a problem

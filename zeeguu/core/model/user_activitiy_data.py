@@ -24,6 +24,7 @@ from zeeguu.core.constants import (
 from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
 )
+from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.core.util.url import remove_tracking_query_params
 import zeeguu
 
@@ -71,7 +72,7 @@ class UserActivityData(db.Model):
     def data_as_dictionary(self):
         data = dict(
             user_id=self.user_id,
-            time=self.time.strftime("%Y-%m-%dT%H:%M:%S"),
+            time=datetime_to_json(self.time),
             event=self.event,
             value=self.value,
             extra_data=self.extra_data,
