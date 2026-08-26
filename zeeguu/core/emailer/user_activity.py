@@ -56,7 +56,7 @@ def send_notification_article_feedback(
     def detailed_article_info(stream, user, article_id):
 
         bookmarks = user.bookmarks_for_article(
-            article_id, with_context=True, with_title=True, json=False
+            article_id, with_title=True, json=False
         )
 
         stream.append(f"\n\n{len(bookmarks)} Translations:\n")

@@ -8,6 +8,14 @@ from zeeguu.core.constants import (
 from zeeguu.logging import log
 from zeeguu.core.model import Article, UserArticle
 
+# Feedback values that mean "this article did not render properly".
+# "broken" also covers the "not_finished_for_broken" variant.
+BROKEN_FEEDBACK_MARKERS = (
+    "broken",
+    "not_finished_for_incomplete",
+    "not_finished_for_other",
+)
+
 
 def distill_article_interactions(session, user, data):
     """
@@ -54,12 +62,9 @@ def article_feedback(session, article_id, user, event_value):
 
     article = Article.query.filter_by(id=article_id).one()
 
-    if (
-        "broken"
-        or "not_finished_for_broken"
-        or "not_finished_for_incomplete"
-        or "not_finished_for_other" in event_value
-    ):
+    # `"broken" or ... in event_value` short-circuited on the first truthy
+    # literal, so this used to vote EVERY feedback event broken.
+    if any(marker in event_value for marker in BROKEN_FEEDBACK_MARKERS):
         article.vote_broken()
         session.add(article)
         session.commit()
