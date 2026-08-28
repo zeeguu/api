@@ -1,4 +1,5 @@
-"""Regression tests for assess_and_summarize's article_type handling.
+"""Regression tests for assess_and_summarize: article_type handling, and how an
+article gets rejected as junk.
 
 The article.article_type column is enum('news','general') with a case-sensitive
 utf8mb4_bin collation. If the parser returns an UPPERCASE 'NEWS'/'GENERAL', the
@@ -63,3 +64,72 @@ class AssessAndSummarizeArticleTypeTest(TestCase):
             ),
         ):
             self.assertIsNone(sac.assess_and_summarize("T", "C", "da")["article_type"])
+
+
+class AssessAndSummarizeRejectionTest(TestCase):
+    """How an article is rejected as junk.
+
+    The prompt used to offer a bare one-word reply ("unfinished") as the ONLY
+    way to report a paywall, which let a model end the whole response with one
+    token. deepseek-chat took that exit on 100% of articles — including complete
+    ones — which read as a broken model for weeks. The signal is a field now;
+    the bare word is still honoured for any model that ignores the change.
+    """
+
+    def _assess(self, llm_response):
+        with patch.object(
+            sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+        ), patch.object(
+            sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
+        ), patch.object(
+            sac, "_call_simplification_llm", return_value=(llm_response, "fake-model")
+        ):
+            return sac.assess_and_summarize("Titel", "Indhold", "da")
+
+    def test_the_incomplete_field_rejects_the_article(self):
+        """The paywall signal is a field now, not a bare one-word reply — it must
+        still reject. (The bare word kept working too; see
+        test_a_bare_unfinished_still_rejects.)"""
+        response = (
+            "INCOMPLETE_ARTICLE: YES\n"
+            "ADVERTORIAL_CONTENT: NO\n"
+            "DISTURBING_CONTENT: NO\n"
+            "ARTICLE_TYPE: News\n"
+            "ORIGINAL_LEVEL: B1\n"
+            "ORIGINAL_SUMMARY: Noget dansk tekst her.\n"
+        )
+        with self.assertRaises(Exception) as raised:
+            self._assess(response)
+        assert str(raised.exception).startswith("PAYWALL")
+
+    def test_the_advertorial_field_rejects_the_article(self):
+        response = (
+            "INCOMPLETE_ARTICLE: NO\n"
+            "ADVERTORIAL_CONTENT: YES\n"
+            "DISTURBING_CONTENT: NO\n"
+            "ARTICLE_TYPE: General\n"
+            "ORIGINAL_LEVEL: B1\n"
+            "ORIGINAL_SUMMARY: Noget dansk tekst her.\n"
+        )
+        with self.assertRaises(Exception) as raised:
+            self._assess(response)
+        assert str(raised.exception).startswith("ADVERTORIAL")
+
+    def test_a_bare_unfinished_still_rejects(self):
+        """Backward compatibility: the prompt no longer offers the bare word, but a
+        model that answers with it anyway must not be parsed into an empty
+        assessment."""
+        with self.assertRaises(Exception) as raised:
+            self._assess("unfinished")
+        assert str(raised.exception).startswith("PAYWALL")
+
+    def test_a_clean_article_is_not_rejected_when_the_flags_are_absent(self):
+        """Rows from a model that omits the new fields entirely must default to
+        NO — absent must never read as "junk", or every such article is dropped."""
+        response = (
+            "DISTURBING_CONTENT: NO\n"
+            "ARTICLE_TYPE: News\n"
+            "ORIGINAL_LEVEL: B1\n"
+            "ORIGINAL_SUMMARY: Regeringen har fremlagt et nyt forslag om klimaet i dag.\n"
+        )
+        assert self._assess(response)["original_cefr_level"] == "B1"

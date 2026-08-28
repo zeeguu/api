@@ -145,7 +145,9 @@ CEFR Level Guidelines:
 - C1: Sophisticated vocabulary, complex grammar, idiomatic expressions
 - C2: Near-native level, literary devices, specialized terminology
 
-IMPORTANT: If the article appears to be incomplete due to a paywall, simply respond with: "unfinished". This includes:
+ALWAYS produce every field listed below, for every article. NEVER reply with a single bare word: the two rejection signals are FIELDS (INCOMPLETE_ARTICLE, ADVERTORIAL_CONTENT), not a way to end your answer early.
+
+IMPORTANT: If the article appears to be incomplete due to a paywall, set INCOMPLETE_ARTICLE to YES. This includes:
 - Articles with fewer than 3 paragraphs (very likely incomplete)
 - Articles that end abruptly without a proper conclusion
 - Articles that appear to be only the first paragraph(s) of a longer piece
@@ -157,7 +159,7 @@ IMPORTANT: If the article appears to be incomplete due to a paywall, simply resp
 - Articles that have audio elements mentioned ("Lyt til artiklen", "Læst op af") but very little text content
 - Articles that appear to be just a teaser or introduction without the main content
 
-IMPORTANT: If the article appears to be promotional/advertorial content rather than genuine news, simply respond with: "advertorial". This includes:
+IMPORTANT: If the article appears to be promotional/advertorial content rather than genuine news, set ADVERTORIAL_CONTENT to YES. This includes:
 - Articles primarily promoting specific products with pricing/discounts ("Ne laissez pas passer cette offre", "à -30%", "en promotion")
 - Articles with affiliate marketing language ("meilleure offre", "bon plan", "code promo")
 - Articles focused on shopping recommendations rather than journalistic news content
@@ -177,6 +179,10 @@ LEVELS TO SUMMARIZE:
 - Each level's summary conveys the SAME facts as ORIGINAL_SUMMARY but using vocabulary and sentence structure appropriate for that level. Do NOT drop information at lower levels — say the same things more simply.
 
 You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. Do NOT produce full simplified versions of the article — summaries only.
+
+INCOMPLETE_ARTICLE: [YES or NO - is the article text cut off by a paywall, per the rules above? If YES, still fill in every other field as best you can.]
+
+ADVERTORIAL_CONTENT: [YES or NO - is this promotional/advertorial content rather than journalism, per the rules above? If YES, still fill in every other field as best you can.]
 
 DISTURBING_CONTENT: [YES or NO - would a reader who has asked to avoid disturbing material be upset by this article? Answer YES if EITHER (a) the article's focus is violence, death, or disaster AS AN EVENT - violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence; OR (b) the article dwells on death/burial imagery and themes even when nobody was harmed - corpses, coffins, being buried (alive or dead), funerary, mortuary, or embalming practices, graphic bodily harm or medical gore. A lifestyle, wellness, or novelty piece whose SUBJECT is death or burial (e.g. "coffin therapy", being buried alive for relaxation) is YES. Note: brief incidental mentions in an otherwise neutral article do NOT count, and purely historical or educational treatment of a difficult topic is acceptable (NO).]
 

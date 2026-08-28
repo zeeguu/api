@@ -113,10 +113,36 @@ def _call_simplification_llm(prompt, provider, api_key, max_tokens, timeout=180)
 
 
 def _raise_if_paywall_or_advertorial(result):
-    """Both prompts answer with a bare token when the article is junk — reject it."""
+    """
+    The adaptive-simplification prompt answers with a bare token when the article
+    is junk — reject it. Kept for the assess prompt too, which now asks for fields
+    instead (see _raise_if_flagged): a model that ignores that and answers in the
+    old shape anyway must still be caught rather than parsed into an empty
+    assessment.
+    """
     if result.lower().strip() == "unfinished":
         raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
     if result.lower().strip() == "advertorial":
+        raise Exception(
+            "ADVERTORIAL: Article appears to be advertorial/promotional content"
+        )
+
+
+def _raise_if_flagged(assessment):
+    """
+    Same rejection, read off the parsed fields instead of a bare one-word reply.
+
+    The bare word was the ONLY way the assess prompt could report junk, and it let
+    a model end the whole response with one token — which deepseek-chat did for
+    100% of articles (6/6 complete Danish articles rejected as "unfinished", in
+    under a second each), making it look like a broken model rather than a prompt
+    it could not follow. As fields, the same six articles assess correctly and
+    truncated copies of them are still flagged: the signal survives, the escape
+    hatch doesn't.
+    """
+    if assessment.get("is_incomplete"):
+        raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+    if assessment.get("is_advertorial"):
         raise Exception(
             "ADVERTORIAL: Article appears to be advertorial/promotional content"
         )
@@ -250,7 +276,11 @@ def assess_and_summarize(
             prompt + correction, provider, api_key, max_tokens=2000, timeout=120
         )
         _raise_if_paywall_or_advertorial(result)
-        return _parse_assessment_and_summary(result, provider, model_name)
+        assessment = _parse_assessment_and_summary(result, provider, model_name)
+        # Raised, not returned, so junk propagates out of the language-check retry
+        # loop exactly as the bare-word rejection always has.
+        _raise_if_flagged(assessment)
+        return assessment
 
     try:
         return generate_in_language(
@@ -278,6 +308,8 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
         is_field = ":" in line and any(
             line.startswith(prefix)
             for prefix in [
+                "INCOMPLETE_ARTICLE",
+                "ADVERTORIAL_CONTENT",
                 "DISTURBING_CONTENT",
                 "ARTICLE_TYPE",
                 "ORIGINAL_LEVEL",
@@ -312,6 +344,12 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
         sections[current_section] = "\n".join(current_content).strip()
 
     is_disturbing = _clean_text(sections.get("DISTURBING_CONTENT", "NO")).upper() == "YES"
+    # Absent → NO: a model still answering in the old bare-word shape is caught by
+    # _raise_if_paywall_or_advertorial before we ever get here.
+    is_incomplete = _clean_text(sections.get("INCOMPLETE_ARTICLE", "NO")).upper() == "YES"
+    is_advertorial = (
+        _clean_text(sections.get("ADVERTORIAL_CONTENT", "NO")).upper() == "YES"
+    )
     article_type_raw = _clean_text(sections.get("ARTICLE_TYPE", "")).upper()
     article_type = article_type_raw if article_type_raw in ["NEWS", "GENERAL"] else None
     original_level = _clean_text(sections.get("ORIGINAL_LEVEL", ""))
@@ -349,6 +387,8 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
         # parser in simplify_and_classify below.
         "article_type": article_type.lower() if article_type else None,
         "is_disturbing": is_disturbing,
+        "is_incomplete": is_incomplete,
+        "is_advertorial": is_advertorial,
         "level_summaries": level_summaries,
         "level_titles": level_titles,
         "provider": provider,
