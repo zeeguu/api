@@ -30,6 +30,7 @@ from zeeguu.api.utils.route_wrappers import requires_session
 from zeeguu.api.utils.parse_json_boolean import get_boolean_from_params
 
 from zeeguu.core.model.db import db
+from zeeguu.core.util.encoding import datetime_to_json
 
 
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
@@ -224,12 +225,21 @@ def cohorts_info():
     """
     Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
 
+    Each entry also carries "last_shared_time": when a text was most recently
+    shared with that class, or None if none ever was.
     """
 
     mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user_id).all()
+    cohort_ids = [m.cohort_id for m in mappings]
+
+    # So the client can put the classes a teacher actually uses on top: some
+    # teachers own ~100 classes, most of them long dormant.
+    last_shared = CohortArticleMap.last_shared_time_per_cohort(cohort_ids)
+
     cohorts = []
-    for m in mappings:
-        info = get_cohort_info(m.cohort_id)
+    for cohort_id in cohort_ids:
+        info = get_cohort_info(cohort_id)
+        info["last_shared_time"] = datetime_to_json(last_shared.get(cohort_id))
         cohorts.append(info)
     return json.dumps(cohorts)
 

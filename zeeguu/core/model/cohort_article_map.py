@@ -1,4 +1,11 @@
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, DateTime
+from sqlalchemy import (
+    Column,
+    Integer,
+    ForeignKey,
+    PrimaryKeyConstraint,
+    DateTime,
+    func,
+)
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
@@ -66,6 +73,26 @@ class CohortArticleMap(db.Model):
             if relation.article is not None  # Defensive check for orphaned mappings
         ]
         return sorted(articles, key=lambda x: x["metrics"]["difficulty"])
+
+    @classmethod
+    def last_shared_time_per_cohort(cls, cohort_ids):
+        """{cohort_id: most recent time a text was shared with it}, in one query.
+
+        Cohorts that have never had a text shared are absent from the map.
+        Callers use this to order a teacher's classes by recency: a teacher
+        with ~100 classes has most of them dormant, and an unordered list of
+        names is unusable.
+        """
+        if not cohort_ids:
+            return {}
+
+        rows = (
+            db.session.query(cls.cohort_id, func.max(cls.published_time))
+            .filter(cls.cohort_id.in_(cohort_ids))
+            .group_by(cls.cohort_id)
+            .all()
+        )
+        return {cohort_id: last for cohort_id, last in rows if last is not None}
 
     @classmethod
     def get_cohort_names_for_article(cls, article):
