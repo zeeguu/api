@@ -40,8 +40,20 @@ class CohortArticleMap(db.Model):
         ]
 
     @classmethod
+    def get_cohorts_for_article(cls, article):
+        """Classes this article is shared with, as {id, name}."""
+        return [
+            {"id": entry.cohort.id, "name": entry.cohort.name}
+            for entry in cls.query.filter_by(article=article).all()
+        ]
+
+    @classmethod
     def get_articles_info_for_cohort(cls, cohort):
-        """Legacy method - returns basic article info without user context."""
+        """A cohort's articles, without any one user's reading state.
+
+        Used by the teacher-facing class Texts tab: it shows the class's texts
+        as the class holds them, not as the teacher personally has read them.
+        """
         def _adapted_article_info(relation):
             article_info = relation.article.article_info()
             if relation.published_time:
@@ -56,7 +68,14 @@ class CohortArticleMap(db.Model):
         return sorted(articles, key=lambda x: x["metrics"]["difficulty"])
 
     @classmethod
-    def get_cohorts_for_article(cls, article):
+    def get_cohort_names_for_article(cls, article):
+        """Just the names -- enough to print a list, not to act on one.
+
+        Two classes can share a name, and unsharing or filtering by class needs
+        the id, so prefer get_cohorts_for_article for anything but display.
+        Kept for the /get_cohorts_for_article endpoint, whose response shape
+        deployed clients still depend on.
+        """
         cohorts = [
             cohort_article_entry.cohort.name
             for cohort_article_entry in cls.query.filter_by(article=article).all()

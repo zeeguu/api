@@ -830,7 +830,11 @@ class Article(db.Model):
         # (UserArticle reader path) re-fetches content itself via
         # article_info(with_content=True) and merges it.
         info = self.article_info(with_content=False)
-        info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
+        # `cohorts` is names only, and is what apps built before Aug 2026 read.
+        # `shared_with` carries the ids the texts list needs to filter by class
+        # and to unshare; drop `cohorts` once no deployed client reads it.
+        info["cohorts"] = CohortArticleMap.get_cohort_names_for_article(self)
+        info["shared_with"] = CohortArticleMap.get_cohorts_for_article(self)
 
         # Include CEFR assessment details for teacher view
         if self.cefr_assessment:

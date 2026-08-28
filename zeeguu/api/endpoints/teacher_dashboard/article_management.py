@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils import json_result
 from zeeguu.core.model import Cohort, Language, Article, Url, User
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from ._only_teachers_decorator import only_teachers
@@ -137,7 +138,7 @@ def get_cohorts_for_article(article_id):
 
     article = Article.find_by_id(article_id)
 
-    return json.dumps(CohortArticleMap.get_cohorts_for_article(article))
+    return json.dumps(CohortArticleMap.get_cohort_names_for_article(article))
 
 
 @api.route("/delete_article_from_cohort", methods=["POST"])
@@ -188,18 +189,32 @@ def remove_article_from_cohort(cohort_id, article_id):
         return "NoResultFound"
 
 
-@api.route("/cohort_files/<cohort_id>", methods=["GET"])
+@api.route("/cohort_text_overview/<cohort_id>", methods=["GET"])
 @requires_session
 @only_teachers
-def cohort_files(cohort_id):
-    """
-    Gets the files associated with a cohort
+def cohort_text_overview(cohort_id):
+    """The texts a class holds, as its students see them.
+
+    Students whose learned language differs from the class's see none of these;
+    that is handled on the student's own empty classroom, which names the
+    language and offers the switch, so it is not reported back to the teacher.
     """
     check_permission_for_cohort(cohort_id)
 
     cohort = Cohort.find(cohort_id)
-    articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
-    return json.dumps(articles)
+
+    return json_result(
+        {
+            "cohort": {
+                "id": cohort.id,
+                "name": cohort.name,
+                "language": cohort.language.code if cohort.language else None,
+                "only_classroom_texts": bool(cohort.only_classroom_texts),
+            },
+            "texts": CohortArticleMap.get_articles_info_for_cohort(cohort),
+            "student_count": len(cohort.get_students()),
+        }
+    )
 
 
 @api.route("/teacher_texts", methods=["GET"])

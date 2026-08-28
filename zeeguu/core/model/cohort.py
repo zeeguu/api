@@ -93,6 +93,34 @@ class Cohort(db.Model):
             "language_id": self.language_id,
         }
 
+    def text_counts_by_language(self):
+        """How many of this class's texts are in which language.
+
+        Grouped by the *article's* language rather than the class's declared
+        one, because that is what cohort_articles_for_user() filters on: a
+        student sees a class text only when the article's language matches
+        their learned language. The empty classroom uses these counts to say
+        which language to switch to, so it has to count the same thing the
+        filter counts.
+        """
+        from zeeguu.core.model.article import Article
+        from zeeguu.core.model.cohort_article_map import CohortArticleMap
+
+        rows = (
+            db.session.query(Language, func.count(Article.id))
+            .select_from(CohortArticleMap)
+            .join(Article, Article.id == CohortArticleMap.article_id)
+            .join(Language, Language.id == Article.language_id)
+            .filter(CohortArticleMap.cohort_id == self.id)
+            .group_by(Language.id)
+            .all()
+        )
+
+        return [
+            {"code": language.code, "name": language.name, "count": count}
+            for language, count in sorted(rows, key=lambda each: -each[1])
+        ]
+
     @classmethod
     def find(cls, id):
         return cls.query.filter_by(id=id).one()
