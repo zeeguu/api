@@ -531,27 +531,32 @@ def get_user_info_from_content_recommendations(user, content_list):
 def _apply_simplified_display_overlay(user, results):
     """
     Overlay a CEFR-level-matched preview *summary* onto feed-card result dicts
-    that point at an original article, using the per-level ArticleLevelSummary
+    that point at an original article, using the per-level LevelAdaptedArticleText
     rows (on-demand simplification means there are no simplified child articles
     to borrow a summary from anymore).
 
     Sets both the plain ``summary`` teaser (Preview mode) and the tappable
     ``interactiveSummary`` payload (Interactive mode), the latter anchored to the
     specific level-summary row so tap-to-translate and past-bookmark highlighting
-    land on the right tokens. Titles are left as the original — we don't produce
-    per-level titles. Falls back silently to the article's own summary when the
-    learner's level has no simpler summary.
+    land on the right tokens. The level's ``title``/``interactiveTitle`` are
+    overlaid the same way when the row has one — which is what makes the level
+    selector visible in Headlines mode, where the title is the only text on the
+    card. Falls back silently to the article's own title/summary when the
+    learner's level has no simpler one.
 
     Batched in two queries: a columns-only pick of the best level per article,
     then a load of just those chosen rows (so the heavy tokenized_summary JSON is
     deserialized once per article, not once per level).
     """
-    from zeeguu.core.model.article_level_summary import (
-        ArticleLevelSummary,
+    from zeeguu.core.model.level_adapted_article_text import (
+        LevelAdaptedArticleText,
         CEFR_ORDER,
     )
-    from zeeguu.core.model.article_level_summary_context import (
-        ArticleLevelSummaryContext,
+    from zeeguu.core.model.level_adapted_article_summary_context import (
+        LevelAdaptedArticleSummaryContext,
+    )
+    from zeeguu.core.model.level_adapted_article_title_context import (
+        LevelAdaptedArticleTitleContext,
     )
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
@@ -573,21 +578,28 @@ def _apply_simplified_display_overlay(user, results):
     if not candidate_ids:
         return
 
-    allowed = ArticleLevelSummary.allowed_levels(user_cefr_level)
+    allowed = LevelAdaptedArticleText.allowed_levels(user_cefr_level)
 
     # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
     # best row per article, never every level: first a columns-only query to pick
     # the best-matching level per article, then load just those chosen rows.
+    # Article.cefr_level rides along so pick_best can tell "this learner reads at
+    # or above the article's own level" (→ use the article's own summary) from
+    # "this learner needs a simpler one". Joined here rather than read off the
+    # result dicts, whose metrics.cefr_level is the *effective* level and can come
+    # back compound ("B1/B2") — see article_info.
     lightweight = (
-        ArticleLevelSummary.query
+        LevelAdaptedArticleText.query
         .with_entities(
-            ArticleLevelSummary.id,
-            ArticleLevelSummary.article_id,
-            ArticleLevelSummary.cefr_level,
+            LevelAdaptedArticleText.id,
+            LevelAdaptedArticleText.article_id,
+            LevelAdaptedArticleText.cefr_level,
+            Article.cefr_level.label("article_own_level"),
         )
+        .join(Article, Article.id == LevelAdaptedArticleText.article_id)
         .filter(
-            ArticleLevelSummary.article_id.in_(candidate_ids),
-            ArticleLevelSummary.cefr_level.in_(allowed),
+            LevelAdaptedArticleText.article_id.in_(candidate_ids),
+            LevelAdaptedArticleText.cefr_level.in_(allowed),
         )
         .all()
     )
@@ -595,12 +607,16 @@ def _apply_simplified_display_overlay(user, results):
         return
 
     by_article = {}
+    own_level_by_article = {}
     for row in lightweight:
         by_article.setdefault(row.article_id, []).append(row)
+        own_level_by_article[row.article_id] = row.article_own_level
 
     chosen_id_by_article = {}
     for article_id, rows in by_article.items():
-        best_row = ArticleLevelSummary.pick_best(rows, user_cefr_level)
+        best_row = LevelAdaptedArticleText.pick_best(
+            rows, user_cefr_level, own_level_by_article.get(article_id)
+        )
         if best_row:
             chosen_id_by_article[article_id] = best_row.id
     if not chosen_id_by_article:
@@ -608,8 +624,8 @@ def _apply_simplified_display_overlay(user, results):
 
     full_by_id = {
         als.id: als
-        for als in ArticleLevelSummary.query.filter(
-            ArticleLevelSummary.id.in_(chosen_id_by_article.values())
+        for als in LevelAdaptedArticleText.query.filter(
+            LevelAdaptedArticleText.id.in_(chosen_id_by_article.values())
         ).all()
     }
 
@@ -626,28 +642,55 @@ def _apply_simplified_display_overlay(user, results):
         if not display:
             continue
 
+        # The bookmark mapping keys on level_adapted_article_text_id; article_id is
+        # carried only for the client's MWE-ungroup path (parent article id).
+        def _payload(tokens, context_type, past_bookmarks):
+            overrides_by_hash = overrides_by_article.get(display.article_id)
+            if overrides_by_hash:
+                # Returns a cleared copy; never mutates the ORM-loaded token list.
+                tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(
+                    tokens, overrides_by_hash
+                )
+            ctx = ContextIdentifier(
+                context_type,
+                article_id=display.article_id,
+                level_adapted_article_text_id=display.id,
+            )
+            return {
+                "tokens": tokens,
+                "context_identifier": ctx.as_dictionary(),
+                "past_bookmarks": past_bookmarks,
+            }
+
         if display.summary and len(display.summary.strip()) > 10:
             result["summary"] = display.summary.strip()
 
-        tokens = display.get_tokenized_summary()
-        if not tokens:
-            continue
-        # Apply the user's MWE ungroup overrides to the overlaid summary tokens
-        # (returns a cleared copy; never mutates the ORM-loaded token list).
-        overrides_by_hash = overrides_by_article.get(display.article_id)
-        if overrides_by_hash:
-            tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(tokens, overrides_by_hash)
-        # The bookmark mapping keys on article_level_summary_id; article_id is
-        # carried only for the client's MWE-ungroup path (parent article id).
-        ctx = ContextIdentifier(
-            ContextType.ARTICLE_LEVEL_SUMMARY,
-            article_id=display.article_id,
-            article_level_summary_id=display.id,
-        )
-        result["interactiveSummary"] = {
-            "tokens": tokens,
-            "context_identifier": ctx.as_dictionary(),
-            "past_bookmarks": ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
-                user.id, display.id
-            ),
-        }
+        summary_tokens = display.get_tokenized_summary()
+        if summary_tokens:
+            result["interactiveSummary"] = _payload(
+                summary_tokens,
+                ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY,
+                LevelAdaptedArticleSummaryContext.get_all_user_bookmarks_for_level_adapted_summary(
+                    user.id, display.id
+                ),
+            )
+
+        # Title is overlaid independently of the summary: a row can carry one and
+        # not the other (rows written before per-level titles existed have no
+        # title; the language check can drop a title while keeping its summary).
+        if display.title and display.title.strip():
+            result["title"] = display.title.strip()
+            title_tokens = display.get_tokenized_title()
+            if title_tokens:
+                result["interactiveTitle"] = _payload(
+                    title_tokens,
+                    ContextType.LEVEL_ADAPTED_ARTICLE_TITLE,
+                    LevelAdaptedArticleTitleContext.get_all_user_bookmarks_for_level_adapted_title(
+                        user.id, display.id
+                    ),
+                )
+            else:
+                # Plain title replaced but no tokens to tap: drop any bundled
+                # interactiveTitle rather than leave the ORIGINAL title's tokens
+                # sitting under the level title — they'd translate the wrong words.
+                result.pop("interactiveTitle", None)

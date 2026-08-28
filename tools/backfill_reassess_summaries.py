@@ -10,7 +10,7 @@ Aug-2026 on-demand-simplification defects (commit 0d047e32):
 
 Both are fixed in code now. This tool re-runs the SAME crawl-time assessment
 (assess_summarize_and_classify) on the affected originals, which overwrites
-cefr_level, article_type, summary, and every ArticleLevelSummary row (find_or_
+cefr_level, article_type, summary, and every LevelAdaptedArticleText row (find_or_
 create updates in place) — in the correct language, once 7cd9d6ca is DEPLOYED.
 
 IMPORTANT: run this only AFTER the prompt fix (7cd9d6ca) is live on the server,

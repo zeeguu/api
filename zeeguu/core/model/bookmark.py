@@ -152,15 +152,36 @@ class Bookmark(db.Model):
             else:
                 # Fallback: context mapping is missing
                 return "[Title not available]"
-        if self.context.context_type.type == ContextType.ARTICLE_LEVEL_SUMMARY:
-            from zeeguu.core.model.article_level_summary_context import (
-                ArticleLevelSummaryContext,
+        if self.context.context_type.type == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY:
+            from zeeguu.core.model.level_adapted_article_summary_context import (
+                LevelAdaptedArticleSummaryContext,
             )
 
-            level_summary_context = ArticleLevelSummaryContext.find_by_bookmark(self)
-            if level_summary_context and level_summary_context.article_level_summary:
+            level_summary_context = LevelAdaptedArticleSummaryContext.find_by_bookmark(self)
+            if level_summary_context and level_summary_context.level_adapted_article_text:
                 return Article.find_by_id(
-                    level_summary_context.article_level_summary.article_id
+                    level_summary_context.level_adapted_article_text.article_id
+                ).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
+        if self.context.context_type.type == ContextType.LEVEL_ADAPTED_ARTICLE_TITLE:
+            from zeeguu.core.model.level_adapted_article_title_context import (
+                LevelAdaptedArticleTitleContext,
+            )
+
+            # Deliberately the ARTICLE's title, not the level title the bookmark
+            # actually sits in. get_source_title answers "which document did this
+            # word come from", and the article title is the stable answer: level
+            # titles change with the learner's CEFR level, so a word list keyed on
+            # one would show a headline that no longer exists for that reader.
+            # Every other branch here resolves to Article.title for the same
+            # reason. Trade-off: an A1 learner sees the publisher's harder
+            # headline next to a word they met in the A1 one.
+            level_title_context = LevelAdaptedArticleTitleContext.find_by_bookmark(self)
+            if level_title_context and level_title_context.level_adapted_article_text:
+                return Article.find_by_id(
+                    level_title_context.level_adapted_article_text.article_id
                 ).title
             else:
                 # Fallback: context mapping is missing
@@ -443,9 +464,9 @@ class Bookmark(db.Model):
                     context_identifier.article_id = (
                         result.article_id if result else None
                     )
-                case ContextType.ARTICLE_LEVEL_SUMMARY:
-                    context_identifier.article_level_summary_id = (
-                        result.article_level_summary_id if result else None
+                case ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY:
+                    context_identifier.level_adapted_article_text_id = (
+                        result.level_adapted_article_text_id if result else None
                     )
                 case ContextType.VIDEO_TITLE:
                     context_identifier.video_id = result.video_id if result else None

@@ -723,19 +723,14 @@ class UserArticle(db.Model):
         return tokens
 
     @classmethod
-    def _level_matched_summary_payload(cls, user, article):
+    def _level_matched_row(cls, user, article):
         """
-        Return the tappable-summary payload for the ArticleLevelSummary matching
-        this learner's CEFR level, or None if there's no suitable per-level
-        summary (caller falls back to the article's own-level summary).
+        The LevelAdaptedArticleText matching this learner's CEFR level, or None when
+        there is no suitable per-level row (caller falls back to the article's own
+        title/summary).
         """
         from sqlalchemy.orm.exc import NoResultFound
-        from zeeguu.core.model.article_level_summary import ArticleLevelSummary
-        from zeeguu.core.model.article_level_summary_context import (
-            ArticleLevelSummaryContext,
-        )
-        from zeeguu.core.model.context_identifier import ContextIdentifier
-        from zeeguu.core.model.context_type import ContextType
+        from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 
         try:
             user_level = user.cefr_level_for_learned_language()
@@ -744,26 +739,76 @@ class UserArticle(db.Model):
         if not user_level:
             return None
 
-        level_summary = ArticleLevelSummary.best_for_user_level(article.id, user_level)
+        return LevelAdaptedArticleText.best_for_user_level(
+            article.id, user_level, article.cefr_level
+        )
+
+    @classmethod
+    def _level_matched_summary_payload(cls, user, article, level_row=None):
+        """
+        Return the tappable-summary payload for the LevelAdaptedArticleText matching
+        this learner's CEFR level, or None if there's no suitable per-level
+        summary (caller falls back to the article's own-level summary).
+        """
+        from zeeguu.core.model.level_adapted_article_summary_context import (
+            LevelAdaptedArticleSummaryContext,
+        )
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+
+        level_summary = level_row or cls._level_matched_row(user, article)
         if not level_summary:
             return None
         tokens = level_summary.get_tokenized_summary()
         if not tokens:
             return None
 
-        # The bookmark mapping still keys on article_level_summary_id
+        # The bookmark mapping still keys on level_adapted_article_text_id
         # (create_context_mapping switches on context_type); article_id is carried
         # only so the client's MWE-ungroup path can address the override by
         # parent article id.
         context_id = ContextIdentifier(
-            ContextType.ARTICLE_LEVEL_SUMMARY,
+            ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY,
             article_id=article.id,
-            article_level_summary_id=level_summary.id,
+            level_adapted_article_text_id=level_summary.id,
         )
         return {
             "tokens": tokens,
             "context_identifier": context_id.as_dictionary(),
-            "past_bookmarks": ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
+            "past_bookmarks": LevelAdaptedArticleSummaryContext.get_all_user_bookmarks_for_level_adapted_summary(
+                user.id, level_summary.id
+            ),
+        }
+
+    @classmethod
+    def _level_matched_title_payload(cls, user, article, level_row=None):
+        """
+        Same as _level_matched_summary_payload, for the level's headline. None
+        when the row has no title (rows predating per-level titles, or a title the
+        language check dropped) — the caller then keeps the article's own title.
+        """
+        from zeeguu.core.model.level_adapted_article_title_context import (
+            LevelAdaptedArticleTitleContext,
+        )
+        from zeeguu.core.model.context_identifier import ContextIdentifier
+        from zeeguu.core.model.context_type import ContextType
+
+        level_summary = level_row or cls._level_matched_row(user, article)
+        if not level_summary or not level_summary.title:
+            return None
+        tokens = level_summary.get_tokenized_title()
+        if not tokens:
+            return None
+
+        context_id = ContextIdentifier(
+            ContextType.LEVEL_ADAPTED_ARTICLE_TITLE,
+            article_id=article.id,
+            level_adapted_article_text_id=level_summary.id,
+        )
+        return {
+            "tokens": tokens,
+            "context_identifier": context_id.as_dictionary(),
+            "past_bookmarks": LevelAdaptedArticleTitleContext.get_all_user_bookmarks_for_level_adapted_title(
                 user.id, level_summary.id
             ),
         }
@@ -803,8 +848,10 @@ class UserArticle(db.Model):
 
         # Build summary response — prefer a CEFR-level-matched preview summary if
         # one exists for this learner's level; otherwise fall back to the article's
-        # own-level summary.
-        level_summary = cls._level_matched_summary_payload(user, article)
+        # own-level summary. Resolved once and shared with the title branch below
+        # so the two can't pick different levels (and to save a query).
+        level_row = cls._level_matched_row(user, article)
+        level_summary = cls._level_matched_summary_payload(user, article, level_row)
         if level_summary:
             result["tokenized_summary"] = level_summary
         elif article.summary and cache.tokenized_summary:
@@ -829,7 +876,7 @@ class UserArticle(db.Model):
         # Apply the user's MWE ungroup overrides to whichever summary branch
         # produced the payload (per-level OR the fallback own-summary). The lookup
         # keys on the PARENT article.id: for level summaries that's how overrides
-        # are stored (see ContextIdentifier.article_id on ARTICLE_LEVEL_SUMMARY),
+        # are stored (see ContextIdentifier.article_id on LEVEL_ADAPTED_ARTICLE_SUMMARY),
         # and the summary sentence text differs from body sentences so the
         # sentence hash still scopes the override to the summary. Mutates in place.
         if "tokenized_summary" in result:
@@ -847,8 +894,12 @@ class UserArticle(db.Model):
                     result["tokenized_summary"].get("tokens"), overrides_by_hash
                 )
 
-        # Build title response
-        if cache.tokenized_title:
+        # Build title response — same precedence as the summary above: the
+        # learner's level headline if this row has one, else the article's own.
+        level_title = cls._level_matched_title_payload(user, article, level_row)
+        if level_title:
+            result["tokenized_title"] = level_title
+        elif cache.tokenized_title:
             try:
                 tokenized_title = json.loads(cache.tokenized_title)
                 title_context_id = ContextIdentifier(

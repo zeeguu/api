@@ -14,7 +14,8 @@ class ContextType(db.Model):
     ARTICLE_FRAGMENT = "ArticleFragment"
     ARTICLE_TITLE = "ArticleTitle"
     ARTICLE_SUMMARY = "ArticleSummary"
-    ARTICLE_LEVEL_SUMMARY = "ArticleLevelSummary"
+    LEVEL_ADAPTED_ARTICLE_SUMMARY = "LevelAdaptedArticleSummary"
+    LEVEL_ADAPTED_ARTICLE_TITLE = "LevelAdaptedArticleTitle"
     VIDEO_TITLE = "VideoTitle"
     VIDEO_CAPTION = "VideoCaption"
     WEB_FRAGMENT = "WebFragment"
@@ -26,7 +27,8 @@ class ContextType(db.Model):
         ARTICLE_FRAGMENT,
         ARTICLE_TITLE,
         ARTICLE_SUMMARY,
-        ARTICLE_LEVEL_SUMMARY,
+        LEVEL_ADAPTED_ARTICLE_SUMMARY,
+        LEVEL_ADAPTED_ARTICLE_TITLE,
         VIDEO_TITLE,
         VIDEO_CAPTION,
         WEB_FRAGMENT,
@@ -73,8 +75,11 @@ class ContextType(db.Model):
         from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
         from zeeguu.core.model.article_title_context import ArticleTitleContext
         from zeeguu.core.model.article_summary_context import ArticleSummaryContext
-        from zeeguu.core.model.article_level_summary_context import (
-            ArticleLevelSummaryContext,
+        from zeeguu.core.model.level_adapted_article_summary_context import (
+            LevelAdaptedArticleSummaryContext,
+        )
+        from zeeguu.core.model.level_adapted_article_title_context import (
+            LevelAdaptedArticleTitleContext,
         )
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.video_caption_context import VideoCaptionContext
@@ -87,8 +92,10 @@ class ContextType(db.Model):
                 return ArticleTitleContext
             case cls.ARTICLE_SUMMARY:
                 return ArticleSummaryContext
-            case cls.ARTICLE_LEVEL_SUMMARY:
-                return ArticleLevelSummaryContext
+            case cls.LEVEL_ADAPTED_ARTICLE_SUMMARY:
+                return LevelAdaptedArticleSummaryContext
+            case cls.LEVEL_ADAPTED_ARTICLE_TITLE:
+                return LevelAdaptedArticleTitleContext
             case cls.VIDEO_TITLE:
                 return VideoTitleContext
             case cls.VIDEO_CAPTION:

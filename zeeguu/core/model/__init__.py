@@ -32,8 +32,9 @@ from .bookmark_context import BookmarkContext
 from .article_fragment_context import ArticleFragmentContext
 from .article_title_context import ArticleTitleContext
 from .article_summary_context import ArticleSummaryContext
-from .article_level_summary import ArticleLevelSummary
-from .article_level_summary_context import ArticleLevelSummaryContext
+from .level_adapted_article_text import LevelAdaptedArticleText
+from .level_adapted_article_summary_context import LevelAdaptedArticleSummaryContext
+from .level_adapted_article_title_context import LevelAdaptedArticleTitleContext
 from .example_sentence import ExampleSentence
 from .example_sentence_context import ExampleSentenceContext
 

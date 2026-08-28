@@ -6,7 +6,7 @@ and (b) have no unique key, so a concurrent first-open race could create two row
 for the same (bookmark, anchor) -- which later broke find_by_bookmark/.one() with
 MultipleResultsFound.
 
-These tests mirror test_article_level_summary.py's
+These tests mirror test_level_adapted_article_text.py's
 test_context_find_or_create_is_idempotent / _rejected_by_unique_constraint, run
 across all six affected models at once:
 
