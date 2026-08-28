@@ -95,7 +95,7 @@ def build_elastic_recommender_query(
 
     NOT filtered by CEFR level, deliberately. With on-demand simplification
     every article is readable at the learner's level — the feed card carries a
-    level-appropriate summary (ArticleLevelSummary) and the body simplifies on
+    level-appropriate summary (LevelAdaptedArticleText) and the body simplifies on
     request (POST /simplify_article/<id>) — so an article being "too hard" is no
     longer a reason to hide it. Filtering on available_cefr_levels used to mean
     the opposite: that field lists the levels for which a version was already

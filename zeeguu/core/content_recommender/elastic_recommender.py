@@ -531,7 +531,7 @@ def get_user_info_from_content_recommendations(user, content_list):
 def _apply_simplified_display_overlay(user, results):
     """
     Overlay a CEFR-level-matched preview *summary* onto feed-card result dicts
-    that point at an original article, using the per-level ArticleLevelSummary
+    that point at an original article, using the per-level LevelAdaptedArticleText
     rows (on-demand simplification means there are no simplified child articles
     to borrow a summary from anymore).
 
@@ -548,15 +548,15 @@ def _apply_simplified_display_overlay(user, results):
     then a load of just those chosen rows (so the heavy tokenized_summary JSON is
     deserialized once per article, not once per level).
     """
-    from zeeguu.core.model.article_level_summary import (
-        ArticleLevelSummary,
+    from zeeguu.core.model.level_adapted_article_text import (
+        LevelAdaptedArticleText,
         CEFR_ORDER,
     )
-    from zeeguu.core.model.article_level_summary_context import (
-        ArticleLevelSummaryContext,
+    from zeeguu.core.model.level_adapted_article_summary_context import (
+        LevelAdaptedArticleSummaryContext,
     )
-    from zeeguu.core.model.article_level_title_context import (
-        ArticleLevelTitleContext,
+    from zeeguu.core.model.level_adapted_article_title_context import (
+        LevelAdaptedArticleTitleContext,
     )
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
@@ -578,7 +578,7 @@ def _apply_simplified_display_overlay(user, results):
     if not candidate_ids:
         return
 
-    allowed = ArticleLevelSummary.allowed_levels(user_cefr_level)
+    allowed = LevelAdaptedArticleText.allowed_levels(user_cefr_level)
 
     # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
     # best row per article, never every level: first a columns-only query to pick
@@ -589,17 +589,17 @@ def _apply_simplified_display_overlay(user, results):
     # result dicts, whose metrics.cefr_level is the *effective* level and can come
     # back compound ("B1/B2") — see article_info.
     lightweight = (
-        ArticleLevelSummary.query
+        LevelAdaptedArticleText.query
         .with_entities(
-            ArticleLevelSummary.id,
-            ArticleLevelSummary.article_id,
-            ArticleLevelSummary.cefr_level,
+            LevelAdaptedArticleText.id,
+            LevelAdaptedArticleText.article_id,
+            LevelAdaptedArticleText.cefr_level,
             Article.cefr_level.label("article_own_level"),
         )
-        .join(Article, Article.id == ArticleLevelSummary.article_id)
+        .join(Article, Article.id == LevelAdaptedArticleText.article_id)
         .filter(
-            ArticleLevelSummary.article_id.in_(candidate_ids),
-            ArticleLevelSummary.cefr_level.in_(allowed),
+            LevelAdaptedArticleText.article_id.in_(candidate_ids),
+            LevelAdaptedArticleText.cefr_level.in_(allowed),
         )
         .all()
     )
@@ -614,7 +614,7 @@ def _apply_simplified_display_overlay(user, results):
 
     chosen_id_by_article = {}
     for article_id, rows in by_article.items():
-        best_row = ArticleLevelSummary.pick_best(
+        best_row = LevelAdaptedArticleText.pick_best(
             rows, user_cefr_level, own_level_by_article.get(article_id)
         )
         if best_row:
@@ -624,8 +624,8 @@ def _apply_simplified_display_overlay(user, results):
 
     full_by_id = {
         als.id: als
-        for als in ArticleLevelSummary.query.filter(
-            ArticleLevelSummary.id.in_(chosen_id_by_article.values())
+        for als in LevelAdaptedArticleText.query.filter(
+            LevelAdaptedArticleText.id.in_(chosen_id_by_article.values())
         ).all()
     }
 
@@ -642,7 +642,7 @@ def _apply_simplified_display_overlay(user, results):
         if not display:
             continue
 
-        # The bookmark mapping keys on article_level_summary_id; article_id is
+        # The bookmark mapping keys on level_adapted_article_text_id; article_id is
         # carried only for the client's MWE-ungroup path (parent article id).
         def _payload(tokens, context_type, past_bookmarks):
             overrides_by_hash = overrides_by_article.get(display.article_id)
@@ -654,7 +654,7 @@ def _apply_simplified_display_overlay(user, results):
             ctx = ContextIdentifier(
                 context_type,
                 article_id=display.article_id,
-                article_level_summary_id=display.id,
+                level_adapted_article_text_id=display.id,
             )
             return {
                 "tokens": tokens,
@@ -669,8 +669,8 @@ def _apply_simplified_display_overlay(user, results):
         if summary_tokens:
             result["interactiveSummary"] = _payload(
                 summary_tokens,
-                ContextType.ARTICLE_LEVEL_SUMMARY,
-                ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
+                ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY,
+                LevelAdaptedArticleSummaryContext.get_all_user_bookmarks_for_level_adapted_summary(
                     user.id, display.id
                 ),
             )
@@ -684,8 +684,8 @@ def _apply_simplified_display_overlay(user, results):
             if title_tokens:
                 result["interactiveTitle"] = _payload(
                     title_tokens,
-                    ContextType.ARTICLE_LEVEL_TITLE,
-                    ArticleLevelTitleContext.get_all_user_bookmarks_for_article_level_title(
+                    ContextType.LEVEL_ADAPTED_ARTICLE_TITLE,
+                    LevelAdaptedArticleTitleContext.get_all_user_bookmarks_for_level_adapted_title(
                         user.id, display.id
                     ),
                 )

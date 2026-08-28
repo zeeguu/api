@@ -14,7 +14,7 @@ Everything is checked against the language of the row it belongs to, never the
 parent's — which is what makes this safe for cross-language shares:
 
     article.summary                 on originals
-    ArticleLevelSummary.summary     the per-level feed-card blurbs; these only
+    LevelAdaptedArticleText.summary     the per-level feed-card blurbs; these only
                                     ever exist on originals (the assess step
                                     skips children), so they are always in the
                                     original's language
@@ -45,7 +45,7 @@ Usage:
   - article.summary is nulled, along with the cached tokenized copy of it (that
     cache is only ever written when empty, so a stale one would outlive the
     regeneration and keep rendering);
-  - bad ArticleLevelSummary rows are deleted, with the bookmark anchors that
+  - bad LevelAdaptedArticleText rows are deleted, with the bookmark anchors that
     reference them (a real FK, no cascade) removed first;
   - child articles are marked broken (LLM_WRONG_LANGUAGE), which takes a
     simplified one out of available_simplified_versions and a translated one out of
@@ -71,8 +71,8 @@ app.app_context().push()
 from zeeguu.core.language.language_check import language_mismatch, describe_mismatches
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.article_broken_code_map import LowQualityTypes
-from zeeguu.core.model.article_level_summary import ArticleLevelSummary
-from zeeguu.core.model.article_level_summary_context import ArticleLevelSummaryContext
+from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
+from zeeguu.core.model.level_adapted_article_summary_context import LevelAdaptedArticleSummaryContext
 from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 from zeeguu.core.model.language import Language
 
@@ -188,12 +188,12 @@ def rows_for(articles, rows_by_article):
 
 
 def audit_level_summaries(articles):
-    """ArticleLevelSummary rows — the tappable per-level feed-card blurbs."""
+    """LevelAdaptedArticleText rows — the tappable per-level feed-card blurbs."""
     by_id = {article.id: article for article in articles}
     if not by_id:
         return [], []
-    rows = ArticleLevelSummary.query.filter(
-        ArticleLevelSummary.article_id.in_(list(by_id))
+    rows = LevelAdaptedArticleText.query.filter(
+        LevelAdaptedArticleText.article_id.in_(list(by_id))
     ).all()
 
     wrong, wrong_rows = [], []
@@ -334,7 +334,7 @@ def main():
            "these want marking broken", wrong_language_rows)
 
     wrong_level_summaries, level_summary_rows = audit_level_summaries(originals)
-    report("ArticleLevelSummary.summary", wrong_level_summaries)
+    report("LevelAdaptedArticleText.summary", wrong_level_summaries)
 
     wrong_simplified, simplified_articles = audit_child_articles(simplified)
     report("simplified children (same language as parent)", wrong_simplified)
@@ -399,14 +399,14 @@ def main():
             cache.tokenized_summary = None
             session.add(cache)
 
-    # Bookmarks anchor to a SPECIFIC level summary (ArticleLevelSummaryContext
+    # Bookmarks anchor to a SPECIFIC level summary (LevelAdaptedArticleSummaryContext
     # holds a real FK with no cascade), so the anchors have to go first or the
     # delete fails on the constraint and takes the whole batch down with it.
     # They anchor into text we are throwing away, so there is nothing to keep.
     if level_summary_rows:
         summary_ids = [row.id for row in level_summary_rows]
-        anchors = ArticleLevelSummaryContext.query.filter(
-            ArticleLevelSummaryContext.article_level_summary_id.in_(summary_ids)
+        anchors = LevelAdaptedArticleSummaryContext.query.filter(
+            LevelAdaptedArticleSummaryContext.level_adapted_article_text_id.in_(summary_ids)
         ).all()
         for anchor in anchors:
             session.delete(anchor)

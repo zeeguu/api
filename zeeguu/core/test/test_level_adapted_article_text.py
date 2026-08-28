@@ -1,7 +1,7 @@
 """Per-level preview summaries (on-demand simplification flow).
 
 Covers the level-selection logic and that the feed's summary payload anchors to
-the CEFR-matched ArticleLevelSummary (with the ArticleLevelSummary context type)
+the CEFR-matched LevelAdaptedArticleText (with the LevelAdaptedArticleText context type)
 so the tappable preview / bookmark highlighting targets the right level.
 """
 from unittest import TestCase
@@ -11,8 +11,9 @@ from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.user_rule import UserRule
 
-from zeeguu.core.model.article_level_summary import ArticleLevelSummary
-from zeeguu.core.model.article_level_summary_context import ArticleLevelSummaryContext
+from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
+from zeeguu.core.model.level_adapted_article_summary_context import LevelAdaptedArticleSummaryContext
+from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.user_language import UserLanguage
@@ -55,7 +56,7 @@ def _mwe_tokens():
 CEFR_TO_INT = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
 
-class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
+class LevelAdaptedArticleTextTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
         self.user = UserRule().user
@@ -67,7 +68,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         session.commit()
 
     def _add_level_summary(self, level):
-        return ArticleLevelSummary.find_or_create(
+        return LevelAdaptedArticleText.find_or_create(
             session,
             self.article,
             cefr_level=level,
@@ -76,7 +77,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         )
 
     def _add_level_summary_with_title(self, level):
-        return ArticleLevelSummary.find_or_create(
+        return LevelAdaptedArticleText.find_or_create(
             session,
             self.article,
             cefr_level=level,
@@ -87,7 +88,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         )
 
     def _add_mwe_level_summary(self, level):
-        return ArticleLevelSummary.find_or_create(
+        return LevelAdaptedArticleText.find_or_create(
             session,
             self.article,
             cefr_level=level,
@@ -106,24 +107,24 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         b1 = self._add_level_summary("B1")
 
         # B2 learner → highest available at/below is B1
-        assert ArticleLevelSummary.best_for_user_level(self.article.id, "B2").id == b1.id
+        assert LevelAdaptedArticleText.best_for_user_level(self.article.id, "B2").id == b1.id
         # C1 learner → still B1 (nothing higher stored)
-        assert ArticleLevelSummary.best_for_user_level(self.article.id, "C1").id == b1.id
+        assert LevelAdaptedArticleText.best_for_user_level(self.article.id, "C1").id == b1.id
         # A2 learner → only A1 qualifies
         assert (
-            ArticleLevelSummary.best_for_user_level(self.article.id, "A2").cefr_level
+            LevelAdaptedArticleText.best_for_user_level(self.article.id, "A2").cefr_level
             == "A1"
         )
         # A1 learner → A1
         assert (
-            ArticleLevelSummary.best_for_user_level(self.article.id, "A1").cefr_level
+            LevelAdaptedArticleText.best_for_user_level(self.article.id, "A1").cefr_level
             == "A1"
         )
 
     def test_no_summary_at_or_below_returns_none(self):
         self._add_level_summary("B1")
         # An A1 learner has nothing at/below B1... wait, B1 > A1, so None.
-        assert ArticleLevelSummary.best_for_user_level(self.article.id, "A1") is None
+        assert LevelAdaptedArticleText.best_for_user_level(self.article.id, "A1") is None
 
     def test_learner_at_or_above_article_level_gets_the_articles_own_summary(self):
         """
@@ -140,7 +141,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
 
         for level_at_or_above in ("B1", "B2", "C1", "C2"):
             assert (
-                ArticleLevelSummary.best_for_user_level(
+                LevelAdaptedArticleText.best_for_user_level(
                     self.article.id, level_at_or_above, "B1"
                 )
                 is None
@@ -149,11 +150,11 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         # ...while learners below the article's level still get their own row,
         # and crucially A2 and B1 no longer collapse onto the same text.
         assert (
-            ArticleLevelSummary.best_for_user_level(self.article.id, "A2", "B1").cefr_level
+            LevelAdaptedArticleText.best_for_user_level(self.article.id, "A2", "B1").cefr_level
             == "A2"
         )
         assert (
-            ArticleLevelSummary.best_for_user_level(self.article.id, "A1", "B1").cefr_level
+            LevelAdaptedArticleText.best_for_user_level(self.article.id, "A1", "B1").cefr_level
             == "A1"
         )
 
@@ -161,9 +162,9 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         """An A2 learner on an A2 article gets the article's own A2 summary, not
         the A1 row that happens to be the highest stored one at/below A2."""
         self._add_level_summary("A1")
-        assert ArticleLevelSummary.best_for_user_level(self.article.id, "A2", "A2") is None
+        assert LevelAdaptedArticleText.best_for_user_level(self.article.id, "A2", "A2") is None
         assert (
-            ArticleLevelSummary.best_for_user_level(self.article.id, "A1", "A2").cefr_level
+            LevelAdaptedArticleText.best_for_user_level(self.article.id, "A1", "A2").cefr_level
             == "A1"
         )
 
@@ -176,8 +177,8 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         payload = info.get("tokenized_summary")
         assert payload is not None
         ctx = payload["context_identifier"]
-        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_SUMMARY
-        assert ctx["article_level_summary_id"] == b1.id
+        assert ctx["context_type"] == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
+        assert ctx["level_adapted_article_text_id"] == b1.id
         assert payload["tokens"] == DUMMY_TOKENS
 
     def test_title_info_anchors_to_level_title(self):
@@ -191,8 +192,8 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         payload = info.get("tokenized_title")
         assert payload is not None
         ctx = payload["context_identifier"]
-        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_TITLE
-        assert ctx["article_level_summary_id"] == b1.id
+        assert ctx["context_type"] == ContextType.LEVEL_ADAPTED_ARTICLE_TITLE
+        assert ctx["level_adapted_article_text_id"] == b1.id
         assert ctx["article_id"] == self.article.id
         assert payload["tokens"] == DUMMY_TITLE_TOKENS
 
@@ -206,7 +207,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         # The level summary is still served...
         assert (
             info["tokenized_summary"]["context_identifier"]["context_type"]
-            == ContextType.ARTICLE_LEVEL_SUMMARY
+            == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
         )
         # ...while the title falls back to the article's own.
         title_ctx = info.get("tokenized_title", {}).get("context_identifier")
@@ -221,7 +222,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
 
         info = UserArticle.user_article_summary_info(self.user, self.article)
         ctx = info["tokenized_summary"]["context_identifier"]
-        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_SUMMARY
+        assert ctx["context_type"] == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
         assert ctx["article_id"] == self.article.id
 
     def test_mwe_override_clears_metadata_on_level_summary(self):
@@ -265,7 +266,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         assert sentence[0]["mwe_group_id"] == 7
 
     def test_mwe_override_does_not_mutate_stored_tokens(self):
-        # The served tokens are a cleared copy; the ArticleLevelSummary row's own
+        # The served tokens are a cleared copy; the LevelAdaptedArticleText row's own
         # tokenized_summary must be left intact (no accidental DB-side mutation).
         als = self._add_mwe_level_summary("B1")
         self._set_user_level("B2")
@@ -306,7 +307,7 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         interactive = results[0].get("interactiveSummary")
         assert interactive is not None
         ctx = interactive["context_identifier"]
-        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_SUMMARY
+        assert ctx["context_type"] == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
         assert ctx["article_id"] == self.article.id
         # MWE metadata cleared on the overlaid tokens.
         sentence = interactive["tokens"][0][0]
@@ -331,12 +332,12 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         als = self._add_level_summary("B1")
         bookmark = BookmarkRule(self.user).bookmark
 
-        c1 = ArticleLevelSummaryContext.find_or_create(session, bookmark, als)
-        c2 = ArticleLevelSummaryContext.find_or_create(session, bookmark, als)
+        c1 = LevelAdaptedArticleSummaryContext.find_or_create(session, bookmark, als)
+        c2 = LevelAdaptedArticleSummaryContext.find_or_create(session, bookmark, als)
 
         assert c1.id == c2.id
-        count = ArticleLevelSummaryContext.query.filter_by(
-            bookmark_id=bookmark.id, article_level_summary_id=als.id
+        count = LevelAdaptedArticleSummaryContext.query.filter_by(
+            bookmark_id=bookmark.id, level_adapted_article_text_id=als.id
         ).count()
         assert count == 1
 
@@ -347,8 +348,55 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         bookmark = BookmarkRule(self.user).bookmark
 
         # Two raw rows for the same (bookmark, level summary) must not coexist.
-        session.add(ArticleLevelSummaryContext(bookmark, als))
-        session.add(ArticleLevelSummaryContext(bookmark, als))
+        session.add(LevelAdaptedArticleSummaryContext(bookmark, als))
+        session.add(LevelAdaptedArticleSummaryContext(bookmark, als))
         with self.assertRaises(IntegrityError):
             session.flush()
         session.rollback()
+
+
+class LegacyContextIdentifierKeysTest(TestCase):
+    """
+    Clients round-trip the context identifier as an opaque blob: the server hands
+    it out with a feed payload, the client posts the same thing back when a word
+    is translated. So an app holding a payload built before the
+    ArticleLevelSummary -> LevelAdaptedArticleText rename posts the OLD spellings,
+    and dropping them would silently lose the anchor — the bookmark would be
+    created but never highlighted again.
+    """
+
+    def test_the_old_id_key_is_still_understood(self):
+        ctx = ContextIdentifier.from_dictionary(
+            {"context_type": "LevelAdaptedArticleSummary", "article_level_summary_id": 42}
+        )
+        assert ctx.level_adapted_article_text_id == 42
+
+    def test_the_old_context_types_are_mapped_to_the_new_ones(self):
+        summary = ContextIdentifier.from_dictionary(
+            {"context_type": "ArticleLevelSummary", "article_level_summary_id": 7}
+        )
+        assert summary.context_type == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
+        assert summary.level_adapted_article_text_id == 7
+
+        title = ContextIdentifier.from_dictionary(
+            {"context_type": "ArticleLevelTitle", "article_level_summary_id": 9}
+        )
+        assert title.context_type == ContextType.LEVEL_ADAPTED_ARTICLE_TITLE
+        assert title.level_adapted_article_text_id == 9
+
+    def test_the_new_key_wins_when_both_are_present(self):
+        ctx = ContextIdentifier.from_dictionary(
+            {
+                "context_type": "LevelAdaptedArticleSummary",
+                "level_adapted_article_text_id": 1,
+                "article_level_summary_id": 2,
+            }
+        )
+        assert ctx.level_adapted_article_text_id == 1
+
+    def test_unrelated_context_types_are_untouched(self):
+        ctx = ContextIdentifier.from_dictionary(
+            {"context_type": "ArticleTitle", "article_id": 5}
+        )
+        assert ctx.context_type == ContextType.ARTICLE_TITLE
+        assert ctx.article_id == 5

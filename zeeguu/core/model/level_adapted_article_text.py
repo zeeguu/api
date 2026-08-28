@@ -23,7 +23,7 @@ def _parsed_tokens(value):
     return value
 
 
-class ArticleLevelSummary(db.Model):
+class LevelAdaptedArticleText(db.Model):
     """
     The CEFR-level-specific card text for an Article: a short summary and the
     headline that goes above it, used as the tappable preview on feed cards.
@@ -34,7 +34,7 @@ class ArticleLevelSummary(db.Model):
     for levels simpler than the article's own level; the article's own-level text
     stays on ``Article.summary`` / ``Article.title``.
 
-    (The table kept its ``article_level_summary`` name when the title columns were
+    (The table kept its ``level_adapted_article_text`` name when the title columns were
     added — renaming it would have churned the two context joins and every FK.)
     """
 
@@ -81,7 +81,7 @@ class ArticleLevelSummary(db.Model):
         self.ai_generator_id = ai_generator_id
 
     def __repr__(self):
-        return f"<ArticleLevelSummary a:{self.article_id} {self.cefr_level}>"
+        return f"<LevelAdaptedArticleText a:{self.article_id} {self.cefr_level}>"
 
     @classmethod
     def find_by_id(cls, id: int):
@@ -157,7 +157,7 @@ class ArticleLevelSummary(db.Model):
         nothing. Passing it None keeps the old highest-row-wins behaviour for
         callers that genuinely have no article level to compare against.
         """
-        allowed = ArticleLevelSummary.allowed_levels(user_level)
+        allowed = LevelAdaptedArticleText.allowed_levels(user_level)
         if not allowed:
             return None
         if (
@@ -173,7 +173,7 @@ class ArticleLevelSummary(db.Model):
     @classmethod
     def best_for_user_level(cls, article_id: int, user_level: str, article_own_level: str = None):
         """
-        Return the ArticleLevelSummary best matching a learner's CEFR level: the
+        Return the LevelAdaptedArticleText best matching a learner's CEFR level: the
         highest stored level that is still at or below ``user_level`` (rows only
         exist for levels below the article's own, so a learner at or above the
         article level gets None and the caller falls back to Article.summary).

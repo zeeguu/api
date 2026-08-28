@@ -465,7 +465,7 @@ ASSESS_SUMMARY_PROMPT_VERSION = "assess_summary_v1"
 
 def _store_level_summaries(session, article, level_summaries, model_name, level_titles=None):
     """
-    Create/refresh ArticleLevelSummary rows for an article, tokenizing each.
+    Create/refresh LevelAdaptedArticleText rows for an article, tokenizing each.
 
     A level's title is optional and stored alongside its summary: the LLM may not
     have produced one, or the language check may have dropped it while keeping the
@@ -474,7 +474,7 @@ def _store_level_summaries(session, article, level_summaries, model_name, level_
     """
     if not level_summaries:
         return
-    from zeeguu.core.model.article_level_summary import ArticleLevelSummary
+    from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
     from zeeguu.core.model.ai_generator import AIGenerator
     from zeeguu.core.mwe import tokenize_for_reading
 
@@ -501,7 +501,7 @@ def _store_level_summaries(session, article, level_summaries, model_name, level_
         if title_text:
             tokenized_title = tokenized_or_none(title_text, "title", level)
             n_titles += 1
-        ArticleLevelSummary.find_or_create(
+        LevelAdaptedArticleText.find_or_create(
             session,
             article,
             cefr_level=level,
