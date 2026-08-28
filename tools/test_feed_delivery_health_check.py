@@ -19,6 +19,8 @@ Run:
 from datetime import datetime, timedelta, timezone
 
 from tools.feed_delivery_health_check import (
+    assessment_coverage_lines,
+    classify_assessment_coverage,
     freshness_summary,
     classify_segment,
     is_alerting,
@@ -170,3 +172,59 @@ def test_hit_published_time_parses_iso_naive():
 
 def test_hit_published_time_unparseable_returns_none():
     assert _hit_published_time({"_source": {"published_time": ""}}) is None
+
+
+
+# --- Assessment coverage ------------------------------------------------------
+# The delivery checks above are a LAGGING indicator of an LLM outage: the Aug 2026
+# spend cap starved assessment for a week before anyone noticed. This one watches
+# the upstream step directly.
+#
+# Thresholds are pinned to measured production history (all languages, articles
+# eligible for assessment, per day):
+#     healthy  Aug 15-19: 97, 97, 98, 98, 98 %
+#     capped   Aug 12, 13: 15, 38 %
+#     capped   Aug 20, 21: 37, 0 %
+
+
+def _coverage(eligible, assessed, by_language=None):
+    return classify_assessment_coverage(eligible, assessed, by_language or {})
+
+
+def test_every_measured_healthy_day_passes():
+    for pct in (97, 97, 98, 98, 98):
+        assert _coverage(1000, pct * 10).status == "OK", f"{pct}% should not alert"
+
+
+def test_every_measured_capped_day_fails():
+    for pct in (15, 38, 37, 0):
+        assert _coverage(1000, pct * 10).status == "FAILING", f"{pct}% should alert"
+
+
+def test_the_partial_recovery_day_is_not_alarmed_about():
+    """Aug 14 was 83%: the cap was raised mid-day, so the pipeline was already
+    working again. Alerting on a recovery would be noise."""
+    assert _coverage(1232, 1028).status == "OK"
+
+
+def test_a_quiet_window_reports_but_does_not_alert():
+    """A ratio over a handful of articles says nothing, and firing here would
+    train us to ignore the alert."""
+    assert _coverage(4, 0).status == "LOW_VOLUME"
+
+
+def test_the_percentage_is_reported_for_the_email_subject():
+    assert _coverage(1000, 370).pct == 37
+
+
+def test_zero_eligible_articles_does_not_divide_by_zero():
+    result = _coverage(0, 0)
+    assert result.status == "LOW_VOLUME"
+    assert result.pct == 0
+
+
+def test_a_failing_report_says_where_to_look():
+    coverage = _coverage(1000, 100, by_language={"da": (500, 50)})
+    lines = "\n".join(assessment_coverage_lines(coverage))
+    assert "deepseek.com" in lines and "Anthropic" in lines
+    assert "da: 50/500 = 10%" in lines
