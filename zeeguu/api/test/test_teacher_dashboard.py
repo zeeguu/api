@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from fixtures import create_and_get_article
 from fixtures import logged_in_teacher as client
 
 
@@ -62,6 +65,30 @@ def test_update_cohort(client):
     assert cohorts is not []
 
 
+def test_cohorts_info_reports_last_shared_time(client):
+    from zeeguu.core.model import Article, Cohort, CohortArticleMap
+    from zeeguu.core.model.db import db
+
+    client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
+    client.post("/create_own_cohort", data=SECOND_COHORT)
+
+    article = create_and_get_article(client)
+    db.session.add(
+        CohortArticleMap(
+            Cohort.find_by_code(FRENCH_B1_COHORT["inv_code"]),
+            Article.find_by_id(article["id"]),
+            datetime.now(),
+        )
+    )
+    db.session.commit()
+
+    cohorts_by_name = {c["name"]: c for c in client.get("/cohorts_info")}
+
+    # the client orders a teacher's classes by this; None means "never used"
+    assert cohorts_by_name[FRENCH_B1_COHORT["name"]]["last_shared_time"] is not None
+    assert cohorts_by_name[SECOND_COHORT["name"]]["last_shared_time"] is None
+
+
 def test_student_does_not_have_access_to_cohort(client):
     client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
     cohorts = client.get("/cohorts_info")
@@ -81,6 +108,13 @@ def test_student_does_not_have_access_to_cohort(client):
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
+    "language_id": "fr",
+    "max_students": 33,
+}
+
+SECOND_COHORT = {
+    "inv_code": "456",
+    "name": "FrenchA2",
     "language_id": "fr",
     "max_students": 33,
 }
