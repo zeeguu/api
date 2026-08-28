@@ -196,6 +196,14 @@ def test_every_measured_healthy_day_passes():
         assert _coverage(1000, pct * 10).status == "OK", f"{pct}% should not alert"
 
 
+def test_the_post_717_healthy_baseline_passes():
+    """DeepSeek + the field-based prompt enforce the prompt's own "fewer than 3
+    paragraphs" rule, which Anthropic under-enforced: the 29 Aug Danish backfill
+    rejected 19% as paywalled (correctly -- 190 words avg vs 598 for the assessed).
+    So healthy is ~81%, not ~98%, and a threshold above that fires on a good day."""
+    assert _coverage(629, 511).status == "OK"
+
+
 def test_every_measured_capped_day_fails():
     for pct in (15, 38, 37, 0):
         assert _coverage(1000, pct * 10).status == "FAILING", f"{pct}% should alert"

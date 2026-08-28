@@ -130,9 +130,17 @@ COUNT = _env_int("FEED_HEALTH_COUNT", 10)
 #     healthy   Aug 15-19:  97, 97, 98, 98, 98 %
 #     capped    Aug 12,13:  15, 38 %
 #     capped    Aug 20,21:  37, 0 %
-# 80% sits far below every healthy day and far above every broken one.
+#
+# 70%, not 80%. Those healthy days were measured under Anthropic + the bare-word
+# prompt, which under-enforced the prompt's own "fewer than 3 paragraphs = likely
+# incomplete" rule: only 2-3% of articles were rejected as paywalled. DeepSeek
+# with the field-based prompt (api#717) follows that rule literally, and the
+# 29 Aug Danish backfill measured 19% rejected -- correctly, the rejected set
+# averages 190 words against 598 for the assessed set. Healthy coverage is
+# therefore ~81%, not ~98%, and an 80% threshold would fire on a good day.
+# Still far above every capped day (15-38%), which is what this has to catch.
 ASSESSMENT_WINDOW_HOURS = _env_int("FEED_HEALTH_ASSESSMENT_WINDOW_HOURS", 24)
-ASSESSMENT_MIN_PCT = _env_int("FEED_HEALTH_ASSESSMENT_MIN_PCT", 80)
+ASSESSMENT_MIN_PCT = _env_int("FEED_HEALTH_ASSESSMENT_MIN_PCT", 70)
 # Below this many eligible articles the ratio is noise (a quiet window, a crawl
 # that has not run yet), so the check reports and does not alert.
 ASSESSMENT_MIN_VOLUME = _env_int("FEED_HEALTH_ASSESSMENT_MIN_VOLUME", 50)
