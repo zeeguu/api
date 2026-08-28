@@ -833,8 +833,8 @@ class Article(db.Model):
         # `cohorts` is names only, and is what apps built before Aug 2026 read.
         # `shared_with` carries the ids the texts list needs to filter by class
         # and to unshare; drop `cohorts` once no deployed client reads it.
-        info["cohorts"] = CohortArticleMap.get_cohorts_for_article(self)
-        info["shared_with"] = CohortArticleMap.get_cohorts_with_ids_for_article(self)
+        info["cohorts"] = CohortArticleMap.get_cohort_names_for_article(self)
+        info["shared_with"] = CohortArticleMap.get_cohorts_for_article(self)
 
         # Include CEFR assessment details for teacher view
         if self.cefr_assessment:

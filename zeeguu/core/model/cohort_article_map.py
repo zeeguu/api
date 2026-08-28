@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, DateTime, func
+from sqlalchemy import Column, Integer, ForeignKey, PrimaryKeyConstraint, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.cohort import Cohort
-from zeeguu.core.model.language import Language
 from zeeguu.core.util.encoding import datetime_to_json
 
 
@@ -41,47 +40,20 @@ class CohortArticleMap(db.Model):
         ]
 
     @classmethod
-    def get_cohorts_with_ids_for_article(cls, article):
-        """Classes this article is shared with, as {id, name}.
-
-        get_cohorts_for_article returns bare names, which is enough to print a
-        list but not to act on one: two classes can share a name, and unsharing
-        or filtering by class needs the id.
-        """
+    def get_cohorts_for_article(cls, article):
+        """Classes this article is shared with, as {id, name}."""
         return [
             {"id": entry.cohort.id, "name": entry.cohort.name}
             for entry in cls.query.filter_by(article=article).all()
         ]
 
     @classmethod
-    def text_counts_by_language(cls, cohort):
-        """How many of this cohort's texts are in which language.
-
-        Grouped by the *article's* language rather than the cohort's declared
-        one, because that is what cohort_articles_for_user() filters on: a
-        student sees a cohort text only when the article's language matches
-        their learned language. The empty classroom uses this to say which
-        language to switch to, so it has to count the same thing the filter
-        counts.
-        """
-        rows = (
-            db.session.query(Language, func.count(Article.id))
-            .select_from(cls)
-            .join(Article, Article.id == cls.article_id)
-            .join(Language, Language.id == Article.language_id)
-            .filter(cls.cohort_id == cohort.id)
-            .group_by(Language.id)
-            .all()
-        )
-
-        return [
-            {"code": language.code, "name": language.name, "count": count}
-            for language, count in sorted(rows, key=lambda r: -r[1])
-        ]
-
-    @classmethod
     def get_articles_info_for_cohort(cls, cohort):
-        """Legacy method - returns basic article info without user context."""
+        """A cohort's articles, without any one user's reading state.
+
+        Used by the teacher-facing class Texts tab: it shows the class's texts
+        as the class holds them, not as the teacher personally has read them.
+        """
         def _adapted_article_info(relation):
             article_info = relation.article.article_info()
             if relation.published_time:
@@ -96,7 +68,14 @@ class CohortArticleMap(db.Model):
         return sorted(articles, key=lambda x: x["metrics"]["difficulty"])
 
     @classmethod
-    def get_cohorts_for_article(cls, article):
+    def get_cohort_names_for_article(cls, article):
+        """Just the names -- enough to print a list, not to act on one.
+
+        Two classes can share a name, and unsharing or filtering by class needs
+        the id, so prefer get_cohorts_for_article for anything but display.
+        Kept for the /get_cohorts_for_article endpoint, whose response shape
+        deployed clients still depend on.
+        """
         cohorts = [
             cohort_article_entry.cohort.name
             for cohort_article_entry in cls.query.filter_by(article=article).all()

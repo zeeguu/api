@@ -11,7 +11,7 @@ db_session = zeeguu.core.model.db.session
 
 
 class CohortTextLanguagesTest(ModelTestMixIn, TestCase):
-    """CohortArticleMap.text_counts_by_language feeds the empty classroom.
+    """Cohort.text_counts_by_language feeds the empty classroom.
 
     The classroom feed keeps only the texts whose language matches the
     student's learned language, so when it comes up empty the student needs to
@@ -37,14 +37,14 @@ class CohortTextLanguagesTest(ModelTestMixIn, TestCase):
         return article
 
     def test_empty_cohort_reports_nothing(self):
-        self.assertEqual([], CohortArticleMap.text_counts_by_language(self.cohort))
+        self.assertEqual([], self.cohort.text_counts_by_language())
 
     def test_counts_texts_per_language(self):
         self._share(self._article_in(self.danish))
         self._share(self._article_in(self.danish))
         self._share(self._article_in(self.german))
 
-        counts = CohortArticleMap.text_counts_by_language(self.cohort)
+        counts = self.cohort.text_counts_by_language()
 
         self.assertEqual(
             {"da": 2, "de": 1}, {each["code"]: each["count"] for each in counts}
@@ -57,7 +57,7 @@ class CohortTextLanguagesTest(ModelTestMixIn, TestCase):
         self._share(self._article_in(self.danish))
         self._share(self._article_in(self.danish))
 
-        counts = CohortArticleMap.text_counts_by_language(self.cohort)
+        counts = self.cohort.text_counts_by_language()
 
         self.assertEqual(["da", "de"], [each["code"] for each in counts])
 
@@ -68,6 +68,6 @@ class CohortTextLanguagesTest(ModelTestMixIn, TestCase):
 
         self._share(self._article_in(self.danish))
 
-        counts = CohortArticleMap.text_counts_by_language(self.cohort)
+        counts = self.cohort.text_counts_by_language()
 
         self.assertEqual([{"code": "da", "name": "Danish", "count": 1}], counts)

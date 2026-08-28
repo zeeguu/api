@@ -138,7 +138,7 @@ def get_cohorts_for_article(article_id):
 
     article = Article.find_by_id(article_id)
 
-    return json.dumps(CohortArticleMap.get_cohorts_for_article(article))
+    return json.dumps(CohortArticleMap.get_cohort_names_for_article(article))
 
 
 @api.route("/delete_article_from_cohort", methods=["POST"])
@@ -187,20 +187,6 @@ def remove_article_from_cohort(cohort_id, article_id):
     except sqlalchemy.orm.exc.NoResultFound:
         flask.abort(400)
         return "NoResultFound"
-
-
-@api.route("/cohort_files/<cohort_id>", methods=["GET"])
-@requires_session
-@only_teachers
-def cohort_files(cohort_id):
-    """
-    Gets the files associated with a cohort
-    """
-    check_permission_for_cohort(cohort_id)
-
-    cohort = Cohort.find(cohort_id)
-    articles = CohortArticleMap.get_articles_info_for_cohort(cohort)
-    return json.dumps(articles)
 
 
 @api.route("/cohort_text_overview/<cohort_id>", methods=["GET"])

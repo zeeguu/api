@@ -37,8 +37,6 @@ def join_cohort_api():
 @cross_domain
 @requires_session
 def student_info():
-    from zeeguu.core.model import CohortArticleMap
-
     user = User.find_by_id(flask.g.user_id)
 
     # The classroom feed only shows texts in the language the student is
@@ -48,7 +46,7 @@ def student_info():
     user_cohorts = []
     for c in user.cohorts:
         info = c.cohort.get_cohort_info()
-        info["texts_by_language"] = CohortArticleMap.text_counts_by_language(c.cohort)
+        info["texts_by_language"] = c.cohort.text_counts_by_language()
         user_cohorts.append(info)
 
     return json_result(
