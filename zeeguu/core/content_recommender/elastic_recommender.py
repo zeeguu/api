@@ -538,9 +538,11 @@ def _apply_simplified_display_overlay(user, results):
     Sets both the plain ``summary`` teaser (Preview mode) and the tappable
     ``interactiveSummary`` payload (Interactive mode), the latter anchored to the
     specific level-summary row so tap-to-translate and past-bookmark highlighting
-    land on the right tokens. Titles are left as the original — we don't produce
-    per-level titles. Falls back silently to the article's own summary when the
-    learner's level has no simpler summary.
+    land on the right tokens. The level's ``title``/``interactiveTitle`` are
+    overlaid the same way when the row has one — which is what makes the level
+    selector visible in Headlines mode, where the title is the only text on the
+    card. Falls back silently to the article's own title/summary when the
+    learner's level has no simpler one.
 
     Batched in two queries: a columns-only pick of the best level per article,
     then a load of just those chosen rows (so the heavy tokenized_summary JSON is
@@ -552,6 +554,9 @@ def _apply_simplified_display_overlay(user, results):
     )
     from zeeguu.core.model.article_level_summary_context import (
         ArticleLevelSummaryContext,
+    )
+    from zeeguu.core.model.article_level_title_context import (
+        ArticleLevelTitleContext,
     )
     from zeeguu.core.model.context_identifier import ContextIdentifier
     from zeeguu.core.model.context_type import ContextType
@@ -637,28 +642,55 @@ def _apply_simplified_display_overlay(user, results):
         if not display:
             continue
 
+        # The bookmark mapping keys on article_level_summary_id; article_id is
+        # carried only for the client's MWE-ungroup path (parent article id).
+        def _payload(tokens, context_type, past_bookmarks):
+            overrides_by_hash = overrides_by_article.get(display.article_id)
+            if overrides_by_hash:
+                # Returns a cleared copy; never mutates the ORM-loaded token list.
+                tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(
+                    tokens, overrides_by_hash
+                )
+            ctx = ContextIdentifier(
+                context_type,
+                article_id=display.article_id,
+                article_level_summary_id=display.id,
+            )
+            return {
+                "tokens": tokens,
+                "context_identifier": ctx.as_dictionary(),
+                "past_bookmarks": past_bookmarks,
+            }
+
         if display.summary and len(display.summary.strip()) > 10:
             result["summary"] = display.summary.strip()
 
-        tokens = display.get_tokenized_summary()
-        if not tokens:
-            continue
-        # Apply the user's MWE ungroup overrides to the overlaid summary tokens
-        # (returns a cleared copy; never mutates the ORM-loaded token list).
-        overrides_by_hash = overrides_by_article.get(display.article_id)
-        if overrides_by_hash:
-            tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(tokens, overrides_by_hash)
-        # The bookmark mapping keys on article_level_summary_id; article_id is
-        # carried only for the client's MWE-ungroup path (parent article id).
-        ctx = ContextIdentifier(
-            ContextType.ARTICLE_LEVEL_SUMMARY,
-            article_id=display.article_id,
-            article_level_summary_id=display.id,
-        )
-        result["interactiveSummary"] = {
-            "tokens": tokens,
-            "context_identifier": ctx.as_dictionary(),
-            "past_bookmarks": ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
-                user.id, display.id
-            ),
-        }
+        summary_tokens = display.get_tokenized_summary()
+        if summary_tokens:
+            result["interactiveSummary"] = _payload(
+                summary_tokens,
+                ContextType.ARTICLE_LEVEL_SUMMARY,
+                ArticleLevelSummaryContext.get_all_user_bookmarks_for_article_level_summary(
+                    user.id, display.id
+                ),
+            )
+
+        # Title is overlaid independently of the summary: a row can carry one and
+        # not the other (rows written before per-level titles existed have no
+        # title; the language check can drop a title while keeping its summary).
+        if display.title and display.title.strip():
+            result["title"] = display.title.strip()
+            title_tokens = display.get_tokenized_title()
+            if title_tokens:
+                result["interactiveTitle"] = _payload(
+                    title_tokens,
+                    ContextType.ARTICLE_LEVEL_TITLE,
+                    ArticleLevelTitleContext.get_all_user_bookmarks_for_article_level_title(
+                        user.id, display.id
+                    ),
+                )
+            else:
+                # Plain title replaced but no tokens to tap: drop any bundled
+                # interactiveTitle rather than leave the ORIGINAL title's tokens
+                # sitting under the level title — they'd translate the wrong words.
+                result.pop("interactiveTitle", None)

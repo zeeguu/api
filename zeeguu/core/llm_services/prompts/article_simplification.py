@@ -135,7 +135,7 @@ def get_assessment_and_summary_prompt(language: str) -> str:
 
     return f"""You are an expert {language_name} language teacher. Your task is to assess an article's CEFR level and write a short summary. Do NOT rewrite or simplify the article — only assess and summarize it.
 
-CRITICAL — OUTPUT LANGUAGE: These instructions are written in English, but every summary you produce (ORIGINAL_SUMMARY and each [LEVEL]_SUMMARY) MUST be written in {language_name}, the article's own language — NEVER in English (unless {language_name} is itself English). A summary written in English is a failure, even though this prompt is in English.
+CRITICAL — OUTPUT LANGUAGE: These instructions are written in English, but every summary and title you produce (ORIGINAL_SUMMARY, each [LEVEL]_SUMMARY and each [LEVEL]_TITLE) MUST be written in {language_name}, the article's own language — NEVER in English (unless {language_name} is itself English). A summary or title written in English is a failure, even though this prompt is in English.
 
 CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
@@ -167,8 +167,8 @@ IMPORTANT: If the article appears to be promotional/advertorial content rather t
 - Articles that read like shopping guides or product catalogs rather than news reporting
 
 LEVELS TO SUMMARIZE:
-- Also write a level-appropriate summary for EVERY CEFR level simpler than the original.
-- If original is A1, write no extra summaries.
+- Also write a level-appropriate TITLE and summary for EVERY CEFR level simpler than the original.
+- If original is A1, write no extra titles or summaries.
 - If original is A2, write A1.
 - If original is B1, write A1 and A2.
 - If original is B2, write A1, A2, and B1.
@@ -186,9 +186,11 @@ ORIGINAL_LEVEL: [assess the CEFR level of the original article: A1, A2, B1, B2, 
 
 ORIGINAL_SUMMARY: [plain text summary (NO markdown formatting, no bold/italic) in {language_name}, 2-4 sentences scaled to the article (short items 1-2 sentences; longer or denser articles up to 4; hard cap ~70 words). It MUST ADD information the title does not already contain — the specific names, numbers, reasons, consequences, or context the headline implies but does not state; if the title assumes a referent (a person, event, acronym, "a swap with X"), briefly say what it is IF the article explains it. NEVER restate or paraphrase the title: if a reader could guess the summary from the title alone, rewrite it. Use ONLY facts stated in the article — do not add details from your own knowledge. Lead with the concrete facts (who/what/how many/outcome). Paraphrase in your own words: no verbatim sentences or phrases lifted from the article, and no direct quotes. DO NOT use meta-preambles like "The article tells about...", "This article is about...", "Artiklen fortæller om...", "L'article parle de...", "Der Artikel handelt von...", "El artículo trata de...". Just state the content as if reporting it yourself.]
 
-SIMPLIFIED_LEVELS: [comma-separated list of the levels simpler than the original for which you wrote a summary below, e.g. "A1,A2" — leave empty if original is A1]
+SIMPLIFIED_LEVELS: [comma-separated list of the levels simpler than the original for which you wrote a title and summary below, e.g. "A1,A2" — leave empty if original is A1]
 
-[For each level in SIMPLIFIED_LEVELS, include this section:]
+[For each level in SIMPLIFIED_LEVELS, include BOTH of these sections:]
+
+[LEVEL]_TITLE: [plain text headline (NO markdown formatting, no bold/italic) in {language_name}, on ONE line, rewriting the article's own title with vocabulary and sentence structure appropriate for this level. It names the SAME subject and event as the original title — this is a headline the reader will tap to open that very article, so it must not promise something the article does not deliver. Keep it headline-length (comparable to the original, hard cap ~12 words); do not turn it into a sentence-long summary, do not add facts the original title does not carry, and do not add clickbait or a question form the original did not have.]
 
 [LEVEL]_SUMMARY: [plain text summary (NO markdown formatting, no bold/italic) in {language_name} using vocabulary appropriate for this level, same length limits and same content/no-meta-preamble rules as ORIGINAL_SUMMARY above.]
 

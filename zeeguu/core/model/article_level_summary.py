@@ -10,16 +10,32 @@ from zeeguu.core.model.db import db
 CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
+def _parsed_tokens(value):
+    """A db.JSON column round-trips as a list/dict, but rows written when the
+    column held a JSON *string* still exist — accept both, and never raise."""
+    if not value:
+        return None
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return None
+    return value
+
+
 class ArticleLevelSummary(db.Model):
     """
-    A short, CEFR-level-specific summary of an Article, used as the tappable
-    preview blurb on feed cards.
+    The CEFR-level-specific card text for an Article: a short summary and the
+    headline that goes above it, used as the tappable preview on feed cards.
 
     On-demand simplification means the crawl no longer creates a simplified child
-    article per level, so the level-appropriate summaries live here directly
-    instead of on child-article rows. There is at most one row per
-    (article, cefr_level), for levels simpler than the article's own level; the
-    article's own-level summary stays on ``Article.summary``.
+    article per level, so the level-appropriate text lives here directly instead
+    of on child-article rows. There is at most one row per (article, cefr_level),
+    for levels simpler than the article's own level; the article's own-level text
+    stays on ``Article.summary`` / ``Article.title``.
+
+    (The table kept its ``article_level_summary`` name when the title columns were
+    added — renaming it would have churned the two context joins and every FK.)
     """
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -34,6 +50,12 @@ class ArticleLevelSummary(db.Model):
     # Cached token stream (same shape as ArticleTokenizationCache.tokenized_summary)
     # so the tappable preview renders without re-tokenizing on the request path.
     tokenized_summary = db.Column(db.JSON)
+    # The level's headline, and its token stream. Nullable on purpose: every row
+    # written before per-level titles existed has none, and a level whose title
+    # came back in the wrong language is dropped while its summary is kept — both
+    # fall back to the article's own title.
+    title = db.Column(db.UnicodeText)
+    tokenized_title = db.Column(db.JSON)
     # First-class generator entity (model_name + prompt_version), same as
     # Article.simplification_ai_generator_id — not a raw model-name string.
     ai_generator_id = db.Column(db.Integer, db.ForeignKey("ai_generator.id"))
@@ -41,12 +63,21 @@ class ArticleLevelSummary(db.Model):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def __init__(
-        self, article, cefr_level, summary, tokenized_summary=None, ai_generator_id=None
+        self,
+        article,
+        cefr_level,
+        summary,
+        tokenized_summary=None,
+        ai_generator_id=None,
+        title=None,
+        tokenized_title=None,
     ):
         self.article = article
         self.cefr_level = cefr_level
         self.summary = summary
         self.tokenized_summary = tokenized_summary
+        self.title = title
+        self.tokenized_title = tokenized_title
         self.ai_generator_id = ai_generator_id
 
     def __repr__(self):
@@ -69,6 +100,8 @@ class ArticleLevelSummary(db.Model):
         tokenized_summary=None,
         ai_generator_id=None,
         commit=True,
+        title=None,
+        tokenized_title=None,
     ):
         try:
             existing = cls.query.filter(
@@ -77,13 +110,23 @@ class ArticleLevelSummary(db.Model):
             ).one()
             existing.summary = summary
             existing.tokenized_summary = tokenized_summary
+            existing.title = title
+            existing.tokenized_title = tokenized_title
             existing.ai_generator_id = ai_generator_id
             session.add(existing)
             if commit:
                 session.commit()
             return existing
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(article, cefr_level, summary, tokenized_summary, ai_generator_id)
+            new = cls(
+                article,
+                cefr_level,
+                summary,
+                tokenized_summary,
+                ai_generator_id,
+                title,
+                tokenized_title,
+            )
             session.add(new)
             if commit:
                 session.commit()
@@ -149,11 +192,9 @@ class ArticleLevelSummary(db.Model):
 
     def get_tokenized_summary(self):
         """Parse the cached token stream, tolerating either JSON text or a dict."""
-        if not self.tokenized_summary:
-            return None
-        if isinstance(self.tokenized_summary, str):
-            try:
-                return json.loads(self.tokenized_summary)
-            except (ValueError, TypeError):
-                return None
-        return self.tokenized_summary
+        return _parsed_tokens(self.tokenized_summary)
+
+    def get_tokenized_title(self):
+        """Same, for the level's headline. None when this row predates per-level
+        titles or its title was dropped by the language check."""
+        return _parsed_tokens(self.tokenized_title)

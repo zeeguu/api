@@ -25,6 +25,10 @@ session = zeeguu.core.model.db.session
 # tokens (same nesting tokenize_for_reading produces).
 DUMMY_TOKENS = [[[{"text": "hej", "sentence_i": 0, "token_i": 0}]]]
 
+# Distinct from DUMMY_TOKENS so a test can tell a served title apart from a
+# served summary rather than matching whichever ran last.
+DUMMY_TITLE_TOKENS = [[[{"text": "overskrift", "sentence_i": 0, "token_i": 0}]]]
+
 # A summary token stream (paragraphs -> sentences -> tokens) whose first sentence
 # groups "har lavet" into an MWE. The metadata keys mirror what
 # UserArticle._clear_mwe_metadata_for_expressions reads and clears.
@@ -69,6 +73,17 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
             cefr_level=level,
             summary=f"summary at {level}",
             tokenized_summary=DUMMY_TOKENS,
+        )
+
+    def _add_level_summary_with_title(self, level):
+        return ArticleLevelSummary.find_or_create(
+            session,
+            self.article,
+            cefr_level=level,
+            summary=f"summary at {level}",
+            tokenized_summary=DUMMY_TOKENS,
+            title=f"title at {level}",
+            tokenized_title=DUMMY_TITLE_TOKENS,
         )
 
     def _add_mwe_level_summary(self, level):
@@ -164,6 +179,39 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_SUMMARY
         assert ctx["article_level_summary_id"] == b1.id
         assert payload["tokens"] == DUMMY_TOKENS
+
+    def test_title_info_anchors_to_level_title(self):
+        """A level row with a title serves that title, under its own context type
+        — not ARTICLE_TITLE, whose token coordinates belong to the publisher's
+        headline and would highlight the wrong words."""
+        b1 = self._add_level_summary_with_title("B1")
+        self._set_user_level("B2")
+
+        info = UserArticle.user_article_summary_info(self.user, self.article)
+        payload = info.get("tokenized_title")
+        assert payload is not None
+        ctx = payload["context_identifier"]
+        assert ctx["context_type"] == ContextType.ARTICLE_LEVEL_TITLE
+        assert ctx["article_level_summary_id"] == b1.id
+        assert ctx["article_id"] == self.article.id
+        assert payload["tokens"] == DUMMY_TITLE_TOKENS
+
+    def test_level_row_without_a_title_falls_back_to_the_articles_own(self):
+        """Rows written before per-level titles existed — and rows whose title the
+        language check dropped — keep serving the article's own headline."""
+        self._add_level_summary("B1")  # summary only, no title
+        self._set_user_level("B2")
+
+        info = UserArticle.user_article_summary_info(self.user, self.article)
+        # The level summary is still served...
+        assert (
+            info["tokenized_summary"]["context_identifier"]["context_type"]
+            == ContextType.ARTICLE_LEVEL_SUMMARY
+        )
+        # ...while the title falls back to the article's own.
+        title_ctx = info.get("tokenized_title", {}).get("context_identifier")
+        if title_ctx is not None:
+            assert title_ctx["context_type"] == ContextType.ARTICLE_TITLE
 
     def test_level_summary_context_carries_parent_article_id(self):
         # The served level-summary context now also carries the parent article id

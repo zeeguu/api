@@ -15,6 +15,7 @@ class ContextType(db.Model):
     ARTICLE_TITLE = "ArticleTitle"
     ARTICLE_SUMMARY = "ArticleSummary"
     ARTICLE_LEVEL_SUMMARY = "ArticleLevelSummary"
+    ARTICLE_LEVEL_TITLE = "ArticleLevelTitle"
     VIDEO_TITLE = "VideoTitle"
     VIDEO_CAPTION = "VideoCaption"
     WEB_FRAGMENT = "WebFragment"
@@ -27,6 +28,7 @@ class ContextType(db.Model):
         ARTICLE_TITLE,
         ARTICLE_SUMMARY,
         ARTICLE_LEVEL_SUMMARY,
+        ARTICLE_LEVEL_TITLE,
         VIDEO_TITLE,
         VIDEO_CAPTION,
         WEB_FRAGMENT,
@@ -76,6 +78,9 @@ class ContextType(db.Model):
         from zeeguu.core.model.article_level_summary_context import (
             ArticleLevelSummaryContext,
         )
+        from zeeguu.core.model.article_level_title_context import (
+            ArticleLevelTitleContext,
+        )
         from zeeguu.core.model.video_title_context import VideoTitleContext
         from zeeguu.core.model.video_caption_context import VideoCaptionContext
         from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
@@ -89,6 +94,8 @@ class ContextType(db.Model):
                 return ArticleSummaryContext
             case cls.ARTICLE_LEVEL_SUMMARY:
                 return ArticleLevelSummaryContext
+            case cls.ARTICLE_LEVEL_TITLE:
+                return ArticleLevelTitleContext
             case cls.VIDEO_TITLE:
                 return VideoTitleContext
             case cls.VIDEO_CAPTION:

@@ -40,6 +40,7 @@ from zeeguu.core.model.user_word_interaction_history import UserWordInteractionH
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
 from zeeguu.core.model.article_level_summary_context import ArticleLevelSummaryContext
+from zeeguu.core.model.article_level_title_context import ArticleLevelTitleContext
 from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.video_caption_context import VideoCaptionContext
@@ -69,6 +70,7 @@ bookmark_context_tables = [
     ExampleSentenceContext,
     ArticleSummaryContext,
     ArticleLevelSummaryContext,
+    ArticleLevelTitleContext,
     ArticleFragmentContext,
     ArticleTitleContext,
     VideoCaptionContext,

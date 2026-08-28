@@ -98,7 +98,10 @@ class ContextIdentifier:
                 )
                 session.add(mapped_context)
 
-            case ContextType.ARTICLE_LEVEL_SUMMARY:
+            # Both level cases resolve the same ArticleLevelSummary row; they
+            # differ only in which join table context_specific_table resolved to,
+            # so the level's title and its summary keep separate bookmark sets.
+            case ContextType.ARTICLE_LEVEL_SUMMARY | ContextType.ARTICLE_LEVEL_TITLE:
                 if self.article_level_summary_id is None:
                     return None
                 from zeeguu.core.model.article_level_summary import ArticleLevelSummary

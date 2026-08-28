@@ -146,16 +146,28 @@ def _level_summary_label(level: str) -> str:
     return f"{level} summary"
 
 
+def _level_title_label(level: str) -> str:
+    return f"{level} title"
+
+
 def _summaries_to_check(assessment: dict) -> list:
     """
-    The summaries out of an assessment, labelled — the only part of it that has
-    a language. Each label is also the key we drop that summary by, so they have
+    The generated text out of an assessment, labelled — the only part of it that
+    has a language. Each label is also the key we drop that piece by, so they have
     to match the ones _without_wrong_language_summaries looks for.
+
+    Per-level titles are included, but a headline is short enough that the
+    language check will often return "can't judge" (None) rather than a verdict;
+    that is the check failing open on purpose, not a pass.
     """
     fields = [(ORIGINAL_SUMMARY_LABEL, assessment.get("original_summary", ""))]
     fields += [
         (_level_summary_label(level), text)
         for level, text in assessment.get("level_summaries", {}).items()
+    ]
+    fields += [
+        (_level_title_label(level), text)
+        for level, text in assessment.get("level_titles", {}).items()
     ]
     return fields
 
@@ -177,6 +189,14 @@ def _without_wrong_language_summaries(assessment: dict, mismatches: list) -> dic
         level: text
         for level, text in result.get("level_summaries", {}).items()
         if _level_summary_label(level) not in wrong
+    }
+    # A level's title and summary are dropped independently: an English title
+    # next to a good Danish summary should cost us the title, not the summary.
+    # The overlay falls back to the article's own title when a level has none.
+    result["level_titles"] = {
+        level: text
+        for level, text in result.get("level_titles", {}).items()
+        if _level_title_label(level) not in wrong
     }
     return result
 
@@ -273,7 +293,15 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
             "C1",
             "C2",
         ]
-        if is_field or is_level_summary:
+        is_level_title = "_TITLE:" in line and line.split("_TITLE:")[0] in [
+            "A1",
+            "A2",
+            "B1",
+            "B2",
+            "C1",
+            "C2",
+        ]
+        if is_field or is_level_summary or is_level_title:
             if current_section:
                 sections[current_section] = "\n".join(current_content).strip()
             current_section = line.split(":")[0]
@@ -300,6 +328,17 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
             if text:
                 level_summaries[level] = text
 
+    # Per-level headlines, same shape as the summaries. A title is one line by
+    # construction, so collapse any stray wrapping the section parser picked up.
+    level_titles = {}
+    for level in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+        raw = sections.get(f"{level}_TITLE")
+        if raw:
+            text = _strip_markdown_from_summary(_clean_text(raw))
+            text = " ".join(text.split())
+            if text:
+                level_titles[level] = text
+
     return {
         "original_cefr_level": original_level,
         "original_summary": original_summary,
@@ -311,6 +350,7 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
         "article_type": article_type.lower() if article_type else None,
         "is_disturbing": is_disturbing,
         "level_summaries": level_summaries,
+        "level_titles": level_titles,
         "provider": provider,
         "model_name": model_name,
     }
@@ -369,6 +409,7 @@ def assess_summarize_and_classify(
         original_article,
         result.get("level_summaries", {}),
         result.get("model_name"),
+        result.get("level_titles", {}),
     )
 
     classifications = []
@@ -382,13 +423,22 @@ def assess_summarize_and_classify(
 ASSESS_SUMMARY_PROMPT_VERSION = "assess_summary_v1"
 
 
-def _store_level_summaries(session, article, level_summaries, model_name):
-    """Create/refresh ArticleLevelSummary rows for an article, tokenizing each."""
+def _store_level_summaries(session, article, level_summaries, model_name, level_titles=None):
+    """
+    Create/refresh ArticleLevelSummary rows for an article, tokenizing each.
+
+    A level's title is optional and stored alongside its summary: the LLM may not
+    have produced one, or the language check may have dropped it while keeping the
+    summary. The card falls back to the article's own title in that case, so a
+    missing title is never a reason to skip the row.
+    """
     if not level_summaries:
         return
     from zeeguu.core.model.article_level_summary import ArticleLevelSummary
     from zeeguu.core.model.ai_generator import AIGenerator
     from zeeguu.core.mwe import tokenize_for_reading
+
+    level_titles = level_titles or {}
 
     ai_generator_id = None
     if model_name:
@@ -397,23 +447,36 @@ def _store_level_summaries(session, article, level_summaries, model_name):
         )
         ai_generator_id = ai_generator.id
 
-    for level, summary_text in level_summaries.items():
+    def tokenized_or_none(text, what, level):
         try:
-            tokenized = tokenize_for_reading(summary_text, article.language, mode="stanza")
+            return tokenize_for_reading(text, article.language, mode="stanza")
         except Exception as e:
-            log(f"  Could not tokenize {level} summary for article {article.id}: {e}")
-            tokenized = None
+            log(f"  Could not tokenize {level} {what} for article {article.id}: {e}")
+            return None
+
+    n_titles = 0
+    for level, summary_text in level_summaries.items():
+        title_text = level_titles.get(level)
+        tokenized_title = None
+        if title_text:
+            tokenized_title = tokenized_or_none(title_text, "title", level)
+            n_titles += 1
         ArticleLevelSummary.find_or_create(
             session,
             article,
             cefr_level=level,
             summary=summary_text,
-            tokenized_summary=tokenized,
+            tokenized_summary=tokenized_or_none(summary_text, "summary", level),
             ai_generator_id=ai_generator_id,
             commit=False,
+            title=title_text,
+            tokenized_title=tokenized_title,
         )
     session.commit()
-    log(f"  Stored {len(level_summaries)} per-level preview summaries for article {article.id}")
+    log(
+        f"  Stored {len(level_summaries)} per-level preview summaries "
+        f"({n_titles} with titles) for article {article.id}"
+    )
 
 
 def get_target_levels_for_original_level(original_level: str) -> list[str]:

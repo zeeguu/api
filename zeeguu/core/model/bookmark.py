@@ -165,6 +165,22 @@ class Bookmark(db.Model):
             else:
                 # Fallback: context mapping is missing
                 return "[Title not available]"
+        if self.context.context_type.type == ContextType.ARTICLE_LEVEL_TITLE:
+            from zeeguu.core.model.article_level_title_context import (
+                ArticleLevelTitleContext,
+            )
+
+            # Deliberately the ARTICLE's title, not the level title the bookmark
+            # sits in: this names the source the learner saw the word in, and the
+            # sibling ARTICLE_LEVEL_SUMMARY branch above answers the same way.
+            level_title_context = ArticleLevelTitleContext.find_by_bookmark(self)
+            if level_title_context and level_title_context.article_level_summary:
+                return Article.find_by_id(
+                    level_title_context.article_level_summary.article_id
+                ).title
+            else:
+                # Fallback: context mapping is missing
+                return "[Title not available]"
         if self.context.context_type.type == ContextType.VIDEO_TITLE:
             from zeeguu.core.model.video_title_context import VideoTitleContext
 
