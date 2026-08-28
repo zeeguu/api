@@ -110,6 +110,48 @@ class ArticleLevelSummaryTest(ModelTestMixIn, TestCase):
         # An A1 learner has nothing at/below B1... wait, B1 > A1, so None.
         assert ArticleLevelSummary.best_for_user_level(self.article.id, "A1") is None
 
+    def test_learner_at_or_above_article_level_gets_the_articles_own_summary(self):
+        """
+        Rows exist only BELOW the article's own level, so a learner reading at or
+        above it must fall through to Article.summary (None here) rather than be
+        handed the highest stored row.
+
+        This is the Danish B1 collapse: 366 of 368 recent Danish B1 articles carry
+        only A1 and A2 rows, so before this every reader from B1 up was served the
+        A2 summary and changing CEFR level changed nothing on the card.
+        """
+        self._add_level_summary("A1")
+        self._add_level_summary("A2")
+
+        for level_at_or_above in ("B1", "B2", "C1", "C2"):
+            assert (
+                ArticleLevelSummary.best_for_user_level(
+                    self.article.id, level_at_or_above, "B1"
+                )
+                is None
+            ), f"{level_at_or_above} learner should get the article's own summary"
+
+        # ...while learners below the article's level still get their own row,
+        # and crucially A2 and B1 no longer collapse onto the same text.
+        assert (
+            ArticleLevelSummary.best_for_user_level(self.article.id, "A2", "B1").cefr_level
+            == "A2"
+        )
+        assert (
+            ArticleLevelSummary.best_for_user_level(self.article.id, "A1", "B1").cefr_level
+            == "A1"
+        )
+
+    def test_own_level_summary_preferred_over_a_simpler_row(self):
+        """An A2 learner on an A2 article gets the article's own A2 summary, not
+        the A1 row that happens to be the highest stored one at/below A2."""
+        self._add_level_summary("A1")
+        assert ArticleLevelSummary.best_for_user_level(self.article.id, "A2", "A2") is None
+        assert (
+            ArticleLevelSummary.best_for_user_level(self.article.id, "A1", "A2").cefr_level
+            == "A1"
+        )
+
     def test_summary_info_anchors_to_level_summary(self):
         self._add_level_summary("A1")
         b1 = self._add_level_summary("B1")

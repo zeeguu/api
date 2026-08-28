@@ -744,7 +744,9 @@ class UserArticle(db.Model):
         if not user_level:
             return None
 
-        level_summary = ArticleLevelSummary.best_for_user_level(article.id, user_level)
+        level_summary = ArticleLevelSummary.best_for_user_level(
+            article.id, user_level, article.cefr_level
+        )
         if not level_summary:
             return None
         tokens = level_summary.get_tokenized_summary()

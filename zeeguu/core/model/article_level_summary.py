@@ -98,15 +98,29 @@ class ArticleLevelSummary(db.Model):
         return set(CEFR_ORDER[: CEFR_ORDER.index(user_level) + 1])
 
     @staticmethod
-    def pick_best(candidates, user_level: str):
+    def pick_best(candidates, user_level: str, article_own_level: str = None):
         """
         From ``candidates`` (any objects with a ``.cefr_level``), return the one at
         the highest level still at or below ``user_level``, or None. This is the
         single source of truth for level selection, shared by the single-article
         lookup and the batched feed overlay so they can't drift apart.
+
+        ``article_own_level`` is the article's own CEFR level, and a learner at or
+        above it gets None — meaning "use the article's own summary". Rows exist
+        only for levels BELOW the article's own, so without this the highest
+        *stored* row wins and every learner from the article's level upwards
+        collapses onto it: for a Danish B1 article (rows A1, A2) the A2 row was
+        served to A2, B1, B2, C1 and C2 readers alike, so changing level changed
+        nothing. Passing it None keeps the old highest-row-wins behaviour for
+        callers that genuinely have no article level to compare against.
         """
         allowed = ArticleLevelSummary.allowed_levels(user_level)
         if not allowed:
+            return None
+        if (
+            article_own_level in CEFR_ORDER
+            and CEFR_ORDER.index(user_level) >= CEFR_ORDER.index(article_own_level)
+        ):
             return None
         eligible = [c for c in candidates if c.cefr_level in allowed]
         if not eligible:
@@ -114,13 +128,16 @@ class ArticleLevelSummary(db.Model):
         return max(eligible, key=lambda c: CEFR_ORDER.index(c.cefr_level))
 
     @classmethod
-    def best_for_user_level(cls, article_id: int, user_level: str):
+    def best_for_user_level(cls, article_id: int, user_level: str, article_own_level: str = None):
         """
         Return the ArticleLevelSummary best matching a learner's CEFR level: the
         highest stored level that is still at or below ``user_level`` (rows only
         exist for levels below the article's own, so a learner at or above the
         article level gets None and the caller falls back to Article.summary).
         Returns None when there's no suitable per-level summary.
+
+        Pass ``article_own_level`` for that at-or-above check to actually happen —
+        see pick_best.
         """
         allowed = cls.allowed_levels(user_level)
         if not allowed:
@@ -128,7 +145,7 @@ class ArticleLevelSummary(db.Model):
         rows = cls.query.filter(
             cls.article_id == article_id, cls.cefr_level.in_(allowed)
         ).all()
-        return cls.pick_best(rows, user_level)
+        return cls.pick_best(rows, user_level, article_own_level)
 
     def get_tokenized_summary(self):
         """Parse the cached token stream, tolerating either JSON text or a dict."""

@@ -578,13 +578,20 @@ def _apply_simplified_display_overlay(user, results):
     # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
     # best row per article, never every level: first a columns-only query to pick
     # the best-matching level per article, then load just those chosen rows.
+    # Article.cefr_level rides along so pick_best can tell "this learner reads at
+    # or above the article's own level" (→ use the article's own summary) from
+    # "this learner needs a simpler one". Joined here rather than read off the
+    # result dicts, whose metrics.cefr_level is the *effective* level and can come
+    # back compound ("B1/B2") — see article_info.
     lightweight = (
         ArticleLevelSummary.query
         .with_entities(
             ArticleLevelSummary.id,
             ArticleLevelSummary.article_id,
             ArticleLevelSummary.cefr_level,
+            Article.cefr_level.label("article_own_level"),
         )
+        .join(Article, Article.id == ArticleLevelSummary.article_id)
         .filter(
             ArticleLevelSummary.article_id.in_(candidate_ids),
             ArticleLevelSummary.cefr_level.in_(allowed),
@@ -595,12 +602,16 @@ def _apply_simplified_display_overlay(user, results):
         return
 
     by_article = {}
+    own_level_by_article = {}
     for row in lightweight:
         by_article.setdefault(row.article_id, []).append(row)
+        own_level_by_article[row.article_id] = row.article_own_level
 
     chosen_id_by_article = {}
     for article_id, rows in by_article.items():
-        best_row = ArticleLevelSummary.pick_best(rows, user_cefr_level)
+        best_row = ArticleLevelSummary.pick_best(
+            rows, user_cefr_level, own_level_by_article.get(article_id)
+        )
         if best_row:
             chosen_id_by_article[article_id] = best_row.id
     if not chosen_id_by_article:
