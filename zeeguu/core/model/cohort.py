@@ -94,7 +94,16 @@ class Cohort(db.Model):
         }
 
     def text_counts_by_language(self):
-        """How many of this class's texts are in which language.
+        """How many of this class's texts are in which language."""
+        return Cohort.text_counts_by_language_for([self.id]).get(self.id, [])
+
+    @classmethod
+    def text_counts_by_language_for(cls, cohort_ids):
+        """The same counts for several classes at once, as {cohort_id: [...]}.
+
+        One query for the lot: /student_info needs this for every class a
+        student is in, and it is also called by screens that never read the
+        counts, so a query per class would be paid on every one of them.
 
         Grouped by the *article's* language rather than the class's declared
         one, because that is what cohort_articles_for_user() filters on: a
@@ -106,20 +115,29 @@ class Cohort(db.Model):
         from zeeguu.core.model.article import Article
         from zeeguu.core.model.cohort_article_map import CohortArticleMap
 
+        if not cohort_ids:
+            return {}
+
         rows = (
-            db.session.query(Language, func.count(Article.id))
+            db.session.query(
+                CohortArticleMap.cohort_id, Language, func.count(Article.id)
+            )
             .select_from(CohortArticleMap)
             .join(Article, Article.id == CohortArticleMap.article_id)
             .join(Language, Language.id == Article.language_id)
-            .filter(CohortArticleMap.cohort_id == self.id)
-            .group_by(Language.id)
+            .filter(CohortArticleMap.cohort_id.in_(cohort_ids))
+            .group_by(CohortArticleMap.cohort_id, Language.id)
             .all()
         )
 
-        return [
-            {"code": language.code, "name": language.name, "count": count}
-            for language, count in sorted(rows, key=lambda each: -each[1])
-        ]
+        by_cohort = {}
+        for cohort_id, language, count in rows:
+            by_cohort.setdefault(cohort_id, []).append(
+                {"code": language.code, "name": language.name, "count": count}
+            )
+        for counts in by_cohort.values():
+            counts.sort(key=lambda each: -each["count"])
+        return by_cohort
 
     @classmethod
     def find(cls, id):

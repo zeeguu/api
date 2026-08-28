@@ -37,16 +37,23 @@ def join_cohort_api():
 @cross_domain
 @requires_session
 def student_info():
+    from zeeguu.core.model import Cohort
+
     user = User.find_by_id(flask.g.user_id)
 
     # The classroom feed only shows texts in the language the student is
     # currently learning, so a class in another language looks empty and
     # unexplained. Ship the per-language counts alongside each class: they are
     # what lets the empty classroom name the language and offer the switch.
+    # One query for every class, not one per class -- Leaderboards and
+    # MyClassrooms call this endpoint too and never read the counts.
+    cohorts = [c.cohort for c in user.cohorts]
+    counts = Cohort.text_counts_by_language_for([c.id for c in cohorts])
+
     user_cohorts = []
-    for c in user.cohorts:
-        info = c.cohort.get_cohort_info()
-        info["texts_by_language"] = c.cohort.text_counts_by_language()
+    for cohort in cohorts:
+        info = cohort.get_cohort_info()
+        info["texts_by_language"] = counts.get(cohort.id, [])
         user_cohorts.append(info)
 
     return json_result(

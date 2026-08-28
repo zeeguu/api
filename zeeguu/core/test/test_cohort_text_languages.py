@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import zeeguu.core
+from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.article_rule import ArticleRule
@@ -71,3 +72,19 @@ class CohortTextLanguagesTest(ModelTestMixIn, TestCase):
         counts = self.cohort.text_counts_by_language()
 
         self.assertEqual([{"code": "da", "name": "Danish", "count": 1}], counts)
+
+    def test_counts_several_cohorts_in_one_query(self):
+        # /student_info asks for every class a student is in at once; the
+        # per-cohort accessor is a thin wrapper over this.
+        other_cohort = CohortRule().cohort
+        self._share(self._article_in(self.danish))
+        db_session.add(CohortArticleMap(other_cohort, self._article_in(self.german), None))
+        db_session.commit()
+
+        counts = Cohort.text_counts_by_language_for([self.cohort.id, other_cohort.id])
+
+        self.assertEqual(["da"], [each["code"] for each in counts[self.cohort.id]])
+        self.assertEqual(["de"], [each["code"] for each in counts[other_cohort.id]])
+
+    def test_no_cohorts_asks_nothing(self):
+        self.assertEqual({}, Cohort.text_counts_by_language_for([]))
