@@ -171,8 +171,13 @@ class Bookmark(db.Model):
             )
 
             # Deliberately the ARTICLE's title, not the level title the bookmark
-            # sits in: this names the source the learner saw the word in, and the
-            # sibling ARTICLE_LEVEL_SUMMARY branch above answers the same way.
+            # actually sits in. get_source_title answers "which document did this
+            # word come from", and the article title is the stable answer: level
+            # titles change with the learner's CEFR level, so a word list keyed on
+            # one would show a headline that no longer exists for that reader.
+            # Every other branch here resolves to Article.title for the same
+            # reason. Trade-off: an A1 learner sees the publisher's harder
+            # headline next to a word they met in the A1 one.
             level_title_context = ArticleLevelTitleContext.find_by_bookmark(self)
             if level_title_context and level_title_context.article_level_summary:
                 return Article.find_by_id(
