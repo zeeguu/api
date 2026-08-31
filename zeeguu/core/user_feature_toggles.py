@@ -73,7 +73,13 @@ def _new_topics(user):
 
 def _tiago_exercises(user):
     right_user = user.invitation_code == "Tiago" or user.id == 534 or user.id == 4022
-    right_language = user.learned_language.code in ["da"]
+    # Guarded: features_for_user runs on every /user_details, so an account
+    # without a learned language would take the whole call down. No such
+    # account exists today, but the model allows one and the classroom code
+    # already handles it.
+    right_language = (
+        user.learned_language is not None and user.learned_language.code in ["da"]
+    )
     return right_user and right_language
 
 
