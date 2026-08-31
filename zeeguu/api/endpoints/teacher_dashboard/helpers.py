@@ -66,7 +66,11 @@ def get_cohort_info(id):
         except sqlalchemy.orm.exc.NoResultFound:
             language_name = "None"
         dictionary = {
-            "id": str(id),
+            # An int, like every other cohort id we emit (Article's
+            # `shared_with`, the classroom's `from_classes`). It used to be
+            # stringified here alone, so the same class arrived with two
+            # different identifiers depending on which endpoint you asked.
+            "id": c.id,
             "name": name,
             "inv_code": inv_code,
             "max_students": max_students,
