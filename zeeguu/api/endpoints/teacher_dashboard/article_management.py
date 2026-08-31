@@ -212,6 +212,11 @@ def cohort_text_overview(cohort_id):
                 "only_classroom_texts": bool(cohort.only_classroom_texts),
             },
             "texts": CohortArticleMap.get_articles_info_for_cohort(cohort),
+            # Nothing stops a text in another language being shared with a
+            # class, and its students then never see it -- they only ever get
+            # the texts in the language they are learning. The teacher is the
+            # one who can fix that, so the counts go to them.
+            "texts_by_language": cohort.text_counts_by_language(),
             "student_count": len(cohort.get_students()),
         }
     )

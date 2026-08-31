@@ -551,25 +551,45 @@ class User(db.Model):
         session.commit()
 
     def cohort_articles_for_user(self):
+        """The class texts this student can see, each tagged with its class.
+
+        A student in more than one class gets one merged list, so each text
+        says which class it came from -- otherwise the list is a pile with no
+        provenance. The tag is only useful to a student with several classes;
+        the client drops it for everyone else.
+        """
         from zeeguu.core.model import Cohort, CohortArticleMap, UserArticle
 
         all_articles = []
+        classes_by_article = {}
         try:
+            # Filter articles by the user's learned language: a student only
+            # ever reads in the language they are currently learning, so a
+            # class taught in another one has nothing to show them.
+            user_language_id = (
+                self.learned_language_id if self.learned_language else None
+            )
+
             for c in self.cohorts:
                 cohort = Cohort.find(c.cohort_id)
-                # Get all articles from this cohort
-                cohort_articles = CohortArticleMap.get_articles_for_cohort(cohort)
-
-                # Filter articles by the user's learned language
-                user_language_id = (
-                    self.learned_language_id if self.learned_language else None
-                )
-                for article in cohort_articles:
-                    if article.language_id == user_language_id:
+                for article in CohortArticleMap.get_articles_for_cohort(cohort):
+                    if article.language_id != user_language_id:
+                        continue
+                    # A text shared with two of this student's classes appears
+                    # once, tagged with both.
+                    if article.id not in classes_by_article:
                         all_articles.append(article)
+                        classes_by_article[article.id] = []
+                    classes_by_article[article.id].append(
+                        {"id": cohort.id, "name": cohort.name}
+                    )
 
-            # Use the standard helper for proper cache handling
-            return UserArticle.article_infos(self, all_articles, select_appropriate=False)
+            infos = UserArticle.article_infos(
+                self, all_articles, select_appropriate=False
+            )
+            for info in infos:
+                info["from_classes"] = classes_by_article.get(info["id"], [])
+            return infos
         except NoResultFound as e:
             return []
 
