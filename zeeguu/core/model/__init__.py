@@ -10,6 +10,7 @@ from .article import Article
 from .article_upload import ArticleUpload
 from .article_cefr_assessment import ArticleCefrAssessment
 from .article_tokenization_cache import ArticleTokenizationCache
+from .caption_tokenization_cache import CaptionTokenizationCache
 from .text import Text
 from .phrase import Phrase
 from .user import User
