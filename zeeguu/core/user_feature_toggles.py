@@ -128,26 +128,12 @@ def _always_open_externally(user):
 def _classroom_only(user):
     """The student sees only the texts their teacher shares with the class.
 
-    Set per class by the teacher (Cohort.only_classroom_texts). A student in
-    several classes is restricted if any one of them asks for it: the strictest
-    class wins, and the way out is to leave that class.
-
-    Teachers are excluded even when they are members of such a cohort -- they
-    need the feed and search to find the texts they are going to share.
+    The rule itself is in zeeguu.core.classroom, next to the rest of the
+    classroom's behaviour.
     """
-    if user.isTeacher():
-        return False
+    from zeeguu.core.classroom import sees_only_class_texts
 
-    cohort_ids = [user_cohort.cohort_id for user_cohort in user.cohorts]
-    if not cohort_ids:
-        return False
-
-    return (
-        Cohort.query.filter(Cohort.id.in_(cohort_ids))
-        .filter(Cohort.only_classroom_texts.is_(True))
-        .count()
-        > 0
-    )
+    return sees_only_class_texts(user)
 
 
 def _verbal_flashcards(user):
