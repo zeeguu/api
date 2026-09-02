@@ -551,47 +551,30 @@ class User(db.Model):
         session.commit()
 
     def cohort_articles_for_user(self):
-        """The class texts this student can see, each tagged with its class.
+        """The classroom, as the API sends it.
 
-        A student in more than one class gets one merged list, so each text
-        says which class it came from -- otherwise the list is a pile with no
-        provenance. The tag is only useful to a student with several classes;
-        the client drops it for everyone else.
+        The rules for what a student sees live in zeeguu.core.classroom; this
+        only turns the answer into article infos and tags each one with the
+        classes it came from.
         """
-        from zeeguu.core.model import Cohort, CohortArticleMap, UserArticle
+        from zeeguu.core.classroom import classroom_of
+        from zeeguu.core.model import UserArticle
 
-        all_articles = []
-        classes_by_article = {}
         try:
-            # Filter articles by the user's learned language: a student only
-            # ever reads in the language they are currently learning, so a
-            # class taught in another one has nothing to show them.
-            user_language_id = (
-                self.learned_language_id if self.learned_language else None
-            )
-
-            for c in self.cohorts:
-                cohort = Cohort.find(c.cohort_id)
-                for article in CohortArticleMap.get_articles_for_cohort(cohort):
-                    if article.language_id != user_language_id:
-                        continue
-                    # A text shared with two of this student's classes appears
-                    # once, tagged with both.
-                    if article.id not in classes_by_article:
-                        all_articles.append(article)
-                        classes_by_article[article.id] = []
-                    classes_by_article[article.id].append(
-                        {"id": cohort.id, "name": cohort.name}
-                    )
-
-            infos = UserArticle.article_infos(
-                self, all_articles, select_appropriate=False
-            )
-            for info in infos:
-                info["from_classes"] = classes_by_article.get(info["id"], [])
-            return infos
-        except NoResultFound as e:
+            visible = classroom_of(self)
+        except NoResultFound:
             return []
+
+        infos = UserArticle.article_infos(
+            self, [text for text, _ in visible], select_appropriate=False
+        )
+        classes_by_text = {
+            text.id: [{"id": c.id, "name": c.name} for c in cohorts]
+            for text, cohorts in visible
+        }
+        for info in infos:
+            info["from_classes"] = classes_by_text.get(info["id"], [])
+        return infos
 
     def isTeacher(self):
         from zeeguu.core.model import Teacher
