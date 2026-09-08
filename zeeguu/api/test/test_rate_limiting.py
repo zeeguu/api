@@ -97,3 +97,19 @@ def test_search_buckets_are_per_session_not_per_ip(client, limiting_enabled):
 
     second = client.get("/search_users?query=probe&session=second-student")
     assert second.status_code != 429, "one session's quota spilled onto another's"
+
+
+def test_reset_code_requests_are_capped_even_though_they_all_succeed(
+    client, limiting_enabled
+):
+    """
+    send_code answers "OK" for unknown addresses too, so that it can't be used
+    to enumerate users. Charging it on failures would therefore never charge
+    anything, and looping it would be an unlimited email bomb aimed at whoever
+    the address belongs to.
+    """
+    codes = [
+        client.post("/send_code/victim@zeeguu.test").status_code for _ in range(25)
+    ]
+    assert 200 in codes, "expected send_code to answer OK regardless of the address"
+    assert 429 in codes, "send_code accepted 25 rapid requests without throttling"
