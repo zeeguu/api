@@ -36,6 +36,13 @@ class Limit:
     key: str = "ip"
     count: str = "all"
 
+    def __post_init__(self):
+        # A misspelt count would fall through to charging every request, which
+        # is the same species of silent misconfiguration this whole file exists
+        # to stop. (A misspelt key already fails loudly, as a KeyError.)
+        if self.count not in ("all", "failures"):
+            raise ValueError(f"unknown count {self.count!r}: expected 'all' or 'failures'")
+
 
 RATE_LIMITS = {
     # Login. Charged only for rejected attempts, so a room full of people
@@ -68,12 +75,18 @@ RATE_LIMITS = {
     # legitimate reset costs nothing.
     "endpoints.reset_password": Limit("20 per minute;200 per hour", count="failures"),
 
-    # Account creation. Invite codes are the primary protection against mass
-    # bot registration; this is only a ceiling on how fast one host can try.
-    # A whole school onboarding in one session has to fit under it.
+    # Account creation. A whole school onboarding at once has to fit under
+    # this, which is why it is generous: invite codes, not this limit, are the
+    # primary protection against mass bot registration.
     "endpoints.add_user": Limit("500 per hour"),
     "endpoints.add_basic_user": Limit("500 per hour"),
-    "endpoints.add_anon_user": Limit("500 per hour"),
+
+    # Except here. add_anon_user passes its invite_code straight to
+    # User.create_anonymous, which accepts it as an optional argument and never
+    # validates it - so this is the one creation path with no second line of
+    # defence, and its ceiling is the whole of it. Anonymous accounts also need
+    # no email, which makes them the cheapest thing to mass-create.
+    "endpoints.add_anon_user": Limit("200 per hour"),
 
     # User search accepts a full email address as a search key. One lookup can
     # only confirm an address the searcher already typed, but without a ceiling
