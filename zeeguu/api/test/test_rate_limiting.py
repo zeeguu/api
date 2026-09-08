@@ -66,7 +66,7 @@ def test_a_room_of_sixty_can_all_log_in(client, limiting_enabled, _mock_web):
     The demo case, and every classroom: 60 people behind one school NAT, all
     signing in within a couple of minutes. Not one of them may see a 429.
     """
-    account = LoggedInClient(client, email="teacher@zeeguu.test", password="test")
+    LoggedInClient(client, email="teacher@zeeguu.test", password="test")
 
     codes = [_login(client, "teacher@zeeguu.test", "test") for _ in range(60)]
     assert 429 not in codes, "a room of 60 legitimate logins hit the rate limit"
@@ -109,7 +109,28 @@ def test_reset_code_requests_are_capped_even_though_they_all_succeed(
     the address belongs to.
     """
     codes = [
-        client.post("/send_code/victim@zeeguu.test").status_code for _ in range(25)
+        client.post("/send_code/victim@zeeguu.test").status_code for _ in range(10)
     ]
     assert 200 in codes, "expected send_code to answer OK regardless of the address"
-    assert 429 in codes, "send_code accepted 25 rapid requests without throttling"
+    assert 429 in codes, "send_code accepted 10 rapid requests without throttling"
+
+
+def test_one_inbox_cannot_be_flooded_from_many_addresses(client, limiting_enabled):
+    """
+    The point of keying send_code on the target: an attacker who rotates IPs
+    still can't put a sixth message this hour into an inbox that has had five.
+    Rotation is why a per-IP number alone can't stop an email bomb.
+    """
+    for _ in range(10):
+        client.post("/send_code/flooded@zeeguu.test")
+
+    # A different source would get a fresh per-IP bucket; the target's is spent.
+    assert client.post("/send_code/flooded@zeeguu.test").status_code == 429
+
+
+def test_one_inbox_being_spent_does_not_block_everyone_else(client, limiting_enabled):
+    """The target bucket must be the target's, not a global reset-code quota."""
+    for _ in range(10):
+        client.post("/send_code/first@zeeguu.test")
+
+    assert client.post("/send_code/second@zeeguu.test").status_code != 429
