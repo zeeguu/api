@@ -145,6 +145,22 @@ class UserLanguage(db.Model):
     def all_user_languages_for_user(cls, user, db_session):
         return db_session.query(cls).filter(cls.user == user).all()
 
+    @classmethod
+    def by_user_id_for_users(cls, user_ids):
+        """
+        Bulk variant of all_user_languages_for_user: one query for a whole list
+        of users, returning {user_id: [UserLanguage, ...]}. Used when serializing
+        a page of users (e.g. friend search results) to avoid a query per row.
+        """
+        if not user_ids:
+            return {}
+
+        result = {user_id: [] for user_id in user_ids}
+        for user_language in db.session.query(cls).filter(cls.user_id.in_(user_ids)).all():
+            result[user_language.user_id].append(user_language)
+
+        return result
+
     def update_streak_if_needed(self, user, db_session):
         """
         Update last_practiced timestamp and daily_streak counter for this language.

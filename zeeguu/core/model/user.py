@@ -1408,7 +1408,13 @@ class User(db.Model):
     @classmethod
     def search(cls, current_user_id: int, term: str, limit: int = 20):
         """
-        Search users by username (partial match) or exact name.
+        Search users by username (partial match), exact name, or exact email.
+
+        Email matching is deliberately exact-only: emails are never returned to
+        the client, and a full address is something you already know about a
+        person you are trying to add. Partial email matching would turn this
+        endpoint into an address harvester.
+
         Returns a list of (User, UserAvatar) tuples. Callers are responsible
         for annotating results with friendship / friend-request data.
         """
@@ -1426,10 +1432,12 @@ class User(db.Model):
         filters = [
             cls.username.like(f"%{escaped}%", escape="\\"),  # partial match for username
             cls.name == term,                                  # exact match for name
+            cls.email == term,                                 # exact match for email
         ]
 
-        # Relevance scoring: exact username match (0), prefix match (1), others (2)
+        # Relevance scoring: exact email/username match (0), prefix match (1), others (2)
         relevance = case(
+            (cls.email == term, 0),                     # exact email match
             (cls.username == term, 0),                  # exact username match
             (cls.username.like(f"{escaped}%", escape="\\"), 1),  # prefix match
             else_=2,

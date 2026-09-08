@@ -193,12 +193,37 @@ class TestUsernameSearch:
         assert results == []
 
     def test_search_users_exact_email_match(self, app, client):
-        """Email search is not supported; searching by email returns no results."""
-        logged_in(client, "emailsearch@zeeguu.test")
-        lc = logged_in(client, "emailsearcher@zeeguu.test")
+        """A full email address finds exactly the user who owns it."""
+        lc_target = logged_in(client, "emailsearch@zeeguu.test")
+        set_username(lc_target, "email_target_user")
 
+        lc = logged_in(client, "emailsearcher@zeeguu.test")
         results = lc.get("/search_users?query=emailsearch@zeeguu.test")
-        assert results == []
+        usernames = [r["username"] for r in results]
+        assert usernames == ["email_target_user"]
+
+    def test_search_users_email_never_returned(self, app, client):
+        """Email is a search key, never part of the response."""
+        lc_target = logged_in(client, "emailhidden@zeeguu.test")
+        set_username(lc_target, "email_hidden_user")
+
+        lc = logged_in(client, "emailhiddensearcher@zeeguu.test")
+        results = lc.get("/search_users?query=emailhidden@zeeguu.test")
+        assert len(results) == 1
+        assert "emailhidden@zeeguu.test" not in json.dumps(results)
+
+    def test_search_users_partial_email_does_not_match(self, app, client):
+        """Partial email matching would make this endpoint an address harvester."""
+        lc_target = logged_in(client, "partialemail@zeeguu.test")
+        set_username(lc_target, "partial_email_user")
+
+        lc = logged_in(client, "partialemailsearcher@zeeguu.test")
+        for partial in ["partialemail", "@zeeguu.test", "zeeguu.test"]:
+            import urllib.parse
+
+            results = lc.get("/search_users?query=" + urllib.parse.quote(partial))
+            usernames = [r["username"] for r in results]
+            assert "partial_email_user" not in usernames, f"partial '{partial}' matched by email"
 
     def test_search_users_percent_not_wildcard(self, app, client):
         """'%' in the search term is escaped and not treated as a SQL wildcard.

@@ -228,10 +228,14 @@ def search_by_search_term():
     users_and_avatars = User.search(flask.g.user_id, search_term)
     friendship_map   = Friendship.get_friendship_map(flask.g.user_id)
     friend_request_map = FriendRequest.get_request_map(flask.g.user_id)
+    # Languages and last_seen are what lets a searcher tell apart the several
+    # accounts that share a first name; without them every row looks the same.
+    languages_map = UserLanguage.by_user_id_for_users([user.id for user, _ in users_and_avatars])
     result = [
         _serialize_users_for_search_users({
             "user": user,
             "user_avatar": avatar,
+            "user_languages": languages_map.get(user.id),
             "friendship": friendship_map.get(user.id),
             "friend_request": friend_request_map.get(user.id),
         })
@@ -254,6 +258,8 @@ def _serialize_users_for_get_friends(user_data, is_own_friends_list: bool):
 def _serialize_users_for_search_users(user_data):
     result = _serialize_users_common(user_data, include_friendship_data=True)
     result["friend_request"] = _serialize_friend_request(user_data.get("friend_request"))
+    result["languages"] = _serialize_user_languages(user_data.get("user_languages"), include_streaks=False)
+    result["last_seen"] = _serialize_last_seen(user_data.get("user"))
     return result
 
 
@@ -270,6 +276,18 @@ def _serialize_user(user: User):
         "name": user.name,
         "username": user.username,
     }
+
+
+def _serialize_last_seen(user: User):
+    """
+    Coarse activity signal for search results. last_seen is only written once
+    per day (User.update_last_seen_if_needed), so this is day-granular by
+    construction and never exposes when someone was online.
+    """
+    if user is None or user.last_seen is None:
+        return None
+
+    return user.last_seen.isoformat()
 
 
 def _serialize_friendship(friendship: Friendship):
