@@ -765,6 +765,13 @@ class Article(db.Model):
             # parent_url so the reader's "Original:" link points at the real
             # source instead of the article's own zeeguu.org placeholder URL.
             result_dict["parent_url"] = self.source_upload.url.as_string()
+            # ...and the origin's level, for the reader's "Simplified to A1 from
+            # B2" byline. The upload row itself holds no level; the canonical
+            # article at the upload's URL does, and that is the same text the
+            # parent_article branch above would have described.
+            origin_article = self.source_upload.article
+            if origin_article and origin_article.cefr_level:
+                result_dict["parent_cefr_level"] = origin_article.cefr_level
 
         # Cross-language derivative → is_translated, a flag DISTINCT from
         # is_simplified (which is same-language level adaptation). Derived, not
