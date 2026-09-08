@@ -66,9 +66,6 @@ def create_app(testing=False):
     if testing:
         app.testing = True
 
-    # Initialize rate limiter for security-sensitive endpoints
-    init_limiter(app)
-
     load_configuration_or_abort(
         app,
         "ZEEGUU_CONFIG",
@@ -87,6 +84,11 @@ def create_app(testing=False):
             "SMTP_EMAIL",
         ],
     )
+
+    # Initialize the rate limiter for security-sensitive endpoints. This has to
+    # happen after the configuration is loaded, or RATELIMIT_STORAGE_URI is
+    # never seen and every worker silently keeps its own in-memory counters.
+    init_limiter(app, enabled=not testing)
 
     # if we don't specify the charset in the connection string
     # we are not able to store emojis
