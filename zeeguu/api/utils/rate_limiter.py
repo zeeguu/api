@@ -1,5 +1,6 @@
 # Rate limiting utilities for security-sensitive endpoints
 import flask
+from dataclasses import dataclass
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -13,34 +14,58 @@ limiter = None
 # sat inert from the day it was added; apply_rate_limits_to_endpoints now
 # refuses to start rather than let that happen again.
 
-# Limited per IP: nobody has a session yet at this point.
+
+@dataclass(frozen=True)
+class Limit:
+    """
+    rate:  a flask-limiter rate string.
+    key:   "ip" for endpoints reachable without a session, "session" for the
+           ones behind @requires_session, where an IP bucket would put a whole
+           class behind one school NAT into a single quota.
+    count: "failures" charges the bucket only for requests the endpoint
+           rejected. Successful logins are then free, which is what lets the
+           ceiling be low enough to matter without a classroom ever reaching
+           it: 60 students signing in correctly cost nothing at all.
+    """
+
+    rate: str
+    key: str = "ip"
+    count: str = "all"
+
+
 RATE_LIMITS = {
-    # Login endpoints - prevent brute force attacks
-    "endpoints.get_session": "5 per minute;20 per hour",
-    "endpoints.get_anon_session": "5 per minute;20 per hour",
+    # Login. Charged only for rejected attempts, so a room full of people
+    # signing in normally never touches this. What it caps is one host sitting
+    # there guessing, which is the only thing an IP bucket can honestly cap:
+    # anyone willing to rotate addresses walks around it regardless, and the
+    # defence that actually stops them is a per-account limit (not yet here).
+    "endpoints.get_session": Limit("100 per minute;1000 per hour", count="failures"),
+    "endpoints.get_anon_session": Limit("100 per minute;1000 per hour", count="failures"),
 
-    # Password reset endpoints - prevent abuse
-    "endpoints.send_code": "3 per minute;10 per hour",
-    "endpoints.reset_password": "5 per minute;20 per hour",
+    # Password reset. send_code sends real email, so abuse costs us money and
+    # reputation, but forgetting a password is normal and a school shares one
+    # address. Charged on failures only, same reasoning as login.
+    "endpoints.send_code": Limit("20 per minute;200 per hour", count="failures"),
+    "endpoints.reset_password": Limit("20 per minute;200 per hour", count="failures"),
 
-    # Account creation - higher limits to allow classroom signups (shared IP via NAT)
-    # Invite codes provide the primary protection against mass bot registration
-    "endpoints.add_user": "100 per hour",
-    "endpoints.add_basic_user": "100 per hour",
-    "endpoints.add_anon_user": "200 per hour",
-}
+    # Account creation. Invite codes are the primary protection against mass
+    # bot registration; this is only a ceiling on how fast one host can try.
+    # A whole school onboarding in one session has to fit under it.
+    "endpoints.add_user": Limit("500 per hour"),
+    "endpoints.add_basic_user": Limit("500 per hour"),
+    "endpoints.add_anon_user": Limit("500 per hour"),
 
-# Limited per session instead of per IP. These endpoints sit behind
-# @requires_session, so an IP bucket would put a whole classroom behind one
-# school NAT into a single quota — and "everyone add each other now" is a
-# normal lesson, not an attack.
-PER_SESSION_RATE_LIMITS = {
     # User search accepts a full email address as a search key. One lookup can
     # only confirm an address the searcher already typed, but without a ceiling
-    # a script could still sweep a wordlist to find out which addresses have an
-    # account. This is invisible to someone typing in the search box.
-    "endpoints.search_by_search_term": "60 per minute;600 per hour",
+    # a script could sweep a wordlist to find which addresses have an account.
+    # Per session, so one student's searching can't lock out the next desk.
+    "endpoints.search_by_search_term": Limit("60 per minute;600 per hour", key="session"),
 }
+
+
+def _was_rejected(response):
+    """Charge the bucket only when the endpoint turned the request away."""
+    return response.status_code in (400, 401, 403, 404)
 
 
 def _session_key():
@@ -97,12 +122,9 @@ def apply_rate_limits_to_endpoints(app):
     if limiter is None:
         return
 
-    all_limits = {
-        **{ep: (limit, get_remote_address) for ep, limit in RATE_LIMITS.items()},
-        **{ep: (limit, _session_key) for ep, limit in PER_SESSION_RATE_LIMITS.items()},
-    }
+    key_funcs = {"ip": get_remote_address, "session": _session_key}
 
-    missing = sorted(ep for ep in all_limits if ep not in app.view_functions)
+    missing = sorted(ep for ep in RATE_LIMITS if ep not in app.view_functions)
     if missing:
         # Skipping these quietly is what made the whole file decorative: the
         # config kept claiming that login was throttled while it wasn't.
@@ -112,14 +134,17 @@ def apply_rate_limits_to_endpoints(app):
             "blueprint is named 'endpoints'."
         )
 
-    for endpoint, (limit_string, key_func) in all_limits.items():
+    for endpoint, limit in RATE_LIMITS.items():
+        deduct_when = _was_rejected if limit.count == "failures" else None
         # The decorated function has to go back into the routing table. Calling
         # limiter.limit(...) for its side effect alone registers the limit
         # under a name that request dispatch never looks up, which enforces
         # nothing while still looking like a working call.
-        app.view_functions[endpoint] = limiter.limit(limit_string, key_func=key_func)(
-            app.view_functions[endpoint]
-        )
+        app.view_functions[endpoint] = limiter.limit(
+            limit.rate,
+            key_func=key_funcs[limit.key],
+            deduct_when=deduct_when,
+        )(app.view_functions[endpoint])
 
 
 def get_limiter():
