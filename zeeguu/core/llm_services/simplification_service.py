@@ -270,21 +270,14 @@ class SimplificationService:
 
             return generate_in_language(generate, target_language, _text_fields, context)
 
-        # Try Anthropic first (faster for real-time use)
-        if self.anthropic_api_key:
-            log(f"Using Anthropic for translation from {source_language} to {target_language} at {target_level}")
-            try:
-                return translated_by(
-                    lambda correction: self._translate_and_adapt_anthropic(
-                        title, content, source_lang_name, target_lang_name, target_level, correction
-                    )
-                )
-            except LanguageMismatchError as e:
-                log(f"Anthropic did not translate into {target_lang_name}, trying DeepSeek: {e}")
-            except Exception as e:
-                log(f"Anthropic translation failed, falling back to DeepSeek: {e}")
-
-        # Fallback to DeepSeek
+        # Try DeepSeek first. Measured 2026-09-08 on ro->da A1: Haiku carried the
+        # Romanian negation `Nu` through untranslated (it is also a Danish word,
+        # meaning "now"), inverting the headline's claim -- 0/5 runs correct,
+        # against 3/4 for DeepSeek. Cross-checked on da->fr, where DeepSeek was
+        # also more faithful (it kept the article's subject in the title, which
+        # Haiku dropped under A1 pressure) and ~30% faster (6.0s vs 8.5s median).
+        # Anthropic stays as the fallback below, which also keeps this path
+        # working when the Anthropic monthly cap is hit.
         if self.deepseek_api_key:
             log(f"Using DeepSeek for translation from {source_language} to {target_language} at {target_level}")
             try:
@@ -294,9 +287,23 @@ class SimplificationService:
                     )
                 )
             except LanguageMismatchError as e:
-                log(f"DeepSeek did not translate into {target_lang_name}, giving up: {e}")
+                log(f"DeepSeek did not translate into {target_lang_name}, trying Anthropic: {e}")
             except Exception as e:
-                log(f"DeepSeek translation failed: {e}")
+                log(f"DeepSeek translation failed, falling back to Anthropic: {e}")
+
+        # Fallback to Anthropic
+        if self.anthropic_api_key:
+            log(f"Using Anthropic for translation from {source_language} to {target_language} at {target_level}")
+            try:
+                return translated_by(
+                    lambda correction: self._translate_and_adapt_anthropic(
+                        title, content, source_lang_name, target_lang_name, target_level, correction
+                    )
+                )
+            except LanguageMismatchError as e:
+                log(f"Anthropic did not translate into {target_lang_name}, giving up: {e}")
+            except Exception as e:
+                log(f"Anthropic translation failed: {e}")
 
         log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
         return None
