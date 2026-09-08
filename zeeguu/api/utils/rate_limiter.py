@@ -42,10 +42,17 @@ RATE_LIMITS = {
     "endpoints.get_session": Limit("100 per minute;1000 per hour", count="failures"),
     "endpoints.get_anon_session": Limit("100 per minute;1000 per hour", count="failures"),
 
-    # Password reset. send_code sends real email, so abuse costs us money and
-    # reputation, but forgetting a password is normal and a school shares one
-    # address. Charged on failures only, same reasoning as login.
-    "endpoints.send_code": Limit("20 per minute;200 per hour", count="failures"),
+    # Requesting a reset code. Deliberately answers "OK" even for addresses
+    # that don't exist, so that it can't be used to enumerate users - which
+    # means charging on failures would never charge anything at all, and the
+    # limit would be decorative. Here the *successful* request is the costly
+    # one: it puts real mail in someone's inbox on our SMTP bill, and a loop
+    # over one address is an email bomb. So every request counts. Forgetting a
+    # password is rare enough that a whole school stays far under this.
+    "endpoints.send_code": Limit("20 per minute;200 per hour"),
+
+    # Submitting a code. A wrong code is a 400, so this caps guessing while a
+    # legitimate reset costs nothing.
     "endpoints.reset_password": Limit("20 per minute;200 per hour", count="failures"),
 
     # Account creation. Invite codes are the primary protection against mass
