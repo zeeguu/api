@@ -21,7 +21,11 @@ class Limit:
     rate:  a flask-limiter rate string.
     key:   "ip" for endpoints reachable without a session, "session" for the
            ones behind @requires_session, where an IP bucket would put a whole
-           class behind one school NAT into a single quota.
+           class behind one school NAT into a single quota, and "target_email"
+           for endpoints that act on an address named in the route.
+
+           An endpoint may carry several limits with different keys: a tight
+           one on what is being protected, and a looser per-IP backstop.
     count: "failures" charges the bucket only for requests the endpoint
            rejected. Successful logins are then free, which is what lets the
            ceiling be low enough to matter without a classroom ever reaching
@@ -46,10 +50,19 @@ RATE_LIMITS = {
     # that don't exist, so that it can't be used to enumerate users - which
     # means charging on failures would never charge anything at all, and the
     # limit would be decorative. Here the *successful* request is the costly
-    # one: it puts real mail in someone's inbox on our SMTP bill, and a loop
-    # over one address is an email bomb. So every request counts. Forgetting a
-    # password is rare enough that a whole school stays far under this.
-    "endpoints.send_code": Limit("20 per minute;200 per hour"),
+    # one: it puts real mail in someone's inbox on our SMTP bill.
+    #
+    # Keyed first on the address being mailed, because that inbox is what
+    # needs protecting and the host doing the asking can move: an attacker
+    # rotating IPs walks around any per-IP number, but cannot send a sixth
+    # message this hour to someone who has already had five. Nobody legitimate
+    # needs more, so there is no crowd to catch - a whole school forgetting
+    # their passwords is still one request each. The per-IP limit stays on as
+    # a backstop against spraying one message at each of many addresses.
+    "endpoints.send_code": (
+        Limit("5 per hour", key="target_email"),
+        Limit("20 per minute;200 per hour"),
+    ),
 
     # Submitting a code. A wrong code is a 400, so this caps guessing while a
     # legitimate reset costs nothing.
@@ -73,6 +86,16 @@ RATE_LIMITS = {
 def _was_rejected(response):
     """Charge the bucket only when the endpoint turned the request away."""
     return response.status_code in (400, 401, 403, 404)
+
+
+def _target_email_key():
+    """
+    Rate-limit key for endpoints that act on an address named in the route,
+    so the limit protects the person on the receiving end rather than
+    throttling whoever happens to be asking.
+    """
+    email = (flask.request.view_args or {}).get("email") or ""
+    return f"email:{email.strip().lower()}"
 
 
 def _session_key():
@@ -129,7 +152,11 @@ def apply_rate_limits_to_endpoints(app):
     if limiter is None:
         return
 
-    key_funcs = {"ip": get_remote_address, "session": _session_key}
+    key_funcs = {
+        "ip": get_remote_address,
+        "session": _session_key,
+        "target_email": _target_email_key,
+    }
 
     missing = sorted(ep for ep in RATE_LIMITS if ep not in app.view_functions)
     if missing:
@@ -141,17 +168,18 @@ def apply_rate_limits_to_endpoints(app):
             "blueprint is named 'endpoints'."
         )
 
-    for endpoint, limit in RATE_LIMITS.items():
-        deduct_when = _was_rejected if limit.count == "failures" else None
-        # The decorated function has to go back into the routing table. Calling
-        # limiter.limit(...) for its side effect alone registers the limit
-        # under a name that request dispatch never looks up, which enforces
-        # nothing while still looking like a working call.
-        app.view_functions[endpoint] = limiter.limit(
-            limit.rate,
-            key_func=key_funcs[limit.key],
-            deduct_when=deduct_when,
-        )(app.view_functions[endpoint])
+    for endpoint, limits in RATE_LIMITS.items():
+        for limit in (limits,) if isinstance(limits, Limit) else limits:
+            deduct_when = _was_rejected if limit.count == "failures" else None
+            # The decorated function has to go back into the routing table.
+            # Calling limiter.limit(...) for its side effect alone registers
+            # the limit under a name that request dispatch never looks up,
+            # which enforces nothing while still looking like a working call.
+            app.view_functions[endpoint] = limiter.limit(
+                limit.rate,
+                key_func=key_funcs[limit.key],
+                deduct_when=deduct_when,
+            )(app.view_functions[endpoint])
 
 
 def get_limiter():
