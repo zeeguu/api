@@ -73,6 +73,38 @@ def parse_llm_json(reply: str) -> Optional[Dict]:
     return (with_content or objects)[-1]
 
 
+def _title_rule(source_language: str, target_language: str) -> str:
+    """
+    A guard for the title, applied at every level and by both providers.
+
+    Measured 2026-09-08 on ro->da: across every model and every prompt variant
+    tried, the `summary` field carried the article's negation correctly and the
+    `title` field did not -- same model, same JSON response. So this is not a
+    comprehension failure and not the level constraints; the title alone
+    anchors on the source's surface form. Romanian `Nu` (a negation) survived
+    untranslated because it is also a Danish word meaning "now", which inverted
+    the headline's claim and shipped to a reader.
+
+    The guard therefore belongs on the title and not on the body's level rules.
+    Those rules read as excessive, but they are load-bearing: softening them let
+    B2 vocabulary into A1 output, pushed Sonnet past the max_tokens cap, and
+    broke a title DeepSeek had previously got right.
+    """
+    return f"""TITLE - TRANSLATE IT, DO NOT ECHO IT:
+The title is the likeliest place to make a meaning error, because it is short
+and you are tempted to keep the original's shape. Do not.
+- Read the original title, state its claim to yourself, then write that claim
+  in {target_language} from scratch.
+- NEVER keep a leading word from the {source_language} title because it is
+  short or because that spelling also exists in {target_language}. It is a
+  different word with a different meaning, and keeping it can reverse the
+  title's claim.
+- If the original title says something is NOT the case, your title must also
+  say it is NOT the case, using a real {target_language} negation.
+- Final check on the title alone: does it assert the SAME thing as the
+  original, or the opposite? If the opposite, rewrite it."""
+
+
 class SimplificationService:
     """Service for text simplification using LLM fallback chain (Anthropic → DeepSeek)"""
 
@@ -601,6 +633,7 @@ TOPIC: [topic]"""
         # Get level-specific prompt
         log(f"Anthropic: Calling _get_level_specific_prompt with target_level={target_level}, source_language={source_language}, target_language={target_language}")
         level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
+        title_rule = _title_rule(source_language, target_language)
         
         prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
 in your head and output ONLY the STEP 2 result: one JSON object, nothing before
@@ -609,6 +642,8 @@ or after it — no step headings, no code fences, and NOT the STEP 1 translation
 STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
 
 STEP 2: {level_prompt}
+
+{title_rule}
 
 CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
 
@@ -697,6 +732,7 @@ IMPORTANT:
         
         # Get level-specific prompt
         level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
+        title_rule = _title_rule(source_language, target_language)
         
         prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
 in your head and output ONLY the STEP 2 result: one JSON object, nothing before
@@ -705,6 +741,8 @@ or after it — no step headings, no code fences, and NOT the STEP 1 translation
 STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
 
 STEP 2: {level_prompt}
+
+{title_rule}
 
 CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
 
