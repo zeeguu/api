@@ -28,6 +28,51 @@ def _text_fields(result: Dict) -> list:
     ]
 
 
+def parse_llm_json(reply: str) -> Optional[Dict]:
+    """
+    Pull the result object out of an LLM reply, tolerating the two ways these
+    replies routinely fail `json.loads` — both of which used to throw away a
+    perfectly good translation and hand the reader a 500:
+
+    1. Literal newlines inside string values. Models write markdown into
+       `content` with real line breaks rather than `\n`; strict JSON rejects
+       control characters in strings. `strict=False` accepts them.
+
+    2. More than one JSON object in the reply. The translate prompts ask for a
+       two-step job (translate, then adapt), and a model that takes the steps
+       literally emits one object per step, sometimes with ``` fences and step
+       headings between them. `json.loads` then fails with "Extra data". We
+       decode every object and keep the last one that looks like a result —
+       the final step's output, i.e. the adapted version we asked for.
+
+    Returns None when nothing decodable is in there.
+    """
+    import json
+
+    decoder = json.JSONDecoder(strict=False)
+    objects = []
+    index = 0
+    while True:
+        start = reply.find("{", index)
+        if start == -1:
+            break
+        try:
+            obj, end = decoder.raw_decode(reply, start)
+        except ValueError:
+            # Not the start of a complete object (a stray brace in prose, or a
+            # truncated tail) — step past it and keep looking.
+            index = start + 1
+            continue
+        if isinstance(obj, dict):
+            objects.append(obj)
+        index = end
+
+    if not objects:
+        return None
+    with_content = [o for o in objects if o.get("content")]
+    return (with_content or objects)[-1]
+
+
 class SimplificationService:
     """Service for text simplification using LLM fallback chain (Anthropic → DeepSeek)"""
 
@@ -550,7 +595,9 @@ TOPIC: [topic]"""
         log(f"Anthropic: Calling _get_level_specific_prompt with target_level={target_level}, source_language={source_language}, target_language={target_language}")
         level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
         
-        prompt = f"""You must complete this task in TWO CLEAR STEPS:
+        prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
+in your head and output ONLY the STEP 2 result: one JSON object, nothing before
+or after it — no step headings, no code fences, and NOT the STEP 1 translation.
 
 STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
 
@@ -607,19 +654,14 @@ IMPORTANT:
             return None
 
         try:
-            import re
             import json
             import markdown2
 
-            # Strip a ```json ... ``` fence if the model wrapped its reply.
-            if result_text.startswith("```"):
-                result_text = re.sub(r'^```(?:json)?\n', '', result_text)
-                result_text = re.sub(r'\n```$', '', result_text)
-                result_text = result_text.strip()
-
-            # LLMs often return JSON with literal newlines inside string values
-            # (instead of \n), which strict JSON rejects.
-            result = json.loads(result_text, strict=False)
+            result = parse_llm_json(result_text)
+            if not result:
+                log("No JSON object in the Anthropic reply")
+                log(f"Problematic JSON response: {result_text}")
+                return None
 
             if "content" in result and result["content"]:
                 result["content"] = markdown2.markdown(
@@ -649,7 +691,9 @@ IMPORTANT:
         # Get level-specific prompt
         level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
         
-        prompt = f"""You must complete this task in TWO CLEAR STEPS:
+        prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
+in your head and output ONLY the STEP 2 result: one JSON object, nothing before
+or after it — no step headings, no code fences, and NOT the STEP 1 translation.
 
 STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
 
@@ -719,18 +763,14 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                         )
                         return None
 
-                    # Clean up markdown code blocks if present
-                    import re
-                    if result_text.startswith("```"):
-                        # Remove markdown code blocks
-                        result_text = re.sub(r'^```(?:json)?\n', '', result_text)
-                        result_text = re.sub(r'\n```$', '', result_text)
-                        result_text = result_text.strip()
-                    
-                    # Parse JSON response
                     import json
                     import markdown2
-                    result = json.loads(result_text)
+
+                    result = parse_llm_json(result_text)
+                    if not result:
+                        log("No JSON object in the DeepSeek reply")
+                        log(f"Raw response: {result_text}")
+                        return None
                     
                     # Convert markdown content to HTML
                     if "content" in result and result["content"]:
