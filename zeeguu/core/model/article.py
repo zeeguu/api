@@ -781,13 +781,18 @@ class Article(db.Model):
         # simplified".) The crawl→translate path sets neither link and encodes the
         # origin in a #translated-from URL fragment instead, so it's not derivable
         # here yet — see unify-translated-copies-onto-parent.md.
-        origin_language_id = None
+        origin_language = None
         if self.source_upload_id and self.source_upload:
-            origin_language_id = self.source_upload.language_id
+            origin_language = self.source_upload.language
         elif self.parent_article_id and self.parent_article:
-            origin_language_id = self.parent_article.language_id
-        if origin_language_id and self.language_id and origin_language_id != self.language_id:
+            origin_language = self.parent_article.language
+        if origin_language and self.language_id and origin_language.id != self.language_id:
             result_dict["is_translated"] = True
+            # ...and WHICH language it came from, so the reader can fly that
+            # flag beside the "Original:" link. is_translated alone says a
+            # translation happened but not from where, and "Original: dr.dk"
+            # gives no hint that following it lands you in Danish.
+            result_dict["parent_language"] = origin_language.code
 
         if self.authors:
             result_dict["authors"] = self.authors
