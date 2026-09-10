@@ -31,6 +31,49 @@ class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
 
     @classmethod
+    def validate_scheduled_user_word(cls, user_word_id):
+        """
+        Validate a just-scheduled word off the exercise-report hot path.
+
+        Designed to run from `run_in_background` (which gives it its own Flask
+        app context and thread-local db.session) or from the nightly
+        tools/validate_scheduled_meanings.py batch. It re-queries by id, so it is
+        safe to hand only an id across the thread boundary.
+
+        Idempotent: a word whose meaning is already VALID is a no-op. Otherwise it
+        validates + fixes the translation (which may re-home the word to a
+        corrected meaning) and, if the word turns out unfit or a duplicate,
+        removes it from the schedule so it leaves the exercise rotation.
+        """
+        from zeeguu.core.model.db import db
+        from zeeguu.core.model.user_word import UserWord
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        db_session = db.session
+
+        user_word = UserWord.query.get(user_word_id)
+        if user_word is None:
+            return
+        if user_word.meaning.validated == Meaning.VALID:
+            return  # already validated — nothing to do
+
+        fixed_user_word = cls.validate_and_fix(db_session, user_word)
+        if fixed_user_word is None:
+            # Invalid with no usable correction: drop it from the rotation so a
+            # known-bad translation doesn't keep coming up in exercises.
+            BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
+            return
+
+        # validate_and_fix may have re-homed to a corrected UserWord; run the
+        # duplicate check against whichever word we ended up with.
+        if cls.check_for_duplicate_meaning(db_session, fixed_user_word):
+            BasicSRSchedule.clear_user_word_schedule(db_session, fixed_user_word)
+            return
+
+        db_session.commit()
+
+    @classmethod
     def check_for_duplicate_meaning(cls, db_session, user_word) -> bool:
         """
         Check if this user_word is a duplicate of another word the user is already learning or has learned.
