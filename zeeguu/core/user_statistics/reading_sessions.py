@@ -116,7 +116,8 @@ def translations_in_interval(start_time, end_time, user_id):
             join meaning as m on um.meaning_id = m.id
             join phrase as origin_phrase on m.origin_id = origin_phrase.id
             join phrase as translation_phrase on m.translation_id = translation_phrase.id
-            join text as t on b.text_id = t.id
+            join bookmark_context bc on b.context_id = bc.id
+            join new_text t on bc.text_id = t.id
             left join exercise e on um.id = e.user_word_id
         
         where 

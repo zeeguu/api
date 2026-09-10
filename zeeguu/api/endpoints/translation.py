@@ -60,7 +60,6 @@ def translate_word(from_lang_code, to_lang_code):
     c_paragraph_i = request.json.get("c_paragraph_i", None)
     c_sent_i = request.json.get("c_sent_i", None)
     c_token_i = request.json.get("c_token_i", None)
-    article_id = request.json.get("articleID", None)
     source_id = request.json.get("source_id", None)
     in_content = request.json.get("in_content", None)
     left_ellipsis = request.json.get("left_ellipsis", None)
@@ -149,7 +148,6 @@ def translate_word(from_lang_code, to_lang_code):
                 t1["translation"],
                 to_lang_code,
                 context,
-                article_id,
                 source_id,
                 c_paragraph_i=c_paragraph_i,
                 c_sentence_i=c_sent_i,
@@ -535,18 +533,16 @@ def update_bookmark_full(bookmark_id):
     context_unchanged = bookmark.context and bookmark.context.text.content == context_str
 
     if word_unchanged and context_unchanged:
-        # Translation-only update: keep existing text and context
+        # Translation-only update: keep existing context to preserve position
         print(f"[UPDATE_BOOKMARK] Word and context unchanged, keeping existing to preserve position")
-        text = bookmark.text
         context = bookmark.context
     else:
-        # Word or context changed: need to find/create new text and context
-        text, context = find_or_create_context(db_session, context_str, context_type, bookmark)
+        # Word or context changed: need to find/create a new context
+        context = find_or_create_context(db_session, context_str, context_type, bookmark)
 
     # Step 4: Find or create UserWord for new meaning
-    # Save original context/text info BEFORE reassigning (needed for change detection later)
+    # Save original context info BEFORE reassigning (needed for change detection later)
     old_context_id = bookmark.context_id
-    old_text_id = bookmark.text_id
     print(
         f"[UPDATE_BOOKMARK] Old UserWord: {old_user_word.id}, word: '{old_user_word.meaning.origin.content}'"
     )
@@ -564,7 +560,6 @@ def update_bookmark_full(bookmark_id):
 
     # Step 6: Reassign bookmark to new entities
     bookmark.user_word_id = new_user_word.id
-    bookmark.text = text
     bookmark.context = context
     db_session.add(bookmark)
     # Flush bookmark reassignment BEFORE setting preferred_bookmark_id
@@ -686,7 +681,6 @@ def contribute_translation(from_lang_code, to_lang_code):
         translation_str,
         to_lang_code,
         context,
-        article_id,
         source_id=source_id,
         c_paragraph_i=c_paragraph_i,
         c_sentence_i=c_sent_i,
