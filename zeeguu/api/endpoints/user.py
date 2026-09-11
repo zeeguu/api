@@ -270,14 +270,14 @@ def _validated_settings(user, data):
         )
         User.validated_feed_variety(feed_variety_language_code, submitted_feed_variety)
 
-    # Same shape as the feed variety above, and a separate setting: which accent
-    # to be read in is not the same question as which country's news to read.
-    submitted_voice_variety = data.get("voice_variety", None)
-    if submitted_voice_variety is not None:
-        voice_language_code = (
+    # Same shape as the feed variety above, and a separate setting: which dialect
+    # you are learning is not the same question as which country's news to read.
+    submitted_dialect = data.get("dialect", None)
+    if submitted_dialect is not None:
+        dialect_language_code = (
             data.get("learned_language", None) or user.learned_language.code
         )
-        User.validated_voice_variety(voice_language_code, submitted_voice_variety)
+        User.validated_dialect(dialect_language_code, submitted_dialect)
 
     return validated
 
@@ -326,7 +326,7 @@ def user_settings():
             - username (must be unique)
             - native_language
             - learned_language (with optional CEFR level and feed variety)
-            - voice_variety (the accent audio lessons are read in)
+            - dialect (which variety of the learned language is being studied)
             - email (must be unique)
             - password
             - avatar (image name, character color, background color)
@@ -375,7 +375,7 @@ def user_settings():
         submitted_learned_language_code = data.get("learned_language", None)
         # Absent means "leave the feed variety alone"; empty means "no preference".
         submitted_feed_variety = data.get("feed_variety", None)
-        submitted_voice_variety = data.get("voice_variety", None)
+        submitted_dialect = data.get("dialect", None)
 
         if submitted_learned_language_code:
             user.set_learned_language(
@@ -392,10 +392,10 @@ def user_settings():
             )
 
         # After the language switch above, so that a request carrying both writes
-        # the voice onto the language the learner just moved to.
-        if submitted_voice_variety is not None:
-            user.set_learned_language_voice_variety(
-                submitted_voice_variety, zeeguu.core.model.db.session
+        # the dialect onto the language the learner just moved to.
+        if submitted_dialect is not None:
+            user.set_learned_language_dialect(
+                submitted_dialect, zeeguu.core.model.db.session
             )
 
         zeeguu.core.model.db.session.add(user)

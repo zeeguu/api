@@ -132,47 +132,47 @@ class VoiceAvailabilityTest(TestCase):
         ]
 
 
-class ValidatedVoiceVarietyTest(TestCase):
-    def test_a_voice_variety_is_stored_uppercased(self):
-        assert User.validated_voice_variety("nl", "be") == "BE"
+class ValidatedDialectTest(TestCase):
+    def test_a_dialect_is_stored_uppercased(self):
+        assert User.validated_dialect("nl", "be") == "BE"
 
     def test_empty_means_no_preference(self):
-        assert User.validated_voice_variety("nl", "") is None
+        assert User.validated_dialect("nl", "") is None
 
-    def test_a_variety_with_no_voice_is_refused(self):
+    def test_a_dialect_with_no_voice_is_refused(self):
         # BE is a real variety of French with real feeds behind it -- and no
         # voice. Storing it would show the learner an accent they never hear.
         try:
-            User.validated_voice_variety("fr", "BE")
+            User.validated_dialect("fr", "BE")
             assert False, "French has no Belgian voice"
         except ValueError:
             pass
 
 
-class VoiceVarietyPreferenceTest(ModelTestMixIn):
+class DialectPreferenceTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
         self.user = UserRule().user
         self.dutch = LanguageRule().nl
 
     def test_no_preference_is_the_default(self):
-        assert UserLanguage.voice_variety_for(self.user, self.dutch) is None
+        assert UserLanguage.dialect_for(self.user, self.dutch) is None
 
     def test_a_saved_preference_comes_back(self):
         user_language = UserLanguage.find_or_create(db_session, self.user, self.dutch)
-        user_language.voice_variety = "BE"
+        user_language.dialect = "BE"
         db_session.commit()
 
-        assert UserLanguage.voice_variety_for(self.user, self.dutch) == "BE"
+        assert UserLanguage.dialect_for(self.user, self.dutch) == "BE"
 
-    def test_the_voice_does_not_follow_the_feed(self):
+    def test_the_dialect_does_not_follow_the_feed(self):
         # Two settings, two questions. A learner who picked Belgian sources has
-        # not thereby asked to be read to in Flemish.
+        # not thereby said they are learning Flemish.
         user_language = UserLanguage.find_or_create(db_session, self.user, self.dutch)
         user_language.feed_variety = "BE"
         db_session.commit()
 
-        assert UserLanguage.voice_variety_for(self.user, self.dutch) is None
+        assert UserLanguage.dialect_for(self.user, self.dutch) is None
 
 
 class AudioLessonCacheKeyTest(ModelTestMixIn):

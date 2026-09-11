@@ -15,9 +15,11 @@ def system_languages():
     # from here so the client does not keep a second copy of a list that has to
     # agree with how the feeds are tagged.
     result["varieties"] = variety_catalogue()
-    # The accents an audio lesson can actually be read in, which is a shorter
-    # list: French offers Belgium here and Google has no Belgian French voice.
-    result["voice_varieties"] = voice_catalogue()
+    # The dialects a learner may choose, a shorter list than the one above:
+    # French offers Belgium there and Google has no Belgian French voice. Gated on
+    # the voices because the audio lesson is the only feature honouring a dialect
+    # so far -- it widens when the translator and the LLM prompt read it too.
+    result["dialects"] = voice_catalogue()
     result["learnable_languages"] = list(
         map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages())
     )

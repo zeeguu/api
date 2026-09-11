@@ -82,9 +82,9 @@ def output(text=""):
 
 
 def voice_variety_for_language(user, language):
-    """The accent to voice this language in for this user, or None."""
+    """The learner's dialect for this language, narrowed to what changes the voice."""
     return distinguishing_variety(
-        language.code, UserLanguage.voice_variety_for(user, language)
+        language.code, UserLanguage.dialect_for(user, language)
     )
 
 

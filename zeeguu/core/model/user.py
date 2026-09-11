@@ -320,7 +320,7 @@ class User(db.Model):
             result[each.language.code + "_exercises"] = each.doing_exercises
             result[each.language.code + "_cefr_level"] = each.cefr_level
             result[each.language.code + "_feed_variety"] = each.feed_variety
-            result[each.language.code + "_voice_variety"] = each.voice_variety
+            result[each.language.code + "_dialect"] = each.dialect
 
         return result
 
@@ -418,49 +418,49 @@ class User(db.Model):
         if session:
             session.add(language)
 
-    def set_learned_language_voice_variety(self, variety: str, session=None):
+    def set_learned_language_dialect(self, dialect: str, session=None):
         """
-        Change only the accent the audio lessons are read in.
+        Change only which variety of the learned language is being studied.
 
         A sibling of set_learned_language_feed_variety rather than a parameter:
         the two answer different questions (which country's news, which country's
-        accent) and a learner who changes one has said nothing about the other.
+        dialect) and a learner who changes one has said nothing about the other.
         """
         from zeeguu.core.model import UserLanguage
 
         # Validated first, for the same reason as in set_learned_language.
-        variety_to_store = self.validated_voice_variety(
-            self.learned_language.code, variety
-        )
+        dialect_to_store = self.validated_dialect(self.learned_language.code, dialect)
 
         language = UserLanguage.find_or_create(session, self, self.learned_language)
-        language.voice_variety = variety_to_store
+        language.dialect = dialect_to_store
 
         if session:
             session.add(language)
 
     @staticmethod
-    def validated_voice_variety(language_code: str, variety: str):
+    def validated_dialect(language_code: str, dialect: str):
         """
-        The voice variety to store: None for "no preference", a ValueError for
-        anything no voice can read.
+        The dialect to store: None for "no preference", a ValueError for anything
+        nothing downstream would honour.
 
-        Checked against the voices rather than against the catalogue of
-        varieties. Belgian French is a real variety with real feeds and no Google
-        voice at all, so storing BE here would leave the settings screen showing
-        an accent the learner will never hear.
+        Checked against the voices rather than against the catalogue of varieties,
+        because the audio lesson is the only feature honouring a dialect so far.
+        Belgian French is a real variety with real feeds and no Google voice at
+        all, so storing BE here would leave the settings screen showing a choice
+        that changes nothing the learner can hear. The check widens when the
+        translator and the LLM prompt start reading this too.
         """
         from zeeguu.core.audio_lessons.voice_config import countries_with_voices
 
-        variety = (variety or "").strip().upper()
-        if not variety:
+        dialect = (dialect or "").strip().upper()
+        if not dialect:
             return None
-        if variety not in countries_with_voices(language_code):
-            raise ValueError(f"{language_code} has no voice for {variety}")
-        return variety
+        if dialect not in countries_with_voices(language_code):
+            raise ValueError(f"{language_code} has no voice for {dialect}")
+        return dialect
 
     @staticmethod
-    def validated_feed_variety(language_code: str, variety: str):
+    def validated_feed_variety(language_code: str, feed_variety: str):
         """
         The feed variety to store for a language: None for "no preference", and a
         ValueError for anything the catalogue does not offer -- a variety that
@@ -469,12 +469,12 @@ class User(db.Model):
         """
         from zeeguu.core.language.varieties import is_supported
 
-        variety = (variety or "").strip().upper()
-        if not variety:
+        feed_variety = (feed_variety or "").strip().upper()
+        if not feed_variety:
             return None
-        if not is_supported(language_code, variety):
-            raise ValueError(f"{variety} is not a variety of {language_code}")
-        return variety
+        if not is_supported(language_code, feed_variety):
+            raise ValueError(f"{feed_variety} is not a variety of {language_code}")
+        return feed_variety
 
     def set_learned_language_level(
         self, language_code: str, cefr_level: str, session=None
