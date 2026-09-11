@@ -141,6 +141,14 @@ class BasicSRSchedule(db.Model):
         # pipeline is not full, and the word was not scheduled before
         if not schedule and not more_scheduled_words_than_user_prefers:
             schedule = cls.find_or_create(db_session, user_word)
+            if not schedule:
+                # find_or_create declines a word whose translation failed
+                # validation, that is unfit for study, or that duplicates a
+                # meaning already being learned. Those are decisions, not
+                # failures -- but calling update_schedule on the None it hands
+                # back raised AttributeError into the endpoint's catch-all,
+                # which answered FAIL and took the learner's exercise with it.
+                return
 
         schedule.update_schedule(db_session, correctness, time)
 

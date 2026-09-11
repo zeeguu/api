@@ -14,8 +14,13 @@ from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsP
 db_session = db.session
 
 
-class SchedulingRaceTest(ModelTestMixIn):
+class SchedulingLostAnswersTest(ModelTestMixIn):
     """
+    Two ways the scheduler used to lose a learner's exercise answer. Both ended
+    the same way: an exception out of the scheduler, into the catch-all in
+    /report_exercise_outcome, answered as "FAIL", with the pending Exercise row
+    rolled back.
+
     basic_sr_schedule has UNIQUE (user_word_id). Two requests scheduling the same
     word both find nothing and both insert; one of them loses.
 
@@ -113,3 +118,24 @@ class SchedulingRaceTest(ModelTestMixIn):
         assert (
             BasicSRSchedule.query.filter_by(user_word_id=bystander_word.id).count() == 1
         ), "the caller's pending row was rolled back with the failed insert"
+
+    def test_a_word_the_scheduler_declines_does_not_lose_the_answer(self):
+        """
+        find_or_create returns None for a word whose translation failed
+        validation, that is unfit for study, or that duplicates a meaning already
+        being learned. update() went straight on to schedule.update_schedule(),
+        which is an AttributeError on None -- and the learner's answer went down
+        with it.
+        """
+        from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+
+        user_word = BookmarkRule(self.user).bookmark.user_word
+
+        with patch.object(
+            FourLevelsPerWord, "find_or_create", classmethod(lambda cls, s, uw: None)
+        ):
+            FourLevelsPerWord.update(db_session, user_word, ExerciseOutcome.CORRECT)
+
+        # Nothing scheduled, which is the point -- and no exception, so the
+        # caller still commits the exercise.
+        assert BasicSRSchedule.query.filter_by(user_word_id=user_word.id).count() == 0
