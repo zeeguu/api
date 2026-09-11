@@ -284,6 +284,12 @@ def user_settings():
                 zeeguu.core.model.db.session,
                 variety=submitted_variety,
             )
+        elif submitted_variety is not None:
+            # A client that changed only the variety sends only the variety; without
+            # this it would get a 200 and no save.
+            user.set_learned_language_variety(
+                submitted_variety, zeeguu.core.model.db.session
+            )
 
         submitted_email = data.get("email", None)
         if submitted_email:

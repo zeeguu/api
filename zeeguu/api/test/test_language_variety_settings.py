@@ -1,7 +1,7 @@
 import json
 
 from zeeguu.api.test.fixtures import client, LoggedInClient
-from zeeguu.core.model import Language, User
+from zeeguu.core.model import Language, User, UserLanguage
 
 TEST_PASS = "test"
 
@@ -11,7 +11,20 @@ def logged_in(app, client, email):
     # starts with only the languages other fixtures happened to create.
     with app.app_context():
         Language.find_or_create("nl")
+        Language.find_or_create("pt")
     return LoggedInClient(client, email=email, password=TEST_PASS)
+
+
+def stored_user(app, email):
+    with app.app_context():
+        user = User.find(email)
+        return dict(
+            learned_language=user.learned_language.code,
+            varieties={
+                each.language.code: each.variety
+                for each in UserLanguage.query.filter_by(user=user)
+            },
+        )
 
 
 def save_settings(lc, **data):
@@ -58,6 +71,55 @@ class TestLanguageVarietyRoundTrip:
         lc = logged_in(app, client, "wrongvariety@zeeguu.test")
         response = save_settings(lc, learned_language="nl", variety="MX")
         assert response.status_code == 400
+
+    def test_a_refused_variety_changes_nothing_at_all(self, app, client):
+        # The rejection has to reach the database as nothing, not as "the language
+        # switched but the variety did not". UserLanguage.find_or_create commits,
+        # so validating after it would put the switch beyond the caller's rollback
+        # -- and only for a language the user has no row for yet, which is exactly
+        # when someone picks a variety.
+        lc = logged_in(app, client, "nopartial@zeeguu.test")
+        save_settings(lc, learned_language="nl", variety="BE")
+        before = stored_user(app, "nopartial@zeeguu.test")
+
+        response = save_settings(lc, learned_language="pt", variety="MX")
+
+        assert response.status_code == 400
+        assert stored_user(app, "nopartial@zeeguu.test") == before
+
+
+class TestVarietyWithoutALanguageChange:
+    """
+    A client that changed only the variety sends only the variety.
+    """
+
+    def test_a_lone_variety_is_saved_for_the_learned_language(self, app, client):
+        lc = logged_in(app, client, "lone@zeeguu.test")
+        save_settings(lc, learned_language="nl")
+
+        assert save_settings(lc, variety="BE").status_code == 200
+        assert user_details(lc)["nl_variety"] == "BE"
+
+    def test_a_lone_variety_can_clear_the_preference(self, app, client):
+        lc = logged_in(app, client, "loneclear@zeeguu.test")
+        save_settings(lc, learned_language="nl", variety="BE")
+
+        assert save_settings(lc, variety="").status_code == 200
+        assert user_details(lc)["nl_variety"] is None
+
+    def test_a_lone_variety_of_another_language_is_refused(self, app, client):
+        lc = logged_in(app, client, "lonewrong@zeeguu.test")
+        save_settings(lc, learned_language="nl")
+
+        assert save_settings(lc, variety="BR").status_code == 400
+        assert user_details(lc)["nl_variety"] is None
+
+    def test_saving_something_else_leaves_the_variety_alone(self, app, client):
+        lc = logged_in(app, client, "othersave@zeeguu.test")
+        save_settings(lc, learned_language="nl", variety="BE")
+
+        assert save_settings(lc, name="Renamed").status_code == 200
+        assert user_details(lc)["nl_variety"] == "BE"
 
     def test_the_catalogue_is_served_to_the_client(self, app, client):
         varieties = json.loads(client.get("/system_languages").data)["varieties"]

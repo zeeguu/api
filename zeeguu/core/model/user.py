@@ -357,6 +357,14 @@ class User(db.Model):
         session=None,
         variety: str = None,
     ):
+        # Validated before anything is mutated. UserLanguage.find_or_create below
+        # commits, so a variety rejected after that point would leave the language
+        # already switched and the previous one's reading and exercises already
+        # disabled -- committed, past the caller's rollback, behind a 400.
+        variety_to_store = (
+            self.validated_variety(language_code, variety) if variety is not None else None
+        )
+
         self.learned_language = Language.find(language_code)
 
         from zeeguu.core.model import UserLanguage
@@ -382,7 +390,25 @@ class User(db.Model):
         # Unlike the level, a variety is cleared by sending it empty: "no
         # preference" is a choice a learner can go back to.
         if variety is not None:
-            language.variety = self.validated_variety(language_code, variety)
+            language.variety = variety_to_store
+
+        if session:
+            session.add(language)
+
+    def set_learned_language_variety(self, variety: str, session=None):
+        """
+        Change only the variety, leaving the learned language as it is -- what a
+        client sends when the learner changed their mind about Flemish but not
+        about Dutch. Going through set_learned_language instead would rewrite
+        reading_news and doing_exercises as a side effect of saving a preference.
+        """
+        from zeeguu.core.model import UserLanguage
+
+        # Validated first, for the same reason as in set_learned_language.
+        variety_to_store = self.validated_variety(self.learned_language.code, variety)
+
+        language = UserLanguage.find_or_create(session, self, self.learned_language)
+        language.variety = variety_to_store
 
         if session:
             session.add(language)
