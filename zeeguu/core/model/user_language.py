@@ -2,7 +2,7 @@ import datetime
 
 from MySQLdb import IntegrityError
 import sqlalchemy
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
@@ -24,7 +24,14 @@ class UserLanguage(db.Model):
 
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # The unique index is named for the index production already has, so nobody
+    # generates a second one. It is what find_or_create's duplicate-entry branch
+    # exists for -- and, declared here, what stops the SQLite test database from
+    # accepting pairs that MySQL would refuse.
+    __table_args__ = (
+        UniqueConstraint("user_id", "language_id", name="user_id"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = Column(Integer, primary_key=True)
 
