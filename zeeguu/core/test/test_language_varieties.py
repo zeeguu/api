@@ -110,27 +110,33 @@ class OfferedCatalogueTest(ModelTestMixIn, TestCase):
         # No feed at all: no language has a variety worth showing.
         assert catalogue() == {}
 
-    def test_a_variety_appears_as_soon_as_a_feed_does(self):
+    def test_one_country_is_not_yet_a_choice(self):
+        # "Any" and "Belgium" would select the same articles.
         self._feed("A Flemish feed", self.dutch, "BE")
 
-        assert catalogue()["nl"] == [dict(country="BE", name="Belgian Dutch")]
+        assert catalogue() == {}
 
-    def test_the_other_variety_of_the_same_language_stays_hidden(self):
+    def test_a_second_country_makes_it_one(self):
         self._feed("A Flemish feed", self.dutch, "BE")
+        self._feed("A Dutch feed", self.dutch, "NL")
 
-        offered = [each["country"] for each in catalogue()["nl"]]
-        assert "NL" not in offered
+        assert catalogue()["nl"] == [
+            dict(country="NL", name="Dutch from the Netherlands"),
+            dict(country="BE", name="Belgian Dutch"),
+        ]
 
-    def test_a_deactivated_feed_does_not_keep_a_variety_alive(self):
-        feed = self._feed("A Flemish feed", self.dutch, "BE")
+    def test_a_deactivated_feed_does_not_count_towards_the_second(self):
+        self._feed("A Flemish feed", self.dutch, "BE")
+        feed = self._feed("A Dutch feed", self.dutch, "NL")
         feed.deactivated = 1
         db_session.add(feed)
         db_session.commit()
 
         assert catalogue() == {}
 
-    def test_an_untagged_feed_offers_nothing(self):
+    def test_untagged_feeds_offer_nothing(self):
         self._feed("An untagged feed", self.dutch, None)
+        self._feed("Another untagged feed", self.dutch, None)
 
         assert catalogue() == {}
 
